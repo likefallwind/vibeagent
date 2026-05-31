@@ -2,22 +2,13 @@
   "name": "vibeagent",
   "version": "0.1.0",
   "description": "Minimal command-line ReAct coding agent powered by MiniMax.",
-  "type": "module",
   "bin": {
-    "vibeagent": "./dist/src/cli.js"
+    "vibeagent": "./bin/vibeagent"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsx src/cli.ts",
-    "test": "npm run build && node --test \"dist/**/*.test.js\"",
-    "start": "node dist/src/cli.js"
-  },
-  "engines": {
-    "node": ">=20"
-  },
-  "devDependencies": {
-    "@types/node": "^20.14.10",
-    "tsx": "^4.16.2",
-    "typescript": "^5.5.3"
+    "build": "python3 -m compileall -q vibeagent",
+    "dev": "python3 -m vibeagent",
+    "test": "python3 -m unittest discover -s tests",
+    "start": "python3 -m vibeagent"
   }
 }

@@ -2,3 +2,6 @@ node_modules/
 dist/
 .vibeagent/
 *.log
+__pycache__/
+*.py[cod]
+.venv/

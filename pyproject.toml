@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vibeagent"
+version = "0.1.0"
+description = "Minimal command-line ReAct coding agent powered by MiniMax."
+requires-python = ">=3.11"
+readme = "README.md"
+
+[project.scripts]
+vibeagent = "vibeagent.cli:main"
