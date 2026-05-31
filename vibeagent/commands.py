@@ -12,6 +12,7 @@ class LocalCommand:
 
 
 def parse_local_command(value: str) -> LocalCommand | None:
+    # Recognize slash commands before sending anything to the model.
     trimmed = value.strip()
     if trimmed == "/exit":
         return LocalCommand(type="exit")
@@ -23,11 +24,13 @@ def parse_local_command(value: str) -> LocalCommand | None:
 
 
 def is_exit_command(value: str) -> bool:
+    # Helper for tests and callers that only care whether input is an exit command.
     command = parse_local_command(value)
     return command is not None and command.type == "exit"
 
 
 def get_help_text() -> str:
+    # Static help text shown by `/help` in the interactive prompt.
     return "\n".join(
         [
             "Commands:",
@@ -41,6 +44,7 @@ def get_help_text() -> str:
 
 
 def get_model_text(env: dict[str, str | None] | None = None) -> str:
+    # Show resolved model and key-source info without leaking secret material.
     defaults = get_minimax_defaults(env)
     api_key = get_minimax_api_key_info_from_env(env)
     return "\n".join(

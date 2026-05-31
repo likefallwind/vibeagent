@@ -28,10 +28,12 @@ def run_agent(
     logger: AgentLogger | None = None,
     workspace: RunWorkspace | None = None,
 ) -> AgentResult:
+    # Start with an isolated run workspace for one task execution.
     current_workspace = workspace or create_run_workspace(base_dir)
     observations: list[Observation] = []
 
     for iteration in range(1, max_iterations + 1):
+        # ReAct step: reason -> model action -> tool execution -> observation.
         if logger:
             logger("thinking", f"iteration {iteration}/{max_iterations}")
 
@@ -75,6 +77,7 @@ def run_agent(
             ok = observation.result.exit_code == 0 and not observation.result.timed_out
             logger("observed success" if ok else "observed failure", summarize_command(observation.result))
 
+    # Return failure only after exhausting max iterations without an explicit finish action.
     return AgentResult(
         success=False,
         message=f"Reached iteration limit ({max_iterations}) before finish.",

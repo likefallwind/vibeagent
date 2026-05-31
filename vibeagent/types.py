@@ -12,6 +12,7 @@ class ChatMessage:
 
 
 class ChatClient(Protocol):
+    # Protocol so MiniMaxClient and any future providers can plug into the same agent loop.
     def complete(self, messages: list[ChatMessage]) -> str:
         ...
 
@@ -35,6 +36,7 @@ class FinishAction:
     message: str
 
 
+# Small union of all supported model action types.
 AgentAction: TypeAlias = WriteFileAction | RunCommandAction | FinishAction
 
 
@@ -74,7 +76,10 @@ class FinishObservation:
     message: str
 
 
+# Unified envelope returned from one agent step.
 Observation: TypeAlias = WriteFileObservation | RunCommandObservation | FinishObservation
+
+# Status tokens are constrained to keep logger and callers consistent.
 AgentStatus: TypeAlias = Literal[
     "thinking",
     "writing file",
@@ -83,4 +88,6 @@ AgentStatus: TypeAlias = Literal[
     "observed failure",
     "finished",
 ]
+
+# Logger receives a status plus optional detail for each agent transition.
 AgentLogger: TypeAlias = Callable[[AgentStatus, str | None], None]

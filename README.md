@@ -44,6 +44,51 @@ Example task:
 写一个 Python 程序计算 1 到 100 的和并运行。
 ```
 
+## Architecture
+
+VibeAgent is intentionally small. The runtime is a loop that asks the model for
+one JSON action, executes that action in an isolated run directory, then sends
+the observation back to the model on the next iteration.
+
+High-level flow:
+
+```text
+CLI input
+  -> run_agent()
+  -> build_messages()
+  -> MiniMaxClient.complete()
+  -> parse_model_action()
+  -> execute_action()
+  -> observation appended to next prompt
+```
+
+Core modules:
+
+- `vibeagent/cli.py`: interactive command-line entry point. It handles local
+  commands such as `/help`, `/model`, and `/exit`, then delegates programming
+  tasks to the agent loop.
+- `vibeagent/agent.py`: orchestrates the ReAct loop. It creates a run
+  workspace, builds model prompts, parses model actions, executes them, and
+  stops on a `finish` action or the iteration limit.
+- `vibeagent/prompts.py`: owns the system prompt and user message construction.
+  Each prompt includes the original task, current run directory, workspace file
+  snapshot, and previous observations.
+- `vibeagent/minimax.py`: MiniMax API client. It reads API configuration from
+  environment variables, calls the Anthropic-compatible MiniMax endpoint, and
+  normalizes supported response shapes into plain text.
+- `vibeagent/actions.py`: parses model JSON into typed actions and executes
+  them. Supported actions are `write_file`, `run_command`, and `finish`.
+- `vibeagent/workspace.py`: creates `.vibeagent/runs/<run-id>/`, resolves
+  relative file paths, rejects path escapes, writes generated files, and builds
+  workspace snapshots for prompts.
+- `vibeagent/types.py`: shared dataclasses and protocols for chat messages,
+  actions, command results, observations, and agent status.
+
+The model contract is deliberately narrow: every model response should contain
+a JSON object with a `thought` string and one `action`. The parser accepts the
+first complete JSON object if the model emits extra text or multiple JSON
+objects, but the agent still executes only one action per iteration.
+
 ## v1 Boundaries
 
 - Files are written only inside `.vibeagent/runs/<run-id>/`.

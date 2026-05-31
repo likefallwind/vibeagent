@@ -13,6 +13,7 @@ class RunWorkspace:
 
 
 def create_run_workspace(base_dir: str | Path | None = None, run_id: str | None = None) -> RunWorkspace:
+    # Every task runs in its own unique directory under .vibeagent/runs/.
     base = Path(base_dir) if base_dir is not None else Path.cwd()
     current_run_id = run_id or make_run_id()
     root = (base / ".vibeagent" / "runs" / current_run_id).resolve()
@@ -21,6 +22,7 @@ def create_run_workspace(base_dir: str | Path | None = None, run_id: str | None 
 
 
 def resolve_inside_run(root: str | Path, relative_path: str) -> Path:
+    # Enforce relative paths to prevent writes outside the active run directory.
     if not relative_path or not relative_path.strip():
         raise ValueError("Path must not be empty.")
 
@@ -37,6 +39,7 @@ def resolve_inside_run(root: str | Path, relative_path: str) -> Path:
 
 
 def write_run_file(workspace: RunWorkspace, relative_path: str, content: str) -> Path:
+    # Resolve, mkdir for parent directories, then write UTF-8 text into the sandboxed run folder.
     target = resolve_inside_run(workspace.root, relative_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
@@ -44,6 +47,7 @@ def write_run_file(workspace: RunWorkspace, relative_path: str, content: str) ->
 
 
 def read_workspace_snapshot(workspace: RunWorkspace, max_bytes: int = 12_000) -> str:
+    # Build a bounded snapshot of workspace files so prompts remain informative but not oversized.
     files = list_files(workspace.root)
     if not files:
         return "No files have been written yet."
@@ -69,6 +73,7 @@ def read_workspace_snapshot(workspace: RunWorkspace, max_bytes: int = 12_000) ->
 
 
 def list_files(root: str | Path) -> list[str]:
+    # Enumerate all files in deterministic order so prompt diffs stay stable.
     root_path = Path(root)
     files = [
         path.relative_to(root_path).as_posix()
@@ -79,6 +84,7 @@ def list_files(root: str | Path) -> list[str]:
 
 
 def make_run_id() -> str:
+    # Timestamp+uuid-based ID keeps IDs unique without shared state.
     timestamp = datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
     safe_timestamp = timestamp.replace(":", "-").replace(".", "-")
     return f"{safe_timestamp}-{uuid4().hex[:8]}"

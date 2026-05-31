@@ -29,6 +29,7 @@ class ActionParseError(ValueError):
 
 
 def parse_model_action(raw: str) -> ModelActionResponse:
+    # Parse the model's current turn as one typed action payload.
     try:
         parsed = parse_first_json_value(raw)
     except json.JSONDecodeError as error:
@@ -46,11 +47,13 @@ def parse_model_action(raw: str) -> ModelActionResponse:
 
 
 def parse_first_json_value(raw: str) -> Any:
+    # Be tolerant of model outputs that include multiple JSON objects or leading whitespace.
     decoder = json.JSONDecoder()
     return decoder.raw_decode(raw.lstrip())[0]
 
 
 def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout_ms: int = 30_000) -> Observation:
+    # Dispatch one action at a time; all side effects stay within the given run workspace.
     if isinstance(action, WriteFileAction):
         write_run_file(workspace, action.path, action.content)
         return WriteFileObservation(kind="write_file", path=action.path, ok=True, message=f"Wrote {action.path}")
@@ -65,6 +68,7 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
 
 
 def run_command(cwd: str | Path, command: str, timeout_ms: int = 30_000) -> CommandResult:
+    # Run shell command in controlled cwd, capture stdout/stderr, and enforce execution timeout.
     timed_out = False
     process = subprocess.Popen(
         command,
@@ -95,6 +99,7 @@ def run_command(cwd: str | Path, command: str, timeout_ms: int = 30_000) -> Comm
 
 
 def parse_action(value: Any, raw: str) -> AgentAction:
+    # Validate action shape against the small, finite action schema.
     if not isinstance(value, dict):
         raise ActionParseError("Model output must include an action object.", raw)
 

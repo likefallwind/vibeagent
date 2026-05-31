@@ -4,6 +4,7 @@ from .types import ChatMessage, Observation
 from .workspace import RunWorkspace, read_workspace_snapshot
 
 
+# System prompt defines the exact JSON action protocol the model should follow.
 SYSTEM_PROMPT = """You are VibeAgent, a minimal ReAct coding agent.
 
 You solve the user's programming task by producing exactly one JSON object per turn.
@@ -31,6 +32,7 @@ Required JSON shape:
 
 
 def build_messages(task: str, workspace: RunWorkspace, observations: list[Observation]) -> list[ChatMessage]:
+    # Assemble context for the model: goal, workspace state, and iterative history.
     snapshot = read_workspace_snapshot(workspace)
     content = "\n\n".join(
         [
@@ -48,6 +50,7 @@ def build_messages(task: str, workspace: RunWorkspace, observations: list[Observ
 
 
 def format_observations(observations: list[Observation]) -> str:
+    # Serialize prior observations in compact human-readable lines for next-turn reasoning.
     if not observations:
         return "No observations yet."
 
@@ -76,6 +79,7 @@ def format_observations(observations: list[Observation]) -> str:
 
 
 def truncate(value: str, max_length: int = 4_000) -> str:
+    # Truncate long stdout/stderr fields so prompt context stays within practical size.
     if not value:
         return ""
     if len(value) <= max_length:

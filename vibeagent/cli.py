@@ -7,6 +7,7 @@ from .types import AgentStatus, Observation
 
 
 def main() -> int:
+    # Entry loop: parse local commands first, otherwise delegate to the agent.
     print("VibeAgent v0.1")
     print("Type a programming task. Use /help for commands or Ctrl+C to exit.")
 
@@ -32,6 +33,7 @@ def main() -> int:
             continue
 
         try:
+            # Reuse client across turns so auth/model config is loaded once.
             client = client or MiniMaxClient()
             result = run_agent(task, client=client, logger=log_status)
 
@@ -45,10 +47,12 @@ def main() -> int:
 
 
 def log_status(status: AgentStatus, detail: str | None = None) -> None:
+    # One-line status line keeps the interactive session legible during each iteration.
     print(f"[{status}]{' ' + detail if detail else ''}")
 
 
 def print_command_summary(observations: list[Observation]) -> None:
+    # Show only command runs with compact output for quick debugging in the terminal.
     command_observations = [item for item in observations if item.kind == "run_command"]
     if not command_observations:
         return
@@ -66,16 +70,19 @@ def print_command_summary(observations: list[Observation]) -> None:
 
 
 def truncate(value: str, max_length: int) -> str:
+    # Keep printed output bounded to avoid flooding the terminal.
     if len(value) <= max_length:
         return value
     return f"{value[:max_length]}\n[truncated]"
 
 
 def indent(value: str, prefix: str) -> str:
+    # Left-pad each output line for readable command-summary formatting.
     return "\n".join(f"{prefix}{line}" for line in value.splitlines())
 
 
 def format_error(error: Exception) -> str:
+    # Expand 401 guidance; otherwise return raw error text.
     if isinstance(error, MiniMaxHttpError) and error.status == 401:
         return "\n".join(
             [

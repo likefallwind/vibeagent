@@ -34,16 +34,19 @@ class MiniMaxApiKeyInfo:
 
 class MiniMaxClient(ChatClient):
     def __init__(self, api_key: str | None = None, base_url: str | None = None, model: str | None = None) -> None:
+        # Normalize the explicit key first, then fallback to environment variables.
         normalized_key = normalize_minimax_api_key(api_key) or get_minimax_api_key_from_env()
         if not normalized_key:
             raise MissingMiniMaxApiKeyError()
 
         defaults = get_minimax_defaults()
+        # Keep only the URL host/path portion once, so callers can pass or omit trailing slash.
         self.api_key = normalized_key
         self.base_url = (base_url or defaults["base_url"]).rstrip("/")
         self.model = model or defaults["model"]
 
     def complete(self, messages: list[ChatMessage]) -> str:
+        # Use Anthropic-compatible request shape: system prompt + chat messages.
         body = json.dumps(build_request_body(self.model, messages)).encode("utf-8")
         request = Request(
             f"{self.base_url}/v1/messages",
@@ -56,6 +59,8 @@ class MiniMaxClient(ChatClient):
         )
 
         try:
+            # OpenAI-style responses can be rejected by model/http errors; convert both cases
+            # into typed exceptions with raw payload preserved.
             with urlopen(request) as response:
                 text = response.read().decode("utf-8")
         except HTTPError as error:
@@ -67,6 +72,7 @@ class MiniMaxClient(ChatClient):
         except json.JSONDecodeError as error:
             raise MiniMaxResponseError(f"MiniMax response was not JSON: {error}") from error
 
+        # Model compatibility path: Anthropic returns `content`, while fallback path may use chat.completions style.
         content = extract_content(data)
         if not content:
             raise MiniMaxResponseError(
@@ -91,6 +97,7 @@ def get_minimax_api_key_info_from_env(env: Mapping[str, str | None] | None = Non
 
 
 def get_minimax_defaults(env: Mapping[str, str | None] | None = None) -> dict[str, str]:
+    # Keep default endpoint aligned with MiniMax Anthropic-compatible API and a stable default model.
     source = env if env is not None else os.environ
     return {
         "base_url": (source.get("MINIMAX_BASE_URL") or "https://api.minimaxi.com/anthropic").rstrip("/"),
@@ -99,11 +106,12 @@ def get_minimax_defaults(env: Mapping[str, str | None] | None = None) -> dict[st
 
 
 def build_request_body(model: str, messages: list[ChatMessage]) -> dict[str, Any]:
+    # Anthropic format: system prompt lives at top-level `system`; only non-system messages stay in `messages`.
     body: dict[str, Any] = {
         "model": model,
-        "max_tokens": 4096,
         "messages": [message.__dict__ for message in messages if message.role != "system"],
         "temperature": 0.2,
+        "max_tokens": 4096,
     }
     system_parts = [message.content for message in messages if message.role == "system"]
     if system_parts:
@@ -112,6 +120,7 @@ def build_request_body(model: str, messages: list[ChatMessage]) -> dict[str, Any
 
 
 def extract_content(data: Any) -> str | None:
+    # Accept both Anthropic-style `content` and legacy chat response payload shapes.
     if not isinstance(data, dict):
         return None
     content = data.get("content")
@@ -138,11 +147,13 @@ def extract_content(data: Any) -> str | None:
 
 
 def normalize_minimax_api_key(value: str | None) -> str | None:
+    # Normalize key input from env or config; return a clean token suitable for Authorization header.
     if value is None:
         return None
     trimmed = value.strip()
     if not trimmed:
         return None
+    # Strip common copied form: "Bearer sk-...".
     if trimmed.lower().startswith("bearer "):
         return trimmed[7:].strip()
     return trimmed
