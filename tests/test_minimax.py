@@ -5,9 +5,13 @@ from vibeagent.minimax import (
     MiniMaxApiKeyInfo,
     MiniMaxClient,
     MissingMiniMaxApiKeyError,
+    build_request_body,
+    extract_content,
     get_minimax_api_key_from_env,
     get_minimax_api_key_info_from_env,
+    get_minimax_defaults,
 )
+from vibeagent.types import ChatMessage
 
 
 class MiniMaxTests(unittest.TestCase):
@@ -62,6 +66,37 @@ class MiniMaxTests(unittest.TestCase):
                     os.environ.pop(name, None)
                 else:
                     os.environ[name] = value
+
+    def test_get_minimax_defaults_uses_official_anthropic_compatible_url(self) -> None:
+        self.assertEqual(get_minimax_defaults({})["base_url"], "https://api.minimaxi.com/anthropic")
+
+    def test_build_request_body_uses_anthropic_messages_shape(self) -> None:
+        body = build_request_body(
+            "MiniMax-M2.7",
+            [
+                ChatMessage(role="system", content="You are concise."),
+                ChatMessage(role="user", content="Hi"),
+            ],
+        )
+
+        self.assertEqual(body["model"], "MiniMax-M2.7")
+        self.assertEqual(body["system"], "You are concise.")
+        self.assertEqual(body["max_tokens"], 4096)
+        self.assertEqual(body["messages"], [{"role": "user", "content": "Hi"}])
+
+    def test_extract_content_reads_anthropic_text_blocks(self) -> None:
+        self.assertEqual(
+            extract_content(
+                {
+                    "content": [
+                        {"type": "text", "text": "hello"},
+                        {"type": "thinking", "thinking": "..."},
+                        {"type": "text", "text": " world"},
+                    ]
+                }
+            ),
+            "hello world",
+        )
 
 
 if __name__ == "__main__":

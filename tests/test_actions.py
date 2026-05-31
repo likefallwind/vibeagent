@@ -24,6 +24,29 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(parsed.action.type, "write_file")
         self.assertEqual(parsed.action.path, "sum.py")
 
+    def test_parse_model_action_accepts_first_json_object_when_model_returns_extra_actions(self) -> None:
+        parsed = parse_model_action(
+            "\n".join(
+                [
+                    json.dumps(
+                        {
+                            "thought": "create file",
+                            "action": {"type": "write_file", "path": "sum.py", "content": "print(55)"},
+                        }
+                    ),
+                    json.dumps(
+                        {
+                            "thought": "run it",
+                            "action": {"type": "run_command", "command": "python sum.py"},
+                        }
+                    ),
+                ]
+            )
+        )
+
+        self.assertEqual(parsed.action.type, "write_file")
+        self.assertEqual(parsed.action.path, "sum.py")
+
     def test_parse_model_action_rejects_invalid_json(self) -> None:
         with self.assertRaises(ActionParseError):
             parse_model_action("not json")

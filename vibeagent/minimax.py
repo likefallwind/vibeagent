@@ -44,15 +44,9 @@ class MiniMaxClient(ChatClient):
         self.model = model or defaults["model"]
 
     def complete(self, messages: list[ChatMessage]) -> str:
-        body = json.dumps(
-            {
-                "model": self.model,
-                "messages": [message.__dict__ for message in messages],
-                "temperature": 0.2,
-            }
-        ).encode("utf-8")
+        body = json.dumps(build_request_body(self.model, messages)).encode("utf-8")
         request = Request(
-            f"{self.base_url}/chat/completions",
+            f"{self.base_url}/v1/messages",
             data=body,
             headers={
                 "Authorization": f"Bearer {self.api_key}",
@@ -99,14 +93,37 @@ def get_minimax_api_key_info_from_env(env: Mapping[str, str | None] | None = Non
 def get_minimax_defaults(env: Mapping[str, str | None] | None = None) -> dict[str, str]:
     source = env if env is not None else os.environ
     return {
-        "base_url": (source.get("MINIMAX_BASE_URL") or "https://api.minimax.io/v1").rstrip("/"),
+        "base_url": (source.get("MINIMAX_BASE_URL") or "https://api.minimaxi.com/anthropic").rstrip("/"),
         "model": source.get("MINIMAX_MODEL") or "MiniMax-M2.7",
     }
+
+
+def build_request_body(model: str, messages: list[ChatMessage]) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "model": model,
+        "max_tokens": 4096,
+        "messages": [message.__dict__ for message in messages if message.role != "system"],
+        "temperature": 0.2,
+    }
+    system_parts = [message.content for message in messages if message.role == "system"]
+    if system_parts:
+        body["system"] = "\n\n".join(system_parts)
+    return body
 
 
 def extract_content(data: Any) -> str | None:
     if not isinstance(data, dict):
         return None
+    content = data.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        text_parts: list[str] = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str):
+                text_parts.append(block["text"])
+        if text_parts:
+            return "".join(text_parts)
     choices = data.get("choices")
     if not isinstance(choices, list) or not choices:
         return None

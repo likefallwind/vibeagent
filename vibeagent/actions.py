@@ -30,7 +30,7 @@ class ActionParseError(ValueError):
 
 def parse_model_action(raw: str) -> ModelActionResponse:
     try:
-        parsed = json.loads(raw)
+        parsed = parse_first_json_value(raw)
     except json.JSONDecodeError as error:
         raise ActionParseError(f"Model output was not valid JSON: {error}", raw) from error
 
@@ -43,6 +43,11 @@ def parse_model_action(raw: str) -> ModelActionResponse:
 
     action = parse_action(parsed.get("action"), raw)
     return ModelActionResponse(thought=thought, action=action)
+
+
+def parse_first_json_value(raw: str) -> Any:
+    decoder = json.JSONDecoder()
+    return decoder.raw_decode(raw.lstrip())[0]
 
 
 def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout_ms: int = 30_000) -> Observation:

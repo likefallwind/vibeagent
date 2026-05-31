@@ -21,6 +21,8 @@ export MINIMAX_API_KEY="..."
 The client reads the API key from environment variables automatically.
 `MINIMAX_API` and `minimax_api` are also accepted as fallback environment variables.
 If you paste a value like `Bearer sk-...`, VibeAgent strips the `Bearer` prefix automatically.
+By default VibeAgent calls MiniMax's Anthropic-compatible endpoint at
+`https://api.minimaxi.com/anthropic/v1/messages`.
 
 ## Usage
 
