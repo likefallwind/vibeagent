@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 from .agent import run_agent
+from .chat import run_chat
 from .commands import get_help_text, get_model_text, parse_local_command
 from .minimax import MiniMaxClient, MiniMaxHttpError
-from .types import AgentStatus, Observation
+from .types import AgentStatus, ChatMessage, Observation
 
 
 def main() -> int:
     # Entry loop: parse local commands first, otherwise delegate to the agent.
     print("VibeAgent v0.1")
-    print("Type a programming task. Use /help for commands or Ctrl+C to exit.")
+    print("Type a programming task, or use /chat for daily conversation. Use /help for commands.")
 
     client: MiniMaxClient | None = None
+    mode = "code"
+    chat_history: list[ChatMessage] = []
     while True:
         try:
             task = input("\nvibeagent> ").strip()
@@ -31,10 +34,36 @@ def main() -> int:
         if command and command.type == "model":
             print(get_model_text())
             continue
+        request_mode = mode
+        if command and command.type == "chat":
+            if not command.argument:
+                mode = "chat"
+                print("Chat mode. Use /code to switch back to coding mode.")
+                continue
+            task = command.argument
+            request_mode = "chat"
+        elif command and command.type == "code":
+            if not command.argument:
+                mode = "code"
+                print("Coding mode. Use /chat to switch to daily conversation mode.")
+                continue
+            task = command.argument
+            request_mode = "code"
 
         try:
             # Reuse client across turns so auth/model config is loaded once.
             client = client or MiniMaxClient()
+            if request_mode == "chat":
+                response = run_chat(task, client=client, history=chat_history)
+                chat_history.extend(
+                    [
+                        ChatMessage(role="user", content=task),
+                        ChatMessage(role="assistant", content=response),
+                    ]
+                )
+                print(f"\n{response}")
+                continue
+
             result = run_agent(task, client=client, logger=log_status)
 
             print("\nSuccess" if result.success else "\nStopped")

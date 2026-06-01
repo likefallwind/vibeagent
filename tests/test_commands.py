@@ -15,6 +15,10 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(parse_local_command("/help"), LocalCommand(type="help"))
         self.assertEqual(parse_local_command("  /model  "), LocalCommand(type="model"))
         self.assertEqual(parse_local_command("/exit"), LocalCommand(type="exit"))
+        self.assertEqual(parse_local_command("/chat"), LocalCommand(type="chat"))
+        self.assertEqual(parse_local_command("/chat 你好"), LocalCommand(type="chat", argument="你好"))
+        self.assertEqual(parse_local_command("/code"), LocalCommand(type="code"))
+        self.assertEqual(parse_local_command("/code write a script"), LocalCommand(type="code", argument="write a script"))
         self.assertIsNone(parse_local_command("write a script"))
 
     def test_get_model_text_reports_model_configuration_without_exposing_the_key(self) -> None:

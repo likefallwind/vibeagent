@@ -8,7 +8,8 @@ from .minimax import get_minimax_api_key_info_from_env, get_minimax_defaults
 
 @dataclass(frozen=True)
 class LocalCommand:
-    type: Literal["exit", "help", "model"]
+    type: Literal["exit", "help", "model", "chat", "code"]
+    argument: str | None = None
 
 
 def parse_local_command(value: str) -> LocalCommand | None:
@@ -20,6 +21,10 @@ def parse_local_command(value: str) -> LocalCommand | None:
         return LocalCommand(type="help")
     if trimmed == "/model":
         return LocalCommand(type="model")
+    if trimmed == "/chat" or trimmed.startswith("/chat "):
+        return LocalCommand(type="chat", argument=trimmed[5:].strip() or None)
+    if trimmed == "/code" or trimmed.startswith("/code "):
+        return LocalCommand(type="code", argument=trimmed[5:].strip() or None)
     return None
 
 
@@ -36,9 +41,12 @@ def get_help_text() -> str:
             "Commands:",
             "  /help   Show this help.",
             "  /model  Show MiniMax model configuration.",
+            "  /chat   Switch to daily conversation mode, or chat once with /chat <message>.",
+            "  /code   Switch to coding mode, or run one coding task with /code <task>.",
             "  /exit   Exit the interactive prompt.",
             "",
-            "Enter any other text as a programming task.",
+            "In coding mode, normal input is treated as a programming task.",
+            "In chat mode, normal input is treated as daily conversation.",
         ]
     )
 

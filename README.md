@@ -1,6 +1,11 @@
 # VibeAgent
 
-VibeAgent v1 is a minimal command-line ReAct coding agent written in Python. It asks MiniMax for one JSON action at a time, executes that action inside a per-run workspace under `.vibeagent/runs/`, and feeds command output back to the model until the task finishes or the iteration limit is reached.
+VibeAgent v1 is a minimal command-line assistant written in Python. In coding mode,
+it asks MiniMax for one JSON action at a time, executes that action inside a
+per-run workspace under `.vibeagent/runs/`, and feeds command output back to the
+model until the task finishes or the iteration limit is reached. It also includes
+a daily conversation mode for normal chat that does not write files or run
+commands.
 
 ## Setup
 
@@ -36,12 +41,23 @@ or through the npm compatibility scripts:
 npm run dev
 ```
 
-Use `/help` to list local commands, `/model` to inspect the configured MiniMax model and API key source, and `/exit` to leave the interactive prompt. For generated code, the agent now prefers Python scripts unless the user asks for another language.
+Use `/help` to list local commands, `/model` to inspect the configured MiniMax
+model and API key source, and `/exit` to leave the interactive prompt. Use
+`/chat` to switch to daily conversation mode and `/code` to switch back to coding
+mode. You can also send one-off messages with `/chat <message>` or one-off coding
+tasks with `/code <task>`. For generated code, the agent now prefers Python
+scripts unless the user asks for another language.
 
 Example task:
 
 ```text
 写一个 Python 程序计算 1 到 100 的和并运行。
+```
+
+Example chat:
+
+```text
+/chat 今天适合学点什么？
 ```
 
 ## Architecture
@@ -54,22 +70,21 @@ High-level flow:
 
 ```text
 CLI input
-  -> run_agent()
-  -> build_messages()
-  -> MiniMaxClient.complete()
-  -> parse_model_action()
-  -> execute_action()
-  -> observation appended to next prompt
+  -> code mode: run_agent() -> build_messages() -> MiniMaxClient.complete()
+     -> parse_model_action() -> execute_action() -> observation appended to next prompt
+  -> chat mode: run_chat() -> MiniMaxClient.complete() -> plain assistant reply
 ```
 
 Core modules:
 
 - `vibeagent/cli.py`: interactive command-line entry point. It handles local
-  commands such as `/help`, `/model`, and `/exit`, then delegates programming
-  tasks to the agent loop.
+  commands such as `/help`, `/model`, `/chat`, `/code`, and `/exit`, then
+  delegates input to the selected mode.
 - `vibeagent/agent.py`: orchestrates the ReAct loop. It creates a run
   workspace, builds model prompts, parses model actions, executes them, and
   stops on a `finish` action or the iteration limit.
+- `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
+  model out of the coding-agent JSON action protocol.
 - `vibeagent/prompts.py`: owns the system prompt and user message construction.
   Each prompt includes the original task, current run directory, workspace file
   snapshot, and previous observations.
