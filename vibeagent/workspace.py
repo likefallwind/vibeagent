@@ -124,17 +124,18 @@ def search_project(workspace: RunWorkspace, query: str, max_matches: int = 80) -
     return matches
 
 
-def list_project_files(workspace: RunWorkspace, relative_path: str | None = None, max_files: int = 200) -> list[str]:
+def list_project_files(workspace: RunWorkspace, relative_path: str | None = None, max_files: int = 200) -> tuple[list[str], int]:
     base = resolve_inside_run(workspace.root, relative_path or ".")
     if not base.exists():
         raise ValueError(f"Path does not exist: {relative_path or '.'}")
     if base.is_file():
-        return [base.relative_to(workspace.root).as_posix()]
-    return [
+        return [base.relative_to(workspace.root).as_posix()], 1
+    files = [
         path.relative_to(workspace.root).as_posix()
         for path in sorted(base.rglob("*"))
         if path.is_file() and not should_ignore_path(workspace.root, path)
-    ][:max_files]
+    ]
+    return files[:max_files], len(files)
 
 
 def should_ignore_path(root: Path, path: Path) -> bool:

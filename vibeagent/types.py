@@ -103,6 +103,8 @@ class ListFilesObservation:
     kind: Literal["list_files"]
     path: str
     files: list[str]
+    total: int
+    truncated: bool
     message: str
 
 

@@ -56,23 +56,44 @@ def parse_model_action(raw: str) -> ModelActionResponse:
 
 def parse_first_json_value(raw: str) -> Any:
     # Be tolerant of model outputs that include multiple JSON objects or leading whitespace.
+    raw = strip_markdown_json_fence(raw)
     decoder = json.JSONDecoder()
     return decoder.raw_decode(raw.lstrip())[0]
+
+
+def strip_markdown_json_fence(raw: str) -> str:
+    stripped = raw.strip()
+    if not stripped.startswith("```"):
+        return raw
+
+    lines = stripped.splitlines()
+    if len(lines) < 2 or not lines[0].startswith("```"):
+        return raw
+    if lines[-1].strip() != "```":
+        return raw
+    return "\n".join(lines[1:-1])
 
 
 def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout_ms: int = 30_000) -> Observation:
     # Dispatch one action at a time; all side effects stay within the given project workspace.
     if isinstance(action, ListFilesAction):
         try:
-            files = list_project_files(workspace, action.path)
-            message = f"Found {len(files)} file(s)."
+            files, total = list_project_files(workspace, action.path)
+            truncated = len(files) < total
+            message = f"Found {total} file(s)."
+            if truncated:
+                message += f" Showing first {len(files)}."
         except ValueError as error:
             files = []
+            total = 0
+            truncated = False
             message = str(error)
         return ListFilesObservation(
             kind="list_files",
             path=action.path or ".",
             files=files,
+            total=total,
+            truncated=truncated,
             message=message,
         )
 

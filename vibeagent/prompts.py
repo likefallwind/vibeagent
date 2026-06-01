@@ -22,6 +22,11 @@ Allowed actions:
 All file paths must be relative. Never use absolute paths or "..".
 The current project directory is the real workspace. Inspect files before editing existing code.
 Prefer edit_file over write_file for existing files. Keep tasks small and concrete.
+Return only the JSON object. Never wrap it in Markdown fences such as ```json.
+Do not repeat the same list_files action after it already reported an empty directory.
+If the directory is empty and the user asks you to create a frontend or website, start writing the needed files.
+If the user asks for a file count, use list_files for the relevant path, then finish with the reported total.
+If the user asks you to check the result, run an appropriate local command after writing files, then finish only if it succeeds.
 
 Required JSON shape:
 {
