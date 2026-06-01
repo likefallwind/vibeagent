@@ -111,7 +111,6 @@ def build_request_body(model: str, messages: list[ChatMessage]) -> dict[str, Any
         "model": model,
         "messages": [message.__dict__ for message in messages if message.role != "system"],
         "temperature": 0.2,
-        "max_tokens": 4096,
     }
     system_parts = [message.content for message in messages if message.role == "system"]
     if system_parts:

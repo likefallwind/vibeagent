@@ -27,6 +27,9 @@ Do not repeat the same list_files action after it already reported an empty dire
 If the directory is empty and the user asks you to create a frontend or website, start writing the needed files.
 If the user asks for a file count, use list_files for the relevant path, then finish with the reported total.
 If the user asks you to check the result, run an appropriate local command after writing files, then finish only if it succeeds.
+Keep each write_file content reasonably small so the JSON response is never truncated.
+For frontend or website tasks, do not put all HTML, CSS, and JavaScript into one huge file. Create separate files such as index.html, styles.css, and script.js across separate turns.
+For frontend or website tasks, write a complete but compact first version instead of an exhaustive long page. Prefer concise sections and reusable CSS classes.
 
 Required JSON shape:
 {

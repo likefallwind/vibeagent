@@ -7,7 +7,7 @@ from typing import Any
 
 from .actions import ActionParseError, execute_action, parse_model_action
 from .prompts import build_messages
-from .types import AgentLogger, ChatClient, Observation, RunCommandObservation
+from .types import AgentLogger, ChatClient, ListFilesObservation, Observation, RunCommandObservation
 from .workspace import RunWorkspace, create_run_workspace
 
 
@@ -74,7 +74,21 @@ def run_agent(
         elif action.type == "run_command" and logger:
             logger("running command", action.command)
 
-        observation = execute_action(current_workspace, action, command_timeout_ms)
+        repeated_list = find_repeated_list_observation(action, observations)
+        if repeated_list:
+            observation = ListFilesObservation(
+                kind="list_files",
+                path=repeated_list.path,
+                files=repeated_list.files,
+                total=repeated_list.total,
+                truncated=repeated_list.truncated,
+                message=(
+                    f"Already listed {repeated_list.path}: {repeated_list.message} "
+                    "Do not call list_files for this path again. Choose write_file, read_file, run_command, or finish."
+                ),
+            )
+        else:
+            observation = execute_action(current_workspace, action, command_timeout_ms)
         observations.append(observation)
         append_session_event(
             current_workspace.session_dir,
@@ -114,6 +128,17 @@ def summarize(value: str, max_length: int = 500) -> str:
     if len(compact) <= max_length:
         return compact
     return f"{compact[:max_length]}..."
+
+
+def find_repeated_list_observation(action: object, observations: list[Observation]) -> ListFilesObservation | None:
+    if getattr(action, "type", None) != "list_files":
+        return None
+
+    path = getattr(action, "path", None) or "."
+    for observation in reversed(observations):
+        if observation.kind == "list_files" and observation.path == path:
+            return observation
+    return None
 
 
 def summarize_command(result: object) -> str:
