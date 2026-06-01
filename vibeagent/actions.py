@@ -10,16 +10,24 @@ from typing import Any
 from .types import (
     AgentAction,
     CommandResult,
+    EditFileAction,
+    EditFileObservation,
     FinishAction,
     FinishObservation,
+    ListFilesAction,
+    ListFilesObservation,
     ModelActionResponse,
     Observation,
+    ReadFileAction,
+    ReadFileObservation,
     RunCommandAction,
     RunCommandObservation,
+    SearchAction,
+    SearchObservation,
     WriteFileAction,
     WriteFileObservation,
 )
-from .workspace import RunWorkspace, write_run_file
+from .workspace import RunWorkspace, edit_project_file, list_project_files, read_project_file, search_project, write_run_file
 
 
 class ActionParseError(ValueError):
@@ -53,12 +61,87 @@ def parse_first_json_value(raw: str) -> Any:
 
 
 def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout_ms: int = 30_000) -> Observation:
-    # Dispatch one action at a time; all side effects stay within the given run workspace.
+    # Dispatch one action at a time; all side effects stay within the given project workspace.
+    if isinstance(action, ListFilesAction):
+        try:
+            files = list_project_files(workspace, action.path)
+            message = f"Found {len(files)} file(s)."
+        except ValueError as error:
+            files = []
+            message = str(error)
+        return ListFilesObservation(
+            kind="list_files",
+            path=action.path or ".",
+            files=files,
+            message=message,
+        )
+
+    if isinstance(action, ReadFileAction):
+        try:
+            content = read_project_file(workspace, action.path)
+            message = f"Read {action.path}."
+        except ValueError as error:
+            content = ""
+            message = str(error)
+        return ReadFileObservation(
+            kind="read_file",
+            path=action.path,
+            content=content,
+            message=message,
+        )
+
+    if isinstance(action, SearchAction):
+        try:
+            matches = search_project(workspace, action.query)
+            message = f"Found {len(matches)} match(es)."
+        except ValueError as error:
+            matches = []
+            message = str(error)
+        return SearchObservation(
+            kind="search",
+            query=action.query,
+            matches=matches,
+            message=message,
+        )
+
+    if isinstance(action, EditFileAction):
+        try:
+            _, diff = edit_project_file(workspace, action.path, action.old, action.new)
+            ok = True
+            message = f"Edited {action.path}."
+        except ValueError as error:
+            diff = ""
+            ok = False
+            message = str(error)
+        return EditFileObservation(
+            kind="edit_file",
+            path=action.path,
+            ok=ok,
+            message=message,
+            diff=diff,
+        )
+
     if isinstance(action, WriteFileAction):
-        write_run_file(workspace, action.path, action.content)
-        return WriteFileObservation(kind="write_file", path=action.path, ok=True, message=f"Wrote {action.path}")
+        try:
+            write_run_file(workspace, action.path, action.content)
+            return WriteFileObservation(kind="write_file", path=action.path, ok=True, message=f"Wrote {action.path}")
+        except ValueError as error:
+            return WriteFileObservation(kind="write_file", path=action.path, ok=False, message=str(error))
 
     if isinstance(action, RunCommandAction):
+        blocked = get_blocked_command_reason(action.command)
+        if blocked:
+            return RunCommandObservation(
+                kind="run_command",
+                result=CommandResult(
+                    command=action.command,
+                    exit_code=None,
+                    stdout="",
+                    stderr=f"Command blocked: {blocked}",
+                    timed_out=False,
+                    signal=None,
+                ),
+            )
         return RunCommandObservation(
             kind="run_command",
             result=run_command(workspace.root, action.command, command_timeout_ms),
@@ -104,6 +187,36 @@ def parse_action(value: Any, raw: str) -> AgentAction:
         raise ActionParseError("Model output must include an action object.", raw)
 
     action_type = value.get("type")
+    if action_type == "list_files":
+        path = value.get("path")
+        if path is not None and not isinstance(path, str):
+            raise ActionParseError("list_files action path must be a string when provided.", raw)
+        return ListFilesAction(type="list_files", path=path)
+
+    if action_type == "read_file":
+        path = value.get("path")
+        if not isinstance(path, str):
+            raise ActionParseError("read_file action requires a string path.", raw)
+        return ReadFileAction(type="read_file", path=path)
+
+    if action_type == "search":
+        query = value.get("query")
+        if not isinstance(query, str) or not query.strip():
+            raise ActionParseError("search action requires a non-empty query.", raw)
+        return SearchAction(type="search", query=query)
+
+    if action_type == "edit_file":
+        path = value.get("path")
+        old = value.get("old")
+        new = value.get("new")
+        if not isinstance(path, str):
+            raise ActionParseError("edit_file action requires a string path.", raw)
+        if not isinstance(old, str):
+            raise ActionParseError("edit_file action requires string old.", raw)
+        if not isinstance(new, str):
+            raise ActionParseError("edit_file action requires string new.", raw)
+        return EditFileAction(type="edit_file", path=path, old=old, new=new)
+
     if action_type == "write_file":
         path = value.get("path")
         content = value.get("content")
@@ -126,6 +239,32 @@ def parse_action(value: Any, raw: str) -> AgentAction:
         return FinishAction(type="finish", message=message)
 
     raise ActionParseError("Unsupported action type.", raw)
+
+
+def get_blocked_command_reason(command: str) -> str | None:
+    compact = " ".join(command.strip().split())
+    lowered = compact.lower()
+    blocked_prefixes = (
+        "sudo ",
+        "su ",
+        "rm -rf /",
+        "rm -fr /",
+        "rm -rf .",
+        "rm -fr .",
+        "rm -rf *",
+        "rm -fr *",
+        "git clean -fd",
+        "mkfs",
+        "shutdown",
+        "reboot",
+    )
+    if lowered.startswith(blocked_prefixes):
+        return "high-risk command requires an explicit user-controlled approval flow"
+    if " curl " in f" {lowered} " and " | sh" in lowered:
+        return "network script piping is not allowed in project mode"
+    if " wget " in f" {lowered} " and " | sh" in lowered:
+        return "network script piping is not allowed in project mode"
+    return None
 
 
 def _terminate_process(process: subprocess.Popen[str]) -> None:

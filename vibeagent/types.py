@@ -25,6 +25,32 @@ class WriteFileAction:
 
 
 @dataclass(frozen=True)
+class ListFilesAction:
+    type: Literal["list_files"]
+    path: str | None = None
+
+
+@dataclass(frozen=True)
+class ReadFileAction:
+    type: Literal["read_file"]
+    path: str
+
+
+@dataclass(frozen=True)
+class SearchAction:
+    type: Literal["search"]
+    query: str
+
+
+@dataclass(frozen=True)
+class EditFileAction:
+    type: Literal["edit_file"]
+    path: str
+    old: str
+    new: str
+
+
+@dataclass(frozen=True)
 class RunCommandAction:
     type: Literal["run_command"]
     command: str
@@ -37,7 +63,9 @@ class FinishAction:
 
 
 # Small union of all supported model action types.
-AgentAction: TypeAlias = WriteFileAction | RunCommandAction | FinishAction
+AgentAction: TypeAlias = (
+    WriteFileAction | ListFilesAction | ReadFileAction | SearchAction | EditFileAction | RunCommandAction | FinishAction
+)
 
 
 @dataclass(frozen=True)
@@ -60,7 +88,7 @@ class CommandResult:
 class WriteFileObservation:
     kind: Literal["write_file"]
     path: str
-    ok: Literal[True]
+    ok: bool
     message: str
 
 
@@ -71,17 +99,62 @@ class RunCommandObservation:
 
 
 @dataclass(frozen=True)
+class ListFilesObservation:
+    kind: Literal["list_files"]
+    path: str
+    files: list[str]
+    message: str
+
+
+@dataclass(frozen=True)
+class ReadFileObservation:
+    kind: Literal["read_file"]
+    path: str
+    content: str
+    message: str
+
+
+@dataclass(frozen=True)
+class SearchObservation:
+    kind: Literal["search"]
+    query: str
+    matches: list[str]
+    message: str
+
+
+@dataclass(frozen=True)
+class EditFileObservation:
+    kind: Literal["edit_file"]
+    path: str
+    ok: bool
+    message: str
+    diff: str
+
+
+@dataclass(frozen=True)
 class FinishObservation:
     kind: Literal["finish"]
     message: str
 
 
 # Unified envelope returned from one agent step.
-Observation: TypeAlias = WriteFileObservation | RunCommandObservation | FinishObservation
+Observation: TypeAlias = (
+    WriteFileObservation
+    | ListFilesObservation
+    | ReadFileObservation
+    | SearchObservation
+    | EditFileObservation
+    | RunCommandObservation
+    | FinishObservation
+)
 
 # Status tokens are constrained to keep logger and callers consistent.
 AgentStatus: TypeAlias = Literal[
     "thinking",
+    "listing files",
+    "reading file",
+    "searching",
+    "editing file",
     "writing file",
     "running command",
     "observed success",

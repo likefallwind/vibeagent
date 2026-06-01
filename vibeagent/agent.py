@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
+from typing import Any
 
 from .actions import ActionParseError, execute_action, parse_model_action
 from .prompts import build_messages
@@ -39,6 +41,7 @@ def run_agent(
 
         messages = build_messages(task, current_workspace, observations)
         raw = client.complete(messages)
+        append_session_event(current_workspace.session_dir, "model", {"iteration": iteration, "raw": raw})
 
         try:
             parsed = parse_model_action(raw)
@@ -53,13 +56,31 @@ def run_agent(
             )
 
         action = parsed.action
-        if action.type == "write_file" and logger:
+        append_session_event(
+            current_workspace.session_dir,
+            "action",
+            {"iteration": iteration, "thought": parsed.thought, "action": to_jsonable(action)},
+        )
+        if action.type == "list_files" and logger:
+            logger("listing files", action.path or ".")
+        elif action.type == "read_file" and logger:
+            logger("reading file", action.path)
+        elif action.type == "search" and logger:
+            logger("searching", action.query)
+        elif action.type == "edit_file" and logger:
+            logger("editing file", action.path)
+        elif action.type == "write_file" and logger:
             logger("writing file", action.path)
         elif action.type == "run_command" and logger:
             logger("running command", action.command)
 
         observation = execute_action(current_workspace, action, command_timeout_ms)
         observations.append(observation)
+        append_session_event(
+            current_workspace.session_dir,
+            "observation",
+            {"iteration": iteration, "observation": to_jsonable(observation)},
+        )
 
         if observation.kind == "finish":
             if logger:
@@ -100,3 +121,22 @@ def summarize_command(result: object) -> str:
     timed_out = getattr(result, "timed_out")
     output = getattr(result, "stderr") or getattr(result, "stdout") or "(no output)"
     return f"exit={exit_code} timedOut={timed_out} {summarize(output, 300)}"
+
+
+def append_session_event(session_dir: Path, event_type: str, payload: dict[str, Any]) -> None:
+    session_dir.mkdir(parents=True, exist_ok=True)
+    event = {"type": event_type, **payload}
+    with (session_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(to_jsonable(event), ensure_ascii=False) + "\n")
+
+
+def to_jsonable(value: Any) -> Any:
+    if is_dataclass(value):
+        return to_jsonable(asdict(value))
+    if isinstance(value, Path):
+        return value.as_posix()
+    if isinstance(value, dict):
+        return {str(key): to_jsonable(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [to_jsonable(item) for item in value]
+    return value

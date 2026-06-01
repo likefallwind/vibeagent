@@ -74,9 +74,11 @@ class AgentTests(unittest.TestCase):
             )
 
             result = run_agent("sum 1 to 100", base_dir=Path(base), client=client, max_iterations=5)
+            event_log_exists = (Path(base) / ".vibeagent" / "sessions" / result.run_id / "events.jsonl").is_file()
 
         self.assertTrue(result.success)
-        self.assertIn(".vibeagent/runs/", result.run_dir.as_posix())
+        self.assertEqual(result.run_dir, Path(base).resolve())
+        self.assertTrue(event_log_exists)
         command_observations = [item for item in result.observations if item.kind == "run_command"]
         self.assertEqual(len(command_observations), 2)
         self.assertNotEqual(command_observations[0].result.exit_code, 0)

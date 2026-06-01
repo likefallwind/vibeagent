@@ -1,11 +1,11 @@
 # VibeAgent
 
 VibeAgent v1 is a minimal command-line assistant written in Python. In coding mode,
-it asks MiniMax for one JSON action at a time, executes that action inside a
-per-run workspace under `.vibeagent/runs/`, and feeds command output back to the
-model until the task finishes or the iteration limit is reached. It also includes
-a daily conversation mode for normal chat that does not write files or run
-commands.
+it treats the directory where you run it as the real project workspace, asks
+MiniMax for one JSON action at a time, and feeds file/command observations back
+to the model until the task finishes or the iteration limit is reached. It also
+includes a daily conversation mode for normal chat that does not write files or
+run commands.
 
 ## Setup
 
@@ -48,6 +48,16 @@ mode. You can also send one-off messages with `/chat <message>` or one-off codin
 tasks with `/code <task>`. For generated code, the agent now prefers Python
 scripts unless the user asks for another language.
 
+Coding mode works in the current directory:
+
+```sh
+cd my-project
+python -m vibeagent
+```
+
+VibeAgent may read, search, edit, and run commands in `my-project`. Session logs
+are stored under `.vibeagent/sessions/<session-id>/events.jsonl`.
+
 Example task:
 
 ```text
@@ -63,8 +73,8 @@ Example chat:
 ## Architecture
 
 VibeAgent is intentionally small. The runtime is a loop that asks the model for
-one JSON action, executes that action in an isolated run directory, then sends
-the observation back to the model on the next iteration.
+one JSON action, executes that action in the current project directory, then
+sends the observation back to the model on the next iteration.
 
 High-level flow:
 
@@ -81,8 +91,8 @@ Core modules:
   commands such as `/help`, `/model`, `/chat`, `/code`, and `/exit`, then
   delegates input to the selected mode.
 - `vibeagent/agent.py`: orchestrates the ReAct loop. It creates a run
-  workspace, builds model prompts, parses model actions, executes them, and
-  stops on a `finish` action or the iteration limit.
+  session, builds model prompts, parses model actions, executes them, records
+  events, and stops on a `finish` action or the iteration limit.
 - `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
   model out of the coding-agent JSON action protocol.
 - `vibeagent/prompts.py`: owns the system prompt and user message construction.
@@ -92,10 +102,12 @@ Core modules:
   environment variables, calls the Anthropic-compatible MiniMax endpoint, and
   normalizes supported response shapes into plain text.
 - `vibeagent/actions.py`: parses model JSON into typed actions and executes
-  them. Supported actions are `write_file`, `run_command`, and `finish`.
-- `vibeagent/workspace.py`: creates `.vibeagent/runs/<run-id>/`, resolves
-  relative file paths, rejects path escapes, writes generated files, and builds
-  workspace snapshots for prompts.
+  them. Supported actions include `list_files`, `read_file`, `search`,
+  `edit_file`, `write_file`, `run_command`, and `finish`.
+- `vibeagent/workspace.py`: treats the current directory as the project root,
+  creates `.vibeagent/sessions/<session-id>/`, resolves relative file paths,
+  rejects path escapes, protects `.git/` and `.vibeagent/`, and builds project
+  file snapshots for prompts.
 - `vibeagent/types.py`: shared dataclasses and protocols for chat messages,
   actions, command results, observations, and agent status.
 
@@ -106,10 +118,13 @@ objects, but the agent still executes only one action per iteration.
 
 ## v1 Boundaries
 
-- Files are written only inside `.vibeagent/runs/<run-id>/`.
-- Commands run only from that run directory.
+- Files are read and written only inside the current project directory.
+- `.git/` and `.vibeagent/` are protected from model file actions.
+- Commands run only from the current project directory.
+- Some obviously dangerous commands, such as `sudo` and `rm -rf /`, are blocked.
 - Commands time out after 30 seconds by default.
-- V1 is a local development prototype, not a security sandbox. It does not try to block every dangerous shell command.
+- V1 is a local development prototype, not a strong OS sandbox. It does not try
+  to block every dangerous shell command.
 
 ## Development
 

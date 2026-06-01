@@ -68,7 +68,7 @@ def main() -> int:
 
             print("\nSuccess" if result.success else "\nStopped")
             print(result.message)
-            print(f"Run directory: {result.run_dir}")
+            print(f"Project directory: {result.run_dir}")
             print(f"Iterations: {result.iterations}")
             print_command_summary(result.observations)
         except Exception as error:
