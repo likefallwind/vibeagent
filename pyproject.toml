@@ -9,5 +9,8 @@ description = "Minimal command-line ReAct coding agent powered by MiniMax."
 requires-python = ">=3.11"
 readme = "README.md"
 
+[tool.setuptools]
+packages = ["vibeagent"]
+
 [project.scripts]
 vibeagent = "vibeagent.cli:main"
