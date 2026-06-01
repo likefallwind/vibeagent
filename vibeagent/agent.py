@@ -25,7 +25,7 @@ def run_agent(
     task: str,
     client: ChatClient,
     base_dir: str | Path | None = None,
-    max_iterations: int = 5,
+    max_iterations: int = 20,
     command_timeout_ms: int = 30_000,
     logger: AgentLogger | None = None,
     workspace: RunWorkspace | None = None,
