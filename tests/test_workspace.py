@@ -45,7 +45,9 @@ class WorkspaceTests(unittest.TestCase):
             workspace = create_run_workspace(base, "test-run")
             write_run_file(workspace, "app.py", "name = 'old'\nprint(name)\n")
 
-            self.assertEqual(list_project_files(workspace), ["app.py"])
+            files, total = list_project_files(workspace)
+            self.assertEqual(files, ["app.py"])
+            self.assertEqual(total, 1)
             self.assertIn("name = 'old'", read_project_file(workspace, "app.py"))
             self.assertEqual(search_project(workspace, "print"), ["app.py:2: print(name)"])
 

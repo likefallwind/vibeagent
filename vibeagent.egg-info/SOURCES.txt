@@ -3,8 +3,11 @@ pyproject.toml
 tests/test_actions.py
 tests/test_agent.py
 tests/test_chat.py
+tests/test_cli.py
 tests/test_commands.py
 tests/test_minimax.py
+tests/test_openai_compat.py
+tests/test_providers.py
 tests/test_workspace.py
 vibeagent/__init__.py
 vibeagent/__main__.py
@@ -14,7 +17,9 @@ vibeagent/chat.py
 vibeagent/cli.py
 vibeagent/commands.py
 vibeagent/minimax.py
+vibeagent/openai_compat.py
 vibeagent/prompts.py
+vibeagent/providers.py
 vibeagent/types.py
 vibeagent/workspace.py
 vibeagent.egg-info/PKG-INFO

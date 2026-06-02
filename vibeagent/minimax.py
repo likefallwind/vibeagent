@@ -7,7 +7,7 @@ from typing import Any, Mapping
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from .types import ChatMessage, ChatClient
+from .types import AssistantResponse, ChatMessage, ChatClient, ContentBlock
 
 
 class MissingMiniMaxApiKeyError(RuntimeError):
@@ -45,9 +45,23 @@ class MiniMaxClient(ChatClient):
         self.base_url = (base_url or defaults["base_url"]).rstrip("/")
         self.model = model or defaults["model"]
 
-    def complete(self, messages: list[ChatMessage]) -> str:
+    def complete(
+        self,
+        messages: list[ChatMessage],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.2,
+    ) -> AssistantResponse:
         # Use Anthropic-compatible request shape: system prompt + chat messages.
-        body = json.dumps(build_request_body(self.model, messages)).encode("utf-8")
+        body = json.dumps(
+            build_request_body(
+                self.model,
+                messages,
+                tools=tools,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+        ).encode("utf-8")
         request = Request(
             f"{self.base_url}/v1/messages",
             data=body,
@@ -72,14 +86,11 @@ class MiniMaxClient(ChatClient):
         except json.JSONDecodeError as error:
             raise MiniMaxResponseError(f"MiniMax response was not JSON: {error}") from error
 
-        # Model compatibility path: Anthropic returns `content`, while fallback path may use chat.completions style.
         content = extract_content(data)
         if not content:
-            raise MiniMaxResponseError(
-                f"MiniMax response did not include choices[0].message.content: {summarize(text)}"
-            )
+            raise MiniMaxResponseError(f"MiniMax response did not include structured content: {summarize(text)}")
 
-        return content
+        return AssistantResponse(content=content, raw=data)
 
 
 def get_minimax_api_key_from_env(env: Mapping[str, str | None] | None = None) -> str | None:
@@ -105,33 +116,79 @@ def get_minimax_defaults(env: Mapping[str, str | None] | None = None) -> dict[st
     }
 
 
-def build_request_body(model: str, messages: list[ChatMessage]) -> dict[str, Any]:
+def build_request_body(
+    model: str,
+    messages: list[ChatMessage],
+    tools: list[dict[str, Any]] | None = None,
+    max_tokens: int = 4096,
+    temperature: float = 0.2,
+) -> dict[str, Any]:
     # Anthropic format: system prompt lives at top-level `system`; only non-system messages stay in `messages`.
     body: dict[str, Any] = {
         "model": model,
-        "messages": [message.__dict__ for message in messages if message.role != "system"],
-        "temperature": 0.2,
+        "messages": [message_to_minimax(message) for message in messages if message.role != "system"],
+        "max_tokens": max_tokens,
+        "temperature": temperature,
     }
     system_parts = [message.content for message in messages if message.role == "system"]
     if system_parts:
-        body["system"] = "\n\n".join(system_parts)
+        body["system"] = "\n\n".join(part if isinstance(part, str) else json.dumps(part) for part in system_parts)
+    if tools:
+        body["tools"] = tools
+        body["tool_choice"] = {"type": "auto"}
     return body
 
 
-def extract_content(data: Any) -> str | None:
+def message_to_minimax(message: ChatMessage) -> dict[str, Any]:
+    content = message.content
+    if isinstance(content, list):
+        content = [content_block_to_minimax(block) for block in content]
+    return {"role": message.role, "content": content}
+
+
+def content_block_to_minimax(block: ContentBlock) -> ContentBlock:
+    block_type = block.get("type")
+    if block_type == "tool_call":
+        return {
+            "type": "tool_use",
+            "id": block.get("id"),
+            "name": block.get("name"),
+            "input": block.get("input", {}),
+        }
+    if block_type == "tool_result":
+        return {
+            "type": "tool_result",
+            "tool_use_id": block.get("tool_call_id") or block.get("tool_use_id"),
+            "content": block.get("content", ""),
+        }
+    return dict(block)
+
+
+def extract_content(data: Any) -> list[ContentBlock] | None:
     # Accept both Anthropic-style `content` and legacy chat response payload shapes.
     if not isinstance(data, dict):
         return None
     content = data.get("content")
     if isinstance(content, str):
-        return content
+        return [{"type": "text", "text": content}]
     if isinstance(content, list):
-        text_parts: list[str] = []
+        blocks: list[ContentBlock] = []
         for block in content:
-            if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str):
-                text_parts.append(block["text"])
-        if text_parts:
-            return "".join(text_parts)
+            if not isinstance(block, dict):
+                continue
+            block_type = block.get("type")
+            if block_type == "text" and isinstance(block.get("text"), str):
+                blocks.append(dict(block))
+            elif block_type == "tool_use" and isinstance(block.get("name"), str) and isinstance(block.get("id"), str):
+                normalized = {
+                    "type": "tool_call",
+                    "id": block["id"],
+                    "name": block["name"],
+                    "input": block["input"] if "input" in block else {},
+                }
+                blocks.append(normalized)
+        if blocks:
+            return blocks
     choices = data.get("choices")
     if not isinstance(choices, list) or not choices:
         return None
@@ -140,9 +197,13 @@ def extract_content(data: Any) -> str | None:
         return None
     message = first.get("message")
     if isinstance(message, dict) and isinstance(message.get("content"), str):
-        return message["content"]
+        return [{"type": "text", "text": message["content"]}]
     text = first.get("text")
-    return text if isinstance(text, str) else None
+    return [{"type": "text", "text": text}] if isinstance(text, str) else None
+
+
+def content_blocks_to_text(content: list[ContentBlock]) -> str:
+    return "".join(block["text"] for block in content if block.get("type") == "text" and isinstance(block.get("text"), str))
 
 
 def normalize_minimax_api_key(value: str | None) -> str | None:

@@ -24,15 +24,32 @@ class CommandTests(unittest.TestCase):
     def test_get_model_text_reports_model_configuration_without_exposing_the_key(self) -> None:
         text = get_model_text(
             {
+                "VIBEAGENT_PROVIDER": "minimax",
                 "MINIMAX_API_KEY": "secret-key",
                 "MINIMAX_MODEL": "custom-model",
                 "MINIMAX_BASE_URL": "https://example.com/v1/",
             }
         )
 
+        self.assertIn("Model provider: minimax", text)
         self.assertIn("model: custom-model", text)
         self.assertIn("baseUrl: https://example.com/v1", text)
         self.assertIn("apiKey: configured via MINIMAX_API_KEY", text)
+        self.assertNotIn("secret-key", text)
+
+    def test_get_model_text_reports_deepseek_configuration(self) -> None:
+        text = get_model_text(
+            {
+                "VIBEAGENT_PROVIDER": "deepseek",
+                "DEEPSEEK_API_KEY": "secret-key",
+                "DEEPSEEK_MODEL": "deepseek-reasoner",
+            }
+        )
+
+        self.assertIn("Model provider: deepseek", text)
+        self.assertIn("model: deepseek-reasoner", text)
+        self.assertIn("baseUrl: https://api.deepseek.com", text)
+        self.assertIn("apiKey: configured via DEEPSEEK_API_KEY", text)
         self.assertNotIn("secret-key", text)
 
 

@@ -5,9 +5,18 @@ from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import Any
 
-from .actions import ActionParseError, execute_action, parse_model_action
+from .actions import AGENT_TOOL_DEFINITIONS, ActionParseError, execute_action, parse_tool_action
 from .prompts import build_messages
-from .types import AgentLogger, ChatClient, ListFilesObservation, Observation, RunCommandObservation
+from .types import (
+    AgentLogger,
+    ChatClient,
+    ChatMessage,
+    ContentBlock,
+    ListFilesObservation,
+    Observation,
+    RunCommandObservation,
+    ToolErrorObservation,
+)
 from .workspace import RunWorkspace, create_run_workspace
 
 
@@ -33,84 +42,105 @@ def run_agent(
     # Start with an isolated run workspace for one task execution.
     current_workspace = workspace or create_run_workspace(base_dir)
     observations: list[Observation] = []
+    messages = build_messages(task, current_workspace)
 
     for iteration in range(1, max_iterations + 1):
-        # ReAct step: reason -> model action -> tool execution -> observation.
+        # Tool loop: provider-neutral tool_call blocks -> local execution -> tool_result blocks.
         if logger:
             logger("thinking", f"iteration {iteration}/{max_iterations}")
 
-        messages = build_messages(task, current_workspace, observations)
-        raw = client.complete(messages)
-        append_session_event(current_workspace.session_dir, "model", {"iteration": iteration, "raw": raw})
+        response = client.complete(messages, tools=AGENT_TOOL_DEFINITIONS)
+        assistant_content = normalize_assistant_content(response.content if hasattr(response, "content") else response)
+        append_session_event(current_workspace.session_dir, "model", {"iteration": iteration, "content": assistant_content})
+        messages.append(ChatMessage(role="assistant", content=assistant_content))
 
-        try:
-            parsed = parse_model_action(raw)
-        except ActionParseError as error:
+        tool_calls = [block for block in assistant_content if block.get("type") == "tool_call"]
+        if not tool_calls:
+            text = content_blocks_to_text(assistant_content).strip()
+            if text:
+                if logger:
+                    logger("finished", text)
+                return AgentResult(
+                    success=True,
+                    message=text,
+                    run_dir=current_workspace.root,
+                    run_id=current_workspace.run_id,
+                    iterations=iteration,
+                    observations=observations,
+                )
             return AgentResult(
                 success=False,
-                message=f"Model output was not valid action JSON: {summarize(error.raw)}",
+                message="Model response did not include text or a tool call.",
                 run_dir=current_workspace.root,
                 run_id=current_workspace.run_id,
                 iterations=iteration,
                 observations=observations,
             )
 
-        action = parsed.action
-        append_session_event(
-            current_workspace.session_dir,
-            "action",
-            {"iteration": iteration, "thought": parsed.thought, "action": to_jsonable(action)},
-        )
-        if action.type == "list_files" and logger:
-            logger("listing files", action.path or ".")
-        elif action.type == "read_file" and logger:
-            logger("reading file", action.path)
-        elif action.type == "search" and logger:
-            logger("searching", action.query)
-        elif action.type == "edit_file" and logger:
-            logger("editing file", action.path)
-        elif action.type == "write_file" and logger:
-            logger("writing file", action.path)
-        elif action.type == "run_command" and logger:
-            logger("running command", action.command)
-
-        repeated_list = find_repeated_list_observation(action, observations)
-        if repeated_list:
-            observation = ListFilesObservation(
-                kind="list_files",
-                path=repeated_list.path,
-                files=repeated_list.files,
-                total=repeated_list.total,
-                truncated=repeated_list.truncated,
-                message=(
-                    f"Already listed {repeated_list.path}: {repeated_list.message} "
-                    "Do not call list_files for this path again. Choose write_file, read_file, run_command, or finish."
-                ),
-            )
-        else:
-            observation = execute_action(current_workspace, action, command_timeout_ms)
-        observations.append(observation)
-        append_session_event(
-            current_workspace.session_dir,
-            "observation",
-            {"iteration": iteration, "observation": to_jsonable(observation)},
-        )
-
-        if observation.kind == "finish":
-            if logger:
-                logger("finished", observation.message)
-            return AgentResult(
-                success=True,
-                message=observation.message,
-                run_dir=current_workspace.root,
-                run_id=current_workspace.run_id,
-                iterations=iteration,
-                observations=observations,
+        tool_results: list[ContentBlock] = []
+        for block in tool_calls:
+            tool_id = str(block.get("id") or "")
+            tool_name = str(block.get("name") or "")
+            tool_input = block.get("input") or {}
+            append_session_event(
+                current_workspace.session_dir,
+                "tool_call",
+                {"iteration": iteration, "id": tool_id, "name": tool_name, "input": tool_input},
             )
 
-        if isinstance(observation, RunCommandObservation) and logger:
-            ok = observation.result.exit_code == 0 and not observation.result.timed_out
-            logger("observed success" if ok else "observed failure", summarize_command(observation.result))
+            try:
+                action = parse_tool_action(tool_name, tool_input)
+                log_action(logger, action)
+                repeated_list = find_repeated_list_observation(action, observations)
+                if repeated_list:
+                    observation = ListFilesObservation(
+                        kind="list_files",
+                        path=repeated_list.path,
+                        files=repeated_list.files,
+                        total=repeated_list.total,
+                        truncated=repeated_list.truncated,
+                        message=(
+                            f"Already listed {repeated_list.path}: {repeated_list.message} "
+                            "Do not call list_files for this path again. Choose a useful tool call or answer directly."
+                        ),
+                    )
+                else:
+                    observation = execute_action(current_workspace, action, command_timeout_ms)
+            except ActionParseError as error:
+                observation = tool_error_observation(tool_name, error)
+
+            observations.append(observation)
+            result_payload = to_jsonable(observation)
+            append_session_event(
+                current_workspace.session_dir,
+                "tool_result",
+                {"iteration": iteration, "id": tool_id, "name": tool_name, "result": result_payload},
+            )
+            tool_results.append(
+                {
+                    "type": "tool_result",
+                    "tool_call_id": tool_id,
+                    "content": json.dumps(result_payload, ensure_ascii=False),
+                }
+            )
+
+            if observation.kind == "finish":
+                if logger:
+                    logger("finished", observation.message)
+                return AgentResult(
+                    success=True,
+                    message=observation.message,
+                    run_dir=current_workspace.root,
+                    run_id=current_workspace.run_id,
+                    iterations=iteration,
+                    observations=observations,
+                )
+
+            if isinstance(observation, RunCommandObservation) and logger:
+                ok = observation.result.exit_code == 0 and not observation.result.timed_out
+                logger("observed success" if ok else "observed failure", summarize_command(observation.result))
+
+        messages.append(ChatMessage(role="user", content=tool_results))
 
     # Return failure only after exhausting max iterations without an explicit finish action.
     return AgentResult(
@@ -139,6 +169,40 @@ def find_repeated_list_observation(action: object, observations: list[Observatio
         if observation.kind == "list_files" and observation.path == path:
             return observation
     return None
+
+
+def log_action(logger: AgentLogger | None, action: object) -> None:
+    if not logger:
+        return
+    action_type = getattr(action, "type", None)
+    if action_type == "list_files":
+        logger("listing files", getattr(action, "path", None) or ".")
+    elif action_type == "read_file":
+        logger("reading file", getattr(action, "path"))
+    elif action_type == "search":
+        logger("searching", getattr(action, "query"))
+    elif action_type == "edit_file":
+        logger("editing file", getattr(action, "path"))
+    elif action_type == "write_file":
+        logger("writing file", getattr(action, "path"))
+    elif action_type == "run_command":
+        logger("running command", getattr(action, "command"))
+
+
+def normalize_assistant_content(value: Any) -> list[ContentBlock]:
+    if isinstance(value, str):
+        return [{"type": "text", "text": value}]
+    if isinstance(value, list):
+        return [dict(block) for block in value if isinstance(block, dict)]
+    return []
+
+
+def content_blocks_to_text(content: list[ContentBlock]) -> str:
+    return "".join(block["text"] for block in content if block.get("type") == "text" and isinstance(block.get("text"), str))
+
+
+def tool_error_observation(tool_name: str, error: ActionParseError) -> Observation:
+    return ToolErrorObservation(kind="tool_error", tool=tool_name or "unknown", message=f"Invalid tool input: {error}")
 
 
 def summarize_command(result: object) -> str:

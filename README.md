@@ -1,9 +1,10 @@
 # VibeAgent
 
 VibeAgent v1 is a minimal command-line assistant written in Python. In coding mode,
-it treats the directory where you run it as the real project workspace, asks
-MiniMax for one JSON action at a time, and feeds file/command observations back
-to the model until the task finishes or the iteration limit is reached. It also
+it treats the directory where you run it as the real project workspace, asks the
+configured model provider for a response, and lets the model call tools when it
+needs file or command access. Tool results are fed back to the model until the
+task finishes or the iteration limit is reached. It also
 includes a daily conversation mode for normal chat that does not write files or
 run commands.
 
@@ -17,7 +18,7 @@ python -m pip install -e .
 
 There are no required third-party runtime dependencies.
 
-Set a MiniMax API key:
+MiniMax is the default provider. Set a MiniMax API key:
 
 ```sh
 export MINIMAX_API_KEY="..."
@@ -28,6 +29,22 @@ The client reads the API key from environment variables automatically.
 If you paste a value like `Bearer sk-...`, VibeAgent strips the `Bearer` prefix automatically.
 By default VibeAgent calls MiniMax's Anthropic-compatible endpoint at
 `https://api.minimaxi.com/anthropic/v1/messages`.
+
+To use DeepSeek or another OpenAI-compatible tool-calling API, switch provider:
+
+```sh
+export VIBEAGENT_PROVIDER="deepseek"
+export DEEPSEEK_API_KEY="..."
+```
+
+The OpenAI-compatible adapter also accepts:
+
+```sh
+export VIBEAGENT_PROVIDER="openai-compatible"
+export OPENAI_COMPAT_API_KEY="..."
+export OPENAI_COMPAT_BASE_URL="https://api.example.com/v1"
+export OPENAI_COMPAT_MODEL="model-name"
+```
 
 ## Usage
 
@@ -41,8 +58,8 @@ or through the npm compatibility scripts:
 npm run dev
 ```
 
-Use `/help` to list local commands, `/model` to inspect the configured MiniMax
-model and API key source, and `/exit` to leave the interactive prompt. Use
+Use `/help` to list local commands, `/model` to inspect the configured provider,
+model, base URL, and API key source, and `/exit` to leave the interactive prompt. Use
 `/chat` to switch to daily conversation mode and `/code` to switch back to coding
 mode. You can also send one-off messages with `/chat <message>` or one-off coding
 tasks with `/code <task>`. For generated code, the agent now prefers Python
@@ -73,16 +90,19 @@ Example chat:
 ## Architecture
 
 VibeAgent is intentionally small. The runtime is a loop that asks the model for
-one JSON action, executes that action in the current project directory, then
-sends the observation back to the model on the next iteration.
+a response. If the response includes tool calls, VibeAgent executes those calls
+in the current project directory and sends tool results back on the next
+iteration. If the response is plain text, the loop treats it as the final answer.
 
 High-level flow:
 
 ```text
 CLI input
-  -> code mode: run_agent() -> build_messages() -> MiniMaxClient.complete()
-     -> parse_model_action() -> execute_action() -> observation appended to next prompt
-  -> chat mode: run_chat() -> MiniMaxClient.complete() -> plain assistant reply
+  -> provider factory -> MiniMaxClient or OpenAICompatibleClient
+  -> code mode: run_agent() -> build_messages() -> client.complete()
+     -> plain text answer, or generic tool_call blocks -> execute_action()
+     -> generic tool_result blocks appended to history
+  -> chat mode: run_chat() -> client.complete() -> plain assistant reply
 ```
 
 Core modules:
@@ -91,18 +111,22 @@ Core modules:
   commands such as `/help`, `/model`, `/chat`, `/code`, and `/exit`, then
   delegates input to the selected mode.
 - `vibeagent/agent.py`: orchestrates the ReAct loop. It creates a run
-  session, builds model prompts, parses model actions, executes them, records
-  events, and stops on a `finish` action or the iteration limit.
+  session, builds model prompts, executes optional tool calls, records events,
+  and stops on a plain text answer, a `finish` tool call, or the iteration limit.
 - `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
   model out of the coding-agent JSON action protocol.
+- `vibeagent/providers.py`: selects the configured model provider. MiniMax is
+  the default; DeepSeek and other OpenAI-compatible APIs use the OpenAI-compatible adapter.
 - `vibeagent/prompts.py`: owns the system prompt and user message construction.
   Each prompt includes the original task, current run directory, workspace file
   snapshot, and previous observations.
 - `vibeagent/minimax.py`: MiniMax API client. It reads API configuration from
-  environment variables, calls the Anthropic-compatible MiniMax endpoint, and
-  normalizes supported response shapes into plain text.
-- `vibeagent/actions.py`: parses model JSON into typed actions and executes
-  them. Supported actions include `list_files`, `read_file`, `search`,
+  environment variables, converts VibeAgent's generic tool blocks to Anthropic-compatible
+  MiniMax messages, and normalizes responses back into generic tool blocks.
+- `vibeagent/openai_compat.py`: OpenAI-compatible client used by DeepSeek-style
+  chat completions APIs. It maps generic tool blocks to `tool_calls` and `role: tool` messages.
+- `vibeagent/actions.py`: defines the coding tools, validates tool inputs into
+  typed actions, and executes them. Supported actions include `list_files`, `read_file`, `search`,
   `edit_file`, `write_file`, `run_command`, and `finish`.
 - `vibeagent/workspace.py`: treats the current directory as the project root,
   creates `.vibeagent/sessions/<session-id>/`, resolves relative file paths,
@@ -111,10 +135,11 @@ Core modules:
 - `vibeagent/types.py`: shared dataclasses and protocols for chat messages,
   actions, command results, observations, and agent status.
 
-The model contract is deliberately narrow: every model response should contain
-a JSON object with a `thought` string and one `action`. The parser accepts the
-first complete JSON object if the model emits extra text or multiple JSON
-objects, but the agent still executes only one action per iteration.
+The model contract is deliberately narrow and provider-neutral inside VibeAgent:
+coding mode accepts plain text responses and uses generic `tool_call` and
+`tool_result` blocks only when tools are needed. Provider adapters translate
+those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
+`tool_calls`. Chat mode remains plain text and does not receive tools.
 
 ## v1 Boundaries
 

@@ -1,73 +1,40 @@
-import json
 import tempfile
 import unittest
 from pathlib import Path
 
-from vibeagent.actions import ActionParseError, execute_action, parse_model_action, run_command
+from vibeagent.actions import ActionParseError, execute_action, parse_tool_action, run_command
 from vibeagent.types import EditFileAction, ListFilesAction, ReadFileAction, RunCommandAction, SearchAction
 from vibeagent.workspace import create_run_workspace, write_run_file
 
 
 class ActionTests(unittest.TestCase):
-    def test_parse_model_action_accepts_valid_write_file_json(self) -> None:
-        parsed = parse_model_action(
-            json.dumps(
-                {
-                    "thought": "create file",
-                    "action": {
-                        "type": "write_file",
-                        "path": "sum.py",
-                        "content": "print(5050)",
-                    },
-                }
-            )
-        )
-
-        self.assertEqual(parsed.action.type, "write_file")
-        self.assertEqual(parsed.action.path, "sum.py")
-
-    def test_parse_model_action_accepts_project_actions(self) -> None:
+    def test_parse_tool_action_accepts_project_actions(self) -> None:
         cases = [
-            ({"type": "list_files", "path": "src"}, "list_files"),
-            ({"type": "read_file", "path": "src/app.py"}, "read_file"),
-            ({"type": "search", "query": "needle"}, "search"),
-            ({"type": "edit_file", "path": "src/app.py", "old": "a", "new": "b"}, "edit_file"),
+            ("list_files", {"path": "src"}, "list_files"),
+            ("read_file", {"path": "src/app.py"}, "read_file"),
+            ("search", {"query": "needle"}, "search"),
+            ("edit_file", {"path": "src/app.py", "old": "a", "new": "b"}, "edit_file"),
         ]
 
-        for action, expected_type in cases:
-            parsed = parse_model_action(json.dumps({"thought": "inspect", "action": action}))
-            self.assertEqual(parsed.action.type, expected_type)
+        for name, tool_input, expected_type in cases:
+            parsed = parse_tool_action(name, tool_input)
+            self.assertEqual(parsed.type, expected_type)
 
-    def test_parse_model_action_accepts_first_json_object_when_model_returns_extra_actions(self) -> None:
-        parsed = parse_model_action(
-            "\n".join(
-                [
-                    json.dumps(
-                        {
-                            "thought": "create file",
-                            "action": {"type": "write_file", "path": "sum.py", "content": "print(55)"},
-                        }
-                    ),
-                    json.dumps(
-                        {
-                            "thought": "run it",
-                            "action": {"type": "run_command", "command": "python sum.py"},
-                        }
-                    ),
-                ]
-            )
-        )
-
-        self.assertEqual(parsed.action.type, "write_file")
-        self.assertEqual(parsed.action.path, "sum.py")
-
-    def test_parse_model_action_rejects_invalid_json(self) -> None:
-        with self.assertRaises(ActionParseError):
-            parse_model_action("not json")
-
-    def test_parse_model_action_rejects_unsupported_action(self) -> None:
+    def test_parse_tool_action_rejects_unsupported_action(self) -> None:
         with self.assertRaisesRegex(ActionParseError, "Unsupported action type"):
-            parse_model_action(json.dumps({"thought": "bad", "action": {"type": "delete_everything"}}))
+            parse_tool_action("delete_everything", {})
+
+    def test_parse_tool_action_validates_tool_inputs(self) -> None:
+        action = parse_tool_action("write_file", {"path": "app.py", "content": "print('ok')\n"})
+
+        self.assertEqual(action.type, "write_file")
+        self.assertEqual(action.path, "app.py")
+
+        with self.assertRaisesRegex(ActionParseError, "read_file action requires a string path"):
+            parse_tool_action("read_file", {})
+
+        with self.assertRaisesRegex(ActionParseError, "tool input must be an object"):
+            parse_tool_action("read_file", "bad")
 
     def test_run_command_captures_stdout_stderr_exit_code_and_success(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-command-") as cwd:

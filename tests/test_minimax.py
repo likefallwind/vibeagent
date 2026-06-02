@@ -6,6 +6,7 @@ from vibeagent.minimax import (
     MiniMaxClient,
     MissingMiniMaxApiKeyError,
     build_request_body,
+    content_blocks_to_text,
     extract_content,
     get_minimax_api_key_from_env,
     get_minimax_api_key_info_from_env,
@@ -76,26 +77,74 @@ class MiniMaxTests(unittest.TestCase):
             [
                 ChatMessage(role="system", content="You are concise."),
                 ChatMessage(role="user", content="Hi"),
+                ChatMessage(
+                    role="assistant",
+                    content=[{"type": "tool_call", "id": "toolu_1", "name": "finish", "input": {"message": "done"}}],
+                ),
+                ChatMessage(
+                    role="user",
+                    content=[{"type": "tool_result", "tool_call_id": "toolu_1", "content": '{"kind":"finish"}'}],
+                ),
             ],
+            tools=[{"name": "finish", "input_schema": {"type": "object"}}],
         )
 
         self.assertEqual(body["model"], "MiniMax-M2.7")
         self.assertEqual(body["system"], "You are concise.")
         self.assertEqual(body["max_tokens"], 4096)
-        self.assertEqual(body["messages"], [{"role": "user", "content": "Hi"}])
+        self.assertEqual(body["messages"][0], {"role": "user", "content": "Hi"})
+        self.assertEqual(
+            body["messages"][1],
+            {
+                "role": "assistant",
+                "content": [{"type": "tool_use", "id": "toolu_1", "name": "finish", "input": {"message": "done"}}],
+            },
+        )
+        self.assertEqual(
+            body["messages"][2],
+            {
+                "role": "user",
+                "content": [{"type": "tool_result", "tool_use_id": "toolu_1", "content": '{"kind":"finish"}'}],
+            },
+        )
+        self.assertEqual(body["tools"], [{"name": "finish", "input_schema": {"type": "object"}}])
+        self.assertEqual(body["tool_choice"], {"type": "auto"})
 
     def test_extract_content_reads_anthropic_text_blocks(self) -> None:
+        blocks = extract_content(
+            {
+                "content": [
+                    {"type": "text", "text": "hello"},
+                    {"type": "thinking", "thinking": "..."},
+                    {"type": "text", "text": " world"},
+                ]
+            }
+        )
+
+        self.assertEqual(content_blocks_to_text(blocks or []), "hello world")
+
+    def test_extract_content_maps_anthropic_tool_use_blocks_to_generic_tool_calls(self) -> None:
         self.assertEqual(
             extract_content(
                 {
                     "content": [
-                        {"type": "text", "text": "hello"},
-                        {"type": "thinking", "thinking": "..."},
-                        {"type": "text", "text": " world"},
+                        {"type": "tool_use", "id": "toolu_1", "name": "read_file", "input": {"path": "app.py"}}
                     ]
                 }
             ),
-            "hello world",
+            [{"type": "tool_call", "id": "toolu_1", "name": "read_file", "input": {"path": "app.py"}}],
+        )
+
+    def test_extract_content_defaults_missing_tool_input_to_empty_object(self) -> None:
+        self.assertEqual(
+            extract_content({"content": [{"type": "tool_use", "id": "toolu_1", "name": "read_file"}]}),
+            [{"type": "tool_call", "id": "toolu_1", "name": "read_file", "input": {}}],
+        )
+
+    def test_extract_content_preserves_malformed_tool_input_for_validation(self) -> None:
+        self.assertEqual(
+            extract_content({"content": [{"type": "tool_use", "id": "toolu_1", "name": "read_file", "input": "bad"}]}),
+            [{"type": "tool_call", "id": "toolu_1", "name": "read_file", "input": "bad"}],
         )
 
 

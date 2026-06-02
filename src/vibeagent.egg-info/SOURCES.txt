@@ -8,6 +8,9 @@ src/vibeagent.egg-info/top_level.txt
 tests/test_actions.py
 tests/test_agent.py
 tests/test_chat.py
+tests/test_cli.py
 tests/test_commands.py
 tests/test_minimax.py
+tests/test_openai_compat.py
+tests/test_providers.py
 tests/test_workspace.py

@@ -16,7 +16,6 @@ from .types import (
     FinishObservation,
     ListFilesAction,
     ListFilesObservation,
-    ModelActionResponse,
     Observation,
     ReadFileAction,
     ReadFileObservation,
@@ -36,42 +35,84 @@ class ActionParseError(ValueError):
         self.raw = raw
 
 
-def parse_model_action(raw: str) -> ModelActionResponse:
-    # Parse the model's current turn as one typed action payload.
-    try:
-        parsed = parse_first_json_value(raw)
-    except json.JSONDecodeError as error:
-        raise ActionParseError(f"Model output was not valid JSON: {error}", raw) from error
-
-    if not isinstance(parsed, dict):
-        raise ActionParseError("Model output must be a JSON object.", raw)
-
-    thought = parsed.get("thought")
-    if not isinstance(thought, str):
-        raise ActionParseError("Model output must include a string thought.", raw)
-
-    action = parse_action(parsed.get("action"), raw)
-    return ModelActionResponse(thought=thought, action=action)
-
-
-def parse_first_json_value(raw: str) -> Any:
-    # Be tolerant of model outputs that include multiple JSON objects or leading whitespace.
-    raw = strip_markdown_json_fence(raw)
-    decoder = json.JSONDecoder()
-    return decoder.raw_decode(raw.lstrip())[0]
-
-
-def strip_markdown_json_fence(raw: str) -> str:
-    stripped = raw.strip()
-    if not stripped.startswith("```"):
-        return raw
-
-    lines = stripped.splitlines()
-    if len(lines) < 2 or not lines[0].startswith("```"):
-        return raw
-    if lines[-1].strip() != "```":
-        return raw
-    return "\n".join(lines[1:-1])
+AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
+    {
+        "name": "list_files",
+        "description": "List project files, optionally under a relative path.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"path": {"type": "string", "description": "Optional relative path to list."}},
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "read_file",
+        "description": "Read a UTF-8 text file from the project.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"path": {"type": "string"}},
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "search",
+        "description": "Search project text for an exact query string.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"query": {"type": "string"}},
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "edit_file",
+        "description": "Replace one exact text block in an existing project file.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "old": {"type": "string"},
+                "new": {"type": "string"},
+            },
+            "required": ["path", "old", "new"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "write_file",
+        "description": "Create or replace a UTF-8 text file under the project directory.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "content": {"type": "string"},
+            },
+            "required": ["path", "content"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "run_command",
+        "description": "Run a shell command from the project directory with a timeout and safety checks.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"command": {"type": "string"}},
+            "required": ["command"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "finish",
+        "description": "Finish the task with a concise summary for the user.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"message": {"type": "string"}},
+            "required": ["message"],
+            "additionalProperties": False,
+        },
+    },
+]
 
 
 def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout_ms: int = 30_000) -> Observation:
@@ -260,6 +301,12 @@ def parse_action(value: Any, raw: str) -> AgentAction:
         return FinishAction(type="finish", message=message)
 
     raise ActionParseError("Unsupported action type.", raw)
+
+
+def parse_tool_action(name: str, tool_input: Any) -> AgentAction:
+    if not isinstance(tool_input, dict):
+        raise ActionParseError(f"{name} tool input must be an object.", json.dumps(tool_input))
+    return parse_action({"type": name, **tool_input}, json.dumps({"name": name, "input": tool_input}))
 
 
 def get_blocked_command_reason(command: str) -> str | None:

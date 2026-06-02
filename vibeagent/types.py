@@ -2,18 +2,38 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from collections.abc import Callable
-from typing import Literal, Protocol, TypeAlias
+from typing import Any, Literal, Protocol, TypeAlias
+
+
+ContentBlock: TypeAlias = dict[str, Any]
+MessageContent: TypeAlias = str | list[ContentBlock]
+ToolSpec: TypeAlias = dict[str, Any]
 
 
 @dataclass(frozen=True)
 class ChatMessage:
     role: Literal["system", "user", "assistant"]
-    content: str
+    content: MessageContent
+
+
+@dataclass(frozen=True)
+class AssistantResponse:
+    # Provider-neutral blocks:
+    # - {"type": "text", "text": "..."}
+    # - {"type": "tool_call", "id": "...", "name": "...", "input": {...}}
+    content: list[ContentBlock]
+    raw: dict[str, Any]
 
 
 class ChatClient(Protocol):
     # Protocol so MiniMaxClient and any future providers can plug into the same agent loop.
-    def complete(self, messages: list[ChatMessage]) -> str:
+    def complete(
+        self,
+        messages: list[ChatMessage],
+        tools: list[ToolSpec] | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.2,
+    ) -> AssistantResponse:
         ...
 
 
@@ -66,12 +86,6 @@ class FinishAction:
 AgentAction: TypeAlias = (
     WriteFileAction | ListFilesAction | ReadFileAction | SearchAction | EditFileAction | RunCommandAction | FinishAction
 )
-
-
-@dataclass(frozen=True)
-class ModelActionResponse:
-    thought: str
-    action: AgentAction
 
 
 @dataclass(frozen=True)
@@ -139,6 +153,13 @@ class FinishObservation:
     message: str
 
 
+@dataclass(frozen=True)
+class ToolErrorObservation:
+    kind: Literal["tool_error"]
+    tool: str
+    message: str
+
+
 # Unified envelope returned from one agent step.
 Observation: TypeAlias = (
     WriteFileObservation
@@ -148,6 +169,7 @@ Observation: TypeAlias = (
     | EditFileObservation
     | RunCommandObservation
     | FinishObservation
+    | ToolErrorObservation
 )
 
 # Status tokens are constrained to keep logger and callers consistent.

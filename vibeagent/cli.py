@@ -3,7 +3,7 @@ from __future__ import annotations
 from .agent import run_agent
 from .chat import run_chat
 from .commands import get_help_text, get_model_text, parse_local_command
-from .minimax import MiniMaxClient, MiniMaxHttpError
+from .providers import create_chat_client
 from .types import AgentStatus, ChatMessage, Observation
 
 
@@ -12,7 +12,7 @@ def main() -> int:
     print("VibeAgent v0.1")
     print("Type a programming task, or use /chat for daily conversation. Use /help for commands.")
 
-    client: MiniMaxClient | None = None
+    client = None
     mode = "code"
     chat_history: list[ChatMessage] = []
     while True:
@@ -52,7 +52,7 @@ def main() -> int:
 
         try:
             # Reuse client across turns so auth/model config is loaded once.
-            client = client or MiniMaxClient()
+            client = client or create_chat_client()
             if request_mode == "chat":
                 response = run_chat(task, client=client, history=chat_history)
                 chat_history.extend(
@@ -112,11 +112,12 @@ def indent(value: str, prefix: str) -> str:
 
 def format_error(error: Exception) -> str:
     # Expand 401 guidance; otherwise return raw error text.
-    if isinstance(error, MiniMaxHttpError) and error.status == 401:
+    if getattr(error, "status", None) == 401:
         return "\n".join(
             [
                 str(error),
-                "MiniMax rejected the configured API key. Check MINIMAX_API_KEY, MINIMAX_API, or minimax_api.",
+                "The configured model provider rejected the API key.",
+                "Check /model for the active provider and key source.",
                 "If you copied a value that starts with 'Bearer ', VibeAgent strips that prefix automatically.",
             ]
         )

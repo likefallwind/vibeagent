@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from .minimax import get_minimax_api_key_info_from_env, get_minimax_defaults
+from .providers import get_model_text as get_provider_model_text
 
 
 @dataclass(frozen=True)
@@ -40,7 +40,7 @@ def get_help_text() -> str:
         [
             "Commands:",
             "  /help   Show this help.",
-            "  /model  Show MiniMax model configuration.",
+            "  /model  Show model provider configuration.",
             "  /chat   Switch to daily conversation mode, or chat once with /chat <message>.",
             "  /code   Switch to coding mode, or run one coding task with /code <task>.",
             "  /exit   Exit the interactive prompt.",
@@ -53,13 +53,4 @@ def get_help_text() -> str:
 
 def get_model_text(env: dict[str, str | None] | None = None) -> str:
     # Show resolved model and key-source info without leaking secret material.
-    defaults = get_minimax_defaults(env)
-    api_key = get_minimax_api_key_info_from_env(env)
-    return "\n".join(
-        [
-            "MiniMax configuration:",
-            f"  model: {defaults['model']}",
-            f"  baseUrl: {defaults['base_url']}",
-            f"  apiKey: {'configured via ' + api_key.name if api_key else 'missing'}",
-        ]
-    )
+    return get_provider_model_text(env)
