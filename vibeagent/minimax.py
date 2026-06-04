@@ -7,6 +7,7 @@ from typing import Any, Mapping
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from .config import get_first_api_key, normalize_api_key, resolve_provider_config
 from .types import AssistantResponse, ChatMessage, ChatClient, ContentBlock
 
 
@@ -100,19 +101,18 @@ def get_minimax_api_key_from_env(env: Mapping[str, str | None] | None = None) ->
 
 def get_minimax_api_key_info_from_env(env: Mapping[str, str | None] | None = None) -> MiniMaxApiKeyInfo | None:
     source = env if env is not None else os.environ
-    for name in ("MINIMAX_API_KEY", "MINIMAX_API", "minimax_api"):
-        value = normalize_minimax_api_key(source.get(name))
-        if value:
-            return MiniMaxApiKeyInfo(name=name, value=value)
-    return None
+    key = get_first_api_key(source, ("MINIMAX_API_KEY", "MINIMAX_API", "minimax_api"))
+    return MiniMaxApiKeyInfo(name=key.name, value=key.value) if key else None
 
 
 def get_minimax_defaults(env: Mapping[str, str | None] | None = None) -> dict[str, str]:
     # Keep default endpoint aligned with MiniMax Anthropic-compatible API and a stable default model.
-    source = env if env is not None else os.environ
+    source = dict(os.environ if env is None else env)
+    source["VIBEAGENT_PROVIDER"] = "minimax"
+    config = resolve_provider_config(source)
     return {
-        "base_url": (source.get("MINIMAX_BASE_URL") or "https://api.minimaxi.com/anthropic").rstrip("/"),
-        "model": source.get("MINIMAX_MODEL") or "MiniMax-M2.7",
+        "base_url": config.base_url,
+        "model": config.model,
     }
 
 
@@ -208,15 +208,7 @@ def content_blocks_to_text(content: list[ContentBlock]) -> str:
 
 def normalize_minimax_api_key(value: str | None) -> str | None:
     # Normalize key input from env or config; return a clean token suitable for Authorization header.
-    if value is None:
-        return None
-    trimmed = value.strip()
-    if not trimmed:
-        return None
-    # Strip common copied form: "Bearer sk-...".
-    if trimmed.lower().startswith("bearer "):
-        return trimmed[7:].strip()
-    return trimmed
+    return normalize_api_key(value)
 
 
 def summarize(value: str, max_length: int = 500) -> str:

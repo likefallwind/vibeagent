@@ -112,6 +112,26 @@ class CliTests(unittest.TestCase):
         self.assertNotIn("List files .", output)
         self.assertNotIn("logger", run_agent.call_args.kwargs)
 
+    def test_main_handles_session_commands_without_creating_client(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("builtins.input", side_effect=["/sessions", "/session run-1", "/last", "/exit"]),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_sessions_text", return_value="Recent sessions:\n  run-1"),
+            patch("vibeagent.cli.get_session_text", return_value="Session: run-1") as get_session_text,
+            patch("vibeagent.cli.get_last_session_text", return_value="Session: run-1"),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Recent sessions:", output)
+        self.assertIn("Session: run-1", output)
+        get_session_text.assert_called_once_with("run-1")
+        create_chat_client.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

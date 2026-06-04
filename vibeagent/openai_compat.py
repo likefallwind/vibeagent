@@ -7,6 +7,7 @@ from typing import Any, Mapping
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from .config import get_first_api_key, normalize_api_key as normalize_config_api_key, resolve_provider_config
 from .types import AssistantResponse, ChatMessage, ChatClient, ContentBlock, ToolSpec
 
 
@@ -98,18 +99,17 @@ def get_openai_compatible_api_key_info_from_env(
     env: Mapping[str, str | None] | None = None,
 ) -> OpenAICompatibleApiKeyInfo | None:
     source = env if env is not None else os.environ
-    for name in ("OPENAI_COMPAT_API_KEY", "DEEPSEEK_API_KEY"):
-        value = normalize_api_key(source.get(name))
-        if value:
-            return OpenAICompatibleApiKeyInfo(name=name, value=value)
-    return None
+    key = get_first_api_key(source, ("OPENAI_COMPAT_API_KEY", "DEEPSEEK_API_KEY"))
+    return OpenAICompatibleApiKeyInfo(name=key.name, value=key.value) if key else None
 
 
 def get_openai_compatible_defaults(env: Mapping[str, str | None] | None = None) -> dict[str, str]:
-    source = env if env is not None else os.environ
+    source = dict(os.environ if env is None else env)
+    source["VIBEAGENT_PROVIDER"] = "deepseek"
+    config = resolve_provider_config(source)
     return {
-        "base_url": (source.get("OPENAI_COMPAT_BASE_URL") or source.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com").rstrip("/"),
-        "model": source.get("OPENAI_COMPAT_MODEL") or source.get("DEEPSEEK_MODEL") or "deepseek-chat",
+        "base_url": config.base_url,
+        "model": config.model,
     }
 
 
@@ -235,14 +235,7 @@ def parse_tool_call(value: Any) -> ContentBlock | None:
 
 
 def normalize_api_key(value: str | None) -> str | None:
-    if value is None:
-        return None
-    trimmed = value.strip()
-    if not trimmed:
-        return None
-    if trimmed.lower().startswith("bearer "):
-        return trimmed[7:].strip()
-    return trimmed
+    return normalize_config_api_key(value)
 
 
 def summarize(value: str, max_length: int = 500) -> str:

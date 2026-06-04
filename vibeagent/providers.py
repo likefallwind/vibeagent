@@ -1,64 +1,60 @@
 from __future__ import annotations
 
-import os
 from typing import Mapping
 
-from .minimax import MiniMaxClient, get_minimax_api_key_from_env, get_minimax_api_key_info_from_env, get_minimax_defaults
-from .openai_compat import (
-    OpenAICompatibleClient,
-    get_openai_compatible_api_key_from_env,
-    get_openai_compatible_api_key_info_from_env,
-    get_openai_compatible_defaults,
-)
+from .config import OPENAI_COMPATIBLE_PROVIDERS, get_provider_name as get_config_provider_name, resolve_provider_config
+from .minimax import MiniMaxClient, MissingMiniMaxApiKeyError
+from .openai_compat import MissingOpenAICompatibleApiKeyError, OpenAICompatibleClient
 from .types import ChatClient
 
 
 def get_provider_name(env: Mapping[str, str | None] | None = None) -> str:
-    source = env if env is not None else os.environ
-    return (source.get("VIBEAGENT_PROVIDER") or "minimax").strip().lower()
+    return get_config_provider_name(env)
 
 
 def create_chat_client(env: Mapping[str, str | None] | None = None) -> ChatClient:
-    provider = get_provider_name(env)
-    if provider == "minimax":
-        defaults = get_minimax_defaults(env)
+    config = resolve_provider_config(env)
+    if config.provider == "minimax":
+        if not config.api_key:
+            raise MissingMiniMaxApiKeyError()
         return MiniMaxClient(
-            api_key=get_minimax_api_key_from_env(env),
-            base_url=defaults["base_url"],
-            model=defaults["model"],
+            api_key=config.api_key,
+            base_url=config.base_url,
+            model=config.model,
         )
-    if provider in {"deepseek", "openai-compatible", "openai_compatible"}:
-        defaults = get_openai_compatible_defaults(env)
+    if config.provider in OPENAI_COMPATIBLE_PROVIDERS:
+        if not config.api_key:
+            raise MissingOpenAICompatibleApiKeyError()
         return OpenAICompatibleClient(
-            api_key=get_openai_compatible_api_key_from_env(env),
-            base_url=defaults["base_url"],
-            model=defaults["model"],
+            api_key=config.api_key,
+            base_url=config.base_url,
+            model=config.model,
         )
-    raise ValueError(f"Unsupported VIBEAGENT_PROVIDER: {provider}")
+    raise ValueError(f"Unsupported VIBEAGENT_PROVIDER: {config.provider}")
 
 
 def get_model_text(env: Mapping[str, str | None] | None = None) -> str:
-    provider = get_provider_name(env)
-    if provider == "minimax":
-        defaults = get_minimax_defaults(env)
-        api_key = get_minimax_api_key_info_from_env(env)
+    try:
+        config = resolve_provider_config(env)
+    except ValueError as error:
+        return str(error)
+
+    if config.provider == "minimax":
         return "\n".join(
             [
                 "Model provider: minimax",
-                f"  model: {defaults['model']}",
-                f"  baseUrl: {defaults['base_url']}",
-                f"  apiKey: {'configured via ' + api_key.name if api_key else 'missing'}",
+                f"  model: {config.model}",
+                f"  baseUrl: {config.base_url}",
+                f"  apiKey: {'configured via ' + config.api_key_source if config.api_key_source else 'missing'}",
             ]
         )
-    if provider in {"deepseek", "openai-compatible", "openai_compatible"}:
-        defaults = get_openai_compatible_defaults(env)
-        api_key = get_openai_compatible_api_key_info_from_env(env)
+    if config.provider in OPENAI_COMPATIBLE_PROVIDERS:
         return "\n".join(
             [
-                f"Model provider: {provider}",
-                f"  model: {defaults['model']}",
-                f"  baseUrl: {defaults['base_url']}",
-                f"  apiKey: {'configured via ' + api_key.name if api_key else 'missing'}",
+                f"Model provider: {config.provider}",
+                f"  model: {config.model}",
+                f"  baseUrl: {config.base_url}",
+                f"  apiKey: {'configured via ' + config.api_key_source if config.api_key_source else 'missing'}",
             ]
         )
-    return f"Unsupported VIBEAGENT_PROVIDER: {provider}"
+    return f"Unsupported VIBEAGENT_PROVIDER: {config.provider}"

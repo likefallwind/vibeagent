@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .agent import AgentResult, run_agent
 from .chat import run_chat
-from .commands import get_help_text, get_model_text, parse_local_command
+from .commands import get_help_text, get_last_session_text, get_model_text, get_session_text, get_sessions_text, parse_local_command
 from .providers import create_chat_client
 from .types import ApprovalDecision, ApprovalRequest, ChatMessage
 
@@ -33,6 +33,15 @@ def main() -> int:
             continue
         if command and command.type == "model":
             print(get_model_text())
+            continue
+        if command and command.type == "sessions":
+            print(get_sessions_text())
+            continue
+        if command and command.type == "session":
+            print(get_session_text(command.argument))
+            continue
+        if command and command.type == "last":
+            print(get_last_session_text())
             continue
         request_mode = mode
         if command and command.type == "chat":
