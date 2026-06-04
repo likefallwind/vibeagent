@@ -72,8 +72,9 @@ cd my-project
 python -m vibeagent
 ```
 
-VibeAgent may read, search, edit, and run commands in `my-project`. Session logs
-are stored under `.vibeagent/sessions/<session-id>/events.jsonl`.
+VibeAgent may read and search `my-project` directly. In the CLI, edits, writes,
+and command runs ask for approval before execution. Session logs are stored under
+`.vibeagent/sessions/<session-id>/events.jsonl`.
 
 Example task:
 
@@ -146,7 +147,11 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
 - Files are read and written only inside the current project directory.
 - `.git/` and `.vibeagent/` are protected from model file actions.
 - Commands run only from the current project directory.
+- File writes, file edits, and command runs require approval in the CLI before
+  execution. Library callers that do not provide an approval handler deny those
+  actions by default.
 - Some obviously dangerous commands, such as `sudo` and `rm -rf /`, are blocked.
+  They stay blocked even if a caller approves command execution.
 - Commands time out after 30 seconds by default.
 - V1 is a local development prototype, not a strong OS sandbox. It does not try
   to block every dangerous shell command.

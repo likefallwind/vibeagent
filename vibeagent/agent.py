@@ -9,13 +9,25 @@ from .actions import AGENT_TOOL_DEFINITIONS, ActionParseError, execute_action, p
 from .prompts import build_messages
 from .types import (
     AgentLogger,
+    ApprovalDecision,
+    ApprovalDeniedObservation,
+    ApprovalHandler,
+    ApprovalRequest,
     ChatClient,
     ChatMessage,
     ContentBlock,
+    EditFileAction,
+    FinishAction,
+    ListFilesAction,
     ListFilesObservation,
     Observation,
+    ReadFileAction,
     RunCommandObservation,
+    RunCommandAction,
+    SearchAction,
+    TaskStep,
     ToolErrorObservation,
+    WriteFileAction,
 )
 from .workspace import RunWorkspace, create_run_workspace
 
@@ -28,6 +40,7 @@ class AgentResult:
     run_id: str
     iterations: int
     observations: list[Observation]
+    steps: list[TaskStep]
 
 
 def run_agent(
@@ -38,10 +51,12 @@ def run_agent(
     command_timeout_ms: int = 30_000,
     logger: AgentLogger | None = None,
     workspace: RunWorkspace | None = None,
+    approval_handler: ApprovalHandler | None = None,
 ) -> AgentResult:
     # Start with an isolated run workspace for one task execution.
     current_workspace = workspace or create_run_workspace(base_dir)
     observations: list[Observation] = []
+    steps: list[TaskStep] = []
     messages = build_messages(task, current_workspace)
 
     for iteration in range(1, max_iterations + 1):
@@ -67,6 +82,7 @@ def run_agent(
                     run_id=current_workspace.run_id,
                     iterations=iteration,
                     observations=observations,
+                    steps=steps,
                 )
             return AgentResult(
                 success=False,
@@ -75,6 +91,7 @@ def run_agent(
                 run_id=current_workspace.run_id,
                 iterations=iteration,
                 observations=observations,
+                steps=steps,
             )
 
         tool_results: list[ContentBlock] = []
@@ -90,6 +107,7 @@ def run_agent(
 
             try:
                 action = parse_tool_action(tool_name, tool_input)
+                step = start_task_step(current_workspace, steps, iteration, action, logger)
                 log_action(logger, action)
                 repeated_list = find_repeated_list_observation(action, observations)
                 if repeated_list:
@@ -105,7 +123,36 @@ def run_agent(
                         ),
                     )
                 else:
-                    observation = execute_action(current_workspace, action, command_timeout_ms)
+                    approval_request = build_approval_request(action)
+                    if approval_request:
+                        append_session_event(
+                            current_workspace.session_dir,
+                            "approval_requested",
+                            {"iteration": iteration, "step": step, "request": approval_request},
+                        )
+                        if logger:
+                            logger("approval required", summarize_approval_request(approval_request))
+                        decision = request_approval(approval_handler, approval_request)
+                        append_session_event(
+                            current_workspace.session_dir,
+                            "approval_decision",
+                            {"iteration": iteration, "step": step, "decision": decision},
+                        )
+                        if logger:
+                            status = "approval approved" if decision.approved else "approval denied"
+                            logger(status, summarize_approval_decision(approval_request, decision))
+                        if not decision.approved:
+                            observation = ApprovalDeniedObservation(
+                                kind="approval_denied",
+                                action_type=approval_request.action_type,
+                                target=approval_request.target,
+                                message=decision.message or "Action was denied by approval policy.",
+                            )
+                        else:
+                            observation = execute_action(current_workspace, action, command_timeout_ms)
+                    else:
+                        observation = execute_action(current_workspace, action, command_timeout_ms)
+                complete_task_step(current_workspace, step, observation, iteration, logger)
             except ActionParseError as error:
                 observation = tool_error_observation(tool_name, error)
 
@@ -134,6 +181,7 @@ def run_agent(
                     run_id=current_workspace.run_id,
                     iterations=iteration,
                     observations=observations,
+                    steps=steps,
                 )
 
             if isinstance(observation, RunCommandObservation) and logger:
@@ -150,6 +198,7 @@ def run_agent(
         run_id=current_workspace.run_id,
         iterations=max_iterations,
         observations=observations,
+        steps=steps,
     )
 
 
@@ -169,6 +218,141 @@ def find_repeated_list_observation(action: object, observations: list[Observatio
         if observation.kind == "list_files" and observation.path == path:
             return observation
     return None
+
+
+def start_task_step(
+    workspace: RunWorkspace,
+    steps: list[TaskStep],
+    iteration: int,
+    action: object,
+    logger: AgentLogger | None,
+) -> TaskStep:
+    step = TaskStep(
+        id=len(steps) + 1,
+        label=build_step_label(action),
+        action_type=str(getattr(action, "type", "unknown")),
+        target=build_action_target(action),
+        status="running",
+    )
+    steps.append(step)
+    append_session_event(workspace.session_dir, "step_started", {"iteration": iteration, "step": step})
+    if logger:
+        logger("step started", step.label)
+    return step
+
+
+def complete_task_step(
+    workspace: RunWorkspace,
+    step: TaskStep,
+    observation: Observation,
+    iteration: int,
+    logger: AgentLogger | None,
+) -> None:
+    if observation.kind == "approval_denied":
+        step.status = "denied"
+    elif observation_failed(observation):
+        step.status = "failed"
+    else:
+        step.status = "completed"
+    step.message = observation_summary(observation)
+    append_session_event(workspace.session_dir, "step_completed", {"iteration": iteration, "step": step})
+    if logger:
+        logger("step completed", f"{step.label} -> {step.status}")
+
+
+def build_step_label(action: object) -> str:
+    if isinstance(action, WriteFileAction):
+        return f"Write {action.path}"
+    if isinstance(action, EditFileAction):
+        return f"Edit {action.path}"
+    if isinstance(action, RunCommandAction):
+        return f"Run {summarize(action.command, 80)}"
+    if isinstance(action, ReadFileAction):
+        return f"Read {action.path}"
+    if isinstance(action, SearchAction):
+        return f"Search {summarize(action.query, 80)}"
+    if isinstance(action, ListFilesAction):
+        return f"List files {action.path or '.'}"
+    if getattr(action, "type", None) == "list_files":
+        return f"List files {getattr(action, 'path', None) or '.'}"
+    if isinstance(action, FinishAction):
+        return "Finish task"
+    return str(getattr(action, "type", "Unknown action"))
+
+
+def build_action_target(action: object) -> str:
+    if isinstance(action, (WriteFileAction, EditFileAction, ReadFileAction)):
+        return action.path
+    if isinstance(action, RunCommandAction):
+        return action.command
+    if isinstance(action, SearchAction):
+        return action.query
+    if getattr(action, "type", None) == "list_files":
+        return str(getattr(action, "path", None) or ".")
+    if isinstance(action, FinishAction):
+        return "finish"
+    return ""
+
+
+def build_approval_request(action: object) -> ApprovalRequest | None:
+    if isinstance(action, WriteFileAction):
+        return ApprovalRequest(
+            action_type="write_file",
+            target=action.path,
+            risk="This will create or replace a file in the active project.",
+        )
+    if isinstance(action, EditFileAction):
+        return ApprovalRequest(
+            action_type="edit_file",
+            target=action.path,
+            risk="This will modify an existing file in the active project.",
+        )
+    if isinstance(action, RunCommandAction):
+        return ApprovalRequest(
+            action_type="run_command",
+            target=action.command,
+            risk="This will run a shell command from the active project directory.",
+        )
+    return None
+
+
+def request_approval(handler: ApprovalHandler | None, request: ApprovalRequest) -> ApprovalDecision:
+    if handler is None:
+        return ApprovalDecision(approved=False, message="No approval handler configured.")
+    return handler(request)
+
+
+def summarize_approval_request(request: ApprovalRequest) -> str:
+    return f"{request.action_type} {summarize(request.target, 120)}"
+
+
+def summarize_approval_decision(request: ApprovalRequest, decision: ApprovalDecision) -> str:
+    message = decision.message or ("approved" if decision.approved else "denied")
+    return f"{request.action_type} {summarize(request.target, 80)}: {summarize(message, 120)}"
+
+
+def observation_failed(observation: Observation) -> bool:
+    if observation.kind in {"tool_error", "approval_denied"}:
+        return True
+    if observation.kind == "write_file":
+        return not observation.ok
+    if observation.kind == "edit_file":
+        return not observation.ok
+    if observation.kind == "run_command":
+        return observation.result.exit_code != 0 or observation.result.timed_out
+    if observation.kind == "read_file":
+        return not observation.message.startswith("Read ")
+    if observation.kind == "search":
+        return not observation.message.startswith("Found ")
+    if observation.kind == "list_files":
+        return not observation.message.startswith(("Found ", "Already listed "))
+    return False
+
+
+def observation_summary(observation: Observation) -> str:
+    if observation.kind == "run_command":
+        return summarize_command(observation.result)
+    return str(getattr(observation, "message", observation.kind))
 
 
 def log_action(logger: AgentLogger | None, action: object) -> None:

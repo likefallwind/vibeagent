@@ -8,6 +8,8 @@ from typing import Any, Literal, Protocol, TypeAlias
 ContentBlock: TypeAlias = dict[str, Any]
 MessageContent: TypeAlias = str | list[ContentBlock]
 ToolSpec: TypeAlias = dict[str, Any]
+TaskStatus: TypeAlias = Literal["pending", "running", "completed", "failed", "denied"]
+ApprovalPolicy: TypeAlias = Literal["ask", "always_allow", "always_deny"]
 
 
 @dataclass(frozen=True)
@@ -98,6 +100,29 @@ class CommandResult:
     signal: str | None
 
 
+@dataclass
+class TaskStep:
+    id: int
+    label: str
+    action_type: str
+    target: str
+    status: TaskStatus = "pending"
+    message: str | None = None
+
+
+@dataclass(frozen=True)
+class ApprovalRequest:
+    action_type: Literal["write_file", "edit_file", "run_command"]
+    target: str
+    risk: str
+
+
+@dataclass(frozen=True)
+class ApprovalDecision:
+    approved: bool
+    message: str = ""
+
+
 @dataclass(frozen=True)
 class WriteFileObservation:
     kind: Literal["write_file"]
@@ -160,6 +185,14 @@ class ToolErrorObservation:
     message: str
 
 
+@dataclass(frozen=True)
+class ApprovalDeniedObservation:
+    kind: Literal["approval_denied"]
+    action_type: str
+    target: str
+    message: str
+
+
 # Unified envelope returned from one agent step.
 Observation: TypeAlias = (
     WriteFileObservation
@@ -170,7 +203,10 @@ Observation: TypeAlias = (
     | RunCommandObservation
     | FinishObservation
     | ToolErrorObservation
+    | ApprovalDeniedObservation
 )
+
+ApprovalHandler: TypeAlias = Callable[[ApprovalRequest], ApprovalDecision]
 
 # Status tokens are constrained to keep logger and callers consistent.
 AgentStatus: TypeAlias = Literal[
@@ -181,6 +217,11 @@ AgentStatus: TypeAlias = Literal[
     "editing file",
     "writing file",
     "running command",
+    "step started",
+    "step completed",
+    "approval required",
+    "approval approved",
+    "approval denied",
     "observed success",
     "observed failure",
     "finished",

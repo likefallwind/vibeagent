@@ -27,4 +27,4 @@ Recent history uses short subjects such as `tool call`, `修复`, and `Add archi
 
 ## Security & Configuration Tips
 
-Do not commit API keys. MiniMax is the default provider and reads `MINIMAX_API_KEY`, then `MINIMAX_API`, then `minimax_api`. OpenAI-compatible providers use `VIBEAGENT_PROVIDER`, `OPENAI_COMPAT_API_KEY`, `OPENAI_COMPAT_BASE_URL`, and `OPENAI_COMPAT_MODEL`. Preserve workspace safety rules: model file actions must stay inside the active project and must not mutate `.git/` or `.vibeagent/`.
+Do not commit API keys. MiniMax is the default provider and reads `MINIMAX_API_KEY`, then `MINIMAX_API`, then `minimax_api`. OpenAI-compatible providers use `VIBEAGENT_PROVIDER`, `OPENAI_COMPAT_API_KEY`, `OPENAI_COMPAT_BASE_URL`, and `OPENAI_COMPAT_MODEL`. Preserve workspace safety rules: model file actions must stay inside the active project and must not mutate `.git/` or `.vibeagent/`. File writes, file edits, and command runs require approval before execution; library calls without an approval handler deny those actions by default. High-risk commands such as `sudo` and `rm -rf /` remain blocked even when command execution is approved.

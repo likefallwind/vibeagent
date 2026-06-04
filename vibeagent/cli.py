@@ -4,7 +4,7 @@ from .agent import run_agent
 from .chat import run_chat
 from .commands import get_help_text, get_model_text, parse_local_command
 from .providers import create_chat_client
-from .types import AgentStatus, ChatMessage, Observation
+from .types import AgentStatus, ApprovalDecision, ApprovalRequest, ChatMessage, Observation, TaskStep
 
 
 def main() -> int:
@@ -64,12 +64,13 @@ def main() -> int:
                 print(f"\n{response}")
                 continue
 
-            result = run_agent(task, client=client, logger=log_status)
+            result = run_agent(task, client=client, logger=log_status, approval_handler=prompt_approval)
 
             print("\nSuccess" if result.success else "\nStopped")
             print(result.message)
             print(f"Project directory: {result.run_dir}")
             print(f"Iterations: {result.iterations}")
+            print_task_steps(result.steps)
             print_command_summary(result.observations)
         except Exception as error:
             print(f"\nError: {format_error(error)}")
@@ -78,6 +79,31 @@ def main() -> int:
 def log_status(status: AgentStatus, detail: str | None = None) -> None:
     # One-line status line keeps the interactive session legible during each iteration.
     print(f"[{status}]{' ' + detail if detail else ''}")
+
+
+def prompt_approval(request: ApprovalRequest) -> ApprovalDecision:
+    print(f"Action: {request.action_type}")
+    print(f"Target: {request.target}")
+    print(f"Risk: {request.risk}")
+    try:
+        answer = input("Approve? [y/N] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return ApprovalDecision(approved=False, message="Approval prompt interrupted.")
+
+    if answer in {"y", "yes"}:
+        return ApprovalDecision(approved=True, message="Approved by user.")
+    return ApprovalDecision(approved=False, message="Denied by user.")
+
+
+def print_task_steps(steps: list[TaskStep]) -> None:
+    if not steps:
+        return
+
+    print("Steps:")
+    for step in steps:
+        detail = f" - {step.message}" if step.message else ""
+        print(f"- {step.status}: {step.label}{detail}")
 
 
 def print_command_summary(observations: list[Observation]) -> None:
