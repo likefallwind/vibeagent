@@ -1,9 +1,13 @@
 import io
+import tempfile
 import unittest
-from unittest.mock import patch
+from contextlib import redirect_stdout
+from pathlib import Path
+from unittest.mock import Mock, patch
 
-from vibeagent.cli import format_error, prompt_approval
-from vibeagent.types import ApprovalRequest
+from vibeagent.agent import AgentResult
+from vibeagent.cli import format_error, main, prompt_approval
+from vibeagent.types import ApprovalRequest, TaskStep
 
 
 class Http401Error(Exception):
@@ -65,6 +69,48 @@ class CliTests(unittest.TestCase):
         self.assertIn("report.md", output)
         self.assertIn("create or replace", output)
         self.assertNotIn(large_file_content, output)
+
+    def test_main_prints_only_final_agent_message_for_code_tasks(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="这是最终回复。",
+                run_dir=Path(base),
+                run_id="test-run",
+                iterations=3,
+                observations=[],
+                steps=[
+                    TaskStep(
+                        id=1,
+                        label="List files .",
+                        action_type="list_files",
+                        target=".",
+                        status="completed",
+                        message="Found 0 file(s).",
+                    )
+                ],
+            )
+            stdout = io.StringIO()
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("builtins.input", side_effect=["现在用的什么 模型", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("这是最终回复。", output)
+        self.assertNotIn("[thinking]", output)
+        self.assertNotIn("Success", output)
+        self.assertNotIn("Project directory:", output)
+        self.assertNotIn("Iterations:", output)
+        self.assertNotIn("Steps:", output)
+        self.assertNotIn("List files .", output)
+        self.assertNotIn("logger", run_agent.call_args.kwargs)
 
 
 if __name__ == "__main__":
