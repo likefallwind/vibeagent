@@ -3,7 +3,7 @@
 VibeAgent v1 is a minimal command-line assistant written in Python. In coding mode,
 it treats the directory where you run it as the real project workspace, asks the
 configured model provider for a response, and lets the model call tools when it
-needs file or command access. Tool results are fed back to the model until the
+needs file, Python symbol, call-site, or command access. Tool results are fed back to the model until the
 task finishes or the iteration limit is reached. It also
 includes a daily conversation mode for normal chat that does not write files or
 run commands.
@@ -59,8 +59,10 @@ npm run dev
 ```
 
 Use `/help` to list local commands, `/model` to inspect the configured provider,
-model, base URL, and API key source, and `/exit` to leave the interactive prompt. Use
-`/chat` to switch to daily conversation mode and `/code` to switch back to coding
+model, base URL, and API key source, `/approval [ask|allow|deny]` to control
+the session approval policy, `/resume [run-id|off]` to carry a previous coding
+session summary into the next task or clear it, and `/exit` to leave the interactive prompt.
+Use `/chat` to switch to daily conversation mode and `/code` to switch back to coding
 mode. You can also send one-off messages with `/chat <message>` or one-off coding
 tasks with `/code <task>`. For generated code, the agent now prefers Python
 scripts unless the user asks for another language.
@@ -72,9 +74,26 @@ cd my-project
 python -m vibeagent
 ```
 
-VibeAgent may read and search `my-project` directly. In the CLI, edits, writes,
-and command runs ask for approval before execution. Session logs are stored under
-`.vibeagent/sessions/<session-id>/events.jsonl`.
+VibeAgent may read and search `my-project` directly, including bounded repository maps, directory tree inspection, path globbing,
+file metadata inspection, Python symbol outlines, Python syntax checks, Python dependency inspection, Python definition excerpts, Python call-site lookup, Python call graph inspection, Python reference lookup, focused single or batched line-range reads for large files, scoped exact or regex search, and dry-run patch validation. It can create or replace several text files in one approved batch, replace a unique Python class/function definition after syntax validation, replace exact text blocks or focused line ranges, insert text at a known line, or apply
+single-file or multi-file unified diff hunks to existing files, and can safely
+move or delete individual files. It can also inspect `git status`, structured changed-file summaries, `git diff`, and line-level `git blame`
+through read-only tools, and suggest relevant test/build commands from project
+metadata and current changes. `AGENTS.md` files are included in the coding prompt
+with their directory scopes, so nested instructions apply to files below that
+directory. Project commands from root or nested `package.json`, `pyproject.toml`,
+and `Makefile` files are shown as command hints with their `cwd`. Long-running commands can be started as background
+processes, inspected through captured stdout/stderr tails, and stopped by
+process id. In the CLI, edits, patches, writes, file lifecycle changes, and
+command starts/runs ask for approval before execution. Session logs are stored
+under `.vibeagent/sessions/<session-id>/events.jsonl`.
+For multi-step coding tasks, the model can also maintain a compact task plan;
+the latest plan is captured in the run result and session log. Each coding turn
+records its task, and the CLI automatically uses the latest run as compact
+context for the next coding turn; `/resume [run-id]` can switch that context to
+an older session, and `/resume off` clears it before a fresh task. The model can
+also inspect compact session summaries through a read-only tool without exposing
+full tool payloads.
 
 Example task:
 
@@ -109,26 +128,31 @@ CLI input
 Core modules:
 
 - `vibeagent/cli.py`: interactive command-line entry point. It handles local
-  commands such as `/help`, `/model`, `/chat`, `/code`, and `/exit`, then
-  delegates input to the selected mode.
+  commands such as `/help`, `/model`, `/approval`, `/resume`, `/chat`, `/code`, and
+  `/exit`, then delegates input to the selected mode.
 - `vibeagent/agent.py`: orchestrates the ReAct loop. It creates a run
   session, builds model prompts, executes optional tool calls, records events,
-  and stops on a plain text answer, a `finish` tool call, or the iteration limit.
+  tracks the model's latest task plan, and stops on a plain text answer, a
+  `finish` tool call, or the iteration limit.
 - `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
   model out of the coding-agent JSON action protocol.
 - `vibeagent/providers.py`: selects the configured model provider. MiniMax is
   the default; DeepSeek and other OpenAI-compatible APIs use the OpenAI-compatible adapter.
 - `vibeagent/prompts.py`: owns the system prompt and user message construction.
-  Each prompt includes the original task, current run directory, workspace file
-  snapshot, and previous observations.
+  Each prompt includes the original task, optional resumed session context,
+  scoped `AGENTS.md` instructions, discovered project command hints with
+  command `cwd`, current run directory, workspace file snapshot, and previous observations.
 - `vibeagent/minimax.py`: MiniMax API client. It reads API configuration from
   environment variables, converts VibeAgent's generic tool blocks to Anthropic-compatible
   MiniMax messages, and normalizes responses back into generic tool blocks.
 - `vibeagent/openai_compat.py`: OpenAI-compatible client used by DeepSeek-style
   chat completions APIs. It maps generic tool blocks to `tool_calls` and `role: tool` messages.
 - `vibeagent/actions.py`: defines the coding tools, validates tool inputs into
-  typed actions, and executes them. Supported actions include `list_files`, `read_file`, `search`,
-  `edit_file`, `write_file`, `run_command`, and `finish`.
+  typed actions, and executes them. Supported actions include `list_files`,
+  `list_tree`, `repo_map`, line-range `read_file`, batch `read_files`, batch line-range `read_file_ranges`, `file_info`, `python_symbols`, `python_check`, `python_dependencies`, `python_definitions`, `python_calls`, `python_call_graph`, `python_references`, path-pattern `glob`, scoped/regex/context `search`, `git_status`, `git_changes`, `review_changes`, `suggest_checks`, `git_diff`, `git_log`, `git_show`, `git_blame`, `session_summary`, `edit_file`,
+  `multi_edit_file`, `replace_python_definition`, `replace_lines`, `insert_lines`, `check_patch`, `check_patches`, `patch_file`, `patch_files`, `write_file`, `write_files`, `delete_file`, `move_file`,
+  `run_command`, `start_command`, `list_processes`, `read_process`,
+  `stop_process`, `update_plan`, and `finish`.
 - `vibeagent/workspace.py`: treats the current directory as the project root,
   creates `.vibeagent/sessions/<session-id>/`, resolves relative file paths,
   rejects path escapes, protects `.git/` and `.vibeagent/`, and builds project
@@ -146,10 +170,30 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
 
 - Files are read and written only inside the current project directory.
 - `.git/` and `.vibeagent/` are protected from model file actions.
+- Multi-file patches are atomic and currently only modify existing files; they
+  do not create, delete, or rename files.
+- File moves and deletes are limited to individual project files and still
+  honor `.git/` and `.vibeagent/` protection.
+- Reading or text-mutating binary/non-UTF-8 files fails as a tool result instead
+  of crashing; use `file_info` to inspect type and size before reading or editing.
+- `file_info`, `git_status`, `git_changes`, `review_changes`, `suggest_checks`,
+  `git_diff`, `git_log`, `git_show`, and `git_blame` are read-only and do not require approval.
+  Large `git_diff`, `git_show`, and `git_blame` outputs are bounded with truncation metadata.
 - Commands run only from the current project directory.
-- File writes, file edits, and command runs require approval in the CLI before
-  execution. Library callers that do not provide an approval handler deny those
-  actions by default.
+- `run_command` is for finite checks. `start_command` is for long-running
+  commands such as dev servers and watchers. Both accept an optional project-relative
+  `cwd` for package or service subdirectories; `run_command` also accepts an
+  optional per-command `timeout_ms` up to 10 minutes for slower tests or builds,
+  and bounded stdout/stderr via `max_output_chars` so large logs do not flood
+  the next model turn.
+  `list_processes` shows background command ids and status, `read_process`
+  returns recent captured output, and `stop_process` terminates only processes
+  VibeAgent started in the current Python runtime.
+- File writes, batch file writes, file edits, Python definition replacements, file patches, file moves, file deletes, and command
+  starts/runs require approval in the CLI before execution. Library callers that
+  do not provide an approval handler deny those actions by default.
+- CLI approval defaults to `ask`; `/approval allow` approves future actions in
+  the current session, and `/approval deny` rejects them without prompting.
 - Some obviously dangerous commands, such as `sudo` and `rm -rf /`, are blocked.
   They stay blocked even if a caller approves command execution.
 - Commands time out after 30 seconds by default.

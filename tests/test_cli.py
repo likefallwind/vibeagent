@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from vibeagent.agent import AgentResult
-from vibeagent.cli import format_error, main, prompt_approval
+from vibeagent.cli import build_approval_handler, format_error, handle_approval_command, main, prompt_approval
 from vibeagent.types import ApprovalRequest, TaskStep
 
 
@@ -70,6 +70,24 @@ class CliTests(unittest.TestCase):
         self.assertIn("create or replace", output)
         self.assertNotIn(large_file_content, output)
 
+    def test_handle_approval_command_shows_and_updates_policy(self) -> None:
+        self.assertEqual(handle_approval_command(None, "ask"), ("ask", "Approval policy: ask"))
+        self.assertEqual(handle_approval_command("allow", "ask"), ("allow", "Approval policy: allow"))
+        self.assertEqual(handle_approval_command("deny", "allow"), ("deny", "Approval policy: deny"))
+        self.assertEqual(handle_approval_command("bad", "deny"), ("deny", "Usage: /approval [ask|allow|deny]"))
+
+    def test_build_approval_handler_uses_policy_without_prompting(self) -> None:
+        request = ApprovalRequest(
+            action_type="run_command",
+            target="python -m unittest",
+            risk="This will run a shell command.",
+        )
+
+        self.assertTrue(build_approval_handler("allow")(request).approved)
+        denied = build_approval_handler("deny")(request)
+        self.assertFalse(denied.approved)
+        self.assertIn("Denied by policy", denied.message)
+
     def test_main_prints_only_final_agent_message_for_code_tasks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             result = AgentResult(
@@ -116,11 +134,12 @@ class CliTests(unittest.TestCase):
         stdout = io.StringIO()
 
         with (
-            patch("builtins.input", side_effect=["/sessions", "/session run-1", "/last", "/exit"]),
+            patch("builtins.input", side_effect=["/sessions", "/session run-1", "/last", "/resume run-1", "/exit"]),
             patch("vibeagent.cli.create_chat_client") as create_chat_client,
             patch("vibeagent.cli.get_sessions_text", return_value="Recent sessions:\n  run-1"),
             patch("vibeagent.cli.get_session_text", return_value="Session: run-1") as get_session_text,
             patch("vibeagent.cli.get_last_session_text", return_value="Session: run-1"),
+            patch("vibeagent.cli.get_resume_context", return_value=("run-1", "context", "Resume context loaded from session run-1.")),
             redirect_stdout(stdout),
         ):
             exit_code = main()
@@ -129,8 +148,104 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("Recent sessions:", output)
         self.assertIn("Session: run-1", output)
+        self.assertIn("Resume context loaded", output)
         get_session_text.assert_called_once_with("run-1")
         create_chat_client.assert_not_called()
+
+    def test_main_passes_resume_context_to_agent(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="new-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            stdout = io.StringIO()
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("builtins.input", side_effect=["/resume run-1", "continue task", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.get_resume_context", side_effect=[
+                    ("run-1", "previous context", "Resume context loaded from session run-1."),
+                    ("new-run", "new context", "Resume context loaded from session new-run."),
+                ]),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.kwargs["prior_context"], "previous context")
+
+    def test_main_resume_off_clears_context_before_next_agent_run(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="new-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            stdout = io.StringIO()
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("builtins.input", side_effect=["/resume run-1", "/resume off", "fresh task", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch(
+                    "vibeagent.cli.get_resume_context",
+                    side_effect=[
+                        ("run-1", "previous context", "Resume context loaded from session run-1."),
+                        (None, None, "Resume context cleared."),
+                        ("new-run", "new context", "Resume context loaded from session new-run."),
+                    ],
+                ),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertIsNone(run_agent.call_args.kwargs["prior_context"])
+        self.assertIn("Resume context cleared.", stdout.getvalue())
+
+    def test_main_updates_approval_policy_and_passes_handler_to_agent(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="test-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            stdout = io.StringIO()
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("builtins.input", side_effect=["/approval allow", "write file", "/approval deny", "run command", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main()
+
+        self.assertEqual(exit_code, 0)
+        output = stdout.getvalue()
+        self.assertIn("Approval policy: allow", output)
+        self.assertIn("Approval policy: deny", output)
+        first_handler = run_agent.call_args_list[0].kwargs["approval_handler"]
+        second_handler = run_agent.call_args_list[1].kwargs["approval_handler"]
+        request = ApprovalRequest(action_type="write_file", target="note.txt", risk="write")
+        self.assertTrue(first_handler(request).approved)
+        self.assertFalse(second_handler(request).approved)
 
 
 if __name__ == "__main__":

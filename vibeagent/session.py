@@ -32,6 +32,7 @@ class SessionSummary:
     event_count: int
     malformed_count: int
     iterations: int
+    task: str | None
     tool_calls: list[str]
     approvals_requested: int
     approvals_approved: int
@@ -66,12 +67,17 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
     approvals_requested = 0
     approvals_approved = 0
     approvals_denied = 0
+    task: str | None = None
     final_message: str | None = None
     completed = False
     failed = False
 
     for event in valid_events:
-        if event.type == "tool_call":
+        if event.type == "task":
+            event_task = event.payload.get("task")
+            if isinstance(event_task, str):
+                task = event_task
+        elif event.type == "tool_call":
             name = event.payload.get("name")
             if isinstance(name, str):
                 tool_calls.append(name)
@@ -111,6 +117,7 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
         event_count=len(valid_events),
         malformed_count=malformed_count,
         iterations=iterations,
+        task=task,
         tool_calls=tool_calls,
         approvals_requested=approvals_requested,
         approvals_approved=approvals_approved,
@@ -159,8 +166,31 @@ def format_session_summary(summary: SessionSummary) -> str:
     ]
     if summary.malformed_count:
         lines.append(f"  malformedRows: {summary.malformed_count}")
+    if summary.task:
+        lines.append(f"  task: {compact(summary.task, 240)}")
     if summary.final_message:
         lines.append(f"  final: {compact(summary.final_message, 240)}")
+    return "\n".join(lines)
+
+
+def build_session_resume_context(project_root: str | Path, run_id: str) -> str:
+    summary = summarize_session(project_root, run_id)
+    if not summary.exists:
+        raise ValueError(f"Session not found: {run_id}")
+
+    tool_counts = count_names(summary.tool_calls)
+    tools = ", ".join(f"{name} x{count}" if count > 1 else name for name, count in tool_counts.items()) or "none"
+    status = "completed" if summary.completed else "failed" if summary.failed else "incomplete"
+    lines = [
+        f"session: {summary.run_id}",
+        f"status: {status}",
+        f"iterations: {summary.iterations}",
+        f"tools: {tools}",
+    ]
+    if summary.task:
+        lines.append(f"task: {compact(summary.task, 1000)}")
+    if summary.final_message:
+        lines.append(f"final: {compact(summary.final_message, 1200)}")
     return "\n".join(lines)
 
 
@@ -268,7 +298,57 @@ def is_failed_tool_result(result: dict[str, Any]) -> bool:
     kind = result.get("kind")
     if kind in {"tool_error", "approval_denied"}:
         return True
-    if kind in {"write_file", "edit_file"}:
+    if kind in {
+        "write_file",
+        "write_files",
+        "edit_file",
+        "multi_edit_file",
+        "replace_python_definition",
+        "replace_lines",
+        "insert_lines",
+        "check_patch",
+        "check_patches",
+        "patch_file",
+        "patch_files",
+        "delete_file",
+        "move_file",
+    }:
+        return result.get("ok") is False
+    if kind == "read_files":
+        files = result.get("files")
+        return isinstance(files, list) and any(isinstance(file, dict) and file.get("ok") is False for file in files)
+    if kind == "read_file_ranges":
+        ranges = result.get("ranges")
+        return isinstance(ranges, list) and any(isinstance(item, dict) and item.get("ok") is False for item in ranges)
+    if kind == "file_info":
+        files = result.get("files")
+        return isinstance(files, list) and any(isinstance(file, dict) and file.get("ok") is False for file in files)
+    if kind == "repo_map":
+        return result.get("ok") is False
+    if kind == "python_symbols":
+        files = result.get("files")
+        return isinstance(files, list) and any(isinstance(file, dict) and file.get("ok") is False for file in files)
+    if kind == "python_check":
+        return result.get("ok") is False
+    if kind == "python_dependencies":
+        return result.get("ok") is False
+    if kind == "python_definitions":
+        return result.get("ok") is False
+    if kind == "python_calls":
+        return result.get("ok") is False
+    if kind == "python_call_graph":
+        return result.get("ok") is False
+    if kind == "python_references":
+        return result.get("ok") is False
+    if kind in {"git_status", "git_changes", "review_changes", "suggest_checks", "git_diff", "git_log", "git_show", "git_blame"}:
+        return result.get("ok") is False
+    if kind == "session_summary":
+        return result.get("ok") is False
+    if kind == "glob":
+        return result.get("ok") is False
+    if kind == "list_tree":
+        return result.get("ok") is False
+    if kind in {"start_command", "read_process", "stop_process"}:
         return result.get("ok") is False
     if kind == "run_command":
         command_result = result.get("result")

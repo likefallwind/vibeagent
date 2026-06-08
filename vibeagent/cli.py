@@ -2,9 +2,17 @@ from __future__ import annotations
 
 from .agent import AgentResult, run_agent
 from .chat import run_chat
-from .commands import get_help_text, get_last_session_text, get_model_text, get_session_text, get_sessions_text, parse_local_command
+from .commands import (
+    get_help_text,
+    get_last_session_text,
+    get_model_text,
+    get_resume_context,
+    get_session_text,
+    get_sessions_text,
+    parse_local_command,
+)
 from .providers import create_chat_client
-from .types import ApprovalDecision, ApprovalRequest, ChatMessage
+from .types import ApprovalDecision, ApprovalHandler, ApprovalPolicy, ApprovalRequest, ChatMessage
 
 
 def main() -> int:
@@ -14,7 +22,9 @@ def main() -> int:
 
     client = None
     mode = "code"
+    approval_policy: ApprovalPolicy = "ask"
     chat_history: list[ChatMessage] = []
+    resume_context: str | None = None
     while True:
         try:
             task = input("\nvibeagent> ").strip()
@@ -34,6 +44,10 @@ def main() -> int:
         if command and command.type == "model":
             print(get_model_text())
             continue
+        if command and command.type == "approval":
+            approval_policy, text = handle_approval_command(command.argument, approval_policy)
+            print(text)
+            continue
         if command and command.type == "sessions":
             print(get_sessions_text())
             continue
@@ -42,6 +56,11 @@ def main() -> int:
             continue
         if command and command.type == "last":
             print(get_last_session_text())
+            continue
+        if command and command.type == "resume":
+            _, context, text = get_resume_context(command.argument)
+            resume_context = context
+            print(text)
             continue
         request_mode = mode
         if command and command.type == "chat":
@@ -73,8 +92,16 @@ def main() -> int:
                 print(f"\n{response}")
                 continue
 
-            result = run_agent(task, client=client, approval_handler=prompt_approval)
+            result = run_agent(
+                task,
+                client=client,
+                approval_handler=build_approval_handler(approval_policy),
+                prior_context=resume_context,
+            )
             print_agent_result(result)
+            _, next_context, _ = get_resume_context(result.run_id)
+            if next_context:
+                resume_context = next_context
         except Exception as error:
             print(f"\nError: {format_error(error)}")
 
@@ -99,6 +126,24 @@ def prompt_approval(request: ApprovalRequest) -> ApprovalDecision:
     if answer in {"y", "yes"}:
         return ApprovalDecision(approved=True, message="Approved by user.")
     return ApprovalDecision(approved=False, message="Denied by user.")
+
+
+def handle_approval_command(argument: str | None, current: ApprovalPolicy) -> tuple[ApprovalPolicy, str]:
+    if not argument:
+        return current, f"Approval policy: {current}"
+    requested = argument.strip().lower()
+    if requested not in {"ask", "allow", "deny"}:
+        return current, "Usage: /approval [ask|allow|deny]"
+    policy = requested
+    return policy, f"Approval policy: {policy}"
+
+
+def build_approval_handler(policy: ApprovalPolicy) -> ApprovalHandler:
+    if policy == "allow":
+        return lambda request: ApprovalDecision(approved=True, message=f"Approved by policy for {request.action_type}.")
+    if policy == "deny":
+        return lambda request: ApprovalDecision(approved=False, message=f"Denied by policy for {request.action_type}.")
+    return prompt_approval
 
 
 def format_error(error: Exception) -> str:
