@@ -1,6 +1,6 @@
 import unittest
 
-from vibeagent.openai_compat import build_request_body, extract_content, get_openai_compatible_defaults
+from vibeagent.openai_compat import build_request_body, extract_content, extract_usage, get_openai_compatible_defaults
 from vibeagent.types import ChatMessage
 
 
@@ -82,6 +82,22 @@ class OpenAICompatibleTests(unittest.TestCase):
             ),
             [{"type": "tool_call", "id": "call_1", "name": "read_file", "input": "not json"}],
         )
+
+    def test_extract_usage_reads_openai_token_usage(self) -> None:
+        usage = extract_usage(
+            {
+                "usage": {
+                    "prompt_tokens": 13,
+                    "completion_tokens": 8,
+                    "total_tokens": 21,
+                }
+            }
+        )
+
+        self.assertIsNotNone(usage)
+        self.assertEqual(usage.input_tokens, 13)
+        self.assertEqual(usage.output_tokens, 8)
+        self.assertEqual(usage.total_tokens, 21)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from vibeagent.minimax import (
     build_request_body,
     content_blocks_to_text,
     extract_content,
+    extract_usage,
     get_minimax_api_key_from_env,
     get_minimax_api_key_info_from_env,
     get_minimax_defaults,
@@ -146,6 +147,25 @@ class MiniMaxTests(unittest.TestCase):
             extract_content({"content": [{"type": "tool_use", "id": "toolu_1", "name": "read_file", "input": "bad"}]}),
             [{"type": "tool_call", "id": "toolu_1", "name": "read_file", "input": "bad"}],
         )
+
+    def test_extract_usage_reads_anthropic_token_usage(self) -> None:
+        usage = extract_usage(
+            {
+                "usage": {
+                    "input_tokens": 11,
+                    "output_tokens": 7,
+                    "cache_creation_input_tokens": 3,
+                    "cache_read_input_tokens": 5,
+                }
+            }
+        )
+
+        self.assertIsNotNone(usage)
+        self.assertEqual(usage.input_tokens, 11)
+        self.assertEqual(usage.output_tokens, 7)
+        self.assertEqual(usage.total_tokens, 18)
+        self.assertEqual(usage.cache_creation_tokens, 3)
+        self.assertEqual(usage.cache_read_tokens, 5)
 
 
 if __name__ == "__main__":

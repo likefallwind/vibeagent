@@ -8,7 +8,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from .config import get_first_api_key, normalize_api_key as normalize_config_api_key, resolve_provider_config
-from .types import AssistantResponse, ChatMessage, ChatClient, ContentBlock, ToolSpec
+from .types import AssistantResponse, ChatMessage, ChatClient, ContentBlock, ModelUsage, ToolSpec
 
 
 class MissingOpenAICompatibleApiKeyError(RuntimeError):
@@ -87,7 +87,7 @@ class OpenAICompatibleClient(ChatClient):
             raise OpenAICompatibleResponseError(
                 f"OpenAI-compatible response did not include structured content: {summarize(text)}"
             )
-        return AssistantResponse(content=content, raw=data)
+        return AssistantResponse(content=content, raw=data, usage=extract_usage(data))
 
 
 def get_openai_compatible_api_key_from_env(env: Mapping[str, str | None] | None = None) -> str | None:
@@ -214,6 +214,26 @@ def extract_content(data: Any) -> list[ContentBlock] | None:
             if block:
                 blocks.append(block)
     return blocks or None
+
+
+def extract_usage(data: Any) -> ModelUsage | None:
+    if not isinstance(data, dict):
+        return None
+    usage = data.get("usage")
+    if not isinstance(usage, dict):
+        return None
+    input_tokens = parse_nonnegative_int(usage.get("prompt_tokens"))
+    output_tokens = parse_nonnegative_int(usage.get("completion_tokens"))
+    total_tokens = parse_nonnegative_int(usage.get("total_tokens"))
+    if total_tokens is None and input_tokens is not None and output_tokens is not None:
+        total_tokens = input_tokens + output_tokens
+    if all(value is None for value in (input_tokens, output_tokens, total_tokens)):
+        return None
+    return ModelUsage(input_tokens=input_tokens, output_tokens=output_tokens, total_tokens=total_tokens)
+
+
+def parse_nonnegative_int(value: Any) -> int | None:
+    return value if isinstance(value, int) and value >= 0 else None
 
 
 def parse_tool_call(value: Any) -> ContentBlock | None:

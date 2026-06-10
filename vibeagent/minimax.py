@@ -8,7 +8,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from .config import get_first_api_key, normalize_api_key, resolve_provider_config
-from .types import AssistantResponse, ChatMessage, ChatClient, ContentBlock
+from .types import AssistantResponse, ChatMessage, ChatClient, ContentBlock, ModelUsage
 
 
 class MissingMiniMaxApiKeyError(RuntimeError):
@@ -91,7 +91,7 @@ class MiniMaxClient(ChatClient):
         if not content:
             raise MiniMaxResponseError(f"MiniMax response did not include structured content: {summarize(text)}")
 
-        return AssistantResponse(content=content, raw=data)
+        return AssistantResponse(content=content, raw=data, usage=extract_usage(data))
 
 
 def get_minimax_api_key_from_env(env: Mapping[str, str | None] | None = None) -> str | None:
@@ -200,6 +200,34 @@ def extract_content(data: Any) -> list[ContentBlock] | None:
         return [{"type": "text", "text": message["content"]}]
     text = first.get("text")
     return [{"type": "text", "text": text}] if isinstance(text, str) else None
+
+
+def extract_usage(data: Any) -> ModelUsage | None:
+    if not isinstance(data, dict):
+        return None
+    usage = data.get("usage")
+    if not isinstance(usage, dict):
+        return None
+    input_tokens = parse_nonnegative_int(usage.get("input_tokens"))
+    output_tokens = parse_nonnegative_int(usage.get("output_tokens"))
+    total_tokens = parse_nonnegative_int(usage.get("total_tokens"))
+    if total_tokens is None and input_tokens is not None and output_tokens is not None:
+        total_tokens = input_tokens + output_tokens
+    cache_creation_tokens = parse_nonnegative_int(usage.get("cache_creation_input_tokens"))
+    cache_read_tokens = parse_nonnegative_int(usage.get("cache_read_input_tokens"))
+    if all(value is None for value in (input_tokens, output_tokens, total_tokens, cache_creation_tokens, cache_read_tokens)):
+        return None
+    return ModelUsage(
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=total_tokens,
+        cache_creation_tokens=cache_creation_tokens,
+        cache_read_tokens=cache_read_tokens,
+    )
+
+
+def parse_nonnegative_int(value: Any) -> int | None:
+    return value if isinstance(value, int) and value >= 0 else None
 
 
 def content_blocks_to_text(content: list[ContentBlock]) -> str:
