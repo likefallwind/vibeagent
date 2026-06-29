@@ -46,6 +46,7 @@ class ChatClient(Protocol):
         tools: list[ToolSpec] | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.2,
+        timeout_ms: int = 120_000,
     ) -> AssistantResponse:
         ...
 
@@ -115,6 +116,56 @@ class ReadFileAction:
 
 
 @dataclass(frozen=True)
+class ReadFileContextAction:
+    type: Literal["read_file_context"]
+    path: str
+    line: int
+    context_lines: int = 20
+    max_bytes: int = 20_000
+
+
+@dataclass(frozen=True)
+class ReadFileContextItem:
+    path: str
+    line: int
+    context_lines: int = 20
+
+
+@dataclass(frozen=True)
+class ReadFileContextsAction:
+    type: Literal["read_file_contexts"]
+    contexts: list[ReadFileContextItem]
+    max_bytes_per_context: int = 20_000
+
+
+@dataclass(frozen=True)
+class OutputContextsAction:
+    type: Literal["output_contexts"]
+    text: str
+    context_lines: int = 5
+    max_contexts: int = 20
+    max_bytes_per_context: int = 20_000
+
+
+@dataclass(frozen=True)
+class OutputDiagnosticsAction:
+    type: Literal["output_diagnostics"]
+    text: str
+    context_lines: int = 2
+    max_diagnostics: int = 50
+    max_contexts: int = 20
+    max_bytes_per_context: int = 20_000
+
+
+@dataclass(frozen=True)
+class TailFileAction:
+    type: Literal["tail_file"]
+    path: str
+    line_count: int = 80
+    max_bytes: int = 20_000
+
+
+@dataclass(frozen=True)
 class ReadFilesAction:
     type: Literal["read_files"]
     paths: list[str]
@@ -132,11 +183,18 @@ class ReadFileRangeItem:
 class ReadFileRangesAction:
     type: Literal["read_file_ranges"]
     ranges: list[ReadFileRangeItem]
+    max_bytes_per_range: int = 20_000
 
 
 @dataclass(frozen=True)
 class FileInfoAction:
     type: Literal["file_info"]
+    paths: list[str]
+
+
+@dataclass(frozen=True)
+class ImageInfoAction:
+    type: Literal["image_info"]
     paths: list[str]
 
 
@@ -245,12 +303,42 @@ class CodeReferencesAction:
 
 
 @dataclass(frozen=True)
+class CodeReferenceContextsAction:
+    type: Literal["code_reference_contexts"]
+    symbol: str
+    path: str | None = None
+    max_matches: int = 50
+    context_lines: int = 3
+    max_bytes_per_context: int = 20_000
+
+
+@dataclass(frozen=True)
 class CodeDefinitionsAction:
     type: Literal["code_definitions"]
     symbol: str
     path: str | None = None
     max_matches: int = 50
     max_lines: int = 80
+
+
+@dataclass(frozen=True)
+class CodeRenamePreviewAction:
+    type: Literal["code_rename_preview"]
+    symbol: str
+    new_name: str
+    path: str | None = None
+    max_files: int = 100
+    max_replacements: int = 500
+
+
+@dataclass(frozen=True)
+class CodeRenameAction:
+    type: Literal["code_rename"]
+    symbol: str
+    new_name: str
+    path: str | None = None
+    max_files: int = 100
+    max_replacements: int = 2000
 
 
 @dataclass(frozen=True)
@@ -303,6 +391,16 @@ class PythonReferencesAction:
 
 
 @dataclass(frozen=True)
+class PythonReferenceContextsAction:
+    type: Literal["python_reference_contexts"]
+    symbol: str
+    path: str | None = None
+    max_matches: int = 50
+    context_lines: int = 3
+    max_bytes_per_context: int = 20_000
+
+
+@dataclass(frozen=True)
 class PythonRenamePreviewAction:
     type: Literal["python_rename_preview"]
     symbol: str
@@ -334,6 +432,18 @@ class SearchAction:
 
 
 @dataclass(frozen=True)
+class SearchContextsAction:
+    type: Literal["search_contexts"]
+    query: str
+    path: str | None = None
+    regex: bool = False
+    case_sensitive: bool = True
+    max_matches: int = 20
+    context_lines: int = 3
+    max_bytes_per_context: int = 20_000
+
+
+@dataclass(frozen=True)
 class GlobAction:
     type: Literal["glob"]
     pattern: str
@@ -343,6 +453,14 @@ class GlobAction:
 @dataclass(frozen=True)
 class GitStatusAction:
     type: Literal["git_status"]
+
+
+@dataclass(frozen=True)
+class GitConflictsAction:
+    type: Literal["git_conflicts"]
+    path: str | None = None
+    max_markers: int = 200
+    max_files: int = 5000
 
 
 @dataclass(frozen=True)
@@ -519,6 +637,27 @@ class SuggestChecksAction:
 
 
 @dataclass(frozen=True)
+class CheckSuggestedChecksAction:
+    type: Literal["check_suggested_checks"]
+    max_commands: int = 10
+
+
+@dataclass(frozen=True)
+class RunSuggestedChecksAction:
+    type: Literal["run_suggested_checks"]
+    max_commands: int = 10
+    timeout_ms: int | None = None
+    max_output_chars: int | None = None
+    stop_on_failure: bool = True
+    extract_output_contexts: bool = False
+    extract_output_diagnostics: bool = False
+    context_lines: int = 5
+    max_diagnostics: int = 50
+    max_contexts: int = 20
+    max_bytes_per_context: int = 20_000
+
+
+@dataclass(frozen=True)
 class ProjectCommandsAction:
     type: Literal["project_commands"]
     max_commands: int = 100
@@ -526,10 +665,69 @@ class ProjectCommandsAction:
 
 
 @dataclass(frozen=True)
+class RelatedTestsAction:
+    type: Literal["related_tests"]
+    paths: list[str] | None = None
+    max_paths: int = 100
+    max_candidates: int = 200
+
+
+@dataclass(frozen=True)
+class FocusedTestCommandsAction:
+    type: Literal["focused_test_commands"]
+    paths: list[str] | None = None
+    max_paths: int = 100
+    max_candidates: int = 200
+    max_commands: int = 50
+
+
+@dataclass(frozen=True)
+class CheckFocusedTestCommandsAction:
+    type: Literal["check_focused_test_commands"]
+    paths: list[str] | None = None
+    max_paths: int = 100
+    max_candidates: int = 200
+    max_commands: int = 10
+
+
+@dataclass(frozen=True)
+class RunFocusedTestCommandsAction:
+    type: Literal["run_focused_test_commands"]
+    paths: list[str] | None = None
+    max_paths: int = 100
+    max_candidates: int = 200
+    max_commands: int = 10
+    timeout_ms: int | None = None
+    max_output_chars: int | None = None
+    stop_on_failure: bool = True
+    extract_output_contexts: bool = False
+    extract_output_diagnostics: bool = False
+    context_lines: int = 5
+    max_diagnostics: int = 50
+    max_contexts: int = 20
+    max_bytes_per_context: int = 20_000
+
+
+@dataclass(frozen=True)
 class ProjectManifestsAction:
     type: Literal["project_manifests"]
     max_files: int = 30
     max_items: int = 500
+
+
+@dataclass(frozen=True)
+class ProjectInstructionsAction:
+    type: Literal["project_instructions"]
+    max_files: int = 20
+    max_bytes: int = 12_000
+
+
+@dataclass(frozen=True)
+class ProjectTodosAction:
+    type: Literal["project_todos"]
+    path: str | None = None
+    max_items: int = 100
+    max_files: int = 1000
 
 
 @dataclass(frozen=True)
@@ -554,6 +752,12 @@ class RunCommandItem:
     timeout_ms: int | None = None
     cwd: str | None = None
     max_output_chars: int | None = None
+    extract_output_contexts: bool = False
+    extract_output_diagnostics: bool = False
+    context_lines: int = 5
+    max_diagnostics: int = 50
+    max_contexts: int = 20
+    max_bytes_per_context: int = 20_000
 
 
 @dataclass(frozen=True)
@@ -588,6 +792,14 @@ class HttpCheckAction:
 
 
 @dataclass(frozen=True)
+class HttpFetchAction:
+    type: Literal["http_fetch"]
+    url: str
+    timeout_ms: int | None = None
+    max_body_chars: int | None = None
+
+
+@dataclass(frozen=True)
 class EnvironmentInfoAction:
     type: Literal["environment_info"]
 
@@ -607,6 +819,16 @@ class GitDiffHunksAction:
     staged: bool = False
     max_hunks: int = 80
     max_lines_per_hunk: int = 80
+
+
+@dataclass(frozen=True)
+class GitDiffContextsAction:
+    type: Literal["git_diff_contexts"]
+    path: str | None = None
+    staged: bool = False
+    context_lines: int = 5
+    max_hunks: int = 80
+    max_bytes_per_context: int = 20_000
 
 
 @dataclass(frozen=True)
@@ -638,6 +860,173 @@ class SessionSummaryAction:
     type: Literal["session_summary"]
     run_id: str | None = None
     recent_limit: int = 5
+
+
+@dataclass(frozen=True)
+class SessionPlanAction:
+    type: Literal["session_plan"]
+    run_id: str | None = None
+
+
+@dataclass(frozen=True)
+class SessionTranscriptAction:
+    type: Literal["session_transcript"]
+    run_id: str | None = None
+    max_events: int = 80
+    max_text: int = 500
+
+
+@dataclass(frozen=True)
+class SessionSearchAction:
+    type: Literal["session_search"]
+    query: str
+    run_id: str | None = None
+    max_matches: int = 20
+    max_text: int = 500
+    case_sensitive: bool = False
+
+
+@dataclass(frozen=True)
+class SessionCommandsAction:
+    type: Literal["session_commands"]
+    run_id: str | None = None
+    max_commands: int = 20
+    max_output_chars: int = 2_000
+
+
+@dataclass(frozen=True)
+class SessionOutputContextsAction:
+    type: Literal["session_output_contexts"]
+    run_id: str | None = None
+    max_commands: int = 20
+    max_output_chars: int = 20_000
+    context_lines: int = 5
+    max_contexts: int = 20
+    max_bytes_per_context: int = 20_000
+
+
+@dataclass(frozen=True)
+class SessionOutputDiagnosticsAction:
+    type: Literal["session_output_diagnostics"]
+    run_id: str | None = None
+    max_commands: int = 20
+    max_output_chars: int = 20_000
+    context_lines: int = 2
+    max_diagnostics: int = 50
+    max_contexts: int = 20
+    max_bytes_per_context: int = 20_000
+
+
+@dataclass(frozen=True)
+class SessionFilesAction:
+    type: Literal["session_files"]
+    run_id: str | None = None
+    max_files: int = 100
+
+
+@dataclass(frozen=True)
+class SessionFailuresAction:
+    type: Literal["session_failures"]
+    run_id: str | None = None
+    max_failures: int = 50
+    max_text: int = 500
+
+
+@dataclass(frozen=True)
+class SessionVerificationAction:
+    type: Literal["session_verification"]
+    run_id: str | None = None
+    max_checks: int = 50
+
+
+@dataclass(frozen=True)
+class SessionAuditAction:
+    type: Literal["session_audit"]
+    run_id: str | None = None
+    max_failures: int = 10
+    max_files: int = 20
+    max_commands: int = 10
+    max_checks: int = 50
+    max_text: int = 300
+
+
+@dataclass(frozen=True)
+class SessionHandoffAction:
+    type: Literal["session_handoff"]
+    run_id: str | None = None
+    max_failures: int = 20
+    max_files: int = 50
+    max_commands: int = 10
+    max_checks: int = 50
+    max_output_chars: int = 1_000
+    max_text: int = 500
+
+
+@dataclass(frozen=True)
+class CheckpointCreateAction:
+    type: Literal["checkpoint_create"]
+    label: str | None = None
+
+
+@dataclass(frozen=True)
+class CheckpointListAction:
+    type: Literal["checkpoint_list"]
+    max_entries: int = 20
+
+
+@dataclass(frozen=True)
+class CheckpointShowAction:
+    type: Literal["checkpoint_show"]
+    checkpoint_id: str
+
+
+@dataclass(frozen=True)
+class CheckpointDiffAction:
+    type: Literal["checkpoint_diff"]
+    checkpoint_id: str
+    max_chars: int = 40_000
+
+
+@dataclass(frozen=True)
+class CheckpointStatusAction:
+    type: Literal["checkpoint_status"]
+    checkpoint_id: str
+
+
+@dataclass(frozen=True)
+class CheckCheckpointRestoreAction:
+    type: Literal["check_checkpoint_restore"]
+    checkpoint_id: str
+
+
+@dataclass(frozen=True)
+class CheckpointRestoreAction:
+    type: Literal["checkpoint_restore"]
+    checkpoint_id: str
+
+
+@dataclass(frozen=True)
+class CheckCheckpointDeleteAction:
+    type: Literal["check_checkpoint_delete"]
+    checkpoint_id: str
+
+
+@dataclass(frozen=True)
+class CheckpointDeleteAction:
+    type: Literal["checkpoint_delete"]
+    checkpoint_id: str
+
+
+@dataclass(frozen=True)
+class CheckCheckpointPruneAction:
+    type: Literal["check_checkpoint_prune"]
+    keep_last: int
+
+
+@dataclass(frozen=True)
+class CheckpointPruneAction:
+    type: Literal["checkpoint_prune"]
+    keep_last: int
 
 
 @dataclass(frozen=True)
@@ -983,6 +1372,12 @@ class RunCommandAction:
     timeout_ms: int | None = None
     cwd: str | None = None
     max_output_chars: int | None = None
+    extract_output_contexts: bool = False
+    extract_output_diagnostics: bool = False
+    context_lines: int = 5
+    max_diagnostics: int = 50
+    max_contexts: int = 20
+    max_bytes_per_context: int = 20_000
 
 
 @dataclass(frozen=True)
@@ -1004,6 +1399,27 @@ class ReadProcessAction:
     type: Literal["read_process"]
     process_id: str
     max_output_chars: int | None = None
+
+
+@dataclass(frozen=True)
+class ProcessOutputContextsAction:
+    type: Literal["process_output_contexts"]
+    process_id: str
+    max_output_chars: int = 20_000
+    context_lines: int = 5
+    max_contexts: int = 20
+    max_bytes_per_context: int = 20_000
+
+
+@dataclass(frozen=True)
+class ProcessOutputDiagnosticsAction:
+    type: Literal["process_output_diagnostics"]
+    process_id: str
+    max_output_chars: int = 20_000
+    context_lines: int = 2
+    max_diagnostics: int = 50
+    max_contexts: int = 20
+    max_bytes_per_context: int = 20_000
 
 
 @dataclass(frozen=True)
@@ -1087,9 +1503,15 @@ AgentAction: TypeAlias = (
     | ListTreeAction
     | RepoMapAction
     | ReadFileAction
+    | ReadFileContextAction
+    | ReadFileContextsAction
+    | OutputContextsAction
+    | OutputDiagnosticsAction
+    | TailFileAction
     | ReadFilesAction
     | ReadFileRangesAction
     | FileInfoAction
+    | ImageInfoAction
     | PythonSymbolsAction
     | CodeOutlineAction
     | PythonCheckAction
@@ -1103,18 +1525,24 @@ AgentAction: TypeAlias = (
     | PythonDependenciesAction
     | CodeDependenciesAction
     | CodeReferencesAction
+    | CodeReferenceContextsAction
     | CodeDefinitionsAction
+    | CodeRenamePreviewAction
+    | CodeRenameAction
     | PythonDefinitionsAction
     | CheckReplacePythonDefinitionAction
     | ReplacePythonDefinitionAction
     | PythonCallsAction
     | PythonCallGraphAction
     | PythonReferencesAction
+    | PythonReferenceContextsAction
     | PythonRenamePreviewAction
     | PythonRenameAction
     | SearchAction
+    | SearchContextsAction
     | GlobAction
     | GitStatusAction
+    | GitConflictsAction
     | GitInfoAction
     | GitChangesAction
     | GitBranchesAction
@@ -1144,21 +1572,53 @@ AgentAction: TypeAlias = (
     | ReviewChangesAction
     | FinalReviewAction
     | SuggestChecksAction
+    | CheckSuggestedChecksAction
+    | RunSuggestedChecksAction
     | ProjectCommandsAction
+    | RelatedTestsAction
+    | FocusedTestCommandsAction
+    | CheckFocusedTestCommandsAction
+    | RunFocusedTestCommandsAction
     | ProjectManifestsAction
+    | ProjectInstructionsAction
+    | ProjectTodosAction
     | ProjectOverviewAction
     | CommandCheckAction
     | CheckRunCommandsAction
     | CheckStartCommandAction
     | PortCheckAction
     | HttpCheckAction
+    | HttpFetchAction
     | EnvironmentInfoAction
     | GitDiffAction
     | GitDiffHunksAction
+    | GitDiffContextsAction
     | GitLogAction
     | GitShowAction
     | GitBlameAction
     | SessionSummaryAction
+    | SessionPlanAction
+    | SessionTranscriptAction
+    | SessionSearchAction
+    | SessionCommandsAction
+    | SessionOutputContextsAction
+    | SessionOutputDiagnosticsAction
+    | SessionFilesAction
+    | SessionFailuresAction
+    | SessionVerificationAction
+    | SessionAuditAction
+    | SessionHandoffAction
+    | CheckpointCreateAction
+    | CheckpointListAction
+    | CheckpointShowAction
+    | CheckpointDiffAction
+    | CheckpointStatusAction
+    | CheckCheckpointRestoreAction
+    | CheckpointRestoreAction
+    | CheckCheckpointDeleteAction
+    | CheckpointDeleteAction
+    | CheckCheckpointPruneAction
+    | CheckpointPruneAction
     | CheckEditFileAction
     | EditFileAction
     | MultiEditAction
@@ -1209,6 +1669,8 @@ AgentAction: TypeAlias = (
     | RunCommandsAction
     | StartCommandAction
     | ReadProcessAction
+    | ProcessOutputContextsAction
+    | ProcessOutputDiagnosticsAction
     | WaitProcessAction
     | CheckWriteProcessAction
     | WriteProcessAction
@@ -1235,6 +1697,12 @@ class CommandResult:
     stdout_truncated: bool = False
     stderr_truncated: bool = False
     max_output_chars: int = 12_000
+    output_contexts: list[OutputContextResult] = field(default_factory=list)
+    output_context_total_refs: int = 0
+    output_contexts_truncated: bool = False
+    output_diagnostics: list[OutputDiagnostic] = field(default_factory=list)
+    output_diagnostic_total: int = 0
+    output_diagnostics_truncated: bool = False
 
 
 @dataclass
@@ -1290,10 +1758,12 @@ class ApprovalRequest:
         "git_stash_drop",
         "run_command",
         "run_commands",
+        "run_suggested_checks",
         "start_command",
     ]
     target: str
     risk: str
+    preview: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1399,6 +1869,51 @@ class ReadProcessObservation:
     stderr: str
     max_output_chars: int
     message: str
+    output_contexts: list[OutputContextResult] = field(default_factory=list)
+    output_context_total_refs: int = 0
+    output_contexts_truncated: bool = False
+    output_diagnostics: list[OutputDiagnostic] = field(default_factory=list)
+    output_diagnostic_total: int = 0
+    output_diagnostics_truncated: bool = False
+
+
+@dataclass(frozen=True)
+class ProcessOutputContextsObservation:
+    kind: Literal["process_output_contexts"]
+    process_id: str
+    pid: int | None
+    ok: bool
+    running: bool
+    exit_code: int | None
+    signal: str | None
+    contexts: list[OutputContextResult]
+    total_refs: int
+    truncated: bool
+    stdout_chars: int
+    stderr_chars: int
+    max_output_chars: int
+    message: str
+
+
+@dataclass(frozen=True)
+class ProcessOutputDiagnosticsObservation:
+    kind: Literal["process_output_diagnostics"]
+    process_id: str
+    pid: int | None
+    ok: bool
+    running: bool
+    exit_code: int | None
+    signal: str | None
+    diagnostics: list[OutputDiagnostic]
+    contexts: list[OutputContextResult]
+    total_diagnostics: int
+    total_refs: int
+    diagnostics_truncated: bool
+    contexts_truncated: bool
+    stdout_chars: int
+    stderr_chars: int
+    max_output_chars: int
+    message: str
 
 
 @dataclass(frozen=True)
@@ -1419,6 +1934,12 @@ class WaitProcessObservation:
     stderr: str
     max_output_chars: int
     message: str
+    output_contexts: list[OutputContextResult] = field(default_factory=list)
+    output_context_total_refs: int = 0
+    output_contexts_truncated: bool = False
+    output_diagnostics: list[OutputDiagnostic] = field(default_factory=list)
+    output_diagnostic_total: int = 0
+    output_diagnostics_truncated: bool = False
 
 
 @dataclass(frozen=True)
@@ -1555,6 +2076,114 @@ class ReadFileObservation:
 
 
 @dataclass(frozen=True)
+class ReadFileContextObservation:
+    kind: Literal["read_file_context"]
+    path: str
+    ok: bool
+    content: str
+    message: str
+    line: int
+    context_lines: int = 20
+    start_line: int = 1
+    end_line: int = 0
+    line_count: int = 0
+    total_lines: int | None = None
+    target_line_exists: bool = False
+    truncated: bool = False
+    max_bytes: int = 20_000
+
+
+@dataclass(frozen=True)
+class ReadFileContextResult:
+    path: str
+    line: int
+    context_lines: int
+    ok: bool
+    content: str
+    message: str
+    start_line: int = 1
+    end_line: int = 0
+    line_count: int = 0
+    total_lines: int | None = None
+    target_line_exists: bool = False
+    truncated: bool = False
+    max_bytes: int = 20_000
+
+
+@dataclass(frozen=True)
+class ReadFileContextsObservation:
+    kind: Literal["read_file_contexts"]
+    contexts: list[ReadFileContextResult]
+    message: str
+
+
+@dataclass(frozen=True)
+class OutputContextResult:
+    path: str
+    line: int
+    column: int | None
+    raw: str
+    ok: bool
+    content: str
+    message: str
+    context_lines: int = 5
+    start_line: int = 1
+    end_line: int = 0
+    line_count: int = 0
+    total_lines: int | None = None
+    target_line_exists: bool = False
+    truncated: bool = False
+    max_bytes: int = 20_000
+
+
+@dataclass(frozen=True)
+class OutputContextsObservation:
+    kind: Literal["output_contexts"]
+    contexts: list[OutputContextResult]
+    total_refs: int
+    truncated: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class OutputDiagnostic:
+    severity: Literal["error", "warning", "failure", "info"]
+    output_line: int
+    text: str
+    path: str | None = None
+    line: int | None = None
+    column: int | None = None
+    raw: str | None = None
+
+
+@dataclass(frozen=True)
+class OutputDiagnosticsObservation:
+    kind: Literal["output_diagnostics"]
+    diagnostics: list[OutputDiagnostic]
+    contexts: list[OutputContextResult]
+    total_diagnostics: int
+    total_refs: int
+    diagnostics_truncated: bool
+    contexts_truncated: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class TailFileObservation:
+    kind: Literal["tail_file"]
+    path: str
+    ok: bool
+    content: str
+    message: str
+    start_line: int = 1
+    line_count: int = 0
+    requested_line_count: int = 80
+    total_lines: int | None = None
+    truncated: bool = False
+    max_bytes: int = 20_000
+
+
+@dataclass(frozen=True)
 class ReadFileResult:
     path: str
     ok: bool
@@ -1580,6 +2209,9 @@ class ReadFileRangeResult:
     ok: bool
     content: str
     message: str
+    truncated: bool
+    total_bytes: int | None
+    max_bytes: int
 
 
 @dataclass(frozen=True)
@@ -1606,6 +2238,27 @@ class FileInfoResult:
 class FileInfoObservation:
     kind: Literal["file_info"]
     files: list[FileInfoResult]
+    message: str
+
+
+@dataclass(frozen=True)
+class ImageInfoResult:
+    path: str
+    ok: bool
+    exists: bool
+    is_file: bool
+    size_bytes: int | None
+    format: str | None
+    mime_type: str | None
+    width: int | None
+    height: int | None
+    message: str
+
+
+@dataclass(frozen=True)
+class ImageInfoObservation:
+    kind: Literal["image_info"]
+    images: list[ImageInfoResult]
     message: str
 
 
@@ -1837,6 +2490,39 @@ class CodeReferencesObservation:
 
 
 @dataclass(frozen=True)
+class ReferenceContextResult:
+    path: str
+    line: int
+    column: int
+    symbol: str
+    kind: str
+    content: str
+    context_lines: int
+    start_line: int
+    end_line: int
+    line_count: int
+    total_lines: int | None
+    truncated: bool
+    max_bytes: int
+    language: str | None = None
+    matched_line: str = ""
+
+
+@dataclass(frozen=True)
+class CodeReferenceContextsObservation:
+    kind: Literal["code_reference_contexts"]
+    symbol: str
+    path: str | None
+    contexts: list[ReferenceContextResult]
+    total: int
+    truncated: bool
+    ok: bool
+    message: str
+    context_lines: int = 3
+    max_bytes_per_context: int = 20_000
+
+
+@dataclass(frozen=True)
 class CodeDefinition:
     path: str
     language: str
@@ -1860,6 +2546,57 @@ class CodeDefinitionsObservation:
     ok: bool
     errors: list[str]
     message: str
+
+
+@dataclass(frozen=True)
+class CodeRenameReplacement:
+    path: str
+    line: int
+    column: int
+    end_column: int
+    language: str
+    old: str
+    new: str
+    context: str
+
+
+@dataclass(frozen=True)
+class CodeRenamePreviewFile:
+    path: str
+    language: str
+    replacements: list[CodeRenameReplacement]
+    diff: str
+    truncated: bool
+
+
+@dataclass(frozen=True)
+class CodeRenamePreviewObservation:
+    kind: Literal["code_rename_preview"]
+    symbol: str
+    new_name: str
+    path: str | None
+    files: list[CodeRenamePreviewFile]
+    total_replacements: int
+    total_files: int
+    truncated: bool
+    ok: bool
+    errors: list[str]
+    message: str
+
+
+@dataclass(frozen=True)
+class CodeRenameObservation:
+    kind: Literal["code_rename"]
+    symbol: str
+    new_name: str
+    path: str | None
+    files: list[CodeRenamePreviewFile]
+    total_replacements: int
+    total_files: int
+    ok: bool
+    errors: list[str]
+    message: str
+    diff: str
 
 
 @dataclass(frozen=True)
@@ -1971,6 +2708,21 @@ class PythonReferencesObservation:
 
 
 @dataclass(frozen=True)
+class PythonReferenceContextsObservation:
+    kind: Literal["python_reference_contexts"]
+    symbol: str
+    path: str | None
+    contexts: list[ReferenceContextResult]
+    total: int
+    truncated: bool
+    ok: bool
+    errors: list[str]
+    message: str
+    context_lines: int = 3
+    max_bytes_per_context: int = 20_000
+
+
+@dataclass(frozen=True)
 class PythonRenameReplacement:
     path: str
     line: int
@@ -2036,6 +2788,37 @@ class SearchObservation:
 
 
 @dataclass(frozen=True)
+class SearchContextResult:
+    path: str
+    line: int
+    matched_line: str
+    content: str
+    context_lines: int
+    start_line: int
+    end_line: int
+    line_count: int
+    total_lines: int | None
+    truncated: bool
+    max_bytes: int
+
+
+@dataclass(frozen=True)
+class SearchContextsObservation:
+    kind: Literal["search_contexts"]
+    ok: bool
+    query: str
+    contexts: list[SearchContextResult]
+    total: int
+    truncated: bool
+    message: str
+    path: str | None = None
+    regex: bool = False
+    case_sensitive: bool = True
+    context_lines: int = 3
+    max_bytes_per_context: int = 20_000
+
+
+@dataclass(frozen=True)
 class GlobObservation:
     kind: Literal["glob"]
     pattern: str
@@ -2051,6 +2834,35 @@ class GitStatusObservation:
     kind: Literal["git_status"]
     ok: bool
     status: str
+    message: str
+
+
+@dataclass(frozen=True)
+class GitConflictStatus:
+    path: str
+    status: str
+
+
+@dataclass(frozen=True)
+class GitConflictMarker:
+    path: str
+    line: int
+    marker: str
+    text: str
+
+
+@dataclass(frozen=True)
+class GitConflictsObservation:
+    kind: Literal["git_conflicts"]
+    ok: bool
+    path: str
+    unmerged: list[GitConflictStatus]
+    unmerged_total: int
+    markers: list[GitConflictMarker]
+    markers_total: int
+    scanned_files: int
+    total_files: int
+    truncated: bool
     message: str
 
 
@@ -2455,6 +3267,7 @@ class FinalReviewObservation:
     ready: bool
     blocking_issues: list[str]
     warnings: list[str]
+    running_processes: list[ProcessInfo]
     files: list[GitChangeFile]
     total_files: int
     suggested_checks: list[SuggestedCheck]
@@ -2464,6 +3277,12 @@ class FinalReviewObservation:
     staged_diff_check: str
     status: str
     message: str
+    python: list[PythonCheckResult] = field(default_factory=list)
+    python_total: int = 0
+    python_truncated: bool = False
+    config: list[ConfigCheckResult] = field(default_factory=list)
+    config_total: int = 0
+    config_truncated: bool = False
 
 
 @dataclass(frozen=True)
@@ -2488,6 +3307,32 @@ class SuggestChecksObservation:
 
 
 @dataclass(frozen=True)
+class CheckSuggestedChecksObservation:
+    kind: Literal["check_suggested_checks"]
+    ok: bool
+    checks: list[CommandCheckObservation]
+    suggested_checks: list[SuggestedCheck]
+    total: int
+    truncated: bool
+    max_commands: int
+    message: str
+
+
+@dataclass(frozen=True)
+class RunSuggestedChecksObservation:
+    kind: Literal["run_suggested_checks"]
+    ok: bool
+    results: list[CommandResult]
+    suggested_checks: list[SuggestedCheck]
+    total: int
+    truncated: bool
+    max_commands: int
+    stopped_early: bool
+    skipped_unavailable: int
+    message: str
+
+
+@dataclass(frozen=True)
 class ProjectCommand:
     file: str
     cwd: str
@@ -2507,6 +3352,79 @@ class ProjectCommandsObservation:
     truncated: bool
     total_files: int
     scanned_files: int
+    message: str
+
+
+@dataclass(frozen=True)
+class RelatedTestCandidate:
+    source_path: str
+    test_path: str
+    score: int
+    reason: str
+
+
+@dataclass(frozen=True)
+class RelatedTestsObservation:
+    kind: Literal["related_tests"]
+    ok: bool
+    target_paths: list[str]
+    candidates: list[RelatedTestCandidate]
+    total: int
+    truncated: bool
+    test_files_total: int
+    message: str
+
+
+@dataclass(frozen=True)
+class FocusedTestCommand:
+    command: str
+    cwd: str
+    test_path: str
+    source: str
+    reason: str
+    available: bool = True
+    missing_tool: str | None = None
+
+
+@dataclass(frozen=True)
+class FocusedTestCommandsObservation:
+    kind: Literal["focused_test_commands"]
+    ok: bool
+    target_paths: list[str]
+    commands: list[FocusedTestCommand]
+    total: int
+    truncated: bool
+    related_tests_total: int
+    message: str
+
+
+@dataclass(frozen=True)
+class CheckFocusedTestCommandsObservation:
+    kind: Literal["check_focused_test_commands"]
+    ok: bool
+    checks: list[CommandCheckObservation]
+    focused_commands: list[FocusedTestCommand]
+    target_paths: list[str]
+    total: int
+    truncated: bool
+    max_commands: int
+    related_tests_total: int
+    message: str
+
+
+@dataclass(frozen=True)
+class RunFocusedTestCommandsObservation:
+    kind: Literal["run_focused_test_commands"]
+    ok: bool
+    results: list[CommandResult]
+    focused_commands: list[FocusedTestCommand]
+    target_paths: list[str]
+    total: int
+    truncated: bool
+    max_commands: int
+    related_tests_total: int
+    stopped_early: bool
+    skipped_unavailable: int
     message: str
 
 
@@ -2539,6 +3457,52 @@ class ProjectManifestsObservation:
     scanned_files: int
     total_items: int
     truncated: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class ProjectInstructionSource:
+    path: str
+    scope: str
+    bytes: int
+    chars: int
+    empty: bool
+    included: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class ProjectInstructionsObservation:
+    kind: Literal["project_instructions"]
+    ok: bool
+    files: list[ProjectInstructionSource]
+    total_files: int
+    scanned_files: int
+    omitted_files: int
+    truncated: bool
+    text: str
+    message: str
+
+
+@dataclass(frozen=True)
+class ProjectTodo:
+    path: str
+    line: int
+    marker: str
+    text: str
+
+
+@dataclass(frozen=True)
+class ProjectTodosObservation:
+    kind: Literal["project_todos"]
+    ok: bool
+    todos: list[ProjectTodo]
+    total: int
+    truncated: bool
+    total_files: int
+    scanned_files: int
+    path: str
+    markers: list[str]
     message: str
 
 
@@ -2632,6 +3596,24 @@ class HttpCheckObservation:
 
 
 @dataclass(frozen=True)
+class HttpFetchObservation:
+    kind: Literal["http_fetch"]
+    ok: bool
+    url: str
+    final_url: str | None
+    status: int | None
+    reason: str | None
+    content_type: str | None
+    timeout_ms: int
+    reachable: bool
+    body: str
+    body_truncated: bool
+    max_body_chars: int
+    error: str | None
+    message: str
+
+
+@dataclass(frozen=True)
 class RuntimeToolInfo:
     name: str
     available: bool
@@ -2674,6 +3656,25 @@ class GitDiffHunksObservation:
     truncated: bool
     path: str | None
     staged: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class GitDiffContext:
+    hunk: GitDiffHunk
+    context: ReadFileContextResult
+
+
+@dataclass(frozen=True)
+class GitDiffContextsObservation:
+    kind: Literal["git_diff_contexts"]
+    ok: bool
+    contexts: list[GitDiffContext]
+    total_hunks: int
+    truncated: bool
+    path: str | None
+    staged: bool
+    context_lines: int
     message: str
 
 
@@ -3165,6 +4166,298 @@ class SessionSummaryObservation:
 
 
 @dataclass(frozen=True)
+class SessionPlanObservation:
+    kind: Literal["session_plan"]
+    run_id: str
+    ok: bool
+    plan: str
+    message: str
+
+
+@dataclass(frozen=True)
+class SessionTranscriptObservation:
+    kind: Literal["session_transcript"]
+    run_id: str
+    ok: bool
+    transcript: str
+    message: str
+
+
+@dataclass(frozen=True)
+class SessionSearchObservation:
+    kind: Literal["session_search"]
+    run_id: str
+    ok: bool
+    query: str
+    matches: str
+    total_matches: int
+    shown_matches: int
+    message: str
+
+
+@dataclass(frozen=True)
+class SessionCommandsObservation:
+    kind: Literal["session_commands"]
+    run_id: str
+    ok: bool
+    commands: str
+    command_count: int
+    shown_commands: int
+    message: str
+
+
+@dataclass(frozen=True)
+class SessionOutputContextsObservation:
+    kind: Literal["session_output_contexts"]
+    run_id: str
+    ok: bool
+    contexts: list[OutputContextResult]
+    command_count: int
+    shown_commands: int
+    total_refs: int
+    truncated: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class SessionOutputDiagnosticsObservation:
+    kind: Literal["session_output_diagnostics"]
+    run_id: str
+    ok: bool
+    diagnostics: list[OutputDiagnostic]
+    contexts: list[OutputContextResult]
+    command_count: int
+    shown_commands: int
+    total_diagnostics: int
+    total_refs: int
+    diagnostics_truncated: bool
+    contexts_truncated: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class SessionFilesObservation:
+    kind: Literal["session_files"]
+    run_id: str
+    ok: bool
+    files: str
+    file_count: int
+    shown_files: int
+    message: str
+
+
+@dataclass(frozen=True)
+class SessionFailuresObservation:
+    kind: Literal["session_failures"]
+    run_id: str
+    ok: bool
+    failures: str
+    failure_count: int
+    shown_failures: int
+    message: str
+
+
+@dataclass(frozen=True)
+class SessionVerificationObservation:
+    kind: Literal["session_verification"]
+    run_id: str
+    ok: bool
+    verification: str
+    message: str
+
+
+@dataclass(frozen=True)
+class SessionAuditProcess:
+    process_id: str
+    pid: int | None
+    command: str
+    cwd: str
+    line_number: int
+
+
+@dataclass(frozen=True)
+class SessionAuditObservation:
+    kind: Literal["session_audit"]
+    run_id: str
+    ok: bool
+    audit: str
+    ready: bool
+    blockers: list[str]
+    background_processes_started: int
+    active_background_processes: list[SessionAuditProcess]
+    message: str
+
+
+@dataclass(frozen=True)
+class SessionHandoffObservation:
+    kind: Literal["session_handoff"]
+    run_id: str
+    ok: bool
+    handoff: str
+    message: str
+
+
+@dataclass(frozen=True)
+class CheckpointInfo:
+    checkpoint_id: str
+    label: str
+    created_at: str
+    head: str
+    changed_files: int
+    staged_files: int
+    unstaged_files: int
+    untracked_files: int
+
+
+@dataclass(frozen=True)
+class CheckpointCreateObservation:
+    kind: Literal["checkpoint_create"]
+    ok: bool
+    checkpoint: CheckpointInfo | None
+    staged_patch_chars: int
+    unstaged_patch_chars: int
+    message: str
+
+
+@dataclass(frozen=True)
+class CheckpointListObservation:
+    kind: Literal["checkpoint_list"]
+    ok: bool
+    checkpoints: list[CheckpointInfo]
+    total: int
+    message: str
+
+
+@dataclass(frozen=True)
+class CheckpointShowObservation:
+    kind: Literal["checkpoint_show"]
+    ok: bool
+    checkpoint: CheckpointInfo | None
+    project_root: str
+    git_status: str
+    untracked_saved_files: int
+    untracked_skipped_files: int
+    saved_untracked_paths: list[str]
+    saved_untracked_paths_truncated: bool
+    staged_patch_chars: int
+    unstaged_patch_chars: int
+    message: str
+
+
+@dataclass(frozen=True)
+class CheckpointDiffObservation:
+    kind: Literal["checkpoint_diff"]
+    ok: bool
+    checkpoint_id: str
+    label: str
+    created_at: str
+    staged_patch: str
+    staged_patch_chars: int
+    staged_patch_truncated: bool
+    unstaged_patch: str
+    unstaged_patch_chars: int
+    unstaged_patch_truncated: bool
+    max_chars: int
+    message: str
+
+
+@dataclass(frozen=True)
+class CheckpointStatusObservation:
+    kind: Literal["checkpoint_status"]
+    ok: bool
+    checkpoint_id: str
+    matches: bool
+    status_matches: bool
+    staged_patch_matches: bool
+    unstaged_patch_matches: bool
+    untracked_file_matches: bool
+    saved_changed_files: int
+    saved_staged_files: int
+    saved_unstaged_files: int
+    saved_untracked_files: int
+    current_changed_files: int
+    current_staged_files: int
+    current_unstaged_files: int
+    current_untracked_files: int
+    message: str
+
+
+@dataclass(frozen=True)
+class CheckCheckpointRestoreObservation:
+    kind: Literal["check_checkpoint_restore"]
+    ok: bool
+    checkpoint_id: str
+    can_restore: bool
+    saved_head: str
+    current_head: str
+    saved_untracked_files: int
+    current_untracked_files: int
+    staged_patch_chars: int
+    unstaged_patch_chars: int
+    message: str
+
+
+@dataclass(frozen=True)
+class CheckpointRestoreObservation:
+    kind: Literal["checkpoint_restore"]
+    ok: bool
+    checkpoint_id: str
+    restored: bool
+    matches: bool
+    saved_head: str
+    current_head: str
+    saved_untracked_files: int
+    current_untracked_files: int
+    staged_patch_chars: int
+    unstaged_patch_chars: int
+    message: str
+
+
+@dataclass(frozen=True)
+class CheckCheckpointDeleteObservation:
+    kind: Literal["check_checkpoint_delete"]
+    ok: bool
+    checkpoint_id: str
+    can_delete: bool
+    label: str
+    created_at: str
+    message: str
+
+
+@dataclass(frozen=True)
+class CheckpointDeleteObservation:
+    kind: Literal["checkpoint_delete"]
+    ok: bool
+    checkpoint_id: str
+    deleted: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class CheckCheckpointPruneObservation:
+    kind: Literal["check_checkpoint_prune"]
+    ok: bool
+    keep_last: int
+    total: int
+    kept: int
+    delete_count: int
+    checkpoints: list[CheckpointInfo]
+    message: str
+
+
+@dataclass(frozen=True)
+class CheckpointPruneObservation:
+    kind: Literal["checkpoint_prune"]
+    ok: bool
+    keep_last: int
+    total: int
+    kept: int
+    deleted: int
+    checkpoints: list[CheckpointInfo]
+    message: str
+
+
+@dataclass(frozen=True)
 class FinishObservation:
     kind: Literal["finish"]
     message: str
@@ -3202,9 +4495,15 @@ Observation: TypeAlias = (
     | ListTreeObservation
     | RepoMapObservation
     | ReadFileObservation
+    | ReadFileContextObservation
+    | ReadFileContextsObservation
+    | OutputContextsObservation
+    | OutputDiagnosticsObservation
+    | TailFileObservation
     | ReadFilesObservation
     | ReadFileRangesObservation
     | FileInfoObservation
+    | ImageInfoObservation
     | PythonSymbolsObservation
     | CodeOutlineObservation
     | PythonCheckObservation
@@ -3218,16 +4517,22 @@ Observation: TypeAlias = (
     | PythonDependenciesObservation
     | CodeDependenciesObservation
     | CodeReferencesObservation
+    | CodeReferenceContextsObservation
     | CodeDefinitionsObservation
+    | CodeRenamePreviewObservation
+    | CodeRenameObservation
     | PythonDefinitionsObservation
     | PythonCallsObservation
     | PythonCallGraphObservation
     | PythonReferencesObservation
+    | PythonReferenceContextsObservation
     | PythonRenamePreviewObservation
     | PythonRenameObservation
     | SearchObservation
+    | SearchContextsObservation
     | GlobObservation
     | GitStatusObservation
+    | GitConflictsObservation
     | GitInfoObservation
     | GitChangesObservation
     | GitBranchesObservation
@@ -3257,21 +4562,53 @@ Observation: TypeAlias = (
     | ReviewChangesObservation
     | FinalReviewObservation
     | SuggestChecksObservation
+    | CheckSuggestedChecksObservation
+    | RunSuggestedChecksObservation
     | ProjectCommandsObservation
+    | RelatedTestsObservation
+    | FocusedTestCommandsObservation
+    | CheckFocusedTestCommandsObservation
+    | RunFocusedTestCommandsObservation
     | ProjectManifestsObservation
+    | ProjectInstructionsObservation
+    | ProjectTodosObservation
     | ProjectOverviewObservation
     | CommandCheckObservation
     | CheckRunCommandsObservation
     | CheckStartCommandObservation
     | PortCheckObservation
     | HttpCheckObservation
+    | HttpFetchObservation
     | EnvironmentInfoObservation
     | GitDiffObservation
     | GitDiffHunksObservation
+    | GitDiffContextsObservation
     | GitLogObservation
     | GitShowObservation
     | GitBlameObservation
     | SessionSummaryObservation
+    | SessionPlanObservation
+    | SessionTranscriptObservation
+    | SessionSearchObservation
+    | SessionCommandsObservation
+    | SessionOutputContextsObservation
+    | SessionOutputDiagnosticsObservation
+    | SessionFilesObservation
+    | SessionFailuresObservation
+    | SessionVerificationObservation
+    | SessionAuditObservation
+    | SessionHandoffObservation
+    | CheckpointCreateObservation
+    | CheckpointListObservation
+    | CheckpointShowObservation
+    | CheckpointDiffObservation
+    | CheckpointStatusObservation
+    | CheckCheckpointRestoreObservation
+    | CheckpointRestoreObservation
+    | CheckCheckpointDeleteObservation
+    | CheckpointDeleteObservation
+    | CheckCheckpointPruneObservation
+    | CheckpointPruneObservation
     | CheckEditFileObservation
     | EditFileObservation
     | MultiEditObservation
@@ -3324,6 +4661,8 @@ Observation: TypeAlias = (
     | RunCommandsObservation
     | StartCommandObservation
     | ReadProcessObservation
+    | ProcessOutputContextsObservation
+    | ProcessOutputDiagnosticsObservation
     | WaitProcessObservation
     | CheckWriteProcessObservation
     | WriteProcessObservation

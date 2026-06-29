@@ -1,5 +1,6 @@
 import os
 import unittest
+from unittest.mock import patch
 
 from vibeagent.minimax import (
     MiniMaxApiKeyInfo,
@@ -14,6 +15,20 @@ from vibeagent.minimax import (
     get_minimax_defaults,
 )
 from vibeagent.types import ChatMessage
+
+
+class FakeHttpResponse:
+    def __init__(self, payload: bytes) -> None:
+        self.payload = payload
+
+    def __enter__(self) -> "FakeHttpResponse":
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return self.payload
 
 
 class MiniMaxTests(unittest.TestCase):
@@ -166,6 +181,16 @@ class MiniMaxTests(unittest.TestCase):
         self.assertEqual(usage.total_tokens, 18)
         self.assertEqual(usage.cache_creation_tokens, 3)
         self.assertEqual(usage.cache_read_tokens, 5)
+
+    def test_complete_passes_request_timeout_to_urlopen(self) -> None:
+        response = FakeHttpResponse(b'{"content":[{"type":"text","text":"ok"}]}')
+        client = MiniMaxClient(api_key="test-key", base_url="https://minimax.example", model="MiniMax-test")
+
+        with patch("vibeagent.minimax.urlopen", return_value=response) as urlopen:
+            result = client.complete([ChatMessage(role="user", content="Hi")], timeout_ms=45_000)
+
+        self.assertEqual(result.content, [{"type": "text", "text": "ok"}])
+        self.assertEqual(urlopen.call_args.kwargs["timeout"], 45.0)
 
 
 if __name__ == "__main__":

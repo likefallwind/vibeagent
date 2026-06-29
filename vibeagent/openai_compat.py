@@ -50,6 +50,7 @@ class OpenAICompatibleClient(ChatClient):
         tools: list[ToolSpec] | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.2,
+        timeout_ms: int = 120_000,
     ) -> AssistantResponse:
         body = json.dumps(
             build_request_body(
@@ -71,7 +72,7 @@ class OpenAICompatibleClient(ChatClient):
         )
 
         try:
-            with urlopen(request) as response:
+            with urlopen(request, timeout=timeout_ms / 1000) as response:
                 text = response.read().decode("utf-8")
         except HTTPError as error:
             text = error.read().decode("utf-8", errors="replace")

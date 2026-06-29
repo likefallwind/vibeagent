@@ -1,4 +1,8 @@
+import ast
 import tempfile
+import threading
+import time
+import typing
 import unittest
 import json
 import subprocess
@@ -6,8 +10,16 @@ import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 
+import vibeagent.agent as agent_module
+import vibeagent.types as types_module
+from vibeagent.actions import AGENT_TOOL_DEFINITIONS, execute_action
 from vibeagent.agent import run_agent
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, ContentBlock, ModelUsage
+from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
+from vibeagent.prompts import format_observations
+from vibeagent.session import summarize_session
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ReadFileObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction
+from vibeagent.types import CommandResult, ConfigCheckResult, FinalReviewObservation, PythonCheckResult, RunCommandObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
+from vibeagent.workspace import create_run_workspace
 
 
 class MockClient:
@@ -16,6 +28,8 @@ class MockClient:
         self.usages = usages or []
         self.index = 0
         self.messages: list[list[ChatMessage]] = []
+        self.max_tokens: list[int] = []
+        self.timeout_ms: list[int] = []
 
     def complete(
         self,
@@ -23,12 +37,51 @@ class MockClient:
         tools: list[dict] | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.2,
+        timeout_ms: int = 120_000,
     ) -> AssistantResponse:
         self.messages.append(list(messages))
+        self.max_tokens.append(max_tokens)
+        self.timeout_ms.append(timeout_ms)
         response = self.responses[self.index]
         usage = self.usages[self.index] if self.index < len(self.usages) else None
         self.index += 1
         return AssistantResponse(content=response, raw={"content": response}, usage=usage)
+
+
+class FailingClient:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def complete(
+        self,
+        messages: list[ChatMessage],
+        tools: list[dict] | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.2,
+        timeout_ms: int = 120_000,
+    ) -> AssistantResponse:
+        self.calls += 1
+        raise RuntimeError("provider unavailable")
+
+
+class FlakyAgentClient:
+    def __init__(self, failures: int, response: list[ContentBlock] | None = None) -> None:
+        self.failures = failures
+        self.response = response or [{"type": "text", "text": "重试后完成。"}]
+        self.calls = 0
+
+    def complete(
+        self,
+        messages: list[ChatMessage],
+        tools: list[dict] | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.2,
+        timeout_ms: int = 120_000,
+    ) -> AssistantResponse:
+        self.calls += 1
+        if self.calls <= self.failures:
+            raise RuntimeError("temporary provider failure")
+        return AssistantResponse(content=self.response, raw={"content": self.response})
 
 
 def approve_all(_request: ApprovalRequest) -> ApprovalDecision:
@@ -37,6 +90,15 @@ def approve_all(_request: ApprovalRequest) -> ApprovalDecision:
 
 def deny_all(_request: ApprovalRequest) -> ApprovalDecision:
     return ApprovalDecision(approved=False, message="denied")
+
+
+def init_git_repo_with_commit(root: Path) -> None:
+    subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+    (root / "app.py").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 class AgentTests(unittest.TestCase):
@@ -49,6 +111,24 @@ class AgentTests(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(result.message, "这个问题不需要访问工作区。")
         self.assertEqual(result.observations, [])
+        self.assertEqual(client.max_tokens, [4096])
+
+    def test_run_agent_passes_max_output_tokens_to_client(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient([[{"type": "text", "text": "完成。"}]])
+
+            result = run_agent(
+                "解释一下",
+                base_dir=Path(base),
+                client=client,
+                max_iterations=1,
+                max_output_tokens=8192,
+                model_timeout_ms=45_000,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual(client.max_tokens, [8192])
+        self.assertEqual(client.timeout_ms, [45_000])
 
     def test_run_agent_includes_prior_context_and_records_task(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
@@ -84,15 +164,103 @@ class AgentTests(unittest.TestCase):
             rows = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
 
         model_rows = [row for row in rows if row["type"] == "model"]
+        result_rows = [row for row in rows if row["type"] == "result"]
         self.assertEqual(model_rows[0]["usage"]["input_tokens"], 12)
         self.assertEqual(model_rows[0]["usage"]["output_tokens"], 4)
         self.assertEqual(model_rows[0]["usage"]["total_tokens"], 16)
         self.assertEqual(model_rows[0]["usage"]["cache_read_tokens"], 2)
         self.assertNotIn("raw", model_rows[0])
+        self.assertEqual(result_rows[0]["success"], True)
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(result_rows[0]["status"], "completed")
+        self.assertEqual(result_rows[0]["message"], "完成。")
+        self.assertEqual(result_rows[0]["iterations"], 1)
 
-    def test_run_agent_includes_agents_md_in_initial_prompt(self) -> None:
+    def test_run_agent_records_model_error_as_failed_session_result(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = FailingClient()
+            result = run_agent("修复失败", base_dir=Path(base), client=client, max_iterations=1, model_retries=0, model_retry_delay_ms=0)
+            events_path = Path(base) / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            rows = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+            summary = summarize_session(base, result.run_id)
+
+        model_error_rows = [row for row in rows if row["type"] == "model_error"]
+        result_rows = [row for row in rows if row["type"] == "result"]
+        self.assertFalse(result.success)
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.iterations, 1)
+        self.assertEqual(client.calls, 1)
+        self.assertIn("Model request failed: RuntimeError: provider unavailable", result.message)
+        self.assertEqual(len(model_error_rows), 1)
+        self.assertEqual(model_error_rows[0]["iteration"], 1)
+        self.assertEqual(model_error_rows[0]["attempt"], 1)
+        self.assertEqual(model_error_rows[0]["attempts"], 1)
+        self.assertFalse(model_error_rows[0]["will_retry"])
+        self.assertEqual(model_error_rows[0]["error_type"], "RuntimeError")
+        self.assertIn("provider unavailable", model_error_rows[0]["message"])
+        self.assertEqual(len(result_rows), 1)
+        self.assertEqual(result_rows[0]["success"], False)
+        self.assertEqual(result_rows[0]["status"], "failed")
+        self.assertIn("provider unavailable", result_rows[0]["message"])
+        self.assertTrue(summary.failed)
+        self.assertFalse(summary.completed)
+        self.assertEqual(summary.model_errors, 1)
+        self.assertIn("provider unavailable", summary.latest_model_error or "")
+
+    def test_run_agent_retries_transient_model_error_and_finishes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = FlakyAgentClient(failures=1)
+
+            with patch("vibeagent.agent.time.sleep") as sleep:
+                result = run_agent(
+                    "修复失败",
+                    base_dir=Path(base),
+                    client=client,
+                    max_iterations=1,
+                    model_retries=1,
+                    model_retry_delay_ms=25,
+                )
+            events_path = Path(base) / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            rows = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+            summary = summarize_session(base, result.run_id)
+
+        model_error_rows = [row for row in rows if row["type"] == "model_error"]
+        result_rows = [row for row in rows if row["type"] == "result"]
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "重试后完成。")
+        self.assertEqual(client.calls, 2)
+        self.assertEqual(len(model_error_rows), 1)
+        self.assertEqual(model_error_rows[0]["attempt"], 1)
+        self.assertEqual(model_error_rows[0]["attempts"], 2)
+        self.assertTrue(model_error_rows[0]["will_retry"])
+        self.assertEqual(model_error_rows[0]["retry_delay_ms"], 25)
+        sleep.assert_called_once_with(0.025)
+        self.assertEqual(len(result_rows), 1)
+        self.assertEqual(result_rows[0]["status"], "completed")
+        self.assertTrue(summary.completed)
+        self.assertFalse(summary.failed)
+        self.assertEqual(summary.model_errors, 1)
+
+    def test_run_agent_records_result_event_for_iteration_limit_failure(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient([[{"type": "tool_call", "id": "1", "name": "git_status", "input": {}}]])
+
+            result = run_agent("check status", base_dir=Path(base), client=client, max_iterations=1)
+            events_path = Path(base) / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            rows = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+
+        result_rows = [row for row in rows if row["type"] == "result"]
+        self.assertFalse(result.success)
+        self.assertEqual(len(result_rows), 1)
+        self.assertEqual(result_rows[0]["success"], False)
+        self.assertEqual(result_rows[0]["status"], "failed")
+        self.assertEqual(result_rows[0]["iterations"], 1)
+        self.assertIn("Reached iteration limit", result_rows[0]["message"])
+
+    def test_run_agent_includes_project_instruction_files_in_initial_prompt(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             Path(base, "AGENTS.md").write_text("Prefer unittest for tests.\n", encoding="utf-8")
+            Path(base, "CLAUDE.md").write_text("Keep summaries concise.\n", encoding="utf-8")
             client = MockClient([[{"type": "text", "text": "知道了。"}]])
 
             result = run_agent("检查项目约定", base_dir=Path(base), client=client, max_iterations=1)
@@ -100,9 +268,10 @@ class AgentTests(unittest.TestCase):
         first_user = client.messages[0][1].content
         self.assertTrue(result.success)
         self.assertIsInstance(first_user, str)
-        self.assertIn("Project instructions from AGENTS.md files:", first_user)
+        self.assertIn("Project instructions from AGENTS.md and CLAUDE.md files:", first_user)
         self.assertIn("Scope: .", first_user)
         self.assertIn("Prefer unittest for tests.", first_user)
+        self.assertIn("Keep summaries concise.", first_user)
 
     def test_run_agent_includes_project_command_hints_in_initial_prompt(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
@@ -157,8 +326,14 @@ class AgentTests(unittest.TestCase):
                 approval_handler=approve_all,
             )
             event_log_exists = (Path(base) / ".vibeagent" / "sessions" / result.run_id / "events.jsonl").is_file()
+            summary = summarize_session(Path(base), result.run_id)
 
         self.assertTrue(result.success)
+        self.assertEqual(result.status, "blocked")
+        self.assertFalse(result.completion_ready)
+        self.assertFalse(summary.completed)
+        self.assertFalse(summary.failed)
+        self.assertTrue(summary.blocked)
         self.assertEqual(result.run_dir, Path(base).resolve())
         self.assertTrue(event_log_exists)
         command_observations = [item for item in result.observations if item.kind == "run_command"]
@@ -208,17 +383,132 @@ class AgentTests(unittest.TestCase):
             )
 
         self.assertTrue(result.success)
-        self.assertEqual([item.kind for item in result.observations], ["write_file", "run_command", "finish"])
+        self.assertEqual([item.kind for item in result.observations], ["write_file", "run_command", "finish", "final_review"])
         self.assertEqual(result.observations[1].result.stdout, "hello\n")
         self.assertEqual(result.observations[1].result.timeout_ms, 1000)
         self.assertEqual(result.observations[1].result.cwd, ".")
         self.assertFalse(result.observations[1].result.stdout_truncated)
+        self.assertFalse(result.observations[3].ready)
+        self.assertEqual(
+            result.completion_warnings,
+            [
+                "Task plan is missing for multi-step coding work; call update_plan with a short checklist before finishing.",
+                "Final review did not report ready.",
+            ],
+        )
         command_payload = json.loads(client.messages[1][-1].content[1]["content"])
         self.assertEqual(command_payload["result"]["timeout_ms"], 1000)
         self.assertEqual(command_payload["result"]["cwd"], ".")
         self.assertEqual(command_payload["result"]["max_output_chars"], 1000)
         self.assertFalse(command_payload["result"]["stdout_truncated"])
         self.assertEqual([step.status for step in result.steps], ["completed", "completed", "completed"])
+
+    def test_run_agent_executes_parallel_safe_tool_calls_concurrently(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            (root / "a.txt").write_text("a\n", encoding="utf-8")
+            (root / "b.txt").write_text("b\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [
+                        {"type": "tool_call", "id": "1", "name": "read_file", "input": {"path": "a.txt"}},
+                        {"type": "tool_call", "id": "2", "name": "read_file", "input": {"path": "b.txt"}},
+                    ],
+                    [{"type": "tool_call", "id": "3", "name": "finish", "input": {"message": "done"}}],
+                ]
+            )
+            lock = threading.Lock()
+            starts: list[tuple[str, float]] = []
+            ends: list[tuple[str, float]] = []
+
+            def fake_execute_action(workspace: object, action: object, command_timeout_ms: int = 30_000) -> object:
+                if getattr(action, "type", "") != "read_file":
+                    return execute_action(workspace, action, command_timeout_ms)
+                path = str(getattr(action, "path"))
+                with lock:
+                    starts.append((path, time.monotonic()))
+                time.sleep(0.05)
+                with lock:
+                    ends.append((path, time.monotonic()))
+                return ReadFileObservation(kind="read_file", path=path, content=f"{path}\n", message=f"Read {path}.")
+
+            with patch("vibeagent.agent.execute_action", side_effect=fake_execute_action):
+                result = run_agent("read both files", base_dir=root, client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual([item.kind for item in result.observations], ["read_file", "read_file", "finish"])
+        self.assertEqual([item.path for item in result.observations[:2]], ["a.txt", "b.txt"])
+        self.assertEqual([block["tool_call_id"] for block in client.messages[1][-1].content], ["1", "2"])
+        self.assertEqual(len(starts), 2)
+        self.assertEqual(len(ends), 2)
+        self.assertLess(max(started_at for _path, started_at in starts), min(ended_at for _path, ended_at in ends))
+
+    def test_parallel_safe_tools_exclude_approval_required_actions(self) -> None:
+        overlap = sorted(agent_module.PARALLEL_SAFE_TOOL_NAMES & APPROVAL_REQUIRED_TOOL_NAMES)
+
+        self.assertEqual(overlap, [])
+        for tool_name, tool_input in [
+            ("write_file", {"path": "note.txt", "content": "ok\n"}),
+            ("run_command", {"command": "python3 -m unittest"}),
+            ("start_command", {"command": "python3 -m http.server 8000"}),
+        ]:
+            action = agent_module.parse_tool_action(tool_name, tool_input)
+            self.assertFalse(agent_module.is_parallel_safe_action(action), tool_name)
+
+    def test_run_agent_converts_unexpected_tool_exception_to_tool_error(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "read_file", "input": {"path": "missing.txt"}}],
+                    [{"type": "tool_call", "id": "2", "name": "finish", "input": {"message": "reported"}}],
+                ]
+            )
+
+            def broken_execute_action(workspace: object, action: object, command_timeout_ms: int = 30_000) -> object:
+                if getattr(action, "type", "") == "finish":
+                    return execute_action(workspace, action, command_timeout_ms)
+                raise RuntimeError("boom")
+
+            with patch("vibeagent.agent.execute_action", side_effect=broken_execute_action):
+                result = run_agent("read missing", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "tool_error")
+        self.assertEqual(result.observations[0].tool, "read_file")
+        self.assertIn("boom", result.observations[0].message)
+        self.assertEqual(result.steps[0].status, "failed")
+        payload = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertEqual(payload["kind"], "tool_error")
+        self.assertEqual(payload["tool"], "read_file")
+
+    def test_run_agent_converts_approved_tool_exception_to_tool_error(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "write_file", "input": {"path": "a.txt", "content": "a\n"}}],
+                    [{"type": "tool_call", "id": "2", "name": "finish", "input": {"message": "reported"}}],
+                ]
+            )
+
+            def broken_execute_action(workspace: object, action: object, command_timeout_ms: int = 30_000) -> object:
+                if getattr(action, "type", "") == "finish":
+                    return execute_action(workspace, action, command_timeout_ms)
+                raise RuntimeError("disk full")
+
+            with patch("vibeagent.agent.execute_action", side_effect=broken_execute_action):
+                result = run_agent(
+                    "write file",
+                    base_dir=Path(base),
+                    client=client,
+                    max_iterations=2,
+                    approval_handler=approve_all,
+                )
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "tool_error")
+        self.assertEqual(result.observations[0].tool, "write_file")
+        self.assertIn("disk full", result.observations[0].message)
+        self.assertEqual(result.steps[0].status, "failed")
 
     def test_run_agent_runs_command_in_project_relative_cwd(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
@@ -294,12 +584,260 @@ class AgentTests(unittest.TestCase):
             events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
 
         self.assertTrue(result.success)
+        self.assertEqual(result.status, "blocked")
         self.assertEqual(result.message, "Plan is current.")
         self.assertEqual([item.status for item in result.plan], ["completed", "in_progress"])
         self.assertEqual([item.step for item in result.plan], ["Inspect files", "Run tests"])
+        self.assertEqual(
+            result.completion_warnings,
+            ["Task plan still has unfinished item(s): 1 in_progress; in_progress: Run tests."],
+        )
+        self.assertFalse(result.completion_ready)
+        self.assertEqual(
+            result.completion_blockers,
+            ["Task plan still has unfinished item(s): 1 in_progress; in_progress: Run tests."],
+        )
         self.assertEqual([item.kind for item in result.observations], ["update_plan", "update_plan"])
         self.assertEqual([step.action_type for step in result.steps], ["update_plan", "update_plan"])
         self.assertIn("update_plan", [event.get("name") for event in events if event["type"] == "tool_call"])
+        result_event = next(event for event in events if event["type"] == "result")
+        self.assertFalse(result_event["completion_ready"])
+        self.assertEqual(result_event["status"], "blocked")
+        self.assertEqual(result_event["completion_blockers"], result.completion_blockers)
+        self.assertEqual(result_event["completion_warnings"], result.completion_warnings)
+
+    def test_run_agent_continues_when_text_finish_has_completion_blockers(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "1",
+                            "name": "update_plan",
+                            "input": {"plan": [{"step": "Run tests", "status": "in_progress"}]},
+                        }
+                    ],
+                    [{"type": "text", "text": "Done early."}],
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "2",
+                            "name": "update_plan",
+                            "input": {"plan": [{"step": "Run tests", "status": "completed"}]},
+                        }
+                    ],
+                    [{"type": "text", "text": "Done now."}],
+                ]
+            )
+
+            result = run_agent("finish only when ready", base_dir=Path(base), client=client, max_iterations=4)
+            events_path = Path(base) / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+            summary = summarize_session(base, result.run_id)
+
+        blocked_events = [event for event in events if event["type"] == "completion_blocked"]
+        feedback_messages = [
+            message.content
+            for call_messages in client.messages
+            for message in call_messages
+            if message.role == "user" and isinstance(message.content, str)
+        ]
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "Done now.")
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.completion_warnings, [])
+        self.assertEqual([item.status for item in result.plan], ["completed"])
+        self.assertEqual(len(blocked_events), 1)
+        self.assertIn("Task plan still has unfinished item(s)", blocked_events[0]["blockers"][0])
+        self.assertEqual(summary.completion_blocked_count, 1)
+        self.assertIn("Task plan still has unfinished item(s)", summary.latest_completion_blockers[0])
+        self.assertTrue(any("Completion is not ready" in message for message in feedback_messages))
+
+    def test_run_agent_continues_when_finish_tool_has_completion_blockers(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "1",
+                            "name": "update_plan",
+                            "input": {"plan": [{"step": "Verify result", "status": "in_progress"}]},
+                        }
+                    ],
+                    [{"type": "tool_call", "id": "2", "name": "finish", "input": {"message": "Done early."}}],
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "3",
+                            "name": "update_plan",
+                            "input": {"plan": [{"step": "Verify result", "status": "completed"}]},
+                        }
+                    ],
+                    [{"type": "tool_call", "id": "4", "name": "finish", "input": {"message": "Done now."}}],
+                ]
+            )
+
+            result = run_agent("finish only when ready", base_dir=Path(base), client=client, max_iterations=4)
+            events_path = Path(base) / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "Done now.")
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual([item.status for item in result.plan], ["completed"])
+        self.assertEqual([event["type"] for event in events if event["type"] == "completion_blocked"], ["completion_blocked"])
+        self.assertEqual([item.kind for item in result.observations], ["update_plan", "finish", "update_plan", "finish"])
+
+    def test_run_agent_continues_when_multistep_work_has_no_plan(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "write_file", "input": {"path": "README.txt", "content": "hello\n"}}],
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "2",
+                            "name": "run_command",
+                            "input": {"command": "test -f README.txt", "timeout_ms": 10000},
+                        }
+                    ],
+                    [{"type": "text", "text": "Done early."}],
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "3",
+                            "name": "update_plan",
+                            "input": {
+                                "plan": [
+                                    {"step": "Create README.txt", "status": "completed"},
+                                    {"step": "Verify README.txt exists", "status": "completed"},
+                                ]
+                            },
+                        }
+                    ],
+                    [{"type": "text", "text": "Done now."}],
+                ]
+            )
+
+            result = run_agent(
+                "create and verify a readme file",
+                base_dir=root,
+                client=client,
+                max_iterations=5,
+                approval_handler=approve_all,
+            )
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+
+        blocked_events = [event for event in events if event["type"] == "completion_blocked"]
+        feedback_messages = [
+            message.content
+            for call_messages in client.messages
+            for message in call_messages
+            if message.role == "user" and isinstance(message.content, str)
+        ]
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "Done now.")
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.completion_warnings, [])
+        self.assertEqual([item.status for item in result.plan], ["completed", "completed"])
+        self.assertEqual([item.kind for item in result.observations], ["write_file", "run_command", "final_review", "update_plan"])
+        self.assertEqual(len(blocked_events), 1)
+        self.assertEqual(
+            blocked_events[0]["blockers"],
+            ["Task plan is missing for multi-step coding work; call update_plan with a short checklist before finishing."],
+        )
+        self.assertTrue(any("Task plan is missing for multi-step coding work" in message for message in feedback_messages))
+
+    def test_run_agent_continues_after_pending_suggested_check_is_run(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            tests_dir = root / "tests"
+            tests_dir.mkdir()
+            (tests_dir / "test_sample.py").write_text(
+                "import unittest\n\nclass SampleTests(unittest.TestCase):\n    def test_ok(self):\n        self.assertTrue(True)\n",
+                encoding="utf-8",
+            )
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "write_file", "input": {"path": "src/app.py", "content": "VALUE = 1\n"}}],
+                    [{"type": "text", "text": "Done early."}],
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "2",
+                            "name": "run_command",
+                            "input": {"command": "python -m unittest discover -s tests", "timeout_ms": 10000},
+                        }
+                    ],
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "3",
+                            "name": "update_plan",
+                            "input": {
+                                "plan": [
+                                    {"step": "Create src/app.py", "status": "completed"},
+                                    {"step": "Run unit tests", "status": "completed"},
+                                ]
+                            },
+                        }
+                    ],
+                    [{"type": "text", "text": "Done now."}],
+                ]
+            )
+
+            result = run_agent(
+                "create app and verify it",
+                base_dir=root,
+                client=client,
+                max_iterations=5,
+                approval_handler=approve_all,
+            )
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+
+        blocked_events = [event for event in events if event["type"] == "completion_blocked"]
+        feedback_messages = [
+            message.content
+            for call_messages in client.messages
+            for message in call_messages
+            if message.role == "user" and isinstance(message.content, str)
+        ]
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "Done now.")
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.completion_warnings, [])
+        self.assertEqual([item.status for item in result.plan], ["completed", "completed"])
+        self.assertEqual([item.kind for item in result.observations], ["write_file", "final_review", "run_command", "update_plan"])
+        self.assertEqual(result.verification_checks, ["python -m unittest discover -s tests"])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
+        self.assertEqual(result.completion_blocked_count, 1)
+        self.assertEqual(
+            result.latest_completion_blockers,
+            [
+                "Final review did not report ready.",
+                "1 suggested verification check(s) are still pending after the latest project change.",
+            ],
+        )
+        self.assertEqual(result.latest_completion_pending_verification_checks, ["python -m unittest discover -s tests"])
+        self.assertEqual(result.latest_completion_failed_verification_checks, [])
+        self.assertEqual(len(blocked_events), 1)
+        self.assertEqual(
+            blocked_events[0]["details"],
+            {"pendingVerificationChecks": ["python -m unittest discover -s tests"]},
+        )
+        self.assertTrue(any("Pending verification checks:\n- python -m unittest discover -s tests" in message for message in feedback_messages))
 
     def test_run_agent_returns_blocked_command_as_tool_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
@@ -354,6 +892,49 @@ class AgentTests(unittest.TestCase):
 
         self.assertTrue(result.success)
         self.assertEqual(result.observations[0].kind, "git_status")
+        self.assertTrue(result.observations[0].ok)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_git_conflicts_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            Path(base, "app.py").write_text("print('ok')\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "git_conflicts", "input": {}}],
+                    [{"type": "tool_call", "id": "2", "name": "finish", "input": {"message": "Checked git conflicts."}}],
+                ]
+            )
+
+            result = run_agent("check conflicts", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "git_conflicts")
+        self.assertTrue(result.observations[0].ok)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_git_diff_contexts_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            Path(base, "app.py").write_text("print('old')\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            Path(base, "app.py").write_text("print('new')\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "git_diff_contexts", "input": {}}],
+                    [{"type": "tool_call", "id": "2", "name": "finish", "input": {"message": "Checked git diff contexts."}}],
+                ]
+            )
+
+            result = run_agent("check diff contexts", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "git_diff_contexts")
         self.assertTrue(result.observations[0].ok)
         self.assertEqual(result.steps[0].status, "completed")
 
@@ -816,6 +1397,54 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(payload["kind"], "project_commands")
         self.assertEqual(result.steps[0].status, "completed")
 
+    def test_run_agent_allows_related_tests_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            (root / "pkg").mkdir()
+            (root / "tests").mkdir()
+            (root / "pkg" / "actions.py").write_text("def run():\n    return 1\n", encoding="utf-8")
+            (root / "tests" / "test_actions.py").write_text("def test_run():\n    assert True\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "related_tests", "input": {"paths": ["pkg/actions.py"]}}],
+                    [{"type": "text", "text": "Found related tests."}],
+                ]
+            )
+
+            result = run_agent("find related tests", base_dir=root, client=client, max_iterations=2)
+            payload = json.loads(client.messages[1][-1].content[0]["content"])
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "related_tests")
+        self.assertTrue(result.observations[0].ok)
+        self.assertEqual(result.observations[0].candidates[0].test_path, "tests/test_actions.py")
+        self.assertEqual(payload["kind"], "related_tests")
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_focused_test_commands_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            (root / "pkg").mkdir()
+            (root / "tests").mkdir()
+            (root / "pkg" / "actions.py").write_text("def run():\n    return 1\n", encoding="utf-8")
+            (root / "tests" / "test_actions.py").write_text("def test_run():\n    assert True\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "focused_test_commands", "input": {"paths": ["pkg/actions.py"]}}],
+                    [{"type": "text", "text": "Found focused tests."}],
+                ]
+            )
+
+            result = run_agent("find focused test commands", base_dir=root, client=client, max_iterations=2)
+            payload = json.loads(client.messages[1][-1].content[0]["content"])
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "focused_test_commands")
+        self.assertTrue(result.observations[0].ok)
+        self.assertEqual(result.observations[0].commands[0].test_path, "tests/test_actions.py")
+        self.assertEqual(payload["kind"], "focused_test_commands")
+        self.assertEqual(result.steps[0].status, "completed")
+
     def test_run_agent_allows_project_manifests_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             Path(base, "package.json").write_text('{"name":"web","dependencies":{"react":"^19.0.0"}}', encoding="utf-8")
@@ -834,6 +1463,27 @@ class AgentTests(unittest.TestCase):
         self.assertTrue(result.observations[0].ok)
         self.assertEqual(result.observations[0].manifests[0].items[0].name, "react")
         self.assertEqual(payload["kind"], "project_manifests")
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_project_instructions_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            Path(base, "AGENTS.md").write_text("Use Python.\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "project_instructions", "input": {}}],
+                    [{"type": "text", "text": "Read instructions."}],
+                ]
+            )
+
+            result = run_agent("read project instructions", base_dir=Path(base), client=client, max_iterations=2)
+            payload = json.loads(client.messages[1][-1].content[0]["content"])
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "project_instructions")
+        self.assertTrue(result.observations[0].ok)
+        self.assertEqual(result.observations[0].files[0].path, "AGENTS.md")
+        self.assertIn("Use Python.", result.observations[0].text)
+        self.assertEqual(payload["kind"], "project_instructions")
         self.assertEqual(result.steps[0].status, "completed")
 
     def test_run_agent_allows_environment_info_without_approval_handler(self) -> None:
@@ -911,6 +1561,47 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(len(result.observations[0].checks), 2)
         self.assertEqual(payload["kind"], "check_run_commands")
         self.assertEqual(result.steps[0].status, "failed")
+
+    def test_run_agent_allows_check_suggested_checks_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "tests").mkdir()
+            (root / "tests" / "test_app.py").write_text(
+                "import unittest\n\nclass AppTests(unittest.TestCase):\n    def test_ok(self):\n        self.assertTrue(True)\n",
+                encoding="utf-8",
+            )
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "check_suggested_checks", "input": {"max_commands": 1}}],
+                    [{"type": "text", "text": "Preflighted suggested checks."}],
+                ]
+            )
+
+            result = run_agent("preflight suggested checks", base_dir=root, client=client, max_iterations=2)
+            payload = json.loads(client.messages[1][-1].content[0]["content"])
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "check_suggested_checks")
+        self.assertTrue(result.observations[0].ok)
+        self.assertEqual(len(result.observations[0].checks), 1)
+        self.assertEqual(payload["kind"], "check_suggested_checks")
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_denies_run_suggested_checks_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "run_suggested_checks", "input": {"max_commands": 1}}],
+                ]
+            )
+
+            result = run_agent("run suggested checks", base_dir=Path(base), client=client, max_iterations=1)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.observations[0].kind, "approval_denied")
+        self.assertEqual(result.observations[0].action_type, "run_suggested_checks")
+        self.assertEqual(result.steps[0].status, "denied")
 
     def test_run_agent_denies_run_commands_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
@@ -1024,6 +1715,35 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(payload["url"], "http://127.0.0.1:8000/health")
         self.assertEqual(result.steps[0].status, "completed")
         self.assertEqual(result.steps[0].target, "http://127.0.0.1:8000/health")
+
+    def test_run_agent_allows_http_fetch_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "1",
+                            "name": "http_fetch",
+                            "input": {"url": "http://127.0.0.1:8000/api", "timeout_ms": 100, "max_body_chars": 100},
+                        }
+                    ],
+                    [{"type": "text", "text": "Fetched HTTP."}],
+                ]
+            )
+
+            with patch("vibeagent.actions.urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
+                result = run_agent("fetch http", base_dir=Path(base), client=client, max_iterations=2)
+            payload = json.loads(client.messages[1][-1].content[0]["content"])
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "http_fetch")
+        self.assertTrue(result.observations[0].ok)
+        self.assertFalse(result.observations[0].reachable)
+        self.assertEqual(payload["kind"], "http_fetch")
+        self.assertEqual(payload["url"], "http://127.0.0.1:8000/api")
+        self.assertEqual(result.steps[0].status, "completed")
+        self.assertEqual(result.steps[0].target, "http://127.0.0.1:8000/api")
 
     def test_run_agent_allows_check_stop_process_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
@@ -1262,6 +1982,395 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Session:", result.observations[0].summary)
         self.assertEqual(result.steps[0].status, "completed")
 
+    def test_run_agent_allows_session_plan_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "session_plan", "input": {}}],
+                    [{"type": "text", "text": "Read session plan."}],
+                ]
+            )
+
+            result = run_agent("read session plan", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "session_plan")
+        self.assertTrue(result.observations[0].ok)
+        self.assertIn("Plan:", result.observations[0].plan)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_session_transcript_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "session_transcript", "input": {"max_events": 5}}],
+                    [{"type": "text", "text": "Read session transcript."}],
+                ]
+            )
+
+            result = run_agent("read session transcript", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "session_transcript")
+        self.assertTrue(result.observations[0].ok)
+        self.assertIn("Transcript:", result.observations[0].transcript)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_session_search_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "session_search", "input": {"query": "session"}}],
+                    [{"type": "text", "text": "Searched session."}],
+                ]
+            )
+
+            result = run_agent("search session", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "session_search")
+        self.assertTrue(result.observations[0].ok)
+        self.assertIn("Session search:", result.observations[0].matches)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_session_commands_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "session_commands", "input": {"max_commands": 5}}],
+                    [{"type": "text", "text": "Read session commands."}],
+                ]
+            )
+
+            result = run_agent("read session commands", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "session_commands")
+        self.assertTrue(result.observations[0].ok)
+        self.assertIn("Command results:", result.observations[0].commands)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_session_output_contexts_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            workspace = create_run_workspace(base, "run-1")
+            Path(base, "src").mkdir()
+            Path(base, "src", "app.py").write_text("one\ntwo\nthree\n", encoding="utf-8")
+            (workspace.session_dir / "events.jsonl").write_text(
+                '{"type":"tool_result","iteration":1,"name":"run_command","result":{"kind":"run_command","result":{"command":"python3 -m unittest","exit_code":1,"stdout":"src/app.py:2: failed\\\\n","stderr":"","timed_out":false,"signal":null,"cwd":"."}}}\n',
+                encoding="utf-8",
+            )
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "session_output_contexts", "input": {"run_id": "run-1", "max_commands": 5}}],
+                    [{"type": "text", "text": "Read prior failure contexts."}],
+                ]
+            )
+
+            result = run_agent("recover prior failure context", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "session_output_contexts")
+        self.assertTrue(result.observations[0].ok)
+        self.assertEqual(result.observations[0].contexts[0].path, "src/app.py")
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_session_output_diagnostics_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            workspace = create_run_workspace(base, "run-1")
+            Path(base, "src").mkdir()
+            Path(base, "src", "app.py").write_text("one\ntwo\nthree\n", encoding="utf-8")
+            (workspace.session_dir / "events.jsonl").write_text(
+                '{"type":"tool_result","iteration":1,"name":"run_command","result":{"kind":"run_command","result":{"command":"python3 -m unittest","exit_code":1,"stdout":"ERROR src/app.py:2: failed\\\\n","stderr":"","timed_out":false,"signal":null,"cwd":"."}}}\n',
+                encoding="utf-8",
+            )
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "session_output_diagnostics", "input": {"run_id": "run-1", "max_commands": 5}}],
+                    [{"type": "text", "text": "Read prior failure diagnostics."}],
+                ]
+            )
+
+            result = run_agent("recover prior failure diagnostics", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "session_output_diagnostics")
+        self.assertTrue(result.observations[0].ok)
+        self.assertEqual(result.observations[0].diagnostics[0].severity, "error")
+        self.assertEqual(result.observations[0].contexts[0].path, "src/app.py")
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_session_files_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "session_files", "input": {"max_files": 5}}],
+                    [{"type": "text", "text": "Read session files."}],
+                ]
+            )
+
+            result = run_agent("read session files", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "session_files")
+        self.assertTrue(result.observations[0].ok)
+        self.assertIn("Session files:", result.observations[0].files)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_session_failures_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "session_failures", "input": {"max_failures": 5}}],
+                    [{"type": "text", "text": "Read session failures."}],
+                ]
+            )
+
+            result = run_agent("read session failures", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "session_failures")
+        self.assertTrue(result.observations[0].ok)
+        self.assertIn("Session failures:", result.observations[0].failures)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_session_verification_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "session_verification", "input": {}}],
+                    [{"type": "text", "text": "Read session verification."}],
+                ]
+            )
+
+            result = run_agent("read session verification", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "session_verification")
+        self.assertTrue(result.observations[0].ok)
+        self.assertIn("Session verification:", result.observations[0].verification)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_session_audit_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "session_audit", "input": {"max_files": 5}}],
+                    [{"type": "text", "text": "Read session audit."}],
+                ]
+            )
+
+            result = run_agent("read session audit", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "session_audit")
+        self.assertTrue(result.observations[0].ok)
+        self.assertIn("Session audit:", result.observations[0].audit)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_format_observations_renders_session_audit_blockers_and_processes(self) -> None:
+        text = format_observations(
+            [
+                SessionAuditObservation(
+                    kind="session_audit",
+                    run_id="run-1",
+                    ok=True,
+                    audit="Session audit:\n  ready: no",
+                    ready=False,
+                    blockers=["1 active background process(es)"],
+                    background_processes_started=1,
+                    active_background_processes=[
+                        SessionAuditProcess(
+                            process_id="bg-1",
+                            pid=1234,
+                            command="npm run dev",
+                            cwd="web",
+                            line_number=3,
+                        )
+                    ],
+                    message="Read session audit for run-1.",
+                )
+            ]
+        )
+
+        self.assertIn("session_audit run-1", text)
+        self.assertIn("blockers: 1", text)
+        self.assertIn("blocker: 1 active background process(es)", text)
+        self.assertIn("backgroundProcesses: started=1 active=1", text)
+        self.assertIn("active_process: bg-1 pid=1234 cwd=web command=npm run dev", text)
+
+    def test_format_observations_renders_final_review_syntax_failures(self) -> None:
+        text = format_observations(
+            [
+                FinalReviewObservation(
+                    kind="final_review",
+                    ok=False,
+                    ready=False,
+                    blocking_issues=["Changed Python files have syntax errors."],
+                    warnings=[],
+                    running_processes=[],
+                    files=[],
+                    total_files=0,
+                    suggested_checks=[],
+                    suggested_checks_total=0,
+                    suggested_checks_truncated=False,
+                    diff_check="",
+                    staged_diff_check="",
+                    status="",
+                    message="Final review found 1 blocking issue(s).",
+                    python=[
+                        PythonCheckResult(
+                            path="bad.py",
+                            ok=False,
+                            line=1,
+                            column=9,
+                            message="Python syntax error: invalid syntax",
+                        )
+                    ],
+                    python_total=1,
+                    config=[
+                        ConfigCheckResult(
+                            path="package.json",
+                            ok=False,
+                            format="json",
+                            line=1,
+                            column=2,
+                            message="JSON syntax error: Expecting property name",
+                        )
+                    ],
+                    config_total=1,
+                )
+            ]
+        )
+
+        self.assertIn("python_failure: bad.py line=1 column=9", text)
+        self.assertIn("Python syntax error: invalid syntax", text)
+        self.assertIn("config_failure: package.json line=1 column=2", text)
+
+    def test_run_agent_allows_session_handoff_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "session_handoff", "input": {"max_files": 5}}],
+                    [{"type": "text", "text": "Read session handoff."}],
+                ]
+            )
+
+            result = run_agent("read session handoff", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "session_handoff")
+        self.assertTrue(result.observations[0].ok)
+        self.assertIn("Session handoff:", result.observations[0].handoff)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_checkpoint_create_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            (root / "app.py").write_text("base\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("changed\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "checkpoint_create", "input": {"label": "before edit"}}],
+                    [{"type": "text", "text": "Checkpoint saved."}],
+                ]
+            )
+
+            result = run_agent("save a checkpoint", base_dir=root, client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "checkpoint_create")
+        self.assertTrue(result.observations[0].ok)
+        self.assertIsNotNone(result.observations[0].checkpoint)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_checkpoint_show_and_diff_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            (root / "app.py").write_text("base\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("changed\n", encoding="utf-8")
+            workspace = create_run_workspace(root, "setup-run")
+            checkpoint = execute_action(workspace, CheckpointCreateAction(type="checkpoint_create", label="before inspect"))
+            checkpoint_id = checkpoint.checkpoint.checkpoint_id if checkpoint.kind == "checkpoint_create" and checkpoint.checkpoint else ""
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "checkpoint_show", "input": {"checkpoint_id": checkpoint_id}}],
+                    [{"type": "tool_call", "id": "2", "name": "checkpoint_diff", "input": {"checkpoint_id": checkpoint_id, "max_chars": 1000}}],
+                    [{"type": "text", "text": "Checkpoint inspected."}],
+                ]
+            )
+
+            result = run_agent("inspect a checkpoint", base_dir=root, client=client, max_iterations=3)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "checkpoint_show")
+        self.assertTrue(result.observations[0].ok)
+        self.assertEqual(result.observations[1].kind, "checkpoint_diff")
+        self.assertTrue(result.observations[1].ok)
+        self.assertIn("+changed", result.observations[1].unstaged_patch)
+        self.assertEqual(result.steps[0].status, "completed")
+        self.assertEqual(result.steps[1].status, "completed")
+
+    def test_run_agent_denies_checkpoint_restore_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "checkpoint_restore", "input": {"checkpoint_id": "ckpt-1"}}],
+                    [{"type": "text", "text": "Restore denied."}],
+                ]
+            )
+
+            result = run_agent("restore checkpoint", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "approval_denied")
+        self.assertEqual(result.observations[0].action_type, "checkpoint_restore")
+        self.assertIn("No approval handler configured", result.observations[0].message)
+        self.assertEqual(result.steps[0].status, "denied")
+
+    def test_run_agent_denies_checkpoint_delete_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "checkpoint_delete", "input": {"checkpoint_id": "ckpt-1"}}],
+                    [{"type": "text", "text": "Delete denied."}],
+                ]
+            )
+
+            result = run_agent("delete checkpoint", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "approval_denied")
+        self.assertEqual(result.observations[0].action_type, "checkpoint_delete")
+        self.assertIn("No approval handler configured", result.observations[0].message)
+        self.assertEqual(result.steps[0].status, "denied")
+
+    def test_run_agent_denies_checkpoint_prune_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "checkpoint_prune", "input": {"keep_last": 2}}],
+                    [{"type": "text", "text": "Prune denied."}],
+                ]
+            )
+
+            result = run_agent("prune checkpoints", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "approval_denied")
+        self.assertEqual(result.observations[0].action_type, "checkpoint_prune")
+        self.assertIn("No approval handler configured", result.observations[0].message)
+        self.assertEqual(result.steps[0].status, "denied")
+
     def test_run_agent_allows_glob_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             Path(base, "app.py").write_text("print('ok')\n", encoding="utf-8")
@@ -1340,6 +2449,99 @@ class AgentTests(unittest.TestCase):
         self.assertTrue(all(item.ok for item in result.observations[0].files))
         self.assertEqual(result.steps[0].status, "completed")
 
+    def test_run_agent_allows_tail_file_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            Path(base, "events.log").write_text("one\ntwo\nthree\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "tail_file", "input": {"path": "events.log", "line_count": 2}}],
+                    [{"type": "text", "text": "Read the log tail."}],
+                ]
+            )
+
+            result = run_agent("read log tail", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "tail_file")
+        self.assertTrue(result.observations[0].ok)
+        self.assertEqual(result.observations[0].content, "2: two\n3: three")
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_read_file_context_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            Path(base, "app.py").write_text("one\ntwo\nthree\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "read_file_context", "input": {"path": "app.py", "line": 2, "context_lines": 1}}],
+                    [{"type": "text", "text": "Read the failing line."}],
+                ]
+            )
+
+            result = run_agent("read failing line context", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "read_file_context")
+        self.assertTrue(result.observations[0].ok)
+        self.assertEqual(result.observations[0].content, "1: one\n2: two\n3: three")
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_read_file_contexts_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            Path(base, "app.py").write_text("one\ntwo\nthree\n", encoding="utf-8")
+            Path(base, "test_app.py").write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "1",
+                            "name": "read_file_contexts",
+                            "input": {
+                                "contexts": [
+                                    {"path": "app.py", "line": 2, "context_lines": 1},
+                                    {"path": "test_app.py", "line": 2, "context_lines": 0},
+                                ]
+                            },
+                        }
+                    ],
+                    [{"type": "text", "text": "Read the failing locations."}],
+                ]
+            )
+
+            result = run_agent("read failing line contexts", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "read_file_contexts")
+        self.assertEqual(result.observations[0].message, "Read 2/2 file context(s).")
+        self.assertEqual([item.content for item in result.observations[0].contexts], ["1: one\n2: two\n3: three", "2: beta"])
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_output_contexts_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            Path(base, "app.py").write_text("one\ntwo\nthree\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "1",
+                            "name": "output_contexts",
+                            "input": {"text": "app.py:2:7: failed", "context_lines": 1},
+                        }
+                    ],
+                    [{"type": "text", "text": "Read the failing output reference."}],
+                ]
+            )
+
+            result = run_agent("read failing output context", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "output_contexts")
+        self.assertEqual(result.observations[0].total_refs, 1)
+        self.assertTrue(result.observations[0].contexts[0].ok)
+        self.assertEqual(result.observations[0].contexts[0].column, 7)
+        self.assertEqual(result.steps[0].status, "completed")
+
     def test_run_agent_allows_read_file_ranges_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             Path(base, "app.py").write_text("one\ntwo\nthree\n", encoding="utf-8")
@@ -1380,6 +2582,32 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result.observations[0].kind, "file_info")
         self.assertEqual(result.observations[0].files[0].path, "app.py")
         self.assertTrue(result.observations[0].files[0].ok)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_image_info_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            Path(base, "logo.png").write_bytes(
+                b"\x89PNG\r\n\x1a\n"
+                b"\x00\x00\x00\rIHDR"
+                + (10).to_bytes(4, "big")
+                + (12).to_bytes(4, "big")
+                + b"\x08\x02\x00\x00\x00\x00\x00\x00\x00"
+            )
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "image_info", "input": {"paths": ["logo.png"]}}],
+                    [{"type": "text", "text": "Inspected image metadata."}],
+                ]
+            )
+
+            result = run_agent("inspect image metadata", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "image_info")
+        self.assertEqual(result.observations[0].images[0].path, "logo.png")
+        self.assertEqual(result.observations[0].images[0].width, 10)
+        self.assertEqual(result.observations[0].images[0].height, 12)
+        self.assertTrue(result.observations[0].images[0].ok)
         self.assertEqual(result.steps[0].status, "completed")
 
     def test_run_agent_allows_check_json_set_without_approval_handler(self) -> None:
@@ -1687,6 +2915,27 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(payload["kind"], "code_references")
         self.assertEqual(result.steps[0].status, "completed")
 
+    def test_run_agent_allows_code_reference_contexts_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            Path(base, "app.ts").write_text("const runAgent = 1;\nrunAgent();\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "code_reference_contexts", "input": {"symbol": "runAgent"}}],
+                    [{"type": "text", "text": "Read code reference contexts."}],
+                ]
+            )
+
+            result = run_agent("inspect code reference contexts", base_dir=Path(base), client=client, max_iterations=2)
+            payload = json.loads(client.messages[1][-1].content[0]["content"])
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "code_reference_contexts")
+        self.assertTrue(result.observations[0].ok)
+        self.assertEqual(result.observations[0].contexts[0].symbol, "runAgent")
+        self.assertIn("const runAgent", result.observations[0].contexts[0].content)
+        self.assertEqual(payload["kind"], "code_reference_contexts")
+        self.assertEqual(result.steps[0].status, "completed")
+
     def test_run_agent_allows_code_definitions_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             Path(base, "app.ts").write_text("export function runAgent() {\n  return 1;\n}\n", encoding="utf-8")
@@ -1706,6 +2955,46 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result.observations[0].definitions[0].name, "runAgent")
         self.assertEqual(payload["kind"], "code_definitions")
         self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_allows_code_rename_preview_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            path = Path(base, "app.ts")
+            path.write_text("const runAgent = 1;\nrunAgent();\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "code_rename_preview", "input": {"symbol": "runAgent", "new_name": "executeAgent"}}],
+                    [{"type": "text", "text": "Previewed code rename."}],
+                ]
+            )
+
+            result = run_agent("preview code rename", base_dir=Path(base), client=client, max_iterations=2)
+            content = path.read_text(encoding="utf-8")
+
+        self.assertTrue(result.success)
+        self.assertEqual(content, "const runAgent = 1;\nrunAgent();\n")
+        self.assertEqual(result.observations[0].kind, "code_rename_preview")
+        self.assertTrue(result.observations[0].ok)
+        self.assertEqual(result.observations[0].total_replacements, 2)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_denies_code_rename_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            path = Path(base, "app.ts")
+            path.write_text("const runAgent = 1;\nrunAgent();\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "code_rename", "input": {"symbol": "runAgent", "new_name": "executeAgent"}}],
+                ]
+            )
+
+            result = run_agent("rename code symbol", base_dir=Path(base), client=client, max_iterations=1)
+            content = path.read_text(encoding="utf-8")
+
+        self.assertFalse(result.success)
+        self.assertEqual(content, "const runAgent = 1;\nrunAgent();\n")
+        self.assertEqual(result.observations[0].kind, "approval_denied")
+        self.assertEqual(result.observations[0].action_type, "code_rename")
+        self.assertEqual(result.steps[0].status, "denied")
 
     def test_run_agent_allows_python_definitions_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
@@ -1806,6 +3095,34 @@ class AgentTests(unittest.TestCase):
         self.assertEqual([(item.path, item.line, item.kind) for item in result.observations[0].references], [("app.py", 1, "definition"), ("app.py", 4, "reference")])
         self.assertEqual(result.steps[0].status, "completed")
 
+    def test_run_agent_allows_python_reference_contexts_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            Path(base, "app.py").write_text(
+                "def run_agent(task):\n    return task\n\nvalue = run_agent('x')\n",
+                encoding="utf-8",
+            )
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "1",
+                            "name": "python_reference_contexts",
+                            "input": {"symbol": "run_agent"},
+                        }
+                    ],
+                    [{"type": "text", "text": "Inspected Python reference contexts."}],
+                ]
+            )
+
+            result = run_agent("inspect python reference contexts", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "python_reference_contexts")
+        self.assertEqual([(item.path, item.line, item.kind) for item in result.observations[0].contexts], [("app.py", 1, "definition"), ("app.py", 4, "reference")])
+        self.assertIn("def run_agent", result.observations[0].contexts[0].content)
+        self.assertEqual(result.steps[0].status, "completed")
+
     def test_run_agent_allows_python_rename_preview_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             Path(base, "app.py").write_text(
@@ -1852,6 +3169,93 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result.observations[0].kind, "read_file")
         self.assertIn("binary or non-UTF-8", result.observations[0].message)
         self.assertEqual(result.steps[0].status, "failed")
+
+    def test_run_agent_marks_project_todos_failure_step_failed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "project_todos", "input": {"path": "../outside"}}],
+                    [{"type": "text", "text": "TODO scan failed normally."}],
+                ]
+            )
+
+            result = run_agent("scan todos", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "project_todos")
+        self.assertFalse(result.observations[0].ok)
+        self.assertEqual(result.steps[0].status, "failed")
+
+    def test_run_agent_marks_output_diagnostics_context_failure_step_failed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "1",
+                            "name": "output_diagnostics",
+                            "input": {"text": "missing.py:1: error: boom"},
+                        }
+                    ],
+                    [{"type": "text", "text": "Diagnostics failed normally."}],
+                ]
+            )
+
+            result = run_agent("inspect diagnostics", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "output_diagnostics")
+        self.assertTrue(any(not context.ok for context in result.observations[0].contexts))
+        self.assertEqual(result.steps[0].status, "failed")
+
+    def test_run_agent_marks_process_output_analysis_failure_step_failed(self) -> None:
+        cases = [
+            ("process_output_contexts", "Process output contexts failed normally."),
+            ("process_output_diagnostics", "Process output diagnostics failed normally."),
+        ]
+
+        for tool_name, final_text in cases:
+            with self.subTest(tool=tool_name), tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+                client = MockClient(
+                    [
+                        [{"type": "tool_call", "id": "1", "name": tool_name, "input": {"process_id": "missing-process"}}],
+                        [{"type": "text", "text": final_text}],
+                    ]
+                )
+
+                result = run_agent("inspect missing process", base_dir=Path(base), client=client, max_iterations=2)
+
+            self.assertTrue(result.success)
+            self.assertEqual(result.observations[0].kind, tool_name)
+            self.assertFalse(result.observations[0].ok)
+            self.assertEqual(result.steps[0].status, "failed")
+
+    def test_observation_failed_covers_all_ok_observations(self) -> None:
+        source = Path(agent_module.__file__).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        handled_kinds: set[str] = set()
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Compare) or not isinstance(node.left, ast.Attribute) or node.left.attr != "kind":
+                continue
+            for comparator in node.comparators:
+                if isinstance(comparator, ast.Constant) and isinstance(comparator.value, str):
+                    handled_kinds.add(comparator.value)
+                elif isinstance(comparator, ast.Set):
+                    for item in comparator.elts:
+                        if isinstance(item, ast.Constant) and isinstance(item.value, str):
+                            handled_kinds.add(item.value)
+
+        ok_observation_kinds: set[str] = set()
+        for candidate in vars(types_module).values():
+            annotations = getattr(candidate, "__annotations__", None)
+            if not annotations or "ok" not in annotations or "kind" not in annotations:
+                continue
+            kind_hint = typing.get_type_hints(candidate)["kind"]
+            ok_observation_kinds.update(item for item in typing.get_args(kind_hint) if isinstance(item, str))
+
+        self.assertEqual(sorted(ok_observation_kinds - handled_kinds), [])
 
     def test_run_agent_allows_list_processes_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
@@ -1921,6 +3325,8 @@ class AgentTests(unittest.TestCase):
 
     def test_run_agent_allows_plain_text_final_answer_after_tool_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             client = MockClient(
                 [
                     [{"type": "tool_call", "id": "1", "name": "write_file", "input": {"path": "note.txt", "content": "ok\n"}}],
@@ -1930,16 +3336,398 @@ class AgentTests(unittest.TestCase):
 
             result = run_agent(
                 "create note",
-                base_dir=Path(base),
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_handler=approve_all,
+            )
+            summary = summarize_session(root, result.run_id)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "Created note.txt.")
+        self.assertEqual([item.kind for item in result.observations], ["write_file", "final_review"])
+        self.assertTrue(result.observations[1].ready)
+        self.assertEqual(result.observations[1].total_files, 1)
+        self.assertEqual(result.completion_warnings, [])
+        self.assertTrue(summary.final_review_seen)
+        self.assertTrue(summary.final_review_ready)
+        self.assertEqual(result.steps[0].status, "completed")
+
+    def test_run_agent_does_not_duplicate_existing_final_review(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "write_file", "input": {"path": "note.txt", "content": "ok\n"}}],
+                    [{"type": "tool_call", "id": "2", "name": "final_review", "input": {}}],
+                    [{"type": "text", "text": "Created note.txt."}],
+                ]
+            )
+
+            result = run_agent(
+                "create note",
+                base_dir=root,
+                client=client,
+                max_iterations=3,
+                approval_handler=approve_all,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual([item.kind for item in result.observations], ["write_file", "final_review"])
+        self.assertTrue(result.observations[1].ready)
+        self.assertEqual(result.completion_warnings, [])
+
+    def test_run_agent_reruns_final_review_when_project_changes_after_review(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "final_review", "input": {}}],
+                    [{"type": "tool_call", "id": "2", "name": "write_file", "input": {"path": "note.txt", "content": "ok\n"}}],
+                    [{"type": "text", "text": "Reviewed, then created note.txt."}],
+                ]
+            )
+
+            result = run_agent(
+                "create note",
+                base_dir=root,
+                client=client,
+                max_iterations=3,
+                approval_handler=approve_all,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual([item.kind for item in result.observations], ["final_review", "write_file", "final_review"])
+        self.assertTrue(result.observations[2].ready)
+        self.assertEqual(result.observations[2].total_files, 1)
+        self.assertEqual(result.completion_warnings, [])
+
+    def test_auto_final_review_reason_detects_stale_review_after_process_start(self) -> None:
+        review = FinalReviewObservation(
+            kind="final_review",
+            ok=True,
+            ready=True,
+            blocking_issues=[],
+            warnings=[],
+            running_processes=[],
+            files=[],
+            total_files=0,
+            suggested_checks=[],
+            suggested_checks_total=0,
+            suggested_checks_truncated=False,
+            diff_check="",
+            staged_diff_check="",
+            status="",
+            message="Ready.",
+        )
+        process = StartCommandObservation(
+            kind="start_command",
+            ok=True,
+            process_id="proc-1",
+            pid=1234,
+            command="python3 -m http.server",
+            cwd=".",
+            stdout_path="stdout.log",
+            stderr_path="stderr.log",
+            message="Started.",
+        )
+
+        self.assertEqual(
+            agent_module.auto_final_review_reason(True, [review, process]),
+            "Background command started after final_review",
+        )
+
+    def test_run_agent_warns_when_final_review_reports_running_background_process(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "1",
+                            "name": "start_command",
+                            "input": {"command": "python3 -c \"import time; time.sleep(30)\""},
+                        }
+                    ],
+                    [{"type": "tool_call", "id": "2", "name": "final_review", "input": {}}],
+                    [{"type": "text", "text": "Started process."}],
+                ]
+            )
+
+            try:
+                result = run_agent(
+                    "start a temporary background process",
+                    base_dir=root,
+                    client=client,
+                    max_iterations=3,
+                    approval_handler=approve_all,
+                )
+            finally:
+                execute_action(create_run_workspace(root), StopAllProcessesAction(type="stop_all_processes"))
+
+        self.assertTrue(result.success)
+        self.assertEqual([item.kind for item in result.observations], ["start_command", "final_review"])
+        self.assertEqual(len(result.observations[1].running_processes), 1)
+        self.assertTrue(result.observations[1].running_processes[0].running)
+        self.assertIn(
+            "Final review reported 1 running background process(es). Stop them before finishing if they are no longer needed.",
+            result.completion_warnings,
+        )
+
+    def test_run_agent_auto_final_review_after_background_process_start(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "1",
+                            "name": "start_command",
+                            "input": {"command": "python3 -c \"import time; time.sleep(30)\""},
+                        }
+                    ],
+                    [{"type": "text", "text": "Started process."}],
+                ]
+            )
+
+            try:
+                result = run_agent(
+                    "start a temporary background process",
+                    base_dir=root,
+                    client=client,
+                    max_iterations=2,
+                    approval_handler=approve_all,
+                )
+            finally:
+                execute_action(create_run_workspace(root), StopAllProcessesAction(type="stop_all_processes"))
+
+        self.assertTrue(result.success)
+        self.assertEqual([item.kind for item in result.observations], ["start_command", "final_review"])
+        self.assertEqual(len(result.observations[1].running_processes), 1)
+        self.assertTrue(result.observations[1].running_processes[0].running)
+        self.assertIn(
+            "Final review reported 1 running background process(es). Stop them before finishing if they are no longer needed.",
+            result.completion_warnings,
+        )
+        self.assertNotIn("Background command started without final_review observation.", result.completion_warnings)
+
+    def test_run_agent_warns_when_suggested_checks_are_not_run_after_change(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            tests_dir = root / "tests"
+            tests_dir.mkdir()
+            (tests_dir / "test_sample.py").write_text(
+                "import unittest\n\nclass SampleTests(unittest.TestCase):\n    def test_ok(self):\n        self.assertTrue(True)\n",
+                encoding="utf-8",
+            )
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "write_file", "input": {"path": "src/app.py", "content": "VALUE = 1\n"}}],
+                    [{"type": "text", "text": "Created src/app.py."}],
+                ]
+            )
+
+            result = run_agent(
+                "create app",
+                base_dir=root,
                 client=client,
                 max_iterations=2,
                 approval_handler=approve_all,
             )
 
         self.assertTrue(result.success)
-        self.assertEqual(result.message, "Created note.txt.")
-        self.assertEqual([item.kind for item in result.observations], ["write_file"])
-        self.assertEqual(result.steps[0].status, "completed")
+        self.assertEqual([item.kind for item in result.observations], ["write_file", "final_review"])
+        self.assertFalse(result.observations[1].ready)
+        self.assertIn("python -m unittest discover -s tests", [check.command for check in result.observations[1].suggested_checks])
+        self.assertEqual(
+            result.completion_warnings,
+            [
+                "Final review did not report ready.",
+                "Suggested verification checks are still pending after the latest project change.",
+            ],
+        )
+        self.assertEqual(result.verification_checks, [])
+        self.assertEqual(result.pending_verification_checks, ["python -m unittest discover -s tests"])
+        self.assertEqual(result.failed_verification_checks, [])
+
+    def test_run_agent_reports_failed_suggested_check_after_change(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            tests_dir = root / "tests"
+            tests_dir.mkdir()
+            (tests_dir / "test_sample.py").write_text(
+                "import unittest\n\nclass SampleTests(unittest.TestCase):\n    def test_bad(self):\n        self.assertTrue(False)\n",
+                encoding="utf-8",
+            )
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "write_file", "input": {"path": "src/app.py", "content": "VALUE = 1\n"}}],
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "2",
+                            "name": "run_command",
+                            "input": {"command": "python -m unittest discover -s tests", "timeout_ms": 10000},
+                        }
+                    ],
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "3",
+                            "name": "update_plan",
+                            "input": {
+                                "plan": [
+                                    {"step": "Create src/app.py", "status": "completed"},
+                                    {"step": "Run unit tests", "status": "completed"},
+                                ]
+                            },
+                        }
+                    ],
+                    [{"type": "text", "text": "Created src/app.py, but tests failed."}],
+                ]
+            )
+
+            result = run_agent(
+                "create app",
+                base_dir=root,
+                client=client,
+                max_iterations=4,
+                approval_handler=approve_all,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual([item.kind for item in result.observations], ["write_file", "run_command", "update_plan", "final_review"])
+        self.assertNotEqual(result.observations[1].result.exit_code, 0)
+        self.assertFalse(result.observations[3].ready)
+        self.assertEqual(
+            result.completion_warnings,
+            [
+                "Final review did not report ready.",
+                "Suggested verification checks failed after the latest project change.",
+            ],
+        )
+        self.assertEqual(result.verification_checks, [])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, ["python -m unittest discover -s tests (exit=1)"])
+
+    def test_completion_verification_clears_failed_check_after_later_success(self) -> None:
+        check = SuggestedCheck(
+            command="python -m unittest discover -s tests",
+            cwd=".",
+            source="tests",
+            reason="unit tests",
+        )
+        observations = [
+            WriteFileObservation(kind="write_file", path="src/app.py", ok=True, message="Wrote src/app.py."),
+            RunCommandObservation(
+                kind="run_command",
+                result=CommandResult(
+                    command="python -m unittest discover -s tests",
+                    exit_code=1,
+                    stdout="",
+                    stderr="failure",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                ),
+            ),
+            RunCommandObservation(
+                kind="run_command",
+                result=CommandResult(
+                    command="python -m unittest discover -s tests",
+                    exit_code=0,
+                    stdout="",
+                    stderr="",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                ),
+            ),
+            FinalReviewObservation(
+                kind="final_review",
+                ok=True,
+                ready=True,
+                blocking_issues=[],
+                warnings=[],
+                running_processes=[],
+                files=[],
+                total_files=1,
+                suggested_checks=[check],
+                suggested_checks_total=1,
+                suggested_checks_truncated=False,
+                diff_check="",
+                staged_diff_check="",
+                status="",
+                message="Ready.",
+            ),
+        ]
+
+        self.assertEqual(agent_module.build_verification_checks(True, observations), ["python -m unittest discover -s tests"])
+        self.assertEqual(agent_module.build_pending_verification_checks(True, observations), [])
+        self.assertEqual(agent_module.build_failed_verification_checks(True, observations), [])
+        plan = [agent_module.PlanItem(step="Run unit tests", status="completed")]
+        self.assertEqual(agent_module.build_completion_warnings(True, observations, plan), [])
+
+    def test_run_agent_does_not_warn_when_suggested_check_runs_after_change(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            tests_dir = root / "tests"
+            tests_dir.mkdir()
+            (tests_dir / "test_sample.py").write_text(
+                "import unittest\n\nclass SampleTests(unittest.TestCase):\n    def test_ok(self):\n        self.assertTrue(True)\n",
+                encoding="utf-8",
+            )
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "write_file", "input": {"path": "src/app.py", "content": "VALUE = 1\n"}}],
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "2",
+                            "name": "run_command",
+                            "input": {"command": "python -m unittest discover -s tests", "timeout_ms": 10000},
+                        }
+                    ],
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "3",
+                            "name": "update_plan",
+                            "input": {
+                                "plan": [
+                                    {"step": "Create src/app.py", "status": "completed"},
+                                    {"step": "Run unit tests", "status": "completed"},
+                                ]
+                            },
+                        }
+                    ],
+                    [{"type": "text", "text": "Created and tested src/app.py."}],
+                ]
+            )
+
+            result = run_agent(
+                "create app",
+                base_dir=root,
+                client=client,
+                max_iterations=4,
+                approval_handler=approve_all,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual([item.kind for item in result.observations], ["write_file", "run_command", "update_plan", "final_review"])
+        self.assertEqual(result.observations[1].result.exit_code, 0)
+        self.assertTrue(result.observations[3].ready)
+        self.assertEqual(result.completion_warnings, [])
+        self.assertEqual(result.verification_checks, ["python -m unittest discover -s tests"])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
 
     def test_run_agent_writes_multiple_files_with_approval(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
@@ -2013,6 +3801,158 @@ class AgentTests(unittest.TestCase):
         self.assertIn("step_started", [event["type"] for event in events])
         self.assertIn("step_completed", [event["type"] for event in events])
 
+    def test_run_agent_auto_checkpoints_before_first_approved_project_change(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            init_git_repo_with_commit(root)
+            (root / "app.py").write_text("dirty\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "write_file", "input": {"path": "note.txt", "content": "ok\n"}}],
+                    [{"type": "text", "text": "Created note.txt."}],
+                ]
+            )
+
+            result = run_agent(
+                "create note",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_handler=approve_all,
+            )
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+            note_content = (root / "note.txt").read_text(encoding="utf-8")
+
+        self.assertTrue(result.success)
+        self.assertEqual([item.kind for item in result.observations[:2]], ["checkpoint_create", "write_file"])
+        self.assertTrue(result.observations[0].ok)
+        self.assertIsNotNone(result.observations[0].checkpoint)
+        self.assertEqual(result.observations[0].checkpoint.label, "auto before write_file")
+        self.assertEqual(result.observations[0].checkpoint.unstaged_files, 1)
+        self.assertEqual(note_content, "ok\n")
+        self.assertEqual([step.action_type for step in result.steps[:2]], ["write_file", "checkpoint_create"])
+        self.assertEqual([step.status for step in result.steps[:2]], ["completed", "completed"])
+        self.assertEqual(len(client.messages[1][-1].content), 1)
+        self.assertIn("write_file", client.messages[1][-1].content[0]["content"])
+        auto_events = [
+            event
+            for event in events
+            if event.get("type") == "tool_result" and event.get("auto") is True and event.get("name") == "checkpoint_create"
+        ]
+        self.assertEqual(len(auto_events), 1)
+        self.assertEqual(auto_events[0]["name"], "checkpoint_create")
+        self.assertEqual(auto_events[0]["before_action_type"], "write_file")
+
+    def test_run_agent_warns_when_auto_checkpoint_fails_before_project_change(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            init_git_repo_with_commit(root)
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "write_file", "input": {"path": "note.txt", "content": "ok\n"}}],
+                    [{"type": "text", "text": "Created note.txt."}],
+                ]
+            )
+            original_execute_action_safely = agent_module.execute_action_safely
+
+            def fake_execute_action_safely(workspace, action, command_timeout_ms, tool_name):
+                if tool_name == "checkpoint_create":
+                    return CheckpointCreateObservation(
+                        kind="checkpoint_create",
+                        ok=False,
+                        checkpoint=None,
+                        staged_patch_chars=0,
+                        unstaged_patch_chars=0,
+                        message="git diff failed.",
+                    )
+                return original_execute_action_safely(workspace, action, command_timeout_ms, tool_name)
+
+            with patch("vibeagent.agent.execute_action_safely", side_effect=fake_execute_action_safely):
+                result = run_agent(
+                    "create note",
+                    base_dir=root,
+                    client=client,
+                    max_iterations=2,
+                    approval_handler=approve_all,
+                )
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+            note_content = (root / "note.txt").read_text(encoding="utf-8")
+
+        self.assertTrue(result.success)
+        self.assertEqual([item.kind for item in result.observations[:2]], ["checkpoint_create", "write_file"])
+        self.assertFalse(result.observations[0].ok)
+        self.assertEqual(note_content, "ok\n")
+        self.assertIn("Checkpoint creation failed; restore point may be unavailable.", result.completion_warnings)
+        self.assertEqual(len(client.messages[1][-1].content), 1)
+        self.assertNotIn("checkpoint_create", client.messages[1][-1].content[0]["content"])
+        auto_events = [
+            event
+            for event in events
+            if event.get("type") == "tool_result" and event.get("auto") is True and event.get("name") == "checkpoint_create"
+        ]
+        self.assertEqual(len(auto_events), 1)
+        self.assertEqual(auto_events[0]["result"]["message"], "git diff failed.")
+
+    def test_run_agent_does_not_auto_checkpoint_denied_project_change(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            init_git_repo_with_commit(root)
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "write_file", "input": {"path": "note.txt", "content": "ok\n"}}],
+                    [{"type": "text", "text": "Write denied."}],
+                ]
+            )
+
+            result = run_agent(
+                "create note",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_handler=deny_all,
+            )
+            checkpoint_dir_exists = (root / ".vibeagent" / "checkpoints").exists()
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "approval_denied")
+        self.assertFalse(checkpoint_dir_exists)
+        self.assertEqual(result.steps[0].action_type, "write_file")
+        self.assertEqual(result.steps[0].status, "denied")
+
+    def test_run_agent_auto_checkpoints_only_once_for_multiple_project_changes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            init_git_repo_with_commit(root)
+            client = MockClient(
+                [
+                    [
+                        {"type": "tool_call", "id": "1", "name": "write_file", "input": {"path": "a.txt", "content": "a\n"}},
+                        {"type": "tool_call", "id": "2", "name": "write_file", "input": {"path": "b.txt", "content": "b\n"}},
+                    ],
+                    [{"type": "text", "text": "Created files."}],
+                ]
+            )
+
+            result = run_agent(
+                "create files",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_handler=approve_all,
+            )
+            a_content = (root / "a.txt").read_text(encoding="utf-8")
+            b_content = (root / "b.txt").read_text(encoding="utf-8")
+
+        self.assertTrue(result.success)
+        self.assertEqual([item.kind for item in result.observations[:3]], ["checkpoint_create", "write_file", "write_file"])
+        self.assertEqual(len([item for item in result.observations if item.kind == "checkpoint_create"]), 1)
+        self.assertEqual(a_content, "a\n")
+        self.assertEqual(b_content, "b\n")
+        self.assertEqual(len(client.messages[1][-1].content), 2)
+        self.assertTrue(all("checkpoint_create" not in item["content"] for item in client.messages[1][-1].content))
+
     def test_run_agent_denies_write_file_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             client = MockClient(
@@ -2026,6 +3966,168 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result.observations[0].kind, "approval_denied")
         self.assertEqual(result.steps[0].status, "denied")
         self.assertIn("No approval handler", result.observations[0].message)
+
+    def test_run_agent_adds_matching_preview_to_approval_request(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            seen_requests: list[ApprovalRequest] = []
+
+            def approve_and_record(request: ApprovalRequest) -> ApprovalDecision:
+                seen_requests.append(request)
+                return ApprovalDecision(approved=True, message="approved")
+
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "check_write_file", "input": {"path": "note.txt", "content": "ok\n"}}],
+                    [{"type": "tool_call", "id": "2", "name": "write_file", "input": {"path": "note.txt", "content": "ok\n"}}],
+                    [{"type": "text", "text": "Created note.txt."}],
+                ]
+            )
+
+            result = run_agent(
+                "preview then create note",
+                base_dir=Path(base),
+                client=client,
+                max_iterations=3,
+                approval_handler=approve_and_record,
+            )
+            events_path = Path(base) / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            approval_events = [
+                json.loads(line)
+                for line in events_path.read_text(encoding="utf-8").splitlines()
+                if json.loads(line).get("type") == "approval_requested"
+            ]
+
+        self.assertTrue(result.success)
+        self.assertEqual([item.kind for item in result.observations[:2]], ["check_write_file", "write_file"])
+        self.assertEqual(len(seen_requests), 1)
+        self.assertIsNotNone(seen_requests[0].preview)
+        self.assertIn("diffChars=", seen_requests[0].preview or "")
+        self.assertEqual(approval_events[0]["request"]["preview"], seen_requests[0].preview)
+
+    def test_approval_preview_summary_matches_checkpoint_previews(self) -> None:
+        restore_preview = agent_module.approval_preview_summary(
+            CheckpointRestoreAction(type="checkpoint_restore", checkpoint_id="ckpt-1"),
+            [
+                CheckCheckpointRestoreObservation(
+                    kind="check_checkpoint_restore",
+                    ok=True,
+                    checkpoint_id="ckpt-1",
+                    can_restore=True,
+                    saved_head="abc123",
+                    current_head="abc123",
+                    saved_untracked_files=0,
+                    current_untracked_files=0,
+                    staged_patch_chars=10,
+                    unstaged_patch_chars=20,
+                    message="Checkpoint restore can apply.",
+                )
+            ],
+        )
+        delete_preview = agent_module.approval_preview_summary(
+            CheckpointDeleteAction(type="checkpoint_delete", checkpoint_id="ckpt-1"),
+            [
+                CheckCheckpointDeleteObservation(
+                    kind="check_checkpoint_delete",
+                    ok=True,
+                    checkpoint_id="ckpt-1",
+                    can_delete=True,
+                    label="before edit",
+                    created_at="2026-06-24T00:00:00Z",
+                    message="Checkpoint delete would remove saved checkpoint ckpt-1.",
+                )
+            ],
+        )
+        prune_preview = agent_module.approval_preview_summary(
+            CheckpointPruneAction(type="checkpoint_prune", keep_last=1),
+            [
+                CheckCheckpointPruneObservation(
+                    kind="check_checkpoint_prune",
+                    ok=True,
+                    keep_last=1,
+                    total=3,
+                    kept=1,
+                    delete_count=2,
+                    checkpoints=[],
+                    message="Checkpoint prune would delete 2 saved checkpoint(s).",
+                )
+            ],
+        )
+        mismatched_delete_preview = agent_module.approval_preview_summary(
+            CheckpointDeleteAction(type="checkpoint_delete", checkpoint_id="ckpt-2"),
+            [
+                CheckCheckpointDeleteObservation(
+                    kind="check_checkpoint_delete",
+                    ok=True,
+                    checkpoint_id="ckpt-1",
+                    can_delete=True,
+                    label="before edit",
+                    created_at="2026-06-24T00:00:00Z",
+                    message="Checkpoint delete would remove saved checkpoint ckpt-1.",
+                )
+            ],
+        )
+
+        self.assertIn("Checkpoint restore can apply", restore_preview or "")
+        self.assertIn("would remove", delete_preview or "")
+        self.assertIn("would delete 2", prune_preview or "")
+        self.assertIsNone(mismatched_delete_preview)
+
+    def test_approval_preview_summary_matches_git_commit_preview(self) -> None:
+        preview = agent_module.approval_preview_summary(
+            GitCommitAction(type="git_commit", message="update docs"),
+            [
+                CheckGitCommitObservation(
+                    kind="check_git_commit",
+                    ok=True,
+                    head_before="abc123",
+                    head_after="abc123",
+                    status="ready",
+                    message="Commit can be created from staged changes.",
+                )
+            ],
+        )
+
+        self.assertIn("Commit can be created", preview or "")
+
+    def test_approval_preview_mapping_covers_approval_required_tools(self) -> None:
+        tool_names = {tool["name"] for tool in AGENT_TOOL_DEFINITIONS}
+        missing = sorted(APPROVAL_REQUIRED_TOOL_NAMES - set(agent_module.PREVIEW_KIND_BY_ACTION_TYPE))
+        invalid = sorted(
+            (action_name, preview_name)
+            for action_name, preview_name in agent_module.PREVIEW_KIND_BY_ACTION_TYPE.items()
+            if action_name in APPROVAL_REQUIRED_TOOL_NAMES and preview_name not in tool_names
+        )
+
+        self.assertEqual(missing, [])
+        self.assertEqual(invalid, [])
+
+    def test_run_agent_leaves_approval_preview_empty_without_matching_check(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            seen_requests: list[ApprovalRequest] = []
+
+            def approve_and_record(request: ApprovalRequest) -> ApprovalDecision:
+                seen_requests.append(request)
+                return ApprovalDecision(approved=True, message="approved")
+
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "check_write_file", "input": {"path": "other.txt", "content": "ok\n"}}],
+                    [{"type": "tool_call", "id": "2", "name": "write_file", "input": {"path": "note.txt", "content": "ok\n"}}],
+                    [{"type": "text", "text": "Created note.txt."}],
+                ]
+            )
+
+            result = run_agent(
+                "preview other file then create note",
+                base_dir=Path(base),
+                client=client,
+                max_iterations=3,
+                approval_handler=approve_and_record,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual(len(seen_requests), 1)
+        self.assertIsNone(seen_requests[0].preview)
 
     def test_run_agent_allows_check_write_file_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:

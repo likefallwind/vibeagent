@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
+import shutil
 import signal
 import socket
 import subprocess
@@ -10,7 +12,8 @@ import time
 import urllib.error
 import urllib.request
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -21,6 +24,12 @@ from .types import (
     AppendFileObservation,
     CheckAppendFileAction,
     CheckAppendFileObservation,
+    CheckCheckpointDeleteAction,
+    CheckCheckpointDeleteObservation,
+    CheckCheckpointPruneAction,
+    CheckCheckpointPruneObservation,
+    CheckCheckpointRestoreAction,
+    CheckCheckpointRestoreObservation,
     CheckCreateDirectoryAction,
     CheckCreateDirectoryObservation,
     CheckCreateDirectoriesAction,
@@ -101,6 +110,25 @@ from .types import (
     CheckStopProcessObservation,
     CheckWriteProcessAction,
     CheckWriteProcessObservation,
+    CheckFocusedTestCommandsAction,
+    CheckFocusedTestCommandsObservation,
+    CheckpointCreateAction,
+    CheckpointCreateObservation,
+    CheckpointInfo,
+    CheckpointDiffAction,
+    CheckpointDiffObservation,
+    CheckpointListAction,
+    CheckpointListObservation,
+    CheckpointDeleteAction,
+    CheckpointDeleteObservation,
+    CheckpointPruneAction,
+    CheckpointPruneObservation,
+    CheckpointRestoreAction,
+    CheckpointRestoreObservation,
+    CheckpointShowAction,
+    CheckpointShowObservation,
+    CheckpointStatusAction,
+    CheckpointStatusObservation,
     CheckWriteFileAction,
     CheckWriteFileObservation,
     CheckWriteFileResult,
@@ -114,8 +142,16 @@ from .types import (
     CodeDefinitionsObservation,
     CodeImportRef,
     CodeReference,
+    CodeReferenceContextsAction,
+    CodeReferenceContextsObservation,
     CodeReferencesAction,
     CodeReferencesObservation,
+    CodeRenameAction,
+    CodeRenameObservation,
+    CodeRenamePreviewAction,
+    CodeRenamePreviewFile,
+    CodeRenamePreviewObservation,
+    CodeRenameReplacement,
     CopyFileAction,
     CopyFileObservation,
     CopyFilesAction,
@@ -164,6 +200,9 @@ from .types import (
     FileInfoAction,
     FileInfoObservation,
     FileInfoResult,
+    ImageInfoAction,
+    ImageInfoObservation,
+    ImageInfoResult,
     GlobAction,
     GlobObservation,
     GitBlameAction,
@@ -174,9 +213,16 @@ from .types import (
     GitChangeFile,
     GitChangesAction,
     GitChangesObservation,
+    GitConflictMarker,
+    GitConflictStatus,
+    GitConflictsAction,
+    GitConflictsObservation,
     GitCommitAction,
     GitCommitObservation,
     GitDiffAction,
+    GitDiffContext,
+    GitDiffContextsAction,
+    GitDiffContextsObservation,
     GitDiffHunk,
     GitDiffHunksAction,
     GitDiffHunksObservation,
@@ -215,6 +261,8 @@ from .types import (
     GitUnstageObservation,
     HttpCheckAction,
     HttpCheckObservation,
+    HttpFetchAction,
+    HttpFetchObservation,
     InsertLinesAction,
     InsertLinesObservation,
     JsonRemoveAction,
@@ -233,6 +281,12 @@ from .types import (
     MultiEditAction,
     MultiEditObservation,
     Observation,
+    OutputContextResult,
+    OutputContextsAction,
+    OutputContextsObservation,
+    OutputDiagnostic,
+    OutputDiagnosticsAction,
+    OutputDiagnosticsObservation,
     PatchFileAction,
     PatchFileObservation,
     PatchFilesAction,
@@ -241,6 +295,10 @@ from .types import (
     PortCheckAction,
     PortCheckObservation,
     ProcessInfo,
+    ProcessOutputContextsAction,
+    ProcessOutputContextsObservation,
+    ProcessOutputDiagnosticsAction,
+    ProcessOutputDiagnosticsObservation,
     PythonSymbol,
     PythonSymbolsAction,
     PythonSymbolsObservation,
@@ -264,6 +322,8 @@ from .types import (
     ReplacePythonDefinitionAction,
     ReplacePythonDefinitionObservation,
     PythonReferencesAction,
+    PythonReferenceContextsAction,
+    PythonReferenceContextsObservation,
     PythonReferencesObservation,
     PythonRenameAction,
     PythonRenameObservation,
@@ -271,16 +331,35 @@ from .types import (
     PythonRenamePreviewFile,
     PythonRenamePreviewObservation,
     PythonRenameReplacement,
+    ReferenceContextResult,
     ProjectCommand,
     ProjectCommandsAction,
     ProjectCommandsObservation,
+    FocusedTestCommand,
+    FocusedTestCommandsAction,
+    FocusedTestCommandsObservation,
+    RelatedTestCandidate,
+    RelatedTestsAction,
+    RelatedTestsObservation,
+    ProjectInstructionSource,
+    ProjectInstructionsAction,
+    ProjectInstructionsObservation,
     ProjectOverviewAction,
     ProjectOverviewObservation,
+    ProjectTodo,
+    ProjectTodosAction,
+    ProjectTodosObservation,
     ProjectManifest,
     ProjectManifestItem,
     ProjectManifestsAction,
     ProjectManifestsObservation,
     ReadFileAction,
+    ReadFileContextAction,
+    ReadFileContextItem,
+    ReadFileContextObservation,
+    ReadFileContextResult,
+    ReadFileContextsAction,
+    ReadFileContextsObservation,
     ReadFileObservation,
     ReadFileResult,
     ReadFilesAction,
@@ -300,16 +379,48 @@ from .types import (
     RepoMapAction,
     RepoMapObservation,
     RepoMapPythonFile,
+    CheckSuggestedChecksAction,
+    CheckSuggestedChecksObservation,
     RunCommandAction,
     RunCommandObservation,
     RunCommandItem,
     RunCommandsAction,
     RunCommandsObservation,
+    RunFocusedTestCommandsAction,
+    RunFocusedTestCommandsObservation,
+    RunSuggestedChecksAction,
+    RunSuggestedChecksObservation,
     RuntimeToolInfo,
     SearchAction,
+    SearchContextsAction,
+    SearchContextsObservation,
+    SearchContextResult,
     SearchObservation,
+    SessionCommandsAction,
+    SessionCommandsObservation,
+    SessionFilesAction,
+    SessionFilesObservation,
+    SessionFailuresAction,
+    SessionFailuresObservation,
+    SessionVerificationAction,
+    SessionVerificationObservation,
+    SessionAuditAction,
+    SessionAuditObservation,
+    SessionAuditProcess,
+    SessionHandoffAction,
+    SessionHandoffObservation,
+    SessionOutputContextsAction,
+    SessionOutputContextsObservation,
+    SessionOutputDiagnosticsAction,
+    SessionOutputDiagnosticsObservation,
+    SessionPlanAction,
+    SessionPlanObservation,
+    SessionSearchAction,
+    SessionSearchObservation,
     SessionSummaryAction,
     SessionSummaryObservation,
+    SessionTranscriptAction,
+    SessionTranscriptObservation,
     CheckSetExecutableAction,
     CheckSetExecutableObservation,
     SetExecutableAction,
@@ -324,6 +435,8 @@ from .types import (
     SuggestedCheck,
     SuggestChecksAction,
     SuggestChecksObservation,
+    TailFileAction,
+    TailFileObservation,
     UntrackedFilePreview,
     UpdatePlanAction,
     UpdatePlanObservation,
@@ -343,7 +456,7 @@ from .types import (
     MoveFilesAction,
     MoveFilesObservation,
 )
-from .session import format_session_summary, format_sessions, summarize_session
+from .session import command_output_tail, format_session_audit, format_session_commands, format_session_failures, format_session_files, format_session_handoff, format_session_plan, format_session_search, format_session_summary, format_session_transcript, format_session_verification, format_sessions, read_session_events, session_audit_blockers, session_command_entries, session_dir, session_failure_entries, session_file_entries, summarize_session
 from .workspace import (
     RunWorkspace,
     append_project_file,
@@ -374,7 +487,9 @@ from .workspace import (
     multi_edit_project_file,
     patch_project_file,
     patch_project_files,
+    apply_code_rename,
     apply_python_rename,
+    preview_code_rename,
     preview_python_rename,
     preview_multi_edit_project_file,
     preview_append_project_file,
@@ -412,6 +527,7 @@ from .workspace import (
     preview_write_run_file,
     preview_write_run_files,
     read_git_changes,
+    read_git_conflicts,
     read_git_branches,
     read_git_diff,
     read_git_diff_hunks,
@@ -428,14 +544,23 @@ from .workspace import (
     read_git_show,
     read_git_status,
     read_project_file_info,
+    read_project_image_info,
     set_project_file_executable,
     preview_set_project_file_executable,
     insert_project_file_lines,
     read_project_file,
+    read_project_file_context_result,
     read_project_file_result,
+    read_project_file_tail_result,
+    read_output_contexts_result,
+    read_output_diagnostics_result,
     regex_replace_project_file,
+    find_related_tests,
+    suggest_focused_test_commands,
     read_project_commands,
+    read_project_instruction_sources,
     read_project_manifests,
+    read_project_todos,
     read_code_outline,
     read_python_symbol_outline,
     replace_project_file_lines,
@@ -448,6 +573,7 @@ from .workspace import (
     inspect_python_dependencies,
     missing_command_tool,
     preview_edit_project_file,
+    search_project_contexts_result,
     search_project_result,
     check_config_syntax,
     check_python_syntax,
@@ -468,6 +594,46 @@ from .workspace import (
 )
 
 
+PROJECT_CHANGE_RESULT_KINDS = {
+    "write_file",
+    "write_files",
+    "edit_file",
+    "multi_edit_file",
+    "replace_python_definition",
+    "code_rename",
+    "python_rename",
+    "replace_lines",
+    "insert_lines",
+    "append_file",
+    "regex_replace",
+    "json_set",
+    "json_remove",
+    "json_patch",
+    "patch_file",
+    "patch_files",
+    "delete_file",
+    "delete_files",
+    "move_file",
+    "move_files",
+    "copy_file",
+    "copy_files",
+    "move_dir",
+    "move_dirs",
+    "copy_dir",
+    "copy_dirs",
+    "create_dir",
+    "create_dirs",
+    "delete_empty_dir",
+    "delete_empty_dirs",
+    "set_executable",
+    "git_stage",
+    "git_unstage",
+    "git_commit",
+    "git_restore",
+    "checkpoint_restore",
+}
+
+
 class ActionParseError(ValueError):
     def __init__(self, message: str, raw: str):
         super().__init__(message)
@@ -482,11 +648,25 @@ class BackgroundProcess:
     process: subprocess.Popen[str]
     stdout_path: Path
     stderr_path: Path
+    exit_code_path: Path
     stdout_handle: Any
     stderr_handle: Any
 
 
+@dataclass(frozen=True)
+class PersistentProcessRecord:
+    id: str
+    command: str
+    cwd: str
+    pid: int
+    stdout_path: Path
+    stderr_path: Path
+    exit_code_path: Path | None = None
+    start_ticks: int | None = None
+
+
 BACKGROUND_PROCESSES: dict[str, BackgroundProcess] = {}
+CHECKPOINT_UNTRACKED_SHOW_LIMIT = 50
 
 
 AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
@@ -577,6 +757,213 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
             },
             "required": ["path"],
+            "dependentRequired": {"line_count": ["start_line"]},
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "read_file_context",
+        "description": "Read a focused line with surrounding context from a UTF-8 project text file, useful for stack traces and test failures.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "line": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "1-based target line number to center in the excerpt.",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 500,
+                    "description": "Lines to include before and after the target line. Defaults to 20.",
+                },
+                "max_bytes": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum characters returned from the focused context. Defaults to 20000.",
+                },
+            },
+            "required": ["path", "line"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "read_file_contexts",
+        "description": "Read several focused file:line contexts in one call, useful for stack traces and multi-file test or lint failures.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "contexts": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "Project-relative file path to read."},
+                            "line": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "1-based target line number to center in the excerpt.",
+                            },
+                            "context_lines": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 500,
+                                "description": "Lines to include before and after the target line. Defaults to 20.",
+                            },
+                        },
+                        "required": ["path", "line"],
+                        "additionalProperties": False,
+                    },
+                    "description": "Project-relative file line contexts to read.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum characters returned per context. Defaults to 20000.",
+                },
+            },
+            "required": ["contexts"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "output_contexts",
+        "description": "Extract project file:line references from command, test, lint, or traceback output and read their surrounding contexts.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "description": "Command or tool output containing references such as path:line[:column] or Python traceback File entries.",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 500,
+                    "description": "Lines to include before and after each referenced line. Defaults to 5.",
+                },
+                "max_contexts": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum extracted contexts to read. Defaults to 20.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum characters returned per context. Defaults to 20000.",
+                },
+            },
+            "required": ["text"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "output_diagnostics",
+        "description": "Summarize error, warning, failure, Python traceback, and file:line diagnostic lines from command/test/lint output, and include source contexts for referenced project files.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "description": "Command or tool output to summarize.",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 500,
+                    "description": "Lines to include before and after each referenced source line. Defaults to 2.",
+                },
+                "max_diagnostics": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "description": "Maximum diagnostic lines to include. Defaults to 50.",
+                },
+                "max_contexts": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum referenced source contexts to read. Defaults to 20.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum characters returned per context. Defaults to 20000.",
+                },
+            },
+            "required": ["text"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "python_traceback",
+        "description": "Summarize Python traceback or pytest exception output, including exception summary lines and source contexts for traceback frames inside the project.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "description": "Python traceback, pytest failure, or command output containing Python exception details.",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 500,
+                    "description": "Lines to include before and after each referenced source line. Defaults to 2.",
+                },
+                "max_diagnostics": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "description": "Maximum diagnostic lines to include. Defaults to 50.",
+                },
+                "max_contexts": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum referenced source contexts to read. Defaults to 20.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum characters returned per context. Defaults to 20000.",
+                },
+            },
+            "required": ["text"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "tail_file",
+        "description": "Read the last lines of a UTF-8 text file from the project, useful for logs and long generated outputs.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "line_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000,
+                    "description": "Number of trailing lines to read. Defaults to 80.",
+                },
+                "max_bytes": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum characters returned from the file tail. Defaults to 20000.",
+                },
+            },
+            "required": ["path"],
             "additionalProperties": False,
         },
     },
@@ -634,7 +1021,13 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "additionalProperties": False,
                     },
                     "description": "Project-relative file line ranges to read.",
-                }
+                },
+                "max_bytes_per_range": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum characters returned per range. Defaults to 20000.",
+                },
             },
             "required": ["ranges"],
             "additionalProperties": False,
@@ -652,6 +1045,24 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "maxItems": 50,
                     "items": {"type": "string"},
                     "description": "Project-relative file or directory paths to inspect.",
+                }
+            },
+            "required": ["paths"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "image_info",
+        "description": "Inspect project-relative PNG, JPEG, GIF, or WebP image files without reading full binary payload. Returns format, byte size, and dimensions.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "paths": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {"type": "string"},
+                    "description": "Project-relative image file paths to inspect.",
                 }
             },
             "required": ["paths"],
@@ -815,16 +1226,28 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "maxItems": 50,
                     "items": {
                         "type": "object",
-                        "properties": {
-                            "op": {"type": "string", "enum": ["add", "replace", "remove"]},
-                            "path": {"type": "string", "description": "JSON Pointer path for this operation."},
-                            "value": {
-                                "description": "JSON value for add or replace operations.",
-                                "type": ["string", "number", "integer", "boolean", "object", "array", "null"],
+                        "oneOf": [
+                            {
+                                "properties": {
+                                    "op": {"type": "string", "enum": ["add", "replace"]},
+                                    "path": {"type": "string", "description": "JSON Pointer path for this operation."},
+                                    "value": {
+                                        "description": "JSON value for add or replace operations.",
+                                        "type": ["string", "number", "integer", "boolean", "object", "array", "null"],
+                                    },
+                                },
+                                "required": ["op", "path", "value"],
+                                "additionalProperties": False,
                             },
-                        },
-                        "required": ["op", "path"],
-                        "additionalProperties": False,
+                            {
+                                "properties": {
+                                    "op": {"type": "string", "enum": ["remove"]},
+                                    "path": {"type": "string", "description": "JSON Pointer path for this operation."},
+                                },
+                                "required": ["op", "path"],
+                                "additionalProperties": False,
+                            },
+                        ],
                     },
                 },
             },
@@ -845,16 +1268,28 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "maxItems": 50,
                     "items": {
                         "type": "object",
-                        "properties": {
-                            "op": {"type": "string", "enum": ["add", "replace", "remove"]},
-                            "path": {"type": "string", "description": "JSON Pointer path for this operation."},
-                            "value": {
-                                "description": "JSON value for add or replace operations.",
-                                "type": ["string", "number", "integer", "boolean", "object", "array", "null"],
+                        "oneOf": [
+                            {
+                                "properties": {
+                                    "op": {"type": "string", "enum": ["add", "replace"]},
+                                    "path": {"type": "string", "description": "JSON Pointer path for this operation."},
+                                    "value": {
+                                        "description": "JSON value for add or replace operations.",
+                                        "type": ["string", "number", "integer", "boolean", "object", "array", "null"],
+                                    },
+                                },
+                                "required": ["op", "path", "value"],
+                                "additionalProperties": False,
                             },
-                        },
-                        "required": ["op", "path"],
-                        "additionalProperties": False,
+                            {
+                                "properties": {
+                                    "op": {"type": "string", "enum": ["remove"]},
+                                    "path": {"type": "string", "description": "JSON Pointer path for this operation."},
+                                },
+                                "required": ["op", "path"],
+                                "additionalProperties": False,
+                            },
+                        ],
                     },
                 },
             },
@@ -928,6 +1363,37 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "code_reference_contexts",
+        "description": "Find non-Python source references and return structured line-centered context snippets for each match.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {"type": "string", "description": "Symbol or single-line literal to search for."},
+                "path": {"type": "string", "description": "Optional project-relative source file or directory scope."},
+                "max_matches": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum context count to return. Defaults to 50.",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 50,
+                    "description": "Number of surrounding lines to include around each reference. Defaults to 3.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum bytes per context snippet. Defaults to 20000.",
+                },
+            },
+            "required": ["symbol"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "code_definitions",
         "description": "Find non-Python source definitions by exact symbol name and return focused source excerpts without executing code.",
         "input_schema": {
@@ -949,6 +1415,58 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
             },
             "required": ["symbol"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "code_rename_preview",
+        "description": "Preview a bounded non-Python source symbol or literal rename using lexical reference matching without writing changes.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {"type": "string", "description": "Symbol or single-line literal to rename."},
+                "new_name": {"type": "string", "description": "Replacement symbol or single-line literal."},
+                "path": {"type": "string", "description": "Optional project-relative source file or directory scope."},
+                "max_files": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum source file count to inspect. Defaults to 100.",
+                },
+                "max_replacements": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2000,
+                    "description": "Maximum replacement count to include in diffs. Defaults to 500.",
+                },
+            },
+            "required": ["symbol", "new_name"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "code_rename",
+        "description": "Apply a bounded non-Python source symbol or literal rename using lexical reference matching.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {"type": "string", "description": "Symbol or single-line literal to rename."},
+                "new_name": {"type": "string", "description": "Replacement symbol or single-line literal."},
+                "path": {"type": "string", "description": "Optional project-relative source file or directory scope."},
+                "max_files": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum source file count to inspect. Defaults to 100.",
+                },
+                "max_replacements": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2000,
+                    "description": "Maximum replacement count to apply. Defaults to 2000.",
+                },
+            },
+            "required": ["symbol", "new_name"],
             "additionalProperties": False,
         },
     },
@@ -1085,6 +1603,37 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "python_reference_contexts",
+        "description": "Find Python definitions, imports, and AST references, then return structured line-centered context snippets for each match.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {"type": "string", "description": "Python identifier to find, such as Client or run_agent."},
+                "path": {"type": "string", "description": "Optional project-relative file or directory scope."},
+                "max_matches": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum context count to return. Defaults to 50.",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 50,
+                    "description": "Number of surrounding lines to include around each reference. Defaults to 3.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum bytes per context snippet. Defaults to 20000.",
+                },
+            },
+            "required": ["symbol"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "python_rename_preview",
         "description": "Preview an AST-guided Python identifier rename across files without writing changes.",
         "input_schema": {
@@ -1164,6 +1713,39 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "search_contexts",
+        "description": "Search project text and return structured line-centered context snippets for each match.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "path": {"type": "string", "description": "Optional project-relative file or directory to search."},
+                "regex": {"type": "boolean", "description": "Treat query as a regular expression."},
+                "case_sensitive": {"type": "boolean", "description": "Whether matching is case-sensitive. Defaults to true."},
+                "max_matches": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum context count to return. Defaults to 20.",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 50,
+                    "description": "Number of surrounding lines to include around each match. Defaults to 3.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum bytes per context snippet. Defaults to 20000.",
+                },
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "glob",
         "description": "Find project files by relative glob pattern, such as **/*.py or tests/test_*.py.",
         "input_schema": {
@@ -1187,6 +1769,29 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {},
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "git_conflicts",
+        "description": "Scan for merge/rebase conflicts by reading unmerged git index entries and conflict marker lines in project text files.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Optional project-relative file or directory to scan."},
+                "max_markers": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000,
+                    "description": "Maximum conflict marker entries to return. Defaults to 200.",
+                },
+                "max_files": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000,
+                    "description": "Maximum project text files to scan for conflict markers. Defaults to 5000.",
+                },
+            },
             "additionalProperties": False,
         },
     },
@@ -1607,6 +2212,86 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "check_suggested_checks",
+        "description": "Preflight the project's suggested test, build, lint, and syntax-check commands without running them.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "max_commands": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "Maximum suggested command count to preflight. Defaults to 10.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "run_suggested_checks",
+        "description": "Run the project's available suggested test, build, lint, and syntax-check commands after approval. Stops at the first failure by default.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "max_commands": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "Maximum suggested command count to run. Defaults to 10.",
+                },
+                "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 600000,
+                    "description": "Optional timeout in milliseconds per command. Defaults to the agent command timeout.",
+                },
+                "max_output_chars": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 50000,
+                    "description": "Optional stdout/stderr character cap per command. Defaults to 12000.",
+                },
+                "stop_on_failure": {
+                    "type": "boolean",
+                    "description": "Stop after the first failing command. Defaults to true.",
+                },
+                "extract_output_contexts": {
+                    "type": "boolean",
+                    "description": "When true, extract file:line references from stdout/stderr and include source context for each reference. Defaults to false.",
+                },
+                "extract_output_diagnostics": {
+                    "type": "boolean",
+                    "description": "When true, summarize error/warning/failure diagnostic lines from stdout/stderr and include source contexts for referenced project files. Defaults to false.",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 500,
+                    "description": "Lines before and after each extracted reference when extract_output_contexts or extract_output_diagnostics is true. Defaults to 5.",
+                },
+                "max_diagnostics": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "description": "Maximum diagnostic lines to include when extract_output_diagnostics is true. Defaults to 50.",
+                },
+                "max_contexts": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum extracted contexts to include when extract_output_contexts or extract_output_diagnostics is true. Defaults to 20.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum bytes per extracted file context when extract_output_contexts or extract_output_diagnostics is true. Defaults to 20000.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "project_commands",
         "description": "List project-defined commands from package.json scripts, pyproject.toml console scripts, and Makefile targets without running them, including cwd and executable availability.",
         "input_schema": {
@@ -1629,6 +2314,140 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "related_tests",
+        "description": "Suggest likely related test files for explicit project paths or the current git changes without running tests.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional project-relative source or test paths. Defaults to current git changed files.",
+                },
+                "max_paths": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum target path count to analyze. Defaults to 100.",
+                },
+                "max_candidates": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000,
+                    "description": "Maximum related test candidate count to return. Defaults to 200.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "focused_test_commands",
+        "description": "Suggest focused test commands for explicit project paths or the current git changes by mapping likely related test files to runnable commands without running them.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional project-relative source or test paths. Defaults to current git changed files.",
+                },
+                "max_paths": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum target path count to analyze. Defaults to 100.",
+                },
+                "max_candidates": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000,
+                    "description": "Maximum related test candidate count to consider. Defaults to 200.",
+                },
+                "max_commands": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum focused test command count to return. Defaults to 50.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "check_focused_test_commands",
+        "description": "Preflight focused test commands inferred from explicit project paths or the current git changes without running them.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional project-relative source or test paths. Defaults to current git changed files.",
+                },
+                "max_paths": {"type": "integer", "minimum": 1, "maximum": 500},
+                "max_candidates": {"type": "integer", "minimum": 1, "maximum": 1000},
+                "max_commands": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "description": "Maximum focused test command count to preflight. Defaults to 10.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "run_focused_test_commands",
+        "description": "Run focused test commands inferred from explicit project paths or the current git changes after approval. Stops at the first failure by default.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional project-relative source or test paths. Defaults to current git changed files.",
+                },
+                "max_paths": {"type": "integer", "minimum": 1, "maximum": 500},
+                "max_candidates": {"type": "integer", "minimum": 1, "maximum": 1000},
+                "max_commands": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "description": "Maximum focused test command count to run. Defaults to 10.",
+                },
+                "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 600000,
+                    "description": "Optional timeout in milliseconds per command. Defaults to the agent command timeout.",
+                },
+                "max_output_chars": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 50000,
+                    "description": "Optional stdout/stderr character cap per command. Defaults to 12000.",
+                },
+                "stop_on_failure": {
+                    "type": "boolean",
+                    "description": "Stop after the first failing command. Defaults to true.",
+                },
+                "extract_output_contexts": {
+                    "type": "boolean",
+                    "description": "When true, extract file:line references from stdout/stderr and include source context for each reference. Defaults to false.",
+                },
+                "extract_output_diagnostics": {
+                    "type": "boolean",
+                    "description": "When true, summarize error/warning/failure diagnostic lines from stdout/stderr and include source contexts for referenced project files. Defaults to false.",
+                },
+                "context_lines": {"type": "integer", "minimum": 0, "maximum": 500},
+                "max_diagnostics": {"type": "integer", "minimum": 1, "maximum": 200},
+                "max_contexts": {"type": "integer", "minimum": 1, "maximum": 100},
+                "max_bytes_per_context": {"type": "integer", "minimum": 1000, "maximum": 200000},
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "project_manifests",
         "description": "Read project manifest metadata and dependency/script groups from package.json and pyproject.toml files without executing code.",
         "input_schema": {
@@ -1645,6 +2464,51 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "minimum": 1,
                     "maximum": 2000,
                     "description": "Maximum dependency/script item count to return across manifests. Defaults to 500.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "project_instructions",
+        "description": "Read project instruction sources from AGENTS.md and CLAUDE.md files, including scope, file metadata, truncation status, and bounded instruction text.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "max_files": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "description": "Maximum instruction file count to scan. Defaults to 20.",
+                },
+                "max_bytes": {
+                    "type": "integer",
+                    "minimum": 200,
+                    "maximum": 50000,
+                    "description": "Maximum instruction text bytes to return. Defaults to 12000.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "project_todos",
+        "description": "Scan project text files for TODO, FIXME, HACK, XXX, and BUG markers without executing code.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Optional project-relative file or directory scope."},
+                "max_items": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum TODO marker count to return. Defaults to 100.",
+                },
+                "max_files": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5000,
+                    "description": "Maximum project file count to scan. Defaults to 1000.",
                 },
             },
             "additionalProperties": False,
@@ -1723,6 +2587,38 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                                 "minimum": 1000,
                                 "maximum": 50000,
                                 "description": "Optional stdout/stderr character cap per command. Defaults to 12000.",
+                            },
+                            "extract_output_contexts": {
+                                "type": "boolean",
+                                "description": "When true, extract project file:line references from this command's stdout/stderr and include source contexts. Defaults to false.",
+                            },
+                            "extract_output_diagnostics": {
+                                "type": "boolean",
+                                "description": "When true, summarize error/warning/failure diagnostic lines from this command's stdout/stderr and include referenced source contexts. Defaults to false.",
+                            },
+                            "context_lines": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 500,
+                                "description": "Lines before and after each extracted reference when extract_output_contexts or extract_output_diagnostics is true. Defaults to 5.",
+                            },
+                            "max_diagnostics": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 200,
+                                "description": "Maximum diagnostic lines to include when extract_output_diagnostics is true. Defaults to 50.",
+                            },
+                            "max_contexts": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "description": "Maximum extracted contexts for this command. Defaults to 20.",
+                            },
+                            "max_bytes_per_context": {
+                                "type": "integer",
+                                "minimum": 1000,
+                                "maximum": 200000,
+                                "description": "Maximum characters returned per extracted context. Defaults to 20000.",
                             },
                         },
                         "required": ["command"],
@@ -1827,6 +2723,30 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "http_fetch",
+        "description": "Fetch an HTTP(S) URL and return bounded response metadata plus body text without running a shell command.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "HTTP or HTTPS URL to request."},
+                "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 10000,
+                    "description": "Optional request timeout in milliseconds. Defaults to 5000.",
+                },
+                "max_body_chars": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000,
+                    "description": "Maximum response body characters to return. Defaults to 12000.",
+                },
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "environment_info",
         "description": "Read fixed runtime environment facts such as Python version, platform, git repository status, and common tool availability without executing arbitrary project commands.",
         "input_schema": {
@@ -1872,6 +2792,36 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "minimum": 1,
                     "maximum": 500,
                     "description": "Maximum diff lines to return per hunk. Defaults to 80.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "git_diff_contexts",
+        "description": "Read current source context around each git diff hunk so changed code can be reviewed without manually requesting file ranges.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Optional project-relative path to diff."},
+                "staged": {"type": "boolean", "description": "Show staged diff contexts instead of unstaged diff contexts."},
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 50,
+                    "description": "Source context lines before and after each hunk's new range start. Defaults to 5.",
+                },
+                "max_hunks": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum hunk context count to return. Defaults to 80.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum bytes per source context excerpt. Defaults to 20000.",
                 },
             },
             "additionalProperties": False,
@@ -1961,6 +2911,503 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "description": "Number of recent session rows to include. Defaults to 5.",
                 },
             },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "session_plan",
+        "description": "Read the latest task plan from a local VibeAgent session. Defaults to the current run.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "run_id": {
+                    "type": "string",
+                    "description": "Optional session id to read. Defaults to the current run id.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "session_transcript",
+        "description": "Read a safe local VibeAgent session event timeline without exposing full tool payloads. Defaults to the current run.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "run_id": {
+                    "type": "string",
+                    "description": "Optional session id to read. Defaults to the current run id.",
+                },
+                "max_events": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum recent events to include. Defaults to 80.",
+                },
+                "max_text": {
+                    "type": "integer",
+                    "minimum": 80,
+                    "maximum": 5000,
+                    "description": "Maximum text characters per timeline item. Defaults to 500.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "session_search",
+        "description": "Search the safe local VibeAgent session event timeline for a query without exposing full tool payloads. Defaults to the current run.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Text to find in the safe session timeline.",
+                },
+                "run_id": {
+                    "type": "string",
+                    "description": "Optional session id to search. Defaults to the current run id.",
+                },
+                "max_matches": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum matching timeline rows to include. Defaults to 20.",
+                },
+                "max_text": {
+                    "type": "integer",
+                    "minimum": 80,
+                    "maximum": 5000,
+                    "description": "Maximum text characters per timeline item. Defaults to 500.",
+                },
+                "case_sensitive": {
+                    "type": "boolean",
+                    "description": "Use case-sensitive matching. Defaults to false.",
+                },
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "session_commands",
+        "description": "Read bounded stdout/stderr tails from run_command and run_commands results in a local VibeAgent session. Defaults to the current run.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "run_id": {
+                    "type": "string",
+                    "description": "Optional session id to inspect. Defaults to the current run id.",
+                },
+                "max_commands": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum recent command results to include. Defaults to 20.",
+                },
+                "max_output_chars": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 20000,
+                    "description": "Maximum stdout and stderr characters per command. Defaults to 2000.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "session_output_contexts",
+        "description": "Extract project file:line references from recent command output in a local VibeAgent session and read their surrounding contexts. Defaults to the current run.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "run_id": {
+                    "type": "string",
+                    "description": "Optional session id to inspect. Defaults to the current run id.",
+                },
+                "max_commands": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum recent command results to inspect. Defaults to 20.",
+                },
+                "max_output_chars": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 20000,
+                    "description": "Maximum stdout and stderr tail characters per command to scan. Defaults to 20000.",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 500,
+                    "description": "Lines to include before and after each referenced line. Defaults to 5.",
+                },
+                "max_contexts": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum extracted contexts to read. Defaults to 20.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum characters returned per context. Defaults to 20000.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "session_output_diagnostics",
+        "description": "Summarize errors, warnings, and failures from recent command output in a local VibeAgent session and read referenced source contexts. Defaults to the current run.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "run_id": {
+                    "type": "string",
+                    "description": "Optional session id to inspect. Defaults to the current run id.",
+                },
+                "max_commands": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum recent command results to inspect. Defaults to 20.",
+                },
+                "max_output_chars": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 20000,
+                    "description": "Maximum stdout and stderr tail characters per command to scan. Defaults to 20000.",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 500,
+                    "description": "Lines to include before and after each referenced line. Defaults to 2.",
+                },
+                "max_diagnostics": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "description": "Maximum diagnostic rows to include. Defaults to 50.",
+                },
+                "max_contexts": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum extracted contexts to read. Defaults to 20.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum characters returned per context. Defaults to 20000.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "session_files",
+        "description": "Summarize project paths referenced by safe local VibeAgent session tool calls/results without exposing file contents or full tool payloads. Defaults to the current run.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "run_id": {
+                    "type": "string",
+                    "description": "Optional session id to inspect. Defaults to the current run id.",
+                },
+                "max_files": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum file rows to include. Defaults to 100.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "session_failures",
+        "description": "Summarize failed tool results, failed commands, failed final run results, malformed events, and denied approvals in a local VibeAgent session without exposing full tool payloads. Defaults to the current run.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "run_id": {
+                    "type": "string",
+                    "description": "Optional session id to inspect. Defaults to the current run id.",
+                },
+                "max_failures": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "description": "Maximum recent failure rows to include. Defaults to 50.",
+                },
+                "max_text": {
+                    "type": "integer",
+                    "minimum": 80,
+                    "maximum": 5000,
+                    "description": "Maximum text characters per failure message/detail. Defaults to 500.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "session_verification",
+        "description": "Read verified, pending, and failed suggested-check status for a local VibeAgent session. Defaults to the current run.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "run_id": {
+                    "type": "string",
+                    "description": "Optional session id to inspect. Defaults to the current run id.",
+                },
+                "max_checks": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum verified, pending, and failed check rows to include per group. Defaults to 50.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "session_audit",
+        "description": "Read a finish-time audit for a local VibeAgent session: readiness, blockers, active background processes, verification counts, plan status, failures, recent commands, and referenced files. Defaults to the current run.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "run_id": {
+                    "type": "string",
+                    "description": "Optional session id to inspect. Defaults to the current run id.",
+                },
+                "max_failures": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "description": "Maximum recent failure rows and pending items to include. Defaults to 10.",
+                },
+                "max_files": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum referenced file rows to include. Defaults to 20.",
+                },
+                "max_commands": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum recent command rows to include. Defaults to 10.",
+                },
+                "max_checks": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum verification check rows per group to include. Defaults to 50.",
+                },
+                "max_text": {
+                    "type": "integer",
+                    "minimum": 80,
+                    "maximum": 5000,
+                    "description": "Maximum text characters per audit item. Defaults to 300.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "session_handoff",
+        "description": "Read a compact safe handoff bundle for a local VibeAgent session: summary, finish-readiness blockers, plan, failures, referenced files, and command output tails. Defaults to the current run.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "run_id": {
+                    "type": "string",
+                    "description": "Optional session id to inspect. Defaults to the current run id.",
+                },
+                "max_failures": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "description": "Maximum recent failure rows to include. Defaults to 20.",
+                },
+                "max_files": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum referenced file rows to include. Defaults to 50.",
+                },
+                "max_commands": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum recent command results to include. Defaults to 10.",
+                },
+                "max_checks": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum verification check rows per group to include. Defaults to 50.",
+                },
+                "max_output_chars": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 20000,
+                    "description": "Maximum stdout and stderr characters per command. Defaults to 1000.",
+                },
+                "max_text": {
+                    "type": "integer",
+                    "minimum": 80,
+                    "maximum": 5000,
+                    "description": "Maximum text characters per failure message/detail. Defaults to 500.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "checkpoint_create",
+        "description": "Save the current git HEAD, short status, staged patch, and unstaged patch under .vibeagent/checkpoints for later inspection or tracked-file recovery.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string",
+                    "description": "Optional short label describing why the checkpoint was created.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "checkpoint_list",
+        "description": "List saved local checkpoints for the current project.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "max_entries": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum checkpoint rows to return. Defaults to 20.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "checkpoint_show",
+        "description": "Inspect one saved checkpoint's metadata, saved short git status, and saved untracked file paths without restoring files.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"checkpoint_id": {"type": "string"}},
+            "required": ["checkpoint_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "checkpoint_diff",
+        "description": "Read bounded staged and unstaged patch text saved in one checkpoint without restoring files.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "checkpoint_id": {"type": "string"},
+                "max_chars": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 200000,
+                    "description": "Maximum characters to return for each saved patch. Defaults to 40000.",
+                },
+            },
+            "required": ["checkpoint_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "checkpoint_status",
+        "description": "Compare current git status, staged patch, unstaged patch, and saved untracked file contents with one saved checkpoint.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"checkpoint_id": {"type": "string"}},
+            "required": ["checkpoint_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "check_checkpoint_restore",
+        "description": "Preview whether a checkpoint can restore tracked staged/unstaged changes and saved untracked files. Does not restore files.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"checkpoint_id": {"type": "string"}},
+            "required": ["checkpoint_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "checkpoint_restore",
+        "description": "Restore tracked staged/unstaged changes and saved untracked files from one compatible checkpoint after approval. Refuses HEAD mismatches and extra current untracked files.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"checkpoint_id": {"type": "string"}},
+            "required": ["checkpoint_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "check_checkpoint_delete",
+        "description": "Preview deleting one saved checkpoint snapshot. Does not delete files.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"checkpoint_id": {"type": "string"}},
+            "required": ["checkpoint_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "checkpoint_delete",
+        "description": "Delete one saved checkpoint snapshot from the local runtime directory after approval. Does not modify project files.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"checkpoint_id": {"type": "string"}},
+            "required": ["checkpoint_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "check_checkpoint_prune",
+        "description": "Preview deleting older saved checkpoint snapshots while keeping the newest N. Does not delete files.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "keep_last": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000,
+                    "description": "Number of newest checkpoints to keep. Use 0 to prune all checkpoints.",
+                }
+            },
+            "required": ["keep_last"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "checkpoint_prune",
+        "description": "Delete older saved checkpoint snapshots after approval while keeping the newest N. Does not modify project files.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "keep_last": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000,
+                    "description": "Number of newest checkpoints to keep. Use 0 to prune all checkpoints.",
+                }
+            },
+            "required": ["keep_last"],
             "additionalProperties": False,
         },
     },
@@ -2841,6 +4288,38 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "maximum": 50000,
                     "description": "Optional maximum characters to keep for each output stream. Defaults to 12000.",
                 },
+                "extract_output_contexts": {
+                    "type": "boolean",
+                    "description": "When true, extract project file:line references from stdout/stderr and include surrounding source contexts. Defaults to false.",
+                },
+                "extract_output_diagnostics": {
+                    "type": "boolean",
+                    "description": "When true, summarize error/warning/failure diagnostic lines from stdout/stderr and include referenced source contexts. Defaults to false.",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 500,
+                    "description": "Lines before and after each extracted reference when extract_output_contexts or extract_output_diagnostics is true. Defaults to 5.",
+                },
+                "max_diagnostics": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "description": "Maximum diagnostic lines to include when extract_output_diagnostics is true. Defaults to 50.",
+                },
+                "max_contexts": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum extracted contexts to include when extract_output_contexts or extract_output_diagnostics is true. Defaults to 20.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum characters returned per extracted context. Defaults to 20000.",
+                },
             },
             "required": ["command"],
             "additionalProperties": False,
@@ -2890,6 +4369,84 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "minimum": 1000,
                     "maximum": 50000,
                     "description": "Optional maximum characters to keep for each output stream. Defaults to 4000.",
+                },
+            },
+            "required": ["process_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "process_output_contexts",
+        "description": "Extract file:line references from recent stdout/stderr of a background command started by start_command and include source context.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "process_id": {"type": "string"},
+                "max_output_chars": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 50000,
+                    "description": "Maximum recent characters to scan from each output stream. Defaults to 20000.",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 500,
+                    "description": "Lines before and after each extracted reference. Defaults to 5.",
+                },
+                "max_contexts": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum extracted contexts to include. Defaults to 20.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum bytes per extracted file context. Defaults to 20000.",
+                },
+            },
+            "required": ["process_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "process_output_diagnostics",
+        "description": "Summarize error, warning, and failure lines from recent stdout/stderr of a background command started by start_command and include referenced source context.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "process_id": {"type": "string"},
+                "max_output_chars": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 50000,
+                    "description": "Maximum recent characters to scan from each output stream. Defaults to 20000.",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 500,
+                    "description": "Lines before and after each referenced source line. Defaults to 2.",
+                },
+                "max_diagnostics": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "description": "Maximum diagnostic rows to include. Defaults to 50.",
+                },
+                "max_contexts": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum referenced source contexts to include. Defaults to 20.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum bytes per extracted file context. Defaults to 20000.",
                 },
             },
             "required": ["process_id"],
@@ -2966,7 +4523,7 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "list_processes",
-        "description": "List background commands started by start_command in the current runtime.",
+        "description": "List background commands started by start_command for the current project.",
         "input_schema": {
             "type": "object",
             "properties": {},
@@ -2975,7 +4532,7 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "check_stop_all_processes",
-        "description": "Preview all background commands in the current runtime that stop_all_processes would stop.",
+        "description": "Preview all background commands for the current project that stop_all_processes would stop.",
         "input_schema": {
             "type": "object",
             "properties": {},
@@ -2994,7 +4551,7 @@ AGENT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "stop_all_processes",
-        "description": "Stop all background commands started by start_command in the current runtime.",
+        "description": "Stop all background commands started by start_command for the current project.",
         "input_schema": {
             "type": "object",
             "properties": {},
@@ -3294,6 +4851,385 @@ def build_http_check_observation(
     )
 
 
+def fetch_http_url(url: str, timeout_ms: int = 5_000, max_body_chars: int = 12_000) -> HttpFetchObservation:
+    request = urllib.request.Request(url, headers={"User-Agent": "vibeagent-http-fetch/0.1"})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_ms / 1000) as response:
+            return build_http_fetch_observation(
+                url=url,
+                final_url=str(response.geturl()),
+                status=int(response.getcode()),
+                reason=str(getattr(response, "reason", "") or "") or None,
+                content_type=response_content_type(response),
+                timeout_ms=timeout_ms,
+                max_body_chars=max_body_chars,
+                body_reader=response.read,
+                error=None,
+            )
+    except urllib.error.HTTPError as error:
+        return build_http_fetch_observation(
+            url=url,
+            final_url=str(error.geturl() or url),
+            status=int(error.code),
+            reason=str(error.reason or "") or None,
+            content_type=response_content_type(error),
+            timeout_ms=timeout_ms,
+            max_body_chars=max_body_chars,
+            body_reader=error.read,
+            error=None,
+        )
+    except (urllib.error.URLError, TimeoutError, socket.timeout) as error:
+        return HttpFetchObservation(
+            kind="http_fetch",
+            ok=True,
+            url=url,
+            final_url=None,
+            status=None,
+            reason=None,
+            content_type=None,
+            timeout_ms=timeout_ms,
+            reachable=False,
+            body="",
+            body_truncated=False,
+            max_body_chars=max_body_chars,
+            error=str(error),
+            message=f"{url} is not reachable over HTTP: {error}.",
+        )
+    except OSError as error:
+        return HttpFetchObservation(
+            kind="http_fetch",
+            ok=False,
+            url=url,
+            final_url=None,
+            status=None,
+            reason=None,
+            content_type=None,
+            timeout_ms=timeout_ms,
+            reachable=False,
+            body="",
+            body_truncated=False,
+            max_body_chars=max_body_chars,
+            error=str(error),
+            message=f"Could not fetch {url}: {error}.",
+        )
+
+
+def build_http_fetch_observation(
+    *,
+    url: str,
+    final_url: str,
+    status: int,
+    reason: str | None,
+    content_type: str | None,
+    timeout_ms: int,
+    max_body_chars: int,
+    body_reader: Any,
+    error: str | None,
+) -> HttpFetchObservation:
+    raw = body_reader(max_body_chars + 1)
+    if isinstance(raw, str):
+        raw = raw.encode("utf-8")
+    elif not isinstance(raw, bytes):
+        raw = bytes(raw)
+    body_truncated = len(raw) > max_body_chars
+    body = raw[:max_body_chars].decode("utf-8", errors="replace")
+    return HttpFetchObservation(
+        kind="http_fetch",
+        ok=True,
+        url=url,
+        final_url=final_url,
+        status=status,
+        reason=reason,
+        content_type=content_type,
+        timeout_ms=timeout_ms,
+        reachable=True,
+        body=body,
+        body_truncated=body_truncated,
+        max_body_chars=max_body_chars,
+        error=error,
+        message=f"{final_url} returned HTTP {status}.",
+    )
+
+
+def response_content_type(response: Any) -> str | None:
+    getheader = getattr(response, "getheader", None)
+    if callable(getheader):
+        value = getheader("Content-Type")
+        return str(value) if value else None
+    headers = getattr(response, "headers", None)
+    if isinstance(headers, dict):
+        value = headers.get("Content-Type") or headers.get("content-type")
+        return str(value) if value else None
+    return None
+
+
+def output_context_results_from_dicts(items: object) -> list[OutputContextResult]:
+    if not isinstance(items, list):
+        return []
+    results: list[OutputContextResult] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        results.append(
+            OutputContextResult(
+                path=str(item["path"]),
+                line=int(item["line"]),
+                column=int(item["column"]) if item["column"] is not None else None,
+                raw=str(item["raw"]),
+                ok=bool(item["ok"]),
+                content=str(item["content"]),
+                message=str(item["message"]),
+                context_lines=int(item["context_lines"]),
+                start_line=int(item["start_line"]),
+                end_line=int(item["end_line"]),
+                line_count=int(item["line_count"]),
+                total_lines=int(item["total_lines"]) if item["total_lines"] is not None else None,
+                target_line_exists=bool(item["target_line_exists"]),
+                truncated=bool(item["truncated"]),
+                max_bytes=int(item["max_bytes"]),
+            )
+        )
+    return results
+
+
+def output_diagnostics_from_dicts(items: object) -> list[OutputDiagnostic]:
+    if not isinstance(items, list):
+        return []
+    diagnostics: list[OutputDiagnostic] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        severity = str(item.get("severity") or "info")
+        if severity not in {"error", "warning", "failure", "info"}:
+            severity = "info"
+        diagnostics.append(
+            OutputDiagnostic(
+                severity=severity,  # type: ignore[arg-type]
+                output_line=int(item["output_line"]),
+                text=str(item["text"]),
+                path=str(item["path"]) if item.get("path") is not None else None,
+                line=int(item["line"]) if item.get("line") is not None else None,
+                column=int(item["column"]) if item.get("column") is not None else None,
+                raw=str(item["raw"]) if item.get("raw") is not None else None,
+            )
+        )
+    return diagnostics
+
+
+def parse_session_search_counts(text: str) -> tuple[int, int]:
+    total_matches = 0
+    shown_matches = 0
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("matches:"):
+            raw_total = stripped.split(":", 1)[1].strip()
+            if raw_total.isdigit():
+                total_matches = int(raw_total)
+        elif stripped.startswith("shown:"):
+            raw_shown = stripped.split(":", 1)[1].strip().split("/", 1)[0]
+            if raw_shown.isdigit():
+                shown_matches = int(raw_shown)
+    return total_matches, shown_matches
+
+
+def parse_session_commands_counts(text: str) -> tuple[int, int]:
+    command_count = 0
+    shown_commands = 0
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("commands:"):
+            raw_total = stripped.split(":", 1)[1].strip()
+            if raw_total.isdigit():
+                command_count = int(raw_total)
+        elif stripped.startswith("shown:"):
+            raw_shown = stripped.split(":", 1)[1].strip().split("/", 1)[0]
+            if raw_shown.isdigit():
+                shown_commands = int(raw_shown)
+    return command_count, shown_commands
+
+
+def build_session_command_output_scan_text(
+    workspace: RunWorkspace,
+    run_id: str,
+    max_commands: int,
+    max_output_chars: int,
+) -> tuple[bool, int, int, str, str]:
+    current_session_dir = session_dir(workspace.root, run_id)
+    if not current_session_dir.is_dir():
+        return False, 0, 0, "", f"Session not found: {run_id}"
+
+    entries = session_command_entries(read_session_events(workspace.root, run_id))
+    shown_entries = entries[-max_commands:]
+    chunks: list[str] = []
+    for entry in shown_entries:
+        result = entry["result"]
+        command = result.get("command")
+        header = f"# {entry['kind']}[{entry['index']}] command: {command if isinstance(command, str) else 'unknown'}"
+        stdout = command_output_tail(result.get("stdout") if isinstance(result.get("stdout"), str) else "", max_output_chars)
+        stderr = command_output_tail(result.get("stderr") if isinstance(result.get("stderr"), str) else "", max_output_chars)
+        chunks.append("\n".join([header, "stdout:", stdout, "stderr:", stderr]))
+    return True, len(entries), len(shown_entries), "\n\n".join(chunks), (
+        f"Scanned {len(shown_entries)}/{len(entries)} command result(s) from session {run_id}."
+    )
+
+
+def parse_session_files_counts(text: str) -> tuple[int, int]:
+    file_count = 0
+    shown_files = 0
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("files:"):
+            raw_total = stripped.split(":", 1)[1].strip()
+            if raw_total.isdigit():
+                file_count = int(raw_total)
+        elif stripped.startswith("shown:"):
+            raw_shown = stripped.split(":", 1)[1].strip().split("/", 1)[0]
+            if raw_shown.isdigit():
+                shown_files = int(raw_shown)
+    return file_count, shown_files
+
+
+def parse_session_failures_counts(text: str) -> tuple[int, int]:
+    failure_count = 0
+    shown_failures = 0
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("failures:"):
+            raw_total = stripped.split(":", 1)[1].strip()
+            if raw_total.isdigit():
+                failure_count = int(raw_total)
+        elif stripped.startswith("shown:"):
+            raw_shown = stripped.split(":", 1)[1].strip().split("/", 1)[0]
+            if raw_shown.isdigit():
+                shown_failures = int(raw_shown)
+    return failure_count, shown_failures
+
+
+def build_reference_context_results(
+    workspace: RunWorkspace,
+    references: list[dict[str, object]],
+    symbol: str,
+    context_lines: int,
+    max_bytes_per_context: int,
+) -> list[ReferenceContextResult]:
+    contexts: list[ReferenceContextResult] = []
+    for reference in references:
+        path = str(reference["path"])
+        line = int(reference["line"])
+        context = read_project_file_context_result(
+            workspace,
+            path,
+            line=line,
+            context_lines=context_lines,
+            max_bytes=max_bytes_per_context,
+        )
+        contexts.append(
+            ReferenceContextResult(
+                path=path,
+                line=line,
+                column=int(reference.get("column", 0)),
+                symbol=str(reference.get("symbol", symbol)),
+                kind=str(reference.get("kind", "reference")),
+                language=str(reference["language"]) if reference.get("language") is not None else None,
+                matched_line=str(reference.get("context", "")),
+                content=str(context["content"]),
+                context_lines=int(context["context_lines"]),
+                start_line=int(context["start_line"]),
+                end_line=int(context["end_line"]),
+                line_count=int(context["line_count"]),
+                total_lines=int(context["total_lines"]) if context["total_lines"] is not None else None,
+                truncated=bool(context["truncated"]),
+                max_bytes=int(context["max_bytes"]),
+            )
+        )
+    return contexts
+
+
+def final_review_session_verification_issues(
+    workspace: RunWorkspace,
+    suggested_checks: list[SuggestedCheck],
+) -> tuple[list[str], list[str]]:
+    suggested_commands = {
+        (check.command, check.cwd or ".")
+        for check in suggested_checks
+        if check.command
+    }
+    if not suggested_commands:
+        return [], []
+
+    events = read_session_events(workspace.root, workspace.run_id)
+    last_change_index = latest_successful_project_change_event_index(events)
+    if last_change_index is None:
+        return [], []
+
+    statuses: dict[tuple[str, str], bool] = {}
+    for event in events[last_change_index + 1 :]:
+        result = event.payload.get("result") if not event.malformed and event.type == "tool_result" else None
+        if not isinstance(result, dict):
+            continue
+        for command_result in iter_command_results(result):
+            key = command_result_key(command_result)
+            if key not in suggested_commands:
+                continue
+            statuses[key] = command_result_succeeded(command_result)
+
+    verified_commands = {key for key, passed in statuses.items() if passed}
+    failed_commands = {key for key, passed in statuses.items() if not passed}
+    failed_labels = [suggested_check_label(command, cwd) for command, cwd in sorted(failed_commands)]
+    pending_labels = [
+        suggested_check_label(command, cwd)
+        for command, cwd in sorted(suggested_commands - verified_commands - failed_commands)
+    ]
+    blockers: list[str] = []
+    warnings: list[str] = []
+    if failed_labels:
+        blockers.append("Suggested verification checks failed after the latest project change.")
+        warnings.append("Failed suggested check(s): " + ", ".join(failed_labels[:5]) + ".")
+    if pending_labels:
+        blockers.append("Suggested verification checks are still pending after the latest project change.")
+        warnings.append("Pending suggested check(s): " + ", ".join(pending_labels[:5]) + ".")
+    return blockers, warnings
+
+
+def latest_successful_project_change_event_index(events: list[Any]) -> int | None:
+    for index in range(len(events) - 1, -1, -1):
+        event = events[index]
+        if event.malformed or event.type != "tool_result":
+            continue
+        result = event.payload.get("result")
+        if not isinstance(result, dict):
+            continue
+        if result.get("kind") in PROJECT_CHANGE_RESULT_KINDS and result.get("ok") is not False:
+            return index
+    return None
+
+
+def iter_command_results(result: dict[str, Any]) -> list[dict[str, Any]]:
+    kind = result.get("kind")
+    if kind == "run_command":
+        command_result = result.get("result")
+        return [command_result] if isinstance(command_result, dict) else []
+    if kind in {"run_commands", "run_suggested_checks", "run_focused_test_commands"}:
+        command_results = result.get("results")
+        if isinstance(command_results, list):
+            return [item for item in command_results if isinstance(item, dict)]
+    return []
+
+
+def command_result_key(result: dict[str, Any]) -> tuple[str, str]:
+    command = result.get("command")
+    cwd = result.get("cwd")
+    return (command if isinstance(command, str) else "", cwd if isinstance(cwd, str) and cwd else ".")
+
+
+def command_result_succeeded(result: dict[str, Any]) -> bool:
+    return result.get("exit_code") == 0 and result.get("timed_out") is not True
+
+
+def suggested_check_label(command: str, cwd: str) -> str:
+    return command if cwd in {"", "."} else f"{command} (cwd={cwd})"
+
+
 def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout_ms: int = 30_000) -> Observation:
     # Dispatch one action at a time; all side effects stay within the given project workspace.
     if isinstance(action, ListFilesAction):
@@ -3441,6 +5377,159 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             max_bytes=max_bytes,
         )
 
+    if isinstance(action, ReadFileContextAction):
+        try:
+            result = read_project_file_context_result(
+                workspace,
+                action.path,
+                line=action.line,
+                context_lines=action.context_lines,
+                max_bytes=action.max_bytes,
+            )
+            return ReadFileContextObservation(
+                kind="read_file_context",
+                path=action.path,
+                ok=True,
+                content=str(result["content"]),
+                message=f"Read {action.path} around line {action.line}.",
+                line=int(result["line"]),
+                context_lines=int(result["context_lines"]),
+                start_line=int(result["start_line"]),
+                end_line=int(result["end_line"]),
+                line_count=int(result["line_count"]),
+                total_lines=int(result["total_lines"]),
+                target_line_exists=bool(result["target_line_exists"]),
+                truncated=bool(result["truncated"]),
+                max_bytes=int(result["max_bytes"]),
+            )
+        except ValueError as error:
+            return ReadFileContextObservation(
+                kind="read_file_context",
+                path=action.path,
+                ok=False,
+                content="",
+                message=str(error),
+                line=action.line,
+                context_lines=action.context_lines,
+                max_bytes=action.max_bytes,
+            )
+
+    if isinstance(action, ReadFileContextsAction):
+        contexts: list[ReadFileContextResult] = []
+        for item in action.contexts:
+            try:
+                result = read_project_file_context_result(
+                    workspace,
+                    item.path,
+                    line=item.line,
+                    context_lines=item.context_lines,
+                    max_bytes=action.max_bytes_per_context,
+                )
+                contexts.append(
+                    ReadFileContextResult(
+                        path=item.path,
+                        line=int(result["line"]),
+                        context_lines=int(result["context_lines"]),
+                        ok=True,
+                        content=str(result["content"]),
+                        message=f"Read {item.path} around line {item.line}.",
+                        start_line=int(result["start_line"]),
+                        end_line=int(result["end_line"]),
+                        line_count=int(result["line_count"]),
+                        total_lines=int(result["total_lines"]),
+                        target_line_exists=bool(result["target_line_exists"]),
+                        truncated=bool(result["truncated"]),
+                        max_bytes=int(result["max_bytes"]),
+                    )
+                )
+            except ValueError as error:
+                contexts.append(
+                    ReadFileContextResult(
+                        path=item.path,
+                        line=item.line,
+                        context_lines=item.context_lines,
+                        ok=False,
+                        content="",
+                        message=str(error),
+                        max_bytes=action.max_bytes_per_context,
+                    )
+                )
+        ok_count = sum(1 for item in contexts if item.ok)
+        return ReadFileContextsObservation(
+            kind="read_file_contexts",
+            contexts=contexts,
+            message=f"Read {ok_count}/{len(contexts)} file context(s).",
+        )
+
+    if isinstance(action, OutputContextsAction):
+        result = read_output_contexts_result(
+            workspace,
+            action.text,
+            context_lines=action.context_lines,
+            max_contexts=action.max_contexts,
+            max_bytes_per_context=action.max_bytes_per_context,
+        )
+        contexts = output_context_results_from_dicts(result["contexts"])
+        return OutputContextsObservation(
+            kind="output_contexts",
+            contexts=contexts,
+            total_refs=int(result["total_refs"]),
+            truncated=bool(result["truncated"]),
+            message=str(result["message"]),
+        )
+
+    if isinstance(action, OutputDiagnosticsAction):
+        result = read_output_diagnostics_result(
+            workspace,
+            action.text,
+            context_lines=action.context_lines,
+            max_diagnostics=action.max_diagnostics,
+            max_contexts=action.max_contexts,
+            max_bytes_per_context=action.max_bytes_per_context,
+        )
+        return OutputDiagnosticsObservation(
+            kind="output_diagnostics",
+            diagnostics=output_diagnostics_from_dicts(result["diagnostics"]),
+            contexts=output_context_results_from_dicts(result["contexts"]),
+            total_diagnostics=int(result["total_diagnostics"]),
+            total_refs=int(result["total_refs"]),
+            diagnostics_truncated=bool(result["diagnostics_truncated"]),
+            contexts_truncated=bool(result["contexts_truncated"]),
+            message=str(result["message"]),
+        )
+
+    if isinstance(action, TailFileAction):
+        try:
+            result = read_project_file_tail_result(
+                workspace,
+                action.path,
+                line_count=action.line_count,
+                max_bytes=action.max_bytes,
+            )
+            return TailFileObservation(
+                kind="tail_file",
+                path=action.path,
+                ok=True,
+                content=str(result["content"]),
+                message=f"Read last {result['line_count']} line(s) from {action.path}.",
+                start_line=int(result["start_line"]),
+                line_count=int(result["line_count"]),
+                requested_line_count=int(result["requested_line_count"]),
+                total_lines=int(result["total_lines"]),
+                truncated=bool(result["truncated"]),
+                max_bytes=int(result["max_bytes"]),
+            )
+        except ValueError as error:
+            return TailFileObservation(
+                kind="tail_file",
+                path=action.path,
+                ok=False,
+                content="",
+                message=str(error),
+                requested_line_count=action.line_count,
+                max_bytes=action.max_bytes,
+            )
+
     if isinstance(action, ReadFilesAction):
         files: list[ReadFileResult] = []
         for path in action.paths:
@@ -3480,12 +5569,14 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
         ranges: list[ReadFileRangeResult] = []
         for item in action.ranges:
             try:
-                content = read_project_file(
+                result = read_project_file_result(
                     workspace,
                     item.path,
+                    max_bytes=action.max_bytes_per_range,
                     start_line=item.start_line,
                     line_count=item.line_count,
                 )
+                content = str(result["content"])
                 ranges.append(
                     ReadFileRangeResult(
                         path=item.path,
@@ -3494,6 +5585,9 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
                         ok=True,
                         content=content,
                         message=f"Read {item.path}:{item.start_line}+{item.line_count}.",
+                        truncated=bool(result["truncated"]),
+                        total_bytes=int(result["total_bytes"]),
+                        max_bytes=int(result["max_bytes"]),
                     )
                 )
             except ValueError as error:
@@ -3505,6 +5599,9 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
                         ok=False,
                         content="",
                         message=str(error),
+                        truncated=False,
+                        total_bytes=None,
+                        max_bytes=action.max_bytes_per_range,
                     )
                 )
         ok_count = sum(1 for item in ranges if item.ok)
@@ -3539,6 +5636,34 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             kind="file_info",
             files=files,
             message=f"Inspected {ok_count}/{len(files)} path(s).",
+        )
+
+    if isinstance(action, ImageInfoAction):
+        images: list[ImageInfoResult] = []
+        for path in action.paths:
+            try:
+                info = read_project_image_info(workspace, path)
+                images.append(ImageInfoResult(**info))
+            except ValueError as error:
+                images.append(
+                    ImageInfoResult(
+                        path=path,
+                        ok=False,
+                        exists=False,
+                        is_file=False,
+                        size_bytes=None,
+                        format=None,
+                        mime_type=None,
+                        width=None,
+                        height=None,
+                        message=str(error),
+                    )
+                )
+        ok_count = sum(1 for item in images if item.ok)
+        return ImageInfoObservation(
+            kind="image_info",
+            images=images,
+            message=f"Inspected {ok_count}/{len(images)} image(s).",
         )
 
     if isinstance(action, PythonSymbolsAction):
@@ -3868,6 +5993,45 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             message=message,
         )
 
+    if isinstance(action, CodeReferenceContextsAction):
+        try:
+            raw_references, total = find_code_references(
+                workspace,
+                action.symbol,
+                relative_path=action.path,
+                max_matches=action.max_matches,
+            )
+            contexts = build_reference_context_results(
+                workspace,
+                raw_references,
+                action.symbol,
+                action.context_lines,
+                action.max_bytes_per_context,
+            )
+            truncated = len(contexts) < total
+            ok = True
+            message = f"Found {total} code reference context(s) for {action.symbol}."
+            if truncated:
+                message += f" Showing first {len(contexts)}."
+        except ValueError as error:
+            contexts = []
+            total = 0
+            truncated = False
+            ok = False
+            message = str(error)
+        return CodeReferenceContextsObservation(
+            kind="code_reference_contexts",
+            symbol=action.symbol,
+            path=action.path,
+            contexts=contexts,
+            total=total,
+            truncated=truncated,
+            ok=ok,
+            message=message,
+            context_lines=action.context_lines,
+            max_bytes_per_context=action.max_bytes_per_context,
+        )
+
     if isinstance(action, CodeDefinitionsAction):
         try:
             raw_definitions, total, errors = find_code_definitions(
@@ -3899,6 +6063,90 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             errors=errors,
             message=message,
         )
+
+    if isinstance(action, CodeRenamePreviewAction):
+        try:
+            preview = preview_code_rename(
+                workspace,
+                action.symbol,
+                action.new_name,
+                relative_path=action.path,
+                max_files=action.max_files,
+                max_replacements=action.max_replacements,
+            )
+            files = build_code_rename_preview_files(preview)
+            message = str(preview["message"])
+            if bool(preview["truncated"]):
+                message += f" Showing first {action.max_replacements} replacement(s)."
+            errors = list(preview["errors"])
+            if errors:
+                message += f" Skipped {len(errors)} file(s)."
+            return CodeRenamePreviewObservation(
+                kind="code_rename_preview",
+                symbol=action.symbol,
+                new_name=action.new_name,
+                path=action.path,
+                files=files,
+                total_replacements=int(preview["total_replacements"]),
+                total_files=int(preview["total_files"]),
+                truncated=bool(preview["truncated"]),
+                ok=True,
+                errors=errors,
+                message=message,
+            )
+        except ValueError as error:
+            return CodeRenamePreviewObservation(
+                kind="code_rename_preview",
+                symbol=action.symbol,
+                new_name=action.new_name,
+                path=action.path,
+                files=[],
+                total_replacements=0,
+                total_files=0,
+                truncated=False,
+                ok=False,
+                errors=[],
+                message=str(error),
+            )
+
+    if isinstance(action, CodeRenameAction):
+        try:
+            result = apply_code_rename(
+                workspace,
+                action.symbol,
+                action.new_name,
+                relative_path=action.path,
+                max_files=action.max_files,
+                max_replacements=action.max_replacements,
+            )
+            files = build_code_rename_preview_files(result)
+            return CodeRenameObservation(
+                kind="code_rename",
+                symbol=action.symbol,
+                new_name=action.new_name,
+                path=action.path,
+                files=files,
+                total_replacements=int(result["total_replacements"]),
+                total_files=int(result["total_files"]),
+                ok=True,
+                errors=[],
+                message=f"Renamed {action.symbol} to {action.new_name} in {len(files)} file(s).",
+                diff=str(result["diff"]),
+            )
+        except ValueError as error:
+            return CodeRenameObservation(
+                kind="code_rename",
+                symbol=action.symbol,
+                new_name=action.new_name,
+                path=action.path,
+                files=[],
+                total_replacements=0,
+                total_files=0,
+                ok=False,
+                errors=[],
+                message=str(error),
+                diff="",
+            )
 
     if isinstance(action, PythonDefinitionsAction):
         try:
@@ -4110,6 +6358,49 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             message=message,
         )
 
+    if isinstance(action, PythonReferenceContextsAction):
+        try:
+            raw_references, total, errors = find_python_references(
+                workspace,
+                action.symbol,
+                relative_path=action.path,
+                max_matches=action.max_matches,
+            )
+            contexts = build_reference_context_results(
+                workspace,
+                raw_references,
+                action.symbol,
+                action.context_lines,
+                action.max_bytes_per_context,
+            )
+            truncated = len(contexts) < total
+            message = f"Found {total} Python reference context(s)."
+            if truncated:
+                message += f" Showing first {len(contexts)}."
+            if errors:
+                message += f" Skipped {len(errors)} file(s)."
+            ok = True
+        except ValueError as error:
+            contexts = []
+            total = 0
+            truncated = False
+            errors = []
+            message = str(error)
+            ok = False
+        return PythonReferenceContextsObservation(
+            kind="python_reference_contexts",
+            symbol=action.symbol,
+            path=action.path,
+            contexts=contexts,
+            total=total,
+            truncated=truncated,
+            ok=ok,
+            errors=errors,
+            message=message,
+            context_lines=action.context_lines,
+            max_bytes_per_context=action.max_bytes_per_context,
+        )
+
     if isinstance(action, PythonRenamePreviewAction):
         try:
             preview = preview_python_rename(
@@ -4232,6 +6523,46 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             context_lines=action.context_lines,
         )
 
+    if isinstance(action, SearchContextsAction):
+        try:
+            result = search_project_contexts_result(
+                workspace,
+                action.query,
+                max_matches=action.max_matches,
+                relative_path=action.path,
+                regex=action.regex,
+                case_sensitive=action.case_sensitive,
+                context_lines=action.context_lines,
+                max_bytes_per_context=action.max_bytes_per_context,
+            )
+            contexts = [SearchContextResult(**item) for item in result["contexts"]]
+            total = int(result["total"])
+            truncated = bool(result["truncated"])
+            message = f"Found {total} match context(s)."
+            if truncated:
+                message += f" Showing {len(contexts)}."
+            ok = True
+        except ValueError as error:
+            contexts = []
+            total = 0
+            truncated = False
+            message = str(error)
+            ok = False
+        return SearchContextsObservation(
+            kind="search_contexts",
+            ok=ok,
+            query=action.query,
+            contexts=contexts,
+            total=total,
+            truncated=truncated,
+            message=message,
+            path=action.path,
+            regex=action.regex,
+            case_sensitive=action.case_sensitive,
+            context_lines=action.context_lines,
+            max_bytes_per_context=action.max_bytes_per_context,
+        )
+
     if isinstance(action, GlobAction):
         try:
             matches, total = glob_project_files(workspace, action.pattern, max_matches=action.max_matches)
@@ -4265,6 +6596,44 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             status=result.stdout,
             message=message,
         )
+
+    if isinstance(action, GitConflictsAction):
+        try:
+            conflicts = read_git_conflicts(
+                workspace,
+                action.path,
+                max_markers=action.max_markers,
+                max_files=action.max_files,
+            )
+            unmerged = [GitConflictStatus(**item) for item in conflicts["unmerged"]]
+            markers = [GitConflictMarker(**item) for item in conflicts["markers"]]
+            return GitConflictsObservation(
+                kind="git_conflicts",
+                ok=bool(conflicts["ok"]),
+                path=str(conflicts["path"]),
+                unmerged=unmerged,
+                unmerged_total=int(conflicts["unmerged_total"]),
+                markers=markers,
+                markers_total=int(conflicts["markers_total"]),
+                scanned_files=int(conflicts["scanned_files"]),
+                total_files=int(conflicts["total_files"]),
+                truncated=bool(conflicts["truncated"]),
+                message=str(conflicts["message"]),
+            )
+        except ValueError as error:
+            return GitConflictsObservation(
+                kind="git_conflicts",
+                ok=False,
+                path=action.path or ".",
+                unmerged=[],
+                unmerged_total=0,
+                markers=[],
+                markers_total=0,
+                scanned_files=0,
+                total_files=0,
+                truncated=False,
+                message=str(error),
+            )
 
     if isinstance(action, GitInfoAction):
         info = read_git_info(workspace)
@@ -4866,6 +7235,7 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
                 ready=False,
                 blocking_issues=[str(error)],
                 warnings=[],
+                running_processes=[],
                 files=[],
                 total_files=0,
                 suggested_checks=[],
@@ -4877,6 +7247,8 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
                 message=str(error),
             )
         files = [GitChangeFile(**item) for item in review["files"]]
+        python = [PythonCheckResult(**item) for item in review["python"]]
+        config = [ConfigCheckResult(**item) for item in review["config"]]
         all_suggested_checks = [SuggestedCheck(**item) for item in review["suggested_checks"]]
         suggested_checks = all_suggested_checks[: action.max_checks]
         suggested_checks_total = int(review["suggested_checks_total"])
@@ -4885,6 +7257,7 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             or len(all_suggested_checks) > len(suggested_checks)
             or suggested_checks_total > len(suggested_checks)
         )
+        running_processes = [process for process in list_background_processes(workspace.root).processes if process.running]
         blocking_issues: list[str] = []
         if not bool(review["changes_ok"]):
             blocking_issues.append("Could not read git changes.")
@@ -4896,6 +7269,11 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             blocking_issues.append("Changed Python files have syntax errors.")
         if not bool(review["config_ok"]):
             blocking_issues.append("Changed config files have syntax errors.")
+        verification_blockers, verification_warnings = final_review_session_verification_issues(
+            workspace,
+            suggested_checks,
+        )
+        blocking_issues.extend(verification_blockers)
 
         warnings: list[str] = []
         total_files = int(review["total_files"])
@@ -4913,6 +7291,11 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
         if unavailable:
             missing = ", ".join(sorted({item.missing_tool or item.command.split()[0] for item in unavailable})[:5])
             warnings.append(f"Some suggested checks have missing executables: {missing}.")
+        if running_processes:
+            warnings.append(
+                f"{len(running_processes)} background process(es) still running; stop them before finishing if no longer needed."
+            )
+        warnings.extend(verification_warnings)
 
         ready = bool(review["ok"]) and not blocking_issues
         if ready:
@@ -4925,8 +7308,15 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             ready=ready,
             blocking_issues=blocking_issues,
             warnings=warnings,
+            running_processes=running_processes,
             files=files,
             total_files=total_files,
+            python=python,
+            python_total=int(review["python_total"]),
+            python_truncated=bool(review["python_truncated"]),
+            config=config,
+            config_total=int(review["config_total"]),
+            config_truncated=bool(review["config_truncated"]),
             suggested_checks=suggested_checks,
             suggested_checks_total=suggested_checks_total,
             suggested_checks_truncated=suggested_checks_truncated,
@@ -4960,6 +7350,101 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
                 message=str(error),
             )
 
+    if isinstance(action, CheckSuggestedChecksAction):
+        try:
+            suggestions = suggest_project_checks(workspace, max_commands=action.max_commands)
+            suggested_checks = [SuggestedCheck(**item) for item in suggestions["checks"]]
+            checks = [
+                build_command_check_observation(workspace, item.command, item.cwd)
+                for item in suggested_checks
+            ]
+            failed_count = sum(1 for check in checks if not check.ok)
+            return CheckSuggestedChecksObservation(
+                kind="check_suggested_checks",
+                ok=failed_count == 0,
+                checks=checks,
+                suggested_checks=suggested_checks,
+                total=int(suggestions["total"]),
+                truncated=bool(suggestions["truncated"]),
+                max_commands=action.max_commands,
+                message=f"Preflighted {len(checks)}/{int(suggestions['total'])} suggested check command(s); {failed_count} failed.",
+            )
+        except ValueError as error:
+            return CheckSuggestedChecksObservation(
+                kind="check_suggested_checks",
+                ok=False,
+                checks=[],
+                suggested_checks=[],
+                total=0,
+                truncated=False,
+                max_commands=action.max_commands,
+                message=str(error),
+            )
+
+    if isinstance(action, RunSuggestedChecksAction):
+        try:
+            suggestions = suggest_project_checks(workspace, max_commands=action.max_commands)
+            suggested_checks = [SuggestedCheck(**item) for item in suggestions["checks"]]
+            runnable_checks = [item for item in suggested_checks if item.available]
+            skipped_unavailable = len(suggested_checks) - len(runnable_checks)
+            results: list[CommandResult] = []
+            stopped_early = False
+            for item in runnable_checks:
+                result = execute_run_command_item(
+                    workspace,
+                    RunCommandItem(
+                        command=item.command,
+                        cwd=item.cwd,
+                        timeout_ms=action.timeout_ms,
+                        max_output_chars=action.max_output_chars,
+                        extract_output_contexts=action.extract_output_contexts,
+                        extract_output_diagnostics=action.extract_output_diagnostics,
+                        context_lines=action.context_lines,
+                        max_diagnostics=action.max_diagnostics,
+                        max_contexts=action.max_contexts,
+                        max_bytes_per_context=action.max_bytes_per_context,
+                    ),
+                    command_timeout_ms,
+                )
+                results.append(result)
+                failed = result.exit_code != 0 or result.timed_out or result.exit_code is None
+                if failed and action.stop_on_failure:
+                    stopped_early = len(results) < len(runnable_checks)
+                    break
+            ok = (
+                skipped_unavailable == 0
+                and len(results) == len(runnable_checks)
+                and all(result.exit_code == 0 and not result.timed_out for result in results)
+            )
+            return RunSuggestedChecksObservation(
+                kind="run_suggested_checks",
+                ok=ok,
+                results=results,
+                suggested_checks=suggested_checks,
+                total=int(suggestions["total"]),
+                truncated=bool(suggestions["truncated"]),
+                max_commands=action.max_commands,
+                stopped_early=stopped_early,
+                skipped_unavailable=skipped_unavailable,
+                message=(
+                    f"Ran {len(results)}/{len(runnable_checks)} available suggested check command(s); "
+                    f"{'all passed' if ok else 'one or more failed or were unavailable'}."
+                ),
+            )
+        except ValueError as error:
+            return RunSuggestedChecksObservation(
+                kind="run_suggested_checks",
+                ok=False,
+                results=[],
+                suggested_checks=[],
+                total=0,
+                truncated=False,
+                max_commands=action.max_commands,
+                stopped_early=False,
+                skipped_unavailable=0,
+                message=str(error),
+            )
+
     if isinstance(action, ProjectCommandsAction):
         try:
             metadata = read_project_commands(
@@ -4987,6 +7472,188 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
                 truncated=False,
                 total_files=0,
                 scanned_files=0,
+                message=str(error),
+            )
+
+    if isinstance(action, RelatedTestsAction):
+        try:
+            metadata = find_related_tests(
+                workspace,
+                paths=action.paths,
+                max_paths=action.max_paths,
+                max_candidates=action.max_candidates,
+            )
+            candidates = [RelatedTestCandidate(**item) for item in metadata["candidates"]]
+            return RelatedTestsObservation(
+                kind="related_tests",
+                ok=bool(metadata["ok"]),
+                target_paths=list(metadata["target_paths"]),
+                candidates=candidates,
+                total=int(metadata["total"]),
+                truncated=bool(metadata["truncated"]),
+                test_files_total=int(metadata["test_files_total"]),
+                message=str(metadata["message"]),
+            )
+        except ValueError as error:
+            return RelatedTestsObservation(
+                kind="related_tests",
+                ok=False,
+                target_paths=[],
+                candidates=[],
+                total=0,
+                truncated=False,
+                test_files_total=0,
+                message=str(error),
+            )
+
+    if isinstance(action, FocusedTestCommandsAction):
+        try:
+            metadata = suggest_focused_test_commands(
+                workspace,
+                paths=action.paths,
+                max_paths=action.max_paths,
+                max_candidates=action.max_candidates,
+                max_commands=action.max_commands,
+            )
+            commands = [FocusedTestCommand(**item) for item in metadata["commands"]]
+            return FocusedTestCommandsObservation(
+                kind="focused_test_commands",
+                ok=bool(metadata["ok"]),
+                target_paths=list(metadata["target_paths"]),
+                commands=commands,
+                total=int(metadata["total"]),
+                truncated=bool(metadata["truncated"]),
+                related_tests_total=int(metadata["related_tests_total"]),
+                message=str(metadata["message"]),
+            )
+        except ValueError as error:
+            return FocusedTestCommandsObservation(
+                kind="focused_test_commands",
+                ok=False,
+                target_paths=[],
+                commands=[],
+                total=0,
+                truncated=False,
+                related_tests_total=0,
+                message=str(error),
+            )
+
+    if isinstance(action, CheckFocusedTestCommandsAction):
+        try:
+            if action.max_commands > 50:
+                raise ValueError("max_commands must be at most 50")
+            metadata = suggest_focused_test_commands(
+                workspace,
+                paths=action.paths,
+                max_paths=action.max_paths,
+                max_candidates=action.max_candidates,
+                max_commands=action.max_commands,
+            )
+            focused_commands = [FocusedTestCommand(**item) for item in metadata["commands"]]
+            checks = [
+                build_command_check_observation(workspace, item.command, item.cwd)
+                for item in focused_commands
+            ]
+            failed_count = sum(1 for check in checks if not check.ok)
+            return CheckFocusedTestCommandsObservation(
+                kind="check_focused_test_commands",
+                ok=failed_count == 0,
+                checks=checks,
+                focused_commands=focused_commands,
+                target_paths=list(metadata["target_paths"]),
+                total=int(metadata["total"]),
+                truncated=bool(metadata["truncated"]),
+                max_commands=action.max_commands,
+                related_tests_total=int(metadata["related_tests_total"]),
+                message=f"Preflighted {len(checks)}/{int(metadata['total'])} focused test command(s); {failed_count} failed.",
+            )
+        except ValueError as error:
+            return CheckFocusedTestCommandsObservation(
+                kind="check_focused_test_commands",
+                ok=False,
+                checks=[],
+                focused_commands=[],
+                target_paths=[],
+                total=0,
+                truncated=False,
+                max_commands=action.max_commands,
+                related_tests_total=0,
+                message=str(error),
+            )
+
+    if isinstance(action, RunFocusedTestCommandsAction):
+        try:
+            if action.max_commands > 50:
+                raise ValueError("max_commands must be at most 50")
+            metadata = suggest_focused_test_commands(
+                workspace,
+                paths=action.paths,
+                max_paths=action.max_paths,
+                max_candidates=action.max_candidates,
+                max_commands=action.max_commands,
+            )
+            focused_commands = [FocusedTestCommand(**item) for item in metadata["commands"]]
+            runnable_commands = [item for item in focused_commands if item.available]
+            skipped_unavailable = len(focused_commands) - len(runnable_commands)
+            results: list[CommandResult] = []
+            stopped_early = False
+            for item in runnable_commands:
+                result = execute_run_command_item(
+                    workspace,
+                    RunCommandItem(
+                        command=item.command,
+                        cwd=item.cwd,
+                        timeout_ms=action.timeout_ms,
+                        max_output_chars=action.max_output_chars,
+                        extract_output_contexts=action.extract_output_contexts,
+                        extract_output_diagnostics=action.extract_output_diagnostics,
+                        context_lines=action.context_lines,
+                        max_diagnostics=action.max_diagnostics,
+                        max_contexts=action.max_contexts,
+                        max_bytes_per_context=action.max_bytes_per_context,
+                    ),
+                    command_timeout_ms,
+                )
+                results.append(result)
+                failed = result.exit_code != 0 or result.timed_out or result.exit_code is None
+                if failed and action.stop_on_failure:
+                    stopped_early = len(results) < len(runnable_commands)
+                    break
+            ok = (
+                skipped_unavailable == 0
+                and len(results) == len(runnable_commands)
+                and all(result.exit_code == 0 and not result.timed_out for result in results)
+            )
+            return RunFocusedTestCommandsObservation(
+                kind="run_focused_test_commands",
+                ok=ok,
+                results=results,
+                focused_commands=focused_commands,
+                target_paths=list(metadata["target_paths"]),
+                total=int(metadata["total"]),
+                truncated=bool(metadata["truncated"]),
+                max_commands=action.max_commands,
+                related_tests_total=int(metadata["related_tests_total"]),
+                stopped_early=stopped_early,
+                skipped_unavailable=skipped_unavailable,
+                message=(
+                    f"Ran {len(results)}/{len(runnable_commands)} available focused test command(s); "
+                    f"{'all passed' if ok else 'one or more failed or were unavailable'}."
+                ),
+            )
+        except ValueError as error:
+            return RunFocusedTestCommandsObservation(
+                kind="run_focused_test_commands",
+                ok=False,
+                results=[],
+                focused_commands=[],
+                target_paths=[],
+                total=0,
+                truncated=False,
+                max_commands=action.max_commands,
+                related_tests_total=0,
+                stopped_early=False,
+                skipped_unavailable=0,
                 message=str(error),
             )
 
@@ -5030,6 +7697,74 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
                 scanned_files=0,
                 total_items=0,
                 truncated=False,
+                message=str(error),
+            )
+
+    if isinstance(action, ProjectInstructionsAction):
+        try:
+            if action.max_bytes < 200:
+                raise ValueError("max_bytes must be at least 200.")
+            metadata = read_project_instruction_sources(
+                workspace,
+                max_files=action.max_files,
+                max_bytes=action.max_bytes,
+            )
+            files = [ProjectInstructionSource(**item) for item in metadata["files"]]
+            return ProjectInstructionsObservation(
+                kind="project_instructions",
+                ok=bool(metadata["ok"]),
+                files=files,
+                total_files=int(metadata["total_files"]),
+                scanned_files=int(metadata["scanned_files"]),
+                omitted_files=int(metadata["omitted_files"]),
+                truncated=bool(metadata["truncated"]),
+                text=str(metadata["text"]),
+                message=str(metadata["message"]),
+            )
+        except ValueError as error:
+            return ProjectInstructionsObservation(
+                kind="project_instructions",
+                ok=False,
+                files=[],
+                total_files=0,
+                scanned_files=0,
+                omitted_files=0,
+                truncated=False,
+                text="",
+                message=str(error),
+            )
+
+    if isinstance(action, ProjectTodosAction):
+        try:
+            metadata = read_project_todos(
+                workspace,
+                relative_path=action.path,
+                max_items=action.max_items,
+                max_files=action.max_files,
+            )
+            return ProjectTodosObservation(
+                kind="project_todos",
+                ok=bool(metadata["ok"]),
+                todos=[ProjectTodo(**item) for item in metadata["todos"]],
+                total=int(metadata["total"]),
+                truncated=bool(metadata["truncated"]),
+                total_files=int(metadata["total_files"]),
+                scanned_files=int(metadata["scanned_files"]),
+                path=str(metadata["path"]),
+                markers=[str(item) for item in metadata["markers"]],
+                message=str(metadata["message"]),
+            )
+        except ValueError as error:
+            return ProjectTodosObservation(
+                kind="project_todos",
+                ok=False,
+                todos=[],
+                total=0,
+                truncated=False,
+                total_files=0,
+                scanned_files=0,
+                path=action.path or ".",
+                markers=[],
                 message=str(error),
             )
 
@@ -5173,6 +7908,11 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             regex=action.regex,
         )
 
+    if isinstance(action, HttpFetchAction):
+        timeout_ms = action.timeout_ms if action.timeout_ms is not None else 5_000
+        max_body_chars = action.max_body_chars if action.max_body_chars is not None else 12_000
+        return fetch_http_url(action.url, timeout_ms=timeout_ms, max_body_chars=max_body_chars)
+
     if isinstance(action, EnvironmentInfoAction):
         try:
             info = read_environment_info(workspace)
@@ -5257,6 +7997,76 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
                 truncated=False,
                 path=action.path,
                 staged=action.staged,
+                message=str(error),
+            )
+
+    if isinstance(action, GitDiffContextsAction):
+        try:
+            summary = read_git_diff_hunks(
+                workspace,
+                action.path,
+                action.staged,
+                max_hunks=action.max_hunks,
+                max_lines_per_hunk=1,
+            )
+            contexts: list[GitDiffContext] = []
+            for item in summary["hunks"]:
+                hunk = GitDiffHunk(**item)
+                try:
+                    result = read_project_file_context_result(
+                        workspace,
+                        hunk.file,
+                        line=max(1, hunk.new_start),
+                        context_lines=action.context_lines,
+                        max_bytes=action.max_bytes_per_context,
+                    )
+                    context = ReadFileContextResult(
+                        path=hunk.file,
+                        line=int(result["line"]),
+                        context_lines=int(result["context_lines"]),
+                        ok=True,
+                        content=str(result["content"]),
+                        message=f"Read {hunk.file} around diff hunk line {hunk.new_start}.",
+                        start_line=int(result["start_line"]),
+                        end_line=int(result["end_line"]),
+                        line_count=int(result["line_count"]),
+                        total_lines=int(result["total_lines"]),
+                        target_line_exists=bool(result["target_line_exists"]),
+                        truncated=bool(result["truncated"]),
+                        max_bytes=int(result["max_bytes"]),
+                    )
+                except ValueError as error:
+                    context = ReadFileContextResult(
+                        path=hunk.file,
+                        line=max(1, hunk.new_start),
+                        context_lines=action.context_lines,
+                        ok=False,
+                        content="",
+                        message=str(error),
+                        max_bytes=action.max_bytes_per_context,
+                    )
+                contexts.append(GitDiffContext(hunk=hunk, context=context))
+            return GitDiffContextsObservation(
+                kind="git_diff_contexts",
+                ok=bool(summary["ok"]),
+                contexts=contexts,
+                total_hunks=int(summary["total_hunks"]),
+                truncated=bool(summary["truncated"]),
+                path=action.path,
+                staged=action.staged,
+                context_lines=action.context_lines,
+                message=str(summary["message"]),
+            )
+        except ValueError as error:
+            return GitDiffContextsObservation(
+                kind="git_diff_contexts",
+                ok=False,
+                contexts=[],
+                total_hunks=0,
+                truncated=False,
+                path=action.path,
+                staged=action.staged,
+                context_lines=action.context_lines,
                 message=str(error),
             )
 
@@ -5357,6 +8167,437 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             recent_sessions=recent_text.splitlines(),
             message=message,
         )
+
+    if isinstance(action, SessionPlanAction):
+        run_id = action.run_id or workspace.run_id
+        try:
+            plan_text = format_session_plan(summarize_session(workspace.root, run_id))
+            ok = not plan_text.startswith("Session not found:")
+            message = f"Read session plan for {run_id}." if ok else plan_text
+        except ValueError as error:
+            plan_text = ""
+            ok = False
+            message = str(error)
+        return SessionPlanObservation(
+            kind="session_plan",
+            run_id=run_id,
+            ok=ok,
+            plan=plan_text,
+            message=message,
+        )
+
+    if isinstance(action, SessionTranscriptAction):
+        run_id = action.run_id or workspace.run_id
+        try:
+            transcript = format_session_transcript(
+                workspace.root,
+                run_id,
+                max_events=action.max_events,
+                max_text=action.max_text,
+            )
+            ok = not transcript.startswith("Session not found:")
+            message = f"Read session transcript for {run_id}." if ok else transcript
+        except ValueError as error:
+            transcript = ""
+            ok = False
+            message = str(error)
+        return SessionTranscriptObservation(
+            kind="session_transcript",
+            run_id=run_id,
+            ok=ok,
+            transcript=transcript,
+            message=message,
+        )
+
+    if isinstance(action, SessionSearchAction):
+        run_id = action.run_id or workspace.run_id
+        try:
+            matches = format_session_search(
+                workspace.root,
+                run_id,
+                action.query,
+                max_matches=action.max_matches,
+                max_text=action.max_text,
+                case_sensitive=action.case_sensitive,
+            )
+            ok = not matches.startswith("Session not found:")
+            message = f"Searched session {run_id} for {action.query!r}." if ok else matches
+            total_matches, shown_matches = parse_session_search_counts(matches)
+        except ValueError as error:
+            matches = ""
+            ok = False
+            message = str(error)
+            total_matches = 0
+            shown_matches = 0
+        return SessionSearchObservation(
+            kind="session_search",
+            run_id=run_id,
+            ok=ok,
+            query=action.query,
+            matches=matches,
+            total_matches=total_matches,
+            shown_matches=shown_matches,
+            message=message,
+        )
+
+    if isinstance(action, SessionCommandsAction):
+        run_id = action.run_id or workspace.run_id
+        try:
+            commands = format_session_commands(
+                workspace.root,
+                run_id,
+                max_commands=action.max_commands,
+                max_output_chars=action.max_output_chars,
+            )
+            ok = not commands.startswith("Session not found:")
+            message = f"Read session command results for {run_id}." if ok else commands
+            command_count, shown_commands = parse_session_commands_counts(commands)
+        except ValueError as error:
+            commands = ""
+            ok = False
+            message = str(error)
+            command_count = 0
+            shown_commands = 0
+        return SessionCommandsObservation(
+            kind="session_commands",
+            run_id=run_id,
+            ok=ok,
+            commands=commands,
+            command_count=command_count,
+            shown_commands=shown_commands,
+            message=message,
+        )
+
+    if isinstance(action, SessionOutputContextsAction):
+        run_id = action.run_id or workspace.run_id
+        try:
+            ok, command_count, shown_commands, output_text, scan_message = build_session_command_output_scan_text(
+                workspace,
+                run_id,
+                max_commands=action.max_commands,
+                max_output_chars=action.max_output_chars,
+            )
+            if not ok:
+                return SessionOutputContextsObservation(
+                    kind="session_output_contexts",
+                    run_id=run_id,
+                    ok=False,
+                    contexts=[],
+                    command_count=0,
+                    shown_commands=0,
+                    total_refs=0,
+                    truncated=False,
+                    message=scan_message,
+                )
+            if not output_text.strip():
+                return SessionOutputContextsObservation(
+                    kind="session_output_contexts",
+                    run_id=run_id,
+                    ok=True,
+                    contexts=[],
+                    command_count=command_count,
+                    shown_commands=shown_commands,
+                    total_refs=0,
+                    truncated=False,
+                    message=f"{scan_message} No command output references found.",
+                )
+            result = read_output_contexts_result(
+                workspace,
+                output_text,
+                context_lines=action.context_lines,
+                max_contexts=action.max_contexts,
+                max_bytes_per_context=action.max_bytes_per_context,
+            )
+            contexts = output_context_results_from_dicts(result["contexts"])
+            failed_contexts = sum(1 for item in contexts if not item.ok)
+            return SessionOutputContextsObservation(
+                kind="session_output_contexts",
+                run_id=run_id,
+                ok=failed_contexts == 0,
+                contexts=contexts,
+                command_count=command_count,
+                shown_commands=shown_commands,
+                total_refs=int(result["total_refs"]),
+                truncated=bool(result["truncated"]),
+                message=f"{scan_message} {result['message']}",
+            )
+        except ValueError as error:
+            return SessionOutputContextsObservation(
+                kind="session_output_contexts",
+                run_id=run_id,
+                ok=False,
+                contexts=[],
+                command_count=0,
+                shown_commands=0,
+                total_refs=0,
+                truncated=False,
+                message=str(error),
+            )
+
+    if isinstance(action, SessionOutputDiagnosticsAction):
+        run_id = action.run_id or workspace.run_id
+        try:
+            ok, command_count, shown_commands, output_text, scan_message = build_session_command_output_scan_text(
+                workspace,
+                run_id,
+                max_commands=action.max_commands,
+                max_output_chars=action.max_output_chars,
+            )
+            if not ok:
+                return SessionOutputDiagnosticsObservation(
+                    kind="session_output_diagnostics",
+                    run_id=run_id,
+                    ok=False,
+                    diagnostics=[],
+                    contexts=[],
+                    command_count=0,
+                    shown_commands=0,
+                    total_diagnostics=0,
+                    total_refs=0,
+                    diagnostics_truncated=False,
+                    contexts_truncated=False,
+                    message=scan_message,
+                )
+            if not output_text.strip():
+                return SessionOutputDiagnosticsObservation(
+                    kind="session_output_diagnostics",
+                    run_id=run_id,
+                    ok=True,
+                    diagnostics=[],
+                    contexts=[],
+                    command_count=command_count,
+                    shown_commands=shown_commands,
+                    total_diagnostics=0,
+                    total_refs=0,
+                    diagnostics_truncated=False,
+                    contexts_truncated=False,
+                    message=f"{scan_message} No command output diagnostics found.",
+                )
+            result = read_output_diagnostics_result(
+                workspace,
+                output_text,
+                context_lines=action.context_lines,
+                max_diagnostics=action.max_diagnostics,
+                max_contexts=action.max_contexts,
+                max_bytes_per_context=action.max_bytes_per_context,
+            )
+            diagnostics = output_diagnostics_from_dicts(result["diagnostics"])
+            contexts = output_context_results_from_dicts(result["contexts"])
+            failed_contexts = sum(1 for item in contexts if not item.ok)
+            return SessionOutputDiagnosticsObservation(
+                kind="session_output_diagnostics",
+                run_id=run_id,
+                ok=failed_contexts == 0,
+                diagnostics=diagnostics,
+                contexts=contexts,
+                command_count=command_count,
+                shown_commands=shown_commands,
+                total_diagnostics=int(result["total_diagnostics"]),
+                total_refs=int(result["total_refs"]),
+                diagnostics_truncated=bool(result["diagnostics_truncated"]),
+                contexts_truncated=bool(result["contexts_truncated"]),
+                message=f"{scan_message} {result['message']}",
+            )
+        except ValueError as error:
+            return SessionOutputDiagnosticsObservation(
+                kind="session_output_diagnostics",
+                run_id=run_id,
+                ok=False,
+                diagnostics=[],
+                contexts=[],
+                command_count=0,
+                shown_commands=0,
+                total_diagnostics=0,
+                total_refs=0,
+                diagnostics_truncated=False,
+                contexts_truncated=False,
+                message=str(error),
+            )
+
+    if isinstance(action, SessionFilesAction):
+        run_id = action.run_id or workspace.run_id
+        try:
+            files = format_session_files(workspace.root, run_id, max_files=action.max_files)
+            ok = not files.startswith("Session not found:")
+            message = f"Read session file references for {run_id}." if ok else files
+            file_count, shown_files = parse_session_files_counts(files)
+        except ValueError as error:
+            files = ""
+            ok = False
+            message = str(error)
+            file_count = 0
+            shown_files = 0
+        return SessionFilesObservation(
+            kind="session_files",
+            run_id=run_id,
+            ok=ok,
+            files=files,
+            file_count=file_count,
+            shown_files=shown_files,
+            message=message,
+        )
+
+    if isinstance(action, SessionFailuresAction):
+        run_id = action.run_id or workspace.run_id
+        try:
+            failures = format_session_failures(
+                workspace.root,
+                run_id,
+                max_failures=action.max_failures,
+                max_text=action.max_text,
+            )
+            ok = not failures.startswith("Session not found:")
+            message = f"Read session failures for {run_id}." if ok else failures
+            failure_count, shown_failures = parse_session_failures_counts(failures)
+        except ValueError as error:
+            failures = ""
+            ok = False
+            message = str(error)
+            failure_count = 0
+            shown_failures = 0
+        return SessionFailuresObservation(
+            kind="session_failures",
+            run_id=run_id,
+            ok=ok,
+            failures=failures,
+            failure_count=failure_count,
+            shown_failures=shown_failures,
+            message=message,
+        )
+
+    if isinstance(action, SessionVerificationAction):
+        run_id = action.run_id or workspace.run_id
+        try:
+            summary = summarize_session(workspace.root, run_id)
+            verification = format_session_verification(summary, max_checks=action.max_checks)
+            ok = not verification.startswith("Session not found:")
+            message = f"Read session verification for {run_id}." if ok else verification
+        except ValueError as error:
+            verification = ""
+            ok = False
+            message = str(error)
+        return SessionVerificationObservation(
+            kind="session_verification",
+            run_id=run_id,
+            ok=ok,
+            verification=verification,
+            message=message,
+        )
+
+    if isinstance(action, SessionAuditAction):
+        run_id = action.run_id or workspace.run_id
+        try:
+            audit = format_session_audit(
+                workspace.root,
+                run_id,
+                max_failures=action.max_failures,
+                max_files=action.max_files,
+                max_commands=action.max_commands,
+                max_checks=action.max_checks,
+                max_text=action.max_text,
+            )
+            ok = not audit.startswith("Session not found:")
+            ready = "\n  ready: yes\n" in f"\n{audit}\n"
+            message = f"Read session audit for {run_id}." if ok else audit
+            blockers: list[str] = []
+            background_processes_started = 0
+            active_background_processes: list[SessionAuditProcess] = []
+            if ok:
+                summary = summarize_session(workspace.root, run_id)
+                events = read_session_events(workspace.root, run_id)
+                failures = session_failure_entries(events, max_text=action.max_text)
+                files = session_file_entries(events)
+                blockers = session_audit_blockers(summary, failures, files)
+                background_processes_started = summary.background_processes_started
+                active_background_processes = [
+                    SessionAuditProcess(
+                        process_id=process.process_id,
+                        pid=process.pid,
+                        command=process.command,
+                        cwd=process.cwd,
+                        line_number=process.line_number,
+                    )
+                    for process in summary.active_background_processes
+                ]
+        except ValueError as error:
+            audit = ""
+            ok = False
+            ready = False
+            blockers = []
+            background_processes_started = 0
+            active_background_processes = []
+            message = str(error)
+        return SessionAuditObservation(
+            kind="session_audit",
+            run_id=run_id,
+            ok=ok,
+            audit=audit,
+            ready=ready,
+            blockers=blockers,
+            background_processes_started=background_processes_started,
+            active_background_processes=active_background_processes,
+            message=message,
+        )
+
+    if isinstance(action, SessionHandoffAction):
+        run_id = action.run_id or workspace.run_id
+        try:
+            handoff = format_session_handoff(
+                workspace.root,
+                run_id,
+                max_failures=action.max_failures,
+                max_files=action.max_files,
+                max_commands=action.max_commands,
+                max_checks=action.max_checks,
+                max_output_chars=action.max_output_chars,
+                max_text=action.max_text,
+            )
+            ok = not handoff.startswith("Session not found:")
+            message = f"Read session handoff for {run_id}." if ok else handoff
+        except ValueError as error:
+            handoff = ""
+            ok = False
+            message = str(error)
+        return SessionHandoffObservation(
+            kind="session_handoff",
+            run_id=run_id,
+            ok=ok,
+            handoff=handoff,
+            message=message,
+        )
+
+    if isinstance(action, CheckpointCreateAction):
+        return create_checkpoint_observation(workspace, action.label)
+
+    if isinstance(action, CheckpointListAction):
+        return list_checkpoints_observation(workspace.root, action.max_entries)
+
+    if isinstance(action, CheckpointShowAction):
+        return checkpoint_show_observation(workspace.root, action.checkpoint_id)
+
+    if isinstance(action, CheckpointDiffAction):
+        return checkpoint_diff_observation(workspace.root, action.checkpoint_id, action.max_chars)
+
+    if isinstance(action, CheckpointStatusAction):
+        return checkpoint_status_observation(workspace, action.checkpoint_id)
+
+    if isinstance(action, CheckCheckpointRestoreAction):
+        return check_checkpoint_restore_observation(workspace, action.checkpoint_id)
+
+    if isinstance(action, CheckpointRestoreAction):
+        return checkpoint_restore_observation(workspace, action.checkpoint_id)
+
+    if isinstance(action, CheckCheckpointDeleteAction):
+        return check_checkpoint_delete_observation(workspace.root, action.checkpoint_id)
+
+    if isinstance(action, CheckpointDeleteAction):
+        return checkpoint_delete_observation(workspace.root, action.checkpoint_id)
+
+    if isinstance(action, CheckCheckpointPruneAction):
+        return check_checkpoint_prune_observation(workspace.root, action.keep_last)
+
+    if isinstance(action, CheckpointPruneAction):
+        return checkpoint_prune_observation(workspace.root, action.keep_last)
 
     if isinstance(action, CheckEditFileAction):
         try:
@@ -6265,38 +9506,51 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
         return start_background_command(workspace, action.command, action.cwd)
 
     if isinstance(action, ReadProcessAction):
-        return read_background_process(action.process_id, max_output_chars=action.max_output_chars or 4_000)
+        return attach_output_analysis_to_process_observation(
+            workspace,
+            read_background_process(workspace.root, action.process_id, max_output_chars=action.max_output_chars or 4_000),
+        )
+
+    if isinstance(action, ProcessOutputContextsAction):
+        return read_background_process_output_contexts(workspace, action)
+
+    if isinstance(action, ProcessOutputDiagnosticsAction):
+        return read_background_process_output_diagnostics(workspace, action)
 
     if isinstance(action, WaitProcessAction):
-        return wait_background_process(
-            action.process_id,
-            timeout_ms=action.timeout_ms or 5_000,
-            stdout_contains=action.stdout_contains,
-            stderr_contains=action.stderr_contains,
-            regex=action.regex,
-            max_output_chars=action.max_output_chars or 4_000,
+        return attach_output_analysis_to_process_observation(
+            workspace,
+            wait_background_process(
+                workspace.root,
+                action.process_id,
+                timeout_ms=action.timeout_ms or 5_000,
+                stdout_contains=action.stdout_contains,
+                stderr_contains=action.stderr_contains,
+                regex=action.regex,
+                max_output_chars=action.max_output_chars or 4_000,
+            ),
         )
 
     if isinstance(action, CheckWriteProcessAction):
-        return check_write_background_process(action.process_id, action.content)
+        return check_write_background_process(workspace.root, action.process_id, action.content)
 
     if isinstance(action, WriteProcessAction):
-        return write_background_process(action.process_id, action.content)
+        return write_background_process(workspace.root, action.process_id, action.content)
 
     if isinstance(action, ListProcessesAction):
-        return list_background_processes()
+        return list_background_processes(workspace.root)
 
     if isinstance(action, CheckStopAllProcessesAction):
-        return check_stop_all_background_processes()
+        return check_stop_all_background_processes(workspace.root)
 
     if isinstance(action, CheckStopProcessAction):
-        return check_stop_background_process(action.process_id)
+        return check_stop_background_process(workspace.root, action.process_id)
 
     if isinstance(action, StopAllProcessesAction):
-        return stop_all_background_processes()
+        return stop_all_background_processes(workspace.root)
 
     if isinstance(action, StopProcessAction):
-        return stop_background_process(action.process_id)
+        return stop_background_process(workspace.root, action.process_id)
 
     if isinstance(action, UpdatePlanAction):
         return UpdatePlanObservation(
@@ -6306,6 +9560,803 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
         )
 
     return FinishObservation(kind="finish", message=action.message)
+
+
+def create_checkpoint_observation(workspace: RunWorkspace, label: str | None = None) -> CheckpointCreateObservation:
+    status = read_git_status(workspace)
+    if not status.ok:
+        return CheckpointCreateObservation(
+            kind="checkpoint_create",
+            ok=False,
+            checkpoint=None,
+            staged_patch_chars=0,
+            unstaged_patch_chars=0,
+            message=status.stderr or "git status failed.",
+        )
+    staged = read_git_diff(workspace, staged=True)
+    unstaged = read_git_diff(workspace, staged=False)
+    if not staged.ok or not unstaged.ok:
+        return CheckpointCreateObservation(
+            kind="checkpoint_create",
+            ok=False,
+            checkpoint=None,
+            staged_patch_chars=0,
+            unstaged_patch_chars=0,
+            message=staged.stderr or unstaged.stderr or "git diff failed.",
+        )
+    head = read_checkpoint_git_head(workspace.root)
+    if not head:
+        return CheckpointCreateObservation(
+            kind="checkpoint_create",
+            ok=False,
+            checkpoint=None,
+            staged_patch_chars=0,
+            unstaged_patch_chars=0,
+            message="git rev-parse HEAD failed.",
+        )
+
+    filtered_status = filter_checkpoint_status(status.stdout)
+    counts = count_checkpoint_status_kinds(filtered_status)
+    checkpoint_id = make_checkpoint_id()
+    created_at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+    info = CheckpointInfo(
+        checkpoint_id=checkpoint_id,
+        label=normalize_checkpoint_label(label),
+        created_at=created_at,
+        head=head,
+        changed_files=counts["changed_files"],
+        staged_files=counts["staged_files"],
+        unstaged_files=counts["unstaged_files"],
+        untracked_files=counts["untracked_files"],
+    )
+    checkpoint_dir = checkpoint_root(workspace.root) / checkpoint_id
+    checkpoint_dir.mkdir(parents=True, exist_ok=False)
+    metadata = checkpoint_info_to_metadata(info, str(workspace.root), filtered_status, len(staged.stdout), len(unstaged.stdout))
+    saved_untracked, skipped_untracked = save_checkpoint_untracked_files(workspace.root, checkpoint_dir, filtered_status)
+    metadata["untracked_saved_files"] = saved_untracked
+    metadata["untracked_skipped_files"] = skipped_untracked
+    (checkpoint_dir / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (checkpoint_dir / "staged.patch").write_text(staged.stdout, encoding="utf-8")
+    (checkpoint_dir / "unstaged.patch").write_text(unstaged.stdout, encoding="utf-8")
+    return CheckpointCreateObservation(
+        kind="checkpoint_create",
+        ok=True,
+        checkpoint=info,
+        staged_patch_chars=len(staged.stdout),
+        unstaged_patch_chars=len(unstaged.stdout),
+        message=f"Saved checkpoint {checkpoint_id}.",
+    )
+
+
+def list_checkpoints_observation(root: Path, max_entries: int = 20) -> CheckpointListObservation:
+    checkpoints = read_checkpoint_infos(root)
+    shown = checkpoints[:max_entries]
+    return CheckpointListObservation(
+        kind="checkpoint_list",
+        ok=True,
+        checkpoints=shown,
+        total=len(checkpoints),
+        message=f"Found {len(checkpoints)} checkpoint(s).",
+    )
+
+
+def checkpoint_show_observation(root: Path, checkpoint_id: str) -> CheckpointShowObservation:
+    metadata, message = read_checkpoint_metadata(root, checkpoint_id)
+    if metadata is None:
+        return CheckpointShowObservation(
+            kind="checkpoint_show",
+            ok=False,
+            checkpoint=None,
+            project_root="",
+            git_status="",
+            untracked_saved_files=0,
+            untracked_skipped_files=0,
+            saved_untracked_paths=[],
+            saved_untracked_paths_truncated=False,
+            staged_patch_chars=0,
+            unstaged_patch_chars=0,
+            message=message,
+        )
+    info = checkpoint_info_from_metadata(metadata)
+    if info is None:
+        return CheckpointShowObservation(
+            kind="checkpoint_show",
+            ok=False,
+            checkpoint=None,
+            project_root=str(metadata.get("project_root") or ""),
+            git_status="",
+            untracked_saved_files=0,
+            untracked_skipped_files=0,
+            saved_untracked_paths=[],
+            saved_untracked_paths_truncated=False,
+            staged_patch_chars=0,
+            unstaged_patch_chars=0,
+            message=f"Checkpoint metadata is invalid: {checkpoint_id}",
+        )
+    saved_untracked_paths, saved_untracked_paths_truncated = clip_checkpoint_untracked_paths(
+        [item["path"] for item in read_checkpoint_untracked_manifest(root, info.checkpoint_id)],
+    )
+    return CheckpointShowObservation(
+        kind="checkpoint_show",
+        ok=True,
+        checkpoint=info,
+        project_root=str(metadata.get("project_root") or ""),
+        git_status=str(metadata.get("git_status") or ""),
+        untracked_saved_files=int(metadata.get("untracked_saved_files") or 0),
+        untracked_skipped_files=int(metadata.get("untracked_skipped_files") or 0),
+        saved_untracked_paths=saved_untracked_paths,
+        saved_untracked_paths_truncated=saved_untracked_paths_truncated,
+        staged_patch_chars=int(metadata.get("staged_diff_chars") or 0),
+        unstaged_patch_chars=int(metadata.get("unstaged_diff_chars") or 0),
+        message=f"Read checkpoint {info.checkpoint_id}.",
+    )
+
+
+def checkpoint_diff_observation(root: Path, checkpoint_id: str, max_chars: int = 40_000) -> CheckpointDiffObservation:
+    metadata, message = read_checkpoint_metadata(root, checkpoint_id)
+    if metadata is None:
+        return CheckpointDiffObservation(
+            kind="checkpoint_diff",
+            ok=False,
+            checkpoint_id=checkpoint_id,
+            label="",
+            created_at="",
+            staged_patch="",
+            staged_patch_chars=0,
+            staged_patch_truncated=False,
+            unstaged_patch="",
+            unstaged_patch_chars=0,
+            unstaged_patch_truncated=False,
+            max_chars=max_chars,
+            message=message,
+        )
+    checkpoint_id = str(metadata.get("id") or checkpoint_id)
+    staged_patch = read_checkpoint_patch(root, checkpoint_id, "staged.patch")
+    unstaged_patch = read_checkpoint_patch(root, checkpoint_id, "unstaged.patch")
+    staged_text, staged_truncated = clip_text_with_flag(staged_patch, max_chars)
+    unstaged_text, unstaged_truncated = clip_text_with_flag(unstaged_patch, max_chars)
+    return CheckpointDiffObservation(
+        kind="checkpoint_diff",
+        ok=True,
+        checkpoint_id=checkpoint_id,
+        label=str(metadata.get("label") or ""),
+        created_at=str(metadata.get("created_at") or ""),
+        staged_patch=staged_text,
+        staged_patch_chars=len(staged_patch),
+        staged_patch_truncated=staged_truncated,
+        unstaged_patch=unstaged_text,
+        unstaged_patch_chars=len(unstaged_patch),
+        unstaged_patch_truncated=unstaged_truncated,
+        max_chars=max_chars,
+        message=f"Read checkpoint diff {checkpoint_id}.",
+    )
+
+
+def checkpoint_status_observation(workspace: RunWorkspace, checkpoint_id: str) -> CheckpointStatusObservation:
+    metadata, message = read_checkpoint_metadata(workspace.root, checkpoint_id)
+    if metadata is None:
+        return empty_checkpoint_status(checkpoint_id, message)
+    status = read_git_status(workspace)
+    staged = read_git_diff(workspace, staged=True)
+    unstaged = read_git_diff(workspace, staged=False)
+    if not status.ok or not staged.ok or not unstaged.ok:
+        return empty_checkpoint_status(
+            str(metadata.get("id") or checkpoint_id),
+            status.stderr or staged.stderr or unstaged.stderr or "git status/diff failed.",
+        )
+    saved_status = str(metadata.get("git_status") or "")
+    saved_staged = read_checkpoint_patch(workspace.root, checkpoint_id, "staged.patch")
+    saved_unstaged = read_checkpoint_patch(workspace.root, checkpoint_id, "unstaged.patch")
+    untracked_matches = checkpoint_untracked_files_match(workspace.root, checkpoint_id, int(metadata.get("untracked_files") or 0))
+    current_status = filter_checkpoint_status(status.stdout)
+    current_counts = count_checkpoint_status_kinds(current_status)
+    status_matches = current_status == saved_status
+    staged_matches = staged.stdout == saved_staged
+    unstaged_matches = unstaged.stdout == saved_unstaged
+    matches = status_matches and staged_matches and unstaged_matches and untracked_matches
+    return CheckpointStatusObservation(
+        kind="checkpoint_status",
+        ok=True,
+        checkpoint_id=str(metadata.get("id") or checkpoint_id),
+        matches=matches,
+        status_matches=status_matches,
+        staged_patch_matches=staged_matches,
+        unstaged_patch_matches=unstaged_matches,
+        untracked_file_matches=untracked_matches,
+        saved_changed_files=int(metadata.get("changed_files") or 0),
+        saved_staged_files=int(metadata.get("staged_files") or 0),
+        saved_unstaged_files=int(metadata.get("unstaged_files") or 0),
+        saved_untracked_files=int(metadata.get("untracked_files") or 0),
+        current_changed_files=current_counts["changed_files"],
+        current_staged_files=current_counts["staged_files"],
+        current_unstaged_files=current_counts["unstaged_files"],
+        current_untracked_files=current_counts["untracked_files"],
+        message="Current worktree matches checkpoint." if matches else "Current worktree differs from checkpoint.",
+    )
+
+
+def check_checkpoint_restore_observation(workspace: RunWorkspace, checkpoint_id: str) -> CheckCheckpointRestoreObservation:
+    metadata, message = read_checkpoint_metadata(workspace.root, checkpoint_id)
+    if metadata is None:
+        return empty_check_checkpoint_restore(checkpoint_id, message)
+    status = read_git_status(workspace)
+    if not status.ok:
+        return empty_check_checkpoint_restore(str(metadata.get("id") or checkpoint_id), status.stderr or "git status failed.")
+    current_head = read_checkpoint_git_head(workspace.root)
+    saved_head = metadata.get("head")
+    current_counts = count_checkpoint_status_kinds(filter_checkpoint_status(status.stdout))
+    saved_untracked = int(metadata.get("untracked_files") or 0)
+    saved_untracked_paths = read_checkpoint_untracked_paths(workspace.root, checkpoint_id)
+    current_untracked_paths = set(checkpoint_untracked_paths(filter_checkpoint_status(status.stdout)))
+    staged_patch = read_checkpoint_patch(workspace.root, checkpoint_id, "staged.patch")
+    unstaged_patch = read_checkpoint_patch(workspace.root, checkpoint_id, "unstaged.patch")
+    can_restore = True
+    restore_message = "Checkpoint can restore tracked staged/unstaged changes and saved untracked files."
+    if not isinstance(saved_head, str) or not saved_head:
+        can_restore = False
+        restore_message = "Checkpoint does not record HEAD; create a new checkpoint before using restore."
+    elif current_head != saved_head:
+        can_restore = False
+        restore_message = f"Checkpoint was created at HEAD {short_checkpoint_head(saved_head)}, but current HEAD is {short_checkpoint_head(current_head)}."
+    elif saved_untracked and len(saved_untracked_paths) != saved_untracked:
+        can_restore = False
+        restore_message = "Checkpoint contains untracked files that were not fully saved."
+    elif current_untracked_paths - saved_untracked_paths:
+        can_restore = False
+        restore_message = "Current worktree contains extra untracked files; move, delete, or commit them before checkpoint restore."
+    return CheckCheckpointRestoreObservation(
+        kind="check_checkpoint_restore",
+        ok=can_restore,
+        checkpoint_id=str(metadata.get("id") or checkpoint_id),
+        can_restore=can_restore,
+        saved_head=saved_head if isinstance(saved_head, str) else "",
+        current_head=current_head,
+        saved_untracked_files=saved_untracked,
+        current_untracked_files=current_counts["untracked_files"],
+        staged_patch_chars=len(staged_patch),
+        unstaged_patch_chars=len(unstaged_patch),
+        message=restore_message,
+    )
+
+
+def checkpoint_restore_observation(workspace: RunWorkspace, checkpoint_id: str) -> CheckpointRestoreObservation:
+    restore_check = check_checkpoint_restore_observation(workspace, checkpoint_id)
+    if not restore_check.ok:
+        return CheckpointRestoreObservation(
+            kind="checkpoint_restore",
+            ok=False,
+            checkpoint_id=restore_check.checkpoint_id,
+            restored=False,
+            matches=False,
+            saved_head=restore_check.saved_head,
+            current_head=restore_check.current_head,
+            saved_untracked_files=restore_check.saved_untracked_files,
+            current_untracked_files=restore_check.current_untracked_files,
+            staged_patch_chars=restore_check.staged_patch_chars,
+            unstaged_patch_chars=restore_check.unstaged_patch_chars,
+            message=restore_check.message,
+        )
+
+    restored_id = restore_check.checkpoint_id
+    staged_patch = read_checkpoint_patch(workspace.root, restored_id, "staged.patch")
+    unstaged_patch = read_checkpoint_patch(workspace.root, restored_id, "unstaged.patch")
+    steps: list[tuple[list[str], str | None]] = [(["restore", "--staged", "--worktree", "--", "."], None)]
+    if staged_patch.strip():
+        steps.extend(
+            [
+                (["apply", "--check", "--whitespace=nowarn", "-"], staged_patch),
+                (["apply", "--cached", "--check", "--whitespace=nowarn", "-"], staged_patch),
+                (["apply", "--whitespace=nowarn", "-"], staged_patch),
+                (["apply", "--cached", "--whitespace=nowarn", "-"], staged_patch),
+            ]
+        )
+    if unstaged_patch.strip():
+        steps.extend(
+            [
+                (["apply", "--check", "--whitespace=nowarn", "-"], unstaged_patch),
+                (["apply", "--whitespace=nowarn", "-"], unstaged_patch),
+            ]
+        )
+
+    for args, stdin in steps:
+        result = run_checkpoint_git_command(workspace.root, args, stdin)
+        if result.returncode != 0:
+            return CheckpointRestoreObservation(
+                kind="checkpoint_restore",
+                ok=False,
+                checkpoint_id=restore_check.checkpoint_id,
+                restored=False,
+                matches=False,
+                saved_head=restore_check.saved_head,
+                current_head=restore_check.current_head,
+                saved_untracked_files=restore_check.saved_untracked_files,
+                current_untracked_files=restore_check.current_untracked_files,
+                staged_patch_chars=restore_check.staged_patch_chars,
+                unstaged_patch_chars=restore_check.unstaged_patch_chars,
+                message=(
+                    f"Failed to restore checkpoint while running git {' '.join(args)}: "
+                    f"{result.stderr.strip() or result.stdout.strip() or 'unknown error'}"
+                ),
+            )
+
+    restore_untracked_error = restore_checkpoint_untracked_files(workspace.root, restored_id)
+    if restore_untracked_error:
+        return CheckpointRestoreObservation(
+            kind="checkpoint_restore",
+            ok=False,
+            checkpoint_id=restore_check.checkpoint_id,
+            restored=False,
+            matches=False,
+            saved_head=restore_check.saved_head,
+            current_head=restore_check.current_head,
+            saved_untracked_files=restore_check.saved_untracked_files,
+            current_untracked_files=restore_check.current_untracked_files,
+            staged_patch_chars=restore_check.staged_patch_chars,
+            unstaged_patch_chars=restore_check.unstaged_patch_chars,
+            message=restore_untracked_error,
+        )
+
+    status = checkpoint_status_observation(workspace, restored_id)
+    current_head = read_checkpoint_git_head(workspace.root)
+    return CheckpointRestoreObservation(
+        kind="checkpoint_restore",
+        ok=status.ok and status.matches,
+        checkpoint_id=restore_check.checkpoint_id,
+        restored=status.ok and status.matches,
+        matches=status.matches if status.ok else False,
+        saved_head=restore_check.saved_head,
+        current_head=current_head,
+        saved_untracked_files=restore_check.saved_untracked_files,
+        current_untracked_files=status.current_untracked_files if status.ok else restore_check.current_untracked_files,
+        staged_patch_chars=restore_check.staged_patch_chars,
+        unstaged_patch_chars=restore_check.unstaged_patch_chars,
+        message=(
+            "Restored tracked staged/unstaged changes and saved untracked files from checkpoint."
+            if status.ok and status.matches
+            else status.message
+        ),
+    )
+
+
+def check_checkpoint_delete_observation(root: Path, checkpoint_id: str) -> CheckCheckpointDeleteObservation:
+    metadata, message = read_checkpoint_metadata(root, checkpoint_id)
+    if metadata is None:
+        return CheckCheckpointDeleteObservation(
+            kind="check_checkpoint_delete",
+            ok=False,
+            checkpoint_id=checkpoint_id,
+            can_delete=False,
+            label="",
+            created_at="",
+            message=message,
+        )
+    resolved_id = checkpoint_id.strip()
+    display_id = str(metadata.get("id") or resolved_id)
+    return CheckCheckpointDeleteObservation(
+        kind="check_checkpoint_delete",
+        ok=True,
+        checkpoint_id=display_id,
+        can_delete=True,
+        label=str(metadata.get("label") or ""),
+        created_at=str(metadata.get("created_at") or ""),
+        message=f"Checkpoint delete would remove saved checkpoint {display_id}.",
+    )
+
+
+def checkpoint_delete_observation(root: Path, checkpoint_id: str) -> CheckpointDeleteObservation:
+    preview = check_checkpoint_delete_observation(root, checkpoint_id)
+    if not preview.ok:
+        return CheckpointDeleteObservation(
+            kind="checkpoint_delete",
+            ok=False,
+            checkpoint_id=preview.checkpoint_id,
+            deleted=False,
+            message=preview.message,
+        )
+    resolved_id = checkpoint_id.strip()
+    display_id = preview.checkpoint_id
+    checkpoint_dir = checkpoint_root(root) / resolved_id
+    try:
+        shutil.rmtree(checkpoint_dir)
+    except OSError as error:
+        return CheckpointDeleteObservation(
+            kind="checkpoint_delete",
+            ok=False,
+            checkpoint_id=display_id,
+            deleted=False,
+            message=f"Failed to delete checkpoint {display_id}: {error}",
+        )
+    return CheckpointDeleteObservation(
+        kind="checkpoint_delete",
+        ok=True,
+        checkpoint_id=display_id,
+        deleted=True,
+        message=f"Deleted checkpoint {display_id}.",
+    )
+
+
+def check_checkpoint_prune_observation(root: Path, keep_last: int) -> CheckCheckpointPruneObservation:
+    checkpoints = read_checkpoint_infos(root)
+    to_delete = checkpoints[keep_last:] if keep_last < len(checkpoints) else []
+    kept = len(checkpoints) - len(to_delete)
+    return CheckCheckpointPruneObservation(
+        kind="check_checkpoint_prune",
+        ok=True,
+        keep_last=keep_last,
+        total=len(checkpoints),
+        kept=kept,
+        delete_count=len(to_delete),
+        checkpoints=to_delete,
+        message=(
+            f"Checkpoint prune would delete {len(to_delete)} saved checkpoint(s)."
+            if to_delete
+            else "No checkpoints need pruning."
+        ),
+    )
+
+
+def checkpoint_prune_observation(root: Path, keep_last: int) -> CheckpointPruneObservation:
+    preview = check_checkpoint_prune_observation(root, keep_last)
+    deleted = 0
+    for checkpoint in preview.checkpoints:
+        checkpoint_dir = checkpoint_root(root) / checkpoint.checkpoint_id
+        try:
+            shutil.rmtree(checkpoint_dir)
+        except OSError as error:
+            return CheckpointPruneObservation(
+                kind="checkpoint_prune",
+                ok=False,
+                keep_last=keep_last,
+                total=preview.total,
+                kept=preview.kept,
+                deleted=deleted,
+                checkpoints=preview.checkpoints,
+                message=f"Failed to prune checkpoint {checkpoint.checkpoint_id}: {error}",
+            )
+        deleted += 1
+    return CheckpointPruneObservation(
+        kind="checkpoint_prune",
+        ok=True,
+        keep_last=keep_last,
+        total=preview.total,
+        kept=preview.kept,
+        deleted=deleted,
+        checkpoints=preview.checkpoints,
+        message=(
+            f"Pruned {deleted} saved checkpoint(s)."
+            if deleted
+            else "No checkpoints needed pruning."
+        ),
+    )
+
+
+def run_checkpoint_git_command(root: Path, args: list[str], stdin: str | None = None) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
+        cwd=root,
+        input=stdin,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+
+
+def checkpoint_root(root: Path) -> Path:
+    return root / ".vibeagent" / "checkpoints"
+
+
+def make_checkpoint_id() -> str:
+    stamp = datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return f"{stamp.replace(':', '-').replace('.', '-')}-{uuid.uuid4().hex[:8]}"
+
+
+def normalize_checkpoint_label(label: str | None) -> str:
+    return " ".join((label or "").strip().split())[:120]
+
+
+def checkpoint_info_to_metadata(
+    info: CheckpointInfo,
+    project_root: str,
+    git_status: str,
+    staged_patch_chars: int,
+    unstaged_patch_chars: int,
+) -> dict[str, object]:
+    return {
+        "id": info.checkpoint_id,
+        "label": info.label,
+        "created_at": info.created_at,
+        "project_root": project_root,
+        "head": info.head,
+        "git_status": git_status,
+        "changed_files": info.changed_files,
+        "staged_files": info.staged_files,
+        "unstaged_files": info.unstaged_files,
+        "untracked_files": info.untracked_files,
+        "staged_diff_chars": staged_patch_chars,
+        "unstaged_diff_chars": unstaged_patch_chars,
+    }
+
+
+def read_checkpoint_infos(root: Path) -> list[CheckpointInfo]:
+    base = checkpoint_root(root)
+    if not base.is_dir():
+        return []
+    infos: list[CheckpointInfo] = []
+    for path in base.iterdir():
+        metadata_path = path / "metadata.json"
+        if not path.is_dir() or not metadata_path.is_file():
+            continue
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        info = checkpoint_info_from_metadata(metadata)
+        if info is not None:
+            infos.append(info)
+    infos.sort(key=lambda item: (item.created_at, item.checkpoint_id), reverse=True)
+    return infos
+
+
+def checkpoint_info_from_metadata(metadata: object) -> CheckpointInfo | None:
+    if not isinstance(metadata, dict):
+        return None
+    checkpoint_id = metadata.get("id")
+    if not isinstance(checkpoint_id, str) or not checkpoint_id:
+        return None
+    return CheckpointInfo(
+        checkpoint_id=checkpoint_id,
+        label=str(metadata.get("label") or ""),
+        created_at=str(metadata.get("created_at") or ""),
+        head=str(metadata.get("head") or ""),
+        changed_files=int(metadata.get("changed_files") or 0),
+        staged_files=int(metadata.get("staged_files") or 0),
+        unstaged_files=int(metadata.get("unstaged_files") or 0),
+        untracked_files=int(metadata.get("untracked_files") or 0),
+    )
+
+
+def read_checkpoint_metadata(root: Path, checkpoint_id: str) -> tuple[dict[str, object] | None, str]:
+    normalized = checkpoint_id.strip()
+    if not normalized or Path(normalized).name != normalized:
+        return None, f"Invalid checkpoint id: {checkpoint_id}"
+    metadata_path = checkpoint_root(root) / normalized / "metadata.json"
+    if not metadata_path.is_file():
+        return None, f"Checkpoint not found: {checkpoint_id}"
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None, f"Checkpoint metadata is unreadable: {checkpoint_id}"
+    if not isinstance(metadata, dict):
+        return None, f"Checkpoint metadata is invalid: {checkpoint_id}"
+    return metadata, "ok"
+
+
+def read_checkpoint_patch(root: Path, checkpoint_id: str, name: str) -> str:
+    try:
+        return (checkpoint_root(root) / checkpoint_id / name).read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def save_checkpoint_untracked_files(root: Path, checkpoint_dir: Path, status: str) -> tuple[int, int]:
+    paths = checkpoint_untracked_paths(status)
+    saved = 0
+    skipped = 0
+    manifest: list[dict[str, object]] = []
+    storage_root = checkpoint_dir / "untracked_files"
+    for path_text in paths:
+        path = root / path_text
+        if not path.is_file() or path.is_symlink():
+            skipped += 1
+            continue
+        if not is_safe_checkpoint_relative_path(path_text):
+            skipped += 1
+            continue
+        try:
+            relative = path.relative_to(root)
+        except ValueError:
+            skipped += 1
+            continue
+        destination = storage_root / relative
+        try:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, destination)
+            manifest.append({"path": relative.as_posix(), "size_bytes": path.stat().st_size})
+            saved += 1
+        except OSError:
+            skipped += 1
+    if manifest:
+        (checkpoint_dir / "untracked_manifest.json").write_text(
+            json.dumps({"files": manifest}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    return saved, skipped
+
+
+def checkpoint_untracked_paths(status: str) -> list[str]:
+    paths: list[str] = []
+    for raw_line in status.splitlines():
+        if not raw_line.startswith("?? "):
+            continue
+        path_text = raw_line[3:].strip()
+        if path_text and not is_runtime_checkpoint_path(path_text):
+            paths.append(path_text)
+    return paths
+
+
+def read_checkpoint_untracked_paths(root: Path, checkpoint_id: str) -> set[str]:
+    return {item["path"] for item in read_checkpoint_untracked_manifest(root, checkpoint_id)}
+
+
+def clip_checkpoint_untracked_paths(paths: list[str]) -> tuple[list[str], bool]:
+    return paths[:CHECKPOINT_UNTRACKED_SHOW_LIMIT], len(paths) > CHECKPOINT_UNTRACKED_SHOW_LIMIT
+
+
+def read_checkpoint_untracked_manifest(root: Path, checkpoint_id: str) -> list[dict[str, str]]:
+    manifest_path = checkpoint_root(root) / checkpoint_id / "untracked_manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    files = manifest.get("files") if isinstance(manifest, dict) else None
+    if not isinstance(files, list):
+        return []
+    items: list[dict[str, str]] = []
+    for item in files:
+        if not isinstance(item, dict):
+            continue
+        path = item.get("path")
+        if isinstance(path, str) and is_safe_checkpoint_relative_path(path):
+            items.append({"path": path})
+    return items
+
+
+def is_safe_checkpoint_relative_path(path: str) -> bool:
+    candidate = Path(path)
+    return bool(path) and not candidate.is_absolute() and ".." not in candidate.parts
+
+
+def checkpoint_untracked_files_match(root: Path, checkpoint_id: str, saved_untracked: int) -> bool:
+    manifest = read_checkpoint_untracked_manifest(root, checkpoint_id)
+    if saved_untracked == 0:
+        return True
+    if len(manifest) != saved_untracked:
+        return False
+    storage_root = checkpoint_root(root) / checkpoint_id / "untracked_files"
+    for item in manifest:
+        relative = item["path"]
+        if not is_safe_checkpoint_relative_path(relative):
+            return False
+        source = storage_root / relative
+        target = root / relative
+        try:
+            if not target.is_file() or source.read_bytes() != target.read_bytes():
+                return False
+        except OSError:
+            return False
+    return True
+
+
+def restore_checkpoint_untracked_files(root: Path, checkpoint_id: str) -> str | None:
+    manifest = read_checkpoint_untracked_manifest(root, checkpoint_id)
+    storage_root = checkpoint_root(root) / checkpoint_id / "untracked_files"
+    for item in manifest:
+        relative = item["path"]
+        if not is_safe_checkpoint_relative_path(relative):
+            return f"Refusing to restore unsafe untracked file path: {relative}"
+        source = storage_root / relative
+        destination = root / relative
+        try:
+            destination.relative_to(root)
+        except ValueError:
+            return f"Refusing to restore untracked file outside project: {relative}"
+        if not source.is_file():
+            return f"Saved untracked file is missing from checkpoint: {relative}"
+        try:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+        except OSError as error:
+            return f"Failed to restore untracked file {relative}: {error}"
+    return None
+
+
+def clip_text_with_flag(value: str, max_chars: int) -> tuple[str, bool]:
+    if len(value) <= max_chars:
+        return value, False
+    return value[:max_chars], True
+
+
+def read_checkpoint_git_head(root: Path) -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def filter_checkpoint_status(status: str) -> str:
+    lines: list[str] = []
+    for raw_line in status.splitlines():
+        path_text = raw_line[3:] if len(raw_line) > 3 else raw_line.strip()
+        paths = path_text.split(" -> ") if " -> " in path_text else [path_text]
+        if any(is_runtime_checkpoint_path(path.strip()) for path in paths):
+            continue
+        lines.append(raw_line)
+    return "\n".join(lines)
+
+
+def is_runtime_checkpoint_path(path: str) -> bool:
+    normalized = path.replace("\\", "/").lstrip("/")
+    return normalized == ".git" or normalized.startswith(".git/") or normalized == ".vibeagent" or normalized.startswith(".vibeagent/")
+
+
+def count_checkpoint_status_kinds(status: str) -> dict[str, int]:
+    changed = staged = unstaged = untracked = 0
+    for line in status.splitlines():
+        if len(line) < 2:
+            continue
+        code = line[:2]
+        changed += 1
+        if code == "??":
+            untracked += 1
+            continue
+        if code[0] != " ":
+            staged += 1
+        if code[1] != " ":
+            unstaged += 1
+    return {
+        "changed_files": changed,
+        "staged_files": staged,
+        "unstaged_files": unstaged,
+        "untracked_files": untracked,
+    }
+
+
+def empty_checkpoint_status(checkpoint_id: str, message: str) -> CheckpointStatusObservation:
+    return CheckpointStatusObservation(
+        kind="checkpoint_status",
+        ok=False,
+        checkpoint_id=checkpoint_id,
+        matches=False,
+        status_matches=False,
+        staged_patch_matches=False,
+        unstaged_patch_matches=False,
+        untracked_file_matches=False,
+        saved_changed_files=0,
+        saved_staged_files=0,
+        saved_unstaged_files=0,
+        saved_untracked_files=0,
+        current_changed_files=0,
+        current_staged_files=0,
+        current_unstaged_files=0,
+        current_untracked_files=0,
+        message=message,
+    )
+
+
+def empty_check_checkpoint_restore(checkpoint_id: str, message: str) -> CheckCheckpointRestoreObservation:
+    return CheckCheckpointRestoreObservation(
+        kind="check_checkpoint_restore",
+        ok=False,
+        checkpoint_id=checkpoint_id,
+        can_restore=False,
+        saved_head="",
+        current_head="",
+        saved_untracked_files=0,
+        current_untracked_files=0,
+        staged_patch_chars=0,
+        unstaged_patch_chars=0,
+        message=message,
+    )
+
+
+def short_checkpoint_head(value: str) -> str:
+    return value[:12] if value else "."
 
 
 def run_command(
@@ -6386,13 +10437,118 @@ def execute_run_command_item(
             cwd=action.cwd or ".",
             max_output_chars=max_output_chars,
         )
-    return run_command(
+    result = run_command(
         command_cwd,
         action.command,
         timeout_ms,
         workspace.root,
         max_output_chars=max_output_chars,
     )
+    return attach_output_analysis_to_command_result(workspace, action, result)
+
+
+def attach_output_analysis_to_command_result(
+    workspace: RunWorkspace,
+    action: RunCommandAction | RunCommandItem,
+    result: CommandResult,
+) -> CommandResult:
+    auto_extract_diagnostics = (
+        not action.extract_output_contexts
+        and not action.extract_output_diagnostics
+        and command_result_failed(result)
+    )
+    if not action.extract_output_contexts and not action.extract_output_diagnostics and not auto_extract_diagnostics:
+        return result
+    text = "\n".join(part for part in [result.stdout, result.stderr] if part)
+    if not text.strip():
+        return result
+    if action.extract_output_diagnostics or auto_extract_diagnostics:
+        try:
+            diagnostics_result = read_output_diagnostics_result(
+                workspace,
+                text,
+                context_lines=action.context_lines,
+                max_diagnostics=action.max_diagnostics,
+                max_contexts=action.max_contexts,
+                max_bytes_per_context=action.max_bytes_per_context,
+            )
+        except ValueError:
+            return result
+        return replace(
+            result,
+            output_contexts=output_context_results_from_dicts(diagnostics_result["contexts"]),
+            output_context_total_refs=int(diagnostics_result["total_refs"]),
+            output_contexts_truncated=bool(diagnostics_result["contexts_truncated"]),
+            output_diagnostics=output_diagnostics_from_dicts(diagnostics_result["diagnostics"]),
+            output_diagnostic_total=int(diagnostics_result["total_diagnostics"]),
+            output_diagnostics_truncated=bool(diagnostics_result["diagnostics_truncated"]),
+        )
+    if action.extract_output_contexts:
+        try:
+            contexts_result = read_output_contexts_result(
+                workspace,
+                text,
+                context_lines=action.context_lines,
+                max_contexts=action.max_contexts,
+                max_bytes_per_context=action.max_bytes_per_context,
+            )
+        except ValueError:
+            return result
+        return replace(
+            result,
+            output_contexts=output_context_results_from_dicts(contexts_result["contexts"]),
+            output_context_total_refs=int(contexts_result["total_refs"]),
+            output_contexts_truncated=bool(contexts_result["truncated"]),
+        )
+
+
+def command_result_failed(result: CommandResult) -> bool:
+    if result.timed_out:
+        return True
+    if result.exit_code is None:
+        return True
+    return result.exit_code != 0
+
+
+def attach_output_analysis_to_process_observation(
+    workspace: RunWorkspace,
+    observation: ReadProcessObservation | WaitProcessObservation,
+) -> ReadProcessObservation | WaitProcessObservation:
+    if not process_observation_failed(observation):
+        return observation
+    text = "\n".join(part for part in [observation.stdout, observation.stderr] if part)
+    if not text.strip():
+        return observation
+    try:
+        diagnostics_result = read_output_diagnostics_result(
+            workspace,
+            text,
+            context_lines=2,
+            max_diagnostics=50,
+            max_contexts=20,
+            max_bytes_per_context=20_000,
+        )
+    except ValueError:
+        return observation
+    return replace(
+        observation,
+        output_contexts=output_context_results_from_dicts(diagnostics_result["contexts"]),
+        output_context_total_refs=int(diagnostics_result["total_refs"]),
+        output_contexts_truncated=bool(diagnostics_result["contexts_truncated"]),
+        output_diagnostics=output_diagnostics_from_dicts(diagnostics_result["diagnostics"]),
+        output_diagnostic_total=int(diagnostics_result["total_diagnostics"]),
+        output_diagnostics_truncated=bool(diagnostics_result["diagnostics_truncated"]),
+    )
+
+
+def process_observation_failed(observation: ReadProcessObservation | WaitProcessObservation) -> bool:
+    if not observation.ok:
+        return False
+    if observation.running:
+        return False
+    if observation.exit_code is None:
+        return True
+    return observation.exit_code != 0
 
 
 def start_background_command(workspace: RunWorkspace, command: str, cwd: str | None = None) -> StartCommandObservation:
@@ -6430,11 +10586,12 @@ def start_background_command(workspace: RunWorkspace, command: str, cwd: str | N
     process_dir.mkdir(parents=True, exist_ok=True)
     stdout_path = process_dir / f"{process_id}.stdout.log"
     stderr_path = process_dir / f"{process_id}.stderr.log"
+    exit_code_path = process_dir / f"{process_id}.exitcode"
     stdout_handle = stdout_path.open("w", encoding="utf-8")
     stderr_handle = stderr_path.open("w", encoding="utf-8")
     try:
         process = subprocess.Popen(
-            command,
+            wrap_background_command(command, exit_code_path),
             cwd=command_cwd,
             shell=True,
             stdin=subprocess.PIPE,
@@ -6465,8 +10622,22 @@ def start_background_command(workspace: RunWorkspace, command: str, cwd: str | N
         process=process,
         stdout_path=stdout_path,
         stderr_path=stderr_path,
+        exit_code_path=exit_code_path,
         stdout_handle=stdout_handle,
         stderr_handle=stderr_handle,
+    )
+    write_persistent_process_record(
+        workspace,
+        PersistentProcessRecord(
+            id=process_id,
+            command=command,
+            cwd=relative_cwd(command_cwd, workspace.root),
+            pid=process.pid,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            exit_code_path=exit_code_path,
+            start_ticks=read_process_start_ticks(process.pid),
+        ),
     )
     return StartCommandObservation(
         kind="start_command",
@@ -6481,9 +10652,269 @@ def start_background_command(workspace: RunWorkspace, command: str, cwd: str | N
     )
 
 
-def read_background_process(process_id: str, max_output_chars: int = 4_000) -> ReadProcessObservation:
+def wrap_background_command(command: str, exit_code_path: Path) -> str:
+    if os.name == "nt":
+        escaped_exit_code_path = str(exit_code_path).replace('"', '""')
+        quoted_exit_code_path = f'"{escaped_exit_code_path}"'
+        return (
+            f"{command}\r\n"
+            "set __vibeagent_exit_code=%ERRORLEVEL%\r\n"
+            f"echo %__vibeagent_exit_code%> {quoted_exit_code_path}\r\n"
+            "exit /b %__vibeagent_exit_code%"
+        )
+    quoted_exit_code_path = shlex.quote(exit_code_path.as_posix())
+    return (
+        f"{command}\n"
+        "__vibeagent_exit_code=$?\n"
+        f"printf '%s\\n' \"$__vibeagent_exit_code\" > {quoted_exit_code_path}\n"
+        "exit \"$__vibeagent_exit_code\""
+    )
+
+
+def process_registry_dir(root: Path) -> Path:
+    return root / ".vibeagent" / "processes"
+
+
+def process_record_path(root: Path, process_id: str) -> Path | None:
+    if not process_id or Path(process_id).name != process_id:
+        return None
+    return process_registry_dir(root) / f"{process_id}.json"
+
+
+def write_persistent_process_record(workspace: RunWorkspace, record: PersistentProcessRecord) -> None:
+    path = process_record_path(workspace.root, record.id)
+    if path is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "id": record.id,
+        "command": record.command,
+        "cwd": record.cwd,
+        "pid": record.pid,
+        "stdout_path": relative_process_log_path(workspace.root, record.stdout_path),
+        "stderr_path": relative_process_log_path(workspace.root, record.stderr_path),
+        "exit_code_path": relative_process_log_path(workspace.root, record.exit_code_path) if record.exit_code_path else None,
+        "start_ticks": record.start_ticks,
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def relative_process_log_path(root: Path, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def remove_persistent_process_record(root: Path, process_id: str) -> None:
+    path = process_record_path(root, process_id)
+    if path is None:
+        return
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return
+    except OSError:
+        return
+
+
+def read_persistent_process_record(root: Path, process_id: str) -> PersistentProcessRecord | None:
+    path = process_record_path(root, process_id)
+    if path is None or not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return parse_persistent_process_record(root, payload)
+
+
+def read_persistent_process_records(root: Path) -> list[PersistentProcessRecord]:
+    directory = process_registry_dir(root)
+    if not directory.is_dir():
+        return []
+    records: list[PersistentProcessRecord] = []
+    for path in sorted(directory.glob("*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        record = parse_persistent_process_record(root, payload)
+        if record is not None:
+            records.append(record)
+    return records
+
+
+def parse_persistent_process_record(root: Path, payload: object) -> PersistentProcessRecord | None:
+    if not isinstance(payload, dict):
+        return None
+    process_id = payload.get("id")
+    command = payload.get("command")
+    cwd = payload.get("cwd")
+    pid = payload.get("pid")
+    stdout_text = payload.get("stdout_path")
+    stderr_text = payload.get("stderr_path")
+    exit_code_text = payload.get("exit_code_path")
+    start_ticks = payload.get("start_ticks")
+    if not isinstance(process_id, str) or not process_id.strip() or Path(process_id).name != process_id:
+        return None
+    if not isinstance(command, str) or not isinstance(cwd, str):
+        return None
+    if not isinstance(pid, int) or pid <= 0:
+        return None
+    if not isinstance(stdout_text, str) or not isinstance(stderr_text, str):
+        return None
+    stdout_path = resolve_process_log_path(root, stdout_text)
+    stderr_path = resolve_process_log_path(root, stderr_text)
+    if stdout_path is None or stderr_path is None:
+        return None
+    exit_code_path = resolve_process_log_path(root, exit_code_text) if isinstance(exit_code_text, str) else None
+    return PersistentProcessRecord(
+        id=process_id,
+        command=command,
+        cwd=cwd,
+        pid=pid,
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
+        exit_code_path=exit_code_path,
+        start_ticks=start_ticks if isinstance(start_ticks, int) else None,
+    )
+
+
+def resolve_process_log_path(root: Path, value: str) -> Path | None:
+    candidate = Path(value)
+    path = candidate if candidate.is_absolute() else root / candidate
+    try:
+        resolved_root = root.resolve()
+        resolved_path = path.resolve()
+    except OSError:
+        return None
+    if resolved_path != resolved_root and resolved_root not in resolved_path.parents:
+        return None
+    return resolved_path
+
+
+def read_process_start_ticks(pid: int) -> int | None:
+    stat_path = Path("/proc") / str(pid) / "stat"
+    try:
+        stat = stat_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    parts = stat.rsplit(") ", 1)
+    if len(parts) != 2:
+        return None
+    fields = parts[1].split()
+    if len(fields) < 20:
+        return None
+    try:
+        return int(fields[19])
+    except ValueError:
+        return None
+
+
+def persistent_process_running(record: PersistentProcessRecord) -> bool:
+    try:
+        os.kill(record.pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    if record.start_ticks is None:
+        return True
+    return read_process_start_ticks(record.pid) == record.start_ticks
+
+
+def read_persistent_process_exit_code(record: PersistentProcessRecord) -> int | None:
+    if record.exit_code_path is None:
+        return None
+    try:
+        text = record.exit_code_path.read_text(encoding="utf-8").strip().splitlines()[0]
+    except (OSError, IndexError):
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+
+def process_signal_name(exit_code: int | None) -> str | None:
+    if exit_code is None:
+        return None
+    if exit_code < 0:
+        return _signal_name(exit_code)
+    if exit_code > 128:
+        try:
+            return signal.Signals(exit_code - 128).name
+        except ValueError:
+            return None
+    return None
+
+
+def terminate_persistent_process(record: PersistentProcessRecord) -> None:
+    if not persistent_process_running(record):
+        return
+    if os.name != "nt":
+        try:
+            os.killpg(record.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            return
+        except OSError:
+            try:
+                os.kill(record.pid, signal.SIGTERM)
+            except OSError:
+                return
+    else:
+        try:
+            os.kill(record.pid, signal.SIGTERM)
+        except OSError:
+            return
+    deadline = time.monotonic() + 0.5
+    while time.monotonic() < deadline:
+        if not persistent_process_running(record):
+            return
+        time.sleep(0.05)
+    if os.name != "nt":
+        try:
+            os.killpg(record.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            return
+        except OSError:
+            try:
+                os.kill(record.pid, signal.SIGKILL)
+            except OSError:
+                return
+    else:
+        try:
+            os.kill(record.pid, signal.SIGKILL)
+        except OSError:
+            return
+
+
+def read_background_process(root: Path, process_id: str, max_output_chars: int = 4_000) -> ReadProcessObservation:
     background = BACKGROUND_PROCESSES.get(process_id)
     if background is None:
+        record = read_persistent_process_record(root, process_id)
+        if record is not None:
+            running = persistent_process_running(record)
+            exit_code = None if running else read_persistent_process_exit_code(record)
+            stdout = read_text_tail(record.stdout_path, max_output_chars)
+            stderr = read_text_tail(record.stderr_path, max_output_chars)
+            state = "running" if running else "exited or unavailable"
+            return ReadProcessObservation(
+                kind="read_process",
+                process_id=process_id,
+                pid=record.pid,
+                ok=True,
+                running=running,
+                exit_code=exit_code,
+                signal=process_signal_name(exit_code),
+                stdout=stdout,
+                stderr=stderr,
+                max_output_chars=max_output_chars,
+                message=f"Process {process_id} is {state}.",
+            )
         return ReadProcessObservation(
             kind="read_process",
             process_id=process_id,
@@ -6519,7 +10950,210 @@ def read_background_process(process_id: str, max_output_chars: int = 4_000) -> R
     )
 
 
+def read_background_process_output_contexts(
+    workspace: RunWorkspace,
+    action: ProcessOutputContextsAction,
+) -> ProcessOutputContextsObservation:
+    process = read_background_process(
+        workspace.root,
+        action.process_id,
+        max_output_chars=action.max_output_chars,
+    )
+    if not process.ok:
+        return ProcessOutputContextsObservation(
+            kind="process_output_contexts",
+            process_id=action.process_id,
+            pid=process.pid,
+            ok=False,
+            running=False,
+            exit_code=process.exit_code,
+            signal=process.signal,
+            contexts=[],
+            total_refs=0,
+            truncated=False,
+            stdout_chars=0,
+            stderr_chars=0,
+            max_output_chars=action.max_output_chars,
+            message=process.message,
+        )
+
+    text = "\n".join(part for part in [process.stdout, process.stderr] if part)
+    if not text.strip():
+        return ProcessOutputContextsObservation(
+            kind="process_output_contexts",
+            process_id=action.process_id,
+            pid=process.pid,
+            ok=True,
+            running=process.running,
+            exit_code=process.exit_code,
+            signal=process.signal,
+            contexts=[],
+            total_refs=0,
+            truncated=False,
+            stdout_chars=len(process.stdout),
+            stderr_chars=len(process.stderr),
+            max_output_chars=action.max_output_chars,
+            message=f"Process {action.process_id} output contained no file:line references.",
+        )
+
+    try:
+        result = read_output_contexts_result(
+            workspace,
+            text,
+            context_lines=action.context_lines,
+            max_contexts=action.max_contexts,
+            max_bytes_per_context=action.max_bytes_per_context,
+        )
+    except ValueError as error:
+        return ProcessOutputContextsObservation(
+            kind="process_output_contexts",
+            process_id=action.process_id,
+            pid=process.pid,
+            ok=False,
+            running=process.running,
+            exit_code=process.exit_code,
+            signal=process.signal,
+            contexts=[],
+            total_refs=0,
+            truncated=False,
+            stdout_chars=len(process.stdout),
+            stderr_chars=len(process.stderr),
+            max_output_chars=action.max_output_chars,
+            message=str(error),
+        )
+
+    contexts = output_context_results_from_dicts(result["contexts"])
+    total_refs = int(result["total_refs"])
+    return ProcessOutputContextsObservation(
+        kind="process_output_contexts",
+        process_id=action.process_id,
+        pid=process.pid,
+        ok=True,
+        running=process.running,
+        exit_code=process.exit_code,
+        signal=process.signal,
+        contexts=contexts,
+        total_refs=total_refs,
+        truncated=bool(result["truncated"]),
+        stdout_chars=len(process.stdout),
+        stderr_chars=len(process.stderr),
+        max_output_chars=action.max_output_chars,
+        message=f"Extracted {len(contexts)}/{total_refs} output context(s) from process {action.process_id}.",
+    )
+
+
+def read_background_process_output_diagnostics(
+    workspace: RunWorkspace,
+    action: ProcessOutputDiagnosticsAction,
+) -> ProcessOutputDiagnosticsObservation:
+    process = read_background_process(
+        workspace.root,
+        action.process_id,
+        max_output_chars=action.max_output_chars,
+    )
+    if not process.ok:
+        return ProcessOutputDiagnosticsObservation(
+            kind="process_output_diagnostics",
+            process_id=action.process_id,
+            pid=process.pid,
+            ok=False,
+            running=False,
+            exit_code=process.exit_code,
+            signal=process.signal,
+            diagnostics=[],
+            contexts=[],
+            total_diagnostics=0,
+            total_refs=0,
+            diagnostics_truncated=False,
+            contexts_truncated=False,
+            stdout_chars=0,
+            stderr_chars=0,
+            max_output_chars=action.max_output_chars,
+            message=process.message,
+        )
+
+    text = "\n".join(part for part in [process.stdout, process.stderr] if part)
+    if not text.strip():
+        return ProcessOutputDiagnosticsObservation(
+            kind="process_output_diagnostics",
+            process_id=action.process_id,
+            pid=process.pid,
+            ok=True,
+            running=process.running,
+            exit_code=process.exit_code,
+            signal=process.signal,
+            diagnostics=[],
+            contexts=[],
+            total_diagnostics=0,
+            total_refs=0,
+            diagnostics_truncated=False,
+            contexts_truncated=False,
+            stdout_chars=len(process.stdout),
+            stderr_chars=len(process.stderr),
+            max_output_chars=action.max_output_chars,
+            message=f"Process {action.process_id} output contained no diagnostic lines.",
+        )
+
+    try:
+        result = read_output_diagnostics_result(
+            workspace,
+            text,
+            context_lines=action.context_lines,
+            max_diagnostics=action.max_diagnostics,
+            max_contexts=action.max_contexts,
+            max_bytes_per_context=action.max_bytes_per_context,
+        )
+    except ValueError as error:
+        return ProcessOutputDiagnosticsObservation(
+            kind="process_output_diagnostics",
+            process_id=action.process_id,
+            pid=process.pid,
+            ok=False,
+            running=process.running,
+            exit_code=process.exit_code,
+            signal=process.signal,
+            diagnostics=[],
+            contexts=[],
+            total_diagnostics=0,
+            total_refs=0,
+            diagnostics_truncated=False,
+            contexts_truncated=False,
+            stdout_chars=len(process.stdout),
+            stderr_chars=len(process.stderr),
+            max_output_chars=action.max_output_chars,
+            message=str(error),
+        )
+
+    diagnostics = output_diagnostics_from_dicts(result["diagnostics"])
+    contexts = output_context_results_from_dicts(result["contexts"])
+    total_diagnostics = int(result["total_diagnostics"])
+    total_refs = int(result["total_refs"])
+    return ProcessOutputDiagnosticsObservation(
+        kind="process_output_diagnostics",
+        process_id=action.process_id,
+        pid=process.pid,
+        ok=True,
+        running=process.running,
+        exit_code=process.exit_code,
+        signal=process.signal,
+        diagnostics=diagnostics,
+        contexts=contexts,
+        total_diagnostics=total_diagnostics,
+        total_refs=total_refs,
+        diagnostics_truncated=bool(result["diagnostics_truncated"]),
+        contexts_truncated=bool(result["contexts_truncated"]),
+        stdout_chars=len(process.stdout),
+        stderr_chars=len(process.stderr),
+        max_output_chars=action.max_output_chars,
+        message=(
+            f"Extracted {len(diagnostics)}/{total_diagnostics} diagnostic(s) "
+            f"and {len(contexts)}/{total_refs} source context(s) from process {action.process_id}."
+        ),
+    )
+
+
 def wait_background_process(
+    root: Path,
     process_id: str,
     timeout_ms: int = 5_000,
     stdout_contains: str | None = None,
@@ -6529,6 +11163,16 @@ def wait_background_process(
 ) -> WaitProcessObservation:
     background = BACKGROUND_PROCESSES.get(process_id)
     if background is None:
+        record = read_persistent_process_record(root, process_id)
+        if record is not None:
+            return wait_persistent_process(
+                record,
+                timeout_ms=timeout_ms,
+                stdout_contains=stdout_contains,
+                stderr_contains=stderr_contains,
+                regex=regex,
+                max_output_chars=max_output_chars,
+            )
         return WaitProcessObservation(
             kind="wait_process",
             process_id=process_id,
@@ -6593,9 +11237,28 @@ def wait_background_process(
     )
 
 
-def check_write_background_process(process_id: str, content: str) -> CheckWriteProcessObservation:
+def check_write_background_process(root: Path, process_id: str, content: str) -> CheckWriteProcessObservation:
     background = BACKGROUND_PROCESSES.get(process_id)
     if background is None:
+        record = read_persistent_process_record(root, process_id)
+        if record is not None:
+            running = persistent_process_running(record)
+            message = (
+                f"Cannot write to process {process_id}; stdin is only available in the runtime that started it."
+                if running
+                else f"Cannot write to process {process_id}; process has exited."
+            )
+            return CheckWriteProcessObservation(
+                kind="check_write_process",
+                process_id=process_id,
+                pid=record.pid,
+                ok=False,
+                running=running,
+                command=record.command,
+                cwd=record.cwd,
+                content_chars=len(content),
+                message=message,
+            )
         return CheckWriteProcessObservation(
             kind="check_write_process",
             process_id=process_id,
@@ -6632,9 +11295,28 @@ def check_write_background_process(process_id: str, content: str) -> CheckWriteP
     )
 
 
-def write_background_process(process_id: str, content: str) -> WriteProcessObservation:
+def write_background_process(root: Path, process_id: str, content: str) -> WriteProcessObservation:
     background = BACKGROUND_PROCESSES.get(process_id)
     if background is None:
+        record = read_persistent_process_record(root, process_id)
+        if record is not None:
+            running = persistent_process_running(record)
+            message = (
+                f"Cannot write to process {process_id}; stdin is only available in the runtime that started it."
+                if running
+                else f"Cannot write to process {process_id}; process has exited."
+            )
+            return WriteProcessObservation(
+                kind="write_process",
+                process_id=process_id,
+                pid=record.pid,
+                ok=False,
+                running=running,
+                command=record.command,
+                cwd=record.cwd,
+                content_chars=len(content),
+                message=message,
+            )
         return WriteProcessObservation(
             kind="write_process",
             process_id=process_id,
@@ -6703,6 +11385,138 @@ def write_background_process(process_id: str, content: str) -> WriteProcessObser
         content_chars=len(content),
         message=f"Wrote {len(content)} character(s) to process {process_id}.",
     )
+
+
+def wait_persistent_process(
+    record: PersistentProcessRecord,
+    *,
+    timeout_ms: int,
+    stdout_contains: str | None,
+    stderr_contains: str | None,
+    regex: bool,
+    max_output_chars: int,
+) -> WaitProcessObservation:
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    wait_for_output = stdout_contains is not None or stderr_contains is not None
+    timed_out = False
+    while True:
+        running = persistent_process_running(record)
+        exit_code = None if running else read_persistent_process_exit_code(record)
+        stdout = read_text_tail(record.stdout_path, max_output_chars)
+        stderr = read_text_tail(record.stderr_path, max_output_chars)
+        if wait_for_output:
+            try:
+                matched, matched_stream, matched_pattern = match_process_output(
+                    stdout,
+                    stderr,
+                    stdout_contains=stdout_contains,
+                    stderr_contains=stderr_contains,
+                    regex=regex,
+                )
+            except re.error as error:
+                return WaitProcessObservation(
+                    kind="wait_process",
+                    process_id=record.id,
+                    pid=record.pid,
+                    ok=False,
+                    running=running,
+                    timed_out=False,
+                    matched=False,
+                    matched_stream=None,
+                    matched_pattern=None,
+                    timeout_ms=timeout_ms,
+                    exit_code=exit_code,
+                    signal=process_signal_name(exit_code),
+                    stdout=stdout,
+                    stderr=stderr,
+                    max_output_chars=max_output_chars,
+                    message=f"Invalid wait_process regex: {error}.",
+                )
+            if matched:
+                return WaitProcessObservation(
+                    kind="wait_process",
+                    process_id=record.id,
+                    pid=record.pid,
+                    ok=True,
+                    running=running,
+                    timed_out=False,
+                    matched=True,
+                    matched_stream=matched_stream,
+                    matched_pattern=matched_pattern,
+                    timeout_ms=timeout_ms,
+                    exit_code=exit_code,
+                    signal=process_signal_name(exit_code),
+                    stdout=stdout,
+                    stderr=stderr,
+                    max_output_chars=max_output_chars,
+                    message=f"Process {record.id} matched {matched_stream} output pattern.",
+                )
+            if not running:
+                return WaitProcessObservation(
+                    kind="wait_process",
+                    process_id=record.id,
+                    pid=record.pid,
+                    ok=True,
+                    running=False,
+                    timed_out=False,
+                    matched=False,
+                    matched_stream=None,
+                    matched_pattern=None,
+                    timeout_ms=timeout_ms,
+                    exit_code=None,
+                    signal=None,
+                    stdout=stdout,
+                    stderr=stderr,
+                    max_output_chars=max_output_chars,
+                    message=f"Process {record.id} exited before output pattern matched.",
+                )
+        elif not running:
+            return WaitProcessObservation(
+                kind="wait_process",
+                process_id=record.id,
+                pid=record.pid,
+                ok=True,
+                running=False,
+                timed_out=False,
+                matched=False,
+                matched_stream=None,
+                matched_pattern=None,
+                timeout_ms=timeout_ms,
+                exit_code=exit_code,
+                signal=process_signal_name(exit_code),
+                stdout=stdout,
+                stderr=stderr,
+                max_output_chars=max_output_chars,
+                message=f"Process {record.id} exited.",
+            )
+
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            timed_out = True
+        if timed_out:
+            return WaitProcessObservation(
+                kind="wait_process",
+                process_id=record.id,
+                pid=record.pid,
+                ok=True,
+                running=running,
+                timed_out=True,
+                matched=False,
+                matched_stream=None,
+                matched_pattern=None,
+                timeout_ms=timeout_ms,
+                exit_code=exit_code,
+                signal=process_signal_name(exit_code),
+                stdout=stdout,
+                stderr=stderr,
+                max_output_chars=max_output_chars,
+                message=(
+                    f"Process {record.id} is still running after timeout; no output pattern matched."
+                    if wait_for_output
+                    else f"Process {record.id} is still running after timeout."
+                ),
+            )
+        time.sleep(min(0.1, remaining))
 
 
 def wait_background_process_output(
@@ -6833,14 +11647,14 @@ def match_process_output(
     return False, None, None
 
 
-def list_background_processes() -> ListProcessesObservation:
-    processes: list[ProcessInfo] = []
+def list_background_processes(root: Path) -> ListProcessesObservation:
+    processes_by_id: dict[str, ProcessInfo] = {}
     for process_id, background in sorted(BACKGROUND_PROCESSES.items()):
         exit_code = background.process.poll()
         running = exit_code is None
         if not running:
             _close_background_handles(background)
-        processes.append(
+        processes_by_id[process_id] = (
             ProcessInfo(
                 process_id=process_id,
                 pid=background.process.pid,
@@ -6851,7 +11665,22 @@ def list_background_processes() -> ListProcessesObservation:
                 signal=_signal_name(exit_code) if exit_code and exit_code < 0 else None,
             )
         )
+    for record in read_persistent_process_records(root):
+        if record.id in processes_by_id:
+            continue
+        running = persistent_process_running(record)
+        exit_code = None if running else read_persistent_process_exit_code(record)
+        processes_by_id[record.id] = ProcessInfo(
+            process_id=record.id,
+            pid=record.pid,
+            command=record.command,
+            cwd=record.cwd,
+            running=running,
+            exit_code=exit_code,
+            signal=process_signal_name(exit_code),
+        )
 
+    processes = [processes_by_id[process_id] for process_id in sorted(processes_by_id)]
     return ListProcessesObservation(
         kind="list_processes",
         processes=processes,
@@ -6859,8 +11688,8 @@ def list_background_processes() -> ListProcessesObservation:
     )
 
 
-def check_stop_all_background_processes() -> CheckStopAllProcessesObservation:
-    listed = list_background_processes()
+def check_stop_all_background_processes(root: Path) -> CheckStopAllProcessesObservation:
+    listed = list_background_processes(root)
     running_count = sum(1 for process in listed.processes if process.running)
     return CheckStopAllProcessesObservation(
         kind="check_stop_all_processes",
@@ -6871,9 +11700,26 @@ def check_stop_all_background_processes() -> CheckStopAllProcessesObservation:
     )
 
 
-def check_stop_background_process(process_id: str) -> CheckStopProcessObservation:
+def check_stop_background_process(root: Path, process_id: str) -> CheckStopProcessObservation:
     background = BACKGROUND_PROCESSES.get(process_id)
     if background is None:
+        record = read_persistent_process_record(root, process_id)
+        if record is not None:
+            running = persistent_process_running(record)
+            exit_code = None if running else read_persistent_process_exit_code(record)
+            state = "running and can be stopped" if running else "already exited or unavailable"
+            return CheckStopProcessObservation(
+                kind="check_stop_process",
+                process_id=process_id,
+                pid=record.pid,
+                ok=True,
+                command=record.command,
+                cwd=record.cwd,
+                running=running,
+                exit_code=exit_code,
+                signal=process_signal_name(exit_code),
+                message=f"Process {process_id} is {state}.",
+            )
         return CheckStopProcessObservation(
             kind="check_stop_process",
             process_id=process_id,
@@ -6905,14 +11751,17 @@ def check_stop_background_process(process_id: str) -> CheckStopProcessObservatio
     )
 
 
-def stop_all_background_processes() -> StopAllProcessesObservation:
+def stop_all_background_processes(root: Path) -> StopAllProcessesObservation:
     stopped: list[StoppedProcessInfo] = []
+    stopped_ids: set[str] = set()
     for process_id, background in sorted(list(BACKGROUND_PROCESSES.items())):
         if background.process.poll() is None:
             _terminate_process(background.process)
         exit_code = background.process.poll()
         _close_background_handles(background)
         BACKGROUND_PROCESSES.pop(process_id, None)
+        remove_persistent_process_record(root, process_id)
+        stopped_ids.add(process_id)
         stopped.append(
             StoppedProcessInfo(
                 process_id=process_id,
@@ -6925,6 +11774,26 @@ def stop_all_background_processes() -> StopAllProcessesObservation:
                 message=f"Stopped process {process_id}.",
             )
         )
+    for record in read_persistent_process_records(root):
+        if record.id in stopped_ids:
+            continue
+        was_running = persistent_process_running(record)
+        if was_running:
+            terminate_persistent_process(record)
+        exit_code = read_persistent_process_exit_code(record)
+        remove_persistent_process_record(root, record.id)
+        stopped.append(
+            StoppedProcessInfo(
+                process_id=record.id,
+                pid=record.pid,
+                command=record.command,
+                cwd=record.cwd,
+                ok=True,
+                exit_code=exit_code,
+                signal=process_signal_name(exit_code),
+                message=f"Stopped process {record.id}." if was_running else f"Removed exited process {record.id}.",
+            )
+        )
 
     return StopAllProcessesObservation(
         kind="stop_all_processes",
@@ -6934,9 +11803,25 @@ def stop_all_background_processes() -> StopAllProcessesObservation:
     )
 
 
-def stop_background_process(process_id: str) -> StopProcessObservation:
+def stop_background_process(root: Path, process_id: str) -> StopProcessObservation:
     background = BACKGROUND_PROCESSES.get(process_id)
     if background is None:
+        record = read_persistent_process_record(root, process_id)
+        if record is not None:
+            was_running = persistent_process_running(record)
+            if was_running:
+                terminate_persistent_process(record)
+            exit_code = read_persistent_process_exit_code(record)
+            remove_persistent_process_record(root, process_id)
+            return StopProcessObservation(
+                kind="stop_process",
+                process_id=process_id,
+                pid=record.pid,
+                ok=True,
+                exit_code=exit_code,
+                signal=process_signal_name(exit_code),
+                message=f"Stopped process {process_id}." if was_running else f"Removed exited process {process_id}.",
+            )
         return StopProcessObservation(
             kind="stop_process",
             process_id=process_id,
@@ -6952,6 +11837,7 @@ def stop_background_process(process_id: str) -> StopProcessObservation:
     exit_code = background.process.poll()
     _close_background_handles(background)
     BACKGROUND_PROCESSES.pop(process_id, None)
+    remove_persistent_process_record(root, process_id)
     return StopProcessObservation(
         kind="stop_process",
         process_id=process_id,
@@ -7010,6 +11896,46 @@ def build_python_rename_preview_files(preview: dict[str, object]) -> list[Python
     ]
 
 
+def build_code_rename_preview_files(preview: dict[str, object]) -> list[CodeRenamePreviewFile]:
+    return [
+        CodeRenamePreviewFile(
+            path=str(file["path"]),
+            language=str(file["language"]),
+            replacements=[
+                CodeRenameReplacement(**replacement)
+                for replacement in list(file["replacements"])
+            ],
+            diff=str(file["diff"]),
+            truncated=bool(file["truncated"]),
+        )
+        for file in list(preview["files"])
+    ]
+
+
+def parse_code_rename_input(
+    value: dict[str, Any],
+    raw: str,
+    action_name: str,
+    default_max_replacements: int,
+) -> tuple[str, str, str | None, int, int]:
+    symbol = value.get("symbol")
+    new_name = value.get("new_name")
+    path = value.get("path")
+    max_files = value.get("max_files", 100)
+    max_replacements = value.get("max_replacements", default_max_replacements)
+    if not isinstance(symbol, str) or not symbol.strip():
+        raise ActionParseError(f"{action_name} action requires a non-empty symbol.", raw)
+    if not isinstance(new_name, str) or not new_name.strip():
+        raise ActionParseError(f"{action_name} action requires a non-empty new_name.", raw)
+    if "\n" in symbol or "\r" in symbol or "\n" in new_name or "\r" in new_name:
+        raise ActionParseError(f"{action_name} action symbol and new_name must be single-line strings.", raw)
+    if path is not None and not isinstance(path, str):
+        raise ActionParseError(f"{action_name} action path must be a string when provided.", raw)
+    max_files = parse_optional_positive_int(max_files, "max_files", raw, maximum=500) or 100
+    max_replacements = parse_optional_positive_int(max_replacements, "max_replacements", raw, maximum=2000) or default_max_replacements
+    return symbol.strip(), new_name.strip(), path, max_files, max_replacements
+
+
 def parse_action(value: Any, raw: str) -> AgentAction:
     # Validate action shape against the small, finite action schema.
     if not isinstance(value, dict):
@@ -7063,6 +11989,102 @@ def parse_action(value: Any, raw: str) -> AgentAction:
             raise ActionParseError("read_file action line_count requires start_line.", raw)
         return ReadFileAction(type="read_file", path=path, start_line=start_line, line_count=line_count, max_bytes=max_bytes)
 
+    if action_type == "read_file_context":
+        path = value.get("path")
+        if not isinstance(path, str):
+            raise ActionParseError("read_file_context action requires a string path.", raw)
+        line = parse_optional_positive_int(value.get("line"), "line", raw, maximum=None)
+        if line is None:
+            raise ActionParseError("read_file_context action requires line.", raw)
+        context_lines = parse_nonnegative_int(value.get("context_lines", 20), "context_lines", raw, maximum=500)
+        max_bytes = parse_optional_positive_int(value.get("max_bytes", 20_000), "max_bytes", raw, maximum=200_000) or 20_000
+        if max_bytes < 1000:
+            raise ActionParseError("max_bytes must be at least 1000.", raw)
+        return ReadFileContextAction(
+            type="read_file_context",
+            path=path,
+            line=line,
+            context_lines=context_lines,
+            max_bytes=max_bytes,
+        )
+
+    if action_type == "read_file_contexts":
+        max_bytes_per_context = parse_optional_positive_int(
+            value.get("max_bytes_per_context", 20_000),
+            "max_bytes_per_context",
+            raw,
+            maximum=200_000,
+        ) or 20_000
+        if max_bytes_per_context < 1000:
+            raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
+        return ReadFileContextsAction(
+            type="read_file_contexts",
+            contexts=parse_read_file_contexts(value.get("contexts"), raw),
+            max_bytes_per_context=max_bytes_per_context,
+        )
+
+    if action_type == "output_contexts":
+        text = value.get("text")
+        if not isinstance(text, str) or not text.strip():
+            raise ActionParseError("output_contexts action requires non-empty text.", raw)
+        if len(text) > 200_000:
+            raise ActionParseError("output_contexts text must be at most 200000 characters.", raw)
+        context_lines = parse_nonnegative_int(value.get("context_lines", 5), "context_lines", raw, maximum=500)
+        max_diagnostics = parse_optional_positive_int(value.get("max_diagnostics", 50), "max_diagnostics", raw, maximum=200) or 50
+        max_contexts = parse_optional_positive_int(value.get("max_contexts", 20), "max_contexts", raw, maximum=100) or 20
+        max_bytes_per_context = parse_optional_positive_int(
+            value.get("max_bytes_per_context", 20_000),
+            "max_bytes_per_context",
+            raw,
+            maximum=200_000,
+        ) or 20_000
+        if max_bytes_per_context < 1000:
+            raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
+        return OutputContextsAction(
+            type="output_contexts",
+            text=text,
+            context_lines=context_lines,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        )
+
+    if action_type in {"output_diagnostics", "python_traceback"}:
+        label = "python_traceback" if action_type == "python_traceback" else "output_diagnostics"
+        text = value.get("text")
+        if not isinstance(text, str) or not text.strip():
+            raise ActionParseError(f"{label} action requires non-empty text.", raw)
+        if len(text) > 200_000:
+            raise ActionParseError(f"{label} text must be at most 200000 characters.", raw)
+        context_lines = parse_nonnegative_int(value.get("context_lines", 2), "context_lines", raw, maximum=500)
+        max_diagnostics = parse_optional_positive_int(value.get("max_diagnostics", 50), "max_diagnostics", raw, maximum=200) or 50
+        max_contexts = parse_optional_positive_int(value.get("max_contexts", 20), "max_contexts", raw, maximum=100) or 20
+        max_bytes_per_context = parse_optional_positive_int(
+            value.get("max_bytes_per_context", 20_000),
+            "max_bytes_per_context",
+            raw,
+            maximum=200_000,
+        ) or 20_000
+        if max_bytes_per_context < 1000:
+            raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
+        return OutputDiagnosticsAction(
+            type="output_diagnostics",
+            text=text,
+            context_lines=context_lines,
+            max_diagnostics=max_diagnostics,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        )
+
+    if action_type == "tail_file":
+        path = value.get("path")
+        if not isinstance(path, str):
+            raise ActionParseError("tail_file action requires a string path.", raw)
+        line_count = parse_optional_positive_int(value.get("line_count", 80), "line_count", raw, maximum=1000) or 80
+        max_bytes = parse_optional_positive_int(value.get("max_bytes", 20_000), "max_bytes", raw, maximum=200_000) or 20_000
+        if max_bytes < 1000:
+            raise ActionParseError("max_bytes must be at least 1000.", raw)
+        return TailFileAction(type="tail_file", path=path, line_count=line_count, max_bytes=max_bytes)
+
     if action_type == "read_files":
         max_bytes_per_file = parse_optional_positive_int(
             value.get("max_bytes_per_file", 20_000),
@@ -7079,13 +12101,25 @@ def parse_action(value: Any, raw: str) -> AgentAction:
         )
 
     if action_type == "read_file_ranges":
+        max_bytes_per_range = parse_optional_positive_int(
+            value.get("max_bytes_per_range", 20_000),
+            "max_bytes_per_range",
+            raw,
+            maximum=200_000,
+        ) or 20_000
+        if max_bytes_per_range < 1000:
+            raise ActionParseError("max_bytes_per_range must be at least 1000.", raw)
         return ReadFileRangesAction(
             type="read_file_ranges",
             ranges=parse_read_file_ranges(value.get("ranges"), raw),
+            max_bytes_per_range=max_bytes_per_range,
         )
 
     if action_type == "file_info":
         return FileInfoAction(type="file_info", paths=parse_path_list(value.get("paths"), raw, "file_info", maximum=50))
+
+    if action_type == "image_info":
+        return ImageInfoAction(type="image_info", paths=parse_path_list(value.get("paths"), raw, "image_info", maximum=20))
 
     if action_type == "python_symbols":
         return PythonSymbolsAction(
@@ -7199,6 +12233,30 @@ def parse_action(value: Any, raw: str) -> AgentAction:
             max_matches=max_matches,
         )
 
+    if action_type == "code_reference_contexts":
+        symbol = value.get("symbol")
+        path = value.get("path")
+        max_matches = value.get("max_matches", 50)
+        context_lines = value.get("context_lines", 3)
+        max_bytes_per_context = value.get("max_bytes_per_context", 20_000)
+        if not isinstance(symbol, str) or not symbol.strip():
+            raise ActionParseError("code_reference_contexts action requires a non-empty symbol.", raw)
+        if path is not None and not isinstance(path, str):
+            raise ActionParseError("code_reference_contexts action path must be a string when provided.", raw)
+        max_matches = parse_optional_positive_int(max_matches, "max_matches", raw, maximum=100) or 50
+        context_lines = parse_nonnegative_int(context_lines, "context_lines", raw, maximum=50)
+        max_bytes_per_context = parse_optional_positive_int(max_bytes_per_context, "max_bytes_per_context", raw, maximum=200_000) or 20_000
+        if max_bytes_per_context < 1000:
+            raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
+        return CodeReferenceContextsAction(
+            type="code_reference_contexts",
+            symbol=symbol.strip(),
+            path=path,
+            max_matches=max_matches,
+            context_lines=context_lines,
+            max_bytes_per_context=max_bytes_per_context,
+        )
+
     if action_type == "code_definitions":
         symbol = value.get("symbol")
         path = value.get("path")
@@ -7216,6 +12274,38 @@ def parse_action(value: Any, raw: str) -> AgentAction:
             path=path,
             max_matches=max_matches,
             max_lines=max_lines,
+        )
+
+    if action_type == "code_rename_preview":
+        symbol, new_name, path, max_files, max_replacements = parse_code_rename_input(
+            value,
+            raw,
+            "code_rename_preview",
+            default_max_replacements=500,
+        )
+        return CodeRenamePreviewAction(
+            type="code_rename_preview",
+            symbol=symbol,
+            new_name=new_name,
+            path=path,
+            max_files=max_files,
+            max_replacements=max_replacements,
+        )
+
+    if action_type == "code_rename":
+        symbol, new_name, path, max_files, max_replacements = parse_code_rename_input(
+            value,
+            raw,
+            "code_rename",
+            default_max_replacements=2000,
+        )
+        return CodeRenameAction(
+            type="code_rename",
+            symbol=symbol,
+            new_name=new_name,
+            path=path,
+            max_files=max_files,
+            max_replacements=max_replacements,
         )
 
     if action_type == "python_definitions":
@@ -7313,6 +12403,30 @@ def parse_action(value: Any, raw: str) -> AgentAction:
         max_matches = parse_optional_positive_int(max_matches, "max_matches", raw, maximum=500) or 200
         return PythonReferencesAction(type="python_references", symbol=symbol.strip(), path=path, max_matches=max_matches)
 
+    if action_type == "python_reference_contexts":
+        symbol = value.get("symbol")
+        path = value.get("path")
+        max_matches = value.get("max_matches", 50)
+        context_lines = value.get("context_lines", 3)
+        max_bytes_per_context = value.get("max_bytes_per_context", 20_000)
+        if not isinstance(symbol, str) or not symbol.strip():
+            raise ActionParseError("python_reference_contexts action requires a non-empty symbol.", raw)
+        if path is not None and not isinstance(path, str):
+            raise ActionParseError("python_reference_contexts action path must be a string when provided.", raw)
+        max_matches = parse_optional_positive_int(max_matches, "max_matches", raw, maximum=100) or 50
+        context_lines = parse_nonnegative_int(context_lines, "context_lines", raw, maximum=50)
+        max_bytes_per_context = parse_optional_positive_int(max_bytes_per_context, "max_bytes_per_context", raw, maximum=200_000) or 20_000
+        if max_bytes_per_context < 1000:
+            raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
+        return PythonReferenceContextsAction(
+            type="python_reference_contexts",
+            symbol=symbol.strip(),
+            path=path,
+            max_matches=max_matches,
+            context_lines=context_lines,
+            max_bytes_per_context=max_bytes_per_context,
+        )
+
     if action_type == "python_rename_preview":
         symbol = value.get("symbol")
         new_name = value.get("new_name")
@@ -7386,6 +12500,38 @@ def parse_action(value: Any, raw: str) -> AgentAction:
             context_lines=context_lines,
         )
 
+    if action_type == "search_contexts":
+        query = value.get("query")
+        if not isinstance(query, str) or not query.strip():
+            raise ActionParseError("search_contexts action requires a non-empty query.", raw)
+        path = value.get("path")
+        regex = value.get("regex", False)
+        case_sensitive = value.get("case_sensitive", True)
+        max_matches = value.get("max_matches", 20)
+        context_lines = value.get("context_lines", 3)
+        max_bytes_per_context = value.get("max_bytes_per_context", 20_000)
+        if path is not None and not isinstance(path, str):
+            raise ActionParseError("search_contexts action path must be a string when provided.", raw)
+        if type(regex) is not bool:
+            raise ActionParseError("search_contexts action regex must be a boolean when provided.", raw)
+        if type(case_sensitive) is not bool:
+            raise ActionParseError("search_contexts action case_sensitive must be a boolean when provided.", raw)
+        max_matches = parse_optional_positive_int(max_matches, "max_matches", raw, maximum=100) or 20
+        context_lines = parse_nonnegative_int(context_lines, "context_lines", raw, maximum=50)
+        max_bytes_per_context = parse_optional_positive_int(max_bytes_per_context, "max_bytes_per_context", raw, maximum=200_000) or 20_000
+        if max_bytes_per_context < 1000:
+            raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
+        return SearchContextsAction(
+            type="search_contexts",
+            query=query,
+            path=path,
+            regex=regex,
+            case_sensitive=case_sensitive,
+            max_matches=max_matches,
+            context_lines=context_lines,
+            max_bytes_per_context=max_bytes_per_context,
+        )
+
     if action_type == "glob":
         pattern = value.get("pattern")
         max_matches = value.get("max_matches", 200)
@@ -7396,6 +12542,19 @@ def parse_action(value: Any, raw: str) -> AgentAction:
 
     if action_type == "git_status":
         return GitStatusAction(type="git_status")
+
+    if action_type == "git_conflicts":
+        path = value.get("path")
+        if path is not None and not isinstance(path, str):
+            raise ActionParseError("git_conflicts action path must be a string when provided.", raw)
+        max_markers = parse_optional_positive_int(value.get("max_markers", 200), "max_markers", raw, maximum=1000) or 200
+        max_files = parse_optional_positive_int(value.get("max_files", 5000), "max_files", raw, maximum=10000) or 5000
+        return GitConflictsAction(
+            type="git_conflicts",
+            path=path,
+            max_markers=max_markers,
+            max_files=max_files,
+        )
 
     if action_type == "git_info":
         return GitInfoAction(type="git_info")
@@ -7546,15 +12705,190 @@ def parse_action(value: Any, raw: str) -> AgentAction:
         max_commands = parse_optional_positive_int(value.get("max_commands", 20), "max_commands", raw, maximum=100) or 20
         return SuggestChecksAction(type="suggest_checks", max_commands=max_commands)
 
+    if action_type == "check_suggested_checks":
+        max_commands = parse_optional_positive_int(value.get("max_commands", 10), "max_commands", raw, maximum=10) or 10
+        return CheckSuggestedChecksAction(type="check_suggested_checks", max_commands=max_commands)
+
+    if action_type == "run_suggested_checks":
+        max_commands = parse_optional_positive_int(value.get("max_commands", 10), "max_commands", raw, maximum=10) or 10
+        timeout_ms = parse_optional_positive_int(value.get("timeout_ms"), "timeout_ms", raw, maximum=600_000)
+        if timeout_ms is not None and timeout_ms < 100:
+            raise ActionParseError("timeout_ms must be at least 100.", raw)
+        max_output_chars = parse_optional_positive_int(value.get("max_output_chars"), "max_output_chars", raw, maximum=50_000)
+        if max_output_chars is not None and max_output_chars < 1_000:
+            raise ActionParseError("max_output_chars must be at least 1000.", raw)
+        stop_on_failure = value.get("stop_on_failure", True)
+        if not isinstance(stop_on_failure, bool):
+            raise ActionParseError("run_suggested_checks action stop_on_failure must be a boolean when provided.", raw)
+        extract_output_contexts = value.get("extract_output_contexts", False)
+        if not isinstance(extract_output_contexts, bool):
+            raise ActionParseError("run_suggested_checks action extract_output_contexts must be a boolean.", raw)
+        extract_output_diagnostics = value.get("extract_output_diagnostics", False)
+        if not isinstance(extract_output_diagnostics, bool):
+            raise ActionParseError("run_suggested_checks action extract_output_diagnostics must be a boolean.", raw)
+        context_lines = parse_nonnegative_int(value.get("context_lines", 5), "context_lines", raw, maximum=500)
+        max_diagnostics = parse_optional_positive_int(value.get("max_diagnostics", 50), "max_diagnostics", raw, maximum=200) or 50
+        max_contexts = parse_optional_positive_int(value.get("max_contexts", 20), "max_contexts", raw, maximum=100) or 20
+        max_bytes_per_context = parse_optional_positive_int(
+            value.get("max_bytes_per_context", 20_000),
+            "max_bytes_per_context",
+            raw,
+            maximum=200_000,
+        ) or 20_000
+        if max_bytes_per_context < 1_000:
+            raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
+        return RunSuggestedChecksAction(
+            type="run_suggested_checks",
+            max_commands=max_commands,
+            timeout_ms=timeout_ms,
+            max_output_chars=max_output_chars,
+            stop_on_failure=stop_on_failure,
+            extract_output_contexts=extract_output_contexts,
+            extract_output_diagnostics=extract_output_diagnostics,
+            context_lines=context_lines,
+            max_diagnostics=max_diagnostics,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        )
+
     if action_type == "project_commands":
         max_commands = parse_optional_positive_int(value.get("max_commands", 100), "max_commands", raw, maximum=500) or 100
         max_files = parse_optional_positive_int(value.get("max_files", 30), "max_files", raw, maximum=200) or 30
         return ProjectCommandsAction(type="project_commands", max_commands=max_commands, max_files=max_files)
 
+    if action_type == "related_tests":
+        raw_paths = value.get("paths")
+        if raw_paths is not None:
+            if not isinstance(raw_paths, list) or any(not isinstance(item, str) or not item.strip() for item in raw_paths):
+                raise ActionParseError("related_tests action paths must be a list of non-empty strings when provided.", raw)
+            paths = [item.strip() for item in raw_paths]
+        else:
+            paths = None
+        max_paths = parse_optional_positive_int(value.get("max_paths", 100), "max_paths", raw, maximum=500) or 100
+        max_candidates = parse_optional_positive_int(value.get("max_candidates", 200), "max_candidates", raw, maximum=1000) or 200
+        return RelatedTestsAction(
+            type="related_tests",
+            paths=paths,
+            max_paths=max_paths,
+            max_candidates=max_candidates,
+        )
+
+    if action_type == "focused_test_commands":
+        raw_paths = value.get("paths")
+        if raw_paths is not None:
+            if not isinstance(raw_paths, list) or any(not isinstance(item, str) or not item.strip() for item in raw_paths):
+                raise ActionParseError("focused_test_commands action paths must be a list of non-empty strings when provided.", raw)
+            paths = [item.strip() for item in raw_paths]
+        else:
+            paths = None
+        max_paths = parse_optional_positive_int(value.get("max_paths", 100), "max_paths", raw, maximum=500) or 100
+        max_candidates = parse_optional_positive_int(value.get("max_candidates", 200), "max_candidates", raw, maximum=1000) or 200
+        max_commands = parse_optional_positive_int(value.get("max_commands", 50), "max_commands", raw, maximum=500) or 50
+        return FocusedTestCommandsAction(
+            type="focused_test_commands",
+            paths=paths,
+            max_paths=max_paths,
+            max_candidates=max_candidates,
+            max_commands=max_commands,
+        )
+
+    if action_type == "check_focused_test_commands":
+        raw_paths = value.get("paths")
+        if raw_paths is not None:
+            if not isinstance(raw_paths, list) or any(not isinstance(item, str) or not item.strip() for item in raw_paths):
+                raise ActionParseError("check_focused_test_commands action paths must be a list of non-empty strings when provided.", raw)
+            paths = [item.strip() for item in raw_paths]
+        else:
+            paths = None
+        max_paths = parse_optional_positive_int(value.get("max_paths", 100), "max_paths", raw, maximum=500) or 100
+        max_candidates = parse_optional_positive_int(value.get("max_candidates", 200), "max_candidates", raw, maximum=1000) or 200
+        max_commands = parse_optional_positive_int(value.get("max_commands", 10), "max_commands", raw, maximum=50) or 10
+        return CheckFocusedTestCommandsAction(
+            type="check_focused_test_commands",
+            paths=paths,
+            max_paths=max_paths,
+            max_candidates=max_candidates,
+            max_commands=max_commands,
+        )
+
+    if action_type == "run_focused_test_commands":
+        raw_paths = value.get("paths")
+        if raw_paths is not None:
+            if not isinstance(raw_paths, list) or any(not isinstance(item, str) or not item.strip() for item in raw_paths):
+                raise ActionParseError("run_focused_test_commands action paths must be a list of non-empty strings when provided.", raw)
+            paths = [item.strip() for item in raw_paths]
+        else:
+            paths = None
+        max_paths = parse_optional_positive_int(value.get("max_paths", 100), "max_paths", raw, maximum=500) or 100
+        max_candidates = parse_optional_positive_int(value.get("max_candidates", 200), "max_candidates", raw, maximum=1000) or 200
+        max_commands = parse_optional_positive_int(value.get("max_commands", 10), "max_commands", raw, maximum=50) or 10
+        timeout_ms = parse_optional_positive_int(value.get("timeout_ms"), "timeout_ms", raw, maximum=600_000)
+        if timeout_ms is not None and timeout_ms < 100:
+            raise ActionParseError("timeout_ms must be at least 100.", raw)
+        max_output_chars = parse_optional_positive_int(value.get("max_output_chars"), "max_output_chars", raw, maximum=50_000)
+        if max_output_chars is not None and max_output_chars < 1_000:
+            raise ActionParseError("max_output_chars must be at least 1000.", raw)
+        stop_on_failure = value.get("stop_on_failure", True)
+        if not isinstance(stop_on_failure, bool):
+            raise ActionParseError("run_focused_test_commands action stop_on_failure must be a boolean when provided.", raw)
+        extract_output_contexts = value.get("extract_output_contexts", False)
+        if not isinstance(extract_output_contexts, bool):
+            raise ActionParseError("run_focused_test_commands action extract_output_contexts must be a boolean.", raw)
+        extract_output_diagnostics = value.get("extract_output_diagnostics", False)
+        if not isinstance(extract_output_diagnostics, bool):
+            raise ActionParseError("run_focused_test_commands action extract_output_diagnostics must be a boolean.", raw)
+        context_lines = parse_nonnegative_int(value.get("context_lines", 5), "context_lines", raw, maximum=500)
+        max_diagnostics = parse_optional_positive_int(value.get("max_diagnostics", 50), "max_diagnostics", raw, maximum=200) or 50
+        max_contexts = parse_optional_positive_int(value.get("max_contexts", 20), "max_contexts", raw, maximum=100) or 20
+        max_bytes_per_context = parse_optional_positive_int(
+            value.get("max_bytes_per_context", 20_000),
+            "max_bytes_per_context",
+            raw,
+            maximum=200_000,
+        ) or 20_000
+        if max_bytes_per_context < 1_000:
+            raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
+        return RunFocusedTestCommandsAction(
+            type="run_focused_test_commands",
+            paths=paths,
+            max_paths=max_paths,
+            max_candidates=max_candidates,
+            max_commands=max_commands,
+            timeout_ms=timeout_ms,
+            max_output_chars=max_output_chars,
+            stop_on_failure=stop_on_failure,
+            extract_output_contexts=extract_output_contexts,
+            extract_output_diagnostics=extract_output_diagnostics,
+            context_lines=context_lines,
+            max_diagnostics=max_diagnostics,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        )
+
     if action_type == "project_manifests":
         max_files = parse_optional_positive_int(value.get("max_files", 30), "max_files", raw, maximum=200) or 30
         max_items = parse_optional_positive_int(value.get("max_items", 500), "max_items", raw, maximum=2000) or 500
         return ProjectManifestsAction(type="project_manifests", max_files=max_files, max_items=max_items)
+
+    if action_type == "project_instructions":
+        max_files = parse_optional_positive_int(value.get("max_files", 20), "max_files", raw, maximum=200) or 20
+        max_bytes = parse_optional_positive_int(value.get("max_bytes", 12_000), "max_bytes", raw, maximum=50_000) or 12_000
+        if max_bytes < 200:
+            raise ActionParseError("max_bytes must be at least 200.", raw)
+        return ProjectInstructionsAction(type="project_instructions", max_files=max_files, max_bytes=max_bytes)
+
+    if action_type == "project_todos":
+        path = value.get("path")
+        if path is not None and not isinstance(path, str):
+            raise ActionParseError("project_todos action path must be a string when provided.", raw)
+        max_items = parse_optional_positive_int(value.get("max_items", 100), "max_items", raw, maximum=500) or 100
+        max_files = parse_optional_positive_int(value.get("max_files", 1000), "max_files", raw, maximum=5000) or 1000
+        return ProjectTodosAction(
+            type="project_todos",
+            path=path.strip() if isinstance(path, str) and path.strip() else None,
+            max_items=max_items,
+            max_files=max_files,
+        )
 
     if action_type == "project_overview":
         max_files = parse_optional_positive_int(value.get("max_files", 80), "max_files", raw, maximum=200) or 80
@@ -7629,6 +12963,24 @@ def parse_action(value: Any, raw: str) -> AgentAction:
             regex=regex,
         )
 
+    if action_type == "http_fetch":
+        url = value.get("url")
+        if not isinstance(url, str) or not url.strip():
+            raise ActionParseError("http_fetch action requires a non-empty url.", raw)
+        parsed_url = urlparse(url)
+        if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+            raise ActionParseError("http_fetch action url must be an http or https URL.", raw)
+        timeout_ms = parse_optional_positive_int(value.get("timeout_ms"), "timeout_ms", raw, maximum=10_000)
+        if timeout_ms is not None and timeout_ms < 100:
+            raise ActionParseError("timeout_ms must be at least 100.", raw)
+        max_body_chars = parse_optional_positive_int(value.get("max_body_chars"), "max_body_chars", raw, maximum=100_000)
+        return HttpFetchAction(
+            type="http_fetch",
+            url=url,
+            timeout_ms=timeout_ms,
+            max_body_chars=max_body_chars,
+        )
+
     if action_type == "environment_info":
         return EnvironmentInfoAction(type="environment_info")
 
@@ -7662,6 +13014,30 @@ def parse_action(value: Any, raw: str) -> AgentAction:
             staged=staged,
             max_hunks=max_hunks,
             max_lines_per_hunk=max_lines_per_hunk,
+        )
+
+    if action_type == "git_diff_contexts":
+        path = value.get("path")
+        staged = value.get("staged", False)
+        context_lines = value.get("context_lines", 5)
+        max_hunks = value.get("max_hunks", 80)
+        max_bytes_per_context = value.get("max_bytes_per_context", 20_000)
+        if path is not None and not isinstance(path, str):
+            raise ActionParseError("git_diff_contexts action path must be a string when provided.", raw)
+        if type(staged) is not bool:
+            raise ActionParseError("git_diff_contexts action staged must be a boolean when provided.", raw)
+        context_lines = parse_nonnegative_int(context_lines, "context_lines", raw, maximum=50)
+        max_hunks = parse_optional_positive_int(max_hunks, "max_hunks", raw, maximum=500) or 80
+        max_bytes_per_context = parse_optional_positive_int(max_bytes_per_context, "max_bytes_per_context", raw, maximum=200000) or 20_000
+        if max_bytes_per_context < 1000:
+            raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
+        return GitDiffContextsAction(
+            type="git_diff_contexts",
+            path=path,
+            staged=staged,
+            context_lines=context_lines,
+            max_hunks=max_hunks,
+            max_bytes_per_context=max_bytes_per_context,
         )
 
     if action_type == "git_log":
@@ -7714,6 +13090,302 @@ def parse_action(value: Any, raw: str) -> AgentAction:
             raise ActionParseError("session_summary action run_id must be a string when provided.", raw)
         recent_limit = parse_optional_positive_int(recent_limit, "recent_limit", raw, maximum=20) or 5
         return SessionSummaryAction(type="session_summary", run_id=run_id, recent_limit=recent_limit)
+
+    if action_type == "session_plan":
+        run_id = value.get("run_id")
+        if run_id is not None and not isinstance(run_id, str):
+            raise ActionParseError("session_plan action run_id must be a string when provided.", raw)
+        return SessionPlanAction(type="session_plan", run_id=run_id)
+
+    if action_type == "session_transcript":
+        run_id = value.get("run_id")
+        max_events = value.get("max_events", 80)
+        max_text = value.get("max_text", 500)
+        if run_id is not None and not isinstance(run_id, str):
+            raise ActionParseError("session_transcript action run_id must be a string when provided.", raw)
+        max_events = parse_optional_positive_int(max_events, "max_events", raw, maximum=500) or 80
+        max_text = parse_optional_positive_int(max_text, "max_text", raw, maximum=5000) or 500
+        if max_text < 80:
+            raise ActionParseError("max_text must be at least 80.", raw)
+        return SessionTranscriptAction(
+            type="session_transcript",
+            run_id=run_id,
+            max_events=max_events,
+            max_text=max_text,
+        )
+
+    if action_type == "session_search":
+        query = value.get("query")
+        run_id = value.get("run_id")
+        max_matches = value.get("max_matches", 20)
+        max_text = value.get("max_text", 500)
+        case_sensitive = value.get("case_sensitive", False)
+        if not isinstance(query, str) or not query.strip():
+            raise ActionParseError("session_search action query must be a non-empty string.", raw)
+        if run_id is not None and not isinstance(run_id, str):
+            raise ActionParseError("session_search action run_id must be a string when provided.", raw)
+        max_matches = parse_optional_positive_int(max_matches, "max_matches", raw, maximum=100) or 20
+        max_text = parse_optional_positive_int(max_text, "max_text", raw, maximum=5000) or 500
+        if max_text < 80:
+            raise ActionParseError("max_text must be at least 80.", raw)
+        if not isinstance(case_sensitive, bool):
+            raise ActionParseError("session_search action case_sensitive must be a boolean.", raw)
+        return SessionSearchAction(
+            type="session_search",
+            query=query,
+            run_id=run_id,
+            max_matches=max_matches,
+            max_text=max_text,
+            case_sensitive=case_sensitive,
+        )
+
+    if action_type == "session_commands":
+        run_id = value.get("run_id")
+        max_commands = value.get("max_commands", 20)
+        max_output_chars = value.get("max_output_chars", 2_000)
+        if run_id is not None and not isinstance(run_id, str):
+            raise ActionParseError("session_commands action run_id must be a string when provided.", raw)
+        max_commands = parse_optional_positive_int(max_commands, "max_commands", raw, maximum=100) or 20
+        if not isinstance(max_output_chars, int):
+            raise ActionParseError("max_output_chars must be an integer.", raw)
+        if max_output_chars < 0:
+            raise ActionParseError("max_output_chars must be at least 0.", raw)
+        if max_output_chars > 20_000:
+            raise ActionParseError("max_output_chars must be at most 20000.", raw)
+        return SessionCommandsAction(
+            type="session_commands",
+            run_id=run_id,
+            max_commands=max_commands,
+            max_output_chars=max_output_chars,
+        )
+
+    if action_type == "session_output_contexts":
+        run_id = value.get("run_id")
+        max_commands = value.get("max_commands", 20)
+        max_output_chars = value.get("max_output_chars", 20_000)
+        if run_id is not None and not isinstance(run_id, str):
+            raise ActionParseError("session_output_contexts action run_id must be a string when provided.", raw)
+        max_commands = parse_optional_positive_int(max_commands, "max_commands", raw, maximum=100) or 20
+        if not isinstance(max_output_chars, int):
+            raise ActionParseError("max_output_chars must be an integer.", raw)
+        if max_output_chars < 0:
+            raise ActionParseError("max_output_chars must be at least 0.", raw)
+        if max_output_chars > 20_000:
+            raise ActionParseError("max_output_chars must be at most 20000.", raw)
+        context_lines = parse_nonnegative_int(value.get("context_lines", 5), "context_lines", raw, maximum=500)
+        max_diagnostics = parse_optional_positive_int(value.get("max_diagnostics", 50), "max_diagnostics", raw, maximum=200) or 50
+        max_contexts = parse_optional_positive_int(value.get("max_contexts", 20), "max_contexts", raw, maximum=100) or 20
+        max_bytes_per_context = parse_optional_positive_int(
+            value.get("max_bytes_per_context", 20_000),
+            "max_bytes_per_context",
+            raw,
+            maximum=200_000,
+        ) or 20_000
+        if max_bytes_per_context < 1000:
+            raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
+        return SessionOutputContextsAction(
+            type="session_output_contexts",
+            run_id=run_id,
+            max_commands=max_commands,
+            max_output_chars=max_output_chars,
+            context_lines=context_lines,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        )
+
+    if action_type == "session_output_diagnostics":
+        run_id = value.get("run_id")
+        max_commands = value.get("max_commands", 20)
+        max_output_chars = value.get("max_output_chars", 20_000)
+        if run_id is not None and not isinstance(run_id, str):
+            raise ActionParseError("session_output_diagnostics action run_id must be a string when provided.", raw)
+        max_commands = parse_optional_positive_int(max_commands, "max_commands", raw, maximum=100) or 20
+        if not isinstance(max_output_chars, int):
+            raise ActionParseError("max_output_chars must be an integer.", raw)
+        if max_output_chars < 0:
+            raise ActionParseError("max_output_chars must be at least 0.", raw)
+        if max_output_chars > 20_000:
+            raise ActionParseError("max_output_chars must be at most 20000.", raw)
+        context_lines = parse_nonnegative_int(value.get("context_lines", 2), "context_lines", raw, maximum=500)
+        max_diagnostics = parse_optional_positive_int(value.get("max_diagnostics", 50), "max_diagnostics", raw, maximum=200) or 50
+        max_contexts = parse_optional_positive_int(value.get("max_contexts", 20), "max_contexts", raw, maximum=100) or 20
+        max_bytes_per_context = parse_optional_positive_int(
+            value.get("max_bytes_per_context", 20_000),
+            "max_bytes_per_context",
+            raw,
+            maximum=200_000,
+        ) or 20_000
+        if max_bytes_per_context < 1000:
+            raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
+        return SessionOutputDiagnosticsAction(
+            type="session_output_diagnostics",
+            run_id=run_id,
+            max_commands=max_commands,
+            max_output_chars=max_output_chars,
+            context_lines=context_lines,
+            max_diagnostics=max_diagnostics,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        )
+
+    if action_type == "session_files":
+        run_id = value.get("run_id")
+        max_files = value.get("max_files", 100)
+        if run_id is not None and not isinstance(run_id, str):
+            raise ActionParseError("session_files action run_id must be a string when provided.", raw)
+        max_files = parse_optional_positive_int(max_files, "max_files", raw, maximum=500) or 100
+        return SessionFilesAction(type="session_files", run_id=run_id, max_files=max_files)
+
+    if action_type == "session_failures":
+        run_id = value.get("run_id")
+        max_failures = value.get("max_failures", 50)
+        max_text = value.get("max_text", 500)
+        if run_id is not None and not isinstance(run_id, str):
+            raise ActionParseError("session_failures action run_id must be a string when provided.", raw)
+        max_failures = parse_optional_positive_int(max_failures, "max_failures", raw, maximum=200) or 50
+        max_text = parse_optional_positive_int(max_text, "max_text", raw, maximum=5000) or 500
+        if max_text < 80:
+            raise ActionParseError("max_text must be at least 80.", raw)
+        return SessionFailuresAction(
+            type="session_failures",
+            run_id=run_id,
+            max_failures=max_failures,
+            max_text=max_text,
+        )
+
+    if action_type == "session_verification":
+        run_id = value.get("run_id")
+        max_checks = parse_optional_positive_int(value.get("max_checks", 50), "max_checks", raw, maximum=500) or 50
+        if run_id is not None and not isinstance(run_id, str):
+            raise ActionParseError("session_verification action run_id must be a string when provided.", raw)
+        return SessionVerificationAction(type="session_verification", run_id=run_id, max_checks=max_checks)
+
+    if action_type == "session_audit":
+        run_id = value.get("run_id")
+        max_failures = value.get("max_failures", 10)
+        max_files = value.get("max_files", 20)
+        max_commands = value.get("max_commands", 10)
+        max_checks = value.get("max_checks", 50)
+        max_text = value.get("max_text", 300)
+        if run_id is not None and not isinstance(run_id, str):
+            raise ActionParseError("session_audit action run_id must be a string when provided.", raw)
+        max_failures = parse_optional_positive_int(max_failures, "max_failures", raw, maximum=200) or 10
+        max_files = parse_optional_positive_int(max_files, "max_files", raw, maximum=500) or 20
+        max_commands = parse_optional_positive_int(max_commands, "max_commands", raw, maximum=100) or 10
+        max_checks = parse_optional_positive_int(max_checks, "max_checks", raw, maximum=500) or 50
+        max_text = parse_optional_positive_int(max_text, "max_text", raw, maximum=5000) or 300
+        if max_text < 80:
+            raise ActionParseError("max_text must be at least 80.", raw)
+        return SessionAuditAction(
+            type="session_audit",
+            run_id=run_id,
+            max_failures=max_failures,
+            max_files=max_files,
+            max_commands=max_commands,
+            max_checks=max_checks,
+            max_text=max_text,
+        )
+
+    if action_type == "session_handoff":
+        run_id = value.get("run_id")
+        max_failures = value.get("max_failures", 20)
+        max_files = value.get("max_files", 50)
+        max_commands = value.get("max_commands", 10)
+        max_checks = value.get("max_checks", 50)
+        max_output_chars = value.get("max_output_chars", 1_000)
+        max_text = value.get("max_text", 500)
+        if run_id is not None and not isinstance(run_id, str):
+            raise ActionParseError("session_handoff action run_id must be a string when provided.", raw)
+        max_failures = parse_optional_positive_int(max_failures, "max_failures", raw, maximum=200) or 20
+        max_files = parse_optional_positive_int(max_files, "max_files", raw, maximum=500) or 50
+        max_commands = parse_optional_positive_int(max_commands, "max_commands", raw, maximum=100) or 10
+        max_checks = parse_optional_positive_int(max_checks, "max_checks", raw, maximum=500) or 50
+        if not isinstance(max_output_chars, int):
+            raise ActionParseError("max_output_chars must be an integer.", raw)
+        if max_output_chars < 0:
+            raise ActionParseError("max_output_chars must be at least 0.", raw)
+        if max_output_chars > 20_000:
+            raise ActionParseError("max_output_chars must be at most 20000.", raw)
+        max_text = parse_optional_positive_int(max_text, "max_text", raw, maximum=5000) or 500
+        if max_text < 80:
+            raise ActionParseError("max_text must be at least 80.", raw)
+        return SessionHandoffAction(
+            type="session_handoff",
+            run_id=run_id,
+            max_failures=max_failures,
+            max_files=max_files,
+            max_commands=max_commands,
+            max_checks=max_checks,
+            max_output_chars=max_output_chars,
+            max_text=max_text,
+        )
+
+    if action_type == "checkpoint_create":
+        label = value.get("label")
+        if label is not None and not isinstance(label, str):
+            raise ActionParseError("checkpoint_create action label must be a string when provided.", raw)
+        return CheckpointCreateAction(type="checkpoint_create", label=label)
+
+    if action_type == "checkpoint_list":
+        max_entries = parse_optional_positive_int(value.get("max_entries", 20), "max_entries", raw, maximum=100) or 20
+        return CheckpointListAction(type="checkpoint_list", max_entries=max_entries)
+
+    if action_type == "checkpoint_show":
+        checkpoint_id = value.get("checkpoint_id")
+        if not isinstance(checkpoint_id, str) or not checkpoint_id.strip():
+            raise ActionParseError("checkpoint_show action requires a non-empty checkpoint_id.", raw)
+        return CheckpointShowAction(type="checkpoint_show", checkpoint_id=checkpoint_id.strip())
+
+    if action_type == "checkpoint_diff":
+        checkpoint_id = value.get("checkpoint_id")
+        if not isinstance(checkpoint_id, str) or not checkpoint_id.strip():
+            raise ActionParseError("checkpoint_diff action requires a non-empty checkpoint_id.", raw)
+        max_chars = parse_optional_positive_int(value.get("max_chars", 40_000), "max_chars", raw, maximum=200_000) or 40_000
+        if max_chars < 100:
+            raise ActionParseError("max_chars must be at least 100.", raw)
+        return CheckpointDiffAction(type="checkpoint_diff", checkpoint_id=checkpoint_id.strip(), max_chars=max_chars)
+
+    if action_type == "checkpoint_status":
+        checkpoint_id = value.get("checkpoint_id")
+        if not isinstance(checkpoint_id, str) or not checkpoint_id.strip():
+            raise ActionParseError("checkpoint_status action requires a non-empty checkpoint_id.", raw)
+        return CheckpointStatusAction(type="checkpoint_status", checkpoint_id=checkpoint_id.strip())
+
+    if action_type == "check_checkpoint_restore":
+        checkpoint_id = value.get("checkpoint_id")
+        if not isinstance(checkpoint_id, str) or not checkpoint_id.strip():
+            raise ActionParseError("check_checkpoint_restore action requires a non-empty checkpoint_id.", raw)
+        return CheckCheckpointRestoreAction(type="check_checkpoint_restore", checkpoint_id=checkpoint_id.strip())
+
+    if action_type == "checkpoint_restore":
+        checkpoint_id = value.get("checkpoint_id")
+        if not isinstance(checkpoint_id, str) or not checkpoint_id.strip():
+            raise ActionParseError("checkpoint_restore action requires a non-empty checkpoint_id.", raw)
+        return CheckpointRestoreAction(type="checkpoint_restore", checkpoint_id=checkpoint_id.strip())
+
+    if action_type == "check_checkpoint_delete":
+        checkpoint_id = value.get("checkpoint_id")
+        if not isinstance(checkpoint_id, str) or not checkpoint_id.strip():
+            raise ActionParseError("check_checkpoint_delete action requires a non-empty checkpoint_id.", raw)
+        return CheckCheckpointDeleteAction(type="check_checkpoint_delete", checkpoint_id=checkpoint_id.strip())
+
+    if action_type == "checkpoint_delete":
+        checkpoint_id = value.get("checkpoint_id")
+        if not isinstance(checkpoint_id, str) or not checkpoint_id.strip():
+            raise ActionParseError("checkpoint_delete action requires a non-empty checkpoint_id.", raw)
+        return CheckpointDeleteAction(type="checkpoint_delete", checkpoint_id=checkpoint_id.strip())
+
+    if action_type == "check_checkpoint_prune":
+        keep_last = parse_optional_nonnegative_int(value.get("keep_last"), "keep_last", raw, maximum=1000)
+        if keep_last is None:
+            raise ActionParseError("check_checkpoint_prune action requires keep_last.", raw)
+        return CheckCheckpointPruneAction(type="check_checkpoint_prune", keep_last=keep_last)
+
+    if action_type == "checkpoint_prune":
+        keep_last = parse_optional_nonnegative_int(value.get("keep_last"), "keep_last", raw, maximum=1000)
+        if keep_last is None:
+            raise ActionParseError("checkpoint_prune action requires keep_last.", raw)
+        return CheckpointPruneAction(type="checkpoint_prune", keep_last=keep_last)
 
     if action_type == "check_edit_file":
         path = value.get("path")
@@ -8192,12 +13864,35 @@ def parse_action(value: Any, raw: str) -> AgentAction:
         cwd = value.get("cwd")
         if cwd is not None and not isinstance(cwd, str):
             raise ActionParseError("run_command action cwd must be a string when provided.", raw)
+        extract_output_contexts = value.get("extract_output_contexts", False)
+        if not isinstance(extract_output_contexts, bool):
+            raise ActionParseError("run_command action extract_output_contexts must be a boolean.", raw)
+        extract_output_diagnostics = value.get("extract_output_diagnostics", False)
+        if not isinstance(extract_output_diagnostics, bool):
+            raise ActionParseError("run_command action extract_output_diagnostics must be a boolean.", raw)
+        context_lines = parse_nonnegative_int(value.get("context_lines", 5), "context_lines", raw, maximum=500)
+        max_diagnostics = parse_optional_positive_int(value.get("max_diagnostics", 50), "max_diagnostics", raw, maximum=200) or 50
+        max_contexts = parse_optional_positive_int(value.get("max_contexts", 20), "max_contexts", raw, maximum=100) or 20
+        max_bytes_per_context = parse_optional_positive_int(
+            value.get("max_bytes_per_context", 20_000),
+            "max_bytes_per_context",
+            raw,
+            maximum=200_000,
+        ) or 20_000
+        if max_bytes_per_context < 1_000:
+            raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
         return RunCommandAction(
             type="run_command",
             command=command,
             timeout_ms=timeout_ms,
             cwd=cwd,
             max_output_chars=max_output_chars,
+            extract_output_contexts=extract_output_contexts,
+            extract_output_diagnostics=extract_output_diagnostics,
+            context_lines=context_lines,
+            max_diagnostics=max_diagnostics,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
         )
 
     if action_type == "run_commands":
@@ -8241,6 +13936,68 @@ def parse_action(value: Any, raw: str) -> AgentAction:
         if max_output_chars is not None and max_output_chars < 1_000:
             raise ActionParseError("max_output_chars must be at least 1000.", raw)
         return ReadProcessAction(type="read_process", process_id=process_id, max_output_chars=max_output_chars)
+
+    if action_type == "process_output_contexts":
+        process_id = value.get("process_id")
+        if not isinstance(process_id, str) or not process_id.strip():
+            raise ActionParseError("process_output_contexts action requires a non-empty process_id.", raw)
+        max_output_chars = value.get("max_output_chars", 20_000)
+        if not isinstance(max_output_chars, int):
+            raise ActionParseError("max_output_chars must be an integer.", raw)
+        if max_output_chars < 0:
+            raise ActionParseError("max_output_chars must be at least 0.", raw)
+        if max_output_chars > 50_000:
+            raise ActionParseError("max_output_chars must be at most 50000.", raw)
+        context_lines = parse_nonnegative_int(value.get("context_lines", 5), "context_lines", raw, maximum=500)
+        max_contexts = parse_optional_positive_int(value.get("max_contexts", 20), "max_contexts", raw, maximum=100) or 20
+        max_bytes_per_context = parse_optional_positive_int(
+            value.get("max_bytes_per_context", 20_000),
+            "max_bytes_per_context",
+            raw,
+            maximum=200_000,
+        ) or 20_000
+        if max_bytes_per_context < 1000:
+            raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
+        return ProcessOutputContextsAction(
+            type="process_output_contexts",
+            process_id=process_id,
+            max_output_chars=max_output_chars,
+            context_lines=context_lines,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        )
+
+    if action_type == "process_output_diagnostics":
+        process_id = value.get("process_id")
+        if not isinstance(process_id, str) or not process_id.strip():
+            raise ActionParseError("process_output_diagnostics action requires a non-empty process_id.", raw)
+        max_output_chars = value.get("max_output_chars", 20_000)
+        if not isinstance(max_output_chars, int):
+            raise ActionParseError("max_output_chars must be an integer.", raw)
+        if max_output_chars < 0:
+            raise ActionParseError("max_output_chars must be at least 0.", raw)
+        if max_output_chars > 50_000:
+            raise ActionParseError("max_output_chars must be at most 50000.", raw)
+        context_lines = parse_nonnegative_int(value.get("context_lines", 2), "context_lines", raw, maximum=500)
+        max_diagnostics = parse_optional_positive_int(value.get("max_diagnostics", 50), "max_diagnostics", raw, maximum=200) or 50
+        max_contexts = parse_optional_positive_int(value.get("max_contexts", 20), "max_contexts", raw, maximum=100) or 20
+        max_bytes_per_context = parse_optional_positive_int(
+            value.get("max_bytes_per_context", 20_000),
+            "max_bytes_per_context",
+            raw,
+            maximum=200_000,
+        ) or 20_000
+        if max_bytes_per_context < 1000:
+            raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
+        return ProcessOutputDiagnosticsAction(
+            type="process_output_diagnostics",
+            process_id=process_id,
+            max_output_chars=max_output_chars,
+            context_lines=context_lines,
+            max_diagnostics=max_diagnostics,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        )
 
     if action_type == "wait_process":
         process_id = value.get("process_id")
@@ -8370,6 +14127,32 @@ def parse_read_file_paths(value: Any, raw: str) -> list[str]:
     return parse_path_list(value, raw, "read_files", maximum=20)
 
 
+def parse_read_file_contexts(value: Any, raw: str) -> list[ReadFileContextItem]:
+    if not isinstance(value, list) or not value:
+        raise ActionParseError("read_file_contexts action requires a non-empty contexts list.", raw)
+    if len(value) > 20:
+        raise ActionParseError("read_file_contexts action contexts must contain at most 20 items.", raw)
+
+    contexts: list[ReadFileContextItem] = []
+    for index, item in enumerate(value, start=1):
+        if not isinstance(item, dict):
+            raise ActionParseError(f"read_file_contexts context {index} must be an object.", raw)
+        path = item.get("path")
+        if not isinstance(path, str) or not path.strip():
+            raise ActionParseError(f"read_file_contexts context {index} requires a non-empty path.", raw)
+        line = parse_optional_positive_int(item.get("line"), f"read_file_contexts context {index} line", raw, maximum=None)
+        if line is None:
+            raise ActionParseError(f"read_file_contexts context {index} requires line.", raw)
+        context_lines = parse_nonnegative_int(
+            item.get("context_lines", 20),
+            f"read_file_contexts context {index} context_lines",
+            raw,
+            maximum=500,
+        )
+        contexts.append(ReadFileContextItem(path=path.strip(), line=line, context_lines=context_lines))
+    return contexts
+
+
 def parse_read_file_ranges(value: Any, raw: str) -> list[ReadFileRangeItem]:
     if not isinstance(value, list) or not value:
         raise ActionParseError("read_file_ranges action requires a non-empty ranges list.", raw)
@@ -8477,12 +14260,50 @@ def parse_run_command_items(value: Any, raw: str, action_type: str) -> list[RunC
         )
         if max_output_chars is not None and max_output_chars < 1_000:
             raise ActionParseError(f"{action_type} command {index} max_output_chars must be at least 1000.", raw)
+        extract_output_contexts = item.get("extract_output_contexts", False)
+        if not isinstance(extract_output_contexts, bool):
+            raise ActionParseError(f"{action_type} command {index} extract_output_contexts must be a boolean.", raw)
+        extract_output_diagnostics = item.get("extract_output_diagnostics", False)
+        if not isinstance(extract_output_diagnostics, bool):
+            raise ActionParseError(f"{action_type} command {index} extract_output_diagnostics must be a boolean.", raw)
+        context_lines = parse_nonnegative_int(
+            item.get("context_lines", 5),
+            f"{action_type} command {index} context_lines",
+            raw,
+            maximum=500,
+        )
+        max_diagnostics = parse_optional_positive_int(
+            item.get("max_diagnostics", 50),
+            f"{action_type} command {index} max_diagnostics",
+            raw,
+            maximum=200,
+        ) or 50
+        max_contexts = parse_optional_positive_int(
+            item.get("max_contexts", 20),
+            f"{action_type} command {index} max_contexts",
+            raw,
+            maximum=100,
+        ) or 20
+        max_bytes_per_context = parse_optional_positive_int(
+            item.get("max_bytes_per_context", 20_000),
+            f"{action_type} command {index} max_bytes_per_context",
+            raw,
+            maximum=200_000,
+        ) or 20_000
+        if max_bytes_per_context < 1_000:
+            raise ActionParseError(f"{action_type} command {index} max_bytes_per_context must be at least 1000.", raw)
         commands.append(
             RunCommandItem(
                 command=command.strip(),
                 timeout_ms=timeout_ms,
                 cwd=cwd,
                 max_output_chars=max_output_chars,
+                extract_output_contexts=extract_output_contexts,
+                extract_output_diagnostics=extract_output_diagnostics,
+                context_lines=context_lines,
+                max_diagnostics=max_diagnostics,
+                max_contexts=max_contexts,
+                max_bytes_per_context=max_bytes_per_context,
             )
         )
     return commands
@@ -8659,6 +14480,8 @@ def get_blocked_command_reason(command: str) -> str | None:
         return "raw device writes are not allowed in project mode"
     if command_pipes_network_script_to_shell(lowered):
         return "network script piping is not allowed in project mode"
+    if command_launches_gui_application(lowered):
+        return "GUI application launch commands are not allowed in project mode"
     if re.search(r"(^|[;&|]\s*)powershell\b.*\b(iwr|irm|invoke-webrequest|invoke-restmethod)\b.*\|\s*(iex|invoke-expression)\b", lowered):
         return "network script execution is not allowed in project mode"
     if ":(){:|:&};:" in lowered.replace(" ", ""):
@@ -8709,6 +14532,22 @@ def command_pipes_network_script_to_shell(lowered_command: str) -> bool:
     network_fetch = r"\b(curl|wget)\b"
     shell_sink = r"\|\s*(?:sh|bash|zsh|fish|dash|ksh|python|python3|ruby|perl|node)\b"
     return bool(re.search(network_fetch, lowered_command) and re.search(shell_sink, lowered_command))
+
+
+def command_launches_gui_application(lowered_command: str) -> bool:
+    segment = r"(^|[;&|]\s*)"
+    wrappers = r"(?:nohup\s+|setsid\s+|env\s+(?:[a-z_][a-z0-9_]*=\S+\s+)*)?"
+    launcher = (
+        r"(?:explorer(?:\.exe)?|xdg-open|wslview|wsl-open|gio\s+open|"
+        r"gnome-open|kde-open(?:5)?|open|nautilus|dolphin|thunar|nemo|pcmanfm|caja|konqueror|"
+        r"code|code-insiders|cursor|windsurf|subl|mate|gedit|mousepad|kate|"
+        r"firefox|google-chrome|google-chrome-stable|chromium|chromium-browser|microsoft-edge)\b"
+    )
+    windows_start = r"(?:cmd(?:\.exe)?\s+/c\s+start\b|powershell(?:\.exe)?\b.*\bstart-process\b)"
+    return bool(
+        re.search(segment + wrappers + launcher, lowered_command)
+        or re.search(segment + wrappers + windows_start, lowered_command)
+    )
 
 
 def _close_background_handles(background: BackgroundProcess) -> None:

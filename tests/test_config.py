@@ -121,7 +121,16 @@ class ConfigTests(unittest.TestCase):
             config_dir = Path(base) / ".vibeagent"
             config_dir.mkdir()
             (config_dir / "config.json").write_text(
-                json.dumps({"max_iterations": "12", "command_timeout_ms": 45000}),
+                json.dumps(
+                    {
+                        "max_iterations": "12",
+                        "command_timeout_ms": 45000,
+                        "max_output_tokens": "8192",
+                        "model_retries": 0,
+                        "model_retry_delay_ms": 0,
+                        "model_timeout_ms": 45000,
+                    }
+                ),
                 encoding="utf-8",
             )
 
@@ -129,20 +138,45 @@ class ConfigTests(unittest.TestCase):
 
         self.assertEqual(config.max_iterations, 12)
         self.assertEqual(config.command_timeout_ms, 45000)
+        self.assertEqual(config.max_output_tokens, 8192)
+        self.assertEqual(config.model_retries, 0)
+        self.assertEqual(config.model_retry_delay_ms, 0)
+        self.assertEqual(config.model_timeout_ms, 45000)
 
     def test_resolve_execution_config_cli_values_override_project_defaults(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-config-") as base:
             config_dir = Path(base) / ".vibeagent"
             config_dir.mkdir()
             (config_dir / "config.json").write_text(
-                json.dumps({"max_iterations": 12, "command_timeout_ms": 45000}),
+                json.dumps(
+                    {
+                        "max_iterations": 12,
+                        "command_timeout_ms": 45000,
+                        "max_output_tokens": 8192,
+                        "model_retries": 0,
+                        "model_retry_delay_ms": 0,
+                        "model_timeout_ms": 45000,
+                    }
+                ),
                 encoding="utf-8",
             )
 
-            config = resolve_execution_config(base, max_iterations=3, command_timeout_ms=1000)
+            config = resolve_execution_config(
+                base,
+                max_iterations=3,
+                command_timeout_ms=1000,
+                max_output_tokens=2048,
+                model_retries=2,
+                model_retry_delay_ms=100,
+                model_timeout_ms=60_000,
+            )
 
         self.assertEqual(config.max_iterations, 3)
         self.assertEqual(config.command_timeout_ms, 1000)
+        self.assertEqual(config.max_output_tokens, 2048)
+        self.assertEqual(config.model_retries, 2)
+        self.assertEqual(config.model_retry_delay_ms, 100)
+        self.assertEqual(config.model_timeout_ms, 60_000)
 
     def test_resolve_execution_config_rejects_invalid_project_defaults(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-config-") as base:
@@ -165,6 +199,10 @@ class ConfigTests(unittest.TestCase):
                 base_url="https://deepseek.example",
                 max_iterations=15,
                 command_timeout_ms=60000,
+                max_output_tokens=8192,
+                model_retries=2,
+                model_retry_delay_ms=100,
+                model_timeout_ms=60_000,
             )
             data = json.loads((Path(base) / ".vibeagent" / "config.json").read_text(encoding="utf-8"))
 
@@ -174,6 +212,10 @@ class ConfigTests(unittest.TestCase):
             {
                 "base_url": "https://deepseek.example",
                 "command_timeout_ms": 60000,
+                "max_output_tokens": 8192,
+                "model_retries": 2,
+                "model_retry_delay_ms": 100,
+                "model_timeout_ms": 60000,
                 "max_iterations": 15,
                 "model": "deepseek-reasoner",
                 "provider": "deepseek",
@@ -248,6 +290,12 @@ class ConfigTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="vibeagent-config-") as base:
             with self.assertRaisesRegex(ValueError, "command_timeout_ms must be at least 100"):
                 save_project_config(base, command_timeout_ms=99)
+            with self.assertRaisesRegex(ValueError, "model_retries must be a non-negative integer"):
+                save_project_config(base, model_retries=-1)
+            with self.assertRaisesRegex(ValueError, "model_retry_delay_ms must be a non-negative integer"):
+                save_project_config(base, model_retry_delay_ms=-1)
+            with self.assertRaisesRegex(ValueError, "model_timeout_ms must be at least 100"):
+                save_project_config(base, model_timeout_ms=99)
 
     def test_model_text_never_exposes_key_values(self) -> None:
         text = get_model_text(

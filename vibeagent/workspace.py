@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import codecs
 import json
 import platform
 import re
@@ -29,6 +30,19 @@ class GitCommandResult:
     stdout: str
     stderr: str
     exit_code: int | None
+
+
+PROJECT_INSTRUCTION_FILE_NAMES = {"AGENTS.md", "CLAUDE.md"}
+PROJECT_INSTRUCTION_CONTENT_LIMIT = 50_000
+PROJECT_TODO_MARKERS = ("TODO", "FIXME", "HACK", "XXX", "BUG")
+PROJECT_TODO_PATTERN = re.compile(
+    r"^\s*(?:(?:#|//|/\*+|\*|<!--|;|--|-)\s*)?\b(TODO|FIXME|HACK|XXX|BUG)\b\s*:?\s*(.*)",
+    re.IGNORECASE,
+)
+GIT_UNMERGED_STATUS_CODES = {"DD", "AU", "UD", "UA", "DU", "AA", "UU"}
+GIT_CONFLICT_MARKERS = ("<<<<<<<", "=======", ">>>>>>>")
+TEST_FILE_SUFFIXES = (".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs")
+JS_TEST_SUFFIXES = (".test", ".spec")
 
 
 def create_run_workspace(base_dir: str | Path | None = None, run_id: str | None = None) -> RunWorkspace:
@@ -163,39 +177,96 @@ def read_workspace_snapshot(workspace: RunWorkspace, max_bytes: int = 12_000) ->
 
 
 def read_project_instructions(workspace: RunWorkspace, max_bytes: int = 12_000, max_files: int = 20) -> str | None:
-    instruction_files = [file for file in list_files(workspace.root) if Path(file).name == "AGENTS.md"]
-    if not instruction_files:
-        return None
+    metadata = read_project_instruction_sources(workspace, max_bytes=max_bytes, max_files=max_files)
+    text = str(metadata["text"])
+    return text if text.strip() else None
 
+
+def read_project_instruction_sources(
+    workspace: RunWorkspace,
+    max_bytes: int = 12_000,
+    max_files: int = 20,
+) -> dict[str, object]:
+    if max_bytes < 1:
+        raise ValueError("max_bytes must be at least 1.")
+    if max_bytes > PROJECT_INSTRUCTION_CONTENT_LIMIT:
+        raise ValueError(f"max_bytes must be at most {PROJECT_INSTRUCTION_CONTENT_LIMIT}.")
+    if max_files < 1:
+        raise ValueError("max_files must be at least 1.")
+    if max_files > 200:
+        raise ValueError("max_files must be at most 200.")
+
+    instruction_files = [file for file in list_files(workspace.root) if Path(file).name in PROJECT_INSTRUCTION_FILE_NAMES]
+    scanned_files = instruction_files[:max_files]
+    sources: list[dict[str, object]] = []
     chunks: list[str] = []
-    for relative_path in instruction_files[:max_files]:
+    for relative_path in scanned_files:
         instructions_path = workspace.root / relative_path
-        content = instructions_path.read_text(encoding="utf-8")
-        if not content.strip():
-            continue
-        scope = Path(relative_path).parent.as_posix()
-        if scope == ".":
-            scope = "."
-        chunks.append(
-            "\n".join(
-                [
-                    f"File: {relative_path}",
-                    f"Scope: {scope}",
-                    "Instructions:",
-                    content,
-                ]
+        try:
+            content = instructions_path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as error:
+            sources.append(
+                {
+                    "path": relative_path,
+                    "scope": project_instruction_scope(relative_path),
+                    "bytes": instructions_path.stat().st_size,
+                    "chars": 0,
+                    "empty": False,
+                    "included": False,
+                    "message": f"Instruction file is not valid UTF-8: {error}",
+                }
             )
+            continue
+        included = bool(content.strip())
+        sources.append(
+            {
+                "path": relative_path,
+                "scope": project_instruction_scope(relative_path),
+                "bytes": len(content.encode("utf-8")),
+                "chars": len(content),
+                "empty": not included,
+                "included": included,
+                "message": "Included." if included else "Instruction file is empty.",
+            }
         )
+        if included:
+            chunks.append(
+                "\n".join(
+                    [
+                        f"File: {relative_path}",
+                        f"Scope: {project_instruction_scope(relative_path)}",
+                        "Instructions:",
+                        content,
+                    ]
+                )
+            )
 
-    if not chunks:
-        return None
-    if len(instruction_files) > max_files:
-        chunks.append(f"[{len(instruction_files) - max_files} additional AGENTS.md file(s) omitted]")
+    omitted_files = max(0, len(instruction_files) - len(scanned_files))
+    if omitted_files:
+        chunks.append(f"[{omitted_files} additional project instruction file(s) omitted]")
 
     combined = "\n\n".join(chunks)
-    if len(combined) <= max_bytes:
-        return combined
-    return f"{combined[:max_bytes]}\n[AGENTS.md instructions truncated]"
+    text_truncated = len(combined) > max_bytes
+    text = f"{combined[:max_bytes]}\n[project instructions truncated]" if text_truncated else combined
+    return {
+        "ok": True,
+        "files": sources,
+        "total_files": len(instruction_files),
+        "scanned_files": len(scanned_files),
+        "omitted_files": omitted_files,
+        "truncated": text_truncated or bool(omitted_files),
+        "text": text,
+        "message": (
+            f"Read {len(scanned_files)}/{len(instruction_files)} project instruction file(s)."
+            if instruction_files
+            else "No project instruction files found."
+        ),
+    }
+
+
+def project_instruction_scope(relative_path: str) -> str:
+    scope = Path(relative_path).parent.as_posix()
+    return "." if scope == "." else scope
 
 
 def read_project_command_hints(workspace: RunWorkspace, max_bytes: int = 8_000, max_files: int = 30) -> str | None:
@@ -237,6 +308,62 @@ def read_project_command_hints(workspace: RunWorkspace, max_bytes: int = 8_000, 
     if len(combined) <= max_bytes:
         return combined
     return f"{combined[:max_bytes]}\n[project command hints truncated]"
+
+
+def read_project_todos(
+    workspace: RunWorkspace,
+    relative_path: str | None = None,
+    max_items: int = 100,
+    max_files: int = 1000,
+) -> dict[str, object]:
+    if max_items < 1:
+        raise ValueError("max_items must be at least 1.")
+    if max_items > 500:
+        raise ValueError("max_items must be at most 500.")
+    if max_files < 1:
+        raise ValueError("max_files must be at least 1.")
+    if max_files > 5000:
+        raise ValueError("max_files must be at most 5000.")
+
+    selected_path = relative_path.strip() if relative_path else None
+    files = list_search_files(workspace, selected_path)
+    scanned_files = files[:max_files]
+    todos: list[dict[str, object]] = []
+    total = 0
+    for relative in scanned_files:
+        path = resolve_inside_run(workspace.root, relative)
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            match = PROJECT_TODO_PATTERN.search(line)
+            if not match:
+                continue
+            total += 1
+            if len(todos) >= max_items:
+                continue
+            todos.append(
+                {
+                    "path": relative,
+                    "line": line_number,
+                    "marker": match.group(1).upper(),
+                    "text": line.strip(),
+                }
+            )
+
+    truncated = len(files) > len(scanned_files) or total > len(todos)
+    return {
+        "ok": True,
+        "todos": todos,
+        "total": total,
+        "truncated": truncated,
+        "total_files": len(files),
+        "scanned_files": len(scanned_files),
+        "path": selected_path or ".",
+        "markers": list(PROJECT_TODO_MARKERS),
+        "message": f"Found {total} project TODO marker(s) in {len(scanned_files)}/{len(files)} scanned file(s).",
+    }
 
 
 def read_project_commands(workspace: RunWorkspace, max_commands: int = 100, max_files: int = 30) -> dict[str, object]:
@@ -596,7 +723,113 @@ def list_files(root: str | Path) -> list[str]:
 
 
 def read_git_status(workspace: RunWorkspace) -> GitCommandResult:
-    return run_readonly_git(workspace.root, ["status", "--short"])
+    return run_readonly_git(workspace.root, ["status", "--short", "--untracked-files=all"])
+
+
+def read_git_conflicts(
+    workspace: RunWorkspace,
+    relative_path: str | None = None,
+    max_markers: int = 200,
+    max_files: int = 5000,
+) -> dict[str, object]:
+    if max_markers < 1:
+        raise ValueError("max_markers must be at least 1.")
+    if max_markers > 1000:
+        raise ValueError("max_markers must be at most 1000.")
+    if max_files < 1:
+        raise ValueError("max_files must be at least 1.")
+    if max_files > 10000:
+        raise ValueError("max_files must be at most 10000.")
+
+    selected_path = relative_path.strip() if relative_path else None
+    status_args = ["status", "--porcelain=v1", "-z", "--untracked-files=all"]
+    if selected_path:
+        resolve_inside_run(workspace.root, selected_path)
+        status_args.extend(["--", selected_path])
+    status_result = run_readonly_git(workspace.root, status_args)
+    if not status_result.ok:
+        return {
+            "ok": False,
+            "path": selected_path or ".",
+            "unmerged": [],
+            "unmerged_total": 0,
+            "markers": [],
+            "markers_total": 0,
+            "scanned_files": 0,
+            "total_files": 0,
+            "truncated": False,
+            "message": status_result.stderr or "git status failed.",
+        }
+
+    unmerged = parse_git_unmerged_status(status_result.stdout)
+    try:
+        files = list_search_files(workspace, selected_path)
+    except ValueError as error:
+        if selected_path and unmerged:
+            files = []
+        else:
+            raise error
+
+    scanned_files = files[:max_files]
+    markers: list[dict[str, object]] = []
+    markers_total = 0
+    for relative in scanned_files:
+        path = resolve_inside_run(workspace.root, relative)
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            marker = next((item for item in GIT_CONFLICT_MARKERS if line.startswith(item)), None)
+            if marker is None:
+                continue
+            markers_total += 1
+            if len(markers) >= max_markers:
+                continue
+            markers.append(
+                {
+                    "path": relative,
+                    "line": line_number,
+                    "marker": marker,
+                    "text": line.strip(),
+                }
+            )
+
+    truncated = len(files) > len(scanned_files) or markers_total > len(markers)
+    return {
+        "ok": True,
+        "path": selected_path or ".",
+        "unmerged": unmerged,
+        "unmerged_total": len(unmerged),
+        "markers": markers,
+        "markers_total": markers_total,
+        "scanned_files": len(scanned_files),
+        "total_files": len(files),
+        "truncated": truncated,
+        "message": (
+            f"Found {len(unmerged)} unmerged file(s) and {markers_total} conflict marker(s) "
+            f"in {len(scanned_files)}/{len(files)} scanned file(s)."
+        ),
+    }
+
+
+def parse_git_unmerged_status(output: str) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    parts = [part for part in output.split("\0") if part]
+    index = 0
+    while index < len(parts):
+        entry = parts[index]
+        index += 1
+        if len(entry) < 4:
+            continue
+        status = entry[:2]
+        path = entry[3:]
+        if status in {"R ", "C "} and index < len(parts):
+            index += 1
+        if status not in GIT_UNMERGED_STATUS_CODES:
+            continue
+        entries.append({"path": path, "status": status})
+    return entries
 
 
 def read_git_info(workspace: RunWorkspace) -> dict[str, object]:
@@ -1608,6 +1841,356 @@ def suggest_project_checks(workspace: RunWorkspace, max_commands: int = 20) -> d
     }
 
 
+def find_related_tests(
+    workspace: RunWorkspace,
+    paths: list[str] | None = None,
+    max_paths: int = 100,
+    max_candidates: int = 200,
+) -> dict[str, object]:
+    if max_paths < 1:
+        raise ValueError("max_paths must be at least 1.")
+    if max_paths > 500:
+        raise ValueError("max_paths must be at most 500.")
+    if max_candidates < 1:
+        raise ValueError("max_candidates must be at least 1.")
+    if max_candidates > 1000:
+        raise ValueError("max_candidates must be at most 1000.")
+
+    files = list_files(workspace.root)
+    test_files = [path for path in files if is_project_test_file(path)]
+    target_paths = normalize_related_test_targets(workspace, paths, max_paths=max_paths)
+    candidates: list[dict[str, object]] = []
+    seen: set[tuple[str, str]] = set()
+    for target in target_paths:
+        for candidate, reason, score in related_test_candidates_for_target(target, test_files):
+            key = (target, candidate)
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append(
+                {
+                    "source_path": target,
+                    "test_path": candidate,
+                    "score": score,
+                    "reason": reason,
+                }
+            )
+
+    candidates.sort(key=related_test_candidate_sort_key)
+    total = len(candidates)
+    return {
+        "ok": True,
+        "target_paths": target_paths,
+        "candidates": candidates[:max_candidates],
+        "total": total,
+        "truncated": total > max_candidates,
+        "test_files_total": len(test_files),
+        "message": f"Found {total} related test candidate(s) for {len(target_paths)} target file(s).",
+    }
+
+
+def suggest_focused_test_commands(
+    workspace: RunWorkspace,
+    paths: list[str] | None = None,
+    max_paths: int = 100,
+    max_candidates: int = 200,
+    max_commands: int = 50,
+) -> dict[str, object]:
+    if max_commands < 1:
+        raise ValueError("max_commands must be at least 1.")
+    if max_commands > 500:
+        raise ValueError("max_commands must be at most 500.")
+
+    related = find_related_tests(
+        workspace,
+        paths=paths,
+        max_paths=max_paths,
+        max_candidates=max_candidates,
+    )
+    files = list_files(workspace.root)
+    pytest_evidence = project_has_pytest_evidence(workspace.root, files)
+    commands: list[dict[str, object]] = []
+    seen_tests: set[str] = set()
+    for item in related["candidates"]:
+        if not isinstance(item, dict):
+            continue
+        test_path = item.get("test_path")
+        if not isinstance(test_path, str) or test_path in seen_tests:
+            continue
+        seen_tests.add(test_path)
+        add_focused_test_commands_for_file(
+            commands,
+            workspace.root,
+            files,
+            test_path,
+            source=str(item.get("source_path") or test_path),
+            candidate_reason=str(item.get("reason") or "Related test candidate."),
+            pytest_evidence=pytest_evidence,
+        )
+
+    total = len(commands)
+    return {
+        "ok": True,
+        "target_paths": related["target_paths"],
+        "commands": commands[:max_commands],
+        "total": total,
+        "truncated": total > max_commands,
+        "related_tests_total": related["total"],
+        "message": f"Suggested {total} focused test command(s) from {int(related['total'])} related test candidate(s).",
+    }
+
+
+def add_focused_test_commands_for_file(
+    commands: list[dict[str, object]],
+    root: Path,
+    files: list[str],
+    test_path: str,
+    source: str,
+    candidate_reason: str,
+    pytest_evidence: bool,
+) -> None:
+    path = Path(test_path)
+    suffix = path.suffix.lower()
+    quoted_test_path = shlex.quote(test_path)
+    if suffix == ".py":
+        if pytest_evidence:
+            add_focused_test_command(
+                commands,
+                command=f"python -m pytest {quoted_test_path}",
+                cwd=".",
+                test_path=test_path,
+                source=source,
+                reason=f"{candidate_reason} Pytest project evidence was found.",
+            )
+        test_dir = path.parent.as_posix()
+        pattern = path.name
+        if test_dir and test_dir != ".":
+            command = f"python -m unittest discover -s {shlex.quote(test_dir)} -p {shlex.quote(pattern)}"
+        else:
+            command = f"python -m unittest {path.with_suffix('').as_posix().replace('/', '.')}"
+        add_focused_test_command(
+            commands,
+            command=command,
+            cwd=".",
+            test_path=test_path,
+            source=source,
+            reason=f"{candidate_reason} Python test file can be run through unittest discovery.",
+        )
+        return
+
+    if suffix in {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}:
+        package_command = focused_npm_test_command(root, files, test_path)
+        if package_command is not None:
+            command, cwd = package_command
+            add_focused_test_command(
+                commands,
+                command=command,
+                cwd=cwd,
+                test_path=test_path,
+                source=source,
+                reason=f"{candidate_reason} package.json defines a test script near this test file.",
+            )
+
+
+def add_focused_test_command(
+    commands: list[dict[str, object]],
+    command: str,
+    cwd: str,
+    test_path: str,
+    source: str,
+    reason: str,
+) -> None:
+    if any(item["command"] == command and item["cwd"] == cwd for item in commands):
+        return
+    missing_tool = missing_command_tool(command)
+    commands.append(
+        {
+            "command": command,
+            "cwd": cwd,
+            "test_path": test_path,
+            "source": source,
+            "reason": reason,
+            "available": missing_tool is None,
+            "missing_tool": missing_tool,
+        }
+    )
+
+
+def focused_npm_test_command(root: Path, files: list[str], test_path: str) -> tuple[str, str] | None:
+    package_path = nearest_package_json(files, test_path)
+    if package_path is None:
+        return ("npm test -- " + shlex.quote(test_path), ".")
+    package_file = root / package_path
+    script_name = preferred_test_script_name(package_file)
+    if script_name is None:
+        return None
+    cwd = package_path.parent.as_posix()
+    if cwd == ".":
+        cwd = "."
+    relative_test = Path(test_path)
+    if cwd != ".":
+        try:
+            relative_test = Path(test_path).relative_to(cwd)
+        except ValueError:
+            relative_test = Path(test_path)
+    test_arg = shlex.quote(relative_test.as_posix())
+    if script_name == "test":
+        return (f"npm test -- {test_arg}", cwd)
+    return (f"npm run {shlex.quote(script_name)} -- {test_arg}", cwd)
+
+
+def nearest_package_json(files: list[str], test_path: str) -> Path | None:
+    file_set = set(files)
+    current = Path(test_path).parent
+    for parent in [current, *current.parents]:
+        package_path = parent / "package.json"
+        package_text = package_path.as_posix()
+        if package_text in file_set:
+            return package_path
+        if parent == Path("."):
+            break
+    return Path("package.json") if "package.json" in file_set else None
+
+
+def preferred_test_script_name(package_json_path: Path) -> str | None:
+    scripts = read_package_json_scripts(package_json_path)
+    if any(name == "test" for name, _script in scripts):
+        return "test"
+    for name, _script in scripts:
+        if name.startswith("test:") or name in {"tests", "unit", "unit-test"}:
+            return name
+    return None
+
+
+def project_has_pytest_evidence(root: Path, files: list[str]) -> bool:
+    evidence_names = {"pytest.ini", ".pytest.ini"}
+    if any(Path(path).name in evidence_names for path in files):
+        return True
+    for relative in files:
+        name = Path(relative).name.lower()
+        if name not in {"pyproject.toml", "setup.cfg", "tox.ini", "requirements.txt", "requirements-dev.txt"}:
+            continue
+        try:
+            content = read_utf8_text_file(root / relative, relative)
+        except ValueError:
+            continue
+        if re.search(r"(^|[^A-Za-z0-9_-])pytest([^A-Za-z0-9_-]|$)", content):
+            return True
+    return False
+
+
+def normalize_related_test_targets(workspace: RunWorkspace, paths: list[str] | None, max_paths: int) -> list[str]:
+    if paths:
+        targets: list[str] = []
+        for path in paths:
+            if not isinstance(path, str) or not path.strip():
+                raise ValueError("paths must contain non-empty project-relative paths.")
+            resolved = resolve_inside_run(workspace.root, path.strip())
+            if should_ignore_path(workspace.root, resolved):
+                continue
+            targets.append(resolved.relative_to(workspace.root).as_posix())
+        return sorted(dict.fromkeys(targets))[:max_paths]
+
+    changes = read_git_changes(workspace)
+    if not changes.get("ok"):
+        return []
+    changed_paths = [
+        str(item["path"])
+        for item in changes.get("files", [])
+        if isinstance(item, dict) and isinstance(item.get("path"), str)
+    ]
+    return sorted(dict.fromkeys(changed_paths))[:max_paths]
+
+
+def is_project_test_file(path: str) -> bool:
+    relative = Path(path)
+    name = relative.name
+    lower_name = name.lower()
+    if relative.suffix.lower() not in TEST_FILE_SUFFIXES:
+        return False
+    if lower_name.startswith("test_") or lower_name.endswith("_test.py"):
+        return True
+    if any(part in {"tests", "test", "__tests__"} for part in relative.parts):
+        return True
+    stem = relative.with_suffix("").name.lower()
+    return stem.endswith(JS_TEST_SUFFIXES)
+
+
+def related_test_candidates_for_target(target: str, test_files: list[str]) -> list[tuple[str, str, int]]:
+    if is_project_test_file(target):
+        return [(target, "Target path is itself a test file.", 100)] if target in test_files else []
+
+    target_path = Path(target)
+    source_stem = source_module_stem(target_path)
+    if not source_stem:
+        return []
+
+    candidates: list[tuple[str, str, int]] = []
+    expected_names = expected_test_names(target_path, source_stem)
+    expected_paths = expected_test_paths(target_path, source_stem)
+    source_parts = set(target_path.with_suffix("").parts)
+    for test_file in test_files:
+        test_path = Path(test_file)
+        test_name = test_path.name
+        test_stem = normalized_test_stem(test_path)
+        if test_file in expected_paths:
+            candidates.append((test_file, "Test path mirrors the source path.", 95))
+        elif test_name in expected_names:
+            candidates.append((test_file, f"Test filename matches {target_path.name}.", 90))
+        elif test_stem == source_stem:
+            candidates.append((test_file, f"Test stem matches source stem {source_stem}.", 80))
+        elif source_stem in test_stem.split("_"):
+            candidates.append((test_file, f"Test stem contains source stem {source_stem}.", 65))
+        elif source_stem and source_stem in test_stem:
+            candidates.append((test_file, f"Test name contains source stem {source_stem}.", 55))
+        elif source_parts and source_parts.intersection(test_path.with_suffix("").parts):
+            candidates.append((test_file, "Test path shares a source path component.", 35))
+    return candidates
+
+
+def source_module_stem(path: Path) -> str:
+    if path.stem == "__init__":
+        return path.parent.name
+    return path.stem
+
+
+def normalized_test_stem(path: Path) -> str:
+    stem = path.with_suffix("").name
+    for suffix in JS_TEST_SUFFIXES:
+        if stem.endswith(suffix):
+            stem = stem[: -len(suffix)]
+    if stem.startswith("test_"):
+        stem = stem[5:]
+    if stem.endswith("_test"):
+        stem = stem[:-5]
+    return stem
+
+
+def expected_test_names(path: Path, source_stem: str) -> set[str]:
+    suffix = path.suffix
+    if suffix == ".py":
+        return {f"test_{source_stem}.py", f"{source_stem}_test.py"}
+    if suffix in {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}:
+        return {f"{source_stem}.test{suffix}", f"{source_stem}.spec{suffix}"}
+    return {f"test_{source_stem}{suffix}", f"{source_stem}_test{suffix}"}
+
+
+def expected_test_paths(path: Path, source_stem: str) -> set[str]:
+    expected: set[str] = set()
+    parent = path.parent
+    for name in expected_test_names(path, source_stem):
+        expected.add((parent / name).as_posix())
+        expected.add((parent / "__tests__" / name).as_posix())
+        expected.add((Path("tests") / name).as_posix())
+        if len(path.parts) > 1:
+            expected.add((Path("tests") / Path(*path.parts[1:]).parent / name).as_posix())
+    return expected
+
+
+def related_test_candidate_sort_key(item: dict[str, object]) -> tuple[str, int, str]:
+    return (str(item["source_path"]), -int(item["score"]), str(item["test_path"]))
+
+
 def is_check_script_name(name: str) -> bool:
     normalized = name.lower()
     exact = {"test", "tests", "build", "lint", "check", "typecheck", "type-check", "compile"}
@@ -2480,6 +3063,15 @@ def read_project_file_result(
     total_bytes = len(content.encode("utf-8"))
     if start_line is not None:
         excerpt = format_line_excerpt(content, start_line, line_count or 200)
+        excerpt_bytes = len(excerpt.encode("utf-8"))
+        if excerpt_bytes > max_bytes:
+            excerpt = f"{truncate_utf8_text_bytes(excerpt, max_bytes)}\n[file truncated]"
+            return {
+                "content": excerpt,
+                "truncated": True,
+                "total_bytes": total_bytes,
+                "max_bytes": max_bytes,
+            }
         return {
             "content": excerpt,
             "truncated": False,
@@ -2498,6 +3090,395 @@ def read_project_file_result(
         "truncated": True,
         "total_bytes": total_bytes,
         "max_bytes": max_bytes,
+    }
+
+
+def read_project_file_tail_result(
+    workspace: RunWorkspace,
+    relative_path: str,
+    line_count: int = 80,
+    max_bytes: int = 20_000,
+) -> dict[str, object]:
+    if line_count < 1:
+        raise ValueError("line_count must be at least 1.")
+    if line_count > 1000:
+        raise ValueError("line_count must be at most 1000.")
+    if max_bytes < 1000:
+        raise ValueError("max_bytes must be at least 1000.")
+    if max_bytes > 200_000:
+        raise ValueError("max_bytes must be at most 200000.")
+    target = resolve_inside_run(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+
+    content = read_utf8_text_file(target, relative_path)
+    lines = content.splitlines()
+    total_lines = len(lines)
+    start_line = max(1, total_lines - line_count + 1) if total_lines else 1
+    excerpt = format_line_excerpt(content, start_line, line_count) if total_lines else ""
+    truncated_by_lines = total_lines > line_count
+    excerpt_bytes = len(excerpt.encode("utf-8"))
+    truncated_by_bytes = excerpt_bytes > max_bytes
+    if truncated_by_bytes:
+        excerpt = f"{truncate_utf8_text_bytes(excerpt, max_bytes)}\n[file tail truncated]"
+
+    returned_lines = 0 if not excerpt else len(excerpt.splitlines())
+    return {
+        "content": excerpt,
+        "start_line": start_line,
+        "line_count": returned_lines,
+        "requested_line_count": line_count,
+        "total_lines": total_lines,
+        "truncated": truncated_by_lines or truncated_by_bytes,
+        "max_bytes": max_bytes,
+    }
+
+
+def read_project_file_context_result(
+    workspace: RunWorkspace,
+    relative_path: str,
+    line: int,
+    context_lines: int = 20,
+    max_bytes: int = 20_000,
+) -> dict[str, object]:
+    if line < 1:
+        raise ValueError("line must be at least 1.")
+    if context_lines < 0:
+        raise ValueError("context_lines must be at least 0.")
+    if context_lines > 500:
+        raise ValueError("context_lines must be at most 500.")
+    if max_bytes < 1000:
+        raise ValueError("max_bytes must be at least 1000.")
+    if max_bytes > 200_000:
+        raise ValueError("max_bytes must be at most 200000.")
+    target = resolve_inside_run(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+
+    content = read_utf8_text_file(target, relative_path)
+    lines = content.splitlines()
+    total_lines = len(lines)
+    if total_lines == 0:
+        excerpt = ""
+        start_line = 1
+        returned_lines = 0
+        end_line = 0
+    else:
+        start_line = max(1, line - context_lines)
+        end_line = min(total_lines, line + context_lines)
+        requested_count = min(1000, max(0, end_line - start_line + 1))
+        end_line = start_line + requested_count - 1 if requested_count else start_line - 1
+        excerpt = format_line_excerpt(content, start_line, requested_count) if requested_count else ""
+        returned_lines = 0 if not excerpt else len(excerpt.splitlines())
+
+    truncated_by_context = total_lines > returned_lines
+    truncated_by_bytes = len(excerpt.encode("utf-8")) > max_bytes
+    if truncated_by_bytes:
+        excerpt = f"{truncate_utf8_text_bytes(excerpt, max_bytes)}\n[file context truncated]"
+        returned_lines = len(excerpt.splitlines())
+
+    return {
+        "content": excerpt,
+        "line": line,
+        "context_lines": context_lines,
+        "start_line": start_line,
+        "end_line": end_line,
+        "line_count": returned_lines,
+        "total_lines": total_lines,
+        "target_line_exists": 1 <= line <= total_lines,
+        "truncated": truncated_by_context or truncated_by_bytes,
+        "max_bytes": max_bytes,
+    }
+
+
+PYTHON_TRACEBACK_LOCATION_RE = re.compile(r'File "([^"\n]+)", line ([1-9][0-9]*)')
+PYTHON_EXCEPTION_SUMMARY_RE = re.compile(
+    r"^(?:E\s+)?((?:[A-Za-z_]\w*\.)*(?:[A-Za-z_]\w*(?:Error|Exception|Warning|Failure|Fatal|Interrupt|Exit)"
+    r"|AssertionError|KeyboardInterrupt|SystemExit|BaseException))(?::|\b)"
+)
+GENERIC_FILE_LINE_RE = re.compile(
+    r"(?P<path>(?:[A-Za-z]:)?(?:\.{1,2}/|/)?[A-Za-z0-9_@%+=.,~/-]+)"
+    r":(?P<line>[1-9][0-9]*)(?::(?P<column>[1-9][0-9]*))?"
+)
+
+
+def read_output_contexts_result(
+    workspace: RunWorkspace,
+    text: str,
+    context_lines: int = 5,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
+) -> dict[str, object]:
+    if not text or not text.strip():
+        raise ValueError("text must not be empty.")
+    if len(text) > 200_000:
+        raise ValueError("text must be at most 200000 characters.")
+    if context_lines < 0:
+        raise ValueError("context_lines must be at least 0.")
+    if context_lines > 500:
+        raise ValueError("context_lines must be at most 500.")
+    if max_contexts < 1:
+        raise ValueError("max_contexts must be at least 1.")
+    if max_contexts > 100:
+        raise ValueError("max_contexts must be at most 100.")
+    if max_bytes_per_context < 1000:
+        raise ValueError("max_bytes_per_context must be at least 1000.")
+    if max_bytes_per_context > 200_000:
+        raise ValueError("max_bytes_per_context must be at most 200000.")
+
+    references = extract_output_line_references(workspace, text)
+    shown_references = references[:max_contexts]
+    contexts: list[dict[str, object]] = []
+    for reference in shown_references:
+        normalized_path = str(reference["path"])
+        line = int(reference["line"])
+        try:
+            context = read_project_file_context_result(
+                workspace,
+                normalized_path,
+                line=line,
+                context_lines=context_lines,
+                max_bytes=max_bytes_per_context,
+            )
+            contexts.append(
+                {
+                    "path": normalized_path,
+                    "line": line,
+                    "column": reference["column"],
+                    "raw": reference["raw"],
+                    "ok": True,
+                    "content": context["content"],
+                    "message": f"Read {normalized_path} around line {line}.",
+                    "context_lines": context["context_lines"],
+                    "start_line": context["start_line"],
+                    "end_line": context["end_line"],
+                    "line_count": context["line_count"],
+                    "total_lines": context["total_lines"],
+                    "target_line_exists": context["target_line_exists"],
+                    "truncated": context["truncated"],
+                    "max_bytes": context["max_bytes"],
+                }
+            )
+        except ValueError as error:
+            contexts.append(
+                {
+                    "path": normalized_path,
+                    "line": line,
+                    "column": reference["column"],
+                    "raw": reference["raw"],
+                    "ok": False,
+                    "content": "",
+                    "message": str(error),
+                    "context_lines": context_lines,
+                    "start_line": 1,
+                    "end_line": 0,
+                    "line_count": 0,
+                    "total_lines": None,
+                    "target_line_exists": False,
+                    "truncated": False,
+                    "max_bytes": max_bytes_per_context,
+                }
+            )
+
+    return {
+        "contexts": contexts,
+        "total_refs": len(references),
+        "truncated": len(references) > len(shown_references),
+        "message": f"Read {sum(1 for item in contexts if item['ok'])}/{len(contexts)} output context(s) from {len(references)} reference(s).",
+    }
+
+
+def read_output_diagnostics_result(
+    workspace: RunWorkspace,
+    text: str,
+    context_lines: int = 2,
+    max_diagnostics: int = 50,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
+) -> dict[str, object]:
+    if not text or not text.strip():
+        raise ValueError("text must not be empty.")
+    if len(text) > 200_000:
+        raise ValueError("text must be at most 200000 characters.")
+    if context_lines < 0:
+        raise ValueError("context_lines must be at least 0.")
+    if context_lines > 500:
+        raise ValueError("context_lines must be at most 500.")
+    if max_diagnostics < 1:
+        raise ValueError("max_diagnostics must be at least 1.")
+    if max_diagnostics > 200:
+        raise ValueError("max_diagnostics must be at most 200.")
+
+    contexts_result = read_output_contexts_result(
+        workspace,
+        text,
+        context_lines=context_lines,
+        max_contexts=max_contexts,
+        max_bytes_per_context=max_bytes_per_context,
+    )
+
+    diagnostics: list[dict[str, object]] = []
+    for output_line, raw_line in enumerate(text.splitlines(), start=1):
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        references = extract_output_line_references(workspace, raw_line)
+        severity = classify_output_diagnostic_line(stripped)
+        if severity is None and not references:
+            continue
+        reference = references[0] if references else None
+        diagnostics.append(
+            {
+                "severity": severity or "info",
+                "output_line": output_line,
+                "text": truncate_utf8_text_bytes(stripped, 1_000),
+                "path": str(reference["path"]) if reference else None,
+                "line": int(reference["line"]) if reference else None,
+                "column": int(reference["column"]) if reference and reference["column"] is not None else None,
+                "raw": str(reference["raw"]) if reference else None,
+            }
+        )
+
+    shown_diagnostics = diagnostics[:max_diagnostics]
+    ok_contexts = sum(1 for item in contexts_result["contexts"] if isinstance(item, dict) and item.get("ok"))
+    return {
+        "diagnostics": shown_diagnostics,
+        "contexts": contexts_result["contexts"],
+        "total_diagnostics": len(diagnostics),
+        "total_refs": contexts_result["total_refs"],
+        "diagnostics_truncated": len(diagnostics) > len(shown_diagnostics),
+        "contexts_truncated": contexts_result["truncated"],
+        "message": (
+            f"Found {len(diagnostics)} diagnostic line(s) and {contexts_result['total_refs']} file reference(s); "
+            f"read {ok_contexts}/{len(contexts_result['contexts'])} referenced context(s)."
+        ),
+    }
+
+
+def classify_output_diagnostic_line(line: str) -> str | None:
+    lowered = line.lower()
+    if "warning" in lowered or re.search(r"(^|[^a-z])warn(?:ing)?[:\s]", lowered):
+        return "warning"
+    python_exception = PYTHON_EXCEPTION_SUMMARY_RE.match(line)
+    if python_exception:
+        return "warning" if python_exception.group(1).endswith("Warning") else "error"
+    if "traceback" in lowered or "exception" in lowered or "fatal" in lowered or re.search(r"(^|[^a-z])error[:\s]", lowered):
+        return "error"
+    if re.search(r"(^|[^a-z])(failed|failure|failures|failing)[:\s]", lowered):
+        return "failure"
+    return None
+
+
+def extract_output_line_references(workspace: RunWorkspace, text: str) -> list[dict[str, object]]:
+    references: list[dict[str, object]] = []
+    seen: set[tuple[str, int, int | None]] = set()
+
+    for match in PYTHON_TRACEBACK_LOCATION_RE.finditer(text):
+        add_output_line_reference(
+            workspace,
+            references,
+            seen,
+            raw_path=match.group(1),
+            line_text=match.group(2),
+            column_text=None,
+            raw=match.group(0),
+        )
+
+    for match in GENERIC_FILE_LINE_RE.finditer(text):
+        if is_url_reference_match(text, match.start()):
+            continue
+        raw_path = match.group("path")
+        if not looks_like_project_source_reference(raw_path):
+            continue
+        add_output_line_reference(
+            workspace,
+            references,
+            seen,
+            raw_path=raw_path,
+            line_text=match.group("line"),
+            column_text=match.group("column"),
+            raw=match.group(0),
+        )
+    return references
+
+
+def is_url_reference_match(text: str, start: int) -> bool:
+    return "://" in text[max(0, start - 12) : start]
+
+
+def add_output_line_reference(
+    workspace: RunWorkspace,
+    references: list[dict[str, object]],
+    seen: set[tuple[str, int, int | None]],
+    raw_path: str,
+    line_text: str,
+    column_text: str | None,
+    raw: str,
+) -> None:
+    try:
+        line = int(line_text)
+        column = int(column_text) if column_text else None
+    except ValueError:
+        return
+    normalized_path = normalize_output_reference_path(workspace, raw_path)
+    if normalized_path is None:
+        return
+    key = (normalized_path, line, column)
+    if key in seen:
+        return
+    seen.add(key)
+    references.append({"path": normalized_path, "line": line, "column": column, "raw": raw})
+
+
+def normalize_output_reference_path(workspace: RunWorkspace, raw_path: str) -> str | None:
+    cleaned = raw_path.strip().strip("'\"`()[]{}<>,")
+    if not cleaned or "://" in cleaned or cleaned.startswith(("http://", "https://")):
+        return None
+    path = Path(cleaned)
+    if path.is_absolute():
+        try:
+            return path.resolve().relative_to(workspace.root.resolve()).as_posix()
+        except ValueError:
+            return None
+    normalized = path.as_posix()
+    if normalized.startswith("./"):
+        normalized = normalized[2:]
+    if not normalized or normalized.startswith("../") or normalized == "..":
+        return None
+    return normalized
+
+
+def looks_like_project_source_reference(raw_path: str) -> bool:
+    if "://" in raw_path or raw_path.startswith(("http://", "https://")):
+        return False
+    path = raw_path.replace("\\", "/")
+    if path in {".", ".."}:
+        return False
+    if "/" in path or path.startswith("."):
+        return True
+    suffix = Path(path).suffix.lower()
+    return suffix in {
+        ".py",
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".go",
+        ".rs",
+        ".java",
+        ".kt",
+        ".c",
+        ".cc",
+        ".cpp",
+        ".h",
+        ".hpp",
+        ".json",
+        ".toml",
+        ".yaml",
+        ".yml",
+        ".md",
+        ".css",
+        ".html",
     }
 
 
@@ -2548,13 +3529,152 @@ def read_project_file_info(workspace: RunWorkspace, relative_path: str) -> dict[
     }
 
 
+def read_project_image_info(workspace: RunWorkspace, relative_path: str) -> dict[str, object]:
+    target = resolve_inside_run(workspace.root, relative_path)
+    if not target.exists():
+        return {
+            "path": relative_path,
+            "ok": False,
+            "exists": False,
+            "is_file": False,
+            "size_bytes": None,
+            "format": None,
+            "mime_type": None,
+            "width": None,
+            "height": None,
+            "message": f"Path does not exist: {relative_path}",
+        }
+    if not target.is_file():
+        return {
+            "path": relative_path,
+            "ok": False,
+            "exists": True,
+            "is_file": False,
+            "size_bytes": None,
+            "format": None,
+            "mime_type": None,
+            "width": None,
+            "height": None,
+            "message": f"Path is not a file: {relative_path}",
+        }
+
+    size_bytes = target.stat().st_size
+    with target.open("rb") as handle:
+        data = handle.read(1_048_576)
+
+    image_format, mime_type, width, height = parse_image_header(data)
+    ok = image_format is not None and width is not None and height is not None
+    if ok:
+        message = f"Inspected {image_format} image: {relative_path}"
+    elif image_format is not None:
+        message = f"Could not determine {image_format} dimensions: {relative_path}"
+    else:
+        message = f"Unsupported or unrecognized image format: {relative_path}"
+
+    return {
+        "path": relative_path,
+        "ok": ok,
+        "exists": True,
+        "is_file": True,
+        "size_bytes": size_bytes,
+        "format": image_format,
+        "mime_type": mime_type,
+        "width": width,
+        "height": height,
+        "message": message,
+    }
+
+
+def parse_image_header(data: bytes) -> tuple[str | None, str | None, int | None, int | None]:
+    if len(data) >= 24 and data.startswith(b"\x89PNG\r\n\x1a\n") and data[12:16] == b"IHDR":
+        width = int.from_bytes(data[16:20], "big")
+        height = int.from_bytes(data[20:24], "big")
+        return "png", "image/png", width, height
+
+    if len(data) >= 10 and data[:6] in {b"GIF87a", b"GIF89a"}:
+        width = int.from_bytes(data[6:8], "little")
+        height = int.from_bytes(data[8:10], "little")
+        return "gif", "image/gif", width, height
+
+    if len(data) >= 4 and data.startswith(b"\xff\xd8"):
+        width, height = parse_jpeg_dimensions(data)
+        return "jpeg", "image/jpeg", width, height
+
+    if len(data) >= 30 and data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        width, height = parse_webp_dimensions(data)
+        return "webp", "image/webp", width, height
+
+    return None, None, None, None
+
+
+def parse_jpeg_dimensions(data: bytes) -> tuple[int | None, int | None]:
+    index = 2
+    sof_markers = {
+        0xC0,
+        0xC1,
+        0xC2,
+        0xC3,
+        0xC5,
+        0xC6,
+        0xC7,
+        0xC9,
+        0xCA,
+        0xCB,
+        0xCD,
+        0xCE,
+        0xCF,
+    }
+    while index + 4 <= len(data):
+        if data[index] != 0xFF:
+            index += 1
+            continue
+        while index < len(data) and data[index] == 0xFF:
+            index += 1
+        if index >= len(data):
+            break
+        marker = data[index]
+        index += 1
+        if marker in {0xD8, 0xD9} or 0xD0 <= marker <= 0xD7:
+            continue
+        if index + 2 > len(data):
+            break
+        segment_length = int.from_bytes(data[index : index + 2], "big")
+        if segment_length < 2 or index + segment_length > len(data):
+            break
+        if marker in sof_markers and segment_length >= 7:
+            height = int.from_bytes(data[index + 3 : index + 5], "big")
+            width = int.from_bytes(data[index + 5 : index + 7], "big")
+            return width, height
+        index += segment_length
+    return None, None
+
+
+def parse_webp_dimensions(data: bytes) -> tuple[int | None, int | None]:
+    chunk = data[12:16]
+    if chunk == b"VP8X" and len(data) >= 30:
+        width = int.from_bytes(data[24:27], "little") + 1
+        height = int.from_bytes(data[27:30], "little") + 1
+        return width, height
+    if chunk == b"VP8 " and len(data) >= 30 and data[23:26] == b"\x9d\x01\x2a":
+        width = int.from_bytes(data[26:28], "little") & 0x3FFF
+        height = int.from_bytes(data[28:30], "little") & 0x3FFF
+        return width, height
+    if chunk == b"VP8L" and len(data) >= 25 and data[20] == 0x2F:
+        bits = int.from_bytes(data[21:25], "little")
+        width = (bits & 0x3FFF) + 1
+        height = ((bits >> 14) & 0x3FFF) + 1
+        return width, height
+    return None, None
+
+
 def detect_binary_file(path: Path, sample_bytes: int = 4096) -> bool:
     with path.open("rb") as handle:
         sample = handle.read(sample_bytes)
     if b"\0" in sample:
         return True
     try:
-        sample.decode("utf-8")
+        decoder = codecs.getincrementaldecoder("utf-8")()
+        decoder.decode(sample, final=False)
     except UnicodeDecodeError:
         return True
     return False
@@ -2846,11 +3966,173 @@ def find_code_definitions(
     return definitions, total, errors
 
 
+def preview_code_rename(
+    workspace: RunWorkspace,
+    symbol: str,
+    new_name: str,
+    relative_path: str | None = None,
+    max_files: int = 100,
+    max_replacements: int = 500,
+) -> dict[str, object]:
+    symbol = symbol.strip()
+    new_name = new_name.strip()
+    if not symbol:
+        raise ValueError("Code rename symbol must not be empty.")
+    if not new_name:
+        raise ValueError("Code rename new_name must not be empty.")
+    if "\n" in symbol or "\r" in symbol or "\n" in new_name or "\r" in new_name:
+        raise ValueError("Code rename symbol and new_name must be single-line strings.")
+    if symbol == new_name:
+        raise ValueError("Code rename new_name must be different from symbol.")
+    if max_files < 1:
+        raise ValueError("max_files must be at least 1.")
+    if max_files > 500:
+        raise ValueError("max_files must be at most 500.")
+    if max_replacements < 1:
+        raise ValueError("max_replacements must be at least 1.")
+    if max_replacements > 2000:
+        raise ValueError("max_replacements must be at most 2000.")
+
+    files = [
+        path
+        for path in list_search_files(workspace, relative_path)
+        if code_language_for_path(Path(path)) not in {"python", "text"}
+    ]
+    pattern = build_code_reference_pattern(symbol)
+    preview_files: list[dict[str, object]] = []
+    total_replacements = 0
+    errors: list[str] = []
+    remaining = max_replacements
+    for relative in files[:max_files]:
+        target = resolve_inside_run(workspace.root, relative)
+        language = code_language_for_path(Path(relative))
+        try:
+            content = read_utf8_text_file(target, relative)
+        except ValueError as error:
+            errors.append(str(error))
+            continue
+
+        replacements = collect_code_rename_replacements(content, pattern, symbol, new_name, relative, language)
+        if not replacements:
+            continue
+        total_replacements += len(replacements)
+        shown_replacements = replacements[:remaining]
+        remaining = max(0, remaining - len(shown_replacements))
+        if not shown_replacements:
+            continue
+        updated = apply_code_rename_replacements(content, shown_replacements)
+        preview_files.append(
+            {
+                "path": relative,
+                "language": language,
+                "replacements": shown_replacements,
+                "diff": build_simple_diff(relative, content, updated),
+                "truncated": len(shown_replacements) < len(replacements),
+            }
+        )
+
+    return {
+        "ok": True,
+        "symbol": symbol,
+        "new_name": new_name,
+        "path": relative_path,
+        "files": preview_files,
+        "total_replacements": total_replacements,
+        "total_files": len(files),
+        "truncated": total_replacements > max_replacements,
+        "errors": errors,
+        "message": f"Found {total_replacements} code rename replacement(s) across {len(files)} file(s).",
+    }
+
+
+def apply_code_rename(
+    workspace: RunWorkspace,
+    symbol: str,
+    new_name: str,
+    relative_path: str | None = None,
+    max_files: int = 100,
+    max_replacements: int = 2000,
+) -> dict[str, object]:
+    preview = preview_code_rename(
+        workspace,
+        symbol,
+        new_name,
+        relative_path=relative_path,
+        max_files=max_files,
+        max_replacements=max_replacements,
+    )
+    if preview["errors"]:
+        raise ValueError(f"Code rename skipped {len(preview['errors'])} file(s); fix read errors first.")
+    if int(preview["total_files"]) > max_files:
+        raise ValueError(f"Code rename scope has {preview['total_files']} file(s); max_files is {max_files}.")
+    if bool(preview["truncated"]):
+        raise ValueError(f"Code rename has more than {max_replacements} replacement(s).")
+    if int(preview["total_replacements"]) == 0:
+        raise ValueError(f"Code rename found no replacements for {symbol}.")
+
+    prepared: list[tuple[Path, str, str, str]] = []
+    for file in list(preview["files"]):
+        relative = str(file["path"])
+        target = resolve_inside_run(workspace.root, relative)
+        before = read_utf8_text_file(target, relative)
+        after = apply_code_rename_replacements(before, list(file["replacements"]))
+        prepared.append((target, relative, before, after))
+
+    for target, _, _, after in prepared:
+        target.write_text(after, encoding="utf-8")
+
+    return {
+        **preview,
+        "diff": "".join(build_simple_diff(relative, before, after) for _, relative, before, after in prepared),
+    }
+
+
 def build_code_reference_pattern(symbol: str) -> re.Pattern[str]:
     escaped = re.escape(symbol)
     if re.match(r"^[A-Za-z_$][A-Za-z0-9_$]*$", symbol):
         return re.compile(rf"(?<![A-Za-z0-9_$]){escaped}(?![A-Za-z0-9_$])")
     return re.compile(escaped)
+
+
+def collect_code_rename_replacements(
+    content: str,
+    pattern: re.Pattern[str],
+    symbol: str,
+    new_name: str,
+    relative_path: str,
+    language: str,
+) -> list[dict[str, object]]:
+    replacements: list[dict[str, object]] = []
+    for line_number, line in enumerate(content.splitlines(keepends=True), start=1):
+        for match in pattern.finditer(line):
+            replacements.append(
+                {
+                    "path": relative_path,
+                    "line": line_number,
+                    "column": match.start(),
+                    "end_column": match.end(),
+                    "language": language,
+                    "old": symbol,
+                    "new": new_name,
+                    "context": line.strip(),
+                }
+            )
+    return replacements
+
+
+def apply_code_rename_replacements(content: str, replacements: list[dict[str, object]]) -> str:
+    lines = content.splitlines(keepends=True)
+    by_line: dict[int, list[dict[str, object]]] = {}
+    for replacement in replacements:
+        by_line.setdefault(int(replacement["line"]), []).append(replacement)
+    for line_number, line_replacements in by_line.items():
+        line = lines[line_number - 1]
+        for replacement in sorted(line_replacements, key=lambda item: int(item["column"]), reverse=True):
+            column = int(replacement["column"])
+            end_column = int(replacement["end_column"])
+            line = f"{line[:column]}{replacement['new']}{line[end_column:]}"
+        lines[line_number - 1] = line
+    return "".join(lines)
 
 
 def collect_code_imports(content: str, language: str, max_imports: int = 500) -> list[dict[str, object]]:
@@ -5431,6 +6713,85 @@ def search_project_result(
     }
 
 
+def search_project_contexts_result(
+    workspace: RunWorkspace,
+    query: str,
+    max_matches: int = 20,
+    relative_path: str | None = None,
+    regex: bool = False,
+    case_sensitive: bool = True,
+    context_lines: int = 3,
+    max_bytes_per_context: int = 20_000,
+) -> dict[str, object]:
+    if not query.strip():
+        raise ValueError("Search query must not be empty.")
+    if max_matches < 1:
+        raise ValueError("max_matches must be at least 1.")
+    if max_matches > 100:
+        raise ValueError("max_matches must be at most 100.")
+    if context_lines < 0:
+        raise ValueError("context_lines must be at least 0.")
+    if context_lines > 50:
+        raise ValueError("context_lines must be at most 50.")
+    if max_bytes_per_context < 1000:
+        raise ValueError("max_bytes_per_context must be at least 1000.")
+    if max_bytes_per_context > 200_000:
+        raise ValueError("max_bytes_per_context must be at most 200000.")
+
+    pattern = None
+    needle = query if case_sensitive else query.lower()
+    if regex:
+        flags = 0 if case_sensitive else re.IGNORECASE
+        try:
+            pattern = re.compile(query, flags)
+        except re.error as error:
+            raise ValueError(f"Invalid regex query: {error}") from error
+
+    contexts: list[dict[str, object]] = []
+    total = 0
+    for relative in list_search_files(workspace, relative_path):
+        path = resolve_inside_run(workspace.root, relative)
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            haystack = line if case_sensitive else line.lower()
+            found = bool(pattern.search(line)) if pattern else needle in haystack
+            if not found:
+                continue
+            total += 1
+            if len(contexts) >= max_matches:
+                continue
+            context = read_project_file_context_result(
+                workspace,
+                relative,
+                line=line_number,
+                context_lines=context_lines,
+                max_bytes=max_bytes_per_context,
+            )
+            contexts.append(
+                {
+                    "path": relative,
+                    "line": line_number,
+                    "matched_line": line,
+                    "content": context["content"],
+                    "context_lines": context["context_lines"],
+                    "start_line": context["start_line"],
+                    "end_line": context["end_line"],
+                    "line_count": context["line_count"],
+                    "total_lines": context["total_lines"],
+                    "truncated": context["truncated"],
+                    "max_bytes": context["max_bytes"],
+                }
+            )
+    return {
+        "contexts": contexts,
+        "total": total,
+        "truncated": total > len(contexts),
+    }
+
+
 def format_search_context(relative_path: str, lines: list[str], line_number: int, context_lines: int) -> str:
     start = max(1, line_number - context_lines)
     end = min(len(lines), line_number + context_lines)
@@ -5685,8 +7046,21 @@ def build_repo_map(
 def should_ignore_path(root: Path, path: Path) -> bool:
     relative_path = path.resolve().relative_to(root)
     relative_parts = relative_path.parts
-    hard_ignored = {".git", ".vibeagent", ".venv", "__pycache__", "node_modules", "dist", "build"}
-    if any(part in hard_ignored for part in relative_parts):
+    hard_ignored = {
+        ".agents",
+        ".codex",
+        ".git",
+        ".pytest_cache",
+        ".venv",
+        ".vibeagent",
+        "__pycache__",
+        "build",
+        "dist",
+        "node_modules",
+    }
+    if any(part in hard_ignored or part.endswith(".egg-info") for part in relative_parts):
+        return True
+    if is_sensitive_project_path(relative_path, path.is_dir()):
         return True
     return path_matches_gitignore(root, relative_path, path.is_dir())
 
@@ -5762,10 +7136,64 @@ def path_has_directory(relative_path: Path, directory: str, is_dir: bool) -> boo
 
 def is_protected_project_path(root: Path, path: Path) -> bool:
     try:
-        parts = path.relative_to(root).parts
+        relative_path = path.relative_to(root)
     except ValueError:
         return True
+    parts = relative_path.parts
+    if is_sensitive_project_path(relative_path, path.is_dir()):
+        return True
     return bool(parts and parts[0] in {".git", ".vibeagent"})
+
+
+def is_sensitive_project_path(relative_path: Path, is_dir: bool = False) -> bool:
+    if is_dir:
+        return False
+    parts = relative_path.parts
+    if not parts:
+        return False
+    name = parts[-1]
+    lower_name = name.lower()
+    lower_path = relative_path.as_posix().lower()
+    sensitive_names = {
+        ".env",
+        ".envrc",
+        ".netrc",
+        ".npmrc",
+        ".pypirc",
+        ".yarnrc",
+        "id_dsa",
+        "id_ecdsa",
+        "id_ed25519",
+        "id_rsa",
+        "known_hosts",
+    }
+    sensitive_suffixes = (
+        ".env",
+        ".env.local",
+        ".env.development",
+        ".env.development.local",
+        ".env.localhost",
+        ".env.production",
+        ".env.production.local",
+        ".env.test",
+        ".env.test.local",
+        ".key",
+        ".pem",
+        ".p12",
+        ".pfx",
+        ".crt",
+        ".cer",
+        ".asc",
+        ".gpg",
+        ".kube/config",
+    )
+    if lower_name in sensitive_names:
+        return True
+    if lower_name.endswith(sensitive_suffixes):
+        return True
+    if lower_path.endswith("/.kube/config"):
+        return True
+    return False
 
 
 def build_simple_diff(path: str, before: str, after: str) -> str:

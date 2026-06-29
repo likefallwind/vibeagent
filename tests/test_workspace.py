@@ -22,6 +22,8 @@ from vibeagent.workspace import (
     delete_project_file,
     edit_project_file,
     inspect_python_call_graph,
+    find_related_tests,
+    suggest_focused_test_commands,
     find_python_calls,
     find_python_definitions,
     find_python_references,
@@ -31,6 +33,7 @@ from vibeagent.workspace import (
     find_code_references,
     inspect_python_dependencies,
     insert_project_file_lines,
+    list_files,
     list_project_files,
     list_project_tree,
     move_project_directory,
@@ -68,11 +71,17 @@ from vibeagent.workspace import (
     read_git_show,
     read_git_status,
     read_project_file_info,
+    read_project_instruction_sources,
     read_project_instructions,
     read_project_file,
+    read_project_file_context_result,
     read_project_file_result,
+    read_project_file_tail_result,
+    read_output_contexts_result,
     read_project_commands,
     read_project_manifests,
+    read_project_todos,
+    read_workspace_snapshot,
     read_code_outline,
     read_python_symbol_outline,
     preview_set_project_file_executable,
@@ -462,10 +471,17 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(read_project_file(workspace, "app.py", start_line=2, line_count=1), "2: print(name)")
             preview = read_project_file_result(workspace, "app.py", max_bytes=10)
             self.assertEqual(search_project(workspace, "print"), ["app.py:2: print(name)"])
+            write_run_file(workspace, "long.log", "short\n" + ("x" * 1200) + "\n")
+            write_run_file(workspace, "utf8-boundary.txt", ("a" * 4094) + "你\n")
             Path(base, "asset.bin").write_bytes(b"\x00\x01")
 
             with self.assertRaisesRegex(ValueError, "binary or non-UTF-8"):
                 read_project_file(workspace, "asset.bin")
+            self.assertIn("你", read_project_file(workspace, "utf8-boundary.txt"))
+
+            context = read_project_file_context_result(workspace, "app.py", line=2, context_lines=1)
+            tail = read_project_file_tail_result(workspace, "app.py", line_count=1)
+            clipped_tail = read_project_file_tail_result(workspace, "long.log", line_count=2, max_bytes=1000)
 
             preview_target, preview_diff = preview_edit_project_file(workspace, "app.py", "old", "new")
             preview_path = preview_target.relative_to(workspace.root).as_posix()
@@ -482,6 +498,51 @@ class WorkspaceTests(unittest.TestCase):
         self.assertTrue(preview["truncated"])
         self.assertEqual(preview["max_bytes"], 10)
         self.assertIn("[file truncated]", preview["content"])
+        self.assertEqual(context["content"], "1: name = 'old'\n2: print(name)")
+        self.assertEqual(context["start_line"], 1)
+        self.assertEqual(context["end_line"], 2)
+        self.assertEqual(context["line_count"], 2)
+        self.assertEqual(context["total_lines"], 2)
+        self.assertTrue(context["target_line_exists"])
+        self.assertEqual(tail["content"], "2: print(name)")
+        self.assertEqual(tail["start_line"], 2)
+        self.assertEqual(tail["line_count"], 1)
+        self.assertEqual(tail["total_lines"], 2)
+        self.assertTrue(tail["truncated"])
+        self.assertIn("[file tail truncated]", clipped_tail["content"])
+        self.assertTrue(clipped_tail["truncated"])
+
+    def test_read_output_contexts_extracts_project_references(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            workspace = create_run_workspace(base, "test-output-contexts")
+            write_run_file(workspace, "src/app.py", "one\nTwo\nthree\nfour\n")
+            write_run_file(workspace, "tests/test_app.py", "alpha\nbeta\ngamma\n")
+            text = "\n".join(
+                [
+                    f'  File "{workspace.root / "src" / "app.py"}", line 3, in main',
+                    "tests/test_app.py:2:5: assertion failed",
+                    "https://example.test/nope.py:44",
+                    "../outside.py:1",
+                    "src/app.py:3",
+                ]
+            )
+
+            result = read_output_contexts_result(workspace, text, context_lines=1, max_contexts=10, max_bytes_per_context=1000)
+
+        self.assertEqual(result["total_refs"], 2)
+        self.assertFalse(result["truncated"])
+        contexts = result["contexts"]
+        self.assertEqual(len(contexts), 2)
+        self.assertEqual(contexts[0]["path"], "src/app.py")
+        self.assertEqual(contexts[0]["line"], 3)
+        self.assertIsNone(contexts[0]["column"])
+        self.assertTrue(contexts[0]["ok"])
+        self.assertIn("2: Two", contexts[0]["content"])
+        self.assertIn("3: three", contexts[0]["content"])
+        self.assertEqual(contexts[1]["path"], "tests/test_app.py")
+        self.assertEqual(contexts[1]["line"], 2)
+        self.assertEqual(contexts[1]["column"], 5)
+        self.assertTrue(contexts[1]["ok"])
 
     def test_multi_edit_project_file_applies_replacements_atomically(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
@@ -1210,25 +1271,55 @@ class WorkspaceTests(unittest.TestCase):
         self.assertFalse(scoped_errors)
         self.assertEqual([item["path"] for item in scoped], ["tests/test_app.py", "tests/test_app.py"])
 
-    def test_read_project_instructions_reads_scoped_agents_md_with_bounds(self) -> None:
+    def test_read_project_instructions_reads_scoped_instruction_files_with_bounds(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
             workspace = create_run_workspace(base, "test-run")
             self.assertIsNone(read_project_instructions(workspace))
 
             write_run_file(workspace, "AGENTS.md", "Use Python.\n")
+            write_run_file(workspace, "CLAUDE.md", "Prefer concise answers.\n")
             write_run_file(workspace, "pkg/AGENTS.md", "Use unittest in this package.\n")
+            write_run_file(workspace, "pkg/CLAUDE.md", "Prefer focused tests in this package.\n")
             write_run_file(workspace, "empty/AGENTS.md", "\n")
+            write_run_file(workspace, "empty/CLAUDE.md", "\n")
             short = read_project_instructions(workspace)
             bounded = read_project_instructions(workspace, max_bytes=40)
 
         self.assertIn("File: AGENTS.md", short or "")
+        self.assertIn("File: CLAUDE.md", short or "")
         self.assertIn("Scope: .", short or "")
         self.assertIn("Use Python.", short or "")
+        self.assertIn("Prefer concise answers.", short or "")
         self.assertIn("File: pkg/AGENTS.md", short or "")
+        self.assertIn("File: pkg/CLAUDE.md", short or "")
         self.assertIn("Scope: pkg", short or "")
         self.assertIn("Use unittest in this package.", short or "")
+        self.assertIn("Prefer focused tests in this package.", short or "")
         self.assertNotIn("empty/AGENTS.md", short or "")
-        self.assertTrue((bounded or "").endswith("[AGENTS.md instructions truncated]"))
+        self.assertNotIn("empty/CLAUDE.md", short or "")
+        self.assertTrue((bounded or "").endswith("[project instructions truncated]"))
+
+    def test_read_project_instruction_sources_reports_metadata_and_bounds(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            empty = read_project_instruction_sources(workspace)
+
+            write_run_file(workspace, "AGENTS.md", "Use Python.\n")
+            write_run_file(workspace, "pkg/CLAUDE.md", "Use unittest in this package.\n")
+            write_run_file(workspace, "empty/AGENTS.md", "\n")
+            metadata = read_project_instruction_sources(workspace, max_bytes=220, max_files=2)
+
+        self.assertEqual(empty["total_files"], 0)
+        self.assertIn("No project instruction files", str(empty["message"]))
+        self.assertEqual(metadata["total_files"], 3)
+        self.assertEqual(metadata["scanned_files"], 2)
+        self.assertEqual(metadata["omitted_files"], 1)
+        self.assertTrue(metadata["truncated"])
+        sources = metadata["files"]
+        self.assertIsInstance(sources, list)
+        self.assertEqual([(item["path"], item["scope"], item["included"]) for item in sources], [("AGENTS.md", ".", True), ("empty/AGENTS.md", "empty", False)])
+        self.assertIn("File: AGENTS.md", str(metadata["text"]))
+        self.assertNotIn("pkg/CLAUDE.md", str(metadata["text"]))
 
     def test_read_project_command_hints_reads_common_project_metadata(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
@@ -1367,6 +1458,34 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(pyproject["items"][0]["name"], "requests>=2")
         self.assertFalse(manifests["bad/package.json"]["ok"])
 
+    def test_read_project_todos_reports_markers_with_bounds_and_scope(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            write_run_file(workspace, "src/app.py", "# TODO: wire cache\nvalue = 1\n# FIXME handle retries\n")
+            write_run_file(workspace, "docs/notes.md", "BUG: stale docs\n")
+            write_run_file(workspace, "tests/test_app.py", 'write_run_file(workspace, "src/app.py", "# TODO: fixture only\\n")\n')
+            write_run_file(workspace, "README.md", '`/todos [path]` to inspect TODO, FIXME, HACK, XXX, and BUG markers.\n')
+            write_run_file(workspace, "src/constants.py", 'PROJECT_TODO_MARKERS = ("TODO", "FIXME")\n')
+            write_run_file(workspace, "docs/tasks.md", "- TODO: list item\n")
+            ignored = workspace.root / ".vibeagent" / "ignored.txt"
+            ignored.parent.mkdir(parents=True, exist_ok=True)
+            ignored.write_text("TODO: runtime file\n", encoding="utf-8")
+
+            all_metadata = read_project_todos(workspace, max_items=2)
+            scoped_metadata = read_project_todos(workspace, relative_path="src", max_items=10)
+            with self.assertRaisesRegex(ValueError, "max_items must be at most 500"):
+                read_project_todos(workspace, max_items=501)
+
+        self.assertTrue(all_metadata["ok"])
+        self.assertEqual(all_metadata["total"], 4)
+        self.assertTrue(all_metadata["truncated"])
+        self.assertEqual([item["path"] for item in all_metadata["todos"]], ["docs/notes.md", "docs/tasks.md"])
+        self.assertEqual(all_metadata["todos"][0]["marker"], "BUG")
+        self.assertEqual(scoped_metadata["path"], "src")
+        self.assertEqual(scoped_metadata["total"], 2)
+        self.assertFalse(scoped_metadata["truncated"])
+        self.assertEqual([item["line"] for item in scoped_metadata["todos"]], [1, 3])
+
     def test_suggest_project_checks_uses_metadata_tests_and_changes(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
             root = Path(base)
@@ -1424,6 +1543,100 @@ class WorkspaceTests(unittest.TestCase):
         self.assertFalse(npm_check["available"])
         self.assertEqual(npm_check["missing_tool"], "npm")
 
+    def test_find_related_tests_uses_changed_files_and_explicit_paths(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            Path(base, "vibeagent").mkdir()
+            Path(base, "tests").mkdir()
+            Path(base, "web/src/__tests__").mkdir(parents=True)
+            Path(base, "vibeagent/actions.py").write_text("def run():\n    return 1\n", encoding="utf-8")
+            Path(base, "tests/test_actions.py").write_text("def test_run():\n    assert True\n", encoding="utf-8")
+            Path(base, "web/src/app.ts").write_text("export const app = 1;\n", encoding="utf-8")
+            Path(base, "web/src/__tests__/app.test.ts").write_text("test('app', () => {});\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(
+                ["git", "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "initial"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            Path(base, "vibeagent/actions.py").write_text("def run():\n    return 2\n", encoding="utf-8")
+            workspace = create_run_workspace(root, "test-run")
+
+            changed = find_related_tests(workspace)
+            explicit = find_related_tests(workspace, paths=["web/src/app.ts"], max_candidates=5)
+
+        self.assertTrue(changed["ok"])
+        self.assertEqual(changed["target_paths"], ["vibeagent/actions.py"])
+        self.assertIn(
+            ("vibeagent/actions.py", "tests/test_actions.py"),
+            {(item["source_path"], item["test_path"]) for item in changed["candidates"]},
+        )
+        self.assertEqual(explicit["target_paths"], ["web/src/app.ts"])
+        self.assertIn(
+            ("web/src/app.ts", "web/src/__tests__/app.test.ts"),
+            {(item["source_path"], item["test_path"]) for item in explicit["candidates"]},
+        )
+
+    def test_find_related_tests_rejects_invalid_limits_and_paths(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            workspace = create_run_workspace(base, "test-run")
+
+            with self.assertRaisesRegex(ValueError, "max_paths must be at most 500"):
+                find_related_tests(workspace, max_paths=501)
+
+            with self.assertRaisesRegex(ValueError, "paths must contain non-empty"):
+                find_related_tests(workspace, paths=[""])
+
+            with self.assertRaisesRegex(ValueError, "escapes"):
+                find_related_tests(workspace, paths=["../outside.py"])
+
+    def test_suggest_focused_test_commands_maps_related_python_tests(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            write_run_file(workspace, "pkg/actions.py", "def run():\n    return 1\n")
+            write_run_file(workspace, "tests/test_actions.py", "import unittest\n")
+
+            suggestions = suggest_focused_test_commands(workspace, paths=["pkg/actions.py"])
+            invalid = None
+            with self.assertRaisesRegex(ValueError, "max_commands must be at most 500") as context:
+                suggest_focused_test_commands(workspace, paths=["pkg/actions.py"], max_commands=501)
+            invalid = context.exception
+
+        self.assertIsNotNone(invalid)
+        self.assertTrue(suggestions["ok"])
+        self.assertEqual(suggestions["target_paths"], ["pkg/actions.py"])
+        commands = {(item["cwd"], item["command"], item["test_path"]) for item in suggestions["commands"]}
+        self.assertIn((".", "python -m unittest discover -s tests -p test_actions.py", "tests/test_actions.py"), commands)
+
+    def test_suggest_focused_test_commands_uses_pytest_when_project_has_evidence(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            write_run_file(workspace, "pyproject.toml", '[project]\ndependencies = ["pytest"]\n')
+            write_run_file(workspace, "pkg/app.py", "def run():\n    return 1\n")
+            write_run_file(workspace, "tests/test_app.py", "def test_run():\n    assert True\n")
+
+            suggestions = suggest_focused_test_commands(workspace, paths=["pkg/app.py"])
+
+        commands = [item["command"] for item in suggestions["commands"]]
+        self.assertIn("python -m pytest tests/test_app.py", commands)
+        self.assertIn("python -m unittest discover -s tests -p test_app.py", commands)
+
+    def test_suggest_focused_test_commands_maps_js_tests_to_nearest_package(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            write_run_file(workspace, "web/package.json", '{"scripts":{"test":"vitest run"}}\n')
+            write_run_file(workspace, "web/src/app.ts", "export const app = 1;\n")
+            write_run_file(workspace, "web/src/__tests__/app.test.ts", "test('app', () => {});\n")
+
+            suggestions = suggest_focused_test_commands(workspace, paths=["web/src/app.ts"])
+
+        self.assertEqual(suggestions["target_paths"], ["web/src/app.ts"])
+        commands = {(item["cwd"], item["command"], item["test_path"]) for item in suggestions["commands"]}
+        self.assertIn(("web", "npm test -- src/__tests__/app.test.ts", "web/src/__tests__/app.test.ts"), commands)
+
     def test_resolve_command_cwd_allows_only_project_directories(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
             workspace = create_run_workspace(base, "test-run")
@@ -1477,6 +1690,54 @@ class WorkspaceTests(unittest.TestCase):
 
         self.assertEqual(matches, ["src/app.py"])
         self.assertEqual(total, 2)
+
+    def test_project_scans_protect_sensitive_files(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            write_run_file(workspace, "app.py", "print('ok')\n")
+            Path(base, ".env").write_text("SECRET_TOKEN=hidden\n", encoding="utf-8")
+            Path(base, ".env.local").write_text("SECRET_TOKEN=hidden\n", encoding="utf-8")
+            Path(base, "id_rsa").write_text("PRIVATE KEY\n", encoding="utf-8")
+            Path(base, "cert.pem").write_text("PRIVATE KEY\n", encoding="utf-8")
+
+            files = list_files(base)
+            tree, _tree_total = list_project_tree(workspace)
+            matches, total = glob_project_files(workspace, "*")
+            search = search_project_result(workspace, "SECRET_TOKEN")
+
+            with self.assertRaisesRegex(ValueError, "Path is protected"):
+                read_project_file(workspace, ".env")
+            with self.assertRaisesRegex(ValueError, "Path is protected"):
+                write_run_file(workspace, ".env", "new\n")
+
+        self.assertEqual(files, ["app.py"])
+        self.assertEqual(tree, ["app.py"])
+        self.assertEqual(matches, ["app.py"])
+        self.assertEqual(total, 1)
+        self.assertEqual(search["matches"], [])
+        self.assertEqual(search["total"], 0)
+
+    def test_project_scans_ignore_generated_agent_metadata(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            write_run_file(workspace, "src/app.py", "print('ok')\n")
+            write_run_file(workspace, ".pytest_cache/cache.txt", "ignored\n")
+            write_run_file(workspace, ".agents/state.json", "{}\n")
+            write_run_file(workspace, ".codex/local.json", "{}\n")
+            write_run_file(workspace, "pkg.egg-info/PKG-INFO", "ignored\n")
+            write_run_file(workspace, "src/pkg.egg-info/SOURCES.txt", "ignored\n")
+
+            files = list_files(base)
+            project_files, total = list_project_files(workspace)
+            tree, tree_total = list_project_tree(workspace)
+            snapshot = read_workspace_snapshot(workspace)
+
+        self.assertEqual(files, ["src/app.py"])
+        self.assertEqual(project_files, ["src/app.py"])
+        self.assertEqual(total, 1)
+        self.assertEqual(tree, ["src/", "src/app.py"])
+        self.assertEqual(tree_total, 2)
+        self.assertEqual(snapshot.strip(), "src/app.py")
 
     def test_project_scans_respect_root_gitignore_patterns(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
@@ -1977,6 +2238,7 @@ class WorkspaceTests(unittest.TestCase):
             write_run_file(workspace, "staged.py", "print('staged')\n")
             subprocess.run(["git", "add", "staged.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             write_run_file(workspace, "new.py", "print('untracked')\n")
+            write_run_file(workspace, "pkg/nested.py", "print('nested')\n")
 
             status = read_git_status(workspace)
             info = read_git_info(workspace)
@@ -2015,6 +2277,8 @@ class WorkspaceTests(unittest.TestCase):
         self.assertTrue(files["staged.py"]["staged"])
         self.assertEqual(files["staged.py"]["staged_insertions"], 1)
         self.assertTrue(files["new.py"]["untracked"])
+        self.assertIn("?? pkg/nested.py", status.stdout)
+        self.assertTrue(files["pkg/nested.py"]["untracked"])
         self.assertTrue(diff.ok)
         self.assertIn("-print('old')", diff.stdout)
         self.assertIn("+print('new')", diff.stdout)

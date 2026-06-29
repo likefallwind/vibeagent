@@ -52,6 +52,7 @@ class MiniMaxClient(ChatClient):
         tools: list[dict[str, Any]] | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.2,
+        timeout_ms: int = 120_000,
     ) -> AssistantResponse:
         # Use Anthropic-compatible request shape: system prompt + chat messages.
         body = json.dumps(
@@ -76,7 +77,7 @@ class MiniMaxClient(ChatClient):
         try:
             # OpenAI-style responses can be rejected by model/http errors; convert both cases
             # into typed exceptions with raw payload preserved.
-            with urlopen(request) as response:
+            with urlopen(request, timeout=timeout_ms / 1000) as response:
                 text = response.read().decode("utf-8")
         except HTTPError as error:
             text = error.read().decode("utf-8", errors="replace")

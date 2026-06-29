@@ -1,7 +1,22 @@
 import unittest
+from unittest.mock import patch
 
-from vibeagent.openai_compat import build_request_body, extract_content, extract_usage, get_openai_compatible_defaults
+from vibeagent.openai_compat import OpenAICompatibleClient, build_request_body, extract_content, extract_usage, get_openai_compatible_defaults
 from vibeagent.types import ChatMessage
+
+
+class FakeHttpResponse:
+    def __init__(self, payload: bytes) -> None:
+        self.payload = payload
+
+    def __enter__(self) -> "FakeHttpResponse":
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return self.payload
 
 
 class OpenAICompatibleTests(unittest.TestCase):
@@ -98,6 +113,16 @@ class OpenAICompatibleTests(unittest.TestCase):
         self.assertEqual(usage.input_tokens, 13)
         self.assertEqual(usage.output_tokens, 8)
         self.assertEqual(usage.total_tokens, 21)
+
+    def test_complete_passes_request_timeout_to_urlopen(self) -> None:
+        response = FakeHttpResponse(b'{"choices":[{"message":{"content":"ok"}}]}')
+        client = OpenAICompatibleClient(api_key="test-key", base_url="https://api.example", model="model-test")
+
+        with patch("vibeagent.openai_compat.urlopen", return_value=response) as urlopen:
+            result = client.complete([ChatMessage(role="user", content="Hi")], timeout_ms=45_000)
+
+        self.assertEqual(result.content, [{"type": "text", "text": "ok"}])
+        self.assertEqual(urlopen.call_args.kwargs["timeout"], 45.0)
 
 
 if __name__ == "__main__":

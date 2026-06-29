@@ -11,13 +11,14 @@ Use the provided tools only when you need to plan work, inspect the project, sea
 If the user asks a question that can be answered without workspace access, answer directly in text.
 When a coding task is complete, either answer directly with a concise summary or call the finish tool.
 For multi-step coding tasks, use update_plan to keep a short checklist. Keep exactly one item in_progress while work is active.
-Follow project instructions from AGENTS.md when they are provided in the prompt.
+Follow project instructions from AGENTS.md or CLAUDE.md when they are provided in the prompt.
 
 All file paths must be relative. Never use absolute paths or "..".
 The current project directory is the real workspace. Inspect files before editing existing code.
 Use repo_map first for unfamiliar or larger projects when you need a high-level overview of structure and source symbols.
-Use read_files to inspect several small related files together. For large files, read focused slices with read_file start_line and line_count, or use read_file_ranges to inspect several focused slices in one call.
+Use read_files to inspect several small related files together. For large files, read focused slices with read_file start_line and line_count, use read_file_context when a stack trace or test failure gives one line number, use read_file_contexts when a traceback or lint output gives several file:line locations, use output_contexts to extract and read file:line contexts directly from command/test/lint output, use output_diagnostics to summarize errors/warnings/failures from noisy command output and include referenced source contexts, use python_traceback when Python or pytest output includes traceback or exception summary lines, use read_file_ranges to inspect several focused slices in one call, or use tail_file when the latest log/generated-output lines matter.
 Use file_info before reading or editing paths when size, line count, or binary/text status matters.
+Use image_info before relying on local image assets when format, dimensions, or layout fit matters.
 Use python_symbols to inspect Python module structure before reading large Python files.
 Use code_outline to inspect non-Python source structure before reading large JavaScript, TypeScript, Go, Rust, Java, Kotlin, C, or C++ files.
 Use environment_info to inspect fixed runtime facts and common tool availability before choosing checks in unfamiliar projects.
@@ -25,6 +26,8 @@ Use python_check to validate Python syntax without executing code after Python e
 Use config_check to validate JSON and TOML syntax after editing files such as package.json, tsconfig.json, or pyproject.toml.
 Use check_json_set before uncertain JSON key updates, then json_set to update one value in an existing JSON file by JSON Pointer instead of string or regex editing when the change is a structured config value. Use check_json_remove before uncertain JSON key or array item removals, then json_remove to remove one value by JSON Pointer. Use check_json_patch before coordinated JSON add, replace, and remove operations in one file, then json_patch to apply them atomically.
 Use project_manifests to inspect package.json and pyproject.toml dependencies, scripts, entry points, names, and versions before choosing libraries or framework-specific checks.
+Use project_instructions when you need to re-check AGENTS.md or CLAUDE.md scopes, truncation, or exact project instruction text before editing or when resuming a task.
+Use project_todos to inspect TODO, FIXME, HACK, XXX, and BUG markers when taking over unfamiliar code, planning cleanup work, or checking whether known debt is relevant to the current task.
 Use python_dependencies to inspect Python imports and local/external module dependencies before changing shared Python modules.
 Use code_dependencies to inspect imports, includes, and use statements before changing shared JavaScript, TypeScript, Go, Rust, Java, Kotlin, C, or C++ modules.
 Use python_definitions to inspect class/function bodies directly when you know the symbol name.
@@ -33,17 +36,20 @@ Use python_calls to inspect call sites separately from ordinary references when 
 Use python_call_graph to inspect caller-to-callee relationships in a file or directory before broad refactors.
 Use python_references to find Python definitions, imports, and references for one identifier before changing shared symbols.
 Use code_references to find non-Python source references for one symbol or literal before changing shared JavaScript, TypeScript, Go, Rust, Java, Kotlin, C, or C++ symbols.
+Use python_reference_contexts or code_reference_contexts when reference locations alone are not enough and you need surrounding source context for each match.
+Use code_rename_preview before broad non-Python source renames, inspect the lexical diff, then use code_rename only after the preview matches the intended scope.
 Use python_rename_preview before broad Python renames to inspect the AST-guided diff without writing changes, then use python_rename only after the preview matches the intended scope.
 Use project_overview at the start of unfamiliar coding tasks to get a compact project map, git state, manifests, commands, suggested checks, and runtime tool availability in one read-only call.
-Use list_tree to inspect directory structure, glob to find files by path pattern, and search to find text inside files.
+Use list_tree to inspect directory structure, glob to find files by path pattern, search to find text inside files, and search_contexts when you need matching lines plus surrounding source context in one structured result.
 Use scoped search with path, regex, and case_sensitive options to find symbols or call sites efficiently.
-Prefer replace_python_definition, multi_edit_file, regex_replace, replace_lines, insert_lines, append_file, patch_file, patch_files, or edit_file over write_file for existing files. Use replace_python_definition after inspecting a unique Python class/function definition and replacing the full definition is clearer than line edits. Use write_files when creating or replacing several files at once, regex_replace for bounded pattern-based changes in one file, replace_lines after reading a focused line range, insert_lines to add text before a known line, append_file when adding exact text to the end of an existing file, multi_edit_file for several exact replacements in one file, patch_file when several nearby lines need to change, and patch_files for coordinated edits across files or when a unified diff also creates or deletes text files. Use check_write_file or check_write_files before creating or replacing uncertain files. Use check_edit_file before applying uncertain exact replacements. Use check_multi_edit_file before applying complex or uncertain multi_edit_file batches. Use check_replace_python_definition before applying uncertain full Python definition replacements. Use check_replace_lines before applying uncertain line-range replacements. Use check_insert_lines before applying uncertain line insertions. Use check_append_file before appending uncertain text. Use check_regex_replace before applying broad or uncertain regex replacements. Use check_patch or check_patches before applying complex unified diffs when context match is uncertain.
+The agent automatically creates a best-effort checkpoint before the first approved project-changing tool in a run when the workspace has a git HEAD. Use checkpoint_create manually before risky multi-file edits or later high-risk phases to save the current git status, staged and unstaged patches, and ordinary untracked file contents under the runtime directory. Use checkpoint_list, checkpoint_show, checkpoint_diff, checkpoint_status, check_checkpoint_restore, check_checkpoint_delete, and check_checkpoint_prune to inspect saved checkpoints and preview restore, delete, or prune operations. Use checkpoint_restore only after check_checkpoint_restore reports ok and restoring the tracked staged/unstaged changes plus saved untracked file contents is necessary. Use checkpoint_delete only after check_checkpoint_delete confirms the snapshot exists. Use checkpoint_prune only when saved checkpoint snapshots are no longer needed.
+Prefer replace_python_definition, multi_edit_file, regex_replace, replace_lines, insert_lines, append_file, patch_file, patch_files, or edit_file over write_file for existing files. Use replace_python_definition after inspecting a unique Python class/function definition and replacing the full definition is clearer than line edits. Use write_files when creating or replacing several files at once, regex_replace for bounded pattern-based changes in one file, replace_lines after reading a focused line range, insert_lines to add text before a known line, append_file when adding exact text to the end of an existing file, multi_edit_file for several exact replacements in one file, patch_file when several nearby lines need to change, and patch_files for coordinated edits across files or when a unified diff also creates or deletes text files. Use check_write_file or check_write_files before creating or replacing uncertain files. Use check_edit_file before applying uncertain exact replacements. Use check_multi_edit_file before applying complex or uncertain multi_edit_file batches. Use check_replace_python_definition before applying uncertain full Python definition replacements. Use check_replace_lines before applying uncertain line-range replacements. Use check_insert_lines before applying uncertain line insertions. Use check_append_file before appending uncertain text. Use check_regex_replace before applying broad or uncertain regex replacements. Use check_patch or check_patches before applying complex unified diffs when context match is uncertain. When a matching check tool succeeds before an approval-gated action, the approval request includes a short preview summary for auditability.
 Use create_dir or create_dirs for empty or explicit directories, copy_dir or copy_dirs for copying directory templates or assets, move_dir or move_dirs for directory renames, delete_empty_dir or delete_empty_dirs for removing empty directories, copy_file or copy_files for copying file templates or assets, move_file or move_files for file renames, delete_file or delete_files for removing obsolete files, and set_executable for script executable bits; use check_delete_file or check_delete_files before uncertain file deletions, check_move_file or check_move_files before uncertain file moves, check_copy_file or check_copy_files before uncertain file copies, check_move_dir or check_move_dirs before uncertain directory moves, check_copy_dir or check_copy_dirs before uncertain directory copies, check_create_dir or check_create_dirs before uncertain directory creation, check_delete_empty_dir or check_delete_empty_dirs before uncertain empty-directory deletion, and check_set_executable before uncertain permission changes; do not use shell commands for simple file lifecycle or permission changes.
-Use project_overview, git_info, git_status, git_branches, git_changes, git_stashes, review_changes, final_review, git_diff, git_diff_hunks, git_log, git_show, and git_blame to review repository identity, branch/upstream state, local branches, stash entries, changed-file impact, structured hunks, line attribution, pre-final checks, and recent intent before summarizing non-trivial edits. Use final_review before finishing non-trivial code changes to collect blocking issues, warnings, changed files, and suggested verification commands in one read-only report. Use check_git_fetch before uncertain remote synchronization checks, then git_fetch for approved git fetch --prune instead of shelling out to git fetch. Use check_git_pull before updating the current branch from upstream, then git_pull for approved git pull --ff-only instead of shelling out to git pull. Use check_git_push before pushing local commits to upstream, then git_push for approved non-force git push instead of shelling out to git push. Use check_git_switch before uncertain branch switches or new local branches, then git_switch for approved clean-worktree branch changes instead of shelling out to git switch. Use check_git_restore before discarding unstaged tracked-file changes, then git_restore for approved path-scoped git restore instead of shelling out to git restore. Use check_git_stash before saving dirty worktree changes, then git_stash for approved non-runtime git stash push instead of shelling out to git stash. Use check_git_stash_apply before applying an existing stash to a clean worktree, then git_stash_apply for approved git stash apply instead of shelling out to git stash apply; do not drop stash entries automatically. Use check_git_stash_drop before intentionally removing an existing stash entry, then git_stash_drop for approved git stash drop instead of shelling out to git stash drop. Use check_git_stage, check_git_unstage, and check_git_commit before uncertain git-index or local commit changes; use git_stage, git_unstage, and git_commit for approved git-index and local commit changes instead of shelling out to git add, git restore --staged, or git commit.
-Use session_summary to inspect the current or a previous local run when recovering context or diagnosing why a task stopped.
-Use project_commands to inspect project-defined npm, pyproject, and Makefile commands. Use suggest_checks or discovered project command hints to choose relevant tests, builds, and dev scripts before running verification.
-Use command_check before run_command, check_run_commands before run_commands, and check_start_command before start_command when you need to preflight uncertain command cwd, dangerous-command blocks, or executable availability without requesting command execution approval.
-Use run_command for one finite check, or run_commands for a short ordered verification sequence such as compile, unit tests, and build; use cwd for subdirectories and timeout_ms for slow tests or builds. Use start_command only for long-running dev servers or watchers, list_processes if you need active process ids, read_process to inspect current output, wait_process to wait briefly for completion or for stdout_contains/stderr_contains readiness output, check_write_process before uncertain write_process calls, write_process to send exact stdin text to an interactive background process, port_check to verify local dev-server ports, http_check to verify local HTTP status, final URL, or response content, check_stop_process before uncertain stop_process calls, and check_stop_all_processes before stop_all_processes when cleaning up several background commands.
+Use project_overview, git_info, git_status, git_conflicts, git_branches, git_changes, git_stashes, review_changes, final_review, git_diff, git_diff_hunks, git_diff_contexts, git_log, git_show, and git_blame to review repository identity, branch/upstream state, merge/rebase conflicts, local branches, stash entries, changed-file impact, structured hunks, hunk-adjacent source context, line attribution, pre-final checks, and recent intent before summarizing non-trivial edits. Use git_conflicts when a merge, rebase, cherry-pick, or conflict-marker cleanup is in progress. Use git_diff_contexts when reviewing or explaining changed code and the current source around each hunk matters more than raw patch lines. Use final_review before finishing non-trivial code changes to collect blocking issues, warnings, changed files, and suggested verification commands in one read-only report. Use check_git_fetch before uncertain remote synchronization checks, then git_fetch for approved git fetch --prune instead of shelling out to git fetch. Use check_git_pull before updating the current branch from upstream, then git_pull for approved git pull --ff-only instead of shelling out to git pull. Use check_git_push before pushing local commits to upstream, then git_push for approved non-force git push instead of shelling out to git push. Use check_git_switch before uncertain branch switches or new local branches, then git_switch for approved clean-worktree branch changes instead of shelling out to git switch. Use check_git_restore before discarding unstaged tracked-file changes, then git_restore for approved path-scoped git restore instead of shelling out to git restore. Use check_git_stash before saving dirty worktree changes, then git_stash for approved non-runtime git stash push instead of shelling out to git stash. Use check_git_stash_apply before applying an existing stash to a clean worktree, then git_stash_apply for approved git stash apply instead of shelling out to git stash apply; do not drop stash entries automatically. Use check_git_stash_drop before intentionally removing an existing stash entry, then git_stash_drop for approved git stash drop instead of shelling out to git stash drop. Use check_git_stage, check_git_unstage, and check_git_commit before uncertain git-index or local commit changes; use git_stage, git_unstage, and git_commit for approved git-index and local commit changes instead of shelling out to git add, git restore --staged, or git commit.
+Use session_handoff when resuming a previous run and you need one compact recovery bundle; use session_summary to inspect the current or a previous local run when recovering context, session_plan when you need the latest task checklist, session_verification when you need verified, pending, and failed suggested-check status, session_audit before finishing or resuming uncertain work when you need a compact readiness/blocker audit from session evidence, session_failures when you need a concise list of failed tools, denied approvals, malformed events, failed final run results, or failed commands, session_files when you need the paths a previous run touched or inspected, session_commands when you need prior test/build command output tails, session_output_diagnostics when prior command output is noisy and you need the error/warning/failure summary with source context, session_output_contexts when you need to jump from prior command output file:line references directly to current source context, session_search when you know the error text, path, or tool name to locate in the safe timeline, and session_transcript when you need broader event context to diagnose why a task stopped.
+Use project_commands to inspect project-defined npm, pyproject, and Makefile commands. Use related_tests to find likely focused test files for explicit changed paths or the current git changes before choosing a narrow test command. Use focused_test_commands to turn those paths into likely runnable focused test commands before falling back to broad suites. Use suggest_checks or discovered project command hints to choose relevant tests, builds, and dev scripts before running verification.
+Use command_check before run_command, check_run_commands before run_commands, check_suggested_checks before run_suggested_checks, check_focused_test_commands before run_focused_test_commands, and check_start_command before start_command when you need to preflight uncertain command cwd, dangerous-command blocks, or executable availability without requesting command execution approval.
+Use run_command for one finite check, run_commands for a short ordered verification sequence such as compile, unit tests, and build, run_focused_test_commands to execute likely focused tests for changed paths, or run_suggested_checks to execute the project's discovered verification commands; failed finite commands automatically include an error/warning/failure diagnostic summary with source context when output has recognizable file references. Use extract_output_diagnostics=true when successful noisy test/lint/build output also needs that summary, or extract_output_contexts=true when you only need file:line references from run_command, run_suggested_checks, run_focused_test_commands, or individual run_commands items. Use cwd for subdirectories and timeout_ms for slow tests or builds. Use start_command only for long-running dev servers or watchers, list_processes if you need active process ids, read_process to inspect current output, process_output_diagnostics to summarize noisy background stdout/stderr errors with source context, process_output_contexts to jump from background stdout/stderr file:line references to source context, wait_process to wait briefly for completion or for stdout_contains/stderr_contains readiness output, check_write_process before uncertain write_process calls, write_process to send exact stdin text only when the starting runtime still owns the interactive background process stdin, port_check to verify local dev-server ports, http_check to verify local HTTP status, final URL, or response content, http_fetch to inspect bounded HTTP response text, check_stop_process before uncertain stop_process calls, and check_stop_all_processes before stop_all_processes when cleaning up several background commands.
 Keep tasks small and concrete.
 Do not repeat the same list_files action after it already reported an empty directory.
 If the directory is empty and the user asks you to create a frontend or website, start writing the needed files.
@@ -74,7 +80,7 @@ def build_messages(
         chunks.append(
             "\n".join(
                 [
-                    "Project instructions from AGENTS.md files:",
+                    "Project instructions from AGENTS.md and CLAUDE.md files:",
                     "Apply each file's instructions to its listed scope. More specific scopes override broader ones when they conflict.",
                     project_instructions,
                 ]
@@ -153,9 +159,16 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
 
     if latest.kind in {
         "read_file",
+        "read_file_context",
+        "read_file_contexts",
+        "output_contexts",
+        "output_diagnostics",
+        "python_traceback",
+        "tail_file",
         "read_files",
         "read_file_ranges",
         "file_info",
+        "image_info",
         "repo_map",
         "python_symbols",
         "code_outline",
@@ -167,18 +180,26 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "python_dependencies",
         "code_dependencies",
         "code_references",
+        "code_reference_contexts",
         "code_definitions",
+        "code_rename_preview",
         "python_definitions",
         "python_calls",
         "python_call_graph",
         "python_references",
+        "python_reference_contexts",
         "python_rename_preview",
         "project_commands",
+        "related_tests",
+        "focused_test_commands",
+        "check_focused_test_commands",
         "git_branches",
         "check_git_fetch",
         "check_git_pull",
         "check_git_push",
         "check_git_restore",
+        "git_conflicts",
+        "git_diff_contexts",
         "git_stashes",
         "check_git_stash",
         "check_git_stash_apply",
@@ -187,15 +208,20 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "final_review",
         "command_check",
         "check_run_commands",
+        "check_suggested_checks",
+        "check_focused_test_commands",
         "check_start_command",
         "port_check",
         "http_check",
+        "http_fetch",
         "wait_process",
         "check_write_process",
         "check_stop_all_processes",
         "check_stop_process",
         "environment_info",
         "list_files",
+        "search",
+        "search_contexts",
         "list_tree",
         "glob",
     }:
@@ -207,6 +233,7 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
     if latest.kind in {
         "git_info",
         "git_status",
+        "git_conflicts",
         "git_branches",
         "check_git_fetch",
         "git_fetch",
@@ -229,12 +256,17 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "review_changes",
         "final_review",
         "suggest_checks",
+        "check_suggested_checks",
         "project_commands",
+        "related_tests",
+        "focused_test_commands",
         "project_manifests",
+        "project_instructions",
         "command_check",
         "check_start_command",
         "port_check",
         "http_check",
+        "http_fetch",
         "wait_process",
         "check_write_process",
         "check_stop_all_processes",
@@ -242,10 +274,28 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "environment_info",
         "git_diff",
         "git_diff_hunks",
+        "git_diff_contexts",
         "git_log",
         "git_show",
         "git_blame",
         "session_summary",
+        "session_plan",
+        "session_transcript",
+        "session_search",
+        "session_commands",
+        "session_output_contexts",
+        "session_files",
+        "session_failures",
+        "session_verification",
+        "session_audit",
+        "session_handoff",
+        "checkpoint_list",
+        "checkpoint_show",
+        "checkpoint_diff",
+        "checkpoint_status",
+        "check_checkpoint_restore",
+        "check_checkpoint_delete",
+        "check_checkpoint_prune",
     }:
         return f"{base} Use the repository or session information to decide whether to continue, run a check, or answer directly."
 
@@ -288,7 +338,7 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
             return f"{base} The dry-run succeeded. Apply it if the diff or validation result matches the requested change, or continue with the next required step."
         return f"{base} The dry-run failed, so fix the context or choose another edit tool before applying changes."
 
-    if latest.kind in {"project_overview", "write_file", "write_files", "edit_file", "multi_edit_file", "replace_python_definition", "python_rename", "regex_replace", "json_set", "json_remove", "json_patch", "replace_lines", "insert_lines", "append_file", "patch_file", "patch_files", "delete_file", "delete_files", "move_file", "move_files", "copy_file", "copy_files", "move_dir", "move_dirs", "copy_dir", "copy_dirs", "create_dir", "create_dirs", "delete_empty_dir", "delete_empty_dirs", "set_executable", "git_fetch", "git_pull", "git_push", "git_restore", "git_stash", "git_stash_apply", "git_stash_drop", "git_switch", "git_stage", "git_unstage", "git_commit", "run_commands"}:
+    if latest.kind in {"project_overview", "write_file", "write_files", "edit_file", "multi_edit_file", "replace_python_definition", "python_rename", "regex_replace", "json_set", "json_remove", "json_patch", "replace_lines", "insert_lines", "append_file", "patch_file", "patch_files", "delete_file", "delete_files", "move_file", "move_files", "copy_file", "copy_files", "move_dir", "move_dirs", "copy_dir", "copy_dirs", "create_dir", "create_dirs", "delete_empty_dir", "delete_empty_dirs", "set_executable", "git_fetch", "git_pull", "git_push", "git_restore", "git_stash", "git_stash_apply", "git_stash_drop", "git_switch", "git_stage", "git_unstage", "git_commit", "checkpoint_create", "checkpoint_restore", "checkpoint_delete", "checkpoint_prune", "run_commands", "run_suggested_checks", "run_focused_test_commands"}:
         return f"{base} Continue with the next required file, run one appropriate check, or answer directly if the task is complete."
 
     if latest.kind == "update_plan":
@@ -416,6 +466,113 @@ def format_observations(observations: list[Observation]) -> str:
                     ]
                 )
             )
+        elif observation.kind == "read_file_context":
+            lines.append(
+                "\n".join(
+                    [
+                        (
+                            f"{index}. read_file_context {observation.path}:{observation.line}: {observation.message} "
+                            f"ok={str(observation.ok).lower()} "
+                            f"range={observation.start_line}:{observation.end_line} "
+                            f"contextLines={observation.context_lines} "
+                            f"targetExists={str(observation.target_line_exists).lower()} "
+                            f"lines={observation.line_count}/{observation.total_lines if observation.total_lines is not None else 'unknown'} "
+                            f"truncated={str(observation.truncated).lower()} "
+                            f"maxBytes={observation.max_bytes}"
+                        ),
+                        f"content:\n{truncate(observation.content)}",
+                    ]
+                )
+            )
+        elif observation.kind == "read_file_contexts":
+            parts = [f"{index}. read_file_contexts: {observation.message}"]
+            for item in observation.contexts:
+                parts.append(
+                    (
+                        f"context: {item.path}:{item.line} "
+                        f"ok={str(item.ok).lower()} range={item.start_line}:{item.end_line} "
+                        f"contextLines={item.context_lines} targetExists={str(item.target_line_exists).lower()} "
+                        f"lines={item.line_count}/{item.total_lines if item.total_lines is not None else 'unknown'} "
+                        f"truncated={str(item.truncated).lower()} maxBytes={item.max_bytes} "
+                        f"message={item.message}"
+                    )
+                )
+                if item.ok:
+                    parts.append(f"content:\n{truncate(item.content)}")
+            lines.append("\n".join(parts))
+        elif observation.kind == "output_contexts":
+            parts = [
+                (
+                    f"{index}. output_contexts: {observation.message} "
+                    f"totalRefs={observation.total_refs} truncated={str(observation.truncated).lower()}"
+                )
+            ]
+            for item in observation.contexts:
+                column = f":{item.column}" if item.column is not None else ""
+                parts.append(
+                    (
+                        f"context: {item.path}:{item.line}{column} raw={item.raw!r} "
+                        f"ok={str(item.ok).lower()} range={item.start_line}:{item.end_line} "
+                        f"contextLines={item.context_lines} targetExists={str(item.target_line_exists).lower()} "
+                        f"lines={item.line_count}/{item.total_lines if item.total_lines is not None else 'unknown'} "
+                        f"truncated={str(item.truncated).lower()} maxBytes={item.max_bytes} "
+                        f"message={item.message}"
+                    )
+                )
+                if item.ok:
+                    parts.append(f"content:\n{truncate(item.content)}")
+            lines.append("\n".join(parts))
+        elif observation.kind == "output_diagnostics":
+            parts = [
+                (
+                    f"{index}. output_diagnostics: {observation.message} "
+                    f"diagnostics={len(observation.diagnostics)}/{observation.total_diagnostics} "
+                    f"refs={observation.total_refs} "
+                    f"diagnosticsTruncated={str(observation.diagnostics_truncated).lower()} "
+                    f"contextsTruncated={str(observation.contexts_truncated).lower()}"
+                )
+            ]
+            for diagnostic in observation.diagnostics:
+                location = (
+                    f" {diagnostic.path}:{diagnostic.line}{':' + str(diagnostic.column) if diagnostic.column is not None else ''}"
+                    if diagnostic.path and diagnostic.line is not None
+                    else ""
+                )
+                parts.append(
+                    f"diagnostic: {diagnostic.severity} outputLine={diagnostic.output_line}{location} text={diagnostic.text!r}"
+                )
+            for item in observation.contexts:
+                column = f":{item.column}" if item.column is not None else ""
+                parts.append(
+                    (
+                        f"context: {item.path}:{item.line}{column} raw={item.raw!r} "
+                        f"ok={str(item.ok).lower()} range={item.start_line}:{item.end_line} "
+                        f"contextLines={item.context_lines} targetExists={str(item.target_line_exists).lower()} "
+                        f"lines={item.line_count}/{item.total_lines if item.total_lines is not None else 'unknown'} "
+                        f"truncated={str(item.truncated).lower()} maxBytes={item.max_bytes} "
+                        f"message={item.message}"
+                    )
+                )
+                if item.ok:
+                    parts.append(f"content:\n{truncate(item.content)}")
+            lines.append("\n".join(parts))
+        elif observation.kind == "tail_file":
+            lines.append(
+                "\n".join(
+                    [
+                        (
+                            f"{index}. tail_file {observation.path}: {observation.message} "
+                            f"ok={str(observation.ok).lower()} "
+                            f"lines={observation.line_count}/{observation.total_lines if observation.total_lines is not None else 'unknown'} "
+                            f"startLine={observation.start_line} "
+                            f"requestedLines={observation.requested_line_count} "
+                            f"truncated={str(observation.truncated).lower()} "
+                            f"maxBytes={observation.max_bytes}"
+                        ),
+                        f"content:\n{truncate(observation.content)}",
+                    ]
+                )
+            )
         elif observation.kind == "read_files":
             parts = [f"{index}. read_files: {observation.message}"]
             for file in observation.files:
@@ -453,6 +610,22 @@ def format_observations(observations: list[Observation]) -> str:
                         f"file: {file.path} ok={str(file.ok).lower()} exists={str(file.exists).lower()} "
                         f"isFile={str(file.is_file).lower()} isDir={str(file.is_dir).lower()} "
                         f"sizeBytes={size} lineCount={line_count} binary={binary} message={file.message}"
+                    )
+                )
+            lines.append("\n".join(parts))
+        elif observation.kind == "image_info":
+            parts = [f"{index}. image_info: {observation.message}"]
+            for image in observation.images:
+                size = "unknown" if image.size_bytes is None else str(image.size_bytes)
+                width = "unknown" if image.width is None else str(image.width)
+                height = "unknown" if image.height is None else str(image.height)
+                image_format = "unknown" if image.format is None else image.format
+                mime_type = "unknown" if image.mime_type is None else image.mime_type
+                parts.append(
+                    (
+                        f"image: {image.path} ok={str(image.ok).lower()} exists={str(image.exists).lower()} "
+                        f"isFile={str(image.is_file).lower()} sizeBytes={size} format={image_format} "
+                        f"mimeType={mime_type} width={width} height={height} message={image.message}"
                     )
                 )
             lines.append("\n".join(parts))
@@ -598,6 +771,28 @@ def format_observations(observations: list[Observation]) -> str:
                     )
                 )
             lines.append("\n".join(parts))
+        elif observation.kind == "code_reference_contexts":
+            parts = [
+                (
+                    f"{index}. code_reference_contexts {observation.symbol}: {observation.message} "
+                    f"shown={len(observation.contexts)}/{observation.total} "
+                    f"path={observation.path or '.'} "
+                    f"context_lines={observation.context_lines} "
+                    f"truncated={str(observation.truncated).lower()}"
+                )
+            ]
+            for context in observation.contexts[:80]:
+                parts.append(
+                    (
+                        f"reference: {context.path}:{context.line}:{context.column} "
+                        f"language={context.language or 'unknown'} kind={context.kind} "
+                        f"range={context.start_line}-{context.end_line} "
+                        f"truncated={str(context.truncated).lower()} "
+                        f"match={context.matched_line}"
+                    )
+                )
+                parts.append("content:\n" + truncate(context.content))
+            lines.append("\n".join(parts))
         elif observation.kind == "code_definitions":
             parts = [
                 (
@@ -614,6 +809,48 @@ def format_observations(observations: list[Observation]) -> str:
                     )
                 )
                 parts.append("content:\n" + truncate(definition.content))
+            if observation.errors:
+                parts.append("errors:\n" + "\n".join(observation.errors[:20]))
+            lines.append("\n".join(parts))
+        elif observation.kind == "code_rename_preview":
+            parts = [
+                (
+                    f"{index}. code_rename_preview {observation.symbol}->{observation.new_name}: "
+                    f"{observation.message} path={observation.path or '.'} "
+                    f"files={len(observation.files)}/{observation.total_files} "
+                    f"replacements={observation.total_replacements} "
+                    f"truncated={str(observation.truncated).lower()}"
+                )
+            ]
+            for file in observation.files[:40]:
+                parts.append(
+                    (
+                        f"file: {file.path} language={file.language} replacements={len(file.replacements)} "
+                        f"truncated={str(file.truncated).lower()}"
+                    )
+                )
+                for replacement in file.replacements[:80]:
+                    parts.append(
+                        (
+                            f"replace: {replacement.line}:{replacement.column}-{replacement.end_column} "
+                            f"{replacement.old}->{replacement.new} context={replacement.context}"
+                        )
+                    )
+                parts.append("diff:\n" + truncate(file.diff))
+            if observation.errors:
+                parts.append("errors:\n" + "\n".join(observation.errors[:20]))
+            lines.append("\n".join(parts))
+        elif observation.kind == "code_rename":
+            parts = [
+                (
+                    f"{index}. code_rename {observation.symbol}->{observation.new_name}: "
+                    f"{observation.message} path={observation.path or '.'} "
+                    f"files={len(observation.files)}/{observation.total_files} "
+                    f"replacements={observation.total_replacements}"
+                )
+            ]
+            if observation.diff:
+                parts.append("diff:\n" + truncate(observation.diff))
             if observation.errors:
                 parts.append("errors:\n" + "\n".join(observation.errors[:20]))
             lines.append("\n".join(parts))
@@ -687,6 +924,29 @@ def format_observations(observations: list[Observation]) -> str:
             if observation.errors:
                 parts.append("errors:\n" + "\n".join(observation.errors[:20]))
             lines.append("\n".join(parts))
+        elif observation.kind == "python_reference_contexts":
+            parts = [
+                (
+                    f"{index}. python_reference_contexts {observation.symbol}: {observation.message} "
+                    f"shown={len(observation.contexts)}/{observation.total} "
+                    f"path={observation.path or '.'} "
+                    f"context_lines={observation.context_lines} "
+                    f"truncated={str(observation.truncated).lower()}"
+                )
+            ]
+            for context in observation.contexts[:80]:
+                parts.append(
+                    (
+                        f"reference: {context.path}:{context.line}:{context.column} "
+                        f"kind={context.kind} range={context.start_line}-{context.end_line} "
+                        f"truncated={str(context.truncated).lower()} "
+                        f"match={context.matched_line}"
+                    )
+                )
+                parts.append("content:\n" + truncate(context.content))
+            if observation.errors:
+                parts.append("errors:\n" + "\n".join(observation.errors[:20]))
+            lines.append("\n".join(parts))
         elif observation.kind == "python_rename_preview":
             parts = [
                 (
@@ -749,6 +1009,26 @@ def format_observations(observations: list[Observation]) -> str:
                     ]
                 )
             )
+        elif observation.kind == "search_contexts":
+            parts = [
+                (
+                    f"{index}. search_contexts {observation.query}: {observation.message} "
+                    f"ok={str(observation.ok).lower()} "
+                    f"shown={len(observation.contexts)}/{observation.total} "
+                    f"truncated={str(observation.truncated).lower()} "
+                    f"path={observation.path or '.'} regex={str(observation.regex).lower()} "
+                    f"caseSensitive={str(observation.case_sensitive).lower()} "
+                    f"contextLines={observation.context_lines}"
+                )
+            ]
+            for context in observation.contexts[:50]:
+                parts.extend(
+                    [
+                        f"context: {context.path}:{context.line} range={context.start_line}-{context.end_line} truncated={str(context.truncated).lower()}",
+                        context.content,
+                    ]
+                )
+            lines.append("\n".join(parts))
         elif observation.kind == "glob":
             lines.append(
                 "\n".join(
@@ -764,6 +1044,26 @@ def format_observations(observations: list[Observation]) -> str:
                     [
                         f"{index}. git_status: {observation.message}",
                         f"status:\n{truncate(observation.status)}",
+                    ]
+                )
+            )
+        elif observation.kind == "git_conflicts":
+            unmerged = "\n".join(f"{item.status} {item.path}" for item in observation.unmerged[:80]) or "none"
+            markers = "\n".join(
+                f"{item.path}:{item.line} [{item.marker}] {item.text}"
+                for item in observation.markers[:120]
+            ) or "none"
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. git_conflicts {observation.path}: {observation.message}",
+                        f"ok: {observation.ok}",
+                        f"unmerged: {len(observation.unmerged)}/{observation.unmerged_total}",
+                        f"markers: {len(observation.markers)}/{observation.markers_total}",
+                        f"scannedFiles: {observation.scanned_files}/{observation.total_files}",
+                        f"truncated: {observation.truncated}",
+                        f"unmergedFiles:\n{truncate(unmerged)}",
+                        f"markerLines:\n{truncate(markers)}",
                     ]
                 )
             )
@@ -1110,6 +1410,7 @@ def format_observations(observations: list[Observation]) -> str:
                     f"ready={str(observation.ready).lower()} "
                     f"blocking={len(observation.blocking_issues)} "
                     f"warnings={len(observation.warnings)} "
+                    f"runningProcesses={len(observation.running_processes)} "
                     f"changed={len(observation.files)}/{observation.total_files} "
                     f"suggestedChecks={len(observation.suggested_checks)}/{observation.suggested_checks_total} "
                     f"suggestedChecksTruncated={str(observation.suggested_checks_truncated).lower()}"
@@ -1119,6 +1420,29 @@ def format_observations(observations: list[Observation]) -> str:
                 parts.append(f"blocking_issue: {issue}")
             for warning in observation.warnings[:20]:
                 parts.append(f"warning: {warning}")
+            for check in observation.python[:20]:
+                if not check.ok:
+                    parts.append(
+                        (
+                            f"python_failure: {check.path} line={check.line or '.'} "
+                            f"column={check.column or '.'} message={check.message}"
+                        )
+                    )
+            for check in observation.config[:20]:
+                if not check.ok:
+                    parts.append(
+                        (
+                            f"config_failure: {check.path} line={check.line or '.'} "
+                            f"column={check.column or '.'} message={check.message}"
+                        )
+                    )
+            for process in observation.running_processes[:20]:
+                parts.append(
+                    (
+                        f"running_process: {process.process_id} pid={process.pid} cwd={process.cwd} "
+                        f"command={process.command}"
+                    )
+                )
             for file in observation.files[:120]:
                 parts.append(
                     (
@@ -1161,6 +1485,25 @@ def format_observations(observations: list[Observation]) -> str:
             if observation.changed_files:
                 parts.append("changed_files:\n" + "\n".join(observation.changed_files[:120]))
             lines.append("\n".join(parts))
+        elif observation.kind == "check_suggested_checks":
+            parts = [
+                (
+                    f"{index}. check_suggested_checks: {observation.message} "
+                    f"shown={len(observation.checks)}/{observation.total} "
+                    f"truncated={str(observation.truncated).lower()}"
+                ),
+                f"ok: {str(observation.ok).lower()}",
+            ]
+            for check in observation.checks:
+                parts.extend(
+                    [
+                        f"command: {check.command}",
+                        f"cwd: {check.cwd}",
+                        f"ok: {str(check.ok).lower()} cwdOk={str(check.cwd_ok).lower()} blocked={str(check.blocked).lower()} executableAvailable={str(check.executable_available).lower()}",
+                        f"blockReason: {check.block_reason or 'none'} missingTool={check.missing_tool or 'none'} message={check.message}",
+                    ]
+                )
+            lines.append("\n".join(parts))
         elif observation.kind == "project_commands":
             parts = [
                 (
@@ -1177,6 +1520,74 @@ def format_observations(observations: list[Observation]) -> str:
                         f"available={str(command.available).lower()} missingTool={command.missing_tool or '.'} "
                         f"source={command.source} file={command.file} detail={command.detail}"
                     )
+                )
+            lines.append("\n".join(parts))
+        elif observation.kind == "related_tests":
+            parts = [
+                (
+                    f"{index}. related_tests: {observation.message} "
+                    f"ok={str(observation.ok).lower()} "
+                    f"targets={len(observation.target_paths)} "
+                    f"shown={len(observation.candidates)}/{observation.total} "
+                    f"testFiles={observation.test_files_total} "
+                    f"truncated={str(observation.truncated).lower()}"
+                )
+            ]
+            if observation.target_paths:
+                parts.append("target_paths:\n" + "\n".join(observation.target_paths[:120]))
+            for candidate in observation.candidates:
+                parts.append(
+                    (
+                        f"candidate: source={candidate.source_path} test={candidate.test_path} "
+                        f"score={candidate.score} reason={candidate.reason}"
+                    )
+                )
+            lines.append("\n".join(parts))
+        elif observation.kind == "focused_test_commands":
+            parts = [
+                (
+                    f"{index}. focused_test_commands: {observation.message} "
+                    f"ok={str(observation.ok).lower()} "
+                    f"targets={len(observation.target_paths)} "
+                    f"shown={len(observation.commands)}/{observation.total} "
+                    f"relatedTests={observation.related_tests_total} "
+                    f"truncated={str(observation.truncated).lower()}"
+                )
+            ]
+            if observation.target_paths:
+                parts.append("target_paths:\n" + "\n".join(observation.target_paths[:120]))
+            for command in observation.commands:
+                parts.append(
+                    (
+                        f"command: cwd={command.cwd} command={command.command} "
+                        f"test={command.test_path} available={str(command.available).lower()} "
+                        f"missingTool={command.missing_tool or '.'} source={command.source} reason={command.reason}"
+                    )
+                )
+            lines.append("\n".join(parts))
+        elif observation.kind == "check_focused_test_commands":
+            parts = [
+                (
+                    f"{index}. check_focused_test_commands: {observation.message} "
+                    f"ok={str(observation.ok).lower()} "
+                    f"targets={len(observation.target_paths)} "
+                    f"shown={len(observation.focused_commands)}/{observation.total} "
+                    f"relatedTests={observation.related_tests_total} "
+                    f"truncated={str(observation.truncated).lower()}"
+                )
+            ]
+            if observation.target_paths:
+                parts.append("target_paths:\n" + "\n".join(observation.target_paths[:120]))
+            for command, check in zip(observation.focused_commands, observation.checks, strict=False):
+                parts.extend(
+                    [
+                        f"command: {command.command}",
+                        f"cwd: {command.cwd}",
+                        f"test: {command.test_path}",
+                        f"available: {str(command.available).lower()} missingTool={command.missing_tool or 'none'} source={command.source} reason={command.reason}",
+                        f"ok: {str(check.ok).lower()} cwdOk={str(check.cwd_ok).lower()} blocked={str(check.blocked).lower()} executableAvailable={str(check.executable_available).lower()}",
+                        f"blockReason: {check.block_reason or 'none'} missingTool={check.missing_tool or 'none'} message={check.message}",
+                    ]
                 )
             lines.append("\n".join(parts))
         elif observation.kind == "project_manifests":
@@ -1199,6 +1610,42 @@ def format_observations(observations: list[Observation]) -> str:
                 )
                 for item in manifest.items[:120]:
                     parts.append(f"item: group={item.group} name={item.name} value={item.value or '.'}")
+            lines.append("\n".join(parts))
+        elif observation.kind == "project_instructions":
+            parts = [
+                (
+                    f"{index}. project_instructions: {observation.message} "
+                    f"files={observation.scanned_files}/{observation.total_files} "
+                    f"omitted={observation.omitted_files} "
+                    f"truncated={str(observation.truncated).lower()}"
+                ),
+                f"ok: {str(observation.ok).lower()}",
+            ]
+            for source in observation.files:
+                parts.append(
+                    (
+                        f"source: {source.path} scope={source.scope} "
+                        f"bytes={source.bytes} chars={source.chars} "
+                        f"empty={str(source.empty).lower()} included={str(source.included).lower()} "
+                        f"message={source.message}"
+                    )
+                )
+            if observation.text:
+                parts.append(f"instructions:\n{truncate(observation.text)}")
+            lines.append("\n".join(parts))
+        elif observation.kind == "project_todos":
+            parts = [
+                (
+                    f"{index}. project_todos: {observation.message} "
+                    f"path={observation.path} "
+                    f"shown={len(observation.todos)}/{observation.total} "
+                    f"files={observation.scanned_files}/{observation.total_files} "
+                    f"truncated={str(observation.truncated).lower()}"
+                ),
+                f"markers: {', '.join(observation.markers) if observation.markers else '.'}",
+            ]
+            for todo in observation.todos:
+                parts.append(f"todo: {todo.path}:{todo.line} [{todo.marker}] {todo.text}")
             lines.append("\n".join(parts))
         elif observation.kind == "project_overview":
             parts = [
@@ -1334,6 +1781,23 @@ def format_observations(observations: list[Observation]) -> str:
             if observation.body:
                 parts.append(f"body:\n{observation.body}")
             lines.append("\n".join(parts))
+        elif observation.kind == "http_fetch":
+            parts = [
+                f"{index}. http_fetch {observation.url}: {observation.message}",
+                f"ok: {str(observation.ok).lower()}",
+                f"reachable: {str(observation.reachable).lower()}",
+                f"status: {observation.status if observation.status is not None else 'none'}",
+                f"reason: {observation.reason or 'none'}",
+                f"contentType: {observation.content_type or 'none'}",
+                f"finalUrl: {observation.final_url or 'none'}",
+                f"timeoutMs: {observation.timeout_ms}",
+                f"bodyTruncated: {str(observation.body_truncated).lower()}",
+                f"maxBodyChars: {observation.max_body_chars}",
+                f"error: {observation.error or 'none'}",
+            ]
+            if observation.body:
+                parts.append(f"body:\n{observation.body}")
+            lines.append("\n".join(parts))
         elif observation.kind == "environment_info":
             parts = [
                 (
@@ -1387,6 +1851,32 @@ def format_observations(observations: list[Observation]) -> str:
                 if hunk.lines:
                     parts.append("lines:\n" + truncate("\n".join(hunk.lines)))
             lines.append("\n".join(parts))
+        elif observation.kind == "git_diff_contexts":
+            parts = [
+                (
+                    f"{index}. git_diff_contexts {observation.path or '.'}: {observation.message} "
+                    f"shown={len(observation.contexts)}/{observation.total_hunks} "
+                    f"staged={str(observation.staged).lower()} "
+                    f"contextLines={observation.context_lines} "
+                    f"truncated={str(observation.truncated).lower()}"
+                )
+            ]
+            for item in observation.contexts[:80]:
+                hunk = item.hunk
+                context = item.context
+                parts.append(
+                    (
+                        f"hunkContext: {hunk.file} old={hunk.old_start},{hunk.old_count} "
+                        f"new={hunk.new_start},{hunk.new_count} added={hunk.added} deleted={hunk.deleted} "
+                        f"contextOk={str(context.ok).lower()} targetExists={str(context.target_line_exists).lower()} "
+                        f"sourceRange={context.start_line}-{context.end_line}"
+                    )
+                )
+                if context.ok and context.content:
+                    parts.append("source:\n" + truncate(context.content))
+                elif not context.ok:
+                    parts.append(f"sourceError: {context.message}")
+            lines.append("\n".join(parts))
         elif observation.kind == "git_log":
             lines.append(
                 "\n".join(
@@ -1431,6 +1921,322 @@ def format_observations(observations: list[Observation]) -> str:
                         f"ok: {str(observation.ok).lower()}",
                         f"summary:\n{truncate(observation.summary)}",
                         f"recent:\n{truncate(chr(10).join(observation.recent_sessions))}",
+                    ]
+                )
+            )
+        elif observation.kind == "session_plan":
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. session_plan {observation.run_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"plan:\n{truncate(observation.plan)}",
+                    ]
+                )
+            )
+        elif observation.kind == "session_transcript":
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. session_transcript {observation.run_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"transcript:\n{truncate(observation.transcript)}",
+                    ]
+                )
+            )
+        elif observation.kind == "session_search":
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. session_search {observation.run_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"query: {observation.query}",
+                        f"matches: {observation.shown_matches}/{observation.total_matches}",
+                        f"timeline:\n{truncate(observation.matches)}",
+                    ]
+                )
+            )
+        elif observation.kind == "session_commands":
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. session_commands {observation.run_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"commands: {observation.shown_commands}/{observation.command_count}",
+                        f"results:\n{truncate(observation.commands)}",
+                    ]
+                )
+            )
+        elif observation.kind == "session_output_contexts":
+            parts = [
+                (
+                    f"{index}. session_output_contexts {observation.run_id}: {observation.message} "
+                    f"ok={str(observation.ok).lower()} "
+                    f"commands={observation.shown_commands}/{observation.command_count} "
+                    f"totalRefs={observation.total_refs} truncated={str(observation.truncated).lower()}"
+                )
+            ]
+            for item in observation.contexts:
+                column = f":{item.column}" if item.column is not None else ""
+                parts.append(
+                    (
+                        f"context: {item.path}:{item.line}{column} raw={item.raw!r} "
+                        f"ok={str(item.ok).lower()} range={item.start_line}:{item.end_line} "
+                        f"contextLines={item.context_lines} targetExists={str(item.target_line_exists).lower()} "
+                        f"lines={item.line_count}/{item.total_lines if item.total_lines is not None else 'unknown'} "
+                        f"truncated={str(item.truncated).lower()} maxBytes={item.max_bytes} "
+                        f"message={item.message}"
+                    )
+                )
+                if item.ok:
+                    parts.append(f"content:\n{truncate(item.content)}")
+            lines.append("\n".join(parts))
+        elif observation.kind == "session_output_diagnostics":
+            parts = [
+                (
+                    f"{index}. session_output_diagnostics {observation.run_id}: {observation.message} "
+                    f"ok={str(observation.ok).lower()} "
+                    f"commands={observation.shown_commands}/{observation.command_count} "
+                    f"diagnostics={len(observation.diagnostics)}/{observation.total_diagnostics} "
+                    f"totalRefs={observation.total_refs} "
+                    f"diagnosticsTruncated={str(observation.diagnostics_truncated).lower()} "
+                    f"contextsTruncated={str(observation.contexts_truncated).lower()}"
+                )
+            ]
+            for diagnostic in observation.diagnostics:
+                location = ""
+                if diagnostic.path:
+                    location = f" location={diagnostic.path}:{diagnostic.line if diagnostic.line is not None else '?'}"
+                    if diagnostic.column is not None:
+                        location += f":{diagnostic.column}"
+                parts.append(
+                    (
+                        f"diagnostic: severity={diagnostic.severity} outputLine={diagnostic.output_line}"
+                        f"{location} raw={diagnostic.raw!r} text={diagnostic.text}"
+                    )
+                )
+            for item in observation.contexts:
+                column = f":{item.column}" if item.column is not None else ""
+                parts.append(
+                    (
+                        f"context: {item.path}:{item.line}{column} raw={item.raw!r} "
+                        f"ok={str(item.ok).lower()} range={item.start_line}:{item.end_line} "
+                        f"contextLines={item.context_lines} targetExists={str(item.target_line_exists).lower()} "
+                        f"lines={item.line_count}/{item.total_lines if item.total_lines is not None else 'unknown'} "
+                        f"truncated={str(item.truncated).lower()} maxBytes={item.max_bytes} "
+                        f"message={item.message}"
+                    )
+                )
+                if item.ok:
+                    parts.append(f"content:\n{truncate(item.content)}")
+            lines.append("\n".join(parts))
+        elif observation.kind == "session_files":
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. session_files {observation.run_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"files: {observation.shown_files}/{observation.file_count}",
+                        f"entries:\n{truncate(observation.files)}",
+                    ]
+                )
+            )
+        elif observation.kind == "session_failures":
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. session_failures {observation.run_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"failures: {observation.shown_failures}/{observation.failure_count}",
+                        f"entries:\n{truncate(observation.failures)}",
+                    ]
+                )
+            )
+        elif observation.kind == "session_verification":
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. session_verification {observation.run_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"verification:\n{truncate(observation.verification)}",
+                    ]
+                )
+            )
+        elif observation.kind == "session_audit":
+            process_lines = [
+                (
+                    f"active_process: {process.process_id} pid={process.pid} "
+                    f"cwd={process.cwd} command={process.command}"
+                )
+                for process in observation.active_background_processes[:20]
+            ]
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. session_audit {observation.run_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"ready: {str(observation.ready).lower()}",
+                        f"blockers: {len(observation.blockers)}",
+                        f"backgroundProcesses: started={observation.background_processes_started} active={len(observation.active_background_processes)}",
+                        *[f"blocker: {blocker}" for blocker in observation.blockers[:20]],
+                        *process_lines,
+                        f"audit:\n{truncate(observation.audit)}",
+                    ]
+                )
+            )
+        elif observation.kind == "session_handoff":
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. session_handoff {observation.run_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"handoff:\n{truncate(observation.handoff)}",
+                    ]
+                )
+            )
+        elif observation.kind == "checkpoint_show":
+            checkpoint = observation.checkpoint
+            parts = [
+                f"{index}. checkpoint_show: {observation.message}",
+                f"ok: {str(observation.ok).lower()}",
+            ]
+            if checkpoint is not None:
+                parts.extend(
+                    [
+                        f"id: {checkpoint.checkpoint_id}",
+                        f"label: {checkpoint.label or 'none'}",
+                        f"createdAt: {checkpoint.created_at}",
+                        f"projectRoot: {observation.project_root or 'none'}",
+                        f"head: {checkpoint.head}",
+                        f"changedFiles: {checkpoint.changed_files}",
+                        f"stagedFiles: {checkpoint.staged_files}",
+                        f"unstagedFiles: {checkpoint.unstaged_files}",
+                        f"untrackedFiles: {checkpoint.untracked_files}",
+                        f"untrackedSavedFiles: {observation.untracked_saved_files}",
+                        f"untrackedSkippedFiles: {observation.untracked_skipped_files}",
+                        f"savedUntrackedPathsTruncated: {str(observation.saved_untracked_paths_truncated).lower()}",
+                        f"savedUntrackedPaths: {', '.join(observation.saved_untracked_paths) or 'none'}",
+                        f"stagedPatchChars: {observation.staged_patch_chars}",
+                        f"unstagedPatchChars: {observation.unstaged_patch_chars}",
+                    ]
+                )
+            if observation.git_status:
+                parts.append(f"gitStatus:\n{truncate(observation.git_status)}")
+            lines.append("\n".join(parts))
+        elif observation.kind == "checkpoint_diff":
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. checkpoint_diff {observation.checkpoint_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"label: {observation.label or 'none'}",
+                        f"createdAt: {observation.created_at or 'none'}",
+                        f"maxChars: {observation.max_chars}",
+                        f"stagedPatchChars: {observation.staged_patch_chars}",
+                        f"stagedPatchTruncated: {str(observation.staged_patch_truncated).lower()}",
+                        f"stagedPatch:\n{truncate(observation.staged_patch) if observation.staged_patch else 'no staged changes'}",
+                        f"unstagedPatchChars: {observation.unstaged_patch_chars}",
+                        f"unstagedPatchTruncated: {str(observation.unstaged_patch_truncated).lower()}",
+                        f"unstagedPatch:\n{truncate(observation.unstaged_patch) if observation.unstaged_patch else 'no unstaged changes'}",
+                    ]
+                )
+            )
+        elif observation.kind == "checkpoint_status":
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. checkpoint_status {observation.checkpoint_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"matches: {str(observation.matches).lower()}",
+                        f"statusMatches: {str(observation.status_matches).lower()}",
+                        f"stagedPatchMatches: {str(observation.staged_patch_matches).lower()}",
+                        f"unstagedPatchMatches: {str(observation.unstaged_patch_matches).lower()}",
+                        f"untrackedFileMatches: {str(observation.untracked_file_matches).lower()}",
+                        (
+                            "saved/current changedFiles: "
+                            f"{observation.saved_changed_files}/{observation.current_changed_files}, "
+                            f"staged: {observation.saved_staged_files}/{observation.current_staged_files}, "
+                            f"unstaged: {observation.saved_unstaged_files}/{observation.current_unstaged_files}, "
+                            f"untracked: {observation.saved_untracked_files}/{observation.current_untracked_files}"
+                        ),
+                    ]
+                )
+            )
+        elif observation.kind == "check_checkpoint_restore":
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. check_checkpoint_restore {observation.checkpoint_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"canRestore: {str(observation.can_restore).lower()}",
+                        f"savedHead: {observation.saved_head or 'none'}",
+                        f"currentHead: {observation.current_head or 'none'}",
+                        f"savedUntrackedFiles: {observation.saved_untracked_files}",
+                        f"currentUntrackedFiles: {observation.current_untracked_files}",
+                        f"stagedPatchChars: {observation.staged_patch_chars}",
+                        f"unstagedPatchChars: {observation.unstaged_patch_chars}",
+                    ]
+                )
+            )
+        elif observation.kind == "checkpoint_restore":
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. checkpoint_restore {observation.checkpoint_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"restored: {str(observation.restored).lower()}",
+                        f"matches: {str(observation.matches).lower()}",
+                        f"savedHead: {observation.saved_head or 'none'}",
+                        f"currentHead: {observation.current_head or 'none'}",
+                        f"savedUntrackedFiles: {observation.saved_untracked_files}",
+                        f"currentUntrackedFiles: {observation.current_untracked_files}",
+                        f"stagedPatchChars: {observation.staged_patch_chars}",
+                        f"unstagedPatchChars: {observation.unstaged_patch_chars}",
+                    ]
+                )
+            )
+        elif observation.kind == "check_checkpoint_delete":
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. check_checkpoint_delete {observation.checkpoint_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"canDelete: {str(observation.can_delete).lower()}",
+                        f"createdAt: {observation.created_at or 'none'}",
+                    ]
+                )
+            )
+        elif observation.kind == "checkpoint_delete":
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. checkpoint_delete {observation.checkpoint_id}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"deleted: {str(observation.deleted).lower()}",
+                    ]
+                )
+            )
+        elif observation.kind == "check_checkpoint_prune":
+            checkpoint_ids = ", ".join(item.checkpoint_id for item in observation.checkpoints) or "none"
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. check_checkpoint_prune keep_last={observation.keep_last}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"total/kept/deleteCount: {observation.total}/{observation.kept}/{observation.delete_count}",
+                        f"deleteCheckpoints: {checkpoint_ids}",
+                    ]
+                )
+            )
+        elif observation.kind == "checkpoint_prune":
+            checkpoint_ids = ", ".join(item.checkpoint_id for item in observation.checkpoints) or "none"
+            lines.append(
+                "\n".join(
+                    [
+                        f"{index}. checkpoint_prune keep_last={observation.keep_last}: {observation.message}",
+                        f"ok: {str(observation.ok).lower()}",
+                        f"total/kept/deleted: {observation.total}/{observation.kept}/{observation.deleted}",
+                        f"deletedCheckpoints: {checkpoint_ids}",
                     ]
                 )
             )
@@ -1764,40 +2570,100 @@ def format_observations(observations: list[Observation]) -> str:
                 )
             )
         elif observation.kind == "read_process":
-            lines.append(
-                "\n".join(
-                    [
-                        f"{index}. read_process {observation.process_id}: {observation.message}",
-                        f"pid: {observation.pid or 'none'}",
-                        f"running: {str(observation.running).lower()}",
-                        f"exitCode: {observation.exit_code}",
-                        f"signal: {observation.signal or 'none'}",
-                        f"maxOutputChars: {observation.max_output_chars}",
-                        f"stdout:\n{truncate(observation.stdout)}",
-                        f"stderr:\n{truncate(observation.stderr)}",
-                    ]
+            parts = [
+                f"{index}. read_process {observation.process_id}: {observation.message}",
+                f"pid: {observation.pid or 'none'}",
+                f"running: {str(observation.running).lower()}",
+                f"exitCode: {observation.exit_code}",
+                f"signal: {observation.signal or 'none'}",
+                f"maxOutputChars: {observation.max_output_chars}",
+                f"stdout:\n{truncate(observation.stdout)}",
+                f"stderr:\n{truncate(observation.stderr)}",
+                format_command_output_diagnostics(observation),
+                format_command_output_contexts(observation),
+            ]
+            lines.append("\n".join(parts))
+        elif observation.kind == "process_output_contexts":
+            parts = [
+                f"{index}. process_output_contexts {observation.process_id}: {observation.message}",
+                f"pid: {observation.pid or 'none'}",
+                f"ok: {str(observation.ok).lower()}",
+                f"running: {str(observation.running).lower()}",
+                f"contexts: {len(observation.contexts)}/{observation.total_refs}",
+                f"truncated: {str(observation.truncated).lower()}",
+                f"stdoutChars: {observation.stdout_chars}",
+                f"stderrChars: {observation.stderr_chars}",
+                f"maxOutputChars: {observation.max_output_chars}",
+            ]
+            for item in observation.contexts:
+                column = f":{item.column}" if item.column is not None else ""
+                parts.append(
+                    (
+                        f"context: {item.path}:{item.line}{column} raw={item.raw!r} "
+                        f"ok={str(item.ok).lower()} range={item.start_line}:{item.end_line} "
+                        f"contextLines={item.context_lines} message={item.message}"
+                    )
                 )
-            )
+                if item.ok:
+                    parts.append(f"content:\n{truncate(item.content)}")
+            lines.append("\n".join(parts))
+        elif observation.kind == "process_output_diagnostics":
+            parts = [
+                f"{index}. process_output_diagnostics {observation.process_id}: {observation.message}",
+                f"pid: {observation.pid or 'none'}",
+                f"ok: {str(observation.ok).lower()}",
+                f"running: {str(observation.running).lower()}",
+                f"diagnostics: {len(observation.diagnostics)}/{observation.total_diagnostics}",
+                f"contexts: {len(observation.contexts)}/{observation.total_refs}",
+                f"diagnosticsTruncated: {str(observation.diagnostics_truncated).lower()}",
+                f"contextsTruncated: {str(observation.contexts_truncated).lower()}",
+                f"stdoutChars: {observation.stdout_chars}",
+                f"stderrChars: {observation.stderr_chars}",
+                f"maxOutputChars: {observation.max_output_chars}",
+            ]
+            for diagnostic in observation.diagnostics:
+                location = ""
+                if diagnostic.path:
+                    location = f" location={diagnostic.path}:{diagnostic.line if diagnostic.line is not None else '?'}"
+                    if diagnostic.column is not None:
+                        location += f":{diagnostic.column}"
+                parts.append(
+                    (
+                        f"diagnostic: severity={diagnostic.severity} outputLine={diagnostic.output_line}"
+                        f"{location} raw={diagnostic.raw!r} text={diagnostic.text}"
+                    )
+                )
+            for item in observation.contexts:
+                column = f":{item.column}" if item.column is not None else ""
+                parts.append(
+                    (
+                        f"context: {item.path}:{item.line}{column} raw={item.raw!r} "
+                        f"ok={str(item.ok).lower()} range={item.start_line}:{item.end_line} "
+                        f"contextLines={item.context_lines} message={item.message}"
+                    )
+                )
+                if item.ok:
+                    parts.append(f"content:\n{truncate(item.content)}")
+            lines.append("\n".join(parts))
         elif observation.kind == "wait_process":
-            lines.append(
-                "\n".join(
-                    [
-                        f"{index}. wait_process {observation.process_id}: {observation.message}",
-                        f"pid: {observation.pid or 'none'}",
-                        f"running: {str(observation.running).lower()}",
-                        f"timedOut: {str(observation.timed_out).lower()}",
-                        f"matched: {str(observation.matched).lower()}",
-                        f"matchedStream: {observation.matched_stream or 'none'}",
-                        f"matchedPattern: {observation.matched_pattern or 'none'}",
-                        f"timeoutMs: {observation.timeout_ms}",
-                        f"exitCode: {observation.exit_code}",
-                        f"signal: {observation.signal or 'none'}",
-                        f"maxOutputChars: {observation.max_output_chars}",
-                        f"stdout:\n{truncate(observation.stdout)}",
-                        f"stderr:\n{truncate(observation.stderr)}",
-                    ]
-                )
-            )
+            parts = [
+                f"{index}. wait_process {observation.process_id}: {observation.message}",
+                f"pid: {observation.pid or 'none'}",
+                f"running: {str(observation.running).lower()}",
+                f"timedOut: {str(observation.timed_out).lower()}",
+                f"matched: {str(observation.matched).lower()}",
+                f"matchedStream: {observation.matched_stream or 'none'}",
+                f"matchedPattern: {observation.matched_pattern or 'none'}",
+                f"timeoutMs: {observation.timeout_ms}",
+                f"exitCode: {observation.exit_code}",
+                f"signal: {observation.signal or 'none'}",
+                f"maxOutputChars: {observation.max_output_chars}",
+                f"stdout:\n{truncate(observation.stdout)}",
+                f"stderr:\n{truncate(observation.stderr)}",
+                format_command_output_diagnostics(observation),
+                format_command_output_contexts(observation),
+            ]
+            lines.append("\n".join(parts))
         elif observation.kind == "check_write_process":
             lines.append(
                 "\n".join(
@@ -1934,6 +2800,62 @@ def format_observations(observations: list[Observation]) -> str:
                         f"stdoutTruncated: {str(result.stdout_truncated).lower()} stderrTruncated={str(result.stderr_truncated).lower()} signal={result.signal or 'none'}",
                         f"stdout:\n{truncate(result.stdout)}",
                         f"stderr:\n{truncate(result.stderr)}",
+                        format_command_output_diagnostics(result),
+                        format_command_output_contexts(result),
+                    ]
+                )
+            lines.append("\n".join(parts))
+        elif observation.kind == "run_suggested_checks":
+            parts = [
+                f"{index}. run_suggested_checks: {observation.message}",
+                f"ok: {str(observation.ok).lower()}",
+                f"suggested: {len(observation.suggested_checks)}/{observation.total}",
+                f"truncated: {str(observation.truncated).lower()}",
+                f"skippedUnavailable: {observation.skipped_unavailable}",
+                f"stoppedEarly: {str(observation.stopped_early).lower()}",
+            ]
+            for result in observation.results:
+                parts.extend(
+                    [
+                        f"command: {result.command}",
+                        f"cwd: {result.cwd}",
+                        f"exitCode: {result.exit_code}",
+                        f"timedOut: {str(result.timed_out).lower()}",
+                        f"timeoutMs: {result.timeout_ms}",
+                        f"maxOutputChars: {result.max_output_chars}",
+                        f"stdoutTruncated: {str(result.stdout_truncated).lower()} stderrTruncated={str(result.stderr_truncated).lower()} signal={result.signal or 'none'}",
+                        f"stdout:\n{truncate(result.stdout)}",
+                        f"stderr:\n{truncate(result.stderr)}",
+                        format_command_output_diagnostics(result),
+                        format_command_output_contexts(result),
+                    ]
+                )
+            lines.append("\n".join(parts))
+        elif observation.kind == "run_focused_test_commands":
+            parts = [
+                f"{index}. run_focused_test_commands: {observation.message}",
+                f"ok: {str(observation.ok).lower()}",
+                f"focused: {len(observation.focused_commands)}/{observation.total}",
+                f"truncated: {str(observation.truncated).lower()}",
+                f"skippedUnavailable: {observation.skipped_unavailable}",
+                f"stoppedEarly: {str(observation.stopped_early).lower()}",
+            ]
+            if observation.target_paths:
+                parts.append("target_paths:\n" + "\n".join(observation.target_paths[:120]))
+            for result in observation.results:
+                parts.extend(
+                    [
+                        f"command: {result.command}",
+                        f"cwd: {result.cwd}",
+                        f"exitCode: {result.exit_code}",
+                        f"timedOut: {str(result.timed_out).lower()}",
+                        f"timeoutMs: {result.timeout_ms}",
+                        f"maxOutputChars: {result.max_output_chars}",
+                        f"stdoutTruncated: {str(result.stdout_truncated).lower()} stderrTruncated={str(result.stderr_truncated).lower()} signal={result.signal or 'none'}",
+                        f"stdout:\n{truncate(result.stdout)}",
+                        f"stderr:\n{truncate(result.stderr)}",
+                        format_command_output_diagnostics(result),
+                        format_command_output_contexts(result),
                     ]
                 )
             lines.append("\n".join(parts))
@@ -1953,11 +2875,69 @@ def format_observations(observations: list[Observation]) -> str:
                         f"signal: {result.signal or 'none'}",
                         f"stdout:\n{truncate(result.stdout)}",
                         f"stderr:\n{truncate(result.stderr)}",
+                        format_command_output_diagnostics(result),
+                        format_command_output_contexts(result),
                     ]
                 )
             )
 
     return "\n\n".join(lines)
+
+
+def format_command_output_diagnostics(result: object) -> str:
+    diagnostics = getattr(result, "output_diagnostics", [])
+    total = getattr(result, "output_diagnostic_total", 0)
+    truncated = getattr(result, "output_diagnostics_truncated", False)
+    if not diagnostics and not total:
+        return "outputDiagnostics: none"
+    lines = [
+        (
+            f"outputDiagnostics: {len(diagnostics)}/{total} "
+            f"truncated={str(bool(truncated)).lower()}"
+        )
+    ]
+    for item in diagnostics:
+        location = ""
+        if item.path:
+            location = f" location={item.path}:{item.line if item.line is not None else '?'}"
+            if item.column is not None:
+                location += f":{item.column}"
+        lines.append(
+            (
+                f"diagnostic: severity={item.severity} outputLine={item.output_line}"
+                f"{location} raw={item.raw!r} text={item.text}"
+            )
+        )
+    return "\n".join(lines)
+
+
+def format_command_output_contexts(result: object) -> str:
+    contexts = getattr(result, "output_contexts", [])
+    total_refs = getattr(result, "output_context_total_refs", 0)
+    truncated = getattr(result, "output_contexts_truncated", False)
+    if not contexts and not total_refs:
+        return "outputContexts: none"
+    lines = [
+        (
+            f"outputContexts: {len(contexts)}/{total_refs} "
+            f"truncated={str(bool(truncated)).lower()}"
+        )
+    ]
+    for item in contexts:
+        column = f":{item.column}" if item.column is not None else ""
+        lines.append(
+            (
+                f"context: {item.path}:{item.line}{column} raw={item.raw!r} "
+                f"ok={str(item.ok).lower()} range={item.start_line}:{item.end_line} "
+                f"contextLines={item.context_lines} targetExists={str(item.target_line_exists).lower()} "
+                f"lines={item.line_count}/{item.total_lines if item.total_lines is not None else 'unknown'} "
+                f"truncated={str(item.truncated).lower()} maxBytes={item.max_bytes} "
+                f"message={item.message}"
+            )
+        )
+        if item.ok:
+            lines.append(f"content:\n{truncate(item.content)}")
+    return "\n".join(lines)
 
 
 def truncate(value: str, max_length: int = 4_000) -> str:
