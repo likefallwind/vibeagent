@@ -123,6 +123,96 @@ self-checks.
 `--json --checks` includes a structured `checks` object with shown and total
 suggested verification commands, truncation state, changed files, and the same
 message shown in the text UI.
+`--json --review` includes a structured `review` object with readiness,
+blocking issues, warnings, changed files, running background processes,
+syntax-check summaries, suggested verification commands, and diff-check output.
+`--json --handoff` includes a structured `handoff` object with final-review
+readiness, blocking issues, warnings, changed files, running background
+processes, suggested verification commands, filtered git status, and the latest
+plan text.
+`--json --changes` includes a structured `changes` object with changed-file
+counts, staged/unstaged/untracked totals, insertion/deletion totals, truncation
+state, and shown file records.
+`--json --diff`, `--json --diff-hunks`, and `--json --diff-contexts` include
+structured diff payloads with scope, path, truncation, bounded patch text,
+hunk metadata, and source contexts.
+`--json --git-status`, `--json --git-info`, `--json --branches`,
+`--json --log`, `--json --show`, `--json --blame`, and `--json --stashes`
+include structured read-only git payloads with branch, status, commit, bounded
+output, blame, and stash fields instead of requiring callers to parse text.
+`--json --glob`, `--json --tree`, and `--json --symbols` include structured
+project-inspection payloads with matched files, bounded tree entries, source
+imports, symbol outlines, truncation state, and per-file errors.
+`--json --file-info` and `--json --image-info` include structured inspection
+payloads with file type, size, line count, binary state, image format,
+dimensions, and per-path errors.
+`--json --read`, `--json --read-files`, and `--json --read-ranges` include
+structured file-content payloads with paths, requested ranges, bounded content,
+truncation state, and per-file or per-range errors.
+`--json --tail`, `--json --around`, and `--json --around-many` include
+structured file-context payloads with requested line windows, line counts,
+target-line status, bounded content, truncation state, and per-context errors.
+`--json --output-contexts`, `--json --output-diagnostics`, and
+`--json --python-traceback` include structured diagnostics and source-context
+payloads with extracted references, diagnostic severities, output-line numbers,
+bounded code snippets, truncation state, and per-context errors.
+`--json --check-run-commands` includes structured batch command preflight with
+cwd validity, hard-block state, executable availability, missing tools, and
+per-command messages. `--json --run-command` and `--json --run-commands` include
+structured finite-command payloads with cwd, timeout, stdout/stderr, exit code,
+stop-on-failure state, truncation state, and any auto-extracted diagnostics or
+source contexts.
+`--json --process-output-contexts` and `--json --process-output-diagnostics`
+include structured background-process output analysis with process status,
+captured stdout/stderr sizes, extracted references, diagnostic records, bounded
+source snippets, truncation state, and per-context errors.
+`--json --process-output` and `--json --wait-process` include structured
+background-process reads with status, match/timeout state, captured stdout/stderr,
+and any auto-extracted diagnostics or source contexts.
+`--json --usage` includes a structured `usage` object with session, event,
+approval, status, and token totals plus an explicit cost-unavailable reason.
+`--json --cost` includes a structured `cost` object with usage totals,
+configured rates, rate errors, missing-rate state, and provider cost estimates
+when enough pricing data is configured.
+`--json --checkpoint`, `--json --checkpoints`, `--json --checkpoint-show`,
+`--json --checkpoint-diff`, `--json --checkpoint-status`, and checkpoint
+preflight/execution flags include structured checkpoint payloads with saved
+metadata, patch sizes, match/preflight state, mutation results, and recovery
+messages.
+`--json --session-verification` includes a structured `sessionVerification`
+object with verified, pending, and failed check groups plus truncation state.
+`--json --sessions` includes a structured `sessions` object with recent session
+run ids, statuses, event counts, last event times, and tasks.
+`--json --last` and `--json --session` include a structured `sessionSummary`
+object with status, counts, usage, approvals, plan, verification, completion,
+checkpoint, model-error, and background-process summaries.
+`--json --plan` includes a structured `sessionPlan` object with the latest
+task plan status and items.
+`--json --transcript` includes a structured `sessionTranscript` object with a
+safe timeline summary, event counts, malformed-row counts, and truncation
+state.
+`--json --session-search` includes a structured `sessionSearch` object with
+bounded safe timeline matches and truncation state.
+`--json --session-failures` includes a structured `sessionFailures` object with
+bounded failed tools, failed commands, denied approvals, malformed events, and
+failed final results.
+`--json --session-commands` includes a structured `sessionCommands` object with
+bounded command result metadata and stdout/stderr tails.
+`--json --session-output-contexts` includes a structured
+`sessionOutputContexts` object with command scan counts, extracted
+file-reference contexts, source snippets, and truncation state.
+`--json --session-output-diagnostics` includes a structured
+`sessionOutputDiagnostics` object with extracted diagnostics, source contexts,
+and truncation state.
+`--json --session-files` includes a structured `sessionFiles` object with
+referenced paths, tools, uses, line numbers, counts, and truncation state.
+`--json --session-audit` includes a structured `sessionAudit` object with
+session readiness, blockers, completion status, verification groups, pending
+plan items, failures, command results, referenced files, and active background
+processes.
+`--json --session-handoff` includes a structured `sessionHandoff` object with
+the same readiness audit plus bounded summary, readiness, plan, verification,
+failure, file, and command sections for recovery workflows.
 One-shot coding commands exit with a nonzero status when `completionReady` is
 false, even if the agent run itself returned `success: true`.
 JSON error results use `kind: "error"` with `status: "failed"`, and interrupted

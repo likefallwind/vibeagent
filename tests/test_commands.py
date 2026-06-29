@@ -17,17 +17,29 @@ from vibeagent.commands import (
     get_branches_text,
     get_checks_report,
     get_checks_text,
+    get_changes_report,
     get_changes_text,
+    get_check_checkpoint_delete_report,
     get_check_checkpoint_delete_text,
+    get_check_checkpoint_prune_report,
     get_check_checkpoint_prune_text,
+    get_check_checkpoint_restore_report,
     get_check_checkpoint_restore_text,
+    get_checkpoint_diff_report,
     get_checkpoint_delete_text,
+    get_checkpoint_delete_report,
     get_checkpoint_diff_text,
+    get_checkpoint_prune_report,
     get_checkpoint_prune_text,
+    get_checkpoint_report,
+    get_checkpoint_restore_report,
     get_checkpoint_restore_text,
+    get_checkpoint_show_report,
     get_checkpoint_show_text,
+    get_checkpoint_status_report,
     get_checkpoint_status_text,
     get_checkpoint_text,
+    get_checkpoints_report,
     get_checkpoints_text,
     get_check_copy_dir_text,
     get_check_copy_dirs_text,
@@ -60,6 +72,8 @@ from vibeagent.commands import (
     get_check_patches_text,
     get_check_write_file_text,
     get_check_write_files_text,
+    format_check_run_sequence_report_text,
+    get_check_run_sequence_report,
     get_check_run_sequence_text,
     get_check_start_text,
     get_check_stop_all_processes_text,
@@ -87,17 +101,23 @@ from vibeagent.commands import (
     get_commands_text,
     get_config_text,
     get_context_text,
+    get_around_report,
     get_around_text,
+    get_around_many_report,
     get_around_many_text,
     get_output_contexts_text,
+    get_output_contexts_report,
     get_output_diagnostics_text,
+    get_output_diagnostics_report,
     get_python_traceback_text,
+    get_python_traceback_report,
     get_commit_text,
     get_config_check_text,
     get_copy_dir_text,
     get_copy_dirs_text,
     get_copy_file_text,
     get_copy_files_text,
+    get_cost_report,
     get_cost_text,
     get_create_dirs_text,
     get_create_dir_text,
@@ -105,21 +125,32 @@ from vibeagent.commands import (
     get_delete_files_text,
     get_delete_empty_dirs_text,
     get_delete_empty_dir_text,
+    get_diff_contexts_report,
     get_diff_contexts_text,
+    get_diff_hunks_report,
     get_diff_hunks_text,
+    get_diff_report,
     get_diff_text,
     get_doctor_report,
     get_doctor_text,
     get_edit_file_text,
     get_env_text,
     get_fetch_text,
+    get_file_info_report,
     get_file_info_text,
     get_focused_test_commands_text,
+    get_blame_report,
+    get_branches_report,
+    get_image_info_report,
     get_image_info_text,
     get_git_conflicts_text,
+    get_git_info_report,
     get_git_info_text,
+    get_git_status_report,
     get_git_status_text,
+    get_glob_report,
     get_glob_text,
+    get_handoff_report,
     get_handoff_text,
     get_http_fetch_text,
     get_http_text,
@@ -128,7 +159,9 @@ from vibeagent.commands import (
     get_json_patch_text,
     get_json_remove_text,
     get_json_set_text,
+    get_last_session_report,
     get_last_session_text,
+    get_log_report,
     get_log_text,
     get_manifests_text,
     get_model_text,
@@ -142,12 +175,16 @@ from vibeagent.commands import (
     get_patches_text,
     get_permissions_text,
     get_permissions_report,
+    get_plan_report,
     get_plan_text,
     get_port_text,
     get_pull_text,
     get_push_text,
+    get_process_output_contexts_report,
     get_process_output_contexts_text,
+    get_process_output_diagnostics_report,
     get_process_output_diagnostics_text,
+    get_process_report,
     get_process_text,
     get_processes_text,
     get_python_call_graph_text,
@@ -159,55 +196,82 @@ from vibeagent.commands import (
     get_python_refs_text,
     get_python_rename_preview_text,
     get_python_rename_text,
+    get_read_report,
+    get_read_files_report,
     get_read_files_text,
+    get_read_ranges_report,
     get_read_ranges_text,
     get_read_text,
     get_related_tests_text,
+    get_tail_report,
     get_tail_text,
     get_todos_text,
     get_regex_replace_text,
     get_replace_lines_text,
     get_replace_python_definition_text,
     get_repo_map_text,
+    get_review_report,
     get_review_text,
     get_resume_context,
     get_restore_text,
+    format_run_report_text,
+    get_run_report,
+    format_run_sequence_report_text,
+    get_run_sequence_report,
     get_run_sequence_text,
     get_run_suggested_checks_text,
     get_run_focused_test_commands_text,
     get_run_text,
+    get_session_audit_report,
     get_session_audit_text,
+    get_session_commands_report,
     get_session_commands_text,
+    get_session_output_contexts_report,
     get_session_output_contexts_text,
+    get_session_output_diagnostics_report,
     get_session_output_diagnostics_text,
+    get_session_failures_report,
     get_session_failures_text,
+    get_session_files_report,
     get_session_files_text,
+    get_session_handoff_report,
     get_session_handoff_text,
+    get_session_report,
+    get_session_search_report,
     get_session_search_text,
+    get_session_verification_report,
     get_session_verification_text,
     get_session_text,
+    get_sessions_report,
     get_sessions_text,
     get_search_text,
     get_search_contexts_text,
     get_set_executable_text,
+    get_show_report,
     get_show_text,
     get_start_text,
     get_stash_apply_text,
     get_stash_drop_text,
     get_stash_text,
     get_stage_text,
+    get_stashes_report,
     get_stashes_text,
     get_status_text,
     get_stop_all_processes_text,
     get_stop_process_text,
     get_switch_text,
+    get_symbols_report,
     get_symbols_text,
     get_tool_text,
     get_tools_text,
+    get_tree_report,
     get_tree_text,
+    get_transcript_report,
     get_transcript_text,
     get_unstage_text,
+    get_usage_report,
     get_usage_text,
+    get_wait_process_report,
     get_wait_process_text,
     get_write_file_text,
     get_write_files_text,
@@ -1319,6 +1383,60 @@ class CommandTests(unittest.TestCase):
         self.assertIn("missing.py (error)", text)
         self.assertEqual(usage, "Usage: /symbols <path...>")
 
+    def test_project_inspection_reports_return_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "src" / "pkg").mkdir()
+            (root / "web").mkdir()
+            (root / "dist").mkdir()
+            (root / "src" / "app.py").write_text(
+                "import os\n\nclass App:\n    pass\n\ndef main():\n    return os.getcwd()\n",
+                encoding="utf-8",
+            )
+            (root / "src" / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+            (root / "web" / "app.ts").write_text(
+                "import { readFile } from 'fs';\nexport class View {}\nexport function render() {}\n",
+                encoding="utf-8",
+            )
+            (root / "dist" / "generated.py").write_text("print('generated')\n", encoding="utf-8")
+            (root / ".env").write_text("SECRET=1\n", encoding="utf-8")
+
+            glob = get_glob_report(root, "**/*.py")
+            tree = get_tree_report(root, "src", max_depth=3, max_entries=20)
+            symbols = get_symbols_report(root, ["src/app.py", "web/app.ts", "missing.py"], max_symbols=20)
+            missing_tree = get_tree_report(root, ".env")
+            usage_glob = get_glob_report(root)
+            usage_symbols = get_symbols_report(root)
+
+        self.assertTrue(glob["ok"])
+        self.assertEqual(glob["pattern"], "**/*.py")
+        self.assertEqual(glob["matches"]["shown"], 2)
+        self.assertEqual(glob["matches"]["total"], 2)
+        self.assertIn("src/app.py", glob["matches"]["files"])
+        self.assertIn("src/pkg/__init__.py", glob["matches"]["files"])
+        self.assertNotIn("dist/generated.py", glob["matches"]["files"])
+        self.assertTrue(tree["ok"])
+        self.assertEqual(tree["path"], "src")
+        self.assertEqual(tree["entries"]["shown"], 3)
+        self.assertIn("src/pkg/", tree["entries"]["items"])
+        self.assertFalse(missing_tree["ok"])
+        self.assertIn("Path is protected", missing_tree["message"])
+        self.assertFalse(symbols["ok"])
+        self.assertEqual(symbols["files"]["ok"], 2)
+        self.assertEqual(symbols["files"]["total"], 3)
+        self.assertEqual(symbols["counts"], {"symbols": 4, "imports": 2})
+        self.assertEqual(symbols["files"]["items"][0]["path"], "src/app.py")
+        self.assertEqual(symbols["files"]["items"][0]["language"], "python")
+        self.assertEqual(symbols["files"]["items"][0]["symbols"][0]["name"], "App")
+        self.assertEqual(symbols["files"]["items"][1]["language"], "typescript")
+        self.assertIn("missing.py", symbols["files"]["items"][2]["path"])
+        self.assertFalse(symbols["files"]["items"][2]["ok"])
+        self.assertFalse(usage_glob["ok"])
+        self.assertIn("Usage: /glob", usage_glob["message"])
+        self.assertFalse(usage_symbols["ok"])
+        self.assertIn("Usage: /symbols", usage_symbols["message"])
+
     def test_get_file_info_text_reports_file_directory_binary_missing_and_protected_paths(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -1380,6 +1498,56 @@ class CommandTests(unittest.TestCase):
         self.assertIn("- .env", text)
         self.assertIn("Path is protected", text)
         self.assertEqual(usage, "Usage: /image-info <path...>")
+
+    def test_file_and_image_info_reports_return_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "assets").mkdir()
+            (root / "src" / "app.py").write_text("one\ntwo\n", encoding="utf-8")
+            (root / "asset.bin").write_bytes(b"\x00\x01")
+            (root / "assets" / "logo.png").write_bytes(
+                b"\x89PNG\r\n\x1a\n"
+                b"\x00\x00\x00\rIHDR"
+                + (13).to_bytes(4, "big")
+                + (17).to_bytes(4, "big")
+                + b"\x08\x02\x00\x00\x00\x00\x00\x00\x00"
+            )
+            (root / ".env").write_text("SECRET=hidden\n", encoding="utf-8")
+
+            file_info = get_file_info_report(root, ["src/app.py", "src", "asset.bin", "missing.py", ".env"])
+            image_info = get_image_info_report(root, ["assets/logo.png", "assets", "missing.png", ".env"])
+            file_usage = get_file_info_report(root)
+            image_usage = get_image_info_report(root)
+
+        self.assertFalse(file_info["ok"])
+        self.assertEqual(file_info["paths"]["ok"], 3)
+        self.assertEqual(file_info["paths"]["total"], 5)
+        app_info = file_info["paths"]["items"][0]
+        self.assertEqual(app_info["path"], "src/app.py")
+        self.assertEqual(app_info["type"], "file")
+        self.assertEqual(app_info["sizeBytes"], 8)
+        self.assertEqual(app_info["lineCount"], 2)
+        self.assertFalse(app_info["binary"])
+        self.assertEqual(file_info["paths"]["items"][1]["type"], "directory")
+        self.assertTrue(file_info["paths"]["items"][2]["binary"])
+        self.assertIn("Path does not exist", file_info["paths"]["items"][3]["message"])
+        self.assertIn("Path is protected", file_info["paths"]["items"][4]["message"])
+        self.assertFalse(image_info["ok"])
+        self.assertEqual(image_info["images"]["ok"], 1)
+        self.assertEqual(image_info["images"]["total"], 4)
+        logo_info = image_info["images"]["items"][0]
+        self.assertEqual(logo_info["format"], "png")
+        self.assertEqual(logo_info["mimeType"], "image/png")
+        self.assertEqual(logo_info["width"], 13)
+        self.assertEqual(logo_info["height"], 17)
+        self.assertIn("Path is not a file", image_info["images"]["items"][1]["message"])
+        self.assertIn("Path does not exist", image_info["images"]["items"][2]["message"])
+        self.assertIn("Path is protected", image_info["images"]["items"][3]["message"])
+        self.assertFalse(file_usage["ok"])
+        self.assertIn("Usage: /file-info", file_usage["message"])
+        self.assertFalse(image_usage["ok"])
+        self.assertIn("Usage: /image-info", image_usage["message"])
 
     def test_get_read_text_reports_project_file_line_range_and_protects_sensitive_files(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -1555,6 +1723,71 @@ class CommandTests(unittest.TestCase):
         self.assertIn("2: raise ValueError('bad')", text)
         self.assertEqual(usage, "Usage: /python-traceback <text>")
 
+    def test_output_analysis_reports_return_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "src" / "app.py").write_text("one\nTwo\nraise ValueError('bad')\nfour\n", encoding="utf-8")
+            (root / "tests").mkdir()
+            (root / "tests" / "test_app.py").write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+            output = f'  File "{root / "src" / "app.py"}", line 3, in main\ntests/test_app.py:2:5: assertion failed'
+            diagnostics_output = "warning: src/app.py:2:3 check this\nERROR src/app.py:3 failed\nall good"
+            traceback_output = "\n".join(
+                [
+                    "Traceback (most recent call last):",
+                    f'  File "{root / "src" / "app.py"}", line 3, in run',
+                    "    raise ValueError('bad')",
+                    "ValueError: bad",
+                ]
+            )
+
+            contexts = get_output_contexts_report(root, output, context_lines=1, max_contexts=10, max_bytes_per_context=1000)
+            diagnostics = get_output_diagnostics_report(
+                root,
+                diagnostics_output,
+                context_lines=0,
+                max_diagnostics=10,
+                max_contexts=10,
+                max_bytes_per_context=1000,
+            )
+            traceback = get_python_traceback_report(
+                root,
+                traceback_output,
+                context_lines=0,
+                max_diagnostics=10,
+                max_contexts=10,
+                max_bytes_per_context=1000,
+            )
+            missing = get_output_contexts_report(root, "missing.py:1: boom", context_lines=1, max_contexts=10, max_bytes_per_context=1000)
+            usage = get_output_contexts_report(root)
+
+        self.assertTrue(contexts["ok"])
+        self.assertEqual(contexts["contexts"]["ok"], 2)
+        self.assertEqual(contexts["totalRefs"], 2)
+        self.assertEqual(contexts["contexts"]["items"][0]["path"], "src/app.py")
+        self.assertEqual(contexts["contexts"]["items"][0]["line"], 3)
+        self.assertIn("3: raise ValueError('bad')", contexts["contexts"]["items"][0]["content"])
+        self.assertEqual(contexts["contexts"]["items"][1]["column"], 5)
+        self.assertIn("2: beta", contexts["contexts"]["items"][1]["content"])
+        self.assertTrue(diagnostics["ok"])
+        self.assertEqual(diagnostics["diagnostics"]["shown"], 2)
+        self.assertEqual(diagnostics["diagnostics"]["total"], 2)
+        self.assertEqual(diagnostics["diagnostics"]["items"][0]["severity"], "warning")
+        self.assertEqual(diagnostics["diagnostics"]["items"][0]["path"], "src/app.py")
+        self.assertEqual(diagnostics["contexts"]["ok"], 2)
+        self.assertIn("2: Two", diagnostics["contexts"]["items"][0]["content"])
+        self.assertTrue(traceback["ok"])
+        self.assertEqual(traceback["diagnostics"]["shown"], 3)
+        self.assertEqual(traceback["contexts"]["ok"], 1)
+        self.assertEqual(traceback["contexts"]["items"][0]["line"], 3)
+        self.assertIn("3: raise ValueError('bad')", traceback["contexts"]["items"][0]["content"])
+        self.assertFalse(missing["ok"])
+        self.assertEqual(missing["contexts"]["ok"], 0)
+        self.assertEqual(missing["contexts"]["total"], 1)
+        self.assertIn("File does not exist", missing["contexts"]["items"][0]["message"])
+        self.assertFalse(usage["ok"])
+        self.assertIn("Usage: /output-contexts", usage["message"])
+
     def test_get_tail_text_reports_project_file_tail_and_protects_sensitive_files(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -1581,6 +1814,53 @@ class CommandTests(unittest.TestCase):
         self.assertIn("Path is protected", secret)
         self.assertIn("lines must be at least 1", invalid)
         self.assertEqual(usage, "Usage: /tail <path> [lines]")
+
+    def test_context_reports_return_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "src" / "app.py").write_text("one\nTwo\nthree\nfour\n", encoding="utf-8")
+            (root / "tests").mkdir()
+            (root / "tests" / "test_app.py").write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+            (root / "logs").mkdir()
+            (root / "logs" / "app.log").write_text("one\ntwo\nthree\nfour\n", encoding="utf-8")
+            (root / ".env").write_text("SECRET=hidden\n", encoding="utf-8")
+
+            tail = get_tail_report(root, "logs/app.log 2")
+            around = get_around_report(root, "src/app.py 3 1")
+            around_many = get_around_many_report(root, "src/app.py:3:1 tests/test_app.py:2 missing.py:1 .env:1")
+            tail_usage = get_tail_report(root)
+            around_usage = get_around_report(root)
+            around_many_usage = get_around_many_report(root)
+
+        self.assertTrue(tail["ok"])
+        self.assertEqual(tail["path"], "logs/app.log")
+        self.assertEqual(tail["tail"]["lineCount"], 2)
+        self.assertEqual(tail["tail"]["startLine"], 3)
+        self.assertEqual(tail["tail"]["requestedLines"], 2)
+        self.assertIn("3: three", tail["tail"]["content"])
+        self.assertNotIn("1: one", tail["tail"]["content"])
+        self.assertTrue(around["ok"])
+        self.assertEqual(around["path"], "src/app.py")
+        self.assertEqual(around["line"], 3)
+        self.assertEqual(around["context"]["startLine"], 2)
+        self.assertEqual(around["context"]["endLine"], 4)
+        self.assertTrue(around["context"]["targetLineExists"])
+        self.assertIn("2: Two", around["context"]["content"])
+        self.assertFalse(around_many["ok"])
+        self.assertEqual(around_many["contexts"]["ok"], 2)
+        self.assertEqual(around_many["contexts"]["total"], 4)
+        self.assertEqual(around_many["contexts"]["items"][0]["path"], "src/app.py")
+        self.assertEqual(around_many["contexts"]["items"][0]["startLine"], 2)
+        self.assertIn("2: beta", around_many["contexts"]["items"][1]["content"])
+        self.assertIn("File does not exist", around_many["contexts"]["items"][2]["message"])
+        self.assertIn("Path is protected", around_many["contexts"]["items"][3]["message"])
+        self.assertFalse(tail_usage["ok"])
+        self.assertIn("Usage: /tail", tail_usage["message"])
+        self.assertFalse(around_usage["ok"])
+        self.assertIn("Usage: /around", around_usage["message"])
+        self.assertFalse(around_many_usage["ok"])
+        self.assertIn("Usage: /around-many", around_many_usage["message"])
 
     def test_get_read_files_text_reads_multiple_project_files_and_reports_errors(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -1653,6 +1933,47 @@ class CommandTests(unittest.TestCase):
         self.assertIn("truncated: yes", text)
         self.assertIn("[file truncated]", text)
         self.assertIn("max_bytes_per_range must be at least 1000", too_small)
+
+    def test_read_reports_return_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "src" / "app.py").write_text("one\nTwo\nthree\nfour\n", encoding="utf-8")
+            (root / "tests").mkdir()
+            (root / "tests" / "test_app.py").write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+            (root / ".env").write_text("SECRET=hidden\n", encoding="utf-8")
+
+            read = get_read_report(root, "src/app.py", "2:3")
+            read_files = get_read_files_report(root, ["src/app.py", "tests/test_app.py", "missing.py", ".env"])
+            read_ranges = get_read_ranges_report(root, ["src/app.py:2:3", "tests/test_app.py:1", "missing.py:1", ".env:1"])
+            usage = get_read_report(root)
+
+        self.assertTrue(read["ok"])
+        self.assertEqual(read["path"], "src/app.py")
+        self.assertEqual(read["range"], "2:3")
+        self.assertEqual(read["startLine"], 2)
+        self.assertEqual(read["lineCount"], 2)
+        self.assertIn("2: Two", read["read"]["content"])
+        self.assertNotIn("1: one", read["read"]["content"])
+        self.assertFalse(read["read"]["truncated"])
+        self.assertFalse(read_files["ok"])
+        self.assertEqual(read_files["files"]["ok"], 2)
+        self.assertEqual(read_files["files"]["total"], 4)
+        self.assertEqual(read_files["files"]["items"][0]["path"], "src/app.py")
+        self.assertIn("one", read_files["files"]["items"][0]["content"])
+        self.assertIn("File does not exist", read_files["files"]["items"][2]["message"])
+        self.assertIn("Path is protected", read_files["files"]["items"][3]["message"])
+        self.assertFalse(read_ranges["ok"])
+        self.assertEqual(read_ranges["ranges"]["ok"], 2)
+        self.assertEqual(read_ranges["ranges"]["total"], 4)
+        self.assertEqual(read_ranges["ranges"]["items"][0]["startLine"], 2)
+        self.assertEqual(read_ranges["ranges"]["items"][0]["endLine"], 3)
+        self.assertIn("2: Two", read_ranges["ranges"]["items"][0]["content"])
+        self.assertIn("1: alpha", read_ranges["ranges"]["items"][1]["content"])
+        self.assertIn("File does not exist", read_ranges["ranges"]["items"][2]["message"])
+        self.assertIn("Path is protected", read_ranges["ranges"]["items"][3]["message"])
+        self.assertFalse(usage["ok"])
+        self.assertIn("Usage: /read", usage["message"])
 
     def test_get_python_check_and_config_check_text_report_syntax_results(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -2936,6 +3257,62 @@ class CommandTests(unittest.TestCase):
         self.assertIn("Usage: /stashes [count]", invalid)
         self.assertIn("invalid count", invalid)
 
+    def test_git_readonly_reports_return_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init", "--initial-branch", "main"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("alpha\nbeta\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial app"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("alpha\nbeta changed\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "update beta"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "branch", "feature/work"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("alpha\nbeta stashed\n", encoding="utf-8")
+            subprocess.run(["git", "stash", "push", "-m", "save local app"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "notes.txt").write_text("local note\n", encoding="utf-8")
+
+            status = get_git_status_report(root)
+            info = get_git_info_report(root)
+            branches = get_branches_report(root)
+            log = get_log_report(root, max_count=2)
+            show = get_show_report(root, argument="HEAD app.py")
+            blame = get_blame_report(root, "app.py 2:2")
+            stashes = get_stashes_report(root, max_entries=1)
+            invalid_show = get_show_report(root, argument="HEAD ../outside.py")
+
+        self.assertTrue(status["ok"])
+        self.assertEqual(status["status"]["count"], 1)
+        self.assertIn("?? notes.txt", status["status"]["lines"])
+        self.assertTrue(info["ok"])
+        self.assertTrue(info["isGitRepo"])
+        self.assertEqual(info["branch"], "main")
+        self.assertEqual(info["status"]["count"], 1)
+        self.assertTrue(branches["ok"])
+        self.assertEqual(branches["current"], "main")
+        self.assertEqual(branches["branches"]["shown"], 2)
+        self.assertIn({"name": "feature/work", "current": False}, branches["branches"]["items"])
+        self.assertTrue(log["ok"])
+        self.assertEqual(log["commits"]["shown"], 2)
+        self.assertIn("update beta", log["commits"]["items"][0]["subject"])
+        self.assertTrue(show["ok"])
+        self.assertEqual(show["rev"], "HEAD")
+        self.assertEqual(show["path"], "app.py")
+        self.assertIn("update beta", show["output"]["text"])
+        self.assertIn("+beta changed", show["output"]["text"])
+        self.assertTrue(blame["ok"])
+        self.assertEqual(blame["path"], "app.py")
+        self.assertEqual(blame["range"], "2:2")
+        self.assertIn("beta changed", blame["output"]["text"])
+        self.assertTrue(stashes["ok"])
+        self.assertEqual(stashes["entries"]["shown"], 1)
+        self.assertEqual(stashes["entries"]["items"][0]["name"], "stash@{0}")
+        self.assertIn("save local app", stashes["entries"]["items"][0]["summary"])
+        self.assertFalse(invalid_show["ok"])
+        self.assertIn("escapes", invalid_show["message"])
+
     def test_get_git_status_text_reports_short_status(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             base_path = Path(base)
@@ -3614,6 +3991,128 @@ class CommandTests(unittest.TestCase):
         self.assertIn("Context: src/app.py:2:5", rendered)
         self.assertIn("print('ok')", rendered)
 
+    def test_process_output_analysis_reports_return_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            context_observation = ProcessOutputContextsObservation(
+                kind="process_output_contexts",
+                process_id="bg-1",
+                pid=1234,
+                ok=True,
+                running=False,
+                exit_code=7,
+                signal=None,
+                contexts=[
+                    OutputContextResult(
+                        path="src/app.py",
+                        line=2,
+                        column=5,
+                        raw="src/app.py:2:5",
+                        ok=True,
+                        content="2: print('ok')\n",
+                        message="Read src/app.py:2.",
+                        context_lines=0,
+                        start_line=2,
+                        end_line=2,
+                        line_count=1,
+                        total_lines=3,
+                        target_line_exists=True,
+                        truncated=False,
+                        max_bytes=1000,
+                    )
+                ],
+                total_refs=1,
+                truncated=False,
+                stdout_chars=24,
+                stderr_chars=0,
+                max_output_chars=2000,
+                message="Extracted 1/1 output context(s) from process bg-1.",
+            )
+            diagnostic_observation = ProcessOutputDiagnosticsObservation(
+                kind="process_output_diagnostics",
+                process_id="bg-1",
+                pid=1234,
+                ok=True,
+                running=False,
+                exit_code=None,
+                signal="SIGTERM",
+                diagnostics=[
+                    OutputDiagnostic(
+                        severity="error",
+                        output_line=1,
+                        text="ERROR src/app.py:2:5 failed",
+                        path="src/app.py",
+                        line=2,
+                        column=5,
+                        raw="src/app.py:2:5",
+                    )
+                ],
+                contexts=[
+                    OutputContextResult(
+                        path="src/app.py",
+                        line=2,
+                        column=5,
+                        raw="src/app.py:2:5",
+                        ok=True,
+                        content="2: print('ok')\n",
+                        message="Read src/app.py:2.",
+                        context_lines=0,
+                        start_line=2,
+                        end_line=2,
+                        line_count=1,
+                        total_lines=3,
+                        target_line_exists=True,
+                        truncated=False,
+                        max_bytes=1000,
+                    )
+                ],
+                total_diagnostics=1,
+                total_refs=1,
+                diagnostics_truncated=False,
+                contexts_truncated=False,
+                stdout_chars=32,
+                stderr_chars=0,
+                max_output_chars=2000,
+                message="Extracted 1/1 diagnostic(s) and 1/1 source context(s) from process bg-1.",
+            )
+            with patch("vibeagent.commands.execute_action", return_value=context_observation):
+                contexts = get_process_output_contexts_report(
+                    root,
+                    "bg-1 2000",
+                    context_lines=0,
+                    max_contexts=5,
+                    max_bytes_per_context=1000,
+                )
+            with patch("vibeagent.commands.execute_action", return_value=diagnostic_observation):
+                diagnostics = get_process_output_diagnostics_report(
+                    root,
+                    "bg-1 2000",
+                    context_lines=0,
+                    max_diagnostics=5,
+                    max_contexts=5,
+                    max_bytes_per_context=1000,
+                )
+            usage = get_process_output_contexts_report(root)
+            invalid = get_process_output_diagnostics_report(root, "bg-1 999")
+
+        self.assertTrue(contexts["ok"])
+        self.assertEqual(contexts["processId"], "bg-1")
+        self.assertEqual(contexts["status"], "exited(7)")
+        self.assertEqual(contexts["contexts"]["ok"], 1)
+        self.assertEqual(contexts["contexts"]["items"][0]["path"], "src/app.py")
+        self.assertEqual(contexts["contexts"]["items"][0]["column"], 5)
+        self.assertIn("print('ok')", contexts["contexts"]["items"][0]["content"])
+        self.assertTrue(diagnostics["ok"])
+        self.assertEqual(diagnostics["status"], "signaled(SIGTERM)")
+        self.assertEqual(diagnostics["diagnostics"]["shown"], 1)
+        self.assertEqual(diagnostics["diagnostics"]["items"][0]["severity"], "error")
+        self.assertEqual(diagnostics["contexts"]["ok"], 1)
+        self.assertIn("print('ok')", diagnostics["contexts"]["items"][0]["content"])
+        self.assertFalse(usage["ok"])
+        self.assertIn("Usage: /process-output-contexts", usage["message"])
+        self.assertFalse(invalid["ok"])
+        self.assertIn("max chars must be at least 1000", invalid["message"])
+
     def test_get_process_text_renders_auto_output_diagnostics(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -3716,6 +4215,81 @@ class CommandTests(unittest.TestCase):
         self.assertIn("status: exited(3)", rendered)
         self.assertIn("outputDiagnostics: 1/1", rendered)
         self.assertIn("error outputLine=1 src/app.py:2:5", rendered)
+
+    def test_process_and_wait_reports_return_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            process_observation = ReadProcessObservation(
+                kind="read_process",
+                process_id="bg-1",
+                pid=1234,
+                ok=True,
+                running=False,
+                exit_code=3,
+                signal=None,
+                stdout="ready\n",
+                stderr="ERROR src/app.py:2:5 failed\n",
+                max_output_chars=2000,
+                message="Process bg-1 is exited.",
+                output_diagnostics=[
+                    OutputDiagnostic(
+                        severity="error",
+                        output_line=1,
+                        text="ERROR src/app.py:2:5 failed",
+                        path="src/app.py",
+                        line=2,
+                        column=5,
+                        raw="src/app.py:2:5",
+                    )
+                ],
+                output_diagnostic_total=1,
+            )
+            wait_observation = WaitProcessObservation(
+                kind="wait_process",
+                process_id="bg-1",
+                pid=1234,
+                ok=True,
+                running=True,
+                timed_out=False,
+                matched=True,
+                matched_stream="stdout",
+                matched_pattern="ready",
+                timeout_ms=5000,
+                exit_code=None,
+                signal=None,
+                stdout="ready\n",
+                stderr="",
+                max_output_chars=2000,
+                message="Matched stdout pattern.",
+            )
+            with patch("vibeagent.commands.execute_action", return_value=process_observation):
+                process = get_process_report(root, "bg-1 2000")
+            with patch("vibeagent.commands.execute_action", return_value=wait_observation):
+                wait = get_wait_process_report(
+                    root,
+                    "bg-1 5000 2000",
+                    stdout_contains="ready",
+                )
+            usage = get_process_report(root)
+            invalid = get_wait_process_report(root, "bg-1 99 2000")
+
+        self.assertTrue(process["ok"])
+        self.assertEqual(process["processId"], "bg-1")
+        self.assertEqual(process["status"], "exited(3)")
+        self.assertEqual(process["stdout"], "ready\n")
+        self.assertEqual(process["stderr"], "ERROR src/app.py:2:5 failed\n")
+        self.assertEqual(process["analysis"]["diagnostics"]["shown"], 1)
+        self.assertEqual(process["analysis"]["diagnostics"]["items"][0]["path"], "src/app.py")
+        self.assertTrue(wait["ok"])
+        self.assertEqual(wait["status"], "running")
+        self.assertTrue(wait["matched"])
+        self.assertEqual(wait["matchedStream"], "stdout")
+        self.assertEqual(wait["matchedPattern"], "ready")
+        self.assertEqual(wait["stdout"], "ready\n")
+        self.assertFalse(usage["ok"])
+        self.assertIn("Usage: /process", usage["message"])
+        self.assertFalse(invalid["ok"])
+        self.assertIn("timeout ms must be at least 100", invalid["message"])
 
     def test_get_write_process_text_reports_write_result_or_usage(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -4117,6 +4691,45 @@ class CommandTests(unittest.TestCase):
         self.assertIn("escapes", invalid_cwd_text)
         self.assertEqual(usage, "Usage: /run <shell command>")
 
+    def test_run_report_returns_structured_payload(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "src" / "app.py").write_text("one\nTwo\nthree\n", encoding="utf-8")
+
+            report = get_run_report(
+                root,
+                "python3 -c \"print('ERROR src/app.py:2:5 failed')\"",
+                cwd="src",
+                timeout_ms=5000,
+                max_output_chars=2000,
+                extract_output_diagnostics=True,
+                context_lines=0,
+                max_bytes_per_context=1000,
+            )
+            blocked = get_run_report(root, "sudo reboot")
+            usage = get_run_report(root)
+            rendered = format_run_report_text(report)
+
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["command"], "python3 -c \"print('ERROR src/app.py:2:5 failed')\"")
+        self.assertEqual(report["cwd"], "src")
+        self.assertEqual(report["exitCode"], 0)
+        self.assertEqual(report["timeoutMs"], 5000)
+        self.assertEqual(report["maxOutputChars"], 2000)
+        self.assertIn("ERROR src/app.py:2:5 failed", report["stdout"])
+        self.assertEqual(report["stderr"], "")
+        self.assertFalse(report["stdoutTruncated"])
+        self.assertEqual(report["analysis"]["diagnostics"]["shown"], 1)
+        self.assertEqual(report["analysis"]["diagnostics"]["items"][0]["path"], "src/app.py")
+        self.assertIn("Run:", rendered)
+        self.assertIn("outputDiagnostics: 1/1", rendered)
+        self.assertFalse(blocked["ok"])
+        self.assertIsNone(blocked["exitCode"])
+        self.assertIn("Command blocked", blocked["stderr"])
+        self.assertFalse(usage["ok"])
+        self.assertEqual(format_run_report_text(usage), "Usage: /run <shell command>")
+
     def test_get_run_text_can_extract_output_contexts(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -4227,6 +4840,48 @@ class CommandTests(unittest.TestCase):
         self.assertIn("Usage: /run-seq <cmd> ;; <cmd>", usage)
         self.assertIn("at least one command is required", usage)
 
+    def test_run_sequence_report_returns_structured_payload(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "src" / "app.py").write_text("one\nTwo\nthree\n", encoding="utf-8")
+
+            report = get_run_sequence_report(
+                root,
+                commands=[
+                    "python3 -c \"print('one')\"",
+                    "python3 -c \"import sys; print('ERROR src/app.py:2:5 failed', file=sys.stderr); sys.exit(3)\"",
+                    "python3 -c \"print('skip')\"",
+                ],
+                timeout_ms=5000,
+                max_output_chars=2000,
+                context_lines=0,
+                max_bytes_per_context=1000,
+            )
+            usage = get_run_sequence_report(root)
+            rendered = format_run_sequence_report_text(report)
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["commands"]["shown"], 2)
+        self.assertEqual(report["commands"]["total"], 3)
+        self.assertEqual(report["commands"]["requested"][2], "python3 -c \"print('skip')\"")
+        self.assertTrue(report["stopOnFailure"])
+        self.assertTrue(report["stoppedEarly"])
+        self.assertEqual(len(report["results"]), 2)
+        self.assertTrue(report["results"][0]["ok"])
+        self.assertEqual(report["results"][0]["stdout"], "one\n")
+        self.assertFalse(report["results"][1]["ok"])
+        self.assertEqual(report["results"][1]["exitCode"], 3)
+        self.assertIn("ERROR src/app.py:2:5 failed", report["results"][1]["stderr"])
+        self.assertEqual(report["results"][1]["analysis"]["diagnostics"]["shown"], 1)
+        self.assertEqual(report["results"][1]["analysis"]["diagnostics"]["items"][0]["path"], "src/app.py")
+        self.assertIn("Run sequence:", rendered)
+        self.assertIn("commands: 2/3", rendered)
+        self.assertIn("stoppedEarly: yes", rendered)
+        self.assertIn("outputDiagnostics: 1/1", rendered)
+        self.assertFalse(usage["ok"])
+        self.assertEqual(format_run_sequence_report_text(usage), "Usage: /run-seq <cmd> ;; <cmd>\nError: at least one command is required.")
+
     def test_get_run_sequence_text_can_extract_output_contexts(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -4273,6 +4928,41 @@ class CommandTests(unittest.TestCase):
         self.assertIn("escapes", invalid_cwd)
         self.assertIn("Usage: /check-run-seq <cmd> ;; <cmd>", usage)
         self.assertIn("at least one command is required", usage)
+
+    def test_check_run_sequence_report_returns_structured_payload(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+
+            report = get_check_run_sequence_report(root, "python3 --version ;; sudo reboot", cwd="src")
+            invalid_cwd = get_check_run_sequence_report(root, commands=["python3 --version"], cwd="../outside")
+            usage = get_check_run_sequence_report(root)
+            rendered = format_check_run_sequence_report_text(report)
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["commands"]["shown"], 2)
+        self.assertEqual(report["commands"]["total"], 2)
+        self.assertEqual(report["commands"]["requested"], ["python3 --version", "sudo reboot"])
+        self.assertEqual(report["checks"][0]["index"], 1)
+        self.assertTrue(report["checks"][0]["ok"])
+        self.assertEqual(report["checks"][0]["cwd"], "src")
+        self.assertTrue(report["checks"][0]["cwdOk"])
+        self.assertTrue(report["checks"][0]["executableAvailable"])
+        self.assertEqual(report["checks"][1]["command"], "sudo reboot")
+        self.assertFalse(report["checks"][1]["ok"])
+        self.assertTrue(report["checks"][1]["blocked"])
+        self.assertIn("high-risk command", report["checks"][1]["blockReason"])
+        self.assertIn("Check run sequence:", rendered)
+        self.assertIn("commands: 2/2", rendered)
+        self.assertIn("blocked: yes", rendered)
+        self.assertFalse(invalid_cwd["ok"])
+        self.assertFalse(invalid_cwd["checks"][0]["cwdOk"])
+        self.assertIn("escapes", invalid_cwd["checks"][0]["message"])
+        self.assertFalse(usage["ok"])
+        self.assertEqual(
+            format_check_run_sequence_report_text(usage),
+            "Usage: /check-run-seq <cmd> ;; <cmd>\nError: at least one command is required.",
+        )
 
     def test_get_check_start_text_reports_preflight_without_starting_process(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -4664,6 +5354,57 @@ class CommandTests(unittest.TestCase):
         self.assertIn("completed: Old", selected)
         self.assertEqual(missing, "Session not found: missing")
 
+    def test_get_plan_report_returns_structured_latest_plan(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {"type": "task", "task": "Ship the feature."},
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "id": "plan-1",
+                        "name": "update_plan",
+                        "result": {
+                            "kind": "update_plan",
+                            "plan": [{"step": "Old step", "status": "completed"}],
+                        },
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 2,
+                        "id": "plan-2",
+                        "name": "update_plan",
+                        "result": {
+                            "kind": "update_plan",
+                            "plan": [
+                                {"step": "Implement feature", "status": "completed"},
+                                {"step": "Run verification", "status": "in_progress"},
+                            ],
+                        },
+                    },
+                ],
+            )
+
+            report = get_plan_report(root, "run-1")
+            missing = get_plan_report(root, "missing")
+
+        self.assertTrue(report["exists"])
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["status"], "in_progress")
+        self.assertEqual(report["task"], "Ship the feature.")
+        self.assertEqual(
+            report["items"],
+            [
+                {"status": "completed", "step": "Implement feature"},
+                {"status": "in_progress", "step": "Run verification"},
+            ],
+        )
+        self.assertFalse(missing["exists"])
+        self.assertEqual(missing["status"], "missing")
+
     def test_get_transcript_text_reports_newest_or_selected_session_timeline(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -4691,6 +5432,42 @@ class CommandTests(unittest.TestCase):
         self.assertIn("session: old-run", selected)
         self.assertIn("Old task", selected)
         self.assertEqual(missing, "Session not found: missing")
+
+    def test_get_transcript_report_returns_structured_safe_timeline(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {"type": "task", "task": "Fix the failing test."},
+                    {
+                        "type": "tool_call",
+                        "iteration": 1,
+                        "id": "call-1",
+                        "name": "read_file",
+                        "input": {"path": "secret.txt", "content": "SECRET_CONTENT"},
+                    },
+                    "{bad json",
+                ],
+            )
+
+            report = get_transcript_report(root, "run-1", max_events=2, max_text=80)
+            missing = get_transcript_report(root, "missing")
+
+        self.assertTrue(report["exists"])
+        self.assertEqual(report["events"]["total"], 3)
+        self.assertEqual(report["events"]["shown"], 2)
+        self.assertEqual(report["events"]["omitted"], 1)
+        self.assertTrue(report["events"]["truncated"])
+        self.assertEqual(report["events"]["malformed"], 1)
+        self.assertEqual(report["events"]["items"][0]["lineNumber"], 2)
+        self.assertEqual(report["events"]["items"][0]["type"], "tool_call")
+        self.assertIn("read_file", report["events"]["items"][0]["summary"])
+        self.assertTrue(report["events"]["items"][1]["malformed"])
+        self.assertNotIn("SECRET_CONTENT", json.dumps(report))
+        self.assertFalse(missing["exists"])
+        self.assertEqual(missing["status"], "missing")
 
     def test_get_session_search_text_reports_newest_or_selected_session_matches(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -4739,6 +5516,52 @@ class CommandTests(unittest.TestCase):
         self.assertIn("missing lowercase task", case_sensitive)
         self.assertEqual(missing, "Session not found: missing")
         self.assertEqual(usage, "Usage: /session-search [--run run-id] <query>")
+
+    def test_get_session_search_report_returns_structured_safe_matches(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {"type": "task", "task": "Fix session recovery."},
+                    {
+                        "type": "tool_call",
+                        "iteration": 1,
+                        "id": "call-1",
+                        "name": "read_file",
+                        "input": {"path": "SECRET_PATH"},
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "id": "call-1",
+                        "name": "read_file",
+                        "result": {"kind": "read_file", "ok": False, "message": "Missing config file."},
+                    },
+                    {"type": "model", "iteration": 2, "content": [{"type": "text", "text": "I found the missing config."}]},
+                ],
+            )
+
+            report = get_session_search_report(root, "missing", max_matches=1, max_text=80)
+            selected = get_session_search_report(root, "--run run-1 missing", max_matches=5, max_text=80)
+            missing = get_session_search_report(root, "missing", "missing")
+            usage = get_session_search_report(root)
+
+        self.assertTrue(report["exists"])
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["query"], "missing")
+        self.assertEqual(report["matches"]["total"], 2)
+        self.assertEqual(report["matches"]["shown"], 1)
+        self.assertEqual(report["matches"]["omitted"], 1)
+        self.assertTrue(report["matches"]["truncated"])
+        self.assertIn("tool_result", report["matches"]["items"][0]["summary"])
+        self.assertNotIn("SECRET_PATH", json.dumps(report))
+        self.assertEqual(selected["matches"]["total"], 2)
+        self.assertFalse(missing["exists"])
+        self.assertEqual(missing["status"], "missing")
+        self.assertFalse(usage["ok"])
+        self.assertEqual(usage["status"], "invalid")
 
     def test_get_session_commands_text_reports_newest_or_selected_command_outputs(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -4804,6 +5627,68 @@ class CommandTests(unittest.TestCase):
         self.assertIn("python3 old.py", selected)
         self.assertEqual(missing, "Session not found: missing")
 
+    def test_get_session_commands_report_returns_structured_command_outputs(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "run_command",
+                        "result": {
+                            "kind": "run_command",
+                            "result": {
+                                "command": "python3 old.py",
+                                "exit_code": 0,
+                                "stdout": "old ok\n",
+                                "stderr": "",
+                                "timed_out": False,
+                                "signal": None,
+                                "cwd": ".",
+                            },
+                        },
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 2,
+                        "name": "run_command",
+                        "result": {
+                            "kind": "run_command",
+                            "result": {
+                                "command": "python3 -m unittest",
+                                "exit_code": 1,
+                                "stdout": "line one\nline two\n",
+                                "stderr": "AssertionError\n",
+                                "timed_out": False,
+                                "signal": None,
+                                "cwd": ".",
+                            },
+                        },
+                    },
+                ],
+            )
+
+            report = get_session_commands_report(root, "run-1", max_commands=1, max_output_chars=8)
+            missing = get_session_commands_report(root, "missing")
+
+        self.assertEqual(report["session"], "run-1")
+        self.assertTrue(report["exists"])
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["commands"]["total"], 2)
+        self.assertEqual(report["commands"]["shown"], 1)
+        self.assertEqual(report["commands"]["omitted"], 1)
+        self.assertTrue(report["commands"]["truncated"])
+        item = report["commands"]["items"][0]
+        self.assertEqual(item["command"], "python3 -m unittest")
+        self.assertEqual(item["exitCode"], 1)
+        self.assertIn("omitted earlier output", item["stdout"])
+        self.assertTrue(item["stderr"].endswith("Error\n"))
+        self.assertFalse(missing["exists"])
+        self.assertEqual(missing["status"], "missing")
+
     def test_get_session_output_contexts_text_reads_contexts_from_newest_or_selected_session(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -4845,6 +5730,55 @@ class CommandTests(unittest.TestCase):
         self.assertIn("2: Two", newest)
         self.assertIn("3: three", newest)
         self.assertIn("Session not found: missing", missing)
+
+    def test_get_session_output_contexts_report_returns_structured_source_contexts(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "src" / "app.py").write_text("one\nTwo\nthree\nfour\n", encoding="utf-8")
+            write_session_events(
+                root,
+                "new-run",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "run_command",
+                        "result": {
+                            "kind": "run_command",
+                            "result": {
+                                "command": "python3 -m unittest",
+                                "exit_code": 1,
+                                "stdout": "src/app.py:3:5: failed\n",
+                                "stderr": "",
+                                "timed_out": False,
+                                "signal": None,
+                                "cwd": ".",
+                            },
+                        },
+                    }
+                ],
+                mtime=200,
+            )
+
+            report = get_session_output_contexts_report(root, context_lines=1, max_contexts=10, max_bytes_per_context=1000)
+            missing = get_session_output_contexts_report(root, "missing")
+
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["status"], "ready")
+        self.assertEqual(report["session"], "new-run")
+        self.assertEqual(report["commands"]["total"], 1)
+        self.assertEqual(report["contexts"]["total"], 1)
+        self.assertEqual(report["contexts"]["ok"], 1)
+        self.assertEqual(report["contexts"]["totalRefs"], 1)
+        item = report["contexts"]["items"][0]
+        self.assertEqual(item["path"], "src/app.py")
+        self.assertEqual(item["line"], 3)
+        self.assertEqual(item["column"], 5)
+        self.assertIn("2: Two", item["content"])
+        self.assertIn("3: three", item["content"])
+        self.assertFalse(missing["exists"])
+        self.assertEqual(missing["status"], "missing")
 
     def test_get_session_output_diagnostics_text_reads_diagnostics_from_newest_or_selected_session(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -4889,6 +5823,55 @@ class CommandTests(unittest.TestCase):
         self.assertIn("3: three", newest)
         self.assertIn("Session not found: missing", missing)
 
+    def test_get_session_output_diagnostics_report_returns_structured_diagnostics(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "src" / "app.py").write_text("one\nTwo\nthree\nfour\n", encoding="utf-8")
+            write_session_events(
+                root,
+                "new-run",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "run_command",
+                        "result": {
+                            "kind": "run_command",
+                            "result": {
+                                "command": "python3 -m unittest",
+                                "exit_code": 1,
+                                "stdout": "ERROR src/app.py:3:5 failed\n",
+                                "stderr": "",
+                                "timed_out": False,
+                                "signal": None,
+                                "cwd": ".",
+                            },
+                        },
+                    }
+                ],
+                mtime=200,
+            )
+
+            report = get_session_output_diagnostics_report(root, context_lines=1, max_diagnostics=10, max_contexts=10, max_bytes_per_context=1000)
+            missing = get_session_output_diagnostics_report(root, "missing")
+
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["status"], "ready")
+        self.assertEqual(report["session"], "new-run")
+        self.assertEqual(report["commands"]["shown"], 1)
+        self.assertEqual(report["diagnostics"]["total"], 1)
+        self.assertEqual(report["diagnostics"]["shown"], 1)
+        diagnostic = report["diagnostics"]["items"][0]
+        self.assertEqual(diagnostic["severity"], "error")
+        self.assertEqual(diagnostic["path"], "src/app.py")
+        self.assertEqual(diagnostic["line"], 3)
+        self.assertEqual(diagnostic["column"], 5)
+        self.assertEqual(report["contexts"]["total"], 1)
+        self.assertIn("3: three", report["contexts"]["items"][0]["content"])
+        self.assertFalse(missing["exists"])
+        self.assertEqual(missing["status"], "missing")
+
     def test_get_session_files_text_reports_newest_or_selected_file_references(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -4923,6 +5906,44 @@ class CommandTests(unittest.TestCase):
         self.assertIn("session: old-run", selected)
         self.assertIn("old.py", selected)
         self.assertEqual(missing, "Session not found: missing")
+
+    def test_get_session_files_report_returns_structured_file_references(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "tool_call",
+                        "iteration": 1,
+                        "name": "write_file",
+                        "input": {"path": "src/app.py", "content": "SECRET_CONTENT"},
+                    },
+                    {
+                        "type": "tool_call",
+                        "iteration": 2,
+                        "name": "read_file",
+                        "input": {"path": "README.md"},
+                    },
+                ],
+            )
+
+            report = get_session_files_report(root, "run-1", max_files=1)
+            missing = get_session_files_report(root, "missing")
+
+        self.assertEqual(report["session"], "run-1")
+        self.assertTrue(report["exists"])
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["files"]["total"], 2)
+        self.assertEqual(report["files"]["shown"], 1)
+        self.assertEqual(report["files"]["omitted"], 1)
+        self.assertTrue(report["files"]["truncated"])
+        self.assertEqual(report["files"]["items"][0]["path"], "README.md")
+        self.assertIn("read_file", report["files"]["items"][0]["tools"])
+        self.assertNotIn("SECRET_CONTENT", json.dumps(report, ensure_ascii=False))
+        self.assertFalse(missing["exists"])
+        self.assertEqual(missing["status"], "missing")
 
     def test_get_session_failures_text_reports_newest_or_selected_failures(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -4968,6 +5989,57 @@ class CommandTests(unittest.TestCase):
         self.assertIn("session: old-run", selected)
         self.assertIn("Old missing", selected)
         self.assertEqual(missing, "Session not found: missing")
+
+    def test_get_session_failures_report_returns_structured_failures(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "read_file",
+                        "result": {"kind": "read_file", "ok": False, "message": "First missing"},
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 2,
+                        "name": "run_command",
+                        "result": {
+                            "kind": "run_command",
+                            "result": {
+                                "command": "python3 -m unittest",
+                                "exit_code": 1,
+                                "stdout": "",
+                                "stderr": "AssertionError",
+                                "timed_out": False,
+                                "signal": None,
+                                "cwd": ".",
+                            },
+                        },
+                    },
+                ],
+            )
+
+            report = get_session_failures_report(root, "run-1", max_failures=1, max_text=80)
+            missing = get_session_failures_report(root, "missing")
+
+        self.assertEqual(report["session"], "run-1")
+        self.assertTrue(report["exists"])
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["status"], "failed")
+        self.assertEqual(report["failures"]["total"], 2)
+        self.assertEqual(report["failures"]["shown"], 1)
+        self.assertEqual(report["failures"]["omitted"], 1)
+        self.assertTrue(report["failures"]["truncated"])
+        self.assertEqual(report["failures"]["items"][0]["name"], "run_command")
+        self.assertEqual(report["failures"]["items"][0]["message"], "python3 -m unittest")
+        self.assertIn("stderr=AssertionError", report["failures"]["items"][0]["detail"])
+        self.assertFalse(missing["exists"])
+        self.assertFalse(missing["ok"])
+        self.assertEqual(missing["status"], "missing")
 
     def test_get_session_verification_text_reports_newest_or_selected_checks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -5022,6 +6094,45 @@ class CommandTests(unittest.TestCase):
         self.assertIn("python3 -m unittest", selected)
         self.assertNotIn("npm test", selected)
         self.assertEqual(missing, "Session not found: missing")
+
+    def test_get_session_verification_report_returns_structured_checks(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "result",
+                        "success": True,
+                        "status": "completed",
+                        "iterations": 1,
+                        "message": "Result",
+                        "verification_checks": ["python3 -m unittest", "npm test"],
+                        "pending_verification_checks": ["npm run build", "npm run lint"],
+                        "failed_verification_checks": ["mypy . (exit=1)"],
+                    }
+                ],
+            )
+
+            report = get_session_verification_report(root, "run-1", max_checks=1)
+            missing = get_session_verification_report(root, "missing")
+
+        self.assertEqual(report["session"], "run-1")
+        self.assertTrue(report["exists"])
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["status"], "blocked")
+        self.assertEqual(report["verified"]["total"], 2)
+        self.assertEqual(report["verified"]["shown"], 1)
+        self.assertTrue(report["verified"]["truncated"])
+        self.assertEqual(report["verified"]["items"], ["python3 -m unittest"])
+        self.assertEqual(report["pending"]["total"], 2)
+        self.assertEqual(report["pending"]["items"], ["npm run build"])
+        self.assertEqual(report["failed"]["items"], ["mypy . (exit=1)"])
+        self.assertTrue(report["truncated"])
+        self.assertFalse(missing["exists"])
+        self.assertFalse(missing["ok"])
+        self.assertEqual(missing["status"], "missing")
 
     def test_get_session_audit_text_reports_newest_or_selected_readiness(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -5101,6 +6212,81 @@ class CommandTests(unittest.TestCase):
         self.assertIn("failedChecksOmitted: 1", selected)
         self.assertEqual(missing, "Session not found: missing")
 
+    def test_get_session_audit_report_returns_structured_readiness(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {"type": "task", "task": "Fix the flaky test"},
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "run_command",
+                        "result": {
+                            "kind": "run_command",
+                            "result": {
+                                "command": "python3 -m unittest",
+                                "exit_code": 1,
+                                "stdout": "",
+                                "stderr": "AssertionError",
+                                "timed_out": False,
+                                "signal": None,
+                                "cwd": ".",
+                            },
+                        },
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "write_file",
+                        "result": {"kind": "write_file", "ok": True, "path": "app.py", "message": "updated"},
+                    },
+                    {
+                        "type": "result",
+                        "success": False,
+                        "status": "failed",
+                        "iterations": 1,
+                        "message": "Failed",
+                        "verification_checks": ["pytest tests/test_one.py", "pytest tests/test_two.py"],
+                        "pending_verification_checks": ["npm test", "npm run build"],
+                        "failed_verification_checks": ["ruff check", "mypy ."],
+                    },
+                ],
+            )
+
+            report = get_session_audit_report(
+                root,
+                "run-1",
+                max_failures=1,
+                max_files=1,
+                max_commands=1,
+                max_checks=1,
+                max_text=80,
+            )
+            missing = get_session_audit_report(root, "missing")
+
+        self.assertEqual(report["session"], "run-1")
+        self.assertTrue(report["exists"])
+        self.assertFalse(report["ok"])
+        self.assertFalse(report["ready"])
+        self.assertEqual(report["status"], "blocked")
+        self.assertEqual(report["summary"]["task"], "Fix the flaky test")
+        self.assertEqual(report["summary"]["sessionStatus"], "failed")
+        self.assertIn("session status is failed", report["blockers"]["items"])
+        self.assertEqual(report["verification"]["verified"]["total"], 2)
+        self.assertEqual(report["verification"]["verified"]["shown"], 1)
+        self.assertTrue(report["verification"]["verified"]["truncated"])
+        self.assertEqual(report["verification"]["pending"]["items"], ["npm test"])
+        self.assertEqual(report["verification"]["failed"]["items"], ["ruff check"])
+        self.assertEqual(report["failures"]["shown"], 1)
+        self.assertEqual(report["commands"]["items"][0]["command"], "python3 -m unittest")
+        self.assertEqual(report["files"]["items"][0]["path"], "app.py")
+        self.assertFalse(missing["exists"])
+        self.assertFalse(missing["ok"])
+        self.assertEqual(missing["status"], "missing")
+
     def test_get_session_handoff_text_reports_newest_or_selected_bundle(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -5144,6 +6330,72 @@ class CommandTests(unittest.TestCase):
         self.assertIn("session: old-run", selected)
         self.assertIn("Old task", selected)
         self.assertEqual(missing, "Session not found: missing")
+
+    def test_get_session_handoff_report_returns_structured_recovery_bundle(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {"type": "task", "task": "Recover the coding run"},
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "update_plan",
+                        "result": {
+                            "kind": "update_plan",
+                            "plan": [
+                                {"step": "Inspect state", "status": "completed"},
+                                {"step": "Run validation", "status": "in_progress"},
+                            ],
+                        },
+                    },
+                    {
+                        "type": "tool_call",
+                        "iteration": 1,
+                        "name": "write_file",
+                        "input": {"path": "src/app.py", "content": "SECRET_CONTENT"},
+                    },
+                    {
+                        "type": "result",
+                        "success": True,
+                        "status": "completed",
+                        "iterations": 1,
+                        "message": "Done",
+                        "verification_checks": ["python3 -m unittest", "npm test"],
+                        "pending_verification_checks": ["npm run build"],
+                    },
+                ],
+            )
+
+            report = get_session_handoff_report(
+                root,
+                "run-1",
+                max_failures=2,
+                max_files=2,
+                max_commands=2,
+                max_checks=1,
+                max_output_chars=16,
+                max_text=80,
+            )
+            missing = get_session_handoff_report(root, "missing")
+
+        self.assertEqual(report["session"], "run-1")
+        self.assertTrue(report["exists"])
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["status"], "blocked")
+        self.assertEqual(report["audit"]["verification"]["verified"]["shown"], 1)
+        self.assertTrue(report["audit"]["verification"]["verified"]["truncated"])
+        self.assertEqual(report["limits"]["maxOutputChars"], 16)
+        self.assertIn("summary", report["sections"])
+        self.assertIn("readiness", report["sections"])
+        self.assertIn("verification", report["sections"])
+        self.assertIn("files", report["sections"])
+        self.assertIn("src/app.py", report["sections"]["files"])
+        self.assertNotIn("SECRET_CONTENT", json.dumps(report, ensure_ascii=False))
+        self.assertFalse(missing["exists"])
+        self.assertEqual(missing["status"], "missing")
 
     def test_get_session_detail_text_respects_limit_options(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -5320,6 +6572,58 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(get_checkpoint_status_text("../bad", root), "Invalid checkpoint id: ../bad")
         self.assertEqual(get_checkpoint_status_text("missing", root), "Checkpoint not found: missing")
 
+    def test_checkpoint_reports_include_structured_recovery_state(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            (root / "app.py").write_text("print('old')\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("print('new')\n", encoding="utf-8")
+            (root / "new.txt").write_text("untracked\n", encoding="utf-8")
+
+            created = get_checkpoint_report(root, "before reports")
+            checkpoint = created["checkpoint"]
+            checkpoint_id = checkpoint["id"] if isinstance(checkpoint, dict) else ""
+            listed = get_checkpoints_report(root)
+            shown = get_checkpoint_show_report(checkpoint_id, root)
+            diff = get_checkpoint_diff_report(checkpoint_id, root)
+            matching_status = get_checkpoint_status_report(checkpoint_id, root)
+            restore_check = get_check_checkpoint_restore_report(checkpoint_id, root)
+            delete_check = get_check_checkpoint_delete_report(checkpoint_id, root)
+            prune_check = get_check_checkpoint_prune_report("0", root)
+            missing = get_checkpoint_show_report("missing", root)
+            (root / "app.py").write_text("print('newer')\n", encoding="utf-8")
+            changed_status = get_checkpoint_status_report(checkpoint_id, root)
+
+        self.assertTrue(created["ok"])
+        self.assertTrue(created["created"])
+        self.assertIsInstance(checkpoint, dict)
+        self.assertEqual(checkpoint["label"], "before reports")
+        self.assertEqual(checkpoint["changedFiles"], 2)
+        self.assertEqual(checkpoint["untrackedSavedFiles"], 1)
+        self.assertEqual(listed["total"], 1)
+        self.assertEqual(listed["checkpoints"][0]["id"], checkpoint_id)
+        self.assertTrue(shown["ok"])
+        self.assertEqual(shown["checkpoint"]["id"], checkpoint_id)
+        self.assertEqual(shown["savedUntrackedPaths"]["shown"], ["new.txt"])
+        self.assertIn("-print('old')", diff["diff"]["unstagedPatch"])
+        self.assertIn("+print('new')", diff["diff"]["unstagedPatch"])
+        self.assertTrue(matching_status["matches"])
+        self.assertTrue(matching_status["checks"]["untrackedFileMatches"])
+        self.assertTrue(restore_check["canRestore"])
+        self.assertEqual(restore_check["saved"]["untrackedFiles"], 1)
+        self.assertTrue(delete_check["canDelete"])
+        self.assertEqual(delete_check["id"], checkpoint_id)
+        self.assertEqual(prune_check["deleteCount"], 1)
+        self.assertEqual(prune_check["checkpoints"][0]["id"], checkpoint_id)
+        self.assertFalse(missing["ok"])
+        self.assertEqual(missing["message"], "Checkpoint not found: missing")
+        self.assertFalse(changed_status["matches"])
+        self.assertFalse(changed_status["checks"]["unstagedPatchMatches"])
+
     def test_checkpoint_restore_replays_tracked_staged_and_unstaged_diffs(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -5355,6 +6659,33 @@ class CommandTests(unittest.TestCase):
         self.assertIn("+staged", staged_diff)
         self.assertIn("-staged", unstaged_diff)
         self.assertIn("+unstaged", unstaged_diff)
+
+    def test_checkpoint_restore_report_replays_tracked_changes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            (root / "app.py").write_text("base\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("checkpoint\n", encoding="utf-8")
+
+            created = get_checkpoint_report(root, "restore report")
+            checkpoint = created["checkpoint"]
+            checkpoint_id = checkpoint["id"] if isinstance(checkpoint, dict) else ""
+            (root / "app.py").write_text("broken\n", encoding="utf-8")
+
+            restored = get_checkpoint_restore_report(checkpoint_id, root)
+            final_status = get_checkpoint_status_report(checkpoint_id, root)
+            final_content = (root / "app.py").read_text(encoding="utf-8")
+
+        self.assertTrue(restored["ok"])
+        self.assertTrue(restored["restored"])
+        self.assertEqual(restored["id"], checkpoint_id)
+        self.assertTrue(restored["matches"])
+        self.assertEqual(final_content, "checkpoint\n")
+        self.assertTrue(final_status["matches"])
 
     def test_checkpoint_restore_replays_saved_untracked_files(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -5435,6 +6766,32 @@ class CommandTests(unittest.TestCase):
         self.assertIn("Checkpoint not found", missing)
         self.assertIn("Invalid checkpoint id", invalid)
 
+    def test_checkpoint_delete_report_removes_saved_checkpoint(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            (root / "app.py").write_text("base\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("changed\n", encoding="utf-8")
+
+            created = get_checkpoint_report(root, "delete report")
+            checkpoint = created["checkpoint"]
+            checkpoint_id = checkpoint["id"] if isinstance(checkpoint, dict) else ""
+            deleted = get_checkpoint_delete_report(checkpoint_id, root)
+            listed = get_checkpoints_report(root)
+            missing = get_checkpoint_delete_report(checkpoint_id, root)
+
+        self.assertTrue(deleted["ok"])
+        self.assertTrue(deleted["deleted"])
+        self.assertEqual(deleted["id"], checkpoint_id)
+        self.assertEqual(listed["total"], 0)
+        self.assertFalse(missing["ok"])
+        self.assertFalse(missing["deleted"])
+        self.assertIn("Checkpoint not found", missing["message"])
+
     def test_checkpoint_prune_previews_and_removes_old_checkpoints(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -5465,6 +6822,37 @@ class CommandTests(unittest.TestCase):
         self.assertIn("deleted: 1", pruned_all)
         self.assertIn("total: 0", listed_after_all)
         self.assertIn("keep-last must be at least 0", invalid)
+
+    def test_checkpoint_prune_report_removes_old_checkpoints(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            (root / "app.py").write_text("base\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            created_ids = []
+            for index in range(3):
+                (root / "app.py").write_text(f"change {index}\n", encoding="utf-8")
+                created = get_checkpoint_report(root, f"checkpoint {index}")
+                checkpoint = created["checkpoint"]
+                created_ids.append(checkpoint["id"] if isinstance(checkpoint, dict) else "")
+                time.sleep(0.002)
+
+            pruned = get_checkpoint_prune_report("1", root)
+            listed = get_checkpoints_report(root)
+            invalid = get_checkpoint_prune_report("-1", root)
+
+        self.assertTrue(pruned["ok"])
+        self.assertEqual(pruned["total"], 3)
+        self.assertEqual(pruned["kept"], 1)
+        self.assertEqual(pruned["deleted"], 2)
+        self.assertEqual([item["id"] for item in pruned["checkpoints"]], [created_ids[1], created_ids[0]])
+        self.assertEqual(listed["total"], 1)
+        self.assertEqual(listed["checkpoints"][0]["id"], created_ids[2])
+        self.assertFalse(invalid["ok"])
+        self.assertIn("keep-last must be at least 0", invalid["message"])
 
     def test_get_doctor_text_reports_local_diagnostics_without_exposing_keys(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -5577,6 +6965,37 @@ class CommandTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "max_checks must be at most 50"):
             get_review_text(root, max_checks=51)
 
+    def test_get_review_report_returns_structured_review(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "package.json").write_text('{"scripts":{"test":"node test.js"}}\n', encoding="utf-8")
+            (root / "pkg").mkdir()
+            (root / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+
+            report = get_review_report(root, max_files=1, max_checks=1)
+
+        self.assertEqual(report["projectRoot"], str(root.resolve()))
+        self.assertTrue(report["ready"])
+        self.assertTrue(report["ok"])
+        changed_files = report["changedFiles"]
+        self.assertIsInstance(changed_files, dict)
+        self.assertEqual(changed_files["shown"], 1)
+        self.assertEqual(changed_files["total"], 2)
+        self.assertEqual(len(changed_files["files"]), 1)
+        checks = report["checks"]
+        self.assertIsInstance(checks, dict)
+        self.assertTrue(checks["diff"])
+        self.assertTrue(checks["python"])
+        suggested = report["suggestedChecks"]
+        self.assertIsInstance(suggested, dict)
+        self.assertEqual(suggested["shown"], 1)
+        self.assertGreaterEqual(suggested["total"], 1)
+        commands = [item["command"] for item in suggested["commands"] if isinstance(item, dict)]
+        self.assertIn("npm run test", commands)
+        self.assertIsInstance(report["blockingIssues"], list)
+        self.assertIsInstance(report["warnings"], list)
+
     def test_get_changes_text_reports_structured_changed_file_summary(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -5612,6 +7031,39 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(limited.count("    - "), 1)
         with self.assertRaisesRegex(ValueError, "max_files must be at most 500"):
             get_changes_text(root, max_files=501)
+
+    def test_get_changes_report_returns_structured_changed_file_summary(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            (root / "app.py").write_text("print('old')\n", encoding="utf-8")
+            (root / "staged.py").write_text("print('stage old')\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py", "staged.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("print('new')\n", encoding="utf-8")
+            (root / "staged.py").write_text("print('stage new')\n", encoding="utf-8")
+            subprocess.run(["git", "add", "staged.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "new.txt").write_text("untracked\n", encoding="utf-8")
+
+            report = get_changes_report(root, max_files=1)
+
+        self.assertEqual(report["projectRoot"], str(root.resolve()))
+        self.assertTrue(report["ok"])
+        changed_files = report["changedFiles"]
+        self.assertIsInstance(changed_files, dict)
+        self.assertEqual(changed_files["shown"], 1)
+        self.assertEqual(changed_files["total"], 3)
+        self.assertTrue(changed_files["truncated"])
+        self.assertEqual(len(changed_files["files"]), 1)
+        counts = report["counts"]
+        self.assertIsInstance(counts, dict)
+        self.assertEqual(counts["staged"], 1)
+        self.assertEqual(counts["unstaged"], 1)
+        self.assertEqual(counts["untracked"], 1)
+        self.assertEqual(counts["insertions"], 2)
+        self.assertEqual(counts["deletions"], 2)
 
     def test_get_review_text_reports_syntax_blockers(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -5707,6 +7159,49 @@ class CommandTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "max_checks must be at most 50"):
             get_handoff_text(root, max_checks=51)
+
+    def test_get_handoff_report_returns_structured_review_and_plan(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "package.json").write_text('{"scripts":{"test":"node test.js"}}\n', encoding="utf-8")
+            (root / "app.py").write_text("print('ok')\n", encoding="utf-8")
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "result": {
+                            "kind": "update_plan",
+                            "plan": [{"step": "Run tests", "status": "in_progress"}],
+                        },
+                    }
+                ],
+            )
+
+            report = get_handoff_report(root, max_files=1, max_checks=1, max_status_chars=20, max_plan_chars=200)
+
+        self.assertEqual(report["projectRoot"], str(root.resolve()))
+        self.assertTrue(report["ready"])
+        changed_files = report["changedFiles"]
+        self.assertIsInstance(changed_files, dict)
+        self.assertEqual(changed_files["shown"], 1)
+        self.assertEqual(changed_files["total"], 2)
+        self.assertEqual(len(changed_files["files"]), 1)
+        suggested = report["suggestedChecks"]
+        self.assertIsInstance(suggested, dict)
+        self.assertEqual(suggested["shown"], 1)
+        self.assertGreaterEqual(suggested["total"], 1)
+        commands = [item["command"] for item in suggested["commands"] if isinstance(item, dict)]
+        self.assertIn("npm run test", commands)
+        git_status = report["gitStatus"]
+        self.assertIsInstance(git_status, dict)
+        self.assertNotIn(".vibeagent", git_status["text"])
+        latest_plan = report["latestPlan"]
+        self.assertIsInstance(latest_plan, dict)
+        self.assertIn("in_progress: Run tests", latest_plan["text"])
 
     def test_get_handoff_text_uses_latest_session_with_plan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -5873,6 +7368,41 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(invalid, "Usage: /diff-contexts [--staged|--cached] [--context-lines N] [--max-hunks N] [--max-bytes N] [path]")
         self.assertIn("Error: max_bytes_per_context must be at least 1000.", bad_limit)
 
+    def test_diff_reports_return_structured_patch_hunks_and_contexts(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            (root / "app.py").write_text("before\nold\nafter\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("before\nnew\nafter\n", encoding="utf-8")
+
+            diff = get_diff_report(root, "app.py")
+            hunks = get_diff_hunks_report(root, "app.py")
+            contexts = get_diff_contexts_report(root, "app.py", context_lines=1)
+            invalid = get_diff_report(root, "--bad")
+
+        self.assertTrue(diff["ok"])
+        self.assertEqual(diff["scope"], "unstaged")
+        self.assertEqual(diff["path"], "app.py")
+        self.assertIn("-old", diff["diff"])
+        self.assertIn("+new", diff["diff"])
+        self.assertEqual(hunks["hunks"]["shown"], 1)
+        hunk = hunks["hunks"]["items"][0]
+        self.assertEqual(hunk["file"], "app.py")
+        self.assertEqual(hunk["added"], 1)
+        self.assertEqual(hunk["deleted"], 1)
+        self.assertIn("+new", hunk["lines"])
+        self.assertEqual(contexts["contexts"]["shown"], 1)
+        context_item = contexts["contexts"]["items"][0]
+        self.assertEqual(context_item["hunk"]["file"], "app.py")
+        self.assertTrue(context_item["context"]["ok"])
+        self.assertIn("2: new", context_item["context"]["content"])
+        self.assertFalse(invalid["ok"])
+        self.assertIn("Usage: /diff", invalid["message"])
+
     def test_get_usage_text_reports_local_session_usage(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -5890,6 +7420,7 @@ class CommandTests(unittest.TestCase):
             )
 
             text = get_usage_text(root)
+            report = get_usage_report(root)
 
         self.assertIn("Usage:", text)
         self.assertIn("sessions: 1", text)
@@ -5897,6 +7428,15 @@ class CommandTests(unittest.TestCase):
         self.assertIn("toolCalls: 1", text)
         self.assertIn("cost: unavailable", text)
         self.assertNotIn("SECRET_PATH", text)
+        self.assertTrue(report["exists"])
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["usage"]["sessions"], 1)
+        self.assertEqual(report["usage"]["events"], 2)
+        self.assertEqual(report["usage"]["toolCalls"], 1)
+        self.assertEqual(report["usage"]["statuses"]["completed"], 1)
+        self.assertFalse(report["cost"]["available"])
+        self.assertEqual(report["cost"]["reason"], "provider token usage is not recorded")
+        self.assertNotIn("SECRET_PATH", json.dumps(report))
 
     def test_get_cost_text_estimates_with_env_rates(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -5923,9 +7463,25 @@ class CommandTests(unittest.TestCase):
                     "VIBEAGENT_OUTPUT_USD_PER_MILLION": "2",
                 },
             )
+            report = get_cost_report(
+                root,
+                {
+                    "VIBEAGENT_INPUT_USD_PER_MILLION": "1",
+                    "VIBEAGENT_OUTPUT_USD_PER_MILLION": "2",
+                },
+            )
 
         self.assertIn("Cost:", text)
         self.assertIn("estimatedCostUsd: $0.000200", text)
+        self.assertTrue(report["exists"])
+        self.assertTrue(report["ok"])
+        self.assertTrue(report["estimate"]["available"])
+        self.assertEqual(report["usage"]["tokens"]["input"], 100)
+        self.assertEqual(report["usage"]["tokens"]["output"], 50)
+        self.assertEqual(report["rates"]["inputUsdPerMillion"], "1")
+        self.assertEqual(report["rates"]["outputUsdPerMillion"], "2")
+        self.assertEqual(report["estimate"]["estimatedCostUsd"], "0.000200")
+        self.assertEqual(report["estimate"]["formatted"]["estimatedCostUsd"], "$0.000200")
 
     def test_get_model_text_reports_model_configuration_without_exposing_the_key(self) -> None:
         text = get_model_text(
@@ -6000,8 +7556,11 @@ class CommandTests(unittest.TestCase):
             os.utime(local_dir / "events.jsonl", (200, 200))
 
             sessions_text = get_sessions_text(root)
+            sessions_report = get_sessions_report(root)
             session_text = get_session_text("run-1", root)
+            session_report = get_session_report("run-1", root)
             last_text = get_last_session_text(root)
+            last_report = get_last_session_report(root)
             selected, context, resume_text = get_resume_context(None, root)
             compact_selected, compact_context, compact_text = get_compact_context(None, root)
             limited_selected, limited_context, limited_text = get_compact_context("run-1", root, max_checks=1)
@@ -6013,6 +7572,18 @@ class CommandTests(unittest.TestCase):
         self.assertIn("task: Build a CLI.", session_text)
         self.assertIn("final: Done.", last_text)
         self.assertNotIn("Local handoff command.", last_text)
+        self.assertTrue(sessions_report["exists"])
+        self.assertEqual(sessions_report["sessions"]["total"], 2)
+        self.assertEqual(sessions_report["sessions"]["items"][0]["session"], "local-handoff")
+        self.assertEqual(sessions_report["sessions"]["items"][1]["session"], "run-1")
+        self.assertEqual(session_report["session"], "run-1")
+        self.assertEqual(session_report["status"], "completed")
+        self.assertEqual(session_report["task"], "Build a CLI.")
+        self.assertEqual(session_report["events"]["total"], 3)
+        self.assertEqual(session_report["toolCalls"]["total"], 0)
+        self.assertEqual(session_report["verification"]["verified"], ["python3 -m unittest", "npm run build"])
+        self.assertEqual(last_report["session"], "run-1")
+        self.assertNotIn("Local handoff command.", json.dumps(last_report))
         self.assertEqual(selected, "run-1")
         self.assertIn("Resume context:", context or "")
         self.assertIn("sourceSession: run-1", context or "")
@@ -6033,9 +7604,11 @@ class CommandTests(unittest.TestCase):
 
     def test_session_command_requires_run_id(self) -> None:
         self.assertEqual(get_session_text(None), "Usage: /session <run-id>")
+        self.assertEqual(get_session_report(None)["status"], "invalid")
 
     def test_session_command_rejects_path_like_run_id(self) -> None:
         self.assertEqual(get_session_text("../bad"), "Invalid session id: ../bad")
+        self.assertEqual(get_session_report("../bad")["status"], "invalid")
         self.assertEqual(get_resume_context("../bad")[2], "Invalid session id: ../bad")
         self.assertEqual(get_compact_context("../bad")[2], "Invalid session id: ../bad")
         self.assertEqual(get_resume_context("off"), (None, None, "Resume context cleared."))

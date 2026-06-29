@@ -6,6 +6,7 @@ import inspect
 import subprocess
 import tempfile
 import textwrap
+import time
 import unittest
 from contextlib import ExitStack, redirect_stdout
 from pathlib import Path
@@ -375,7 +376,7 @@ class CliTests(unittest.TestCase):
         stdout = io.StringIO()
 
         with (
-            patch("vibeagent.cli.get_review_text", side_effect=KeyboardInterrupt),
+            patch("vibeagent.cli.get_review_report", side_effect=KeyboardInterrupt),
             redirect_stdout(stdout),
         ):
             exit_code = main(["--review"])
@@ -731,14 +732,16 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_review_text", return_value="Review:\n  ready: yes") as get_review_text,
+                patch("vibeagent.cli.get_review_report", return_value={"ready": True}) as get_review_report,
+                patch("vibeagent.cli.format_review_report_text", return_value="Review:\n  ready: yes") as format_review_report_text,
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--cwd", base, "--review"])
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Review:", stdout.getvalue())
-        get_review_text.assert_called_once_with(Path(base).resolve(), max_files=200, max_checks=5)
+        get_review_report.assert_called_once_with(Path(base).resolve(), max_files=200, max_checks=5)
+        format_review_report_text.assert_called_once_with({"ready": True})
         create_chat_client.assert_not_called()
 
     def test_main_runs_review_local_flag_with_limits_without_creating_client(self) -> None:
@@ -747,30 +750,66 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_review_text", return_value="Review:\n  ready: yes") as get_review_text,
+                patch("vibeagent.cli.get_review_report", return_value={"ready": True}) as get_review_report,
+                patch("vibeagent.cli.format_review_report_text", return_value="Review:\n  ready: yes") as format_review_report_text,
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--cwd", base, "--review", "--review-max-files", "1", "--review-max-checks", "2"])
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Review:", stdout.getvalue())
-        get_review_text.assert_called_once_with(Path(base).resolve(), max_files=1, max_checks=2)
+        get_review_report.assert_called_once_with(Path(base).resolve(), max_files=1, max_checks=2)
+        format_review_report_text.assert_called_once_with({"ready": True})
         create_chat_client.assert_not_called()
 
     def test_main_runs_review_local_flag_with_json_output(self) -> None:
         stdout = io.StringIO()
+        review = {"ready": False, "blockingIssues": ["Changed Python files have syntax errors."]}
 
         with (
             patch("vibeagent.cli.create_chat_client") as create_chat_client,
-            patch("vibeagent.cli.get_review_text", return_value="Review:\n  ready: no"),
+            patch("vibeagent.cli.get_review_report", return_value=review),
+            patch("vibeagent.cli.format_review_report_text", return_value="Review:\n  ready: no"),
             redirect_stdout(stdout),
         ):
             exit_code = main(["--json", "--review"])
 
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 1)
-        self.assertEqual(payload, {"kind": "local", "success": False, "status": "failed", "text": "Review:\n  ready: no"})
+        self.assertEqual(
+            payload,
+            {
+                "kind": "local",
+                "success": False,
+                "status": "failed",
+                "text": "Review:\n  ready: no",
+                "review": review,
+            },
+        )
         create_chat_client.assert_not_called()
+
+    def test_main_runs_review_json_with_structured_payload(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "package.json").write_text('{"scripts":{"test":"node test.js"}}\n', encoding="utf-8")
+            stdout = io.StringIO()
+
+            with redirect_stdout(stdout):
+                exit_code = main(["--json", "--cwd", base, "--review", "--review-max-files", "10", "--review-max-checks", "5"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "local")
+        self.assertEqual(payload["status"], "completed")
+        self.assertTrue(payload["success"])
+        self.assertIn("Review:", payload["text"])
+        review = payload["review"]
+        self.assertEqual(review["projectRoot"], str(root.resolve()))
+        self.assertTrue(review["ready"])
+        self.assertEqual(review["changedFiles"]["total"], 1)
+        commands = [item["command"] for item in review["suggestedChecks"]["commands"] if isinstance(item, dict)]
+        self.assertIn("npm run test", commands)
 
     def test_main_runs_handoff_local_flag_without_creating_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
@@ -778,20 +817,22 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_handoff_text", return_value="Handoff:\n  ready: yes") as get_handoff_text,
+                patch("vibeagent.cli.get_handoff_report", return_value={"ready": True}) as get_handoff_report,
+                patch("vibeagent.cli.format_handoff_report_text", return_value="Handoff:\n  ready: yes") as format_handoff_report_text,
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--cwd", base, "--handoff"])
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Handoff:", stdout.getvalue())
-        get_handoff_text.assert_called_once_with(
+        get_handoff_report.assert_called_once_with(
             Path(base).resolve(),
             max_files=200,
             max_checks=10,
             max_status_chars=4000,
             max_plan_chars=4000,
         )
+        format_handoff_report_text.assert_called_once_with({"ready": True})
         create_chat_client.assert_not_called()
 
     def test_main_runs_handoff_local_flag_with_limits_without_creating_client(self) -> None:
@@ -800,7 +841,8 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_handoff_text", return_value="Handoff:\n  ready: yes") as get_handoff_text,
+                patch("vibeagent.cli.get_handoff_report", return_value={"ready": True}) as get_handoff_report,
+                patch("vibeagent.cli.format_handoff_report_text", return_value="Handoff:\n  ready: yes") as format_handoff_report_text,
                 redirect_stdout(stdout),
             ):
                 exit_code = main(
@@ -821,29 +863,65 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Handoff:", stdout.getvalue())
-        get_handoff_text.assert_called_once_with(
+        get_handoff_report.assert_called_once_with(
             Path(base).resolve(),
             max_files=1,
             max_checks=2,
             max_status_chars=3000,
             max_plan_chars=4000,
         )
+        format_handoff_report_text.assert_called_once_with({"ready": True})
         create_chat_client.assert_not_called()
 
     def test_main_runs_handoff_local_flag_with_json_output(self) -> None:
         stdout = io.StringIO()
+        handoff = {"ready": False, "blockingIssues": ["Suggested checks have not been run."]}
 
         with (
             patch("vibeagent.cli.create_chat_client") as create_chat_client,
-            patch("vibeagent.cli.get_handoff_text", return_value="Handoff:\n  ready: no"),
+            patch("vibeagent.cli.get_handoff_report", return_value=handoff),
+            patch("vibeagent.cli.format_handoff_report_text", return_value="Handoff:\n  ready: no"),
             redirect_stdout(stdout),
         ):
             exit_code = main(["--json", "--handoff"])
 
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 1)
-        self.assertEqual(payload, {"kind": "local", "success": False, "status": "failed", "text": "Handoff:\n  ready: no"})
+        self.assertEqual(
+            payload,
+            {
+                "kind": "local",
+                "success": False,
+                "status": "failed",
+                "text": "Handoff:\n  ready: no",
+                "handoff": handoff,
+            },
+        )
         create_chat_client.assert_not_called()
+
+    def test_main_runs_handoff_json_with_structured_payload(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "package.json").write_text('{"scripts":{"test":"node test.js"}}\n', encoding="utf-8")
+            stdout = io.StringIO()
+
+            with redirect_stdout(stdout):
+                exit_code = main(["--json", "--cwd", base, "--handoff", "--handoff-max-files", "10", "--handoff-max-checks", "5"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "local")
+        self.assertEqual(payload["status"], "completed")
+        self.assertTrue(payload["success"])
+        self.assertIn("Handoff:", payload["text"])
+        handoff = payload["handoff"]
+        self.assertEqual(handoff["projectRoot"], str(root.resolve()))
+        self.assertTrue(handoff["ready"])
+        self.assertEqual(handoff["changedFiles"]["total"], 1)
+        commands = [item["command"] for item in handoff["suggestedChecks"]["commands"] if isinstance(item, dict)]
+        self.assertIn("npm run test", commands)
+        self.assertEqual(handoff["blockingIssues"], [])
 
     def test_main_runs_changes_local_flag_without_creating_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
@@ -851,14 +929,16 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_changes_text", return_value="Changes:\n  changedFiles: 1") as get_changes_text,
+                patch("vibeagent.cli.get_changes_report", return_value={"ok": True}) as get_changes_report,
+                patch("vibeagent.cli.format_changes_report_text", return_value="Changes:\n  changedFiles: 1") as format_changes_report_text,
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--cwd", base, "--changes"])
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Changes:", stdout.getvalue())
-        get_changes_text.assert_called_once_with(Path(base).resolve(), max_files=200)
+        get_changes_report.assert_called_once_with(Path(base).resolve(), max_files=200)
+        format_changes_report_text.assert_called_once_with({"ok": True})
         create_chat_client.assert_not_called()
 
     def test_main_runs_changes_local_flag_with_max_files_without_creating_client(self) -> None:
@@ -867,15 +947,44 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_changes_text", return_value="Changes:\n  shownFiles: 1/3") as get_changes_text,
+                patch("vibeagent.cli.get_changes_report", return_value={"ok": True}) as get_changes_report,
+                patch("vibeagent.cli.format_changes_report_text", return_value="Changes:\n  shownFiles: 1/3") as format_changes_report_text,
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--cwd", base, "--changes", "--changes-max-files", "1"])
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Changes:", stdout.getvalue())
-        get_changes_text.assert_called_once_with(Path(base).resolve(), max_files=1)
+        get_changes_report.assert_called_once_with(Path(base).resolve(), max_files=1)
+        format_changes_report_text.assert_called_once_with({"ok": True})
         create_chat_client.assert_not_called()
+
+    def test_main_runs_changes_json_with_structured_payload(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            (root / "app.py").write_text("print('old')\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("print('new')\n", encoding="utf-8")
+            stdout = io.StringIO()
+
+            with redirect_stdout(stdout):
+                exit_code = main(["--json", "--cwd", base, "--changes", "--changes-max-files", "10"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "local")
+        self.assertEqual(payload["status"], "completed")
+        self.assertTrue(payload["success"])
+        self.assertIn("Changes:", payload["text"])
+        changes = payload["changes"]
+        self.assertEqual(changes["projectRoot"], str(root.resolve()))
+        self.assertTrue(changes["ok"])
+        self.assertEqual(changes["changedFiles"]["total"], 1)
+        self.assertEqual(changes["counts"]["unstaged"], 1)
 
     def test_main_runs_diff_local_flag_without_creating_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
@@ -1035,6 +1144,56 @@ class CliTests(unittest.TestCase):
         )
         create_chat_client.assert_not_called()
 
+    def test_main_diff_json_outputs_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            (root / "app.py").write_text("before\nold\nafter\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("before\nnew\nafter\n", encoding="utf-8")
+
+            diff_stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client") as diff_create_chat_client,
+                redirect_stdout(diff_stdout),
+            ):
+                diff_exit = main(["--json", "--cwd", base, "--diff", "app.py"])
+
+            hunks_stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client") as hunks_create_chat_client,
+                redirect_stdout(hunks_stdout),
+            ):
+                hunks_exit = main(["--json", "--cwd", base, "--diff-hunks", "app.py"])
+
+            contexts_stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client") as contexts_create_chat_client,
+                redirect_stdout(contexts_stdout),
+            ):
+                contexts_exit = main(["--json", "--cwd", base, "--diff-contexts", "app.py", "--diff-context-lines", "1"])
+
+        diff_payload = json.loads(diff_stdout.getvalue())
+        hunks_payload = json.loads(hunks_stdout.getvalue())
+        contexts_payload = json.loads(contexts_stdout.getvalue())
+
+        self.assertEqual(diff_exit, 0)
+        self.assertEqual(diff_payload["diff"]["path"], "app.py")
+        self.assertIn("+new", diff_payload["diff"]["diff"])
+        self.assertEqual(hunks_exit, 0)
+        self.assertEqual(hunks_payload["diffHunks"]["hunks"]["shown"], 1)
+        self.assertEqual(hunks_payload["diffHunks"]["hunks"]["items"][0]["file"], "app.py")
+        self.assertEqual(contexts_exit, 0)
+        self.assertEqual(contexts_payload["diffContexts"]["contexts"]["shown"], 1)
+        self.assertTrue(contexts_payload["diffContexts"]["contexts"]["items"][0]["context"]["ok"])
+        self.assertIn("2: new", contexts_payload["diffContexts"]["contexts"]["items"][0]["context"]["content"])
+        diff_create_chat_client.assert_not_called()
+        hunks_create_chat_client.assert_not_called()
+        contexts_create_chat_client.assert_not_called()
+
     def test_main_reports_staged_without_diff_as_local_flag_error(self) -> None:
         stdout = io.StringIO()
 
@@ -1064,12 +1223,118 @@ class CliTests(unittest.TestCase):
         init_project_instructions.assert_called_once_with(Path(base).resolve(), "CLAUDE.md")
         create_chat_client.assert_not_called()
 
+    def test_main_runs_sessions_json_with_structured_payload(self) -> None:
+        report = {"exists": True, "ok": True, "sessions": {"total": 1}}
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_sessions_report", return_value=report) as get_sessions_report,
+                patch("vibeagent.cli.get_sessions_text", return_value="Recent sessions:\n  run-1") as get_sessions_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--sessions"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["sessions"], report)
+        get_sessions_report.assert_called_once_with(Path(base).resolve())
+        get_sessions_text.assert_called_once_with(Path(base).resolve())
+        create_chat_client.assert_not_called()
+
+    def test_main_runs_last_json_with_structured_payload(self) -> None:
+        report = {"session": "run-1", "exists": True, "ok": True, "status": "completed"}
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_last_session_report", return_value=report) as get_last_session_report,
+                patch("vibeagent.cli.get_last_session_text", return_value="Session: run-1\n  status: completed") as get_last_session_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--last"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["sessionSummary"], report)
+        get_last_session_report.assert_called_once_with(Path(base).resolve())
+        get_last_session_text.assert_called_once_with(Path(base).resolve())
+        create_chat_client.assert_not_called()
+
+    def test_main_runs_session_json_with_structured_payload(self) -> None:
+        report = {"session": "run-1", "exists": True, "ok": True, "status": "completed"}
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_report", return_value=report) as get_session_report,
+                patch("vibeagent.cli.get_session_text", return_value="Session: run-1\n  status: completed") as get_session_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--session", "run-1"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["sessionSummary"], report)
+        get_session_report.assert_called_once_with("run-1", Path(base).resolve())
+        get_session_text.assert_called_once_with("run-1", Path(base).resolve())
+        create_chat_client.assert_not_called()
+
+    def test_main_runs_usage_json_with_structured_payload(self) -> None:
+        report = {"exists": True, "ok": True, "usage": {"sessions": 1}}
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_usage_report", return_value=report) as get_usage_report,
+                patch("vibeagent.cli.get_usage_text", return_value="Usage:\n  sessions: 1") as get_usage_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--usage"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["usage"], report)
+        get_usage_report.assert_called_once_with(Path(base).resolve())
+        get_usage_text.assert_called_once_with(Path(base).resolve())
+        create_chat_client.assert_not_called()
+
+    def test_main_runs_cost_json_with_structured_payload(self) -> None:
+        report = {"exists": True, "ok": True, "estimate": {"available": True, "estimatedCostUsd": "0.000001"}}
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_cost_report", return_value=report) as get_cost_report,
+                patch("vibeagent.cli.get_cost_text", return_value="Cost:\n  estimatedCostUsd: $0.000001") as get_cost_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--cost"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["cost"], report)
+        get_cost_report.assert_called_once_with(Path(base).resolve())
+        get_cost_text.assert_called_once_with(Path(base).resolve())
+        create_chat_client.assert_not_called()
+
     def test_main_runs_plan_local_flag_without_creating_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_plan_report", return_value={"session": "run-1", "ok": True}) as get_plan_report,
                 patch("vibeagent.cli.get_plan_text", return_value="Plan:\n  session: run-1") as get_plan_text,
                 redirect_stdout(stdout),
             ):
@@ -1077,6 +1342,28 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Plan:", stdout.getvalue())
+        get_plan_report.assert_called_once_with(Path(base).resolve(), "run-1")
+        get_plan_text.assert_called_once_with(Path(base).resolve(), "run-1")
+        create_chat_client.assert_not_called()
+
+    def test_main_runs_plan_json_with_structured_payload(self) -> None:
+        report = {"session": "run-1", "exists": True, "ok": True, "items": []}
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_plan_report", return_value=report) as get_plan_report,
+                patch("vibeagent.cli.get_plan_text", return_value="Plan:\n  session: run-1") as get_plan_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--plan", "run-1"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["sessionPlan"], report)
+        get_plan_report.assert_called_once_with(Path(base).resolve(), "run-1")
         get_plan_text.assert_called_once_with(Path(base).resolve(), "run-1")
         create_chat_client.assert_not_called()
 
@@ -1086,6 +1373,7 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_transcript_report", return_value={"session": "run-1", "ok": True}) as get_transcript_report,
                 patch("vibeagent.cli.get_transcript_text", return_value="Transcript:\n  session: run-1") as get_transcript_text,
                 redirect_stdout(stdout),
             ):
@@ -1104,6 +1392,40 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Transcript:", stdout.getvalue())
+        get_transcript_report.assert_called_once_with(Path(base).resolve(), "run-1", max_events=3, max_text=120)
+        get_transcript_text.assert_called_once_with(Path(base).resolve(), "run-1", max_events=3, max_text=120)
+        create_chat_client.assert_not_called()
+
+    def test_main_runs_transcript_json_with_structured_payload(self) -> None:
+        report = {"session": "run-1", "exists": True, "ok": True, "events": {"total": 1}}
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_transcript_report", return_value=report) as get_transcript_report,
+                patch("vibeagent.cli.get_transcript_text", return_value="Transcript:\n  session: run-1") as get_transcript_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--json",
+                        "--cwd",
+                        base,
+                        "--transcript",
+                        "run-1",
+                        "--session-transcript-event-max",
+                        "3",
+                        "--session-max-text",
+                        "120",
+                    ]
+                )
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["sessionTranscript"], report)
+        get_transcript_report.assert_called_once_with(Path(base).resolve(), "run-1", max_events=3, max_text=120)
         get_transcript_text.assert_called_once_with(Path(base).resolve(), "run-1", max_events=3, max_text=120)
         create_chat_client.assert_not_called()
 
@@ -1113,6 +1435,7 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_search_report", return_value={"session": "run-1", "ok": True}) as get_session_search_report,
                 patch("vibeagent.cli.get_session_search_text", return_value="Session search:\n  session: run-1") as get_session_search_text,
                 redirect_stdout(stdout),
             ):
@@ -1134,6 +1457,14 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Session search:", stdout.getvalue())
+        get_session_search_report.assert_called_once_with(
+            Path(base).resolve(),
+            "missing config",
+            "run-1",
+            max_matches=3,
+            max_text=120,
+            case_sensitive=True,
+        )
         get_session_search_text.assert_called_once_with(
             Path(base).resolve(),
             "missing config",
@@ -1144,12 +1475,50 @@ class CliTests(unittest.TestCase):
         )
         create_chat_client.assert_not_called()
 
+    def test_main_runs_session_search_json_with_structured_payload(self) -> None:
+        report = {"session": "run-1", "exists": True, "ok": True, "matches": {"total": 1}}
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_search_report", return_value=report) as get_session_search_report,
+                patch("vibeagent.cli.get_session_search_text", return_value="Session search:\n  session: run-1") as get_session_search_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--json",
+                        "--cwd",
+                        base,
+                        "--session-search",
+                        "missing config",
+                        "--session-search-run",
+                        "run-1",
+                        "--session-search-match-max",
+                        "3",
+                        "--session-search-case-sensitive",
+                        "--session-max-text",
+                        "120",
+                    ]
+                )
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["sessionSearch"], report)
+        expected_kwargs = {"max_matches": 3, "max_text": 120, "case_sensitive": True}
+        get_session_search_report.assert_called_once_with(Path(base).resolve(), "missing config", "run-1", **expected_kwargs)
+        get_session_search_text.assert_called_once_with(Path(base).resolve(), "missing config", "run-1", **expected_kwargs)
+        create_chat_client.assert_not_called()
+
     def test_main_runs_session_commands_local_flag_without_creating_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_commands_report", return_value={"session": "run-1", "ok": True}) as get_session_commands_report,
                 patch("vibeagent.cli.get_session_commands_text", return_value="Command results:\n  session: run-1") as get_session_commands_text,
                 redirect_stdout(stdout),
             ):
@@ -1157,7 +1526,29 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Command results:", stdout.getvalue())
+        get_session_commands_report.assert_called_once_with(Path(base).resolve(), "run-1")
         get_session_commands_text.assert_called_once_with(Path(base).resolve(), "run-1")
+        create_chat_client.assert_not_called()
+
+    def test_main_runs_session_commands_json_with_structured_payload(self) -> None:
+        report = {"session": "run-1", "exists": True, "ok": True, "commands": {"total": 1}}
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_commands_report", return_value=report) as get_session_commands_report,
+                patch("vibeagent.cli.get_session_commands_text", return_value="Command results:\n  session: run-1") as get_session_commands_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--session-commands", "run-1", "--session-max-output-chars", "0"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["sessionCommands"], report)
+        get_session_commands_report.assert_called_once_with(Path(base).resolve(), "run-1", max_output_chars=0)
+        get_session_commands_text.assert_called_once_with(Path(base).resolve(), "run-1", max_output_chars=0)
         create_chat_client.assert_not_called()
 
     def test_main_runs_session_output_contexts_local_flag_without_creating_client(self) -> None:
@@ -1166,6 +1557,7 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_output_contexts_report", return_value={"session": "run-1", "ok": True}) as get_session_output_contexts_report,
                 patch("vibeagent.cli.get_session_output_contexts_text", return_value="Session output contexts:\n  session: run-1") as get_session_output_contexts_text,
                 redirect_stdout(stdout),
             ):
@@ -1190,6 +1582,15 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Session output contexts:", stdout.getvalue())
+        get_session_output_contexts_report.assert_called_once_with(
+            Path(base).resolve(),
+            "run-1",
+            max_commands=3,
+            max_output_chars=4000,
+            context_lines=2,
+            max_contexts=5,
+            max_bytes_per_context=1000,
+        )
         get_session_output_contexts_text.assert_called_once_with(
             Path(base).resolve(),
             "run-1",
@@ -1201,12 +1602,59 @@ class CliTests(unittest.TestCase):
         )
         create_chat_client.assert_not_called()
 
+    def test_main_runs_session_output_contexts_json_with_structured_payload(self) -> None:
+        report = {"session": "run-1", "exists": True, "ok": True, "contexts": {"total": 1}}
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_output_contexts_report", return_value=report) as get_session_output_contexts_report,
+                patch("vibeagent.cli.get_session_output_contexts_text", return_value="Session output contexts:\n  session: run-1") as get_session_output_contexts_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--json",
+                        "--cwd",
+                        base,
+                        "--session-output-contexts",
+                        "run-1",
+                        "--session-output-command-max",
+                        "3",
+                        "--session-output-max-chars",
+                        "4000",
+                        "--session-output-context-lines",
+                        "2",
+                        "--session-output-context-max",
+                        "5",
+                        "--session-output-context-max-bytes",
+                        "1000",
+                    ]
+                )
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["sessionOutputContexts"], report)
+        expected_kwargs = {
+            "max_commands": 3,
+            "max_output_chars": 4000,
+            "context_lines": 2,
+            "max_contexts": 5,
+            "max_bytes_per_context": 1000,
+        }
+        get_session_output_contexts_report.assert_called_once_with(Path(base).resolve(), "run-1", **expected_kwargs)
+        get_session_output_contexts_text.assert_called_once_with(Path(base).resolve(), "run-1", **expected_kwargs)
+        create_chat_client.assert_not_called()
+
     def test_main_runs_session_output_diagnostics_local_flag_without_creating_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_output_diagnostics_report", return_value={"session": "run-1", "ok": True}) as get_session_output_diagnostics_report,
                 patch("vibeagent.cli.get_session_output_diagnostics_text", return_value="Session output diagnostics:\n  session: run-1") as get_session_output_diagnostics_text,
                 redirect_stdout(stdout),
             ):
@@ -1233,6 +1681,16 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Session output diagnostics:", stdout.getvalue())
+        get_session_output_diagnostics_report.assert_called_once_with(
+            Path(base).resolve(),
+            "run-1",
+            max_commands=3,
+            max_output_chars=4000,
+            context_lines=2,
+            max_diagnostics=4,
+            max_contexts=5,
+            max_bytes_per_context=1000,
+        )
         get_session_output_diagnostics_text.assert_called_once_with(
             Path(base).resolve(),
             "run-1",
@@ -1243,6 +1701,55 @@ class CliTests(unittest.TestCase):
             max_contexts=5,
             max_bytes_per_context=1000,
         )
+        create_chat_client.assert_not_called()
+
+    def test_main_runs_session_output_diagnostics_json_with_structured_payload(self) -> None:
+        report = {"session": "run-1", "exists": True, "ok": True, "diagnostics": {"total": 1}}
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_output_diagnostics_report", return_value=report) as get_session_output_diagnostics_report,
+                patch("vibeagent.cli.get_session_output_diagnostics_text", return_value="Session output diagnostics:\n  session: run-1") as get_session_output_diagnostics_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--json",
+                        "--cwd",
+                        base,
+                        "--session-output-diagnostics",
+                        "run-1",
+                        "--session-output-command-max",
+                        "3",
+                        "--session-output-max-chars",
+                        "4000",
+                        "--session-output-context-lines",
+                        "2",
+                        "--session-output-context-max",
+                        "5",
+                        "--session-output-context-max-bytes",
+                        "1000",
+                        "--session-output-diagnostic-max",
+                        "4",
+                    ]
+                )
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["sessionOutputDiagnostics"], report)
+        expected_kwargs = {
+            "max_commands": 3,
+            "max_output_chars": 4000,
+            "context_lines": 2,
+            "max_diagnostics": 4,
+            "max_contexts": 5,
+            "max_bytes_per_context": 1000,
+        }
+        get_session_output_diagnostics_report.assert_called_once_with(Path(base).resolve(), "run-1", **expected_kwargs)
+        get_session_output_diagnostics_text.assert_called_once_with(Path(base).resolve(), "run-1", **expected_kwargs)
         create_chat_client.assert_not_called()
 
     def test_main_session_output_analysis_local_flags_exit_nonzero_for_unreadable_contexts(self) -> None:
@@ -1343,6 +1850,7 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_files_report", return_value={"session": "run-1", "ok": True}) as get_session_files_report,
                 patch("vibeagent.cli.get_session_files_text", return_value="Session files:\n  session: run-1") as get_session_files_text,
                 redirect_stdout(stdout),
             ):
@@ -1350,7 +1858,29 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Session files:", stdout.getvalue())
+        get_session_files_report.assert_called_once_with(Path(base).resolve(), "run-1")
         get_session_files_text.assert_called_once_with(Path(base).resolve(), "run-1")
+        create_chat_client.assert_not_called()
+
+    def test_main_runs_session_files_json_with_structured_payload(self) -> None:
+        report = {"session": "run-1", "exists": True, "ok": True, "files": {"total": 1}}
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_files_report", return_value=report) as get_session_files_report,
+                patch("vibeagent.cli.get_session_files_text", return_value="Session files:\n  session: run-1") as get_session_files_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--session-files", "run-1", "--session-max-files", "3"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["sessionFiles"], report)
+        get_session_files_report.assert_called_once_with(Path(base).resolve(), "run-1", max_files=3)
+        get_session_files_text.assert_called_once_with(Path(base).resolve(), "run-1", max_files=3)
         create_chat_client.assert_not_called()
 
     def test_main_runs_session_failures_local_flag_without_creating_client(self) -> None:
@@ -1359,6 +1889,7 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_failures_report", return_value={"session": "run-1", "ok": True}) as get_session_failures_report,
                 patch("vibeagent.cli.get_session_failures_text", return_value="Session failures:\n  session: run-1") as get_session_failures_text,
                 redirect_stdout(stdout),
             ):
@@ -1366,15 +1897,24 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Session failures:", stdout.getvalue())
+        get_session_failures_report.assert_called_once_with(Path(base).resolve(), "run-1")
         get_session_failures_text.assert_called_once_with(Path(base).resolve(), "run-1")
         create_chat_client.assert_not_called()
 
     def test_main_session_failures_exits_nonzero_when_failures_exist(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
+            report = {
+                "session": "run-1",
+                "exists": True,
+                "ok": False,
+                "status": "failed",
+                "failures": {"total": 1, "shown": 1, "items": [{"name": "run_command"}]},
+            }
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_failures_report", return_value=report) as get_session_failures_report,
                 patch(
                     "vibeagent.cli.get_session_failures_text",
                     return_value=(
@@ -1394,6 +1934,8 @@ class CliTests(unittest.TestCase):
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
         self.assertIn("failures: 1", payload["text"])
+        self.assertEqual(payload["sessionFailures"], report)
+        get_session_failures_report.assert_called_once_with(Path(base).resolve(), "run-1")
         create_chat_client.assert_not_called()
 
     def test_main_runs_session_verification_local_flag_without_creating_client(self) -> None:
@@ -1402,6 +1944,7 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_verification_report", return_value={"session": "run-1", "ok": True}) as get_session_verification_report,
                 patch("vibeagent.cli.get_session_verification_text", return_value="Session verification:\n  session: run-1") as get_session_verification_text,
                 redirect_stdout(stdout),
             ):
@@ -1409,6 +1952,7 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Session verification:", stdout.getvalue())
+        get_session_verification_report.assert_called_once_with(Path(base).resolve(), "run-1")
         get_session_verification_text.assert_called_once_with(Path(base).resolve(), "run-1")
         create_chat_client.assert_not_called()
 
@@ -1418,6 +1962,7 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_verification_report", return_value={"session": "run-1", "ok": True}) as get_session_verification_report,
                 patch("vibeagent.cli.get_session_verification_text", return_value="Session verification:\n  session: run-1") as get_session_verification_text,
                 redirect_stdout(stdout),
             ):
@@ -1425,15 +1970,26 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Session verification:", stdout.getvalue())
+        get_session_verification_report.assert_called_once_with(Path(base).resolve(), "run-1", max_checks=3)
         get_session_verification_text.assert_called_once_with(Path(base).resolve(), "run-1", max_checks=3)
         create_chat_client.assert_not_called()
 
     def test_main_session_verification_exits_nonzero_with_pending_checks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
+            report = {
+                "session": "run-1",
+                "exists": True,
+                "ok": False,
+                "ready": False,
+                "status": "blocked",
+                "pending": {"total": 1, "items": ["npm test"]},
+                "failed": {"total": 0, "items": []},
+            }
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_verification_report", return_value=report) as get_session_verification_report,
                 patch(
                     "vibeagent.cli.get_session_verification_text",
                     return_value=(
@@ -1453,6 +2009,8 @@ class CliTests(unittest.TestCase):
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
         self.assertIn("pendingChecks:", payload["text"])
+        self.assertEqual(payload["sessionVerification"], report)
+        get_session_verification_report.assert_called_once_with(Path(base).resolve(), "run-1")
         create_chat_client.assert_not_called()
 
     def test_main_runs_session_audit_local_flag_without_creating_client(self) -> None:
@@ -1461,6 +2019,7 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_audit_report", return_value={"session": "run-1", "ok": True}) as get_session_audit_report,
                 patch("vibeagent.cli.get_session_audit_text", return_value="Session audit:\n  session: run-1") as get_session_audit_text,
                 redirect_stdout(stdout),
             ):
@@ -1468,7 +2027,37 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Session audit:", stdout.getvalue())
+        get_session_audit_report.assert_called_once_with(Path(base).resolve(), "run-1")
         get_session_audit_text.assert_called_once_with(Path(base).resolve(), "run-1")
+        create_chat_client.assert_not_called()
+
+    def test_main_runs_session_audit_json_with_structured_payload(self) -> None:
+        report = {
+            "session": "run-1",
+            "exists": True,
+            "ok": False,
+            "ready": False,
+            "status": "blocked",
+            "blockers": {"count": 1, "items": ["pending verification check(s)"]},
+        }
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_audit_report", return_value=report) as get_session_audit_report,
+                patch("vibeagent.cli.get_session_audit_text", return_value="Session audit:\n  session: run-1\n  ready: no") as get_session_audit_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--session-audit", "run-1", "--session-max-checks", "3"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 1)
+        self.assertFalse(payload["success"])
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["sessionAudit"], report)
+        get_session_audit_report.assert_called_once_with(Path(base).resolve(), "run-1", max_checks=3)
+        get_session_audit_text.assert_called_once_with(Path(base).resolve(), "run-1", max_checks=3)
         create_chat_client.assert_not_called()
 
     def test_main_runs_session_handoff_local_flag_without_creating_client(self) -> None:
@@ -1477,6 +2066,7 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_handoff_report", return_value={"session": "run-1", "ok": True}) as get_session_handoff_report,
                 patch("vibeagent.cli.get_session_handoff_text", return_value="Session handoff:\n  session: run-1") as get_session_handoff_text,
                 redirect_stdout(stdout),
             ):
@@ -1484,7 +2074,47 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Session handoff:", stdout.getvalue())
+        get_session_handoff_report.assert_called_once_with(Path(base).resolve(), "run-1")
         get_session_handoff_text.assert_called_once_with(Path(base).resolve(), "run-1")
+        create_chat_client.assert_not_called()
+
+    def test_main_runs_session_handoff_json_with_structured_payload(self) -> None:
+        report = {
+            "session": "run-1",
+            "exists": True,
+            "ok": False,
+            "ready": False,
+            "status": "blocked",
+            "audit": {"blockers": {"count": 1}},
+            "sections": {"readiness": "Session readiness:\n  ready: no"},
+        }
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_session_handoff_report", return_value=report) as get_session_handoff_report,
+                patch("vibeagent.cli.get_session_handoff_text", return_value="Session handoff:\n  session: run-1") as get_session_handoff_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--json",
+                        "--cwd",
+                        base,
+                        "--session-handoff",
+                        "run-1",
+                        "--session-max-output-chars",
+                        "4000",
+                    ]
+                )
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["sessionHandoff"], report)
+        get_session_handoff_report.assert_called_once_with(Path(base).resolve(), "run-1", max_output_chars=4000)
+        get_session_handoff_text.assert_called_once_with(Path(base).resolve(), "run-1", max_output_chars=4000)
         create_chat_client.assert_not_called()
 
     def test_main_session_detail_local_flags_pass_limit_options(self) -> None:
@@ -1774,10 +2404,19 @@ class CliTests(unittest.TestCase):
     def test_main_local_inspection_flag_reports_json_failure_status(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
+            report = {
+                "projectRoot": str(Path(base).resolve()),
+                "ok": False,
+                "pattern": "../*",
+                "matches": {"shown": 0, "total": 0, "truncated": False, "files": []},
+                "maxMatches": 200,
+                "message": "bad pattern",
+            }
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_glob_text", return_value="Glob:\n  ok: no\n  message: bad pattern"),
+                patch("vibeagent.cli.get_glob_report", return_value=report) as get_glob_report,
+                patch("vibeagent.cli.format_glob_report_text", return_value="Glob:\n  ok: no\n  message: bad pattern") as format_glob_report_text,
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--json", "--cwd", base, "--glob", "../*"])
@@ -1788,6 +2427,9 @@ class CliTests(unittest.TestCase):
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
         self.assertEqual(payload["text"], "Glob:\n  ok: no\n  message: bad pattern")
+        self.assertEqual(payload["glob"], report)
+        get_glob_report.assert_called_once_with(Path(base).resolve(), "../*")
+        format_glob_report_text.assert_called_once_with(report)
         create_chat_client.assert_not_called()
 
     def test_main_runs_checkpoint_local_flags_without_creating_client(self) -> None:
@@ -2017,7 +2659,6 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_checkpoint_delete_text", return_value="Checkpoint not found: missing"),
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--json", "--cwd", base, "--checkpoint-delete", "missing"])
@@ -2027,8 +2668,156 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["kind"], "local")
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
-        self.assertEqual(payload["text"], "Checkpoint not found: missing")
+        self.assertIn("Checkpoint delete:", payload["text"])
+        self.assertIn("Checkpoint not found: missing", payload["text"])
+        self.assertFalse(payload["checkpointDelete"]["ok"])
+        self.assertFalse(payload["checkpointDelete"]["deleted"])
+        self.assertEqual(payload["checkpointDelete"]["id"], "missing")
         create_chat_client.assert_not_called()
+
+    def test_main_checkpoint_json_outputs_structured_payload_without_duplicate_create(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            (root / "app.py").write_text("old\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("new\n", encoding="utf-8")
+
+            create_stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                redirect_stdout(create_stdout),
+            ):
+                create_exit = main(["--json", "--cwd", base, "--checkpoint", "before json"])
+
+            list_stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client") as list_create_chat_client,
+                redirect_stdout(list_stdout),
+            ):
+                list_exit = main(["--json", "--cwd", base, "--checkpoints"])
+
+        create_payload = json.loads(create_stdout.getvalue())
+        list_payload = json.loads(list_stdout.getvalue())
+        checkpoint = create_payload["checkpoint"]["checkpoint"]
+        checkpoint_id = checkpoint["id"]
+
+        self.assertEqual(create_exit, 0)
+        self.assertEqual(create_payload["kind"], "local")
+        self.assertTrue(create_payload["success"])
+        self.assertTrue(create_payload["checkpoint"]["created"])
+        self.assertEqual(checkpoint["label"], "before json")
+        self.assertEqual(checkpoint["changedFiles"], 1)
+        self.assertEqual(list_exit, 0)
+        self.assertEqual(list_payload["checkpoints"]["total"], 1)
+        self.assertEqual(list_payload["checkpoints"]["checkpoints"][0]["id"], checkpoint_id)
+        create_chat_client.assert_not_called()
+        list_create_chat_client.assert_not_called()
+
+    def test_main_checkpoint_restore_and_delete_json_outputs_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            (root / "app.py").write_text("base\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("checkpoint\n", encoding="utf-8")
+
+            create_stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                redirect_stdout(create_stdout),
+            ):
+                create_exit = main(["--json", "--cwd", base, "--checkpoint", "restore json"])
+            checkpoint_id = json.loads(create_stdout.getvalue())["checkpoint"]["checkpoint"]["id"]
+            (root / "app.py").write_text("broken\n", encoding="utf-8")
+
+            restore_stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client") as restore_create_chat_client,
+                redirect_stdout(restore_stdout),
+            ):
+                restore_exit = main(["--json", "--cwd", base, "--checkpoint-restore", checkpoint_id])
+
+            delete_stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client") as delete_create_chat_client,
+                redirect_stdout(delete_stdout),
+            ):
+                delete_exit = main(["--json", "--cwd", base, "--checkpoint-delete", checkpoint_id])
+
+            final_content = (root / "app.py").read_text(encoding="utf-8")
+
+        restore_payload = json.loads(restore_stdout.getvalue())
+        delete_payload = json.loads(delete_stdout.getvalue())
+
+        self.assertEqual(create_exit, 0)
+        self.assertEqual(restore_exit, 0)
+        self.assertTrue(restore_payload["checkpointRestore"]["restored"])
+        self.assertTrue(restore_payload["checkpointRestore"]["matches"])
+        self.assertEqual(restore_payload["checkpointRestore"]["id"], checkpoint_id)
+        self.assertEqual(final_content, "checkpoint\n")
+        self.assertEqual(delete_exit, 0)
+        self.assertTrue(delete_payload["checkpointDelete"]["deleted"])
+        self.assertEqual(delete_payload["checkpointDelete"]["id"], checkpoint_id)
+        create_chat_client.assert_not_called()
+        restore_create_chat_client.assert_not_called()
+        delete_create_chat_client.assert_not_called()
+
+    def test_main_checkpoint_prune_json_outputs_structured_payload(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            (root / "app.py").write_text("base\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            created_ids = []
+            for index in range(3):
+                (root / "app.py").write_text(f"change {index}\n", encoding="utf-8")
+                create_stdout = io.StringIO()
+                with (
+                    patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                    redirect_stdout(create_stdout),
+                ):
+                    exit_code = main(["--json", "--cwd", base, "--checkpoint", f"prune {index}"])
+                self.assertEqual(exit_code, 0)
+                created_ids.append(json.loads(create_stdout.getvalue())["checkpoint"]["checkpoint"]["id"])
+                create_chat_client.assert_not_called()
+                time.sleep(0.002)
+
+            prune_stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client") as prune_create_chat_client,
+                redirect_stdout(prune_stdout),
+            ):
+                prune_exit = main(["--json", "--cwd", base, "--checkpoint-prune", "1"])
+
+            list_stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client") as list_create_chat_client,
+                redirect_stdout(list_stdout),
+            ):
+                list_exit = main(["--json", "--cwd", base, "--checkpoints"])
+
+        prune_payload = json.loads(prune_stdout.getvalue())
+        list_payload = json.loads(list_stdout.getvalue())
+
+        self.assertEqual(prune_exit, 0)
+        self.assertEqual(prune_payload["checkpointPrune"]["total"], 3)
+        self.assertEqual(prune_payload["checkpointPrune"]["deleted"], 2)
+        self.assertEqual([item["id"] for item in prune_payload["checkpointPrune"]["checkpoints"]], [created_ids[1], created_ids[0]])
+        self.assertEqual(list_exit, 0)
+        self.assertEqual(list_payload["checkpoints"]["total"], 1)
+        self.assertEqual(list_payload["checkpoints"]["checkpoints"][0]["id"], created_ids[2])
+        prune_create_chat_client.assert_not_called()
+        list_create_chat_client.assert_not_called()
 
     def test_main_runs_tool_local_flag_without_creating_client(self) -> None:
         stdout = io.StringIO()
@@ -2800,7 +3589,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("Run:", stdout.getvalue())
         get_run_text.assert_called_once_with(
             Path(base).resolve(),
-            "python3 --version",
+            command="python3 --version",
             cwd=".",
             timeout_ms=2000,
             max_output_chars=3000,
@@ -2860,7 +3649,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("outputDiagnostics: 1/2", stdout.getvalue())
         get_run_text.assert_called_once_with(
             Path(base).resolve(),
-            "false",
+            command="false",
             cwd=None,
             timeout_ms=30000,
             max_output_chars=12000,
@@ -2876,10 +3665,28 @@ class CliTests(unittest.TestCase):
     def test_main_run_command_local_flag_reports_json_failure_status(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
+            report = {
+                "projectRoot": str(Path(base).resolve()),
+                "ok": False,
+                "command": "false",
+                "cwd": ".",
+                "exitCode": 7,
+                "timedOut": False,
+                "signal": None,
+                "timeoutMs": 30000,
+                "maxOutputChars": 12000,
+                "stdout": "",
+                "stderr": "failure\n",
+                "stdoutTruncated": False,
+                "stderrTruncated": False,
+                "analysis": {"diagnostics": {"shown": 0, "total": 0, "items": []}, "diagnosticsTruncated": False, "contexts": {"shown": 0, "totalRefs": 0, "items": []}, "contextsTruncated": False},
+                "message": "Command failed.",
+            }
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_run_text", return_value="Run:\n  ok: no\n  exitCode: 7"),
+                patch("vibeagent.cli.get_run_report", return_value=report) as get_run_report,
+                patch("vibeagent.cli.format_run_report_text", return_value="Run:\n  ok: no\n  exitCode: 7") as format_run_report,
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--json", "--cwd", base, "--run-command", "false"])
@@ -2889,7 +3696,22 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["kind"], "local")
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["run"], report)
         self.assertIn("ok: no", payload["text"])
+        get_run_report.assert_called_once_with(
+            Path(base).resolve(),
+            command="false",
+            cwd=None,
+            timeout_ms=30000,
+            max_output_chars=12000,
+            extract_output_contexts=False,
+            extract_output_diagnostics=False,
+            context_lines=5,
+            max_diagnostics=50,
+            max_contexts=20,
+            max_bytes_per_context=20000,
+        )
+        format_run_report.assert_called_once_with(report)
         create_chat_client.assert_not_called()
 
     def test_main_runs_run_commands_local_flag_without_creating_client(self) -> None:
@@ -2943,6 +3765,67 @@ class CliTests(unittest.TestCase):
         )
         create_chat_client.assert_not_called()
 
+    def test_main_run_commands_json_outputs_structured_payload(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+            report = {
+                "projectRoot": str(Path(base).resolve()),
+                "ok": False,
+                "commands": {"shown": 1, "total": 2, "requested": ["false", "python3 --version"]},
+                "stopOnFailure": True,
+                "stoppedEarly": True,
+                "results": [
+                    {
+                        "index": 1,
+                        "command": "false",
+                        "cwd": ".",
+                        "ok": False,
+                        "exitCode": 1,
+                        "timedOut": False,
+                        "signal": None,
+                        "timeoutMs": 30000,
+                        "maxOutputChars": 12000,
+                        "stdout": "",
+                        "stderr": "",
+                        "stdoutTruncated": False,
+                        "stderrTruncated": False,
+                        "analysis": {"diagnostics": {"shown": 0, "total": 0, "items": []}, "diagnosticsTruncated": False, "contexts": {"shown": 0, "totalRefs": 0, "items": []}, "contextsTruncated": False},
+                    }
+                ],
+                "message": "Command 1 failed; stopped early.",
+            }
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_run_sequence_report", return_value=report) as get_run_sequence_report,
+                patch("vibeagent.cli.format_run_sequence_report_text", return_value="Run sequence:\n  ok: no\n  stoppedEarly: yes") as format_run_sequence_report,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--run-commands", "false", "python3 --version"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(payload["kind"], "local")
+        self.assertFalse(payload["success"])
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["runCommands"], report)
+        get_run_sequence_report.assert_called_once_with(
+            Path(base).resolve(),
+            commands=["false", "python3 --version"],
+            cwd=None,
+            timeout_ms=30000,
+            max_output_chars=12000,
+            stop_on_failure=True,
+            extract_output_contexts=False,
+            extract_output_diagnostics=False,
+            context_lines=5,
+            max_diagnostics=50,
+            max_contexts=20,
+            max_bytes_per_context=20000,
+        )
+        format_run_sequence_report.assert_called_once_with(report)
+        create_chat_client.assert_not_called()
+
     def test_main_run_commands_local_flag_exits_nonzero_when_sequence_fails(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
@@ -2977,6 +3860,64 @@ class CliTests(unittest.TestCase):
             commands=["python3 --version", "npm test"],
             cwd=".",
         )
+        create_chat_client.assert_not_called()
+
+    def test_main_check_run_commands_json_outputs_structured_payload(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+            report = {
+                "projectRoot": str(Path(base).resolve()),
+                "ok": False,
+                "commands": {"shown": 2, "total": 2, "requested": ["python3 --version", "sudo reboot"]},
+                "checks": [
+                    {
+                        "index": 1,
+                        "command": "python3 --version",
+                        "cwd": ".",
+                        "ok": True,
+                        "cwdOk": True,
+                        "blocked": False,
+                        "executableAvailable": True,
+                        "blockReason": None,
+                        "missingTool": None,
+                        "message": "Command looks runnable.",
+                    },
+                    {
+                        "index": 2,
+                        "command": "sudo reboot",
+                        "cwd": ".",
+                        "ok": False,
+                        "cwdOk": True,
+                        "blocked": True,
+                        "executableAvailable": True,
+                        "blockReason": "high-risk command requires an explicit user-controlled approval flow",
+                        "missingTool": None,
+                        "message": "Command blocked.",
+                    },
+                ],
+                "message": "One or more commands need attention.",
+            }
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_check_run_sequence_report", return_value=report) as get_check_run_sequence_report,
+                patch("vibeagent.cli.format_check_run_sequence_report_text", return_value="Check run sequence:\n  ok: no") as format_check_run_sequence_report,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--check-run-commands", "python3 --version", "sudo reboot", "--run-cwd", "."])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(payload["kind"], "local")
+        self.assertFalse(payload["success"])
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["checkRunCommands"], report)
+        get_check_run_sequence_report.assert_called_once_with(
+            Path(base).resolve(),
+            commands=["python3 --version", "sudo reboot"],
+            cwd=".",
+        )
+        format_check_run_sequence_report.assert_called_once_with(report)
         create_chat_client.assert_not_called()
 
     def test_main_runs_start_command_local_flag_without_creating_client(self) -> None:
@@ -3608,6 +4549,48 @@ class CliTests(unittest.TestCase):
         get_symbols_text.assert_called_once_with(Path(base).resolve(), ["src/app.py", "web/app.ts"], max_symbols=12)
         create_chat_client.assert_not_called()
 
+    def test_main_project_inspection_json_outputs_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "src" / "pkg").mkdir()
+            (root / "web").mkdir()
+            (root / "src" / "app.py").write_text(
+                "import os\n\nclass App:\n    pass\n\ndef main():\n    return os.getcwd()\n",
+                encoding="utf-8",
+            )
+            (root / "src" / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+            (root / "web" / "app.ts").write_text(
+                "import { readFile } from 'fs';\nexport class View {}\nexport function render() {}\n",
+                encoding="utf-8",
+            )
+
+            def run_json(*argv: str) -> tuple[int, dict[str, object]]:
+                stdout = io.StringIO()
+                with redirect_stdout(stdout):
+                    exit_code = main(["--json", "--cwd", base, *argv])
+                return exit_code, json.loads(stdout.getvalue())
+
+            with patch("vibeagent.cli.create_chat_client") as create_chat_client:
+                glob_exit, glob_payload = run_json("--glob", "**/*.py", "--glob-max-matches", "5")
+                tree_exit, tree_payload = run_json("--tree", "src", "--tree-max-depth", "3", "--tree-max-entries", "20")
+                symbols_exit, symbols_payload = run_json("--symbols", "src/app.py", "web/app.ts", "--symbols-max", "20")
+
+        self.assertEqual(glob_exit, 0)
+        self.assertEqual(glob_payload["glob"]["pattern"], "**/*.py")
+        self.assertEqual(glob_payload["glob"]["matches"]["shown"], 2)
+        self.assertIn("src/app.py", glob_payload["glob"]["matches"]["files"])
+        self.assertEqual(tree_exit, 0)
+        self.assertEqual(tree_payload["tree"]["path"], "src")
+        self.assertEqual(tree_payload["tree"]["entries"]["shown"], 3)
+        self.assertIn("src/pkg/", tree_payload["tree"]["entries"]["items"])
+        self.assertEqual(symbols_exit, 0)
+        self.assertEqual(symbols_payload["symbols"]["files"]["ok"], 2)
+        self.assertEqual(symbols_payload["symbols"]["counts"], {"symbols": 4, "imports": 2})
+        self.assertEqual(symbols_payload["symbols"]["files"]["items"][0]["symbols"][0]["name"], "App")
+        self.assertEqual(symbols_payload["symbols"]["files"]["items"][1]["language"], "typescript")
+        create_chat_client.assert_not_called()
+
     def test_main_rejects_symbols_max_without_symbols_local_flag(self) -> None:
         stdout = io.StringIO()
 
@@ -3663,10 +4646,20 @@ class CliTests(unittest.TestCase):
     def test_main_source_analysis_local_flag_reports_json_failure_status(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
+            report = {
+                "projectRoot": str(Path(base).resolve()),
+                "ok": False,
+                "paths": ["missing.py"],
+                "maxSymbols": 200,
+                "files": {"ok": 0, "total": 1, "items": [{"path": "missing.py", "ok": False, "message": "Path does not exist: missing.py"}]},
+                "counts": {"symbols": 0, "imports": 0},
+                "message": "Read outlines for 0/1 source file(s).",
+            }
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_symbols_text", return_value="Symbols:\n  files: 0/1"),
+                patch("vibeagent.cli.get_symbols_report", return_value=report) as get_symbols_report,
+                patch("vibeagent.cli.format_symbols_report_text", return_value="Symbols:\n  files: 0/1") as format_symbols_report_text,
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--json", "--cwd", base, "--symbols", "missing.py"])
@@ -3677,6 +4670,9 @@ class CliTests(unittest.TestCase):
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
         self.assertEqual(payload["text"], "Symbols:\n  files: 0/1")
+        self.assertEqual(payload["symbols"], report)
+        get_symbols_report.assert_called_once_with(Path(base).resolve(), ["missing.py"])
+        format_symbols_report_text.assert_called_once_with(report)
         create_chat_client.assert_not_called()
 
     def test_main_scoped_symbol_local_flags_exit_nonzero_for_failed_results(self) -> None:
@@ -3794,6 +4790,47 @@ class CliTests(unittest.TestCase):
         get_image_info_text.assert_called_once_with(Path(base).resolve(), ["assets/logo.png"])
         create_chat_client.assert_not_called()
 
+    def test_main_file_and_image_info_json_outputs_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "assets").mkdir()
+            (root / "src" / "app.py").write_text("one\ntwo\n", encoding="utf-8")
+            (root / "asset.bin").write_bytes(b"\x00\x01")
+            (root / "assets" / "logo.png").write_bytes(
+                b"\x89PNG\r\n\x1a\n"
+                b"\x00\x00\x00\rIHDR"
+                + (13).to_bytes(4, "big")
+                + (17).to_bytes(4, "big")
+                + b"\x08\x02\x00\x00\x00\x00\x00\x00\x00"
+            )
+
+            def run_json(*argv: str) -> tuple[int, dict[str, object]]:
+                stdout = io.StringIO()
+                with redirect_stdout(stdout):
+                    exit_code = main(["--json", "--cwd", base, *argv])
+                return exit_code, json.loads(stdout.getvalue())
+
+            with patch("vibeagent.cli.create_chat_client") as create_chat_client:
+                file_exit, file_payload = run_json("--file-info", "src/app.py", "src", "asset.bin")
+                image_exit, image_payload = run_json("--image-info", "assets/logo.png", "assets")
+
+        self.assertEqual(file_exit, 0)
+        self.assertEqual(file_payload["fileInfo"]["paths"]["ok"], 3)
+        self.assertEqual(file_payload["fileInfo"]["paths"]["items"][0]["path"], "src/app.py")
+        self.assertEqual(file_payload["fileInfo"]["paths"]["items"][0]["type"], "file")
+        self.assertEqual(file_payload["fileInfo"]["paths"]["items"][0]["lineCount"], 2)
+        self.assertEqual(file_payload["fileInfo"]["paths"]["items"][1]["type"], "directory")
+        self.assertTrue(file_payload["fileInfo"]["paths"]["items"][2]["binary"])
+        self.assertEqual(image_exit, 1)
+        self.assertEqual(image_payload["status"], "failed")
+        self.assertEqual(image_payload["imageInfo"]["images"]["ok"], 1)
+        self.assertEqual(image_payload["imageInfo"]["images"]["total"], 2)
+        self.assertEqual(image_payload["imageInfo"]["images"]["items"][0]["format"], "png")
+        self.assertEqual(image_payload["imageInfo"]["images"]["items"][0]["width"], 13)
+        self.assertIn("Path is not a file", image_payload["imageInfo"]["images"]["items"][1]["message"])
+        create_chat_client.assert_not_called()
+
     def test_main_runs_read_local_flag_without_creating_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
@@ -3808,6 +4845,38 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("Read:", stdout.getvalue())
         get_read_text.assert_called_once_with(Path(base).resolve(), "src/app.py", "2:4", max_bytes=1000)
+        create_chat_client.assert_not_called()
+
+    def test_main_read_json_outputs_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "src" / "app.py").write_text("one\nTwo\nthree\nfour\n", encoding="utf-8")
+            (root / "tests").mkdir()
+            (root / "tests" / "test_app.py").write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+
+            def run_json(*argv: str) -> tuple[int, dict[str, object]]:
+                stdout = io.StringIO()
+                with redirect_stdout(stdout):
+                    exit_code = main(["--json", "--cwd", base, *argv])
+                return exit_code, json.loads(stdout.getvalue())
+
+            with patch("vibeagent.cli.create_chat_client") as create_chat_client:
+                read_exit, read_payload = run_json("--read", "src/app.py", "--read-lines", "2:3")
+                files_exit, files_payload = run_json("--read-files", "src/app.py", "tests/test_app.py")
+                ranges_exit, ranges_payload = run_json("--read-ranges", "src/app.py:2:3", "tests/test_app.py:1")
+
+        self.assertEqual(read_exit, 0)
+        self.assertEqual(read_payload["read"]["path"], "src/app.py")
+        self.assertEqual(read_payload["read"]["range"], "2:3")
+        self.assertIn("2: Two", read_payload["read"]["read"]["content"])
+        self.assertEqual(files_exit, 0)
+        self.assertEqual(files_payload["readFiles"]["files"]["ok"], 2)
+        self.assertIn("alpha", files_payload["readFiles"]["files"]["items"][1]["content"])
+        self.assertEqual(ranges_exit, 0)
+        self.assertEqual(ranges_payload["readRanges"]["ranges"]["ok"], 2)
+        self.assertEqual(ranges_payload["readRanges"]["ranges"]["items"][0]["endLine"], 3)
+        self.assertIn("1: alpha", ranges_payload["readRanges"]["ranges"]["items"][1]["content"])
         create_chat_client.assert_not_called()
 
     def test_main_runs_tail_local_flag_without_creating_client(self) -> None:
@@ -3858,6 +4927,42 @@ class CliTests(unittest.TestCase):
         get_around_many_text.assert_called_once_with(Path(base).resolve(), ["src/app.py:42:8", "tests/test_app.py:17"], max_bytes_per_context=1400)
         create_chat_client.assert_not_called()
 
+    def test_main_context_json_outputs_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "src" / "app.py").write_text("one\nTwo\nthree\nfour\n", encoding="utf-8")
+            (root / "tests").mkdir()
+            (root / "tests" / "test_app.py").write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+            (root / "logs").mkdir()
+            (root / "logs" / "app.log").write_text("one\ntwo\nthree\nfour\n", encoding="utf-8")
+
+            def run_json(*argv: str) -> tuple[int, dict[str, object]]:
+                stdout = io.StringIO()
+                with redirect_stdout(stdout):
+                    exit_code = main(["--json", "--cwd", base, *argv])
+                return exit_code, json.loads(stdout.getvalue())
+
+            with patch("vibeagent.cli.create_chat_client") as create_chat_client:
+                tail_exit, tail_payload = run_json("--tail", "logs/app.log", "--tail-lines", "2")
+                around_exit, around_payload = run_json("--around", "src/app.py", "3", "--around-lines", "1")
+                many_exit, many_payload = run_json("--around-many", "src/app.py:3:1", "tests/test_app.py:2")
+
+        self.assertEqual(tail_exit, 0)
+        self.assertEqual(tail_payload["tail"]["path"], "logs/app.log")
+        self.assertEqual(tail_payload["tail"]["tail"]["startLine"], 3)
+        self.assertIn("3: three", tail_payload["tail"]["tail"]["content"])
+        self.assertEqual(around_exit, 0)
+        self.assertEqual(around_payload["around"]["path"], "src/app.py")
+        self.assertEqual(around_payload["around"]["context"]["startLine"], 2)
+        self.assertEqual(around_payload["around"]["context"]["endLine"], 4)
+        self.assertIn("2: Two", around_payload["around"]["context"]["content"])
+        self.assertEqual(many_exit, 0)
+        self.assertEqual(many_payload["aroundMany"]["contexts"]["ok"], 2)
+        self.assertEqual(many_payload["aroundMany"]["contexts"]["items"][1]["path"], "tests/test_app.py")
+        self.assertIn("2: beta", many_payload["aroundMany"]["contexts"]["items"][1]["content"])
+        create_chat_client.assert_not_called()
+
     def test_main_batch_read_local_flags_exit_nonzero_for_incomplete_results(self) -> None:
         cases = [
             (
@@ -3900,10 +5005,21 @@ class CliTests(unittest.TestCase):
     def test_main_batch_read_local_flag_reports_json_failure_status(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
+            report = {
+                "projectRoot": str(Path(base).resolve()),
+                "ok": False,
+                "files": {"ok": 0, "total": 2, "items": []},
+                "maxBytesPerFile": 20000,
+                "message": "Read 0/2 file(s).",
+            }
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_read_files_text", return_value="Read files:\n  files: 0/2"),
+                patch("vibeagent.cli.get_read_files_report", return_value=report) as get_read_files_report,
+                patch(
+                    "vibeagent.cli.format_read_files_report_text",
+                    return_value="Read files:\n  files: 0/2",
+                ) as format_read_files_report_text,
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--json", "--cwd", base, "--read-files", "missing-a.py", "missing-b.py"])
@@ -3914,6 +5030,9 @@ class CliTests(unittest.TestCase):
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
         self.assertEqual(payload["text"], "Read files:\n  files: 0/2")
+        self.assertEqual(payload["readFiles"], report)
+        get_read_files_report.assert_called_once_with(Path(base).resolve(), ["missing-a.py", "missing-b.py"])
+        format_read_files_report_text.assert_called_once_with(report)
         create_chat_client.assert_not_called()
 
     def test_main_runs_output_contexts_local_flag_without_creating_client(self) -> None:
@@ -4027,6 +5146,60 @@ class CliTests(unittest.TestCase):
         )
         create_chat_client.assert_not_called()
 
+    def test_main_output_analysis_json_outputs_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "src" / "app.py").write_text("one\nTwo\nraise ValueError('bad')\nfour\n", encoding="utf-8")
+            (root / "tests").mkdir()
+            (root / "tests" / "test_app.py").write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+
+            def run_json(*argv: str) -> tuple[int, dict[str, object]]:
+                stdout = io.StringIO()
+                with redirect_stdout(stdout):
+                    exit_code = main(["--json", "--cwd", base, *argv])
+                return exit_code, json.loads(stdout.getvalue())
+
+            with patch("vibeagent.cli.create_chat_client") as create_chat_client:
+                contexts_exit, contexts_payload = run_json(
+                    "--output-contexts",
+                    "src/app.py:3: boom\ntests/test_app.py:2:5: assertion failed",
+                    "--output-context-lines",
+                    "1",
+                    "--output-context-max-bytes",
+                    "1000",
+                )
+                diagnostics_exit, diagnostics_payload = run_json(
+                    "--output-diagnostics",
+                    "warning: src/app.py:2:3 check this\nERROR src/app.py:3 failed",
+                    "--output-diagnostic-lines",
+                    "0",
+                    "--output-diagnostic-context-max-bytes",
+                    "1000",
+                )
+                traceback_exit, traceback_payload = run_json(
+                    "--python-traceback",
+                    'Traceback (most recent call last):\n  File "src/app.py", line 3, in run\nValueError: bad',
+                    "--output-diagnostic-lines",
+                    "0",
+                    "--output-diagnostic-context-max-bytes",
+                    "1000",
+                )
+
+        self.assertEqual(contexts_exit, 0)
+        self.assertEqual(contexts_payload["outputContexts"]["contexts"]["ok"], 2)
+        self.assertEqual(contexts_payload["outputContexts"]["contexts"]["items"][0]["path"], "src/app.py")
+        self.assertIn("3: raise ValueError('bad')", contexts_payload["outputContexts"]["contexts"]["items"][0]["content"])
+        self.assertEqual(diagnostics_exit, 0)
+        self.assertEqual(diagnostics_payload["outputDiagnostics"]["diagnostics"]["shown"], 2)
+        self.assertEqual(diagnostics_payload["outputDiagnostics"]["diagnostics"]["items"][0]["severity"], "warning")
+        self.assertEqual(diagnostics_payload["outputDiagnostics"]["contexts"]["ok"], 2)
+        self.assertEqual(traceback_exit, 0)
+        self.assertEqual(traceback_payload["pythonTraceback"]["diagnostics"]["shown"], 3)
+        self.assertEqual(traceback_payload["pythonTraceback"]["contexts"]["ok"], 1)
+        self.assertIn("3: raise ValueError('bad')", traceback_payload["pythonTraceback"]["contexts"]["items"][0]["content"])
+        create_chat_client.assert_not_called()
+
     def test_main_output_context_local_flags_exit_nonzero_for_unreadable_contexts(self) -> None:
         cases = [
             (
@@ -4102,10 +5275,25 @@ class CliTests(unittest.TestCase):
     def test_main_output_context_local_flag_reports_json_failure_status(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
+            report = {
+                "projectRoot": str(Path(base).resolve()),
+                "ok": False,
+                "contexts": {"ok": 0, "total": 1, "items": []},
+                "totalRefs": 1,
+                "contextLines": 5,
+                "maxContexts": 20,
+                "maxBytesPerContext": 20000,
+                "truncated": False,
+                "message": "Read 0/1 referenced context(s).",
+            }
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_output_contexts_text", return_value="Output contexts:\n  contexts: 0/1"),
+                patch("vibeagent.cli.get_output_contexts_report", return_value=report) as get_output_contexts_report,
+                patch(
+                    "vibeagent.cli.format_output_contexts_report_text",
+                    return_value="Output contexts:\n  contexts: 0/1",
+                ) as format_output_contexts_report_text,
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--json", "--cwd", base, "--output-contexts", "ERROR missing.py:1: boom"])
@@ -4116,6 +5304,15 @@ class CliTests(unittest.TestCase):
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
         self.assertEqual(payload["text"], "Output contexts:\n  contexts: 0/1")
+        self.assertEqual(payload["outputContexts"], report)
+        get_output_contexts_report.assert_called_once_with(
+            Path(base).resolve(),
+            "ERROR missing.py:1: boom",
+            context_lines=5,
+            max_contexts=20,
+            max_bytes_per_context=20000,
+        )
+        format_output_contexts_report_text.assert_called_once_with(report)
         create_chat_client.assert_not_called()
 
     def test_main_runs_read_files_local_flag_without_creating_client(self) -> None:
@@ -5767,6 +6964,58 @@ class CliTests(unittest.TestCase):
         get_stashes_text.assert_called_once_with(Path(base).resolve(), max_entries=3)
         create_chat_client.assert_not_called()
 
+    def test_main_read_only_git_json_outputs_structured_payloads(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init", "--initial-branch", "main"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("alpha\nbeta\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial app"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("alpha\nbeta changed\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "update beta"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "branch", "feature/work"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("alpha\nbeta stashed\n", encoding="utf-8")
+            subprocess.run(["git", "stash", "push", "-m", "save local app"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "notes.txt").write_text("local note\n", encoding="utf-8")
+
+            def run_json(*argv: str) -> tuple[int, dict[str, object]]:
+                stdout = io.StringIO()
+                with redirect_stdout(stdout):
+                    exit_code = main(["--json", "--cwd", base, *argv])
+                return exit_code, json.loads(stdout.getvalue())
+
+            with patch("vibeagent.cli.create_chat_client") as create_chat_client:
+                status_exit, status_payload = run_json("--git-status")
+                info_exit, info_payload = run_json("--git-info")
+                branches_exit, branches_payload = run_json("--branches")
+                log_exit, log_payload = run_json("--log", "app.py", "--log-count", "2")
+                show_exit, show_payload = run_json("--show", "HEAD", "--show-path", "app.py")
+                blame_exit, blame_payload = run_json("--blame", "app.py", "--blame-lines", "2:2")
+                stashes_exit, stashes_payload = run_json("--stashes", "--stash-count", "1")
+
+        self.assertEqual(status_exit, 0)
+        self.assertIn("gitStatus", status_payload)
+        self.assertEqual(status_payload["gitStatus"]["status"]["count"], 1)
+        self.assertIn("?? notes.txt", status_payload["gitStatus"]["status"]["lines"])
+        self.assertEqual(info_exit, 0)
+        self.assertEqual(info_payload["gitInfo"]["branch"], "main")
+        self.assertEqual(info_payload["gitInfo"]["status"]["count"], 1)
+        self.assertEqual(branches_exit, 0)
+        self.assertEqual(branches_payload["branches"]["branches"]["shown"], 2)
+        self.assertEqual(log_exit, 0)
+        self.assertEqual(log_payload["log"]["commits"]["shown"], 2)
+        self.assertIn("update beta", log_payload["log"]["commits"]["items"][0]["subject"])
+        self.assertEqual(show_exit, 0)
+        self.assertIn("+beta changed", show_payload["show"]["output"]["text"])
+        self.assertEqual(blame_exit, 0)
+        self.assertIn("beta changed", blame_payload["blame"]["output"]["text"])
+        self.assertEqual(stashes_exit, 0)
+        self.assertEqual(stashes_payload["stashes"]["entries"]["items"][0]["name"], "stash@{0}")
+        create_chat_client.assert_not_called()
+
     def test_main_read_only_git_local_flags_exit_nonzero_for_failed_results(self) -> None:
         cases = [
             (["--git-status"], "vibeagent.cli.get_git_status_text", "Git status:\n  ok: no", (Path,), {}),
@@ -5783,7 +7032,6 @@ class CliTests(unittest.TestCase):
             ),
             (["--blame", "missing.py", "--blame-lines", "2:4", "--blame-max-chars", "2000"], "vibeagent.cli.get_blame_text", "Blame:\n  ok: no", (Path, "missing.py", "2:4", 2000), {}),
             (["--stashes", "--stash-count", "3"], "vibeagent.cli.get_stashes_text", "Stashes:\n  ok: no", (Path,), {"max_entries": 3}),
-            (["--changes"], "vibeagent.cli.get_changes_text", "Changes:\n  ok: no", (Path,), {"max_files": 200}),
             (["--diff"], "vibeagent.cli.get_diff_text", "Diff:\n  error: git diff failed", (Path, None), {"max_chars": 12000}),
             (
                 ["--diff-hunks"],
@@ -5818,13 +7066,47 @@ class CliTests(unittest.TestCase):
             getter.assert_called_once_with(*resolved_args, **expected_kwargs)
             create_chat_client.assert_not_called()
 
-    def test_main_read_only_git_local_flag_reports_json_failure_status(self) -> None:
+    def test_main_changes_local_flag_exit_nonzero_for_failed_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
+            report = {
+                "projectRoot": str(Path(base).resolve()),
+                "ok": False,
+                "changedFiles": {"shown": 0, "total": 0, "truncated": False, "files": []},
+                "counts": {"staged": 0, "unstaged": 0, "untracked": 0, "binary": 0, "insertions": 0, "deletions": 0},
+                "message": "git status failed",
+            }
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_show_text", return_value="Show:\n  ok: no"),
+                patch("vibeagent.cli.get_changes_report", return_value=report) as get_changes_report,
+                patch("vibeagent.cli.format_changes_report_text", return_value="Changes:\n  ok: no") as format_changes_report_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", base, "--changes"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(stdout.getvalue(), "Changes:\n  ok: no\n")
+        get_changes_report.assert_called_once_with(Path(base).resolve(), max_files=200)
+        format_changes_report_text.assert_called_once_with(report)
+        create_chat_client.assert_not_called()
+
+    def test_main_read_only_git_local_flag_reports_json_failure_status(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+            report = {
+                "projectRoot": str(Path(base).resolve()),
+                "ok": False,
+                "rev": "badrev",
+                "path": ".",
+                "output": {"text": "", "chars": 0, "lines": 0, "truncated": False, "maxOutputChars": 12000},
+                "message": "git show failed.",
+            }
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_show_report", return_value=report) as get_show_report,
+                patch("vibeagent.cli.format_show_report_text", return_value="Show:\n  ok: no") as format_show_report_text,
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--json", "--cwd", base, "--show", "badrev"])
@@ -5835,6 +7117,9 @@ class CliTests(unittest.TestCase):
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
         self.assertEqual(payload["text"], "Show:\n  ok: no")
+        self.assertEqual(payload["show"], report)
+        get_show_report.assert_called_once_with(Path(base).resolve(), rev="badrev", path=None, max_output_chars=12000)
+        format_show_report_text.assert_called_once_with(report)
         create_chat_client.assert_not_called()
 
     def test_main_runs_env_local_flag_without_creating_client(self) -> None:
@@ -5930,6 +7215,40 @@ class CliTests(unittest.TestCase):
             self.assertEqual(exit_code, expected_exit_code)
             self.assertEqual(stdout.getvalue(), f"{text}\n")
             create_chat_client.assert_not_called()
+
+    def test_main_process_output_json_outputs_structured_payload(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+            report = {
+                "projectRoot": str(Path(base).resolve()),
+                "ok": True,
+                "processId": "bg-1",
+                "pid": 1234,
+                "status": "running",
+                "running": True,
+                "exitCode": None,
+                "signal": None,
+                "maxOutputChars": 2000,
+                "stdout": "ready\n",
+                "stderr": "",
+                "analysis": {"diagnostics": {"shown": 0, "total": 0, "items": []}, "diagnosticsTruncated": False, "contexts": {"shown": 0, "totalRefs": 0, "items": []}, "contextsTruncated": False},
+                "message": "Process bg-1 is running.",
+            }
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_process_report", return_value=report) as get_process_report,
+                patch("vibeagent.cli.format_process_report_text", return_value="Process:\n  ok: yes\n  status: running") as format_process_report,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--process-output", "bg-1", "--process-max-chars", "2000"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["process"], report)
+        get_process_report.assert_called_once_with(Path(base).resolve(), process_id="bg-1", max_output_chars=2000)
+        format_process_report.assert_called_once_with(report)
+        create_chat_client.assert_not_called()
 
     def test_main_runs_process_output_contexts_local_flag_without_creating_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
@@ -6168,13 +7487,153 @@ class CliTests(unittest.TestCase):
             getter.assert_called_once_with(Path(base).resolve(), **expected_kwargs)
             create_chat_client.assert_not_called()
 
-    def test_main_process_output_analysis_local_flag_reports_json_failure_status(self) -> None:
+    def test_main_process_output_analysis_json_outputs_structured_payloads(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            contexts_report = {
+                "projectRoot": str(Path(base).resolve()),
+                "ok": True,
+                "processId": "bg-1",
+                "pid": 1234,
+                "status": "running",
+                "contexts": {"ok": 1, "total": 1, "items": [{"path": "src/app.py", "line": 2, "content": "2: print('ok')"}]},
+                "totalRefs": 1,
+                "maxOutputChars": 2000,
+                "stdoutChars": 24,
+                "stderrChars": 0,
+                "truncated": False,
+                "message": "Extracted 1/1 output context(s) from process bg-1.",
+            }
+            diagnostics_report = {
+                "projectRoot": str(Path(base).resolve()),
+                "ok": True,
+                "processId": "bg-1",
+                "pid": 1234,
+                "status": "running",
+                "diagnostics": {"shown": 1, "total": 1, "items": [{"severity": "error", "outputLine": 1, "path": "src/app.py"}]},
+                "contexts": {"ok": 1, "total": 1, "items": [{"path": "src/app.py", "line": 2, "content": "2: print('ok')"}]},
+                "totalRefs": 1,
+                "maxOutputChars": 2000,
+                "stdoutChars": 32,
+                "stderrChars": 0,
+                "contextLines": 2,
+                "maxDiagnostics": 7,
+                "maxContexts": 5,
+                "maxBytesPerContext": 1000,
+                "diagnosticsTruncated": False,
+                "contextsTruncated": False,
+                "message": "Extracted 1/1 diagnostic(s) and 1/1 source context(s) from process bg-1.",
+            }
             stdout = io.StringIO()
 
             with (
                 patch("vibeagent.cli.create_chat_client") as create_chat_client,
-                patch("vibeagent.cli.get_process_output_contexts_text", return_value="Process output contexts:\n  ok: no"),
+                patch("vibeagent.cli.get_process_output_contexts_report", return_value=contexts_report) as get_contexts_report,
+                patch(
+                    "vibeagent.cli.format_process_output_contexts_report_text",
+                    return_value="Process output contexts:\n  contexts: 1/1",
+                ) as format_contexts_report,
+                redirect_stdout(stdout),
+            ):
+                contexts_exit = main(
+                    [
+                        "--json",
+                        "--cwd",
+                        base,
+                        "--process-output-contexts",
+                        "bg-1",
+                        "--process-max-chars",
+                        "2000",
+                        "--process-output-context-lines",
+                        "2",
+                        "--process-output-context-max",
+                        "5",
+                        "--process-output-context-max-bytes",
+                        "1000",
+                    ]
+                )
+            contexts_payload = json.loads(stdout.getvalue())
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client_diagnostics,
+                patch("vibeagent.cli.get_process_output_diagnostics_report", return_value=diagnostics_report) as get_diagnostics_report,
+                patch(
+                    "vibeagent.cli.format_process_output_diagnostics_report_text",
+                    return_value="Process output diagnostics:\n  diagnostics: 1/1\n  contexts: 1/1",
+                ) as format_diagnostics_report,
+                redirect_stdout(stdout),
+            ):
+                diagnostics_exit = main(
+                    [
+                        "--json",
+                        "--cwd",
+                        base,
+                        "--process-output-diagnostics",
+                        "bg-1",
+                        "--process-max-chars",
+                        "2000",
+                        "--process-output-context-lines",
+                        "2",
+                        "--process-output-diagnostic-max",
+                        "7",
+                        "--process-output-context-max",
+                        "5",
+                        "--process-output-context-max-bytes",
+                        "1000",
+                    ]
+                )
+            diagnostics_payload = json.loads(stdout.getvalue())
+
+        self.assertEqual(contexts_exit, 0)
+        self.assertEqual(contexts_payload["processOutputContexts"], contexts_report)
+        get_contexts_report.assert_called_once_with(
+            Path(base).resolve(),
+            process_id="bg-1",
+            max_output_chars=2000,
+            context_lines=2,
+            max_contexts=5,
+            max_bytes_per_context=1000,
+        )
+        format_contexts_report.assert_called_once_with(contexts_report)
+        create_chat_client.assert_not_called()
+        self.assertEqual(diagnostics_exit, 0)
+        self.assertEqual(diagnostics_payload["processOutputDiagnostics"], diagnostics_report)
+        get_diagnostics_report.assert_called_once_with(
+            Path(base).resolve(),
+            process_id="bg-1",
+            max_output_chars=2000,
+            context_lines=2,
+            max_diagnostics=7,
+            max_contexts=5,
+            max_bytes_per_context=1000,
+        )
+        format_diagnostics_report.assert_called_once_with(diagnostics_report)
+        create_chat_client_diagnostics.assert_not_called()
+
+    def test_main_process_output_analysis_local_flag_reports_json_failure_status(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+            report = {
+                "projectRoot": str(Path(base).resolve()),
+                "ok": False,
+                "processId": "missing-proc",
+                "pid": None,
+                "status": "unknown",
+                "contexts": {"ok": 0, "total": 0, "items": []},
+                "totalRefs": 0,
+                "maxOutputChars": 4000,
+                "stdoutChars": 0,
+                "stderrChars": 0,
+                "truncated": False,
+                "message": "Unknown background process id.",
+            }
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_process_output_contexts_report", return_value=report) as get_process_output_contexts_report,
+                patch(
+                    "vibeagent.cli.format_process_output_contexts_report_text",
+                    return_value="Process output contexts:\n  ok: no",
+                ) as format_process_output_contexts_report_text,
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--json", "--cwd", base, "--process-output-contexts", "missing-proc"])
@@ -6185,6 +7644,16 @@ class CliTests(unittest.TestCase):
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
         self.assertEqual(payload["text"], "Process output contexts:\n  ok: no")
+        self.assertEqual(payload["processOutputContexts"], report)
+        get_process_output_contexts_report.assert_called_once_with(
+            Path(base).resolve(),
+            process_id="missing-proc",
+            max_output_chars=4000,
+            context_lines=5,
+            max_contexts=20,
+            max_bytes_per_context=20000,
+        )
+        format_process_output_contexts_report_text.assert_called_once_with(report)
         create_chat_client.assert_not_called()
 
     def test_main_runs_wait_process_local_flag_without_creating_client(self) -> None:
@@ -6223,6 +7692,67 @@ class CliTests(unittest.TestCase):
             stderr_contains=None,
             regex=True,
         )
+        create_chat_client.assert_not_called()
+
+    def test_main_wait_process_json_outputs_structured_payload(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+            report = {
+                "projectRoot": str(Path(base).resolve()),
+                "ok": True,
+                "processId": "bg-1",
+                "pid": 1234,
+                "status": "running",
+                "running": True,
+                "timedOut": False,
+                "matched": True,
+                "matchedStream": "stdout",
+                "matchedPattern": "ready",
+                "timeoutMs": 5000,
+                "exitCode": None,
+                "signal": None,
+                "maxOutputChars": 2000,
+                "stdout": "ready\n",
+                "stderr": "",
+                "analysis": {"diagnostics": {"shown": 0, "total": 0, "items": []}, "diagnosticsTruncated": False, "contexts": {"shown": 0, "totalRefs": 0, "items": []}, "contextsTruncated": False},
+                "message": "Matched stdout pattern.",
+            }
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_wait_process_report", return_value=report) as get_wait_process_report,
+                patch("vibeagent.cli.format_wait_process_report_text", return_value="Wait process:\n  matched: yes") as format_wait_process_report,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--json",
+                        "--cwd",
+                        base,
+                        "--wait-process",
+                        "bg-1",
+                        "--wait-timeout-ms",
+                        "5000",
+                        "--wait-max-chars",
+                        "2000",
+                        "--wait-stdout",
+                        "ready",
+                    ]
+                )
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["waitProcess"], report)
+        get_wait_process_report.assert_called_once_with(
+            Path(base).resolve(),
+            process_id="bg-1",
+            timeout_ms=5000,
+            max_output_chars=2000,
+            stdout_contains="ready",
+            stderr_contains=None,
+            regex=False,
+        )
+        format_wait_process_report.assert_called_once_with(report)
         create_chat_client.assert_not_called()
 
     def test_main_wait_process_local_flag_exits_nonzero_for_failed_process_state(self) -> None:

@@ -15,9 +15,9 @@ from urllib.parse import urlparse
 from .actions import AGENT_TOOL_DEFINITIONS, build_command_check_observation, execute_action, get_blocked_command_reason, list_background_processes
 from .config import load_project_config_env, project_config_path, resolve_cost_rates, resolve_execution_config, resolve_provider_config
 from .providers import get_model_text as get_provider_model_text
-from .session import build_session_resume_context, format_cost, format_session_audit, format_session_commands, format_session_failures, format_session_files, format_session_handoff, format_session_plan, format_session_search, format_session_summary, format_session_transcript, format_session_verification, format_sessions, format_usage, get_last_session_id, list_sessions, summarize_session
-from .types import AppendFileAction, CheckAppendFileAction, CheckCopyDirectoriesAction, CheckCopyDirectoryAction, CheckCopyFileAction, CheckCopyFilesAction, CheckCreateDirectoriesAction, CheckCreateDirectoryAction, CheckDeleteEmptyDirectoriesAction, CheckDeleteEmptyDirectoryAction, CheckDeleteFileAction, CheckDeleteFilesAction, CheckEditFileAction, CheckFocusedTestCommandsAction, CheckGitCommitAction, CheckGitFetchAction, CheckGitPullAction, CheckGitPushAction, CheckGitRestoreAction, CheckGitStageAction, CheckGitStashAction, CheckGitStashApplyAction, CheckGitStashDropAction, CheckGitSwitchAction, CheckGitUnstageAction, CheckInsertLinesAction, CheckJsonPatchAction, CheckJsonRemoveAction, CheckJsonSetAction, CheckMoveDirectoriesAction, CheckMoveDirectoryAction, CheckMoveFileAction, CheckMoveFilesAction, CheckMultiEditAction, CheckPatchAction, CheckPatchesAction, CheckRegexReplaceAction, CheckReplaceLinesAction, CheckReplacePythonDefinitionAction, CheckRunCommandsAction, CheckSetExecutableAction, CheckSuggestedChecksAction, CheckWriteFileAction, CheckWriteFilesAction, CodeDefinitionsAction, CodeDependenciesAction, CodeOutlineAction, CodeReferenceContextsAction, CodeReferencesAction, CodeRenameAction, CodeRenamePreviewAction, ConfigCheckAction, CopyDirectoriesAction, CopyDirectoryAction, CopyFileAction, CopyFilesAction, CreateDirectoriesAction, CreateDirectoryAction, DeleteEmptyDirectoriesAction, DeleteEmptyDirectoryAction, DeleteFileAction, DeleteFilesAction, DirectoryTransfer, EditFileAction, EditOperation, EnvironmentInfoAction, FileInfoAction, FinalReviewAction, FocusedTestCommandsAction, GitBlameAction, GitBranchesAction, GitCommitAction, GitConflictsAction, GitDiffContextsAction, GitDiffHunksAction, GitFetchAction, GitInfoAction, GitLogAction, GitPullAction, GitPushAction, GitRestoreAction, GitShowAction, GitStageAction, GitStashAction, GitStashApplyAction, GitStashDropAction, GitStashesAction, GitStatusAction, GitSwitchAction, GitUnstageAction, GlobAction, HttpCheckAction, HttpFetchAction, ImageInfoAction, InsertLinesAction, JsonPatchAction, JsonPatchOperation, JsonRemoveAction, JsonSetAction, ListProcessesAction, ListTreeAction, MoveDirectoriesAction, MoveDirectoryAction, MoveFileAction, MoveFilesAction, MoveFileTransfer, MultiEditAction, OutputContextsAction, OutputDiagnosticsAction, PatchFileAction, PatchFilesAction, PortCheckAction, ProcessInfo, ProcessOutputContextsAction, ProcessOutputDiagnosticsAction, ProjectCommand, ProjectOverviewAction, PythonCallGraphAction, PythonCallsAction, PythonCheckAction, PythonDefinitionsAction, PythonDependenciesAction, PythonReferenceContextsAction, PythonReferencesAction, PythonRenameAction, PythonRenamePreviewAction, ReadFileAction, ReadFileContextAction, ReadFileContextItem, ReadFileContextsAction, ReadFileRangeItem, ReadFileRangesAction, ReadFilesAction, ReadProcessAction, RegexReplaceAction, ReplaceLinesAction, ReplacePythonDefinitionAction, RelatedTestsAction, RepoMapAction, RunCommandAction, RunCommandItem, RunCommandsAction, RunFocusedTestCommandsAction, RunSuggestedChecksAction, SearchAction, SearchContextsAction, SessionOutputContextsAction, SessionOutputDiagnosticsAction, SetExecutableAction, StartCommandAction, StopAllProcessesAction, StopProcessAction, TailFileAction, WaitProcessAction, WriteFileAction, WriteFileItem, WriteFilesAction, WriteProcessAction
-from .types import CheckCheckpointPruneAction, CheckpointPruneAction, CheckStartCommandAction, CheckStopAllProcessesAction, CheckStopProcessAction, CheckWriteProcessAction
+from .session import build_cost_report, build_session_audit_report, build_session_commands_report, build_session_failures_report, build_session_files_report, build_session_handoff_report, build_session_plan_report, build_session_resume_context, build_session_search_report, build_session_summary_report, build_session_transcript_report, build_session_verification_report, build_sessions_report, build_usage_report, format_cost, format_session_audit, format_session_commands, format_session_failures, format_session_files, format_session_handoff, format_session_plan, format_session_search, format_session_summary, format_session_transcript, format_session_verification, format_sessions, format_usage, get_last_session_id, list_sessions, summarize_session
+from .types import AppendFileAction, CheckAppendFileAction, CheckCopyDirectoriesAction, CheckCopyDirectoryAction, CheckCopyFileAction, CheckCopyFilesAction, CheckCreateDirectoriesAction, CheckCreateDirectoryAction, CheckDeleteEmptyDirectoriesAction, CheckDeleteEmptyDirectoryAction, CheckDeleteFileAction, CheckDeleteFilesAction, CheckEditFileAction, CheckFocusedTestCommandsAction, CheckGitCommitAction, CheckGitFetchAction, CheckGitPullAction, CheckGitPushAction, CheckGitRestoreAction, CheckGitStageAction, CheckGitStashAction, CheckGitStashApplyAction, CheckGitStashDropAction, CheckGitSwitchAction, CheckGitUnstageAction, CheckInsertLinesAction, CheckJsonPatchAction, CheckJsonRemoveAction, CheckJsonSetAction, CheckMoveDirectoriesAction, CheckMoveDirectoryAction, CheckMoveFileAction, CheckMoveFilesAction, CheckMultiEditAction, CheckPatchAction, CheckPatchesAction, CheckRegexReplaceAction, CheckReplaceLinesAction, CheckReplacePythonDefinitionAction, CheckRunCommandsAction, CheckSetExecutableAction, CheckSuggestedChecksAction, CheckWriteFileAction, CheckWriteFilesAction, CodeDefinitionsAction, CodeDependenciesAction, CodeOutlineAction, CodeReferenceContextsAction, CodeReferencesAction, CodeRenameAction, CodeRenamePreviewAction, ConfigCheckAction, CopyDirectoriesAction, CopyDirectoryAction, CopyFileAction, CopyFilesAction, CreateDirectoriesAction, CreateDirectoryAction, DeleteEmptyDirectoriesAction, DeleteEmptyDirectoryAction, DeleteFileAction, DeleteFilesAction, DirectoryTransfer, EditFileAction, EditOperation, EnvironmentInfoAction, FileInfoAction, FinalReviewAction, FocusedTestCommandsAction, GitBlameAction, GitBranchesAction, GitCommitAction, GitConflictsAction, GitDiffAction, GitDiffContextsAction, GitDiffHunksAction, GitFetchAction, GitInfoAction, GitLogAction, GitPullAction, GitPushAction, GitRestoreAction, GitShowAction, GitStageAction, GitStashAction, GitStashApplyAction, GitStashDropAction, GitStashesAction, GitStatusAction, GitSwitchAction, GitUnstageAction, GlobAction, HttpCheckAction, HttpFetchAction, ImageInfoAction, InsertLinesAction, JsonPatchAction, JsonPatchOperation, JsonRemoveAction, JsonSetAction, ListProcessesAction, ListTreeAction, MoveDirectoriesAction, MoveDirectoryAction, MoveFileAction, MoveFilesAction, MoveFileTransfer, MultiEditAction, OutputContextsAction, OutputDiagnosticsAction, PatchFileAction, PatchFilesAction, PortCheckAction, ProcessInfo, ProcessOutputContextsAction, ProcessOutputDiagnosticsAction, ProjectCommand, ProjectOverviewAction, PythonCallGraphAction, PythonCallsAction, PythonCheckAction, PythonDefinitionsAction, PythonDependenciesAction, PythonReferenceContextsAction, PythonReferencesAction, PythonRenameAction, PythonRenamePreviewAction, ReadFileAction, ReadFileContextAction, ReadFileContextItem, ReadFileContextsAction, ReadFileRangeItem, ReadFileRangesAction, ReadFilesAction, ReadProcessAction, RegexReplaceAction, ReplaceLinesAction, ReplacePythonDefinitionAction, RelatedTestsAction, RepoMapAction, RunCommandAction, RunCommandItem, RunCommandsAction, RunFocusedTestCommandsAction, RunSuggestedChecksAction, SearchAction, SearchContextsAction, SessionOutputContextsAction, SessionOutputDiagnosticsAction, SetExecutableAction, StartCommandAction, StopAllProcessesAction, StopProcessAction, TailFileAction, WaitProcessAction, WriteFileAction, WriteFileItem, WriteFilesAction, WriteProcessAction
+from .types import CheckCheckpointPruneAction, CheckpointDeleteAction, CheckpointInfo, CheckpointPruneAction, CheckpointRestoreAction, CheckStartCommandAction, CheckStopAllProcessesAction, CheckStopProcessAction, CheckWriteProcessAction
 from .types import CheckCheckpointDeleteAction
 from .workspace import RunWorkspace, list_files, make_run_id, read_git_changes, read_git_diff, read_git_status, read_project_command_hints, read_project_commands, read_project_instruction_sources, read_project_instructions, read_project_manifests, read_project_todos, read_workspace_snapshot, review_project_changes, suggest_project_checks
 
@@ -1659,16 +1659,99 @@ def get_run_text(
     max_contexts: int = 20,
     max_bytes_per_context: int = 20_000,
 ) -> str:
+    return format_run_report_text(
+        get_run_report(
+            project_root,
+            command,
+            cwd=cwd,
+            timeout_ms=timeout_ms,
+            max_output_chars=max_output_chars,
+            extract_output_contexts=extract_output_contexts,
+            extract_output_diagnostics=extract_output_diagnostics,
+            context_lines=context_lines,
+            max_diagnostics=max_diagnostics,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        )
+    )
+
+
+def empty_command_output_analysis() -> dict[str, object]:
+    return {
+        "diagnostics": {"shown": 0, "total": 0, "items": []},
+        "diagnosticsTruncated": False,
+        "contexts": {"shown": 0, "totalRefs": 0, "items": []},
+        "contextsTruncated": False,
+    }
+
+
+def serialize_command_result(result: object, index: int | None = None) -> dict[str, object]:
+    exit_code = getattr(result, "exit_code", None)
+    timed_out = bool(getattr(result, "timed_out", False))
+    item: dict[str, object] = {
+        "command": str(getattr(result, "command", "") or ""),
+        "cwd": str(getattr(result, "cwd", ".") or "."),
+        "ok": exit_code == 0 and not timed_out,
+        "exitCode": exit_code,
+        "timedOut": timed_out,
+        "signal": getattr(result, "signal", None),
+        "timeoutMs": int(getattr(result, "timeout_ms", 0) or 0),
+        "maxOutputChars": int(getattr(result, "max_output_chars", 0) or 0),
+        "stdout": str(getattr(result, "stdout", "") or ""),
+        "stderr": str(getattr(result, "stderr", "") or ""),
+        "stdoutTruncated": bool(getattr(result, "stdout_truncated", False)),
+        "stderrTruncated": bool(getattr(result, "stderr_truncated", False)),
+        "analysis": serialize_command_output_analysis(result),
+    }
+    if index is not None:
+        item["index"] = index
+    return item
+
+
+def get_run_report(
+    project_root: str | Path = ".",
+    command: str | None = None,
+    cwd: str | None = None,
+    timeout_ms: int = 30_000,
+    max_output_chars: int = 12_000,
+    extract_output_contexts: bool = False,
+    extract_output_diagnostics: bool = False,
+    context_lines: int = 5,
+    max_diagnostics: int = 50,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+
+    def failure(message: str) -> dict[str, object]:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "command": (command or "").strip(),
+            "cwd": cwd or ".",
+            "exitCode": None,
+            "timedOut": False,
+            "signal": None,
+            "timeoutMs": timeout_ms,
+            "maxOutputChars": max_output_chars,
+            "stdout": "",
+            "stderr": "",
+            "stdoutTruncated": False,
+            "stderrTruncated": False,
+            "analysis": empty_command_output_analysis(),
+            "message": message,
+        }
+
     if command is None or not command.strip():
-        return "Usage: /run <shell command>"
+        return failure("Usage: /run <shell command>")
     if timeout_ms < 100:
-        return "Usage: /run <shell command>\nError: timeout_ms must be at least 100."
+        return failure("Usage: /run <shell command>\nError: timeout_ms must be at least 100.")
     if timeout_ms > 600_000:
-        return "Usage: /run <shell command>\nError: timeout_ms must be at most 600000."
+        return failure("Usage: /run <shell command>\nError: timeout_ms must be at most 600000.")
     if max_output_chars < 1_000:
-        return "Usage: /run <shell command>\nError: max_output_chars must be at least 1000."
+        return failure("Usage: /run <shell command>\nError: max_output_chars must be at least 1000.")
     if max_output_chars > 50_000:
-        return "Usage: /run <shell command>\nError: max_output_chars must be at most 50000."
+        return failure("Usage: /run <shell command>\nError: max_output_chars must be at most 50000.")
     output_context_error = validate_run_output_context_options(
         context_lines=context_lines,
         max_diagnostics=max_diagnostics,
@@ -1677,9 +1760,8 @@ def get_run_text(
         usage="Usage: /run <shell command>",
     )
     if output_context_error:
-        return output_context_error
+        return failure(output_context_error)
 
-    root = Path(project_root).resolve()
     workspace = RunWorkspace(root=root, run_id="local-run", session_dir=root / ".vibeagent" / "sessions" / "local-run")
     observation = execute_action(
         workspace,
@@ -1699,35 +1781,48 @@ def get_run_text(
         command_timeout_ms=timeout_ms,
     )
     if observation.kind != "run_command":
-        return f"Run:\n  projectRoot: {root}\n  message: Unexpected observation: {observation.kind}"
+        return failure(f"Unexpected observation: {observation.kind}")
     result = observation.result
     ok = result.exit_code == 0 and not result.timed_out
+    return {
+        "projectRoot": str(root),
+        **serialize_command_result(result),
+        "message": "Command completed." if ok else "Command failed.",
+    }
+
+
+def format_run_report_text(report: dict[str, object]) -> str:
+    message = str(report.get("message") or "")
+    if message.startswith("Usage:"):
+        return message
+    analysis = report.get("analysis") if isinstance(report.get("analysis"), dict) else {}
     lines = [
         "Run:",
-        f"  projectRoot: {root}",
-        f"  command: {result.command}",
-        f"  cwd: {result.cwd}",
-        f"  ok: {'yes' if ok else 'no'}",
-        f"  exitCode: {result.exit_code if result.exit_code is not None else '.'}",
-        f"  timedOut: {'yes' if result.timed_out else 'no'}",
-        f"  signal: {result.signal or '.'}",
-        f"  timeoutMs: {result.timeout_ms}",
-        f"  maxOutputChars: {result.max_output_chars}",
-        f"  stdoutTruncated: {'yes' if result.stdout_truncated else 'no'}",
-        f"  stderrTruncated: {'yes' if result.stderr_truncated else 'no'}",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  command: {report.get('command') or ''}",
+        f"  cwd: {report.get('cwd') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  exitCode: {report.get('exitCode') if report.get('exitCode') is not None else '.'}",
+        f"  timedOut: {'yes' if bool(report.get('timedOut')) else 'no'}",
+        f"  signal: {report.get('signal') or '.'}",
+        f"  timeoutMs: {report.get('timeoutMs', 0)}",
+        f"  maxOutputChars: {report.get('maxOutputChars', 0)}",
+        f"  stdoutTruncated: {'yes' if bool(report.get('stdoutTruncated')) else 'no'}",
+        f"  stderrTruncated: {'yes' if bool(report.get('stderrTruncated')) else 'no'}",
     ]
-    if result.stdout:
+    stdout = str(report.get("stdout") or "")
+    stderr = str(report.get("stderr") or "")
+    if stdout:
         lines.append("  stdout:")
-        lines.append(_indent_block(result.stdout.rstrip(), spaces=4))
+        lines.append(_indent_block(stdout.rstrip(), spaces=4))
     else:
         lines.append("  stdout: none")
-    if result.stderr:
+    if stderr:
         lines.append("  stderr:")
-        lines.append(_indent_block(result.stderr.rstrip(), spaces=4))
+        lines.append(_indent_block(stderr.rstrip(), spaces=4))
     else:
         lines.append("  stderr: none")
-    lines.extend(format_command_output_diagnostic_lines(result, spaces=2))
-    lines.extend(format_command_output_context_lines(result, spaces=2))
+    lines.extend(format_structured_command_output_analysis_lines(analysis, spaces=2))
     return "\n".join(lines)
 
 
@@ -1746,18 +1841,66 @@ def get_run_sequence_text(
     max_contexts: int = 20,
     max_bytes_per_context: int = 20_000,
 ) -> str:
+    return format_run_sequence_report_text(
+        get_run_sequence_report(
+            project_root,
+            argument,
+            commands=commands,
+            cwd=cwd,
+            timeout_ms=timeout_ms,
+            max_output_chars=max_output_chars,
+            stop_on_failure=stop_on_failure,
+            extract_output_contexts=extract_output_contexts,
+            extract_output_diagnostics=extract_output_diagnostics,
+            context_lines=context_lines,
+            max_diagnostics=max_diagnostics,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        )
+    )
+
+
+def get_run_sequence_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    commands: list[str] | None = None,
+    cwd: str | None = None,
+    timeout_ms: int = 30_000,
+    max_output_chars: int = 12_000,
+    stop_on_failure: bool = True,
+    extract_output_contexts: bool = False,
+    extract_output_diagnostics: bool = False,
+    context_lines: int = 5,
+    max_diagnostics: int = 50,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+
+    def failure(message: str, selected_commands: list[str] | None = None) -> dict[str, object]:
+        selected = list(selected_commands or [])
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "commands": {"shown": 0, "total": len(selected), "requested": selected},
+            "stopOnFailure": stop_on_failure,
+            "stoppedEarly": False,
+            "results": [],
+            "message": message,
+        }
+
     try:
         selected_commands = parse_run_sequence_request(argument, commands)
     except ValueError as error:
-        return f"Usage: /run-seq <cmd> ;; <cmd>\nError: {error}"
+        return failure(f"Usage: /run-seq <cmd> ;; <cmd>\nError: {error}")
     if timeout_ms < 100:
-        return "Usage: /run-seq <cmd> ;; <cmd>\nError: timeout_ms must be at least 100."
+        return failure("Usage: /run-seq <cmd> ;; <cmd>\nError: timeout_ms must be at least 100.", selected_commands)
     if timeout_ms > 600_000:
-        return "Usage: /run-seq <cmd> ;; <cmd>\nError: timeout_ms must be at most 600000."
+        return failure("Usage: /run-seq <cmd> ;; <cmd>\nError: timeout_ms must be at most 600000.", selected_commands)
     if max_output_chars < 1_000:
-        return "Usage: /run-seq <cmd> ;; <cmd>\nError: max_output_chars must be at least 1000."
+        return failure("Usage: /run-seq <cmd> ;; <cmd>\nError: max_output_chars must be at least 1000.", selected_commands)
     if max_output_chars > 50_000:
-        return "Usage: /run-seq <cmd> ;; <cmd>\nError: max_output_chars must be at most 50000."
+        return failure("Usage: /run-seq <cmd> ;; <cmd>\nError: max_output_chars must be at most 50000.", selected_commands)
     output_context_error = validate_run_output_context_options(
         context_lines=context_lines,
         max_diagnostics=max_diagnostics,
@@ -1766,9 +1909,8 @@ def get_run_sequence_text(
         usage="Usage: /run-seq <cmd> ;; <cmd>",
     )
     if output_context_error:
-        return output_context_error
+        return failure(output_context_error, selected_commands)
 
-    root = Path(project_root).resolve()
     workspace = RunWorkspace(root=root, run_id="local-run-sequence", session_dir=root / ".vibeagent" / "sessions" / "local-run-sequence")
     observation = execute_action(
         workspace,
@@ -1794,48 +1936,71 @@ def get_run_sequence_text(
         command_timeout_ms=timeout_ms,
     )
     if observation.kind != "run_commands":
-        return f"Run sequence:\n  projectRoot: {root}\n  message: Unexpected observation: {observation.kind}"
+        return failure(f"Unexpected observation: {observation.kind}", selected_commands)
 
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "commands": {
+            "shown": len(observation.results),
+            "total": len(selected_commands),
+            "requested": selected_commands,
+        },
+        "stopOnFailure": stop_on_failure,
+        "stoppedEarly": observation.stopped_early,
+        "results": [serialize_command_result(result, index=index) for index, result in enumerate(observation.results, start=1)],
+        "message": observation.message,
+    }
+
+
+def format_run_sequence_report_text(report: dict[str, object]) -> str:
+    message = str(report.get("message") or "")
+    if message.startswith("Usage:"):
+        return message
+    commands = report.get("commands") if isinstance(report.get("commands"), dict) else {}
+    results = [item for item in report.get("results", []) if isinstance(item, dict)] if isinstance(report.get("results"), list) else []
     lines = [
         "Run sequence:",
-        f"  projectRoot: {root}",
-        f"  ok: {'yes' if observation.ok else 'no'}",
-        f"  commands: {len(observation.results)}/{len(selected_commands)}",
-        f"  stopOnFailure: {'yes' if stop_on_failure else 'no'}",
-        f"  stoppedEarly: {'yes' if observation.stopped_early else 'no'}",
-        f"  message: {observation.message}",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  commands: {int(commands.get('shown', len(results)) or 0)}/{int(commands.get('total', len(results)) or 0)}",
+        f"  stopOnFailure: {'yes' if bool(report.get('stopOnFailure')) else 'no'}",
+        f"  stoppedEarly: {'yes' if bool(report.get('stoppedEarly')) else 'no'}",
+        f"  message: {message}",
     ]
-    if observation.results:
+    if results:
         lines.append("  results:")
-        for index, result in enumerate(observation.results, start=1):
-            ok = result.exit_code == 0 and not result.timed_out
+        for position, result in enumerate(results, start=1):
+            index = result.get("index", position)
+            analysis = result.get("analysis") if isinstance(result.get("analysis"), dict) else {}
             lines.extend(
                 [
                     f"    - index: {index}",
-                    f"      command: {result.command}",
-                    f"      cwd: {result.cwd}",
-                    f"      ok: {'yes' if ok else 'no'}",
-                    f"      exitCode: {result.exit_code if result.exit_code is not None else '.'}",
-                    f"      timedOut: {'yes' if result.timed_out else 'no'}",
-                    f"      signal: {result.signal or '.'}",
-                    f"      timeoutMs: {result.timeout_ms}",
-                    f"      maxOutputChars: {result.max_output_chars}",
-                    f"      stdoutTruncated: {'yes' if result.stdout_truncated else 'no'}",
-                    f"      stderrTruncated: {'yes' if result.stderr_truncated else 'no'}",
+                    f"      command: {result.get('command') or ''}",
+                    f"      cwd: {result.get('cwd') or '.'}",
+                    f"      ok: {'yes' if bool(result.get('ok')) else 'no'}",
+                    f"      exitCode: {result.get('exitCode') if result.get('exitCode') is not None else '.'}",
+                    f"      timedOut: {'yes' if bool(result.get('timedOut')) else 'no'}",
+                    f"      signal: {result.get('signal') or '.'}",
+                    f"      timeoutMs: {result.get('timeoutMs', 0)}",
+                    f"      maxOutputChars: {result.get('maxOutputChars', 0)}",
+                    f"      stdoutTruncated: {'yes' if bool(result.get('stdoutTruncated')) else 'no'}",
+                    f"      stderrTruncated: {'yes' if bool(result.get('stderrTruncated')) else 'no'}",
                 ]
             )
-            if result.stdout:
+            stdout = str(result.get("stdout") or "")
+            stderr = str(result.get("stderr") or "")
+            if stdout:
                 lines.append("      stdout:")
-                lines.append(_indent_block(result.stdout.rstrip(), spaces=8))
+                lines.append(_indent_block(stdout.rstrip(), spaces=8))
             else:
                 lines.append("      stdout: none")
-            if result.stderr:
+            if stderr:
                 lines.append("      stderr:")
-                lines.append(_indent_block(result.stderr.rstrip(), spaces=8))
+                lines.append(_indent_block(stderr.rstrip(), spaces=8))
             else:
                 lines.append("      stderr: none")
-            lines.extend(format_command_output_diagnostic_lines(result, spaces=6))
-            lines.extend(format_command_output_context_lines(result, spaces=6))
+            lines.extend(format_structured_command_output_analysis_lines(analysis, spaces=6))
     else:
         lines.append("  results: none")
     return "\n".join(lines)
@@ -1939,18 +2104,57 @@ def parse_run_sequence_request(argument: str | None = None, commands: list[str] 
     return selected
 
 
+def serialize_command_check(check: object, index: int | None = None) -> dict[str, object]:
+    item: dict[str, object] = {
+        "command": str(getattr(check, "command", "") or ""),
+        "cwd": str(getattr(check, "cwd", ".") or "."),
+        "ok": bool(getattr(check, "ok", False)),
+        "cwdOk": bool(getattr(check, "cwd_ok", False)),
+        "blocked": bool(getattr(check, "blocked", False)),
+        "executableAvailable": bool(getattr(check, "executable_available", False)),
+        "blockReason": getattr(check, "block_reason", None),
+        "missingTool": getattr(check, "missing_tool", None),
+        "message": str(getattr(check, "message", "") or ""),
+    }
+    if index is not None:
+        item["index"] = index
+    return item
+
+
 def get_check_run_sequence_text(
     project_root: str | Path = ".",
     argument: str | None = None,
     commands: list[str] | None = None,
     cwd: str | None = None,
 ) -> str:
+    return format_check_run_sequence_report_text(
+        get_check_run_sequence_report(project_root, argument, commands=commands, cwd=cwd)
+    )
+
+
+def get_check_run_sequence_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    commands: list[str] | None = None,
+    cwd: str | None = None,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+
+    def failure(message: str, selected_commands: list[str] | None = None) -> dict[str, object]:
+        selected = list(selected_commands or [])
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "commands": {"shown": 0, "total": len(selected), "requested": selected},
+            "checks": [],
+            "message": message,
+        }
+
     try:
         selected_commands = parse_run_sequence_request(argument, commands)
     except ValueError as error:
-        return f"Usage: /check-run-seq <cmd> ;; <cmd>\nError: {error}"
+        return failure(f"Usage: /check-run-seq <cmd> ;; <cmd>\nError: {error}")
 
-    root = Path(project_root).resolve()
     workspace = RunWorkspace(root=root, run_id="local-check-run-sequence", session_dir=root / ".vibeagent" / "sessions" / "local-check-run-sequence")
     observation = execute_action(
         workspace,
@@ -1960,34 +2164,54 @@ def get_check_run_sequence_text(
         ),
     )
     if observation.kind != "check_run_commands":
-        return f"Check run sequence:\n  projectRoot: {root}\n  message: Unexpected observation: {observation.kind}"
+        return failure(f"Unexpected observation: {observation.kind}", selected_commands)
 
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "commands": {
+            "shown": len(observation.checks),
+            "total": len(selected_commands),
+            "requested": selected_commands,
+        },
+        "checks": [serialize_command_check(check, index=index) for index, check in enumerate(observation.checks, start=1)],
+        "message": observation.message,
+    }
+
+
+def format_check_run_sequence_report_text(report: dict[str, object]) -> str:
+    message = str(report.get("message") or "")
+    if message.startswith("Usage:"):
+        return message
+    commands = report.get("commands") if isinstance(report.get("commands"), dict) else {}
+    checks = [item for item in report.get("checks", []) if isinstance(item, dict)] if isinstance(report.get("checks"), list) else []
     lines = [
         "Check run sequence:",
-        f"  projectRoot: {root}",
-        f"  ok: {'yes' if observation.ok else 'no'}",
-        f"  commands: {len(observation.checks)}/{len(selected_commands)}",
-        f"  message: {observation.message}",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  commands: {int(commands.get('shown', len(checks)) or 0)}/{int(commands.get('total', len(checks)) or 0)}",
+        f"  message: {message}",
     ]
-    if observation.checks:
+    if checks:
         lines.append("  checks:")
-        for index, check in enumerate(observation.checks, start=1):
+        for position, check in enumerate(checks, start=1):
+            index = check.get("index", position)
             lines.extend(
                 [
                     f"    - index: {index}",
-                    f"      command: {check.command}",
-                    f"      cwd: {check.cwd}",
-                    f"      ok: {'yes' if check.ok else 'no'}",
-                    f"      cwdOk: {'yes' if check.cwd_ok else 'no'}",
-                    f"      blocked: {'yes' if check.blocked else 'no'}",
-                    f"      executableAvailable: {'yes' if check.executable_available else 'no'}",
+                    f"      command: {check.get('command') or ''}",
+                    f"      cwd: {check.get('cwd') or '.'}",
+                    f"      ok: {'yes' if bool(check.get('ok')) else 'no'}",
+                    f"      cwdOk: {'yes' if bool(check.get('cwdOk')) else 'no'}",
+                    f"      blocked: {'yes' if bool(check.get('blocked')) else 'no'}",
+                    f"      executableAvailable: {'yes' if bool(check.get('executableAvailable')) else 'no'}",
                 ]
             )
-            if check.block_reason:
-                lines.append(f"      blockReason: {check.block_reason}")
-            if check.missing_tool:
-                lines.append(f"      missingTool: {check.missing_tool}")
-            lines.append(f"      message: {check.message}")
+            if check.get("blockReason"):
+                lines.append(f"      blockReason: {check.get('blockReason')}")
+            if check.get("missingTool"):
+                lines.append(f"      missingTool: {check.get('missingTool')}")
+            lines.append(f"      message: {check.get('message') or ''}")
     else:
         lines.append("  checks: none")
     return "\n".join(lines)
@@ -2520,6 +2744,74 @@ def get_search_contexts_text(
     return "\n".join(lines)
 
 
+def get_glob_report(
+    project_root: str | Path = ".",
+    pattern: str | None = None,
+    max_matches: int = 200,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if pattern is None or not pattern.strip():
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "pattern": "",
+            "matches": {"shown": 0, "total": 0, "truncated": False, "files": []},
+            "maxMatches": max_matches,
+            "message": "Usage: /glob <pattern>",
+        }
+    workspace = RunWorkspace(root=root, run_id="local-glob", session_dir=root / ".vibeagent" / "sessions" / "local-glob")
+    observation = execute_action(
+        workspace,
+        GlobAction(
+            type="glob",
+            pattern=pattern.strip(),
+            max_matches=max_matches,
+        ),
+    )
+    if observation.kind != "glob":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "pattern": pattern.strip(),
+            "matches": {"shown": 0, "total": 0, "truncated": False, "files": []},
+            "maxMatches": max_matches,
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "pattern": observation.pattern,
+        "matches": {
+            "shown": len(observation.matches),
+            "total": observation.total,
+            "truncated": observation.truncated,
+            "files": list(observation.matches),
+        },
+        "maxMatches": max_matches,
+        "message": observation.message,
+    }
+
+
+def format_glob_report_text(report: dict[str, object]) -> str:
+    matches = report.get("matches") if isinstance(report.get("matches"), dict) else {}
+    files = matches.get("files") if isinstance(matches, dict) and isinstance(matches.get("files"), list) else []
+    lines = [
+        "Glob:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  pattern: {report.get('pattern') or ''}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  matches: {matches.get('shown', 0)}/{matches.get('total', 0)}",
+        f"  truncated: {'yes' if bool(matches.get('truncated')) else 'no'}",
+    ]
+    if files:
+        lines.append("  files:")
+        lines.extend(f"    - {path}" for path in files)
+    else:
+        lines.append("  files: none")
+    lines.append(f"  message: {report.get('message') or ''}")
+    return "\n".join(lines)
+
+
 def get_glob_text(
     project_root: str | Path = ".",
     pattern: str | None = None,
@@ -2554,6 +2846,71 @@ def get_glob_text(
     else:
         lines.append("  files: none")
     lines.append(f"  message: {observation.message}")
+    return "\n".join(lines)
+
+
+def get_tree_report(
+    project_root: str | Path = ".",
+    path: str | None = None,
+    max_depth: int = 3,
+    max_entries: int = 200,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    selected_path = path.strip() if path else None
+    workspace = RunWorkspace(root=root, run_id="local-tree", session_dir=root / ".vibeagent" / "sessions" / "local-tree")
+    observation = execute_action(
+        workspace,
+        ListTreeAction(
+            type="list_tree",
+            path=selected_path,
+            max_depth=max_depth,
+            max_entries=max_entries,
+        ),
+    )
+    if observation.kind != "list_tree":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": selected_path or ".",
+            "entries": {"shown": 0, "total": 0, "truncated": False, "items": []},
+            "maxDepth": max_depth,
+            "maxEntries": max_entries,
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "path": observation.path,
+        "entries": {
+            "shown": len(observation.entries),
+            "total": observation.total,
+            "truncated": observation.truncated,
+            "items": list(observation.entries),
+        },
+        "maxDepth": observation.max_depth,
+        "maxEntries": max_entries,
+        "message": observation.message,
+    }
+
+
+def format_tree_report_text(report: dict[str, object]) -> str:
+    entries = report.get("entries") if isinstance(report.get("entries"), dict) else {}
+    items = entries.get("items") if isinstance(entries, dict) and isinstance(entries.get("items"), list) else []
+    lines = [
+        "Tree:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  path: {report.get('path') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  entries: {entries.get('shown', 0)}/{entries.get('total', 0)}",
+        f"  maxDepth: {report.get('maxDepth', 0)}",
+        f"  truncated: {'yes' if bool(entries.get('truncated')) else 'no'}",
+    ]
+    if items:
+        lines.append("  tree:")
+        lines.extend(f"    - {entry}" for entry in items)
+    else:
+        lines.append("  tree: none")
+    lines.append(f"  message: {report.get('message') or ''}")
     return "\n".join(lines)
 
 
@@ -2593,6 +2950,147 @@ def get_tree_text(
     else:
         lines.append("  tree: none")
     lines.append(f"  message: {observation.message}")
+    return "\n".join(lines)
+
+
+def serialize_symbol(symbol: object) -> dict[str, object]:
+    return {
+        "name": str(getattr(symbol, "name", "")),
+        "kind": str(getattr(symbol, "kind", "")),
+        "line": int(getattr(symbol, "line", 0)),
+        "endLine": getattr(symbol, "end_line", None),
+        "parent": getattr(symbol, "parent", None),
+    }
+
+
+def serialize_symbol_file(file: object) -> dict[str, object]:
+    symbols = list(getattr(file, "symbols", []))
+    imports = list(getattr(file, "imports", []))
+    return {
+        "path": str(getattr(file, "path", "")),
+        "ok": bool(getattr(file, "ok", False)),
+        "language": getattr(file, "language", None),
+        "imports": imports,
+        "symbols": [serialize_symbol(symbol) for symbol in symbols],
+        "counts": {"imports": len(imports), "symbols": len(symbols)},
+        "message": str(getattr(file, "message", "")),
+    }
+
+
+def format_serialized_symbol_file(file: dict[str, object]) -> list[str]:
+    path = str(file.get("path") or "")
+    language = str(file.get("language") or "code")
+    imports = file.get("imports") if isinstance(file.get("imports"), list) else []
+    symbols = file.get("symbols") if isinstance(file.get("symbols"), list) else []
+    lines = [f"    - {path} ({language})"]
+    if imports:
+        import_values = [str(item) for item in imports if isinstance(item, str)]
+        shown_imports = ", ".join(import_values[:8])
+        suffix = f" (+{len(import_values) - 8} more)" if len(import_values) > 8 else ""
+        lines.append(f"      imports: {shown_imports}{suffix}")
+    if symbols:
+        for symbol in symbols[:12]:
+            if not isinstance(symbol, dict):
+                continue
+            kind = symbol.get("kind") or "symbol"
+            name = symbol.get("name") or ""
+            line = symbol.get("line") or 0
+            parent = f" parent={symbol.get('parent')}" if symbol.get("parent") else ""
+            lines.append(f"      - {kind} {name}:{line}{parent}")
+        if len(symbols) > 12:
+            lines.append(f"      - [{len(symbols) - 12} additional symbol(s) omitted]")
+    else:
+        lines.append("      symbols: none")
+    return lines
+
+
+def get_symbols_report(
+    project_root: str | Path = ".",
+    argument: str | list[str] | None = None,
+    max_symbols: int = 200,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    try:
+        paths = parse_symbols_paths(argument)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "paths": [],
+            "maxSymbols": max_symbols,
+            "files": {"ok": 0, "total": 0, "items": []},
+            "counts": {"symbols": 0, "imports": 0},
+            "message": f"Usage: /symbols <path...>\nError: {error}",
+        }
+    if not paths:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "paths": [],
+            "maxSymbols": max_symbols,
+            "files": {"ok": 0, "total": 0, "items": []},
+            "counts": {"symbols": 0, "imports": 0},
+            "message": "Usage: /symbols <path...>",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-symbols", session_dir=root / ".vibeagent" / "sessions" / "local-symbols")
+    observation = execute_action(
+        workspace,
+        CodeOutlineAction(
+            type="code_outline",
+            paths=paths,
+            max_symbols=max_symbols,
+        ),
+    )
+    if observation.kind != "code_outline":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "paths": paths,
+            "maxSymbols": max_symbols,
+            "files": {"ok": 0, "total": 0, "items": []},
+            "counts": {"symbols": 0, "imports": 0},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+
+    items = [serialize_symbol_file(file) for file in observation.files]
+    ok_count = sum(1 for item in items if bool(item["ok"]))
+    symbol_count = sum(int(item["counts"]["symbols"]) for item in items if bool(item["ok"]))
+    import_count = sum(int(item["counts"]["imports"]) for item in items if bool(item["ok"]))
+    return {
+        "projectRoot": str(root),
+        "ok": ok_count == len(items),
+        "paths": paths,
+        "maxSymbols": max_symbols,
+        "files": {"ok": ok_count, "total": len(items), "items": items},
+        "counts": {"symbols": symbol_count, "imports": import_count},
+        "message": observation.message,
+    }
+
+
+def format_symbols_report_text(report: dict[str, object]) -> str:
+    files = report.get("files") if isinstance(report.get("files"), dict) else {}
+    items = files.get("items") if isinstance(files, dict) and isinstance(files.get("items"), list) else []
+    counts = report.get("counts") if isinstance(report.get("counts"), dict) else {}
+    lines = [
+        "Symbols:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  files: {files.get('ok', 0)}/{files.get('total', 0)}",
+        f"  symbols: {counts.get('symbols', 0)}",
+        f"  imports: {counts.get('imports', 0)}",
+    ]
+    if items:
+        lines.append("  outlines:")
+        for file in items:
+            if not isinstance(file, dict):
+                continue
+            if bool(file.get("ok")):
+                lines.extend(format_serialized_symbol_file(file))
+            else:
+                lines.append(f"    - {file.get('path')} (error): {file.get('message')}")
+    else:
+        lines.append("  outlines: none")
+    lines.append(f"  message: {report.get('message') or ''}")
     return "\n".join(lines)
 
 
@@ -2649,6 +3147,95 @@ def parse_symbols_paths(argument: str | list[str] | None) -> list[str]:
     return parse_local_path_args(argument, max_paths=20)
 
 
+def serialize_file_info_result(file: object) -> dict[str, object]:
+    return {
+        "path": str(getattr(file, "path", "")),
+        "ok": bool(getattr(file, "ok", False)),
+        "exists": bool(getattr(file, "exists", False)),
+        "type": file_type_text(file),
+        "isFile": bool(getattr(file, "is_file", False)),
+        "isDirectory": bool(getattr(file, "is_dir", False)),
+        "sizeBytes": getattr(file, "size_bytes", None),
+        "lineCount": getattr(file, "line_count", None),
+        "binary": getattr(file, "is_binary", None),
+        "message": str(getattr(file, "message", "")),
+    }
+
+
+def get_file_info_report(
+    project_root: str | Path = ".",
+    argument: str | list[str] | None = None,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    try:
+        paths = parse_local_path_args(argument, max_paths=50)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "paths": {"ok": 0, "total": 0, "items": []},
+            "message": f"Usage: /file-info <path...>\nError: {error}",
+        }
+    if not paths:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "paths": {"ok": 0, "total": 0, "items": []},
+            "message": "Usage: /file-info <path...>",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-file-info", session_dir=root / ".vibeagent" / "sessions" / "local-file-info")
+    observation = execute_action(
+        workspace,
+        FileInfoAction(
+            type="file_info",
+            paths=paths,
+        ),
+    )
+    if observation.kind != "file_info":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "paths": {"ok": 0, "total": len(paths), "items": []},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    items = [serialize_file_info_result(file) for file in observation.files]
+    ok_count = sum(1 for item in items if bool(item["ok"]))
+    return {
+        "projectRoot": str(root),
+        "ok": ok_count == len(items),
+        "paths": {"ok": ok_count, "total": len(items), "items": items},
+        "message": observation.message,
+    }
+
+
+def format_file_info_report_text(report: dict[str, object]) -> str:
+    paths = report.get("paths") if isinstance(report.get("paths"), dict) else {}
+    items = paths.get("items") if isinstance(paths, dict) and isinstance(paths.get("items"), list) else []
+    lines = [
+        "File info:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  paths: {paths.get('ok', 0)}/{paths.get('total', 0)}",
+    ]
+    if items:
+        lines.append("  items:")
+        for file in items:
+            if not isinstance(file, dict):
+                continue
+            lines.append(f"    - {file.get('path')}")
+            lines.append(f"      ok: {'yes' if bool(file.get('ok')) else 'no'}")
+            lines.append(f"      exists: {'yes' if bool(file.get('exists')) else 'no'}")
+            lines.append(f"      type: {file.get('type') or 'missing'}")
+            lines.append(f"      sizeBytes: {file.get('sizeBytes') if file.get('sizeBytes') is not None else 'unknown'}")
+            lines.append(f"      lineCount: {file.get('lineCount') if file.get('lineCount') is not None else 'unknown'}")
+            lines.append(f"      binary: {yes_no_unknown(file.get('binary'))}")
+            lines.append(f"      message: {file.get('message') or ''}")
+    else:
+        lines.append("  items: none")
+    lines.append(f"  message: {report.get('message') or ''}")
+    return "\n".join(lines)
+
+
 def get_file_info_text(
     project_root: str | Path = ".",
     argument: str | list[str] | None = None,
@@ -2692,6 +3279,100 @@ def get_file_info_text(
     else:
         lines.append("  items: none")
     lines.append(f"  message: {observation.message}")
+    return "\n".join(lines)
+
+
+def serialize_image_info_result(image: object) -> dict[str, object]:
+    exists = bool(getattr(image, "exists", False))
+    is_file = bool(getattr(image, "is_file", False))
+    return {
+        "path": str(getattr(image, "path", "")),
+        "ok": bool(getattr(image, "ok", False)),
+        "exists": exists,
+        "type": "file" if is_file else "missing" if not exists else "path",
+        "isFile": is_file,
+        "sizeBytes": getattr(image, "size_bytes", None),
+        "format": getattr(image, "format", None),
+        "mimeType": getattr(image, "mime_type", None),
+        "width": getattr(image, "width", None),
+        "height": getattr(image, "height", None),
+        "message": str(getattr(image, "message", "")),
+    }
+
+
+def get_image_info_report(
+    project_root: str | Path = ".",
+    argument: str | list[str] | None = None,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    try:
+        paths = parse_local_path_args(argument, max_paths=20)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "images": {"ok": 0, "total": 0, "items": []},
+            "message": f"Usage: /image-info <path...>\nError: {error}",
+        }
+    if not paths:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "images": {"ok": 0, "total": 0, "items": []},
+            "message": "Usage: /image-info <path...>",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-image-info", session_dir=root / ".vibeagent" / "sessions" / "local-image-info")
+    observation = execute_action(
+        workspace,
+        ImageInfoAction(
+            type="image_info",
+            paths=paths,
+        ),
+    )
+    if observation.kind != "image_info":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "images": {"ok": 0, "total": len(paths), "items": []},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    items = [serialize_image_info_result(image) for image in observation.images]
+    ok_count = sum(1 for item in items if bool(item["ok"]))
+    return {
+        "projectRoot": str(root),
+        "ok": ok_count == len(items),
+        "images": {"ok": ok_count, "total": len(items), "items": items},
+        "message": observation.message,
+    }
+
+
+def format_image_info_report_text(report: dict[str, object]) -> str:
+    images = report.get("images") if isinstance(report.get("images"), dict) else {}
+    items = images.get("items") if isinstance(images, dict) and isinstance(images.get("items"), list) else []
+    lines = [
+        "Image info:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  images: {images.get('ok', 0)}/{images.get('total', 0)}",
+    ]
+    if items:
+        lines.append("  items:")
+        for image in items:
+            if not isinstance(image, dict):
+                continue
+            lines.append(f"    - {image.get('path')}")
+            lines.append(f"      ok: {'yes' if bool(image.get('ok')) else 'no'}")
+            lines.append(f"      exists: {'yes' if bool(image.get('exists')) else 'no'}")
+            lines.append(f"      type: {image.get('type') or 'missing'}")
+            lines.append(f"      sizeBytes: {image.get('sizeBytes') if image.get('sizeBytes') is not None else 'unknown'}")
+            lines.append(f"      format: {image.get('format') or 'unknown'}")
+            lines.append(f"      mimeType: {image.get('mimeType') or 'unknown'}")
+            lines.append(f"      width: {image.get('width') if image.get('width') is not None else 'unknown'}")
+            lines.append(f"      height: {image.get('height') if image.get('height') is not None else 'unknown'}")
+            lines.append(f"      message: {image.get('message') or ''}")
+    else:
+        lines.append("  items: none")
+    lines.append(f"  message: {report.get('message') or ''}")
     return "\n".join(lines)
 
 
@@ -2822,6 +3503,111 @@ def get_read_text(
     return "\n".join(lines)
 
 
+def serialize_read_result(item: object) -> dict[str, object]:
+    return {
+        "path": str(getattr(item, "path", "")),
+        "ok": bool(getattr(item, "ok", False)),
+        "content": str(getattr(item, "content", "")),
+        "totalBytes": getattr(item, "total_bytes", None),
+        "maxBytes": getattr(item, "max_bytes", None),
+        "truncated": bool(getattr(item, "truncated", False)),
+        "message": str(getattr(item, "message", "")),
+    }
+
+
+def get_read_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    line_range: str | None = None,
+    max_bytes: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if argument is None or not argument.strip():
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "range": ".",
+            "startLine": None,
+            "lineCount": None,
+            "read": {"content": "", "totalBytes": None, "maxBytes": max_bytes, "truncated": False},
+            "message": "Usage: /read <path> [start[:end]]",
+        }
+    try:
+        path, start_line, line_count, range_label = parse_read_request(argument, line_range)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "range": ".",
+            "startLine": None,
+            "lineCount": None,
+            "read": {"content": "", "totalBytes": None, "maxBytes": max_bytes, "truncated": False},
+            "message": f"Usage: /read <path> [start[:end]]\nError: {error}",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-read", session_dir=root / ".vibeagent" / "sessions" / "local-read")
+    observation = execute_action(
+        workspace,
+        ReadFileAction(
+            type="read_file",
+            path=path,
+            start_line=start_line,
+            line_count=line_count,
+            max_bytes=max_bytes,
+        ),
+    )
+    if observation.kind != "read_file":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": path,
+            "range": range_label or ".",
+            "startLine": start_line,
+            "lineCount": line_count,
+            "read": {"content": "", "totalBytes": None, "maxBytes": max_bytes, "truncated": False},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": observation.total_bytes is not None,
+        "path": observation.path,
+        "range": range_label or ".",
+        "startLine": start_line,
+        "lineCount": line_count,
+        "read": {
+            "content": observation.content,
+            "totalBytes": observation.total_bytes,
+            "maxBytes": observation.max_bytes,
+            "truncated": observation.truncated,
+        },
+        "message": observation.message,
+    }
+
+
+def format_read_report_text(report: dict[str, object]) -> str:
+    read = report.get("read") if isinstance(report.get("read"), dict) else {}
+    content = str(read.get("content") or "") if isinstance(read, dict) else ""
+    lines = [
+        "Read:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  path: {report.get('path') or ''}",
+        f"  range: {report.get('range') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  totalBytes: {read.get('totalBytes') if read.get('totalBytes') is not None else 'unknown'}",
+        f"  maxBytes: {read.get('maxBytes') if read.get('maxBytes') is not None else 'unknown'}",
+        f"  truncated: {'yes' if bool(read.get('truncated')) else 'no'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    if content:
+        lines.append("  content:")
+        lines.append(_indent_block(content.rstrip("\n"), spaces=4))
+    else:
+        lines.append("  content: none")
+    return "\n".join(lines)
+
+
 def get_tail_text(
     project_root: str | Path = ".",
     argument: str | None = None,
@@ -2859,6 +3645,101 @@ def get_tail_text(
     if observation.content:
         lines.append("  content:")
         lines.append(_indent_block(observation.content.rstrip("\n"), spaces=4))
+    else:
+        lines.append("  content: none")
+    return "\n".join(lines)
+
+
+def get_tail_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    line_count: int | None = None,
+    max_bytes: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if max_bytes < 1_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "tail": {"content": "", "totalLines": None, "lineCount": 0, "startLine": None, "requestedLines": line_count, "maxBytes": max_bytes, "truncated": False},
+            "message": "Usage: /tail <path> [lines]\nError: max_bytes must be at least 1000.",
+        }
+    if max_bytes > 200_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "tail": {"content": "", "totalLines": None, "lineCount": 0, "startLine": None, "requestedLines": line_count, "maxBytes": max_bytes, "truncated": False},
+            "message": "Usage: /tail <path> [lines]\nError: max_bytes must be at most 200000.",
+        }
+    try:
+        path, requested_lines = parse_tail_request(argument, line_count)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "tail": {"content": "", "totalLines": None, "lineCount": 0, "startLine": None, "requestedLines": line_count, "maxBytes": max_bytes, "truncated": False},
+            "message": f"Usage: /tail <path> [lines]\nError: {error}",
+        }
+    if path is None:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "tail": {"content": "", "totalLines": None, "lineCount": 0, "startLine": None, "requestedLines": requested_lines, "maxBytes": max_bytes, "truncated": False},
+            "message": "Usage: /tail <path> [lines]",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-tail", session_dir=root / ".vibeagent" / "sessions" / "local-tail")
+    observation = execute_action(
+        workspace,
+        TailFileAction(type="tail_file", path=path, line_count=requested_lines, max_bytes=max_bytes),
+    )
+    if observation.kind != "tail_file":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": path,
+            "tail": {"content": "", "totalLines": None, "lineCount": 0, "startLine": None, "requestedLines": requested_lines, "maxBytes": max_bytes, "truncated": False},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "path": observation.path,
+        "tail": {
+            "content": observation.content,
+            "totalLines": observation.total_lines,
+            "lineCount": observation.line_count,
+            "startLine": observation.start_line,
+            "requestedLines": observation.requested_line_count,
+            "maxBytes": observation.max_bytes,
+            "truncated": observation.truncated,
+        },
+        "message": observation.message,
+    }
+
+
+def format_tail_report_text(report: dict[str, object]) -> str:
+    tail = report.get("tail") if isinstance(report.get("tail"), dict) else {}
+    content = str(tail.get("content") or "") if isinstance(tail, dict) else ""
+    lines = [
+        "Tail:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  path: {report.get('path') or ''}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  lines: {tail.get('lineCount', 0)}/{tail.get('totalLines') if tail.get('totalLines') is not None else 'unknown'}",
+        f"  startLine: {tail.get('startLine') if tail.get('startLine') is not None else 'unknown'}",
+        f"  requestedLines: {tail.get('requestedLines') if tail.get('requestedLines') is not None else 'unknown'}",
+        f"  maxBytes: {tail.get('maxBytes') if tail.get('maxBytes') is not None else 'unknown'}",
+        f"  truncated: {'yes' if bool(tail.get('truncated')) else 'no'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    if content:
+        lines.append("  content:")
+        lines.append(_indent_block(content.rstrip("\n"), spaces=4))
     else:
         lines.append("  content: none")
     return "\n".join(lines)
@@ -2909,6 +3790,119 @@ def get_around_text(
     if observation.content:
         lines.append("  content:")
         lines.append(_indent_block(observation.content.rstrip("\n"), spaces=4))
+    else:
+        lines.append("  content: none")
+    return "\n".join(lines)
+
+
+def serialize_context_result(item: object) -> dict[str, object]:
+    return {
+        "path": str(getattr(item, "path", "")),
+        "line": getattr(item, "line", None),
+        "ok": bool(getattr(item, "ok", False)),
+        "content": str(getattr(item, "content", "")),
+        "startLine": getattr(item, "start_line", None),
+        "endLine": getattr(item, "end_line", None),
+        "contextLines": getattr(item, "context_lines", None),
+        "targetLineExists": bool(getattr(item, "target_line_exists", False)),
+        "lineCount": getattr(item, "line_count", 0),
+        "totalLines": getattr(item, "total_lines", None),
+        "maxBytes": getattr(item, "max_bytes", None),
+        "truncated": bool(getattr(item, "truncated", False)),
+        "message": str(getattr(item, "message", "")),
+    }
+
+
+def get_around_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    context_lines: int | None = None,
+    max_bytes: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    empty_context = {
+        "content": "",
+        "startLine": None,
+        "endLine": None,
+        "contextLines": context_lines,
+        "targetLineExists": False,
+        "lineCount": 0,
+        "totalLines": None,
+        "maxBytes": max_bytes,
+        "truncated": False,
+    }
+    try:
+        path, line, selected_context = parse_around_request(argument, context_lines)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "line": None,
+            "context": empty_context,
+            "message": f"Usage: /around <path> <line> [context-lines]\nError: {error}",
+        }
+    if path is None or line is None:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "line": None,
+            "context": empty_context,
+            "message": "Usage: /around <path> <line> [context-lines]",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-around", session_dir=root / ".vibeagent" / "sessions" / "local-around")
+    observation = execute_action(
+        workspace,
+        ReadFileContextAction(
+            type="read_file_context",
+            path=path,
+            line=line,
+            context_lines=selected_context,
+            max_bytes=max_bytes,
+        ),
+    )
+    if observation.kind != "read_file_context":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": path,
+            "line": line,
+            "context": {**empty_context, "contextLines": selected_context},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    context = serialize_context_result(observation)
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "path": observation.path,
+        "line": observation.line,
+        "context": {key: value for key, value in context.items() if key not in {"path", "line", "ok"}},
+        "message": observation.message,
+    }
+
+
+def format_around_report_text(report: dict[str, object]) -> str:
+    context = report.get("context") if isinstance(report.get("context"), dict) else {}
+    content = str(context.get("content") or "") if isinstance(context, dict) else ""
+    lines = [
+        "Around:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  path: {report.get('path') or ''}",
+        f"  line: {report.get('line') if report.get('line') is not None else 'unknown'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  range: {context.get('startLine')}:{context.get('endLine')}",
+        f"  contextLines: {context.get('contextLines') if context.get('contextLines') is not None else 'unknown'}",
+        f"  targetLineExists: {'yes' if bool(context.get('targetLineExists')) else 'no'}",
+        f"  lines: {context.get('lineCount', 0)}/{context.get('totalLines') if context.get('totalLines') is not None else 'unknown'}",
+        f"  maxBytes: {context.get('maxBytes') if context.get('maxBytes') is not None else 'unknown'}",
+        f"  truncated: {'yes' if bool(context.get('truncated')) else 'no'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    if content:
+        lines.append("  content:")
+        lines.append(_indent_block(content.rstrip("\n"), spaces=4))
     else:
         lines.append("  content: none")
     return "\n".join(lines)
@@ -2969,6 +3963,111 @@ def get_around_many_text(
         if item.content:
             lines.append("  content:")
             lines.append(_indent_block(item.content.rstrip("\n"), spaces=4))
+        else:
+            lines.append("  content: none")
+    return "\n".join(lines)
+
+
+def get_around_many_report(
+    project_root: str | Path = ".",
+    argument: str | list[str] | None = None,
+    max_bytes_per_context: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if max_bytes_per_context < 1_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerContext": max_bytes_per_context,
+            "message": "Usage: /around-many <path:line[:context-lines]...>\nError: max_bytes_per_context must be at least 1000.",
+        }
+    if max_bytes_per_context > 200_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerContext": max_bytes_per_context,
+            "message": "Usage: /around-many <path:line[:context-lines]...>\nError: max_bytes_per_context must be at most 200000.",
+        }
+    try:
+        contexts = parse_around_many_argument(argument)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerContext": max_bytes_per_context,
+            "message": f"Usage: /around-many <path:line[:context-lines]...>\nError: {error}",
+        }
+    if not contexts:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerContext": max_bytes_per_context,
+            "message": "Usage: /around-many <path:line[:context-lines]...>",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-around-many", session_dir=root / ".vibeagent" / "sessions" / "local-around-many")
+    observation = execute_action(
+        workspace,
+        ReadFileContextsAction(
+            type="read_file_contexts",
+            contexts=contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        ),
+    )
+    if observation.kind != "read_file_contexts":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "contexts": {"ok": 0, "total": len(contexts), "items": []},
+            "maxBytesPerContext": max_bytes_per_context,
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+
+    items = [serialize_context_result(item) for item in observation.contexts]
+    ok_count = sum(1 for item in items if item["ok"])
+    return {
+        "projectRoot": str(root),
+        "ok": ok_count == len(items),
+        "contexts": {"ok": ok_count, "total": len(items), "items": items},
+        "maxBytesPerContext": max_bytes_per_context,
+        "message": observation.message,
+    }
+
+
+def format_around_many_report_text(report: dict[str, object]) -> str:
+    contexts = report.get("contexts") if isinstance(report.get("contexts"), dict) else {}
+    items = contexts.get("items") if isinstance(contexts.get("items"), list) else []
+    lines = [
+        "Around many:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  contexts: {contexts.get('ok', 0)}/{contexts.get('total', len(items))}",
+        f"  maxBytesPerContext: {report.get('maxBytesPerContext') if report.get('maxBytesPerContext') is not None else 'unknown'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    for raw_item in items:
+        item = raw_item if isinstance(raw_item, dict) else {}
+        lines.extend(
+            [
+                "",
+                f"Context: {item.get('path') or ''}:{item.get('line') if item.get('line') is not None else 'unknown'}",
+                f"  ok: {'yes' if bool(item.get('ok')) else 'no'}",
+                f"  range: {item.get('startLine')}:{item.get('endLine')}",
+                f"  contextLines: {item.get('contextLines') if item.get('contextLines') is not None else 'unknown'}",
+                f"  targetLineExists: {'yes' if bool(item.get('targetLineExists')) else 'no'}",
+                f"  lines: {item.get('lineCount', 0)}/{item.get('totalLines') if item.get('totalLines') is not None else 'unknown'}",
+                f"  maxBytes: {item.get('maxBytes') if item.get('maxBytes') is not None else 'unknown'}",
+                f"  truncated: {'yes' if bool(item.get('truncated')) else 'no'}",
+                f"  message: {item.get('message') or ''}",
+            ]
+        )
+        content = str(item.get("content") or "")
+        if content:
+            lines.append("  content:")
+            lines.append(_indent_block(content.rstrip("\n"), spaces=4))
         else:
             lines.append("  content: none")
     return "\n".join(lines)
@@ -3045,6 +4144,177 @@ def get_output_contexts_text(
         if item.content:
             lines.append("  content:")
             lines.append(_indent_block(item.content.rstrip("\n"), spaces=4))
+        else:
+            lines.append("  content: none")
+    return "\n".join(lines)
+
+
+def serialize_output_context_result(item: object) -> dict[str, object]:
+    return {
+        "path": str(getattr(item, "path", "")),
+        "line": getattr(item, "line", None),
+        "column": getattr(item, "column", None),
+        "raw": str(getattr(item, "raw", "")),
+        "ok": bool(getattr(item, "ok", False)),
+        "content": str(getattr(item, "content", "")),
+        "message": str(getattr(item, "message", "")),
+        "contextLines": getattr(item, "context_lines", None),
+        "startLine": getattr(item, "start_line", None),
+        "endLine": getattr(item, "end_line", None),
+        "lineCount": getattr(item, "line_count", 0),
+        "totalLines": getattr(item, "total_lines", None),
+        "targetLineExists": bool(getattr(item, "target_line_exists", False)),
+        "truncated": bool(getattr(item, "truncated", False)),
+        "maxBytes": getattr(item, "max_bytes", None),
+    }
+
+
+def serialize_output_diagnostic(item: object) -> dict[str, object]:
+    return {
+        "severity": str(getattr(item, "severity", "")),
+        "outputLine": getattr(item, "output_line", None),
+        "text": str(getattr(item, "text", "")),
+        "path": getattr(item, "path", None),
+        "line": getattr(item, "line", None),
+        "column": getattr(item, "column", None),
+        "raw": getattr(item, "raw", None),
+    }
+
+
+def get_output_contexts_report(
+    project_root: str | Path = ".",
+    text: str | None = None,
+    context_lines: int = 5,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if not text or not text.strip():
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "totalRefs": 0,
+            "contextLines": context_lines,
+            "maxContexts": max_contexts,
+            "maxBytesPerContext": max_bytes_per_context,
+            "truncated": False,
+            "message": "Usage: /output-contexts <text>",
+        }
+    if len(text) > 200_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "totalRefs": 0,
+            "contextLines": context_lines,
+            "maxContexts": max_contexts,
+            "maxBytesPerContext": max_bytes_per_context,
+            "truncated": False,
+            "message": "Usage: /output-contexts <text>\nError: text must be at most 200000 characters.",
+        }
+    if context_lines < 0:
+        message = "Usage: /output-contexts <text>\nError: context_lines must be at least 0."
+    elif context_lines > 500:
+        message = "Usage: /output-contexts <text>\nError: context_lines must be at most 500."
+    elif max_contexts < 1:
+        message = "Usage: /output-contexts <text>\nError: max_contexts must be at least 1."
+    elif max_contexts > 100:
+        message = "Usage: /output-contexts <text>\nError: max_contexts must be at most 100."
+    elif max_bytes_per_context < 1_000:
+        message = "Usage: /output-contexts <text>\nError: max_bytes_per_context must be at least 1000."
+    elif max_bytes_per_context > 200_000:
+        message = "Usage: /output-contexts <text>\nError: max_bytes_per_context must be at most 200000."
+    else:
+        message = ""
+    if message:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "totalRefs": 0,
+            "contextLines": context_lines,
+            "maxContexts": max_contexts,
+            "maxBytesPerContext": max_bytes_per_context,
+            "truncated": False,
+            "message": message,
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-output-contexts", session_dir=root / ".vibeagent" / "sessions" / "local-output-contexts")
+    observation = execute_action(
+        workspace,
+        OutputContextsAction(
+            type="output_contexts",
+            text=text,
+            context_lines=context_lines,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        ),
+    )
+    if observation.kind != "output_contexts":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "totalRefs": 0,
+            "contextLines": context_lines,
+            "maxContexts": max_contexts,
+            "maxBytesPerContext": max_bytes_per_context,
+            "truncated": False,
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+
+    items = [serialize_output_context_result(item) for item in observation.contexts]
+    ok_count = sum(1 for item in items if item["ok"])
+    return {
+        "projectRoot": str(root),
+        "ok": ok_count == len(items),
+        "contexts": {"ok": ok_count, "total": len(items), "items": items},
+        "totalRefs": observation.total_refs,
+        "contextLines": context_lines,
+        "maxContexts": max_contexts,
+        "maxBytesPerContext": max_bytes_per_context,
+        "truncated": observation.truncated,
+        "message": observation.message,
+    }
+
+
+def format_output_contexts_report_text(report: dict[str, object]) -> str:
+    contexts = report.get("contexts") if isinstance(report.get("contexts"), dict) else {}
+    items = contexts.get("items") if isinstance(contexts.get("items"), list) else []
+    lines = [
+        "Output contexts:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  contexts: {contexts.get('ok', 0)}/{contexts.get('total', 0)}",
+        f"  totalRefs: {report.get('totalRefs', 0)}",
+        f"  contextLines: {report.get('contextLines') if report.get('contextLines') is not None else 'unknown'}",
+        f"  maxContexts: {report.get('maxContexts') if report.get('maxContexts') is not None else 'unknown'}",
+        f"  maxBytesPerContext: {report.get('maxBytesPerContext') if report.get('maxBytesPerContext') is not None else 'unknown'}",
+        f"  truncated: {'yes' if bool(report.get('truncated')) else 'no'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    for raw_item in items:
+        item = raw_item if isinstance(raw_item, dict) else {}
+        column = f":{item.get('column')}" if item.get("column") is not None else ""
+        lines.extend(
+            [
+                "",
+                f"Context: {item.get('path') or ''}:{item.get('line') if item.get('line') is not None else 'unknown'}{column}",
+                f"  raw: {item.get('raw') or ''}",
+                f"  ok: {'yes' if bool(item.get('ok')) else 'no'}",
+                f"  range: {item.get('startLine')}:{item.get('endLine')}",
+                f"  contextLines: {item.get('contextLines') if item.get('contextLines') is not None else 'unknown'}",
+                f"  targetLineExists: {'yes' if bool(item.get('targetLineExists')) else 'no'}",
+                f"  lines: {item.get('lineCount', 0)}/{item.get('totalLines') if item.get('totalLines') is not None else 'unknown'}",
+                f"  maxBytes: {item.get('maxBytes') if item.get('maxBytes') is not None else 'unknown'}",
+                f"  truncated: {'yes' if bool(item.get('truncated')) else 'no'}",
+                f"  message: {item.get('message') or ''}",
+            ]
+        )
+        content = str(item.get("content") or "")
+        if content:
+            lines.append("  content:")
+            lines.append(_indent_block(content.rstrip("\n"), spaces=4))
         else:
             lines.append("  content: none")
     return "\n".join(lines)
@@ -3141,6 +4411,193 @@ def get_output_diagnostics_text(
     return "\n".join(lines)
 
 
+def get_output_diagnostics_report(
+    project_root: str | Path = ".",
+    text: str | None = None,
+    context_lines: int = 2,
+    max_diagnostics: int = 50,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
+    usage: str = "/output-diagnostics <text>",
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if not text or not text.strip():
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "diagnostics": {"shown": 0, "total": 0, "items": []},
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "totalRefs": 0,
+            "contextLines": context_lines,
+            "maxDiagnostics": max_diagnostics,
+            "maxContexts": max_contexts,
+            "maxBytesPerContext": max_bytes_per_context,
+            "diagnosticsTruncated": False,
+            "contextsTruncated": False,
+            "message": f"Usage: {usage}",
+        }
+    if len(text) > 200_000:
+        message = f"Usage: {usage}\nError: text must be at most 200000 characters."
+    elif context_lines < 0:
+        message = f"Usage: {usage}\nError: context_lines must be at least 0."
+    elif context_lines > 500:
+        message = f"Usage: {usage}\nError: context_lines must be at most 500."
+    elif max_diagnostics < 1:
+        message = f"Usage: {usage}\nError: max_diagnostics must be at least 1."
+    elif max_diagnostics > 200:
+        message = f"Usage: {usage}\nError: max_diagnostics must be at most 200."
+    elif max_contexts < 1:
+        message = f"Usage: {usage}\nError: max_contexts must be at least 1."
+    elif max_contexts > 100:
+        message = f"Usage: {usage}\nError: max_contexts must be at most 100."
+    elif max_bytes_per_context < 1_000:
+        message = f"Usage: {usage}\nError: max_bytes_per_context must be at least 1000."
+    elif max_bytes_per_context > 200_000:
+        message = f"Usage: {usage}\nError: max_bytes_per_context must be at most 200000."
+    else:
+        message = ""
+    if message:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "diagnostics": {"shown": 0, "total": 0, "items": []},
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "totalRefs": 0,
+            "contextLines": context_lines,
+            "maxDiagnostics": max_diagnostics,
+            "maxContexts": max_contexts,
+            "maxBytesPerContext": max_bytes_per_context,
+            "diagnosticsTruncated": False,
+            "contextsTruncated": False,
+            "message": message,
+        }
+
+    root = Path(project_root).resolve()
+    workspace = RunWorkspace(root=root, run_id="local-output-diagnostics", session_dir=root / ".vibeagent" / "sessions" / "local-output-diagnostics")
+    observation = execute_action(
+        workspace,
+        OutputDiagnosticsAction(
+            type="output_diagnostics",
+            text=text,
+            context_lines=context_lines,
+            max_diagnostics=max_diagnostics,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        ),
+    )
+    if observation.kind != "output_diagnostics":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "diagnostics": {"shown": 0, "total": 0, "items": []},
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "totalRefs": 0,
+            "contextLines": context_lines,
+            "maxDiagnostics": max_diagnostics,
+            "maxContexts": max_contexts,
+            "maxBytesPerContext": max_bytes_per_context,
+            "diagnosticsTruncated": False,
+            "contextsTruncated": False,
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+
+    diagnostics = [serialize_output_diagnostic(item) for item in observation.diagnostics]
+    contexts = [serialize_output_context_result(item) for item in observation.contexts]
+    ok_count = sum(1 for item in contexts if item["ok"])
+    return {
+        "projectRoot": str(root),
+        "ok": ok_count == len(contexts),
+        "diagnostics": {"shown": len(diagnostics), "total": observation.total_diagnostics, "items": diagnostics},
+        "contexts": {"ok": ok_count, "total": len(contexts), "items": contexts},
+        "totalRefs": observation.total_refs,
+        "contextLines": context_lines,
+        "maxDiagnostics": max_diagnostics,
+        "maxContexts": max_contexts,
+        "maxBytesPerContext": max_bytes_per_context,
+        "diagnosticsTruncated": observation.diagnostics_truncated,
+        "contextsTruncated": observation.contexts_truncated,
+        "message": observation.message,
+    }
+
+
+def format_output_diagnostics_report_text(report: dict[str, object], *, title: str = "Output diagnostics") -> str:
+    diagnostics = report.get("diagnostics") if isinstance(report.get("diagnostics"), dict) else {}
+    diagnostic_items = diagnostics.get("items") if isinstance(diagnostics.get("items"), list) else []
+    contexts = report.get("contexts") if isinstance(report.get("contexts"), dict) else {}
+    context_items = contexts.get("items") if isinstance(contexts.get("items"), list) else []
+    lines = [
+        f"{title}:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  diagnostics: {diagnostics.get('shown', 0)}/{diagnostics.get('total', 0)}",
+        f"  contexts: {contexts.get('ok', 0)}/{contexts.get('total', 0)}",
+        f"  totalRefs: {report.get('totalRefs', 0)}",
+        f"  contextLines: {report.get('contextLines') if report.get('contextLines') is not None else 'unknown'}",
+        f"  maxDiagnostics: {report.get('maxDiagnostics') if report.get('maxDiagnostics') is not None else 'unknown'}",
+        f"  maxContexts: {report.get('maxContexts') if report.get('maxContexts') is not None else 'unknown'}",
+        f"  maxBytesPerContext: {report.get('maxBytesPerContext') if report.get('maxBytesPerContext') is not None else 'unknown'}",
+        f"  diagnosticsTruncated: {'yes' if bool(report.get('diagnosticsTruncated')) else 'no'}",
+        f"  contextsTruncated: {'yes' if bool(report.get('contextsTruncated')) else 'no'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    for raw_diagnostic in diagnostic_items:
+        diagnostic = raw_diagnostic if isinstance(raw_diagnostic, dict) else {}
+        location = ""
+        if diagnostic.get("path") and diagnostic.get("line") is not None:
+            column = f":{diagnostic.get('column')}" if diagnostic.get("column") is not None else ""
+            location = f" {diagnostic.get('path')}:{diagnostic.get('line')}{column}"
+        lines.append(
+            f"  - {diagnostic.get('severity')} outputLine={diagnostic.get('outputLine')}{location}: {diagnostic.get('text') or ''}"
+        )
+    for raw_item in context_items:
+        item = raw_item if isinstance(raw_item, dict) else {}
+        column = f":{item.get('column')}" if item.get("column") is not None else ""
+        lines.extend(
+            [
+                "",
+                f"Context: {item.get('path') or ''}:{item.get('line') if item.get('line') is not None else 'unknown'}{column}",
+                f"  raw: {item.get('raw') or ''}",
+                f"  ok: {'yes' if bool(item.get('ok')) else 'no'}",
+                f"  range: {item.get('startLine')}:{item.get('endLine')}",
+                f"  contextLines: {item.get('contextLines') if item.get('contextLines') is not None else 'unknown'}",
+                f"  targetLineExists: {'yes' if bool(item.get('targetLineExists')) else 'no'}",
+                f"  lines: {item.get('lineCount', 0)}/{item.get('totalLines') if item.get('totalLines') is not None else 'unknown'}",
+                f"  maxBytes: {item.get('maxBytes') if item.get('maxBytes') is not None else 'unknown'}",
+                f"  truncated: {'yes' if bool(item.get('truncated')) else 'no'}",
+                f"  message: {item.get('message') or ''}",
+            ]
+        )
+        content = str(item.get("content") or "")
+        if content:
+            lines.append("  content:")
+            lines.append(_indent_block(content.rstrip("\n"), spaces=4))
+        else:
+            lines.append("  content: none")
+    return "\n".join(lines)
+
+
+def get_python_traceback_report(
+    project_root: str | Path = ".",
+    text: str | None = None,
+    context_lines: int = 2,
+    max_diagnostics: int = 50,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
+) -> dict[str, object]:
+    return get_output_diagnostics_report(
+        project_root,
+        text,
+        context_lines=context_lines,
+        max_diagnostics=max_diagnostics,
+        max_contexts=max_contexts,
+        max_bytes_per_context=max_bytes_per_context,
+        usage="/python-traceback <text>",
+    )
+
+
+def format_python_traceback_report_text(report: dict[str, object]) -> str:
+    return format_output_diagnostics_report_text(report, title="Python traceback")
+
+
 def get_python_traceback_text(
     project_root: str | Path = ".",
     text: str | None = None,
@@ -3216,6 +4673,104 @@ def get_read_files_text(
     return "\n".join(lines)
 
 
+def get_read_files_report(
+    project_root: str | Path = ".",
+    argument: str | list[str] | None = None,
+    max_bytes_per_file: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if max_bytes_per_file < 1_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "files": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerFile": max_bytes_per_file,
+            "message": "Usage: /read-files <path...>\nError: max_bytes_per_file must be at least 1000.",
+        }
+    if max_bytes_per_file > 200_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "files": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerFile": max_bytes_per_file,
+            "message": "Usage: /read-files <path...>\nError: max_bytes_per_file must be at most 200000.",
+        }
+    try:
+        paths = parse_local_path_args(argument, max_paths=20)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "files": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerFile": max_bytes_per_file,
+            "message": f"Usage: /read-files <path...>\nError: {error}",
+        }
+    if not paths:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "files": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerFile": max_bytes_per_file,
+            "message": "Usage: /read-files <path...>",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-read-files", session_dir=root / ".vibeagent" / "sessions" / "local-read-files")
+    observation = execute_action(
+        workspace,
+        ReadFilesAction(type="read_files", paths=paths, max_bytes_per_file=max_bytes_per_file),
+    )
+    if observation.kind != "read_files":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "files": {"ok": 0, "total": len(paths), "items": []},
+            "maxBytesPerFile": max_bytes_per_file,
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    items = [serialize_read_result(item) for item in observation.files]
+    ok_count = sum(1 for item in items if bool(item["ok"]))
+    return {
+        "projectRoot": str(root),
+        "ok": ok_count == len(items),
+        "files": {"ok": ok_count, "total": len(items), "items": items},
+        "maxBytesPerFile": max_bytes_per_file,
+        "message": observation.message,
+    }
+
+
+def format_read_files_report_text(report: dict[str, object]) -> str:
+    files = report.get("files") if isinstance(report.get("files"), dict) else {}
+    items = files.get("items") if isinstance(files, dict) and isinstance(files.get("items"), list) else []
+    lines = [
+        "Read files:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  files: {files.get('ok', 0)}/{files.get('total', 0)}",
+        f"  maxBytesPerFile: {report.get('maxBytesPerFile', 0)}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        lines.extend(
+            [
+                "",
+                f"File: {item.get('path')}",
+                f"  ok: {'yes' if bool(item.get('ok')) else 'no'}",
+                f"  totalBytes: {item.get('totalBytes') if item.get('totalBytes') is not None else 'unknown'}",
+                f"  maxBytes: {item.get('maxBytes') if item.get('maxBytes') is not None else 'unknown'}",
+                f"  truncated: {'yes' if bool(item.get('truncated')) else 'no'}",
+                f"  message: {item.get('message') or ''}",
+            ]
+        )
+        content = str(item.get("content") or "")
+        if content:
+            lines.append("  content:")
+            lines.append(_indent_block(content.rstrip("\n"), spaces=4))
+        else:
+            lines.append("  content: none")
+    return "\n".join(lines)
+
+
 def get_read_ranges_text(
     project_root: str | Path = ".",
     argument: str | list[str] | None = None,
@@ -3265,6 +4820,121 @@ def get_read_ranges_text(
         if item.content:
             lines.append("  content:")
             lines.append(_indent_block(item.content.rstrip("\n"), spaces=4))
+        else:
+            lines.append("  content: none")
+    return "\n".join(lines)
+
+
+def serialize_read_range_result(item: object) -> dict[str, object]:
+    start_line = int(getattr(item, "start_line", 0))
+    line_count = int(getattr(item, "line_count", 0))
+    return {
+        "path": str(getattr(item, "path", "")),
+        "startLine": start_line,
+        "lineCount": line_count,
+        "endLine": start_line + line_count - 1 if line_count > 0 else None,
+        "ok": bool(getattr(item, "ok", False)),
+        "content": str(getattr(item, "content", "")),
+        "totalBytes": getattr(item, "total_bytes", None),
+        "maxBytes": getattr(item, "max_bytes", None),
+        "truncated": bool(getattr(item, "truncated", False)),
+        "message": str(getattr(item, "message", "")),
+    }
+
+
+def get_read_ranges_report(
+    project_root: str | Path = ".",
+    argument: str | list[str] | None = None,
+    max_bytes_per_range: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if max_bytes_per_range < 1_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "ranges": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerRange": max_bytes_per_range,
+            "message": "Usage: /read-ranges <path:start[:end]...>\nError: max_bytes_per_range must be at least 1000.",
+        }
+    if max_bytes_per_range > 200_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "ranges": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerRange": max_bytes_per_range,
+            "message": "Usage: /read-ranges <path:start[:end]...>\nError: max_bytes_per_range must be at most 200000.",
+        }
+    try:
+        ranges = parse_read_ranges_argument(argument)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "ranges": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerRange": max_bytes_per_range,
+            "message": f"Usage: /read-ranges <path:start[:end]...>\nError: {error}",
+        }
+    if not ranges:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "ranges": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerRange": max_bytes_per_range,
+            "message": "Usage: /read-ranges <path:start[:end]...>",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-read-ranges", session_dir=root / ".vibeagent" / "sessions" / "local-read-ranges")
+    observation = execute_action(
+        workspace,
+        ReadFileRangesAction(type="read_file_ranges", ranges=ranges, max_bytes_per_range=max_bytes_per_range),
+    )
+    if observation.kind != "read_file_ranges":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "ranges": {"ok": 0, "total": len(ranges), "items": []},
+            "maxBytesPerRange": max_bytes_per_range,
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    items = [serialize_read_range_result(item) for item in observation.ranges]
+    ok_count = sum(1 for item in items if bool(item["ok"]))
+    return {
+        "projectRoot": str(root),
+        "ok": ok_count == len(items),
+        "ranges": {"ok": ok_count, "total": len(items), "items": items},
+        "maxBytesPerRange": max_bytes_per_range,
+        "message": observation.message,
+    }
+
+
+def format_read_ranges_report_text(report: dict[str, object]) -> str:
+    ranges = report.get("ranges") if isinstance(report.get("ranges"), dict) else {}
+    items = ranges.get("items") if isinstance(ranges, dict) and isinstance(ranges.get("items"), list) else []
+    lines = [
+        "Read ranges:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ranges: {ranges.get('ok', 0)}/{ranges.get('total', 0)}",
+        f"  maxBytesPerRange: {report.get('maxBytesPerRange', 0)}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        lines.extend(
+            [
+                "",
+                f"Range: {item.get('path')}:{item.get('startLine')}:{item.get('endLine')}",
+                f"  ok: {'yes' if bool(item.get('ok')) else 'no'}",
+                f"  lineCount: {item.get('lineCount')}",
+                f"  maxBytes: {item.get('maxBytes') if item.get('maxBytes') is not None else 'unknown'}",
+                f"  truncated: {'yes' if bool(item.get('truncated')) else 'no'}",
+                f"  message: {item.get('message') or ''}",
+            ]
+        )
+        content = str(item.get("content") or "")
+        if content:
+            lines.append("  content:")
+            lines.append(_indent_block(content.rstrip("\n"), spaces=4))
         else:
             lines.append("  content: none")
     return "\n".join(lines)
@@ -6599,6 +8269,76 @@ def format_check_location(line: int | None, column: int | None) -> str:
     return f" at line {line}, column {column}"
 
 
+def _split_nonempty_lines(value: str) -> list[str]:
+    return [line for line in value.splitlines() if line.strip()]
+
+
+def _git_status_payload(status: str) -> dict[str, object]:
+    lines = _split_nonempty_lines(status)
+    return {"text": status, "lines": lines, "count": len(lines)}
+
+
+def _git_output_payload(output: str, *, truncated: bool, max_output_chars: int) -> dict[str, object]:
+    lines = output.splitlines()
+    return {
+        "text": output,
+        "chars": len(output),
+        "lines": len(lines),
+        "truncated": truncated,
+        "maxOutputChars": max_output_chars,
+    }
+
+
+def _git_log_items(log: str) -> list[dict[str, object]]:
+    items: list[dict[str, object]] = []
+    for line in _split_nonempty_lines(log):
+        short_hash, _, subject = line.partition(" ")
+        items.append(
+            {
+                "hash": short_hash,
+                "subject": subject,
+                "raw": line,
+            }
+        )
+    return items
+
+
+def get_git_status_report(project_root: str | Path = ".") -> dict[str, object]:
+    root = Path(project_root).resolve()
+    workspace = RunWorkspace(root=root, run_id="local-git-status", session_dir=root / ".vibeagent" / "sessions" / "local-git-status")
+    observation = execute_action(workspace, GitStatusAction(type="git_status"))
+    if observation.kind != "git_status":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "status": _git_status_payload(""),
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "status": _git_status_payload(observation.status),
+        "message": observation.message,
+    }
+
+
+def format_git_status_report_text(report: dict[str, object]) -> str:
+    status = report.get("status") if isinstance(report.get("status"), dict) else {}
+    status_text = str(status.get("text") or "") if isinstance(status, dict) else ""
+    lines = [
+        "Git status:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    if status_text.strip():
+        lines.append("  status:")
+        lines.append(_indent_block(status_text.strip(), spaces=4))
+    else:
+        lines.append("  status: none")
+    return "\n".join(lines)
+
+
 def get_git_status_text(project_root: str | Path = ".") -> str:
     root = Path(project_root).resolve()
     workspace = RunWorkspace(root=root, run_id="local-git-status", session_dir=root / ".vibeagent" / "sessions" / "local-git-status")
@@ -6675,6 +8415,73 @@ def get_git_conflicts_text(
     return "\n".join(lines)
 
 
+def get_git_info_report(project_root: str | Path = ".") -> dict[str, object]:
+    root = Path(project_root).resolve()
+    workspace = RunWorkspace(root=root, run_id="local-git-info", session_dir=root / ".vibeagent" / "sessions" / "local-git-info")
+    observation = execute_action(workspace, GitInfoAction(type="git_info"))
+    if observation.kind != "git_info":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "isGitRepo": False,
+            "branch": "",
+            "head": "",
+            "upstream": "",
+            "ahead": 0,
+            "behind": 0,
+            "remotes": [],
+            "status": _git_status_payload(""),
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "isGitRepo": observation.is_git_repo,
+        "branch": observation.branch,
+        "head": observation.head,
+        "upstream": observation.upstream,
+        "ahead": observation.ahead,
+        "behind": observation.behind,
+        "remotes": [
+            {"name": remote.name, "kind": remote.kind, "url": remote.url}
+            for remote in observation.remotes
+        ],
+        "status": _git_status_payload(observation.status),
+        "message": observation.message,
+    }
+
+
+def format_git_info_report_text(report: dict[str, object]) -> str:
+    remotes = report.get("remotes") if isinstance(report.get("remotes"), list) else []
+    status = report.get("status") if isinstance(report.get("status"), dict) else {}
+    status_text = str(status.get("text") or "") if isinstance(status, dict) else ""
+    lines = [
+        "Git info:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  isGitRepo: {'yes' if bool(report.get('isGitRepo')) else 'no'}",
+        f"  branch: {report.get('branch') or '.'}",
+        f"  head: {report.get('head') or '.'}",
+        f"  upstream: {report.get('upstream') or '.'}",
+        f"  ahead: {report.get('ahead', 0)}",
+        f"  behind: {report.get('behind', 0)}",
+    ]
+    if remotes:
+        lines.append("  remotes:")
+        for remote in remotes:
+            if isinstance(remote, dict):
+                lines.append(f"    - {remote.get('name')} ({remote.get('kind')}): {remote.get('url')}")
+    else:
+        lines.append("  remotes: none")
+    if status_text.strip():
+        lines.append("  status:")
+        lines.append(_indent_block(status_text.strip(), spaces=4))
+    else:
+        lines.append("  status: none")
+    lines.append(f"  message: {report.get('message') or ''}")
+    return "\n".join(lines)
+
+
 def get_git_info_text(project_root: str | Path = ".") -> str:
     root = Path(project_root).resolve()
     workspace = RunWorkspace(root=root, run_id="local-git-info", session_dir=root / ".vibeagent" / "sessions" / "local-git-info")
@@ -6705,6 +8512,68 @@ def get_git_info_text(project_root: str | Path = ".") -> str:
     else:
         lines.append("  status: none")
     lines.append(f"  message: {observation.message}")
+    return "\n".join(lines)
+
+
+def get_branches_report(project_root: str | Path = ".", max_branches: int = 100) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    workspace = RunWorkspace(root=root, run_id="local-branches", session_dir=root / ".vibeagent" / "sessions" / "local-branches")
+    observation = execute_action(
+        workspace,
+        GitBranchesAction(type="git_branches", max_branches=max_branches),
+    )
+    if observation.kind != "git_branches":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "current": "",
+            "branches": {"shown": 0, "total": 0, "truncated": False, "items": []},
+            "gitStatus": _git_status_payload(""),
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "current": observation.current,
+        "branches": {
+            "shown": len(observation.branches),
+            "total": observation.total,
+            "truncated": observation.truncated,
+            "items": [
+                {"name": branch.name, "current": branch.current}
+                for branch in observation.branches
+            ],
+        },
+        "gitStatus": _git_status_payload(observation.status),
+        "message": observation.message,
+    }
+
+
+def format_branches_report_text(report: dict[str, object]) -> str:
+    branches = report.get("branches") if isinstance(report.get("branches"), dict) else {}
+    items = branches.get("items") if isinstance(branches, dict) and isinstance(branches.get("items"), list) else []
+    status = report.get("gitStatus") if isinstance(report.get("gitStatus"), dict) else {}
+    status_text = str(status.get("text") or "") if isinstance(status, dict) else ""
+    lines = [
+        "Branches:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  current: {report.get('current') or 'detached-or-none'}",
+        f"  branches: {branches.get('shown', 0)}/{branches.get('total', 0)}",
+        f"  truncated: {'yes' if bool(branches.get('truncated')) else 'no'}",
+    ]
+    if items:
+        lines.append("  items:")
+        for branch in items:
+            if isinstance(branch, dict):
+                marker = "*" if branch.get("current") else "-"
+                lines.append(f"    {marker} {branch.get('name')}")
+    else:
+        lines.append("  items: none")
+    if status_text.strip():
+        lines.append("  gitStatus:")
+        lines.append(_indent_block(_clip(status_text.strip(), 2_000), spaces=4))
+    lines.append(f"  message: {report.get('message') or ''}")
     return "\n".join(lines)
 
 
@@ -6798,6 +8667,68 @@ def parse_log_request(argument: str | None, max_count: int = 5) -> tuple[str | N
     return path, selected_count
 
 
+def get_log_report(project_root: str | Path = ".", argument: str | None = None, max_count: int = 5) -> dict[str, object]:
+    try:
+        path, selected_count = parse_log_request(argument, max_count)
+    except ValueError as error:
+        return {
+            "projectRoot": str(Path(project_root).resolve()),
+            "ok": False,
+            "path": ".",
+            "maxCount": max_count,
+            "commits": {"shown": 0, "items": []},
+            "log": "",
+            "message": f"Usage: /log [path] [count]\nError: {error}",
+        }
+
+    root = Path(project_root).resolve()
+    workspace = RunWorkspace(root=root, run_id="local-log", session_dir=root / ".vibeagent" / "sessions" / "local-log")
+    observation = execute_action(
+        workspace,
+        GitLogAction(type="git_log", path=path, max_count=selected_count),
+    )
+    if observation.kind != "git_log":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": path or ".",
+            "maxCount": selected_count,
+            "commits": {"shown": 0, "items": []},
+            "log": "",
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    items = _git_log_items(observation.log)
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "path": observation.path or ".",
+        "maxCount": observation.max_count,
+        "commits": {"shown": len(items), "items": items},
+        "log": observation.log,
+        "message": observation.message,
+    }
+
+
+def format_log_report_text(report: dict[str, object]) -> str:
+    commits = report.get("commits") if isinstance(report.get("commits"), dict) else {}
+    log_text = str(report.get("log") or "")
+    lines = [
+        "Log:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  path: {report.get('path') or '.'}",
+        f"  maxCount: {report.get('maxCount', 0)}",
+        f"  commits: {commits.get('shown', 0)}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    if log_text.strip():
+        lines.append("  items:")
+        lines.append(_indent_block(log_text.strip(), spaces=4))
+    else:
+        lines.append("  items: none")
+    return "\n".join(lines)
+
+
 def get_show_text(
     project_root: str | Path = ".",
     argument: str | None = None,
@@ -6864,6 +8795,93 @@ def parse_show_request(argument: str | None = None, rev: str | None = None, path
     return selected_rev, selected_path
 
 
+def get_show_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    rev: str | None = None,
+    path: str | None = None,
+    max_output_chars: int = 12_000,
+) -> dict[str, object]:
+    if max_output_chars < 1_000:
+        return {
+            "projectRoot": str(Path(project_root).resolve()),
+            "ok": False,
+            "rev": rev or "HEAD",
+            "path": path or ".",
+            "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
+            "message": "Usage: /show [rev] [path]\nError: max_output_chars must be at least 1000.",
+        }
+    if max_output_chars > 50_000:
+        return {
+            "projectRoot": str(Path(project_root).resolve()),
+            "ok": False,
+            "rev": rev or "HEAD",
+            "path": path or ".",
+            "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
+            "message": "Usage: /show [rev] [path]\nError: max_output_chars must be at most 50000.",
+        }
+    try:
+        selected_rev, selected_path = parse_show_request(argument, rev, path)
+    except ValueError as error:
+        return {
+            "projectRoot": str(Path(project_root).resolve()),
+            "ok": False,
+            "rev": rev or "HEAD",
+            "path": path or ".",
+            "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
+            "message": f"Usage: /show [rev] [path]\nError: {error}",
+        }
+
+    root = Path(project_root).resolve()
+    workspace = RunWorkspace(root=root, run_id="local-show", session_dir=root / ".vibeagent" / "sessions" / "local-show")
+    observation = execute_action(
+        workspace,
+        GitShowAction(type="git_show", rev=selected_rev, path=selected_path, max_output_chars=max_output_chars),
+    )
+    if observation.kind != "git_show":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "rev": selected_rev,
+            "path": selected_path or ".",
+            "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "rev": observation.rev,
+        "path": observation.path or ".",
+        "output": _git_output_payload(
+            observation.output,
+            truncated=observation.truncated,
+            max_output_chars=observation.max_output_chars,
+        ),
+        "message": observation.message,
+    }
+
+
+def format_show_report_text(report: dict[str, object]) -> str:
+    output = report.get("output") if isinstance(report.get("output"), dict) else {}
+    output_text = str(output.get("text") or "") if isinstance(output, dict) else ""
+    lines = [
+        "Show:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  rev: {report.get('rev') or 'HEAD'}",
+        f"  path: {report.get('path') or '.'}",
+        f"  maxOutputChars: {output.get('maxOutputChars', 0) if isinstance(output, dict) else 0}",
+        f"  truncated: {'yes' if bool(output.get('truncated')) else 'no'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    if output_text.strip():
+        lines.append("  output:")
+        lines.append(_indent_block(output_text.strip(), spaces=4))
+    else:
+        lines.append("  output: none")
+    return "\n".join(lines)
+
+
 def get_blame_text(
     project_root: str | Path = ".",
     argument: str | None = None,
@@ -6911,6 +8929,184 @@ def get_blame_text(
         lines.append(_indent_block(observation.blame.strip(), spaces=4))
     else:
         lines.append("  output: none")
+    return "\n".join(lines)
+
+
+def get_blame_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    line_range: str | None = None,
+    max_output_chars: int = 12_000,
+) -> dict[str, object]:
+    if max_output_chars < 1_000:
+        return {
+            "projectRoot": str(Path(project_root).resolve()),
+            "ok": False,
+            "path": "",
+            "range": ".",
+            "startLine": None,
+            "lineCount": None,
+            "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
+            "message": "Usage: /blame <path> [start[:end]]\nError: max_output_chars must be at least 1000.",
+        }
+    if max_output_chars > 50_000:
+        return {
+            "projectRoot": str(Path(project_root).resolve()),
+            "ok": False,
+            "path": "",
+            "range": ".",
+            "startLine": None,
+            "lineCount": None,
+            "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
+            "message": "Usage: /blame <path> [start[:end]]\nError: max_output_chars must be at most 50000.",
+        }
+    if argument is None or not argument.strip():
+        return {
+            "projectRoot": str(Path(project_root).resolve()),
+            "ok": False,
+            "path": "",
+            "range": ".",
+            "startLine": None,
+            "lineCount": None,
+            "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
+            "message": "Usage: /blame <path> [start[:end]]",
+        }
+    try:
+        path, start_line, line_count, range_label = parse_read_request(argument, line_range)
+    except ValueError as error:
+        return {
+            "projectRoot": str(Path(project_root).resolve()),
+            "ok": False,
+            "path": argument,
+            "range": line_range or ".",
+            "startLine": None,
+            "lineCount": None,
+            "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
+            "message": f"Usage: /blame <path> [start[:end]]\nError: {error}",
+        }
+
+    root = Path(project_root).resolve()
+    workspace = RunWorkspace(root=root, run_id="local-blame", session_dir=root / ".vibeagent" / "sessions" / "local-blame")
+    observation = execute_action(
+        workspace,
+        GitBlameAction(
+            type="git_blame",
+            path=path,
+            start_line=start_line,
+            line_count=line_count,
+            max_output_chars=max_output_chars,
+        ),
+    )
+    if observation.kind != "git_blame":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": path,
+            "range": range_label or ".",
+            "startLine": start_line,
+            "lineCount": line_count,
+            "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "path": observation.path,
+        "range": range_label or ".",
+        "startLine": observation.start_line,
+        "lineCount": observation.line_count,
+        "output": _git_output_payload(
+            observation.blame,
+            truncated=observation.truncated,
+            max_output_chars=observation.max_output_chars,
+        ),
+        "message": observation.message,
+    }
+
+
+def format_blame_report_text(report: dict[str, object]) -> str:
+    output = report.get("output") if isinstance(report.get("output"), dict) else {}
+    output_text = str(output.get("text") or "") if isinstance(output, dict) else ""
+    lines = [
+        "Blame:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  path: {report.get('path') or ''}",
+        f"  range: {report.get('range') or '.'}",
+        f"  maxOutputChars: {output.get('maxOutputChars', 0) if isinstance(output, dict) else 0}",
+        f"  truncated: {'yes' if bool(output.get('truncated')) else 'no'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    if output_text.strip():
+        lines.append("  output:")
+        lines.append(_indent_block(output_text.strip(), spaces=4))
+    else:
+        lines.append("  output: none")
+    return "\n".join(lines)
+
+
+def get_stashes_report(project_root: str | Path = ".", argument: str | None = None, max_entries: int = 20) -> dict[str, object]:
+    try:
+        selected_max = parse_stashes_request(argument, max_entries)
+    except ValueError as error:
+        return {
+            "projectRoot": str(Path(project_root).resolve()),
+            "ok": False,
+            "maxEntries": max_entries,
+            "entries": {"shown": 0, "total": 0, "truncated": False, "items": []},
+            "message": f"Usage: /stashes [count]\nError: {error}",
+        }
+
+    root = Path(project_root).resolve()
+    workspace = RunWorkspace(root=root, run_id="local-stashes", session_dir=root / ".vibeagent" / "sessions" / "local-stashes")
+    observation = execute_action(
+        workspace,
+        GitStashesAction(type="git_stashes", max_entries=selected_max),
+    )
+    if observation.kind != "git_stashes":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "maxEntries": selected_max,
+            "entries": {"shown": 0, "total": 0, "truncated": False, "items": []},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "maxEntries": selected_max,
+        "entries": {
+            "shown": len(observation.entries),
+            "total": observation.total,
+            "truncated": observation.truncated,
+            "items": [
+                {"name": entry.name, "summary": entry.summary}
+                for entry in observation.entries
+            ],
+        },
+        "message": observation.message,
+    }
+
+
+def format_stashes_report_text(report: dict[str, object]) -> str:
+    entries = report.get("entries") if isinstance(report.get("entries"), dict) else {}
+    items = entries.get("items") if isinstance(entries, dict) and isinstance(entries.get("items"), list) else []
+    lines = [
+        "Stashes:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  entries: {entries.get('shown', 0)}/{entries.get('total', 0)}",
+        f"  maxEntries: {report.get('maxEntries', 0)}",
+        f"  truncated: {'yes' if bool(entries.get('truncated')) else 'no'}",
+    ]
+    if items:
+        lines.append("  items:")
+        for entry in items:
+            if isinstance(entry, dict):
+                lines.append(f"    - {entry.get('name')}: {entry.get('summary')}")
+    else:
+        lines.append("  items: none")
+    lines.append(f"  message: {report.get('message') or ''}")
     return "\n".join(lines)
 
 
@@ -8047,6 +10243,163 @@ def process_status_text(running: bool, exit_code: int | None, signal: str | None
     return "unknown"
 
 
+def serialize_command_output_analysis(result: object) -> dict[str, object]:
+    diagnostics = [serialize_output_diagnostic(item) for item in list(getattr(result, "output_diagnostics", []) or [])]
+    contexts = [serialize_output_context_result(item) for item in list(getattr(result, "output_contexts", []) or [])]
+    return {
+        "diagnostics": {
+            "shown": len(diagnostics),
+            "total": int(getattr(result, "output_diagnostic_total", 0) or 0),
+            "items": diagnostics,
+        },
+        "diagnosticsTruncated": bool(getattr(result, "output_diagnostics_truncated", False)),
+        "contexts": {
+            "shown": len(contexts),
+            "totalRefs": int(getattr(result, "output_context_total_refs", 0) or 0),
+            "items": contexts,
+        },
+        "contextsTruncated": bool(getattr(result, "output_contexts_truncated", False)),
+    }
+
+
+def get_process_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    process_id: str | None = None,
+    max_output_chars: int = 4_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    try:
+        selected_process_id, selected_max = parse_process_request(argument, process_id, max_output_chars)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "processId": process_id or "",
+            "pid": None,
+            "status": "unknown",
+            "running": False,
+            "exitCode": None,
+            "signal": None,
+            "maxOutputChars": max_output_chars,
+            "stdout": "",
+            "stderr": "",
+            "analysis": {"diagnostics": {"shown": 0, "total": 0, "items": []}, "diagnosticsTruncated": False, "contexts": {"shown": 0, "totalRefs": 0, "items": []}, "contextsTruncated": False},
+            "message": f"Usage: /process <id> [chars]\nError: {error}",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-process", session_dir=root / ".vibeagent" / "sessions" / "local-process")
+    observation = execute_action(
+        workspace,
+        ReadProcessAction(type="read_process", process_id=selected_process_id, max_output_chars=selected_max),
+    )
+    if observation.kind != "read_process":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "processId": selected_process_id,
+            "pid": None,
+            "status": "unknown",
+            "running": False,
+            "exitCode": None,
+            "signal": None,
+            "maxOutputChars": selected_max,
+            "stdout": "",
+            "stderr": "",
+            "analysis": {"diagnostics": {"shown": 0, "total": 0, "items": []}, "diagnosticsTruncated": False, "contexts": {"shown": 0, "totalRefs": 0, "items": []}, "contextsTruncated": False},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "processId": observation.process_id,
+        "pid": observation.pid,
+        "status": process_status_text(observation.running, observation.exit_code, observation.signal),
+        "running": observation.running,
+        "exitCode": observation.exit_code,
+        "signal": observation.signal,
+        "maxOutputChars": observation.max_output_chars,
+        "stdout": observation.stdout,
+        "stderr": observation.stderr,
+        "analysis": serialize_command_output_analysis(observation),
+        "message": observation.message,
+    }
+
+
+def format_process_report_text(report: dict[str, object]) -> str:
+    analysis = report.get("analysis") if isinstance(report.get("analysis"), dict) else {}
+    lines = [
+        "Process:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  processId: {report.get('processId') or ''}",
+        f"  pid: {report.get('pid') if report.get('pid') is not None else '.'}",
+        f"  status: {report.get('status') or 'unknown'}",
+        f"  maxOutputChars: {report.get('maxOutputChars', 0)}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    stdout = str(report.get("stdout") or "")
+    stderr = str(report.get("stderr") or "")
+    if stdout:
+        lines.append("  stdout:")
+        lines.append(_indent_block(stdout.rstrip(), spaces=4))
+    else:
+        lines.append("  stdout: none")
+    if stderr:
+        lines.append("  stderr:")
+        lines.append(_indent_block(stderr.rstrip(), spaces=4))
+    else:
+        lines.append("  stderr: none")
+    lines.extend(format_structured_command_output_analysis_lines(analysis, spaces=2))
+    return "\n".join(lines)
+
+
+def format_structured_command_output_analysis_lines(analysis: dict[str, object], spaces: int) -> list[str]:
+    prefix = " " * spaces
+    child_prefix = " " * (spaces + 2)
+    lines: list[str] = []
+    diagnostics = analysis.get("diagnostics") if isinstance(analysis.get("diagnostics"), dict) else {}
+    diagnostic_items = diagnostics.get("items") if isinstance(diagnostics.get("items"), list) else []
+    diagnostic_total = int(diagnostics.get("total", 0) or 0)
+    if diagnostic_items or diagnostic_total:
+        lines.append(f"{prefix}outputDiagnostics: {len(diagnostic_items)}/{diagnostic_total}")
+        lines.append(f"{prefix}outputDiagnosticsTruncated: {'yes' if bool(analysis.get('diagnosticsTruncated')) else 'no'}")
+        if diagnostic_items:
+            lines.append(f"{prefix}diagnostics:")
+            for raw_diagnostic in diagnostic_items:
+                diagnostic = raw_diagnostic if isinstance(raw_diagnostic, dict) else {}
+                location = ""
+                if diagnostic.get("path"):
+                    location = f" {diagnostic.get('path')}:{diagnostic.get('line') if diagnostic.get('line') is not None else '?'}"
+                    if diagnostic.get("column") is not None:
+                        location += f":{diagnostic.get('column')}"
+                lines.append(
+                    f"{child_prefix}- {diagnostic.get('severity')} outputLine={diagnostic.get('outputLine')}{location}: {diagnostic.get('text') or ''}"
+                )
+    contexts = analysis.get("contexts") if isinstance(analysis.get("contexts"), dict) else {}
+    context_items = contexts.get("items") if isinstance(contexts.get("items"), list) else []
+    total_refs = int(contexts.get("totalRefs", 0) or 0)
+    if context_items or total_refs:
+        lines.append(f"{prefix}outputContexts: {len(context_items)}/{total_refs}")
+        lines.append(f"{prefix}outputContextsTruncated: {'yes' if bool(analysis.get('contextsTruncated')) else 'no'}")
+        if context_items:
+            lines.append(f"{prefix}contexts:")
+            for raw_context in context_items:
+                context = raw_context if isinstance(raw_context, dict) else {}
+                column = f":{context.get('column')}" if context.get("column") is not None else ""
+                lines.append(
+                    f"{child_prefix}- {context.get('path')}:{context.get('line')}{column} "
+                    f"[{context.get('raw') or ''}] ok={'yes' if bool(context.get('ok')) else 'no'}"
+                )
+                content = str(context.get("content") or "")
+                if content:
+                    lines.append(_indent_block(content.rstrip(), spaces=spaces + 4))
+                else:
+                    lines.append(f"{' ' * (spaces + 4)}{context.get('message') or ''}")
+    return lines
+
+
 def get_process_output_contexts_text(
     project_root: str | Path = ".",
     argument: str | None = None,
@@ -8125,6 +10478,157 @@ def get_process_output_contexts_text(
         if item.content:
             lines.append("  content:")
             lines.append(_indent_block(item.content.rstrip("\n"), spaces=4))
+        else:
+            lines.append("  content: none")
+    return "\n".join(lines)
+
+
+def get_process_output_contexts_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    process_id: str | None = None,
+    max_output_chars: int = 20_000,
+    context_lines: int = 5,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    try:
+        selected_process_id, selected_max = parse_process_request(argument, process_id, max_output_chars)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "processId": process_id or "",
+            "pid": None,
+            "status": "unknown",
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "totalRefs": 0,
+            "maxOutputChars": max_output_chars,
+            "stdoutChars": 0,
+            "stderrChars": 0,
+            "truncated": False,
+            "message": f"Usage: /process-output-contexts <id> [chars]\nError: {error}",
+        }
+    if context_lines < 0:
+        message = "Usage: /process-output-contexts <id> [chars]\nError: context_lines must be at least 0."
+    elif context_lines > 500:
+        message = "Usage: /process-output-contexts <id> [chars]\nError: context_lines must be at most 500."
+    elif max_contexts < 1:
+        message = "Usage: /process-output-contexts <id> [chars]\nError: max_contexts must be at least 1."
+    elif max_contexts > 100:
+        message = "Usage: /process-output-contexts <id> [chars]\nError: max_contexts must be at most 100."
+    elif max_bytes_per_context < 1_000:
+        message = "Usage: /process-output-contexts <id> [chars]\nError: max_bytes_per_context must be at least 1000."
+    elif max_bytes_per_context > 200_000:
+        message = "Usage: /process-output-contexts <id> [chars]\nError: max_bytes_per_context must be at most 200000."
+    else:
+        message = ""
+    if message:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "processId": selected_process_id,
+            "pid": None,
+            "status": "unknown",
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "totalRefs": 0,
+            "maxOutputChars": selected_max,
+            "stdoutChars": 0,
+            "stderrChars": 0,
+            "truncated": False,
+            "message": message,
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-process-output-contexts", session_dir=root / ".vibeagent" / "sessions" / "local-process-output-contexts")
+    observation = execute_action(
+        workspace,
+        ProcessOutputContextsAction(
+            type="process_output_contexts",
+            process_id=selected_process_id,
+            max_output_chars=selected_max,
+            context_lines=context_lines,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        ),
+    )
+    if observation.kind != "process_output_contexts":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "processId": selected_process_id,
+            "pid": None,
+            "status": "unknown",
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "totalRefs": 0,
+            "maxOutputChars": selected_max,
+            "stdoutChars": 0,
+            "stderrChars": 0,
+            "truncated": False,
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+
+    items = [serialize_output_context_result(item) for item in observation.contexts]
+    ok_count = sum(1 for item in items if item["ok"])
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "processId": observation.process_id,
+        "pid": observation.pid,
+        "status": process_status_text(observation.running, observation.exit_code, observation.signal),
+        "running": observation.running,
+        "exitCode": observation.exit_code,
+        "signal": observation.signal,
+        "contexts": {"ok": ok_count, "total": len(items), "items": items},
+        "totalRefs": observation.total_refs,
+        "maxOutputChars": observation.max_output_chars,
+        "stdoutChars": observation.stdout_chars,
+        "stderrChars": observation.stderr_chars,
+        "truncated": observation.truncated,
+        "message": observation.message,
+    }
+
+
+def format_process_output_contexts_report_text(report: dict[str, object]) -> str:
+    contexts = report.get("contexts") if isinstance(report.get("contexts"), dict) else {}
+    items = contexts.get("items") if isinstance(contexts.get("items"), list) else []
+    lines = [
+        "Process output contexts:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  processId: {report.get('processId') or ''}",
+        f"  pid: {report.get('pid') if report.get('pid') is not None else '.'}",
+        f"  status: {report.get('status') or 'unknown'}",
+        f"  contexts: {contexts.get('ok', 0)}/{contexts.get('total', 0)}",
+        f"  totalRefs: {report.get('totalRefs', 0)}",
+        f"  maxOutputChars: {report.get('maxOutputChars', 0)}",
+        f"  stdoutChars: {report.get('stdoutChars', 0)}",
+        f"  stderrChars: {report.get('stderrChars', 0)}",
+        f"  truncated: {'yes' if bool(report.get('truncated')) else 'no'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    for raw_item in items:
+        item = raw_item if isinstance(raw_item, dict) else {}
+        column = f":{item.get('column')}" if item.get("column") is not None else ""
+        lines.extend(
+            [
+                "",
+                f"Context: {item.get('path') or ''}:{item.get('line') if item.get('line') is not None else 'unknown'}{column}",
+                f"  raw: {item.get('raw') or ''}",
+                f"  ok: {'yes' if bool(item.get('ok')) else 'no'}",
+                f"  range: {item.get('startLine')}:{item.get('endLine')}",
+                f"  contextLines: {item.get('contextLines') if item.get('contextLines') is not None else 'unknown'}",
+                f"  targetLineExists: {'yes' if bool(item.get('targetLineExists')) else 'no'}",
+                f"  lines: {item.get('lineCount', 0)}/{item.get('totalLines') if item.get('totalLines') is not None else 'unknown'}",
+                f"  maxBytes: {item.get('maxBytes') if item.get('maxBytes') is not None else 'unknown'}",
+                f"  truncated: {'yes' if bool(item.get('truncated')) else 'no'}",
+                f"  message: {item.get('message') or ''}",
+            ]
+        )
+        content = str(item.get("content") or "")
+        if content:
+            lines.append("  content:")
+            lines.append(_indent_block(content.rstrip("\n"), spaces=4))
         else:
             lines.append("  content: none")
     return "\n".join(lines)
@@ -8226,6 +10730,205 @@ def get_process_output_diagnostics_text(
         if item.content:
             lines.append("  content:")
             lines.append(_indent_block(item.content.rstrip("\n"), spaces=4))
+        else:
+            lines.append("  content: none")
+    return "\n".join(lines)
+
+
+def get_process_output_diagnostics_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    process_id: str | None = None,
+    max_output_chars: int = 20_000,
+    context_lines: int = 2,
+    max_diagnostics: int = 50,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    try:
+        selected_process_id, selected_max = parse_process_request(argument, process_id, max_output_chars)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "processId": process_id or "",
+            "pid": None,
+            "status": "unknown",
+            "diagnostics": {"shown": 0, "total": 0, "items": []},
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "totalRefs": 0,
+            "maxOutputChars": max_output_chars,
+            "stdoutChars": 0,
+            "stderrChars": 0,
+            "contextLines": context_lines,
+            "maxDiagnostics": max_diagnostics,
+            "maxContexts": max_contexts,
+            "maxBytesPerContext": max_bytes_per_context,
+            "diagnosticsTruncated": False,
+            "contextsTruncated": False,
+            "message": f"Usage: /process-output-diagnostics <id> [chars]\nError: {error}",
+        }
+    if context_lines < 0:
+        message = "Usage: /process-output-diagnostics <id> [chars]\nError: context_lines must be at least 0."
+    elif context_lines > 500:
+        message = "Usage: /process-output-diagnostics <id> [chars]\nError: context_lines must be at most 500."
+    elif max_diagnostics < 1:
+        message = "Usage: /process-output-diagnostics <id> [chars]\nError: max_diagnostics must be at least 1."
+    elif max_diagnostics > 200:
+        message = "Usage: /process-output-diagnostics <id> [chars]\nError: max_diagnostics must be at most 200."
+    elif max_contexts < 1:
+        message = "Usage: /process-output-diagnostics <id> [chars]\nError: max_contexts must be at least 1."
+    elif max_contexts > 100:
+        message = "Usage: /process-output-diagnostics <id> [chars]\nError: max_contexts must be at most 100."
+    elif max_bytes_per_context < 1_000:
+        message = "Usage: /process-output-diagnostics <id> [chars]\nError: max_bytes_per_context must be at least 1000."
+    elif max_bytes_per_context > 200_000:
+        message = "Usage: /process-output-diagnostics <id> [chars]\nError: max_bytes_per_context must be at most 200000."
+    else:
+        message = ""
+    if message:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "processId": selected_process_id,
+            "pid": None,
+            "status": "unknown",
+            "diagnostics": {"shown": 0, "total": 0, "items": []},
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "totalRefs": 0,
+            "maxOutputChars": selected_max,
+            "stdoutChars": 0,
+            "stderrChars": 0,
+            "contextLines": context_lines,
+            "maxDiagnostics": max_diagnostics,
+            "maxContexts": max_contexts,
+            "maxBytesPerContext": max_bytes_per_context,
+            "diagnosticsTruncated": False,
+            "contextsTruncated": False,
+            "message": message,
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-process-output-diagnostics", session_dir=root / ".vibeagent" / "sessions" / "local-process-output-diagnostics")
+    observation = execute_action(
+        workspace,
+        ProcessOutputDiagnosticsAction(
+            type="process_output_diagnostics",
+            process_id=selected_process_id,
+            max_output_chars=selected_max,
+            context_lines=context_lines,
+            max_diagnostics=max_diagnostics,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        ),
+    )
+    if observation.kind != "process_output_diagnostics":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "processId": selected_process_id,
+            "pid": None,
+            "status": "unknown",
+            "diagnostics": {"shown": 0, "total": 0, "items": []},
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "totalRefs": 0,
+            "maxOutputChars": selected_max,
+            "stdoutChars": 0,
+            "stderrChars": 0,
+            "contextLines": context_lines,
+            "maxDiagnostics": max_diagnostics,
+            "maxContexts": max_contexts,
+            "maxBytesPerContext": max_bytes_per_context,
+            "diagnosticsTruncated": False,
+            "contextsTruncated": False,
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+
+    diagnostics = [serialize_output_diagnostic(item) for item in observation.diagnostics]
+    contexts = [serialize_output_context_result(item) for item in observation.contexts]
+    ok_count = sum(1 for item in contexts if item["ok"])
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "processId": observation.process_id,
+        "pid": observation.pid,
+        "status": process_status_text(observation.running, observation.exit_code, observation.signal),
+        "running": observation.running,
+        "exitCode": observation.exit_code,
+        "signal": observation.signal,
+        "diagnostics": {"shown": len(diagnostics), "total": observation.total_diagnostics, "items": diagnostics},
+        "contexts": {"ok": ok_count, "total": len(contexts), "items": contexts},
+        "totalRefs": observation.total_refs,
+        "maxOutputChars": observation.max_output_chars,
+        "stdoutChars": observation.stdout_chars,
+        "stderrChars": observation.stderr_chars,
+        "contextLines": context_lines,
+        "maxDiagnostics": max_diagnostics,
+        "maxContexts": max_contexts,
+        "maxBytesPerContext": max_bytes_per_context,
+        "diagnosticsTruncated": observation.diagnostics_truncated,
+        "contextsTruncated": observation.contexts_truncated,
+        "message": observation.message,
+    }
+
+
+def format_process_output_diagnostics_report_text(report: dict[str, object]) -> str:
+    diagnostics = report.get("diagnostics") if isinstance(report.get("diagnostics"), dict) else {}
+    diagnostic_items = diagnostics.get("items") if isinstance(diagnostics.get("items"), list) else []
+    contexts = report.get("contexts") if isinstance(report.get("contexts"), dict) else {}
+    context_items = contexts.get("items") if isinstance(contexts.get("items"), list) else []
+    lines = [
+        "Process output diagnostics:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  processId: {report.get('processId') or ''}",
+        f"  pid: {report.get('pid') if report.get('pid') is not None else '.'}",
+        f"  status: {report.get('status') or 'unknown'}",
+        f"  diagnostics: {diagnostics.get('shown', 0)}/{diagnostics.get('total', 0)}",
+        f"  contexts: {contexts.get('ok', 0)}/{contexts.get('total', 0)}",
+        f"  totalRefs: {report.get('totalRefs', 0)}",
+        f"  maxOutputChars: {report.get('maxOutputChars', 0)}",
+        f"  stdoutChars: {report.get('stdoutChars', 0)}",
+        f"  stderrChars: {report.get('stderrChars', 0)}",
+        f"  contextLines: {report.get('contextLines') if report.get('contextLines') is not None else 'unknown'}",
+        f"  maxDiagnostics: {report.get('maxDiagnostics') if report.get('maxDiagnostics') is not None else 'unknown'}",
+        f"  maxContexts: {report.get('maxContexts') if report.get('maxContexts') is not None else 'unknown'}",
+        f"  maxBytesPerContext: {report.get('maxBytesPerContext') if report.get('maxBytesPerContext') is not None else 'unknown'}",
+        f"  diagnosticsTruncated: {'yes' if bool(report.get('diagnosticsTruncated')) else 'no'}",
+        f"  contextsTruncated: {'yes' if bool(report.get('contextsTruncated')) else 'no'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    for raw_diagnostic in diagnostic_items:
+        diagnostic = raw_diagnostic if isinstance(raw_diagnostic, dict) else {}
+        location = ""
+        if diagnostic.get("path") and diagnostic.get("line") is not None:
+            column = f":{diagnostic.get('column')}" if diagnostic.get("column") is not None else ""
+            location = f" {diagnostic.get('path')}:{diagnostic.get('line')}{column}"
+        lines.append(
+            f"  - {diagnostic.get('severity')} outputLine={diagnostic.get('outputLine')}{location}: {diagnostic.get('text') or ''}"
+        )
+    for raw_item in context_items:
+        item = raw_item if isinstance(raw_item, dict) else {}
+        column = f":{item.get('column')}" if item.get("column") is not None else ""
+        lines.extend(
+            [
+                "",
+                f"Context: {item.get('path') or ''}:{item.get('line') if item.get('line') is not None else 'unknown'}{column}",
+                f"  raw: {item.get('raw') or ''}",
+                f"  ok: {'yes' if bool(item.get('ok')) else 'no'}",
+                f"  range: {item.get('startLine')}:{item.get('endLine')}",
+                f"  contextLines: {item.get('contextLines') if item.get('contextLines') is not None else 'unknown'}",
+                f"  targetLineExists: {'yes' if bool(item.get('targetLineExists')) else 'no'}",
+                f"  lines: {item.get('lineCount', 0)}/{item.get('totalLines') if item.get('totalLines') is not None else 'unknown'}",
+                f"  maxBytes: {item.get('maxBytes') if item.get('maxBytes') is not None else 'unknown'}",
+                f"  truncated: {'yes' if bool(item.get('truncated')) else 'no'}",
+                f"  message: {item.get('message') or ''}",
+            ]
+        )
+        content = str(item.get("content") or "")
+        if content:
+            lines.append("  content:")
+            lines.append(_indent_block(content.rstrip("\n"), spaces=4))
         else:
             lines.append("  content: none")
     return "\n".join(lines)
@@ -8334,6 +11037,136 @@ def get_wait_process_text(
         lines.append("  stderr: none")
     lines.extend(format_command_output_diagnostic_lines(observation, spaces=2))
     lines.extend(format_command_output_context_lines(observation, spaces=2))
+    return "\n".join(lines)
+
+
+def get_wait_process_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    process_id: str | None = None,
+    timeout_ms: int = 5_000,
+    max_output_chars: int = 4_000,
+    stdout_contains: str | None = None,
+    stderr_contains: str | None = None,
+    regex: bool = False,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    try:
+        selected_process_id, selected_timeout, selected_max = parse_wait_process_request(
+            argument,
+            process_id,
+            timeout_ms,
+            max_output_chars,
+        )
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "processId": process_id or "",
+            "pid": None,
+            "status": "unknown",
+            "running": False,
+            "timedOut": False,
+            "matched": False,
+            "matchedStream": None,
+            "matchedPattern": None,
+            "timeoutMs": timeout_ms,
+            "exitCode": None,
+            "signal": None,
+            "maxOutputChars": max_output_chars,
+            "stdout": "",
+            "stderr": "",
+            "analysis": {"diagnostics": {"shown": 0, "total": 0, "items": []}, "diagnosticsTruncated": False, "contexts": {"shown": 0, "totalRefs": 0, "items": []}, "contextsTruncated": False},
+            "message": f"Usage: /wait-process <id> [timeout-ms] [chars]\nError: {error}",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-wait-process", session_dir=root / ".vibeagent" / "sessions" / "local-wait-process")
+    observation = execute_action(
+        workspace,
+        WaitProcessAction(
+            type="wait_process",
+            process_id=selected_process_id,
+            timeout_ms=selected_timeout,
+            stdout_contains=stdout_contains,
+            stderr_contains=stderr_contains,
+            regex=regex,
+            max_output_chars=selected_max,
+        ),
+    )
+    if observation.kind != "wait_process":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "processId": selected_process_id,
+            "pid": None,
+            "status": "unknown",
+            "running": False,
+            "timedOut": False,
+            "matched": False,
+            "matchedStream": None,
+            "matchedPattern": None,
+            "timeoutMs": selected_timeout,
+            "exitCode": None,
+            "signal": None,
+            "maxOutputChars": selected_max,
+            "stdout": "",
+            "stderr": "",
+            "analysis": {"diagnostics": {"shown": 0, "total": 0, "items": []}, "diagnosticsTruncated": False, "contexts": {"shown": 0, "totalRefs": 0, "items": []}, "contextsTruncated": False},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "processId": observation.process_id,
+        "pid": observation.pid,
+        "status": process_status_text(observation.running, observation.exit_code, observation.signal),
+        "running": observation.running,
+        "timedOut": observation.timed_out,
+        "matched": observation.matched,
+        "matchedStream": observation.matched_stream,
+        "matchedPattern": observation.matched_pattern,
+        "timeoutMs": observation.timeout_ms,
+        "exitCode": observation.exit_code,
+        "signal": observation.signal,
+        "maxOutputChars": observation.max_output_chars,
+        "stdout": observation.stdout,
+        "stderr": observation.stderr,
+        "analysis": serialize_command_output_analysis(observation),
+        "message": observation.message,
+    }
+
+
+def format_wait_process_report_text(report: dict[str, object]) -> str:
+    analysis = report.get("analysis") if isinstance(report.get("analysis"), dict) else {}
+    lines = [
+        "Wait process:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  processId: {report.get('processId') or ''}",
+        f"  pid: {report.get('pid') if report.get('pid') is not None else '.'}",
+        f"  status: {report.get('status') or 'unknown'}",
+        f"  timedOut: {'yes' if bool(report.get('timedOut')) else 'no'}",
+        f"  matched: {'yes' if bool(report.get('matched')) else 'no'}",
+        f"  matchedStream: {report.get('matchedStream') or '.'}",
+        f"  matchedPattern: {report.get('matchedPattern') or '.'}",
+        f"  timeoutMs: {report.get('timeoutMs', 0)}",
+        f"  maxOutputChars: {report.get('maxOutputChars', 0)}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    stdout = str(report.get("stdout") or "")
+    stderr = str(report.get("stderr") or "")
+    if stdout:
+        lines.append("  stdout:")
+        lines.append(_indent_block(stdout.rstrip(), spaces=4))
+    else:
+        lines.append("  stdout: none")
+    if stderr:
+        lines.append("  stderr:")
+        lines.append(_indent_block(stderr.rstrip(), spaces=4))
+    else:
+        lines.append("  stderr: none")
+    lines.extend(format_structured_command_output_analysis_lines(analysis, spaces=2))
     return "\n".join(lines)
 
 
@@ -9018,7 +11851,7 @@ def get_doctor_text(project_root: str | Path = ".", env: dict[str, str | None] |
     return "\n".join(lines)
 
 
-def get_review_text(project_root: str | Path = ".", max_files: int = 200, max_checks: int = 5) -> str:
+def get_review_report(project_root: str | Path = ".", max_files: int = 200, max_checks: int = 5) -> dict[str, object]:
     if max_checks < 1:
         raise ValueError("max_checks must be at least 1.")
     if max_checks > 50:
@@ -9033,14 +11866,79 @@ def get_review_text(project_root: str | Path = ".", max_files: int = 200, max_ch
     running_processes = [process for process in list_background_processes(root).processes if process.running]
     warnings.extend(running_process_warnings(running_processes))
     ready = bool(review["ok"]) and not blocking_issues
+    checks = suggested_checks[:max_checks]
+    return {
+        "projectRoot": str(root),
+        "ready": ready,
+        "ok": bool(review["ok"]),
+        "blockingIssues": blocking_issues,
+        "warnings": warnings,
+        "changedFiles": {
+            "shown": len(files),
+            "total": int(review["total_files"]),
+            "files": files[:max_files],
+        },
+        "runningProcesses": {
+            "count": len(running_processes),
+            "processes": [dict(process.__dict__) for process in running_processes],
+        },
+        "checks": {
+            "changes": bool(review["changes_ok"]),
+            "diff": bool(review["diff_check_ok"]),
+            "stagedDiff": bool(review["staged_diff_check_ok"]),
+            "python": bool(review["python_ok"]),
+            "config": bool(review["config_ok"]),
+        },
+        "syntaxChecks": {
+            "python": {
+                "ok": bool(review["python_ok"]),
+                "shown": len(review["python"]),
+                "total": int(review["python_total"]),
+                "truncated": bool(review["python_truncated"]),
+                "results": review["python"],
+            },
+            "config": {
+                "ok": bool(review["config_ok"]),
+                "shown": len(review["config"]),
+                "total": int(review["config_total"]),
+                "truncated": bool(review["config_truncated"]),
+                "results": review["config"],
+            },
+        },
+        "suggestedChecks": {
+            "shown": len(checks),
+            "total": int(review["suggested_checks_total"]),
+            "truncated": bool(review["suggested_checks_truncated"]) or len(suggested_checks) > len(checks),
+            "commands": checks,
+        },
+        "diffCheckOutput": str(review["diff_check"]),
+        "stagedDiffCheckOutput": str(review["staged_diff_check"]),
+        "status": str(review["status"]),
+        "message": str(review["message"]),
+    }
+
+
+def format_review_report_text(report: dict[str, object]) -> str:
+    changed_files = report["changedFiles"] if isinstance(report["changedFiles"], dict) else {}
+    files = changed_files.get("files", []) if isinstance(changed_files, dict) else []
+    running = report["runningProcesses"] if isinstance(report["runningProcesses"], dict) else {}
+    running_processes = running.get("processes", []) if isinstance(running, dict) else []
+    checks_report = report["suggestedChecks"] if isinstance(report["suggestedChecks"], dict) else {}
+    checks = checks_report.get("commands", []) if isinstance(checks_report, dict) else []
+    syntax_checks = report["syntaxChecks"] if isinstance(report["syntaxChecks"], dict) else {}
+    python_report = syntax_checks.get("python", {}) if isinstance(syntax_checks, dict) else {}
+    config_report = syntax_checks.get("config", {}) if isinstance(syntax_checks, dict) else {}
+    status_checks = report["checks"] if isinstance(report["checks"], dict) else {}
+    blocking_issues = report["blockingIssues"] if isinstance(report["blockingIssues"], list) else []
+    warnings = report["warnings"] if isinstance(report["warnings"], list) else []
     lines = [
         "Review:",
-        f"  ready: {'yes' if ready else 'no'}",
-        f"  changedFiles: {review['total_files']}",
-        f"  diffCheck: {_pass_text(bool(review['diff_check_ok']))}",
-        f"  stagedDiffCheck: {_pass_text(bool(review['staged_diff_check_ok']))}",
-        f"  python: {_pass_text(bool(review['python_ok']))} ({len(review['python'])}/{review['python_total']})",
-        f"  config: {_pass_text(bool(review['config_ok']))} ({len(review['config'])}/{review['config_total']})",
+        f"  ready: {'yes' if bool(report['ready']) else 'no'}",
+        f"  changedFiles: {changed_files.get('total', 0)}",
+        f"  diffCheck: {_pass_text(bool(status_checks.get('diff')))}",
+        f"  stagedDiffCheck: {_pass_text(bool(status_checks.get('stagedDiff')))}",
+        f"  python: {_pass_text(bool(python_report.get('ok')))} ({python_report.get('shown', 0)}/{python_report.get('total', 0)})",
+        f"  config: {_pass_text(bool(config_report.get('ok')))} ({config_report.get('shown', 0)}/{config_report.get('total', 0)})",
     ]
     if blocking_issues:
         lines.append("  blockingIssues:")
@@ -9050,40 +11948,45 @@ def get_review_text(project_root: str | Path = ".", max_files: int = 200, max_ch
         lines.extend(f"    - {warning}" for warning in warnings)
     if files:
         lines.append("  files:")
-        lines.extend(format_review_file(item) for item in files[:max_files])
+        lines.extend(format_review_file(item) for item in files if isinstance(item, dict))
     if running_processes:
         lines.append("  runningProcesses:")
-        lines.extend(format_review_process(process) for process in running_processes)
-    checks = suggested_checks[:max_checks]
+        lines.extend(format_review_process(ProcessInfo(**process)) for process in running_processes if isinstance(process, dict))
     if checks:
         lines.append("  suggestedChecks:")
-        lines.extend(format_review_check(item) for item in checks)
-    if str(review.get("diff_check", "")).strip():
+        lines.extend(format_review_check(item) for item in checks if isinstance(item, dict))
+    if str(report.get("diffCheckOutput", "")).strip():
         lines.append("  diffCheckOutput:")
-        lines.append(_indent_block(_clip(str(review["diff_check"]).strip(), 2_000), spaces=4))
-    if str(review.get("staged_diff_check", "")).strip():
+        lines.append(_indent_block(_clip(str(report["diffCheckOutput"]).strip(), 2_000), spaces=4))
+    if str(report.get("stagedDiffCheckOutput", "")).strip():
         lines.append("  stagedDiffCheckOutput:")
-        lines.append(_indent_block(_clip(str(review["staged_diff_check"]).strip(), 2_000), spaces=4))
-    failed_python = [item for item in review["python"] if isinstance(item, dict) and item.get("ok") is False]
+        lines.append(_indent_block(_clip(str(report["stagedDiffCheckOutput"]).strip(), 2_000), spaces=4))
+    python_results = python_report.get("results", []) if isinstance(python_report, dict) else []
+    failed_python = [item for item in python_results if isinstance(item, dict) and item.get("ok") is False]
     if failed_python:
         lines.append("  pythonFailures:")
         lines.extend(format_review_syntax_check(item) for item in failed_python[:10])
-    failed_config = [item for item in review["config"] if isinstance(item, dict) and item.get("ok") is False]
+    config_results = config_report.get("results", []) if isinstance(config_report, dict) else []
+    failed_config = [item for item in config_results if isinstance(item, dict) and item.get("ok") is False]
     if failed_config:
         lines.append("  configFailures:")
         lines.extend(format_review_syntax_check(item) for item in failed_config[:10])
-    lines.append(f"  message: {review['message']}")
+    lines.append(f"  message: {report['message']}")
     return "\n".join(lines)
 
 
-def get_handoff_text(
+def get_review_text(project_root: str | Path = ".", max_files: int = 200, max_checks: int = 5) -> str:
+    return format_review_report_text(get_review_report(project_root, max_files=max_files, max_checks=max_checks))
+
+
+def get_handoff_report(
     project_root: str | Path = ".",
     run_id: str | None = None,
     max_files: int = 200,
     max_checks: int = 10,
     max_status_chars: int = 4_000,
     max_plan_chars: int = 4_000,
-) -> str:
+) -> dict[str, object]:
     if max_files < 1:
         raise ValueError("max_files must be at least 1.")
     if max_files > 500:
@@ -9099,53 +12002,155 @@ def get_handoff_text(
         FinalReviewAction(type="final_review", max_files=max_files, max_checks=max_checks),
     )
     if observation.kind != "final_review":
-        return f"Handoff:\n  projectRoot: {root}\n  message: Unexpected observation: {observation.kind}"
+        return {
+            "projectRoot": str(root),
+            "ready": False,
+            "ok": False,
+            "blockingIssues": [f"Unexpected observation: {observation.kind}"],
+            "warnings": [],
+            "changedFiles": {"shown": 0, "total": 0, "files": []},
+            "runningProcesses": {"count": 0, "processes": []},
+            "suggestedChecks": {"shown": 0, "total": 0, "truncated": False, "commands": []},
+            "syntaxChecks": {
+                "python": {"shown": 0, "total": 0, "truncated": False, "results": []},
+                "config": {"shown": 0, "total": 0, "truncated": False, "results": []},
+            },
+            "gitStatus": {"text": "", "truncated": False},
+            "latestPlan": {"text": "", "truncated": False},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+
+    status = filter_handoff_status(observation.status)
+    plan_text = get_handoff_plan_text(root, run_id)
+    return {
+        "projectRoot": str(root),
+        "ready": bool(observation.ready),
+        "ok": bool(observation.ok),
+        "blockingIssues": list(observation.blocking_issues),
+        "warnings": list(observation.warnings),
+        "changedFiles": {
+            "shown": len(observation.files[:max_files]),
+            "total": int(observation.total_files),
+            "files": [dict(item.__dict__) for item in observation.files[:max_files]],
+        },
+        "runningProcesses": {
+            "count": len(observation.running_processes),
+            "processes": [dict(process.__dict__) for process in observation.running_processes],
+        },
+        "suggestedChecks": {
+            "shown": len(observation.suggested_checks),
+            "total": int(observation.suggested_checks_total),
+            "truncated": bool(observation.suggested_checks_truncated),
+            "commands": [dict(item.__dict__) for item in observation.suggested_checks],
+        },
+        "syntaxChecks": {
+            "python": {
+                "shown": len(observation.python),
+                "total": int(observation.python_total),
+                "truncated": bool(observation.python_truncated),
+                "results": [dict(item.__dict__) for item in observation.python],
+            },
+            "config": {
+                "shown": len(observation.config),
+                "total": int(observation.config_total),
+                "truncated": bool(observation.config_truncated),
+                "results": [dict(item.__dict__) for item in observation.config],
+            },
+        },
+        "gitStatus": {
+            "text": _clip(status, max_status_chars),
+            "truncated": len(status.strip()) > max_status_chars,
+        },
+        "latestPlan": {
+            "text": _clip(plan_text, max_plan_chars),
+            "truncated": len(plan_text.strip()) > max_plan_chars,
+        },
+        "message": str(observation.message),
+    }
+
+
+def format_handoff_report_text(report: dict[str, object]) -> str:
+    changed_files = report["changedFiles"] if isinstance(report["changedFiles"], dict) else {}
+    files = changed_files.get("files", []) if isinstance(changed_files, dict) else []
+    running = report["runningProcesses"] if isinstance(report["runningProcesses"], dict) else {}
+    running_processes = running.get("processes", []) if isinstance(running, dict) else []
+    suggested = report["suggestedChecks"] if isinstance(report["suggestedChecks"], dict) else {}
+    suggested_checks = suggested.get("commands", []) if isinstance(suggested, dict) else []
+    syntax = report["syntaxChecks"] if isinstance(report["syntaxChecks"], dict) else {}
+    python_report = syntax.get("python", {}) if isinstance(syntax, dict) else {}
+    config_report = syntax.get("config", {}) if isinstance(syntax, dict) else {}
+    git_status = report["gitStatus"] if isinstance(report["gitStatus"], dict) else {}
+    latest_plan = report["latestPlan"] if isinstance(report["latestPlan"], dict) else {}
+    blocking_issues = report["blockingIssues"] if isinstance(report["blockingIssues"], list) else []
+    warnings = report["warnings"] if isinstance(report["warnings"], list) else []
 
     lines = [
         "Handoff:",
-        f"  projectRoot: {root}",
-        f"  ready: {'yes' if observation.ready else 'no'}",
-        f"  changedFiles: {observation.total_files}",
-        f"  suggestedChecks: {len(observation.suggested_checks)}/{observation.suggested_checks_total}",
-        f"  checksTruncated: {'yes' if observation.suggested_checks_truncated else 'no'}",
+        f"  projectRoot: {report['projectRoot']}",
+        f"  ready: {'yes' if bool(report['ready']) else 'no'}",
+        f"  changedFiles: {changed_files.get('total', 0)}",
+        f"  suggestedChecks: {suggested.get('shown', 0)}/{suggested.get('total', 0)}",
+        f"  checksTruncated: {'yes' if bool(suggested.get('truncated')) else 'no'}",
     ]
-    if observation.blocking_issues:
+    if blocking_issues:
         lines.append("  blockingIssues:")
-        lines.extend(f"    - {issue}" for issue in observation.blocking_issues)
-    if observation.warnings:
+        lines.extend(f"    - {issue}" for issue in blocking_issues)
+    if warnings:
         lines.append("  warnings:")
-        lines.extend(f"    - {warning}" for warning in observation.warnings)
-    if observation.running_processes:
+        lines.extend(f"    - {warning}" for warning in warnings)
+    if running_processes:
         lines.append("  runningProcesses:")
-        lines.extend(format_review_process(process) for process in observation.running_processes)
-    if observation.files:
+        lines.extend(format_review_process(ProcessInfo(**process)) for process in running_processes if isinstance(process, dict))
+    if files:
         lines.append("  files:")
-        lines.extend(format_review_file(item.__dict__) for item in observation.files[:max_files])
+        lines.extend(format_review_file(item) for item in files if isinstance(item, dict))
     else:
         lines.append("  files: none")
-    failed_python = [item for item in observation.python if item.ok is False]
+    python_results = python_report.get("results", []) if isinstance(python_report, dict) else []
+    failed_python = [item for item in python_results if isinstance(item, dict) and item.get("ok") is False]
     if failed_python:
         lines.append("  pythonFailures:")
-        lines.extend(format_review_syntax_check(item.__dict__) for item in failed_python[:10])
-    failed_config = [item for item in observation.config if item.ok is False]
+        lines.extend(format_review_syntax_check(item) for item in failed_python[:10])
+    config_results = config_report.get("results", []) if isinstance(config_report, dict) else []
+    failed_config = [item for item in config_results if isinstance(item, dict) and item.get("ok") is False]
     if failed_config:
         lines.append("  configFailures:")
-        lines.extend(format_review_syntax_check(item.__dict__) for item in failed_config[:10])
-    if observation.suggested_checks:
+        lines.extend(format_review_syntax_check(item) for item in failed_config[:10])
+    if suggested_checks:
         lines.append("  suggestedChecks:")
-        lines.extend(format_review_check(item.__dict__) for item in observation.suggested_checks)
+        lines.extend(format_review_check(item) for item in suggested_checks if isinstance(item, dict))
     else:
         lines.append("  suggestedChecks: none")
-    status = filter_handoff_status(observation.status)
+    status = str(git_status.get("text", ""))
     if status.strip():
         lines.append("  gitStatus:")
-        lines.append(_indent_block(_clip(status, max_status_chars), spaces=4))
+        lines.append(_indent_block(status, spaces=4))
     lines.append("")
     lines.append("Latest plan:")
-    lines.append(_indent_block(_clip(get_handoff_plan_text(root, run_id), max_plan_chars), spaces=2))
+    lines.append(_indent_block(str(latest_plan.get("text", "")), spaces=2))
     lines.append("")
-    lines.append(f"Message: {observation.message}")
+    lines.append(f"Message: {report['message']}")
     return "\n".join(lines)
+
+
+def get_handoff_text(
+    project_root: str | Path = ".",
+    run_id: str | None = None,
+    max_files: int = 200,
+    max_checks: int = 10,
+    max_status_chars: int = 4_000,
+    max_plan_chars: int = 4_000,
+) -> str:
+    return format_handoff_report_text(
+        get_handoff_report(
+            project_root,
+            run_id=run_id,
+            max_files=max_files,
+            max_checks=max_checks,
+            max_status_chars=max_status_chars,
+            max_plan_chars=max_plan_chars,
+        )
+    )
 
 
 def get_handoff_plan_text(project_root: str | Path = ".", run_id: str | None = None) -> str:
@@ -9160,7 +12165,7 @@ def get_handoff_plan_text(project_root: str | Path = ".", run_id: str | None = N
     return "No sessions with plans found."
 
 
-def get_changes_text(project_root: str | Path = ".", max_files: int = 200) -> str:
+def get_changes_report(project_root: str | Path = ".", max_files: int = 200) -> dict[str, object]:
     if max_files < 1:
         raise ValueError("max_files must be at least 1.")
     if max_files > 500:
@@ -9169,14 +12174,20 @@ def get_changes_text(project_root: str | Path = ".", max_files: int = 200) -> st
     workspace = RunWorkspace(root=root, run_id="local-changes", session_dir=root / ".vibeagent" / "sessions" / "local-changes")
     changes = read_git_changes(workspace)
     if not bool(changes["ok"]):
-        return "\n".join(
-            [
-                "Changes:",
-                f"  projectRoot: {root}",
-                "  ok: no",
-                f"  message: {changes['message']}",
-            ]
-        )
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "changedFiles": {"shown": 0, "total": 0, "truncated": False, "files": []},
+            "counts": {
+                "staged": 0,
+                "unstaged": 0,
+                "untracked": 0,
+                "binary": 0,
+                "insertions": 0,
+                "deletions": 0,
+            },
+            "message": str(changes["message"]),
+        }
 
     files = [item for item in changes["files"] if isinstance(item, dict)]
     shown = files[:max_files]
@@ -9186,45 +12197,140 @@ def get_changes_text(project_root: str | Path = ".", max_files: int = 200) -> st
     binary = sum(1 for item in files if item.get("binary") is True)
     insertions = sum(int(item.get("staged_insertions") or 0) + int(item.get("unstaged_insertions") or 0) for item in files)
     deletions = sum(int(item.get("staged_deletions") or 0) + int(item.get("unstaged_deletions") or 0) for item in files)
+    return {
+        "projectRoot": str(root),
+        "ok": True,
+        "changedFiles": {
+            "shown": len(shown),
+            "total": len(files),
+            "truncated": len(shown) < len(files),
+            "files": shown,
+        },
+        "counts": {
+            "staged": staged,
+            "unstaged": unstaged,
+            "untracked": untracked,
+            "binary": binary,
+            "insertions": insertions,
+            "deletions": deletions,
+        },
+        "message": str(changes["message"]),
+    }
+
+
+def format_changes_report_text(report: dict[str, object]) -> str:
+    changed_files = report["changedFiles"] if isinstance(report["changedFiles"], dict) else {}
+    files = changed_files.get("files", []) if isinstance(changed_files, dict) else []
+    counts = report["counts"] if isinstance(report["counts"], dict) else {}
     lines = [
         "Changes:",
-        f"  projectRoot: {root}",
-        "  ok: yes",
-        f"  changedFiles: {len(files)}",
-        f"  shownFiles: {len(shown)}/{len(files)}",
-        f"  stagedFiles: {staged}",
-        f"  unstagedFiles: {unstaged}",
-        f"  untrackedFiles: {untracked}",
-        f"  binaryFiles: {binary}",
-        f"  insertions: {insertions}",
-        f"  deletions: {deletions}",
-        f"  truncated: {'yes' if len(shown) < len(files) else 'no'}",
+        f"  projectRoot: {report['projectRoot']}",
+        f"  ok: {'yes' if bool(report['ok']) else 'no'}",
     ]
-    if shown:
+    if bool(report["ok"]):
+        lines.extend(
+            [
+                f"  changedFiles: {changed_files.get('total', 0)}",
+                f"  shownFiles: {changed_files.get('shown', 0)}/{changed_files.get('total', 0)}",
+                f"  stagedFiles: {counts.get('staged', 0)}",
+                f"  unstagedFiles: {counts.get('unstaged', 0)}",
+                f"  untrackedFiles: {counts.get('untracked', 0)}",
+                f"  binaryFiles: {counts.get('binary', 0)}",
+                f"  insertions: {counts.get('insertions', 0)}",
+                f"  deletions: {counts.get('deletions', 0)}",
+                f"  truncated: {'yes' if bool(changed_files.get('truncated')) else 'no'}",
+            ]
+        )
+    if files:
         lines.append("  files:")
-        lines.extend(format_review_file(item) for item in shown)
-    else:
+        lines.extend(format_review_file(item) for item in files if isinstance(item, dict))
+    elif bool(report["ok"]):
         lines.append("  files: none")
-    lines.append(f"  message: {changes['message']}")
+    lines.append(f"  message: {report['message']}")
+    return "\n".join(lines)
+
+
+def get_changes_text(project_root: str | Path = ".", max_files: int = 200) -> str:
+    return format_changes_report_text(get_changes_report(project_root, max_files=max_files))
+
+
+def get_checkpoint_report(project_root: str | Path = ".", label: str | None = None) -> dict[str, object]:
+    return build_checkpoint_create_report(project_root, label=label)
+
+
+def build_checkpoint_create_report(project_root: str | Path = ".", label: str | None = None) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    metadata, message = create_local_checkpoint_metadata(root, label)
+    if metadata is None:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "created": False,
+            "checkpoint": None,
+            "patches": {"stagedChars": 0, "unstagedChars": 0},
+            "message": message,
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": True,
+        "created": True,
+        "checkpoint": serialize_checkpoint_metadata(metadata),
+        "patches": {
+            "stagedChars": int(metadata.get("staged_diff_chars") or 0),
+            "unstagedChars": int(metadata.get("unstaged_diff_chars") or 0),
+        },
+        "message": "Saved checkpoint metadata, patch files, and ordinary untracked files under .vibeagent/checkpoints.",
+    }
+
+
+def format_checkpoint_create_report_text(report: dict[str, object]) -> str:
+    checkpoint = report.get("checkpoint")
+    if not bool(report.get("ok")) or not isinstance(checkpoint, dict):
+        return "\n".join(
+            [
+                "Checkpoint:",
+                f"  projectRoot: {report.get('projectRoot') or '.'}",
+                "  created: no",
+                f"  message: {report.get('message')}",
+            ]
+        )
+    lines = [
+        "Checkpoint:",
+        "  created: yes",
+        f"  id: {checkpoint.get('id')}",
+        f"  label: {checkpoint.get('label') or ''}",
+        f"  projectRoot: {report.get('projectRoot') or checkpoint.get('projectRoot')}",
+        f"  head: {checkpoint.get('shortHead') or short_head(str(checkpoint.get('head') or ''))}",
+        f"  changedFiles: {checkpoint.get('changedFiles', 0)}",
+        f"  stagedFiles: {checkpoint.get('stagedFiles', 0)}",
+        f"  unstagedFiles: {checkpoint.get('unstagedFiles', 0)}",
+        f"  untrackedFiles: {checkpoint.get('untrackedFiles', 0)}",
+        f"  unstagedPatchChars: {checkpoint.get('unstagedPatchChars', 0)}",
+        f"  stagedPatchChars: {checkpoint.get('stagedPatchChars', 0)}",
+        f"  message: {report.get('message')}",
+    ]
     return "\n".join(lines)
 
 
 def get_checkpoint_text(project_root: str | Path = ".", label: str | None = None) -> str:
-    root = Path(project_root).resolve()
+    return format_checkpoint_create_report_text(get_checkpoint_report(project_root, label=label))
+
+
+def create_local_checkpoint_metadata(root: Path, label: str | None = None) -> tuple[dict[str, object] | None, str]:
     workspace = RunWorkspace(root=root, run_id="local-checkpoint", session_dir=root / ".vibeagent" / "sessions" / "local-checkpoint")
     status = read_git_status(workspace)
     if not status.ok:
-        return f"Checkpoint:\n  projectRoot: {root}\n  created: no\n  message: {status.stderr or 'git status failed.'}"
+        return None, status.stderr or "git status failed."
 
     unstaged = read_git_diff(workspace, staged=False)
     staged = read_git_diff(workspace, staged=True)
     if not unstaged.ok:
-        return f"Checkpoint:\n  projectRoot: {root}\n  created: no\n  message: {unstaged.stderr or 'git diff failed.'}"
+        return None, unstaged.stderr or "git diff failed."
     if not staged.ok:
-        return f"Checkpoint:\n  projectRoot: {root}\n  created: no\n  message: {staged.stderr or 'git diff --staged failed.'}"
+        return None, staged.stderr or "git diff --staged failed."
     head = read_git_head(root)
     if not head:
-        return f"Checkpoint:\n  projectRoot: {root}\n  created: no\n  message: git rev-parse HEAD failed."
+        return None, "git rev-parse HEAD failed."
 
     checkpoint_id = make_run_id()
     checkpoint_dir = checkpoint_root(root) / checkpoint_id
@@ -9251,83 +12357,174 @@ def get_checkpoint_text(project_root: str | Path = ".", label: str | None = None
     (checkpoint_dir / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (checkpoint_dir / "unstaged.patch").write_text(unstaged.stdout, encoding="utf-8")
     (checkpoint_dir / "staged.patch").write_text(staged.stdout, encoding="utf-8")
-    return format_checkpoint_created(metadata)
+    return metadata, "Saved checkpoint metadata, patch files, and ordinary untracked files under .vibeagent/checkpoints."
 
 
-def get_checkpoints_text(project_root: str | Path = ".") -> str:
+def serialize_checkpoint_metadata(metadata: dict[str, object]) -> dict[str, object]:
+    return {
+        "id": str(metadata.get("id") or ""),
+        "label": str(metadata.get("label") or ""),
+        "createdAt": str(metadata.get("created_at") or ""),
+        "projectRoot": str(metadata.get("project_root") or ""),
+        "head": str(metadata.get("head") or ""),
+        "shortHead": short_head(str(metadata.get("head") or "")),
+        "changedFiles": int(metadata.get("changed_files") or 0),
+        "stagedFiles": int(metadata.get("staged_files") or 0),
+        "unstagedFiles": int(metadata.get("unstaged_files") or 0),
+        "untrackedFiles": int(metadata.get("untracked_files") or 0),
+        "untrackedSavedFiles": int(metadata.get("untracked_saved_files") or 0),
+        "untrackedSkippedFiles": int(metadata.get("untracked_skipped_files") or 0),
+        "stagedPatchChars": int(metadata.get("staged_diff_chars") or 0),
+        "unstagedPatchChars": int(metadata.get("unstaged_diff_chars") or 0),
+    }
+
+
+def serialize_checkpoint_info(info: CheckpointInfo) -> dict[str, object]:
+    return {
+        "id": info.checkpoint_id,
+        "label": info.label,
+        "createdAt": info.created_at,
+        "head": info.head,
+        "shortHead": short_head(info.head),
+        "changedFiles": info.changed_files,
+        "stagedFiles": info.staged_files,
+        "unstagedFiles": info.unstaged_files,
+        "untrackedFiles": info.untracked_files,
+    }
+
+
+def get_checkpoints_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
     checkpoints = read_checkpoints(root)
+    return {
+        "projectRoot": str(root),
+        "ok": True,
+        "total": len(checkpoints),
+        "checkpoints": [serialize_checkpoint_metadata(metadata) for metadata in checkpoints],
+        "message": f"Found {len(checkpoints)} checkpoint(s).",
+    }
+
+
+def format_checkpoints_report_text(report: dict[str, object]) -> str:
+    checkpoints = report.get("checkpoints")
+    items = checkpoints if isinstance(checkpoints, list) else []
     lines = [
         "Checkpoints:",
-        f"  projectRoot: {root}",
-        f"  total: {len(checkpoints)}",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  total: {report.get('total', 0)}",
     ]
-    if checkpoints:
+    if items:
         lines.append("  items:")
-        for metadata in checkpoints:
+        for metadata in items:
+            if not isinstance(metadata, dict):
+                continue
             label = str(metadata.get("label") or "")
             label_text = f" label={label}" if label else ""
             lines.append(
                 "    - "
-                f"{metadata.get('id')} created={metadata.get('created_at')}"
-                f"{label_text} changedFiles={metadata.get('changed_files', 0)}"
-                f" staged={metadata.get('staged_files', 0)}"
-                f" unstaged={metadata.get('unstaged_files', 0)}"
-                f" untracked={metadata.get('untracked_files', 0)}"
+                f"{metadata.get('id')} created={metadata.get('createdAt')}"
+                f"{label_text} changedFiles={metadata.get('changedFiles', 0)}"
+                f" staged={metadata.get('stagedFiles', 0)}"
+                f" unstaged={metadata.get('unstagedFiles', 0)}"
+                f" untracked={metadata.get('untrackedFiles', 0)}"
             )
     else:
         lines.append("  items: none")
     return "\n".join(lines)
 
 
-def get_checkpoint_show_text(checkpoint_id: str | None, project_root: str | Path = ".") -> str:
+def get_checkpoints_text(project_root: str | Path = ".") -> str:
+    return format_checkpoints_report_text(get_checkpoints_report(project_root))
+
+
+def read_local_checkpoint_metadata(root: Path, checkpoint_id: str | None, usage: str) -> tuple[Path | None, dict[str, object] | None, str]:
     if not checkpoint_id or not checkpoint_id.strip():
-        return "Usage: /checkpoint-show <id>"
-    root = Path(project_root).resolve()
+        return None, None, f"Usage: {usage}"
     try:
         checkpoint_dir = resolve_checkpoint_dir(root, checkpoint_id)
     except ValueError as error:
-        return str(error)
+        return None, None, str(error)
     metadata_path = checkpoint_dir / "metadata.json"
     if not metadata_path.is_file():
-        return f"Checkpoint not found: {checkpoint_id}"
+        return checkpoint_dir, None, f"Checkpoint not found: {checkpoint_id}"
     try:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return f"Checkpoint metadata is unreadable: {checkpoint_id}"
+        return checkpoint_dir, None, f"Checkpoint metadata is unreadable: {checkpoint_id}"
     if not isinstance(metadata, dict):
-        return f"Checkpoint metadata is invalid: {checkpoint_id}"
+        return checkpoint_dir, None, f"Checkpoint metadata is invalid: {checkpoint_id}"
+    return checkpoint_dir, metadata, ""
 
+
+def get_checkpoint_show_report(checkpoint_id: str | None, project_root: str | Path = ".") -> dict[str, object]:
+    root = Path(project_root).resolve()
+    checkpoint_dir, metadata, error = read_local_checkpoint_metadata(root, checkpoint_id, "/checkpoint-show <id>")
+    if metadata is None:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "exists": False,
+            "checkpoint": None,
+            "gitStatus": "",
+            "savedUntrackedPaths": {"shown": [], "truncated": False},
+            "message": error,
+        }
     status = str(metadata.get("git_status") or "")
-    unstaged_patch = checkpoint_dir / "unstaged.patch"
-    staged_patch = checkpoint_dir / "staged.patch"
     saved_untracked_paths, saved_untracked_paths_truncated = clip_local_checkpoint_untracked_paths(
-        [item["path"] for item in read_local_checkpoint_untracked_manifest(checkpoint_dir)],
+        [item["path"] for item in read_local_checkpoint_untracked_manifest(checkpoint_dir or root)],
     )
+    return {
+        "projectRoot": str(root),
+        "ok": True,
+        "exists": True,
+        "checkpoint": serialize_checkpoint_metadata(metadata),
+        "patches": {
+            "unstagedPath": display_checkpoint_file(root, (checkpoint_dir or root) / "unstaged.patch"),
+            "stagedPath": display_checkpoint_file(root, (checkpoint_dir or root) / "staged.patch"),
+            "unstagedChars": int(metadata.get("unstaged_diff_chars") or 0),
+            "stagedChars": int(metadata.get("staged_diff_chars") or 0),
+        },
+        "gitStatus": status,
+        "savedUntrackedPaths": {
+            "shown": saved_untracked_paths,
+            "truncated": saved_untracked_paths_truncated,
+        },
+        "message": f"Read checkpoint {metadata.get('id') or checkpoint_id}.",
+    }
+
+
+def format_checkpoint_show_report_text(report: dict[str, object]) -> str:
+    checkpoint = report.get("checkpoint")
+    if not bool(report.get("ok")) or not isinstance(checkpoint, dict):
+        return str(report.get("message") or "Checkpoint not found.")
+    patches = report.get("patches") if isinstance(report.get("patches"), dict) else {}
+    paths = report.get("savedUntrackedPaths") if isinstance(report.get("savedUntrackedPaths"), dict) else {}
+    shown_paths = paths.get("shown", []) if isinstance(paths, dict) else []
     lines = [
         "Checkpoint:",
-        f"  id: {metadata.get('id')}",
-        f"  label: {metadata.get('label') or ''}",
-        f"  createdAt: {metadata.get('created_at')}",
-        f"  projectRoot: {metadata.get('project_root')}",
-        f"  head: {short_head(str(metadata.get('head') or ''))}",
-        f"  changedFiles: {metadata.get('changed_files', 0)}",
-        f"  stagedFiles: {metadata.get('staged_files', 0)}",
-        f"  unstagedFiles: {metadata.get('unstaged_files', 0)}",
-        f"  untrackedFiles: {metadata.get('untracked_files', 0)}",
-        f"  untrackedSavedFiles: {metadata.get('untracked_saved_files', 0)}",
-        f"  untrackedSkippedFiles: {metadata.get('untracked_skipped_files', 0)}",
-        f"  unstagedPatch: {display_checkpoint_file(root, unstaged_patch)} ({metadata.get('unstaged_diff_chars', 0)} chars)",
-        f"  stagedPatch: {display_checkpoint_file(root, staged_patch)} ({metadata.get('staged_diff_chars', 0)} chars)",
+        f"  id: {checkpoint.get('id')}",
+        f"  label: {checkpoint.get('label') or ''}",
+        f"  createdAt: {checkpoint.get('createdAt')}",
+        f"  projectRoot: {checkpoint.get('projectRoot') or report.get('projectRoot')}",
+        f"  head: {checkpoint.get('shortHead') or short_head(str(checkpoint.get('head') or ''))}",
+        f"  changedFiles: {checkpoint.get('changedFiles', 0)}",
+        f"  stagedFiles: {checkpoint.get('stagedFiles', 0)}",
+        f"  unstagedFiles: {checkpoint.get('unstagedFiles', 0)}",
+        f"  untrackedFiles: {checkpoint.get('untrackedFiles', 0)}",
+        f"  untrackedSavedFiles: {checkpoint.get('untrackedSavedFiles', 0)}",
+        f"  untrackedSkippedFiles: {checkpoint.get('untrackedSkippedFiles', 0)}",
+        f"  unstagedPatch: {patches.get('unstagedPath')} ({patches.get('unstagedChars', 0)} chars)",
+        f"  stagedPatch: {patches.get('stagedPath')} ({patches.get('stagedChars', 0)} chars)",
     ]
-    if saved_untracked_paths:
+    if shown_paths:
         lines.append("  savedUntrackedPaths:")
-        for path in saved_untracked_paths:
+        for path in shown_paths:
             lines.append(f"    - {path}")
-        if saved_untracked_paths_truncated:
+        if bool(paths.get("truncated")):
             lines.append("    - ...")
     else:
         lines.append("  savedUntrackedPaths: none")
+    status = str(report.get("gitStatus") or "")
     if status.strip():
         lines.append("  gitStatus:")
         lines.append(_indent_block(_clip(status, 4_000), spaces=4))
@@ -9336,41 +12533,68 @@ def get_checkpoint_show_text(checkpoint_id: str | None, project_root: str | Path
     return "\n".join(lines)
 
 
-def get_checkpoint_diff_text(checkpoint_id: str | None, project_root: str | Path = ".", max_chars: int = 40_000) -> str:
-    if not checkpoint_id or not checkpoint_id.strip():
-        return "Usage: /checkpoint-diff <id>"
+def get_checkpoint_show_text(checkpoint_id: str | None, project_root: str | Path = ".") -> str:
+    return format_checkpoint_show_report_text(get_checkpoint_show_report(checkpoint_id, project_root))
+
+
+def get_checkpoint_diff_report(
+    checkpoint_id: str | None,
+    project_root: str | Path = ".",
+    max_chars: int = 40_000,
+) -> dict[str, object]:
     if max_chars < 100:
         raise ValueError("max_chars must be at least 100.")
     if max_chars > 200_000:
         raise ValueError("max_chars must be at most 200000.")
     root = Path(project_root).resolve()
-    try:
-        checkpoint_dir = resolve_checkpoint_dir(root, checkpoint_id)
-    except ValueError as error:
-        return str(error)
-    metadata_path = checkpoint_dir / "metadata.json"
-    if not metadata_path.is_file():
-        return f"Checkpoint not found: {checkpoint_id}"
-    try:
-        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return f"Checkpoint metadata is unreadable: {checkpoint_id}"
-    if not isinstance(metadata, dict):
-        return f"Checkpoint metadata is invalid: {checkpoint_id}"
-
-    staged = read_checkpoint_patch(checkpoint_dir / "staged.patch")
-    unstaged = read_checkpoint_patch(checkpoint_dir / "unstaged.patch")
+    checkpoint_dir, metadata, error = read_local_checkpoint_metadata(root, checkpoint_id, "/checkpoint-diff <id>")
+    if metadata is None:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "exists": False,
+            "id": checkpoint_id or "",
+            "diff": None,
+            "message": error,
+        }
+    staged = read_checkpoint_patch((checkpoint_dir or root) / "staged.patch")
+    unstaged = read_checkpoint_patch((checkpoint_dir or root) / "unstaged.patch")
     staged_text, staged_truncated = clip_with_flag(staged, max_chars)
     unstaged_text, unstaged_truncated = clip_with_flag(unstaged, max_chars)
+    return {
+        "projectRoot": str(root),
+        "ok": True,
+        "exists": True,
+        "checkpoint": serialize_checkpoint_metadata(metadata),
+        "diff": {
+            "maxChars": max_chars,
+            "stagedPatch": staged_text,
+            "stagedChars": len(staged),
+            "stagedTruncated": staged_truncated,
+            "unstagedPatch": unstaged_text,
+            "unstagedChars": len(unstaged),
+            "unstagedTruncated": unstaged_truncated,
+        },
+        "message": f"Read checkpoint diff {metadata.get('id') or checkpoint_id}.",
+    }
+
+
+def format_checkpoint_diff_report_text(report: dict[str, object]) -> str:
+    checkpoint = report.get("checkpoint")
+    diff = report.get("diff") if isinstance(report.get("diff"), dict) else {}
+    if not bool(report.get("ok")) or not isinstance(checkpoint, dict):
+        return str(report.get("message") or "Checkpoint not found.")
+    staged_text = str(diff.get("stagedPatch") or "")
+    unstaged_text = str(diff.get("unstagedPatch") or "")
     lines = [
         "Checkpoint diff:",
-        f"  id: {metadata.get('id')}",
-        f"  label: {metadata.get('label') or ''}",
-        f"  createdAt: {metadata.get('created_at')}",
-        f"  stagedChars: {len(staged)}",
-        f"  stagedTruncated: {'yes' if staged_truncated else 'no'}",
-        f"  unstagedChars: {len(unstaged)}",
-        f"  unstagedTruncated: {'yes' if unstaged_truncated else 'no'}",
+        f"  id: {checkpoint.get('id')}",
+        f"  label: {checkpoint.get('label') or ''}",
+        f"  createdAt: {checkpoint.get('createdAt')}",
+        f"  stagedChars: {diff.get('stagedChars', 0)}",
+        f"  stagedTruncated: {'yes' if bool(diff.get('stagedTruncated')) else 'no'}",
+        f"  unstagedChars: {diff.get('unstagedChars', 0)}",
+        f"  unstagedTruncated: {'yes' if bool(diff.get('unstagedTruncated')) else 'no'}",
         "",
         "Staged patch:",
         staged_text if staged_text else "no staged changes",
@@ -9381,74 +12605,234 @@ def get_checkpoint_diff_text(checkpoint_id: str | None, project_root: str | Path
     return "\n".join(lines)
 
 
-def get_checkpoint_status_text(checkpoint_id: str | None, project_root: str | Path = ".") -> str:
-    if not checkpoint_id or not checkpoint_id.strip():
-        return "Usage: /checkpoint-status <id>"
-    root = Path(project_root).resolve()
-    try:
-        checkpoint_dir = resolve_checkpoint_dir(root, checkpoint_id)
-    except ValueError as error:
-        return str(error)
-    metadata_path = checkpoint_dir / "metadata.json"
-    if not metadata_path.is_file():
-        return f"Checkpoint not found: {checkpoint_id}"
-    try:
-        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return f"Checkpoint metadata is unreadable: {checkpoint_id}"
-    if not isinstance(metadata, dict):
-        return f"Checkpoint metadata is invalid: {checkpoint_id}"
+def get_checkpoint_diff_text(checkpoint_id: str | None, project_root: str | Path = ".", max_chars: int = 40_000) -> str:
+    return format_checkpoint_diff_report_text(get_checkpoint_diff_report(checkpoint_id, project_root, max_chars=max_chars))
 
+
+def get_checkpoint_status_report(checkpoint_id: str | None, project_root: str | Path = ".") -> dict[str, object]:
+    root = Path(project_root).resolve()
+    checkpoint_dir, metadata, error = read_local_checkpoint_metadata(root, checkpoint_id, "/checkpoint-status <id>")
+    if metadata is None:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "exists": False,
+            "id": checkpoint_id or "",
+            "matches": False,
+            "message": error,
+        }
     workspace = RunWorkspace(root=root, run_id="local-checkpoint-status", session_dir=root / ".vibeagent" / "sessions" / "local-checkpoint-status")
     status = read_git_status(workspace)
     if not status.ok:
-        return f"Checkpoint status:\n  id: {metadata.get('id')}\n  matches: no\n  message: {status.stderr or 'git status failed.'}"
+        return checkpoint_status_error_report(root, metadata, status.stderr or "git status failed.")
     staged = read_git_diff(workspace, staged=True)
     if not staged.ok:
-        return f"Checkpoint status:\n  id: {metadata.get('id')}\n  matches: no\n  message: {staged.stderr or 'git diff --staged failed.'}"
+        return checkpoint_status_error_report(root, metadata, staged.stderr or "git diff --staged failed.")
     unstaged = read_git_diff(workspace, staged=False)
     if not unstaged.ok:
-        return f"Checkpoint status:\n  id: {metadata.get('id')}\n  matches: no\n  message: {unstaged.stderr or 'git diff failed.'}"
+        return checkpoint_status_error_report(root, metadata, unstaged.stderr or "git diff failed.")
 
     saved_status = str(metadata.get("git_status") or "")
-    saved_staged = read_checkpoint_patch(checkpoint_dir / "staged.patch")
-    saved_unstaged = read_checkpoint_patch(checkpoint_dir / "unstaged.patch")
+    saved_staged = read_checkpoint_patch((checkpoint_dir or root) / "staged.patch")
+    saved_unstaged = read_checkpoint_patch((checkpoint_dir or root) / "unstaged.patch")
     current_status = filter_handoff_status(status.stdout)
     current_counts = count_status_kinds(current_status)
     status_matches = current_status == saved_status
     staged_matches = staged.stdout == saved_staged
     unstaged_matches = unstaged.stdout == saved_unstaged
-    untracked_matches = local_checkpoint_untracked_files_match(root, checkpoint_dir, int(metadata.get("untracked_files") or 0))
+    untracked_matches = local_checkpoint_untracked_files_match(root, checkpoint_dir or root, int(metadata.get("untracked_files") or 0))
     matches = status_matches and staged_matches and unstaged_matches and untracked_matches
+    return {
+        "projectRoot": str(root),
+        "ok": True,
+        "exists": True,
+        "checkpoint": serialize_checkpoint_metadata(metadata),
+        "matches": matches,
+        "checks": {
+            "statusMatches": status_matches,
+            "stagedPatchMatches": staged_matches,
+            "unstagedPatchMatches": unstaged_matches,
+            "untrackedFileMatches": untracked_matches,
+        },
+        "saved": {
+            "changedFiles": int(metadata.get("changed_files") or 0),
+            "stagedFiles": int(metadata.get("staged_files") or 0),
+            "unstagedFiles": int(metadata.get("unstaged_files") or 0),
+            "untrackedFiles": int(metadata.get("untracked_files") or 0),
+            "stagedPatchChars": len(saved_staged),
+            "unstagedPatchChars": len(saved_unstaged),
+        },
+        "current": {
+            "changedFiles": current_counts["changed_files"],
+            "stagedFiles": current_counts["staged_files"],
+            "unstagedFiles": current_counts["unstaged_files"],
+            "untrackedFiles": current_counts["untracked_files"],
+            "stagedPatchChars": len(staged.stdout),
+            "unstagedPatchChars": len(unstaged.stdout),
+        },
+        "message": "Current worktree matches checkpoint." if matches else "Current worktree differs from checkpoint.",
+    }
+
+
+def checkpoint_status_error_report(root: Path, metadata: dict[str, object], message: str) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "exists": True,
+        "checkpoint": serialize_checkpoint_metadata(metadata),
+        "matches": False,
+        "checks": {
+            "statusMatches": False,
+            "stagedPatchMatches": False,
+            "unstagedPatchMatches": False,
+            "untrackedFileMatches": False,
+        },
+        "saved": {},
+        "current": {},
+        "message": message,
+    }
+
+
+def format_checkpoint_status_report_text(report: dict[str, object]) -> str:
+    checkpoint = report.get("checkpoint")
+    if not isinstance(checkpoint, dict):
+        return str(report.get("message") or "Checkpoint not found.")
+    checks = report.get("checks") if isinstance(report.get("checks"), dict) else {}
+    saved = report.get("saved") if isinstance(report.get("saved"), dict) else {}
+    current = report.get("current") if isinstance(report.get("current"), dict) else {}
     lines = [
         "Checkpoint status:",
-        f"  id: {metadata.get('id')}",
-        f"  label: {metadata.get('label') or ''}",
-        f"  createdAt: {metadata.get('created_at')}",
-        f"  matches: {'yes' if matches else 'no'}",
-        f"  statusMatches: {'yes' if status_matches else 'no'}",
-        f"  stagedPatchMatches: {'yes' if staged_matches else 'no'}",
-        f"  unstagedPatchMatches: {'yes' if unstaged_matches else 'no'}",
-        f"  untrackedFileMatches: {'yes' if untracked_matches else 'no'}",
-        "  saved:",
-        f"    changedFiles: {metadata.get('changed_files', 0)}",
-        f"    stagedFiles: {metadata.get('staged_files', 0)}",
-        f"    unstagedFiles: {metadata.get('unstaged_files', 0)}",
-        f"    untrackedFiles: {metadata.get('untracked_files', 0)}",
-        f"    stagedPatchChars: {len(saved_staged)}",
-        f"    unstagedPatchChars: {len(saved_unstaged)}",
-        "  current:",
-        f"    changedFiles: {current_counts['changed_files']}",
-        f"    stagedFiles: {current_counts['staged_files']}",
-        f"    unstagedFiles: {current_counts['unstaged_files']}",
-        f"    untrackedFiles: {current_counts['untracked_files']}",
-        f"    stagedPatchChars: {len(staged.stdout)}",
-        f"    unstagedPatchChars: {len(unstaged.stdout)}",
+        f"  id: {checkpoint.get('id')}",
+        f"  label: {checkpoint.get('label') or ''}",
+        f"  createdAt: {checkpoint.get('createdAt')}",
+        f"  matches: {'yes' if bool(report.get('matches')) else 'no'}",
+        f"  statusMatches: {'yes' if bool(checks.get('statusMatches')) else 'no'}",
+        f"  stagedPatchMatches: {'yes' if bool(checks.get('stagedPatchMatches')) else 'no'}",
+        f"  unstagedPatchMatches: {'yes' if bool(checks.get('unstagedPatchMatches')) else 'no'}",
+        f"  untrackedFileMatches: {'yes' if bool(checks.get('untrackedFileMatches')) else 'no'}",
     ]
-    if not matches:
-        lines.append("  message: Current worktree differs from checkpoint.")
-    else:
-        lines.append("  message: Current worktree matches checkpoint.")
+    if saved:
+        lines.extend(
+            [
+                "  saved:",
+                f"    changedFiles: {saved.get('changedFiles', 0)}",
+                f"    stagedFiles: {saved.get('stagedFiles', 0)}",
+                f"    unstagedFiles: {saved.get('unstagedFiles', 0)}",
+                f"    untrackedFiles: {saved.get('untrackedFiles', 0)}",
+                f"    stagedPatchChars: {saved.get('stagedPatchChars', 0)}",
+                f"    unstagedPatchChars: {saved.get('unstagedPatchChars', 0)}",
+                "  current:",
+                f"    changedFiles: {current.get('changedFiles', 0)}",
+                f"    stagedFiles: {current.get('stagedFiles', 0)}",
+                f"    unstagedFiles: {current.get('unstagedFiles', 0)}",
+                f"    untrackedFiles: {current.get('untrackedFiles', 0)}",
+                f"    stagedPatchChars: {current.get('stagedPatchChars', 0)}",
+                f"    unstagedPatchChars: {current.get('unstagedPatchChars', 0)}",
+            ]
+        )
+    lines.append(f"  message: {report.get('message')}")
+    return "\n".join(lines)
+
+
+def get_checkpoint_status_text(checkpoint_id: str | None, project_root: str | Path = ".") -> str:
+    return format_checkpoint_status_report_text(get_checkpoint_status_report(checkpoint_id, project_root))
+
+
+def serialize_checkpoint_restore_plan(plan: dict[str, object], restored: bool = False) -> dict[str, object]:
+    return {
+        "projectRoot": str(plan.get("project_root") or "."),
+        "ok": bool(plan.get("ok")),
+        "restored": restored,
+        "canRestore": bool(plan.get("ok")),
+        "id": str(plan.get("id") or ""),
+        "label": str(plan.get("label") or ""),
+        "createdAt": str(plan.get("created_at") or ""),
+        "savedHead": str(plan.get("saved_head") or ""),
+        "currentHead": str(plan.get("current_head") or ""),
+        "saved": {
+            "changedFiles": int(plan.get("saved_changed_files") or 0),
+            "stagedFiles": int(plan.get("saved_staged_files") or 0),
+            "unstagedFiles": int(plan.get("saved_unstaged_files") or 0),
+            "untrackedFiles": int(plan.get("saved_untracked_files") or 0),
+            "stagedPatchChars": len(str(plan.get("staged_patch") or "")),
+            "unstagedPatchChars": len(str(plan.get("unstaged_patch") or "")),
+        },
+        "current": {
+            "changedFiles": int(plan.get("current_changed_files") or 0),
+            "stagedFiles": int(plan.get("current_staged_files") or 0),
+            "unstagedFiles": int(plan.get("current_unstaged_files") or 0),
+            "untrackedFiles": int(plan.get("current_untracked_files") or 0),
+        },
+        "message": str(plan.get("message") or ""),
+    }
+
+
+def get_check_checkpoint_restore_report(checkpoint_id: str | None, project_root: str | Path = ".") -> dict[str, object]:
+    return serialize_checkpoint_restore_plan(build_checkpoint_restore_plan(checkpoint_id, project_root), restored=False)
+
+
+def get_checkpoint_restore_report(checkpoint_id: str | None, project_root: str | Path = ".") -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if not checkpoint_id or not checkpoint_id.strip():
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "restored": False,
+            "matches": False,
+            "id": "",
+            "savedHead": "",
+            "currentHead": "",
+            "saved": {"untrackedFiles": 0, "stagedPatchChars": 0, "unstagedPatchChars": 0},
+            "current": {"untrackedFiles": 0},
+            "message": "Usage: /checkpoint-restore <id>",
+        }
+    workspace = RunWorkspace(root=root, run_id="local-checkpoint-restore", session_dir=root / ".vibeagent" / "sessions" / "local-checkpoint-restore")
+    observation = execute_action(workspace, CheckpointRestoreAction(type="checkpoint_restore", checkpoint_id=checkpoint_id))
+    return {
+        "projectRoot": str(root),
+        "ok": bool(observation.ok),
+        "restored": bool(observation.restored),
+        "matches": bool(observation.matches),
+        "id": observation.checkpoint_id,
+        "savedHead": observation.saved_head,
+        "currentHead": observation.current_head,
+        "saved": {
+            "untrackedFiles": observation.saved_untracked_files,
+            "stagedPatchChars": observation.staged_patch_chars,
+            "unstagedPatchChars": observation.unstaged_patch_chars,
+        },
+        "current": {
+            "untrackedFiles": observation.current_untracked_files,
+        },
+        "message": observation.message,
+    }
+
+
+def format_checkpoint_restore_report_text(report: dict[str, object]) -> str:
+    saved = report.get("saved") if isinstance(report.get("saved"), dict) else {}
+    current = report.get("current") if isinstance(report.get("current"), dict) else {}
+    lines = [
+        "Checkpoint restore:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  restored: {'yes' if bool(report.get('restored')) else 'no'}",
+        f"  id: {report.get('id') or '.'}",
+    ]
+    if report.get("savedHead") or report.get("currentHead"):
+        lines.append(f"  savedHead: {short_head(str(report.get('savedHead') or ''))}")
+        lines.append(f"  currentHead: {short_head(str(report.get('currentHead') or ''))}")
+    lines.extend(
+        [
+            "  saved:",
+            f"    untrackedFiles: {saved.get('untrackedFiles', 0)}",
+            f"    stagedPatchChars: {saved.get('stagedPatchChars', 0)}",
+            f"    unstagedPatchChars: {saved.get('unstagedPatchChars', 0)}",
+            "  current:",
+            f"    untrackedFiles: {current.get('untrackedFiles', 0)}",
+            f"  matches: {'yes' if bool(report.get('matches')) else 'no'}",
+            f"  message: {report.get('message')}",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -9507,23 +12891,50 @@ def get_checkpoint_restore_text(checkpoint_id: str | None, project_root: str | P
     return format_checkpoint_restore_plan("Checkpoint restore", restored_plan, restored=True)
 
 
-def get_check_checkpoint_delete_text(checkpoint_id: str | None, project_root: str | Path = ".") -> str:
-    if not checkpoint_id or not checkpoint_id.strip():
-        return "Usage: /check-checkpoint-delete <id>"
+def get_check_checkpoint_delete_report(checkpoint_id: str | None, project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
+    if not checkpoint_id or not checkpoint_id.strip():
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "canDelete": False,
+            "id": "",
+            "label": "",
+            "createdAt": "",
+            "message": "Usage: /check-checkpoint-delete <id>",
+        }
     workspace = RunWorkspace(root=root, run_id="local-check-checkpoint-delete", session_dir=root / ".vibeagent" / "sessions" / "local-check-checkpoint-delete")
     observation = execute_action(workspace, CheckCheckpointDeleteAction(type="check_checkpoint_delete", checkpoint_id=checkpoint_id))
+    return {
+        "projectRoot": str(root),
+        "ok": bool(observation.ok),
+        "canDelete": bool(observation.can_delete),
+        "id": observation.checkpoint_id,
+        "label": observation.label,
+        "createdAt": observation.created_at,
+        "message": observation.message,
+    }
+
+
+def format_check_checkpoint_delete_report_text(report: dict[str, object]) -> str:
     lines = [
         "Check checkpoint delete:",
-        f"  projectRoot: {root}",
-        f"  canDelete: {'yes' if observation.can_delete else 'no'}",
-        f"  id: {observation.checkpoint_id}",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  canDelete: {'yes' if bool(report.get('canDelete')) else 'no'}",
+        f"  id: {report.get('id') or ''}",
     ]
-    if observation.label or observation.created_at:
-        lines.append(f"  label: {observation.label}")
-        lines.append(f"  createdAt: {observation.created_at}")
-    lines.append(f"  message: {observation.message}")
+    if report.get("label") or report.get("createdAt"):
+        lines.append(f"  label: {report.get('label') or ''}")
+        lines.append(f"  createdAt: {report.get('createdAt') or ''}")
+    lines.append(f"  message: {report.get('message')}")
     return "\n".join(lines)
+
+
+def get_check_checkpoint_delete_text(checkpoint_id: str | None, project_root: str | Path = ".") -> str:
+    report = get_check_checkpoint_delete_report(checkpoint_id, project_root)
+    if str(report.get("message") or "").startswith("Usage:"):
+        return str(report["message"])
+    return format_check_checkpoint_delete_report_text(report)
 
 
 def get_checkpoint_delete_text(checkpoint_id: str | None, project_root: str | Path = ".") -> str:
@@ -9598,14 +13009,103 @@ def get_checkpoint_delete_text(checkpoint_id: str | None, project_root: str | Pa
     return "\n".join(lines)
 
 
-def get_check_checkpoint_prune_text(keep_last: str | int | None, project_root: str | Path = ".") -> str:
-    parsed, error = parse_checkpoint_keep_last(keep_last, "/check-checkpoint-prune <keep-last>")
-    if error:
-        return error
+def get_checkpoint_delete_report(checkpoint_id: str | None, project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
+    if not checkpoint_id or not checkpoint_id.strip():
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "deleted": False,
+            "id": "",
+            "message": "Usage: /checkpoint-delete <id>",
+        }
+    workspace = RunWorkspace(root=root, run_id="local-checkpoint-delete", session_dir=root / ".vibeagent" / "sessions" / "local-checkpoint-delete")
+    observation = execute_action(workspace, CheckpointDeleteAction(type="checkpoint_delete", checkpoint_id=checkpoint_id))
+    return {
+        "projectRoot": str(root),
+        "ok": bool(observation.ok),
+        "deleted": bool(observation.deleted),
+        "id": observation.checkpoint_id,
+        "message": observation.message,
+    }
+
+
+def format_checkpoint_delete_report_text(report: dict[str, object]) -> str:
+    return "\n".join(
+        [
+            "Checkpoint delete:",
+            f"  projectRoot: {report.get('projectRoot') or '.'}",
+            f"  deleted: {'yes' if bool(report.get('deleted')) else 'no'}",
+            f"  id: {report.get('id') or ''}",
+            f"  message: {report.get('message')}",
+        ]
+    )
+
+
+def get_check_checkpoint_prune_report(keep_last: str | int | None, project_root: str | Path = ".") -> dict[str, object]:
+    parsed, error = parse_checkpoint_keep_last(keep_last, "/check-checkpoint-prune <keep-last>")
+    root = Path(project_root).resolve()
+    if error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "keepLast": None,
+            "total": 0,
+            "kept": 0,
+            "deleteCount": 0,
+            "checkpoints": [],
+            "message": error,
+        }
     workspace = RunWorkspace(root=root, run_id="local-check-checkpoint-prune", session_dir=root / ".vibeagent" / "sessions" / "local-check-checkpoint-prune")
     observation = execute_action(workspace, CheckCheckpointPruneAction(type="check_checkpoint_prune", keep_last=parsed))
-    return format_checkpoint_prune_observation("Check checkpoint prune:", root, observation)
+    return {
+        "projectRoot": str(root),
+        "ok": bool(observation.ok),
+        "keepLast": observation.keep_last,
+        "total": observation.total,
+        "kept": observation.kept,
+        "deleteCount": observation.delete_count,
+        "checkpoints": [serialize_checkpoint_info(checkpoint) for checkpoint in observation.checkpoints],
+        "message": observation.message,
+    }
+
+
+def format_check_checkpoint_prune_report_text(report: dict[str, object]) -> str:
+    if str(report.get("message") or "").startswith("Usage:"):
+        return str(report["message"])
+    lines = [
+        "Check checkpoint prune:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  keepLast: {report.get('keepLast')}",
+        f"  total: {report.get('total', 0)}",
+        f"  kept: {report.get('kept', 0)}",
+        f"  deleteCount: {report.get('deleteCount', 0)}",
+    ]
+    checkpoints = report.get("checkpoints")
+    items = checkpoints if isinstance(checkpoints, list) else []
+    if items:
+        lines.append("  checkpoints:")
+        for checkpoint in items:
+            if not isinstance(checkpoint, dict):
+                continue
+            label_text = f" label={checkpoint.get('label')}" if checkpoint.get("label") else ""
+            lines.append(
+                "    - "
+                f"{checkpoint.get('id')} created={checkpoint.get('createdAt')}"
+                f"{label_text} changedFiles={checkpoint.get('changedFiles', 0)}"
+                f" staged={checkpoint.get('stagedFiles', 0)}"
+                f" unstaged={checkpoint.get('unstagedFiles', 0)}"
+                f" untracked={checkpoint.get('untrackedFiles', 0)}"
+            )
+    else:
+        lines.append("  checkpoints: none")
+    lines.append(f"  message: {report.get('message')}")
+    return "\n".join(lines)
+
+
+def get_check_checkpoint_prune_text(keep_last: str | int | None, project_root: str | Path = ".") -> str:
+    return format_check_checkpoint_prune_report_text(get_check_checkpoint_prune_report(keep_last, project_root))
 
 
 def get_checkpoint_prune_text(keep_last: str | int | None, project_root: str | Path = ".") -> str:
@@ -9616,6 +13116,68 @@ def get_checkpoint_prune_text(keep_last: str | int | None, project_root: str | P
     workspace = RunWorkspace(root=root, run_id="local-checkpoint-prune", session_dir=root / ".vibeagent" / "sessions" / "local-checkpoint-prune")
     observation = execute_action(workspace, CheckpointPruneAction(type="checkpoint_prune", keep_last=parsed))
     return format_checkpoint_prune_observation("Checkpoint prune:", root, observation)
+
+
+def get_checkpoint_prune_report(keep_last: str | int | None, project_root: str | Path = ".") -> dict[str, object]:
+    parsed, error = parse_checkpoint_keep_last(keep_last, "/checkpoint-prune <keep-last>")
+    root = Path(project_root).resolve()
+    if error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "keepLast": None,
+            "total": 0,
+            "kept": 0,
+            "deleted": 0,
+            "checkpoints": [],
+            "message": error,
+        }
+    workspace = RunWorkspace(root=root, run_id="local-checkpoint-prune", session_dir=root / ".vibeagent" / "sessions" / "local-checkpoint-prune")
+    observation = execute_action(workspace, CheckpointPruneAction(type="checkpoint_prune", keep_last=parsed))
+    return {
+        "projectRoot": str(root),
+        "ok": bool(observation.ok),
+        "keepLast": observation.keep_last,
+        "total": observation.total,
+        "kept": observation.kept,
+        "deleted": observation.deleted,
+        "checkpoints": [serialize_checkpoint_info(checkpoint) for checkpoint in observation.checkpoints],
+        "message": observation.message,
+    }
+
+
+def format_checkpoint_prune_report_text(report: dict[str, object]) -> str:
+    if str(report.get("message") or "").startswith("Usage:"):
+        return str(report["message"])
+    lines = [
+        "Checkpoint prune:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  keepLast: {report.get('keepLast')}",
+        f"  total: {report.get('total', 0)}",
+        f"  kept: {report.get('kept', 0)}",
+        f"  deleted: {report.get('deleted', 0)}",
+    ]
+    checkpoints = report.get("checkpoints")
+    items = checkpoints if isinstance(checkpoints, list) else []
+    if items:
+        lines.append("  checkpoints:")
+        for checkpoint in items:
+            if not isinstance(checkpoint, dict):
+                continue
+            label_text = f" label={checkpoint.get('label')}" if checkpoint.get("label") else ""
+            lines.append(
+                "    - "
+                f"{checkpoint.get('id')} created={checkpoint.get('createdAt')}"
+                f"{label_text} changedFiles={checkpoint.get('changedFiles', 0)}"
+                f" staged={checkpoint.get('stagedFiles', 0)}"
+                f" unstaged={checkpoint.get('unstagedFiles', 0)}"
+                f" untracked={checkpoint.get('untrackedFiles', 0)}"
+            )
+    else:
+        lines.append("  checkpoints: none")
+    lines.append(f"  message: {report.get('message')}")
+    return "\n".join(lines)
 
 
 def parse_checkpoint_keep_last(value: str | int | None, usage: str) -> tuple[int, str | None]:
@@ -10024,57 +13586,134 @@ def is_runtime_status_path(path: str) -> bool:
     return normalized == ".git" or normalized.startswith(".git/") or normalized == ".vibeagent" or normalized.startswith(".vibeagent/")
 
 
-def get_diff_text(project_root: str | Path = ".", argument: str | None = None, max_chars: int = 12_000) -> str:
+def get_diff_report(project_root: str | Path = ".", argument: str | None = None, max_chars: int = 12_000) -> dict[str, object]:
     if max_chars < 100:
         raise ValueError("max_chars must be at least 100.")
     if max_chars > 200_000:
         raise ValueError("max_chars must be at most 200000.")
     parsed = parse_diff_argument(argument)
     if parsed is None:
-        return "Usage: /diff [--staged|--cached] [path]"
+        return {
+            "projectRoot": str(Path(project_root).resolve()),
+            "ok": False,
+            "scope": "unstaged",
+            "path": ".",
+            "diff": "",
+            "chars": 0,
+            "truncated": False,
+            "maxChars": max_chars,
+            "message": "Usage: /diff [--staged|--cached] [path]",
+        }
 
     root = Path(project_root).resolve()
     workspace = RunWorkspace(root=root, run_id="local-diff", session_dir=root / ".vibeagent" / "sessions" / "local-diff")
     staged, path = parsed
-    result = read_git_diff(workspace, relative_path=path, staged=staged)
-    scope = "staged" if staged else "unstaged"
-    path_text = path or "."
+    try:
+        result = read_git_diff(workspace, relative_path=path, staged=staged)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "scope": "staged" if staged else "unstaged",
+            "path": path or ".",
+            "diff": "",
+            "chars": 0,
+            "truncated": False,
+            "maxChars": max_chars,
+            "message": str(error),
+        }
+    diff, truncated = clip_with_flag(result.stdout, max_chars)
+    return {
+        "projectRoot": str(root),
+        "ok": bool(result.ok),
+        "scope": "staged" if staged else "unstaged",
+        "path": path or ".",
+        "diff": diff,
+        "chars": len(result.stdout),
+        "truncated": truncated,
+        "maxChars": max_chars,
+        "message": "Read git diff." if result.ok else result.stderr or "git diff failed.",
+    }
+
+
+def format_diff_report_text(report: dict[str, object]) -> str:
     lines = [
         "Diff:",
-        f"  projectRoot: {root}",
-        f"  scope: {scope}",
-        f"  path: {path_text}",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  scope: {report.get('scope') or 'unstaged'}",
+        f"  path: {report.get('path') or '.'}",
     ]
-    if not result.ok:
-        lines.append(f"  error: {result.stderr or 'git diff failed.'}")
+    if not bool(report.get("ok")):
+        lines.append(f"  error: {report.get('message') or 'git diff failed.'}")
         return "\n".join(lines)
-    if not result.stdout:
+    diff = str(report.get("diff") or "")
+    if not diff:
         lines.append("  output: no changes")
         return "\n".join(lines)
 
-    diff, truncated = clip_with_flag(result.stdout, max_chars)
-    lines.append(f"  chars: {len(result.stdout)}")
-    lines.append(f"  truncated: {'yes' if truncated else 'no'}")
+    lines.append(f"  chars: {report.get('chars', 0)}")
+    lines.append(f"  truncated: {'yes' if bool(report.get('truncated')) else 'no'}")
     lines.append("")
     lines.append(diff)
     return "\n".join(lines)
 
 
-def get_diff_hunks_text(
+def get_diff_text(project_root: str | Path = ".", argument: str | None = None, max_chars: int = 12_000) -> str:
+    report = get_diff_report(project_root, argument, max_chars=max_chars)
+    if str(report.get("message") or "").startswith("Usage:"):
+        return str(report["message"])
+    return format_diff_report_text(report)
+
+
+def serialize_diff_hunk(hunk: object) -> dict[str, object]:
+    return {
+        "file": str(getattr(hunk, "file", "")),
+        "oldStart": int(getattr(hunk, "old_start", 0)),
+        "oldCount": int(getattr(hunk, "old_count", 0)),
+        "newStart": int(getattr(hunk, "new_start", 0)),
+        "newCount": int(getattr(hunk, "new_count", 0)),
+        "added": int(getattr(hunk, "added", 0)),
+        "deleted": int(getattr(hunk, "deleted", 0)),
+        "context": int(getattr(hunk, "context", 0)),
+        "header": str(getattr(hunk, "header", "")),
+        "lines": list(getattr(hunk, "lines", [])),
+        "linesTruncated": bool(getattr(hunk, "lines_truncated", False)),
+    }
+
+
+def format_diff_hunk_lines(lines: list[str]) -> str:
+    return "\n".join(lines)
+
+
+def get_diff_hunks_report(
     project_root: str | Path = ".",
     argument: str | None = None,
     max_hunks: int = 80,
     max_lines_per_hunk: int = 80,
-) -> str:
+) -> dict[str, object]:
     usage = "Usage: /diff-hunks [--staged|--cached] [--max-hunks N] [--max-lines N] [path]"
     limit_error = validate_diff_hunks_limits(usage, max_hunks=max_hunks, max_lines_per_hunk=max_lines_per_hunk)
+    root = Path(project_root).resolve()
     if limit_error:
-        return limit_error
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "scope": "unstaged",
+            "path": ".",
+            "hunks": {"shown": 0, "total": 0, "truncated": False, "items": []},
+            "message": limit_error,
+        }
     parsed = parse_diff_argument(argument)
     if parsed is None:
-        return usage
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "scope": "unstaged",
+            "path": ".",
+            "hunks": {"shown": 0, "total": 0, "truncated": False, "items": []},
+            "message": usage,
+        }
 
-    root = Path(project_root).resolve()
     workspace = RunWorkspace(root=root, run_id="local-diff-hunks", session_dir=root / ".vibeagent" / "sessions" / "local-diff-hunks")
     staged, path = parsed
     observation = execute_action(
@@ -10088,55 +13727,111 @@ def get_diff_hunks_text(
         ),
     )
     if observation.kind != "git_diff_hunks":
-        return f"Diff hunks:\n  projectRoot: {root}\n  message: Unexpected observation: {observation.kind}"
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "scope": "staged" if staged else "unstaged",
+            "path": path or ".",
+            "hunks": {"shown": 0, "total": 0, "truncated": False, "items": []},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": bool(observation.ok),
+        "scope": "staged" if observation.staged else "unstaged",
+        "path": observation.path or ".",
+        "hunks": {
+            "shown": len(observation.hunks),
+            "total": observation.total_hunks,
+            "truncated": bool(observation.truncated),
+            "items": [serialize_diff_hunk(hunk) for hunk in observation.hunks],
+        },
+        "message": observation.message,
+    }
 
-    scope = "staged" if observation.staged else "unstaged"
+
+def format_diff_hunks_report_text(report: dict[str, object]) -> str:
+    hunks = report.get("hunks") if isinstance(report.get("hunks"), dict) else {}
+    items = hunks.get("items", []) if isinstance(hunks, dict) else []
     lines = [
         "Diff hunks:",
-        f"  projectRoot: {root}",
-        f"  ok: {'yes' if observation.ok else 'no'}",
-        f"  scope: {scope}",
-        f"  path: {observation.path or '.'}",
-        f"  hunks: {len(observation.hunks)}/{observation.total_hunks}",
-        f"  truncated: {'yes' if observation.truncated else 'no'}",
-        f"  message: {observation.message}",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  scope: {report.get('scope') or 'unstaged'}",
+        f"  path: {report.get('path') or '.'}",
+        f"  hunks: {hunks.get('shown', 0)}/{hunks.get('total', 0)}",
+        f"  truncated: {'yes' if bool(hunks.get('truncated')) else 'no'}",
+        f"  message: {report.get('message')}",
     ]
-    if not observation.ok:
+    if not bool(report.get("ok")):
         return "\n".join(lines)
-    if not observation.hunks:
+    if not items:
         lines.append("  items: none")
         return "\n".join(lines)
 
     lines.append("  items:")
-    for index, hunk in enumerate(observation.hunks, start=1):
+    for index, hunk in enumerate(items, start=1):
+        if not isinstance(hunk, dict):
+            continue
         lines.extend(
             [
                 f"    - hunk: {index}",
-                f"      file: {hunk.file}",
-                f"      oldRange: {hunk.old_start},{hunk.old_count}",
-                f"      newRange: {hunk.new_start},{hunk.new_count}",
-                f"      added: {hunk.added}",
-                f"      deleted: {hunk.deleted}",
-                f"      context: {hunk.context}",
-                f"      linesTruncated: {'yes' if hunk.lines_truncated else 'no'}",
-                f"      header: {hunk.header}",
+                f"      file: {hunk.get('file')}",
+                f"      oldRange: {hunk.get('oldStart')},{hunk.get('oldCount')}",
+                f"      newRange: {hunk.get('newStart')},{hunk.get('newCount')}",
+                f"      added: {hunk.get('added')}",
+                f"      deleted: {hunk.get('deleted')}",
+                f"      context: {hunk.get('context')}",
+                f"      linesTruncated: {'yes' if bool(hunk.get('linesTruncated')) else 'no'}",
+                f"      header: {hunk.get('header')}",
             ]
         )
-        if hunk.lines:
+        hunk_lines = hunk.get("lines") if isinstance(hunk.get("lines"), list) else []
+        if hunk_lines:
             lines.append("      lines:")
-            lines.append(_indent_block("\n".join(hunk.lines), spaces=8))
+            lines.append(_indent_block(format_diff_hunk_lines([str(line) for line in hunk_lines]), spaces=8))
         else:
             lines.append("      lines: none")
     return "\n".join(lines)
 
 
-def get_diff_contexts_text(
+def get_diff_hunks_text(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    max_hunks: int = 80,
+    max_lines_per_hunk: int = 80,
+) -> str:
+    report = get_diff_hunks_report(project_root, argument, max_hunks=max_hunks, max_lines_per_hunk=max_lines_per_hunk)
+    if str(report.get("message") or "").startswith("Usage:"):
+        return str(report["message"])
+    return format_diff_hunks_report_text(report)
+
+
+def serialize_file_context_result(context: object) -> dict[str, object]:
+    return {
+        "path": str(getattr(context, "path", "")),
+        "line": int(getattr(context, "line", 0)),
+        "contextLines": int(getattr(context, "context_lines", 0)),
+        "ok": bool(getattr(context, "ok", False)),
+        "content": str(getattr(context, "content", "")),
+        "message": str(getattr(context, "message", "")),
+        "startLine": int(getattr(context, "start_line", 0)),
+        "endLine": int(getattr(context, "end_line", 0)),
+        "lineCount": int(getattr(context, "line_count", 0)),
+        "totalLines": int(getattr(context, "total_lines", 0)),
+        "targetLineExists": bool(getattr(context, "target_line_exists", False)),
+        "truncated": bool(getattr(context, "truncated", False)),
+        "maxBytes": int(getattr(context, "max_bytes", 0)),
+    }
+
+
+def get_diff_contexts_report(
     project_root: str | Path = ".",
     argument: str | None = None,
     context_lines: int = 5,
     max_hunks: int = 80,
     max_bytes_per_context: int = 20_000,
-) -> str:
+) -> dict[str, object]:
     usage = "Usage: /diff-contexts [--staged|--cached] [--context-lines N] [--max-hunks N] [--max-bytes N] [path]"
     limit_error = validate_diff_contexts_limits(
         usage,
@@ -10144,13 +13839,29 @@ def get_diff_contexts_text(
         max_hunks=max_hunks,
         max_bytes_per_context=max_bytes_per_context,
     )
+    root = Path(project_root).resolve()
     if limit_error:
-        return limit_error
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "scope": "unstaged",
+            "path": ".",
+            "contextLines": context_lines,
+            "contexts": {"shown": 0, "total": 0, "truncated": False, "items": []},
+            "message": limit_error,
+        }
     parsed = parse_diff_argument(argument)
     if parsed is None:
-        return usage
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "scope": "unstaged",
+            "path": ".",
+            "contextLines": context_lines,
+            "contexts": {"shown": 0, "total": 0, "truncated": False, "items": []},
+            "message": usage,
+        }
 
-    root = Path(project_root).resolve()
     workspace = RunWorkspace(root=root, run_id="local-diff-contexts", session_dir=root / ".vibeagent" / "sessions" / "local-diff-contexts")
     staged, path = parsed
     observation = execute_action(
@@ -10165,51 +13876,103 @@ def get_diff_contexts_text(
         ),
     )
     if observation.kind != "git_diff_contexts":
-        return f"Diff contexts:\n  projectRoot: {root}\n  message: Unexpected observation: {observation.kind}"
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "scope": "staged" if staged else "unstaged",
+            "path": path or ".",
+            "contextLines": context_lines,
+            "contexts": {"shown": 0, "total": 0, "truncated": False, "items": []},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": bool(observation.ok),
+        "scope": "staged" if observation.staged else "unstaged",
+        "path": observation.path or ".",
+        "contextLines": observation.context_lines,
+        "contexts": {
+            "shown": len(observation.contexts),
+            "total": observation.total_hunks,
+            "truncated": bool(observation.truncated),
+            "items": [
+                {
+                    "hunk": serialize_diff_hunk(item.hunk),
+                    "context": serialize_file_context_result(item.context),
+                }
+                for item in observation.contexts
+            ],
+        },
+        "message": observation.message,
+    }
 
-    scope = "staged" if observation.staged else "unstaged"
+
+def format_diff_contexts_report_text(report: dict[str, object]) -> str:
+    contexts = report.get("contexts") if isinstance(report.get("contexts"), dict) else {}
+    items = contexts.get("items", []) if isinstance(contexts, dict) else []
     lines = [
         "Diff contexts:",
-        f"  projectRoot: {root}",
-        f"  ok: {'yes' if observation.ok else 'no'}",
-        f"  scope: {scope}",
-        f"  path: {observation.path or '.'}",
-        f"  contexts: {len(observation.contexts)}/{observation.total_hunks}",
-        f"  contextLines: {observation.context_lines}",
-        f"  truncated: {'yes' if observation.truncated else 'no'}",
-        f"  message: {observation.message}",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  scope: {report.get('scope') or 'unstaged'}",
+        f"  path: {report.get('path') or '.'}",
+        f"  contexts: {contexts.get('shown', 0)}/{contexts.get('total', 0)}",
+        f"  contextLines: {report.get('contextLines', 0)}",
+        f"  truncated: {'yes' if bool(contexts.get('truncated')) else 'no'}",
+        f"  message: {report.get('message')}",
     ]
-    if not observation.ok:
+    if not bool(report.get("ok")):
         return "\n".join(lines)
-    if not observation.contexts:
+    if not items:
         lines.append("  items: none")
         return "\n".join(lines)
 
     lines.append("  items:")
-    for index, item in enumerate(observation.contexts, start=1):
-        hunk = item.hunk
-        context = item.context
+    for index, item in enumerate(items, start=1):
+        if not isinstance(item, dict):
+            continue
+        hunk = item.get("hunk") if isinstance(item.get("hunk"), dict) else {}
+        context = item.get("context") if isinstance(item.get("context"), dict) else {}
         lines.extend(
             [
                 f"    - hunk: {index}",
-                f"      file: {hunk.file}",
-                f"      oldRange: {hunk.old_start},{hunk.old_count}",
-                f"      newRange: {hunk.new_start},{hunk.new_count}",
-                f"      added: {hunk.added}",
-                f"      deleted: {hunk.deleted}",
-                f"      contextOk: {'yes' if context.ok else 'no'}",
-                f"      sourceRange: {context.start_line}-{context.end_line}",
-                f"      sourceTruncated: {'yes' if context.truncated else 'no'}",
+                f"      file: {hunk.get('file')}",
+                f"      oldRange: {hunk.get('oldStart')},{hunk.get('oldCount')}",
+                f"      newRange: {hunk.get('newStart')},{hunk.get('newCount')}",
+                f"      added: {hunk.get('added')}",
+                f"      deleted: {hunk.get('deleted')}",
+                f"      contextOk: {'yes' if bool(context.get('ok')) else 'no'}",
+                f"      sourceRange: {context.get('startLine', 0)}-{context.get('endLine', 0)}",
+                f"      sourceTruncated: {'yes' if bool(context.get('truncated')) else 'no'}",
             ]
         )
-        if context.ok and context.content:
+        if bool(context.get("ok")) and context.get("content"):
             lines.append("      source:")
-            lines.append(_indent_block(context.content, spaces=8))
-        elif context.ok:
+            lines.append(_indent_block(str(context.get("content")), spaces=8))
+        elif bool(context.get("ok")):
             lines.append("      source: none")
         else:
-            lines.append(f"      sourceError: {context.message}")
+            lines.append(f"      sourceError: {context.get('message')}")
     return "\n".join(lines)
+
+
+def get_diff_contexts_text(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    context_lines: int = 5,
+    max_hunks: int = 80,
+    max_bytes_per_context: int = 20_000,
+) -> str:
+    report = get_diff_contexts_report(
+        project_root,
+        argument,
+        context_lines=context_lines,
+        max_hunks=max_hunks,
+        max_bytes_per_context=max_bytes_per_context,
+    )
+    if str(report.get("message") or "").startswith("Usage:"):
+        return str(report["message"])
+    return format_diff_contexts_report_text(report)
 
 
 def validate_diff_hunks_limits(usage: str, max_hunks: int, max_lines_per_hunk: int) -> str | None:
@@ -10400,13 +14163,26 @@ def get_sessions_text(project_root: str | Path = ".") -> str:
     return format_sessions(project_root)
 
 
+def get_sessions_report(project_root: str | Path = ".") -> dict[str, object]:
+    return build_sessions_report(project_root)
+
+
 def get_usage_text(project_root: str | Path = ".") -> str:
     return format_usage(project_root)
+
+
+def get_usage_report(project_root: str | Path = ".") -> dict[str, object]:
+    return build_usage_report(project_root)
 
 
 def get_cost_text(project_root: str | Path = ".", env: dict[str, str | None] | None = None) -> str:
     rates, errors = resolve_cost_rates(env)
     return format_cost(project_root, rates, errors)
+
+
+def get_cost_report(project_root: str | Path = ".", env: dict[str, str | None] | None = None) -> dict[str, object]:
+    rates, errors = resolve_cost_rates(env)
+    return build_cost_report(project_root, rates, errors)
 
 
 def get_session_text(run_id: str | None, project_root: str | Path = ".") -> str:
@@ -10418,11 +14194,45 @@ def get_session_text(run_id: str | None, project_root: str | Path = ".") -> str:
         return str(error)
 
 
+def get_session_report(run_id: str | None, project_root: str | Path = ".") -> dict[str, object]:
+    if not run_id:
+        return {
+            "session": None,
+            "exists": False,
+            "ok": False,
+            "status": "invalid",
+            "message": "Usage: /session <run-id>",
+        }
+    try:
+        return build_session_summary_report(summarize_session(project_root, run_id))
+    except ValueError as error:
+        return {
+            "session": run_id,
+            "exists": False,
+            "ok": False,
+            "status": "invalid",
+            "message": str(error),
+        }
+
+
 def get_last_session_text(project_root: str | Path = ".") -> str:
     run_id = get_last_session_id(project_root)
     if not run_id:
         return "No sessions found."
     return format_session_summary(summarize_session(project_root, run_id))
+
+
+def get_last_session_report(project_root: str | Path = ".") -> dict[str, object]:
+    run_id = get_last_session_id(project_root)
+    if not run_id:
+        return {
+            "session": None,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+    return build_session_summary_report(summarize_session(project_root, run_id))
 
 
 def get_plan_text(project_root: str | Path = ".", run_id: str | None = None) -> str:
@@ -10433,6 +14243,28 @@ def get_plan_text(project_root: str | Path = ".", run_id: str | None = None) -> 
         return format_session_plan(summarize_session(project_root, selected))
     except ValueError as error:
         return str(error)
+
+
+def get_plan_report(project_root: str | Path = ".", run_id: str | None = None) -> dict[str, object]:
+    selected = run_id or get_last_session_id(project_root)
+    if not selected:
+        return {
+            "session": None,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+    try:
+        return build_session_plan_report(summarize_session(project_root, selected))
+    except ValueError as error:
+        return {
+            "session": selected,
+            "exists": False,
+            "ok": False,
+            "status": "invalid",
+            "message": str(error),
+        }
 
 
 def get_transcript_text(
@@ -10448,6 +14280,33 @@ def get_transcript_text(
         return format_session_transcript(project_root, selected, max_events=max_events, max_text=max_text)
     except ValueError as error:
         return str(error)
+
+
+def get_transcript_report(
+    project_root: str | Path = ".",
+    run_id: str | None = None,
+    max_events: int = 80,
+    max_text: int = 500,
+) -> dict[str, object]:
+    selected = run_id or get_last_session_id(project_root)
+    if not selected:
+        return {
+            "session": None,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+    try:
+        return build_session_transcript_report(project_root, selected, max_events=max_events, max_text=max_text)
+    except ValueError as error:
+        return {
+            "session": selected,
+            "exists": False,
+            "ok": False,
+            "status": "invalid",
+            "message": str(error),
+        }
 
 
 def get_session_search_text(
@@ -10488,6 +14347,72 @@ def get_session_search_text(
         return str(error)
 
 
+def get_session_search_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    run_id: str | None = None,
+    max_matches: int = 20,
+    max_text: int = 500,
+    case_sensitive: bool = False,
+) -> dict[str, object]:
+    if not argument or not argument.strip():
+        return {
+            "session": run_id,
+            "exists": False,
+            "ok": False,
+            "status": "invalid",
+            "message": "Usage: /session-search [--run run-id] <query>",
+        }
+    selected = run_id
+    query = argument.strip()
+    if run_id is None:
+        try:
+            parts = shlex.split(argument)
+        except ValueError as error:
+            return {
+                "session": None,
+                "exists": False,
+                "ok": False,
+                "status": "invalid",
+                "message": str(error),
+            }
+        if len(parts) >= 3 and parts[0] == "--run":
+            selected = parts[1]
+            query = " ".join(parts[2:]).strip()
+        else:
+            query = argument.strip()
+    selected = selected or get_last_session_id(project_root)
+    if not selected:
+        return {
+            "session": None,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "query": query,
+            "caseSensitive": case_sensitive,
+            "message": "No sessions found.",
+        }
+    try:
+        return build_session_search_report(
+            project_root,
+            selected,
+            query,
+            max_matches=max_matches,
+            max_text=max_text,
+            case_sensitive=case_sensitive,
+        )
+    except ValueError as error:
+        return {
+            "session": selected,
+            "exists": False,
+            "ok": False,
+            "status": "invalid",
+            "query": query,
+            "caseSensitive": case_sensitive,
+            "message": str(error),
+        }
+
+
 def get_session_commands_text(
     project_root: str | Path = ".",
     run_id: str | None = None,
@@ -10508,6 +14433,38 @@ def get_session_commands_text(
         return str(error)
 
 
+def get_session_commands_report(
+    project_root: str | Path = ".",
+    run_id: str | None = None,
+    max_commands: int = 20,
+    max_output_chars: int = 2_000,
+) -> dict[str, object]:
+    selected = run_id or get_last_session_id(project_root)
+    if not selected:
+        return {
+            "session": None,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+    try:
+        return build_session_commands_report(
+            project_root,
+            selected,
+            max_commands=max_commands,
+            max_output_chars=max_output_chars,
+        )
+    except ValueError as error:
+        return {
+            "session": selected,
+            "exists": False,
+            "ok": False,
+            "status": "invalid",
+            "message": str(error),
+        }
+
+
 def get_session_output_contexts_text(
     project_root: str | Path = ".",
     run_id: str | None = None,
@@ -10517,24 +14474,19 @@ def get_session_output_contexts_text(
     max_contexts: int = 20,
     max_bytes_per_context: int = 20_000,
 ) -> str:
-    selected = run_id or get_last_session_id(project_root)
-    if not selected:
-        return "No sessions found."
-    root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-session-output-contexts", session_dir=root / ".vibeagent" / "sessions" / "local-session-output-contexts")
-    observation = execute_action(
-        workspace,
-        SessionOutputContextsAction(
-            type="session_output_contexts",
-            run_id=selected,
-            max_commands=max_commands,
-            max_output_chars=max_output_chars,
-            context_lines=context_lines,
-            max_contexts=max_contexts,
-            max_bytes_per_context=max_bytes_per_context,
-        ),
+    observation = get_session_output_contexts_observation(
+        project_root,
+        run_id,
+        max_commands=max_commands,
+        max_output_chars=max_output_chars,
+        context_lines=context_lines,
+        max_contexts=max_contexts,
+        max_bytes_per_context=max_bytes_per_context,
     )
+    if observation is None:
+        return "No sessions found."
     if observation.kind != "session_output_contexts":
+        selected = run_id or get_last_session_id(project_root) or "unknown"
         return f"Session output contexts:\n  session: {selected}\n  message: Unexpected observation: {observation.kind}"
 
     ok_count = sum(1 for item in observation.contexts if item.ok)
@@ -10573,6 +14525,121 @@ def get_session_output_contexts_text(
     return "\n".join(lines)
 
 
+def get_session_output_contexts_observation(
+    project_root: str | Path = ".",
+    run_id: str | None = None,
+    max_commands: int = 20,
+    max_output_chars: int = 20_000,
+    context_lines: int = 5,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
+):
+    selected = run_id or get_last_session_id(project_root)
+    if not selected:
+        return None
+    root = Path(project_root).resolve()
+    workspace = RunWorkspace(root=root, run_id="local-session-output-contexts", session_dir=root / ".vibeagent" / "sessions" / "local-session-output-contexts")
+    return execute_action(
+        workspace,
+        SessionOutputContextsAction(
+            type="session_output_contexts",
+            run_id=selected,
+            max_commands=max_commands,
+            max_output_chars=max_output_chars,
+            context_lines=context_lines,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        ),
+    )
+
+
+def get_session_output_contexts_report(
+    project_root: str | Path = ".",
+    run_id: str | None = None,
+    max_commands: int = 20,
+    max_output_chars: int = 20_000,
+    context_lines: int = 5,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
+) -> dict[str, object]:
+    selected = run_id or get_last_session_id(project_root)
+    if not selected:
+        return {
+            "session": None,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+    observation = get_session_output_contexts_observation(
+        project_root,
+        selected,
+        max_commands=max_commands,
+        max_output_chars=max_output_chars,
+        context_lines=context_lines,
+        max_contexts=max_contexts,
+        max_bytes_per_context=max_bytes_per_context,
+    )
+    if observation is None:
+        return {
+            "session": selected,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+    if observation.kind != "session_output_contexts":
+        return {
+            "session": selected,
+            "exists": True,
+            "ok": False,
+            "status": "invalid",
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+
+    ok_contexts = sum(1 for item in observation.contexts if item.ok)
+    exists = not observation.message.startswith("Session not found:")
+    return {
+        "session": observation.run_id,
+        "exists": exists,
+        "ok": observation.ok,
+        "status": "ready" if observation.ok else ("failed" if exists else "missing"),
+        "commands": {
+            "total": observation.command_count,
+            "shown": observation.shown_commands,
+        },
+        "contexts": {
+            "total": len(observation.contexts),
+            "ok": ok_contexts,
+            "failed": len(observation.contexts) - ok_contexts,
+            "totalRefs": observation.total_refs,
+            "truncated": observation.truncated,
+            "items": [serialize_output_context_result(item) for item in observation.contexts],
+        },
+        "message": observation.message,
+    }
+
+
+def serialize_output_context_result(item) -> dict[str, object]:
+    return {
+        "path": item.path,
+        "line": item.line,
+        "column": item.column,
+        "raw": item.raw,
+        "ok": item.ok,
+        "content": item.content,
+        "message": item.message,
+        "contextLines": item.context_lines,
+        "startLine": item.start_line,
+        "endLine": item.end_line,
+        "lineCount": item.line_count,
+        "totalLines": item.total_lines,
+        "targetLineExists": item.target_line_exists,
+        "truncated": item.truncated,
+        "maxBytes": item.max_bytes,
+    }
+
+
 def get_session_output_diagnostics_text(
     project_root: str | Path = ".",
     run_id: str | None = None,
@@ -10583,25 +14650,20 @@ def get_session_output_diagnostics_text(
     max_contexts: int = 20,
     max_bytes_per_context: int = 20_000,
 ) -> str:
-    selected = run_id or get_last_session_id(project_root)
-    if not selected:
-        return "No sessions found."
-    root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-session-output-diagnostics", session_dir=root / ".vibeagent" / "sessions" / "local-session-output-diagnostics")
-    observation = execute_action(
-        workspace,
-        SessionOutputDiagnosticsAction(
-            type="session_output_diagnostics",
-            run_id=selected,
-            max_commands=max_commands,
-            max_output_chars=max_output_chars,
-            context_lines=context_lines,
-            max_diagnostics=max_diagnostics,
-            max_contexts=max_contexts,
-            max_bytes_per_context=max_bytes_per_context,
-        ),
+    observation = get_session_output_diagnostics_observation(
+        project_root,
+        run_id,
+        max_commands=max_commands,
+        max_output_chars=max_output_chars,
+        context_lines=context_lines,
+        max_diagnostics=max_diagnostics,
+        max_contexts=max_contexts,
+        max_bytes_per_context=max_bytes_per_context,
     )
+    if observation is None:
+        return "No sessions found."
     if observation.kind != "session_output_diagnostics":
+        selected = run_id or get_last_session_id(project_root) or "unknown"
         return f"Session output diagnostics:\n  session: {selected}\n  message: Unexpected observation: {observation.kind}"
 
     ok_count = sum(1 for item in observation.contexts if item.ok)
@@ -10648,6 +14710,123 @@ def get_session_output_diagnostics_text(
     return "\n".join(lines)
 
 
+def get_session_output_diagnostics_observation(
+    project_root: str | Path = ".",
+    run_id: str | None = None,
+    max_commands: int = 20,
+    max_output_chars: int = 20_000,
+    context_lines: int = 2,
+    max_diagnostics: int = 50,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
+):
+    selected = run_id or get_last_session_id(project_root)
+    if not selected:
+        return None
+    root = Path(project_root).resolve()
+    workspace = RunWorkspace(root=root, run_id="local-session-output-diagnostics", session_dir=root / ".vibeagent" / "sessions" / "local-session-output-diagnostics")
+    return execute_action(
+        workspace,
+        SessionOutputDiagnosticsAction(
+            type="session_output_diagnostics",
+            run_id=selected,
+            max_commands=max_commands,
+            max_output_chars=max_output_chars,
+            context_lines=context_lines,
+            max_diagnostics=max_diagnostics,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        ),
+    )
+
+
+def get_session_output_diagnostics_report(
+    project_root: str | Path = ".",
+    run_id: str | None = None,
+    max_commands: int = 20,
+    max_output_chars: int = 20_000,
+    context_lines: int = 2,
+    max_diagnostics: int = 50,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
+) -> dict[str, object]:
+    selected = run_id or get_last_session_id(project_root)
+    if not selected:
+        return {
+            "session": None,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+    observation = get_session_output_diagnostics_observation(
+        project_root,
+        selected,
+        max_commands=max_commands,
+        max_output_chars=max_output_chars,
+        context_lines=context_lines,
+        max_diagnostics=max_diagnostics,
+        max_contexts=max_contexts,
+        max_bytes_per_context=max_bytes_per_context,
+    )
+    if observation is None:
+        return {
+            "session": selected,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+    if observation.kind != "session_output_diagnostics":
+        return {
+            "session": selected,
+            "exists": True,
+            "ok": False,
+            "status": "invalid",
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+
+    ok_contexts = sum(1 for item in observation.contexts if item.ok)
+    exists = not observation.message.startswith("Session not found:")
+    return {
+        "session": observation.run_id,
+        "exists": exists,
+        "ok": observation.ok,
+        "status": "ready" if observation.ok else ("failed" if exists else "missing"),
+        "commands": {
+            "total": observation.command_count,
+            "shown": observation.shown_commands,
+        },
+        "diagnostics": {
+            "total": observation.total_diagnostics,
+            "shown": len(observation.diagnostics),
+            "truncated": observation.diagnostics_truncated,
+            "items": [serialize_output_diagnostic(item) for item in observation.diagnostics],
+        },
+        "contexts": {
+            "total": len(observation.contexts),
+            "ok": ok_contexts,
+            "failed": len(observation.contexts) - ok_contexts,
+            "totalRefs": observation.total_refs,
+            "truncated": observation.contexts_truncated,
+            "items": [serialize_output_context_result(item) for item in observation.contexts],
+        },
+        "message": observation.message,
+    }
+
+
+def serialize_output_diagnostic(item) -> dict[str, object]:
+    return {
+        "severity": item.severity,
+        "outputLine": item.output_line,
+        "text": item.text,
+        "path": item.path,
+        "line": item.line,
+        "column": item.column,
+        "raw": item.raw,
+    }
+
+
 def get_session_files_text(project_root: str | Path = ".", run_id: str | None = None, max_files: int = 100) -> str:
     selected = run_id or get_last_session_id(project_root)
     if not selected:
@@ -10656,6 +14835,32 @@ def get_session_files_text(project_root: str | Path = ".", run_id: str | None = 
         return format_session_files(project_root, selected, max_files=max_files)
     except ValueError as error:
         return str(error)
+
+
+def get_session_files_report(
+    project_root: str | Path = ".",
+    run_id: str | None = None,
+    max_files: int = 100,
+) -> dict[str, object]:
+    selected = run_id or get_last_session_id(project_root)
+    if not selected:
+        return {
+            "session": None,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+    try:
+        return build_session_files_report(project_root, selected, max_files=max_files)
+    except ValueError as error:
+        return {
+            "session": selected,
+            "exists": False,
+            "ok": False,
+            "status": "invalid",
+            "message": str(error),
+        }
 
 
 def get_session_failures_text(
@@ -10673,6 +14878,38 @@ def get_session_failures_text(
         return str(error)
 
 
+def get_session_failures_report(
+    project_root: str | Path = ".",
+    run_id: str | None = None,
+    max_failures: int = 50,
+    max_text: int = 500,
+) -> dict[str, object]:
+    selected = run_id or get_last_session_id(project_root)
+    if not selected:
+        return {
+            "session": None,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+    try:
+        return build_session_failures_report(
+            project_root,
+            selected,
+            max_failures=max_failures,
+            max_text=max_text,
+        )
+    except ValueError as error:
+        return {
+            "session": selected,
+            "exists": False,
+            "ok": False,
+            "status": "invalid",
+            "message": str(error),
+        }
+
+
 def get_session_verification_text(
     project_root: str | Path = ".",
     run_id: str | None = None,
@@ -10685,6 +14922,80 @@ def get_session_verification_text(
         return format_session_verification(summarize_session(project_root, selected), max_checks=max_checks)
     except ValueError as error:
         return str(error)
+
+
+def get_session_verification_report(
+    project_root: str | Path = ".",
+    run_id: str | None = None,
+    max_checks: int = 50,
+    max_text: int = 160,
+) -> dict[str, object]:
+    selected = run_id or get_last_session_id(project_root)
+    if not selected:
+        return {
+            "session": None,
+            "exists": False,
+            "ok": False,
+            "ready": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+    try:
+        return build_session_verification_report(
+            project_root,
+            selected,
+            max_checks=max_checks,
+            max_text=max_text,
+        )
+    except ValueError as error:
+        return {
+            "session": selected,
+            "exists": False,
+            "ok": False,
+            "ready": False,
+            "status": "invalid",
+            "message": str(error),
+        }
+
+
+def get_session_audit_report(
+    project_root: str | Path = ".",
+    run_id: str | None = None,
+    max_failures: int = 10,
+    max_files: int = 20,
+    max_commands: int = 10,
+    max_checks: int = 50,
+    max_text: int = 300,
+) -> dict[str, object]:
+    selected = run_id or get_last_session_id(project_root)
+    if not selected:
+        return {
+            "session": None,
+            "exists": False,
+            "ok": False,
+            "ready": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+    try:
+        return build_session_audit_report(
+            project_root,
+            selected,
+            max_failures=max_failures,
+            max_files=max_files,
+            max_commands=max_commands,
+            max_checks=max_checks,
+            max_text=max_text,
+        )
+    except ValueError as error:
+        return {
+            "session": selected,
+            "exists": False,
+            "ok": False,
+            "ready": False,
+            "status": "invalid",
+            "message": str(error),
+        }
 
 
 def get_session_audit_text(
@@ -10739,6 +15050,48 @@ def get_session_handoff_text(
         )
     except ValueError as error:
         return str(error)
+
+
+def get_session_handoff_report(
+    project_root: str | Path = ".",
+    run_id: str | None = None,
+    max_failures: int = 20,
+    max_files: int = 50,
+    max_commands: int = 10,
+    max_checks: int = 50,
+    max_output_chars: int = 1_000,
+    max_text: int = 500,
+) -> dict[str, object]:
+    selected = run_id or get_last_session_id(project_root)
+    if not selected:
+        return {
+            "session": None,
+            "exists": False,
+            "ok": False,
+            "ready": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+    try:
+        return build_session_handoff_report(
+            project_root,
+            selected,
+            max_failures=max_failures,
+            max_files=max_files,
+            max_commands=max_commands,
+            max_checks=max_checks,
+            max_output_chars=max_output_chars,
+            max_text=max_text,
+        )
+    except ValueError as error:
+        return {
+            "session": selected,
+            "exists": False,
+            "ok": False,
+            "ready": False,
+            "status": "invalid",
+            "message": str(error),
+        }
 
 
 def get_resume_context(

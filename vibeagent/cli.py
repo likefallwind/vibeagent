@@ -13,22 +13,70 @@ from .chat import run_chat
 from .commands import (
     get_append_file_text,
     get_help_text,
+    format_blame_report_text,
+    format_branches_report_text,
+    format_git_info_report_text,
+    format_git_status_report_text,
+    format_glob_report_text,
+    format_file_info_report_text,
+    format_image_info_report_text,
+    format_log_report_text,
+    format_around_report_text,
+    format_around_many_report_text,
+    format_output_contexts_report_text,
+    format_output_diagnostics_report_text,
+    format_process_report_text,
+    format_process_output_contexts_report_text,
+    format_process_output_diagnostics_report_text,
+    format_python_traceback_report_text,
+    format_read_report_text,
+    format_read_files_report_text,
+    format_read_ranges_report_text,
+    format_show_report_text,
+    format_stashes_report_text,
+    format_symbols_report_text,
+    format_tree_report_text,
+    get_blame_report,
     get_blame_text,
+    get_branches_report,
     get_branches_text,
     get_compact_context,
     get_checks_report,
     get_checks_text,
+    format_changes_report_text,
+    get_changes_report,
     get_changes_text,
+    format_check_checkpoint_delete_report_text,
+    format_check_checkpoint_prune_report_text,
+    format_checkpoint_create_report_text,
+    format_checkpoint_delete_report_text,
+    format_checkpoint_diff_report_text,
+    format_checkpoint_prune_report_text,
+    format_checkpoint_restore_report_text,
+    format_checkpoint_show_report_text,
+    format_checkpoint_status_report_text,
+    format_checkpoints_report_text,
     get_check_checkpoint_delete_text,
+    get_check_checkpoint_delete_report,
     get_check_checkpoint_prune_text,
+    get_check_checkpoint_prune_report,
     get_check_checkpoint_restore_text,
+    get_check_checkpoint_restore_report,
+    get_checkpoint_diff_report,
     get_checkpoint_diff_text,
+    get_checkpoint_delete_report,
     get_checkpoint_delete_text,
+    get_checkpoint_prune_report,
     get_checkpoint_prune_text,
+    get_checkpoint_restore_report,
     get_checkpoint_restore_text,
+    get_checkpoint_report,
+    get_checkpoint_show_report,
     get_checkpoint_show_text,
+    get_checkpoint_status_report,
     get_checkpoint_status_text,
     get_checkpoint_text,
+    get_checkpoints_report,
     get_checkpoints_text,
     get_check_copy_dir_text,
     get_check_copy_dirs_text,
@@ -60,6 +108,8 @@ from .commands import (
     get_check_patches_text,
     get_check_write_file_text,
     get_check_write_files_text,
+    format_check_run_sequence_report_text,
+    get_check_run_sequence_report,
     get_check_run_sequence_text,
     get_check_start_text,
     get_check_stop_all_processes_text,
@@ -90,6 +140,7 @@ from .commands import (
     get_copy_dirs_text,
     get_copy_file_text,
     get_copy_files_text,
+    get_cost_report,
     get_cost_text,
     get_create_dirs_text,
     get_create_dir_text,
@@ -97,20 +148,33 @@ from .commands import (
     get_delete_files_text,
     get_delete_empty_dirs_text,
     get_delete_empty_dir_text,
+    format_diff_contexts_report_text,
+    format_diff_hunks_report_text,
+    format_diff_report_text,
+    get_diff_contexts_report,
     get_diff_hunks_text,
+    get_diff_hunks_report,
     get_diff_contexts_text,
+    get_diff_report,
     get_diff_text,
     get_doctor_report,
     get_doctor_text,
     get_edit_file_text,
     get_env_text,
     get_fetch_text,
+    get_file_info_report,
     get_file_info_text,
+    get_image_info_report,
     get_image_info_text,
     get_git_info_text,
+    get_git_info_report,
     get_git_conflicts_text,
+    get_git_status_report,
     get_git_status_text,
+    get_glob_report,
     get_glob_text,
+    format_handoff_report_text,
+    get_handoff_report,
     get_handoff_text,
     get_http_fetch_text,
     get_http_text,
@@ -119,7 +183,9 @@ from .commands import (
     get_json_patch_text,
     get_json_remove_text,
     get_json_set_text,
+    get_last_session_report,
     get_last_session_text,
+    get_log_report,
     get_log_text,
     get_manifests_text,
     get_model_text,
@@ -133,21 +199,30 @@ from .commands import (
     get_patches_text,
     get_permissions_report,
     get_permissions_text,
+    get_plan_report,
     get_plan_text,
     get_port_text,
     get_pull_text,
     get_push_text,
     get_check_suggested_checks_text,
+    get_around_report,
+    get_around_many_report,
     get_around_text,
     get_around_many_text,
+    get_output_contexts_report,
     get_output_contexts_text,
+    get_output_diagnostics_report,
     get_output_diagnostics_text,
+    get_process_output_contexts_report,
     get_process_output_contexts_text,
+    get_process_output_diagnostics_report,
     get_process_output_diagnostics_text,
+    get_process_report,
     get_process_text,
     get_processes_text,
     get_check_write_process_text,
     get_python_traceback_text,
+    get_python_traceback_report,
     get_python_call_graph_text,
     get_python_calls_text,
     get_python_check_text,
@@ -157,6 +232,9 @@ from .commands import (
     get_python_refs_text,
     get_python_rename_preview_text,
     get_python_rename_text,
+    get_read_report,
+    get_read_files_report,
+    get_read_ranges_report,
     get_read_files_text,
     get_read_ranges_text,
     get_read_text,
@@ -168,26 +246,44 @@ from .commands import (
     get_replace_lines_text,
     get_replace_python_definition_text,
     get_repo_map_text,
+    format_review_report_text,
+    get_review_report,
     get_review_text,
     get_resume_context,
     get_restore_text,
+    format_run_report_text,
+    get_run_report,
+    format_run_sequence_report_text,
+    get_run_sequence_report,
     get_run_sequence_text,
     get_run_suggested_checks_text,
     get_run_text,
+    get_session_audit_report,
     get_session_audit_text,
+    get_session_commands_report,
     get_session_commands_text,
+    get_session_output_contexts_report,
     get_session_output_contexts_text,
+    get_session_output_diagnostics_report,
     get_session_output_diagnostics_text,
+    get_session_failures_report,
     get_session_failures_text,
+    get_session_files_report,
     get_session_files_text,
+    get_session_handoff_report,
     get_session_handoff_text,
+    get_session_report,
+    get_session_search_report,
     get_session_text,
+    get_session_verification_report,
     get_session_verification_text,
+    get_sessions_report,
     get_sessions_text,
     get_search_text,
     get_search_contexts_text,
     get_session_search_text,
     get_set_executable_text,
+    get_show_report,
     get_show_text,
     get_start_text,
     get_stash_apply_text,
@@ -195,20 +291,29 @@ from .commands import (
     get_stash_text,
     get_stage_text,
     get_stashes_text,
+    get_stashes_report,
     get_status_text,
+    get_tail_report,
     get_tail_text,
+    format_tail_report_text,
     get_todos_text,
     get_stop_all_processes_text,
     get_stop_process_text,
     get_switch_text,
+    get_symbols_report,
     get_symbols_text,
     get_tool_text,
     get_tools_text,
+    get_tree_report,
     get_tree_text,
+    get_transcript_report,
     get_transcript_text,
     get_unstage_text,
+    get_usage_report,
     get_usage_text,
     get_wait_process_text,
+    get_wait_process_report,
+    format_wait_process_report_text,
     get_write_file_text,
     get_write_files_text,
     get_write_process_text,
@@ -1510,36 +1615,52 @@ def run_local_flag(args: argparse.Namespace) -> int:
             elif args.command_check is not None:
                 text = get_command_check_text(project_root or ".", args.command_check, args.command_cwd)
             elif args.run_command is not None:
-                text = get_run_text(
-                    project_root or ".",
-                    args.run_command,
-                    cwd=args.run_cwd,
-                    timeout_ms=args.run_timeout_ms,
-                    max_output_chars=args.run_max_chars,
-                    extract_output_contexts=args.run_output_contexts,
-                    extract_output_diagnostics=args.run_output_diagnostics,
-                    context_lines=args.run_output_context_lines,
-                    max_diagnostics=args.run_output_diagnostic_max,
-                    max_contexts=args.run_output_context_max,
-                    max_bytes_per_context=args.run_output_context_max_bytes,
-                )
+                run_kwargs = {
+                    "command": args.run_command,
+                    "cwd": args.run_cwd,
+                    "timeout_ms": args.run_timeout_ms,
+                    "max_output_chars": args.run_max_chars,
+                    "extract_output_contexts": args.run_output_contexts,
+                    "extract_output_diagnostics": args.run_output_diagnostics,
+                    "context_lines": args.run_output_context_lines,
+                    "max_diagnostics": args.run_output_diagnostic_max,
+                    "max_contexts": args.run_output_context_max,
+                    "max_bytes_per_context": args.run_output_context_max_bytes,
+                }
+                if args.json:
+                    run_report = get_run_report(project_root or ".", **run_kwargs)
+                    payload_extra["run"] = run_report
+                    text = format_run_report_text(run_report)
+                else:
+                    text = get_run_text(project_root or ".", **run_kwargs)
             elif args.check_run_commands is not None:
-                text = get_check_run_sequence_text(project_root or ".", commands=args.check_run_commands, cwd=args.run_cwd)
+                check_run_kwargs = {"commands": args.check_run_commands, "cwd": args.run_cwd}
+                if args.json:
+                    check_run_report = get_check_run_sequence_report(project_root or ".", **check_run_kwargs)
+                    payload_extra["checkRunCommands"] = check_run_report
+                    text = format_check_run_sequence_report_text(check_run_report)
+                else:
+                    text = get_check_run_sequence_text(project_root or ".", **check_run_kwargs)
             elif args.run_commands is not None:
-                text = get_run_sequence_text(
-                    project_root or ".",
-                    commands=args.run_commands,
-                    cwd=args.run_cwd,
-                    timeout_ms=args.run_timeout_ms,
-                    max_output_chars=args.run_max_chars,
-                    stop_on_failure=not args.run_continue_on_failure,
-                    extract_output_contexts=args.run_output_contexts,
-                    extract_output_diagnostics=args.run_output_diagnostics,
-                    context_lines=args.run_output_context_lines,
-                    max_diagnostics=args.run_output_diagnostic_max,
-                    max_contexts=args.run_output_context_max,
-                    max_bytes_per_context=args.run_output_context_max_bytes,
-                )
+                run_sequence_kwargs = {
+                    "commands": args.run_commands,
+                    "cwd": args.run_cwd,
+                    "timeout_ms": args.run_timeout_ms,
+                    "max_output_chars": args.run_max_chars,
+                    "stop_on_failure": not args.run_continue_on_failure,
+                    "extract_output_contexts": args.run_output_contexts,
+                    "extract_output_diagnostics": args.run_output_diagnostics,
+                    "context_lines": args.run_output_context_lines,
+                    "max_diagnostics": args.run_output_diagnostic_max,
+                    "max_contexts": args.run_output_context_max,
+                    "max_bytes_per_context": args.run_output_context_max_bytes,
+                }
+                if args.json:
+                    run_sequence_report = get_run_sequence_report(project_root or ".", **run_sequence_kwargs)
+                    payload_extra["runCommands"] = run_sequence_report
+                    text = format_run_sequence_report_text(run_sequence_report)
+                else:
+                    text = get_run_sequence_text(project_root or ".", **run_sequence_kwargs)
             elif args.check_start_command is not None:
                 text = get_check_start_text(project_root or ".", args.check_start_command, cwd=args.start_cwd)
             elif args.start_command is not None:
@@ -1613,79 +1734,147 @@ def run_local_flag(args: argparse.Namespace) -> int:
                 glob_kwargs = {}
                 if args.glob_max_matches is not None:
                     glob_kwargs["max_matches"] = args.glob_max_matches
-                text = get_glob_text(project_root or ".", args.glob, **glob_kwargs)
+                if args.json:
+                    glob_report = get_glob_report(project_root or ".", args.glob, **glob_kwargs)
+                    payload_extra["glob"] = glob_report
+                    text = format_glob_report_text(glob_report)
+                else:
+                    text = get_glob_text(project_root or ".", args.glob, **glob_kwargs)
             elif args.tree is not None:
                 tree_kwargs = {}
                 if args.tree_max_depth is not None:
                     tree_kwargs["max_depth"] = args.tree_max_depth
                 if args.tree_max_entries is not None:
                     tree_kwargs["max_entries"] = args.tree_max_entries
-                text = get_tree_text(project_root or ".", args.tree or None, **tree_kwargs)
+                if args.json:
+                    tree_report = get_tree_report(project_root or ".", args.tree or None, **tree_kwargs)
+                    payload_extra["tree"] = tree_report
+                    text = format_tree_report_text(tree_report)
+                else:
+                    text = get_tree_text(project_root or ".", args.tree or None, **tree_kwargs)
             elif args.symbols is not None:
                 symbols_kwargs = {}
                 if args.symbols_max is not None:
                     symbols_kwargs["max_symbols"] = args.symbols_max
-                text = get_symbols_text(project_root or ".", args.symbols, **symbols_kwargs)
+                if args.json:
+                    symbols_report = get_symbols_report(project_root or ".", args.symbols, **symbols_kwargs)
+                    payload_extra["symbols"] = symbols_report
+                    text = format_symbols_report_text(symbols_report)
+                else:
+                    text = get_symbols_text(project_root or ".", args.symbols, **symbols_kwargs)
             elif args.file_info is not None:
-                text = get_file_info_text(project_root or ".", args.file_info)
+                if args.json:
+                    file_info_report = get_file_info_report(project_root or ".", args.file_info)
+                    payload_extra["fileInfo"] = file_info_report
+                    text = format_file_info_report_text(file_info_report)
+                else:
+                    text = get_file_info_text(project_root or ".", args.file_info)
             elif args.image_info is not None:
-                text = get_image_info_text(project_root or ".", args.image_info)
+                if args.json:
+                    image_info_report = get_image_info_report(project_root or ".", args.image_info)
+                    payload_extra["imageInfo"] = image_info_report
+                    text = format_image_info_report_text(image_info_report)
+                else:
+                    text = get_image_info_text(project_root or ".", args.image_info)
             elif args.read is not None:
                 read_kwargs = {}
                 if args.read_max_bytes is not None:
                     read_kwargs["max_bytes"] = args.read_max_bytes
-                text = get_read_text(project_root or ".", args.read, args.read_lines, **read_kwargs)
+                if args.json:
+                    read_report = get_read_report(project_root or ".", args.read, args.read_lines, **read_kwargs)
+                    payload_extra["read"] = read_report
+                    text = format_read_report_text(read_report)
+                else:
+                    text = get_read_text(project_root or ".", args.read, args.read_lines, **read_kwargs)
             elif args.around is not None:
                 around_kwargs = {}
                 if args.around_max_bytes is not None:
                     around_kwargs["max_bytes"] = args.around_max_bytes
-                text = get_around_text(project_root or ".", f"{args.around[0]} {args.around[1]}", args.around_lines, **around_kwargs)
+                around_argument = f"{args.around[0]} {args.around[1]}"
+                if args.json:
+                    around_report = get_around_report(project_root or ".", around_argument, args.around_lines, **around_kwargs)
+                    payload_extra["around"] = around_report
+                    text = format_around_report_text(around_report)
+                else:
+                    text = get_around_text(project_root or ".", around_argument, args.around_lines, **around_kwargs)
             elif args.around_many is not None:
                 around_many_kwargs = {}
                 if args.around_many_max_bytes is not None:
                     around_many_kwargs["max_bytes_per_context"] = args.around_many_max_bytes
-                text = get_around_many_text(project_root or ".", args.around_many, **around_many_kwargs)
+                if args.json:
+                    around_many_report = get_around_many_report(project_root or ".", args.around_many, **around_many_kwargs)
+                    payload_extra["aroundMany"] = around_many_report
+                    text = format_around_many_report_text(around_many_report)
+                else:
+                    text = get_around_many_text(project_root or ".", args.around_many, **around_many_kwargs)
             elif args.output_contexts is not None:
-                text = get_output_contexts_text(
-                    project_root or ".",
-                    args.output_contexts,
-                    context_lines=args.output_context_lines,
-                    max_contexts=args.output_context_max,
-                    max_bytes_per_context=args.output_context_max_bytes,
-                )
+                output_context_kwargs = {
+                    "context_lines": args.output_context_lines,
+                    "max_contexts": args.output_context_max,
+                    "max_bytes_per_context": args.output_context_max_bytes,
+                }
+                if args.json:
+                    output_contexts_report = get_output_contexts_report(project_root or ".", args.output_contexts, **output_context_kwargs)
+                    payload_extra["outputContexts"] = output_contexts_report
+                    text = format_output_contexts_report_text(output_contexts_report)
+                else:
+                    text = get_output_contexts_text(project_root or ".", args.output_contexts, **output_context_kwargs)
             elif args.output_diagnostics is not None:
-                text = get_output_diagnostics_text(
-                    project_root or ".",
-                    args.output_diagnostics,
-                    context_lines=args.output_diagnostic_lines,
-                    max_diagnostics=args.output_diagnostic_max,
-                    max_contexts=args.output_diagnostic_context_max,
-                    max_bytes_per_context=args.output_diagnostic_context_max_bytes,
-                )
+                output_diagnostic_kwargs = {
+                    "context_lines": args.output_diagnostic_lines,
+                    "max_diagnostics": args.output_diagnostic_max,
+                    "max_contexts": args.output_diagnostic_context_max,
+                    "max_bytes_per_context": args.output_diagnostic_context_max_bytes,
+                }
+                if args.json:
+                    output_diagnostics_report = get_output_diagnostics_report(project_root or ".", args.output_diagnostics, **output_diagnostic_kwargs)
+                    payload_extra["outputDiagnostics"] = output_diagnostics_report
+                    text = format_output_diagnostics_report_text(output_diagnostics_report)
+                else:
+                    text = get_output_diagnostics_text(project_root or ".", args.output_diagnostics, **output_diagnostic_kwargs)
             elif args.python_traceback is not None:
-                text = get_python_traceback_text(
-                    project_root or ".",
-                    args.python_traceback,
-                    context_lines=args.output_diagnostic_lines,
-                    max_diagnostics=args.output_diagnostic_max,
-                    max_contexts=args.output_diagnostic_context_max,
-                    max_bytes_per_context=args.output_diagnostic_context_max_bytes,
-                )
+                python_traceback_kwargs = {
+                    "context_lines": args.output_diagnostic_lines,
+                    "max_diagnostics": args.output_diagnostic_max,
+                    "max_contexts": args.output_diagnostic_context_max,
+                    "max_bytes_per_context": args.output_diagnostic_context_max_bytes,
+                }
+                if args.json:
+                    python_traceback_report = get_python_traceback_report(project_root or ".", args.python_traceback, **python_traceback_kwargs)
+                    payload_extra["pythonTraceback"] = python_traceback_report
+                    text = format_python_traceback_report_text(python_traceback_report)
+                else:
+                    text = get_python_traceback_text(project_root or ".", args.python_traceback, **python_traceback_kwargs)
             elif args.tail is not None:
                 tail_kwargs = {}
                 if args.tail_max_bytes is not None:
                     tail_kwargs["max_bytes"] = args.tail_max_bytes
-                text = get_tail_text(project_root or ".", args.tail, args.tail_lines, **tail_kwargs)
+                if args.json:
+                    tail_report = get_tail_report(project_root or ".", args.tail, args.tail_lines, **tail_kwargs)
+                    payload_extra["tail"] = tail_report
+                    text = format_tail_report_text(tail_report)
+                else:
+                    text = get_tail_text(project_root or ".", args.tail, args.tail_lines, **tail_kwargs)
             elif args.read_files is not None:
                 read_files_kwargs = {}
                 if args.read_files_max_bytes is not None:
                     read_files_kwargs["max_bytes_per_file"] = args.read_files_max_bytes
-                text = get_read_files_text(project_root or ".", args.read_files, **read_files_kwargs)
+                if args.json:
+                    read_files_report = get_read_files_report(project_root or ".", args.read_files, **read_files_kwargs)
+                    payload_extra["readFiles"] = read_files_report
+                    text = format_read_files_report_text(read_files_report)
+                else:
+                    text = get_read_files_text(project_root or ".", args.read_files, **read_files_kwargs)
             elif args.read_ranges is not None:
                 read_ranges_kwargs = {}
                 if args.read_ranges_max_bytes is not None:
                     read_ranges_kwargs["max_bytes_per_range"] = args.read_ranges_max_bytes
-                text = get_read_ranges_text(project_root or ".", args.read_ranges, **read_ranges_kwargs)
+                if args.json:
+                    read_ranges_report = get_read_ranges_report(project_root or ".", args.read_ranges, **read_ranges_kwargs)
+                    payload_extra["readRanges"] = read_ranges_report
+                    text = format_read_ranges_report_text(read_ranges_report)
+                else:
+                    text = get_read_ranges_text(project_root or ".", args.read_ranges, **read_ranges_kwargs)
             elif args.python_check is not None:
                 text = get_python_check_text(project_root or ".", args.python_check or None)
             elif args.python_deps is not None:
@@ -1962,21 +2151,61 @@ def run_local_flag(args: argparse.Namespace) -> int:
                     path=args.code_path,
                 )
             elif args.git_status:
-                text = get_git_status_text(project_root or ".")
+                if args.json:
+                    git_report = get_git_status_report(project_root or ".")
+                    payload_extra["gitStatus"] = git_report
+                    text = format_git_status_report_text(git_report)
+                else:
+                    text = get_git_status_text(project_root or ".")
             elif args.conflicts is not None:
                 text = get_git_conflicts_text(project_root or ".", args.conflicts or None)
             elif args.git_info:
-                text = get_git_info_text(project_root or ".")
+                if args.json:
+                    git_report = get_git_info_report(project_root or ".")
+                    payload_extra["gitInfo"] = git_report
+                    text = format_git_info_report_text(git_report)
+                else:
+                    text = get_git_info_text(project_root or ".")
             elif args.branches:
-                text = get_branches_text(project_root or ".")
+                if args.json:
+                    branches_report = get_branches_report(project_root or ".")
+                    payload_extra["branches"] = branches_report
+                    text = format_branches_report_text(branches_report)
+                else:
+                    text = get_branches_text(project_root or ".")
             elif args.log is not None:
-                text = get_log_text(project_root or ".", args.log or None, args.log_count)
+                if args.json:
+                    log_report = get_log_report(project_root or ".", args.log or None, args.log_count)
+                    payload_extra["log"] = log_report
+                    text = format_log_report_text(log_report)
+                else:
+                    text = get_log_text(project_root or ".", args.log or None, args.log_count)
             elif args.show is not None:
-                text = get_show_text(project_root or ".", rev=args.show or "HEAD", path=args.show_path, max_output_chars=args.show_max_chars)
+                if args.json:
+                    show_report = get_show_report(
+                        project_root or ".",
+                        rev=args.show or "HEAD",
+                        path=args.show_path,
+                        max_output_chars=args.show_max_chars,
+                    )
+                    payload_extra["show"] = show_report
+                    text = format_show_report_text(show_report)
+                else:
+                    text = get_show_text(project_root or ".", rev=args.show or "HEAD", path=args.show_path, max_output_chars=args.show_max_chars)
             elif args.blame is not None:
-                text = get_blame_text(project_root or ".", args.blame, args.blame_lines, args.blame_max_chars)
+                if args.json:
+                    blame_report = get_blame_report(project_root or ".", args.blame, args.blame_lines, args.blame_max_chars)
+                    payload_extra["blame"] = blame_report
+                    text = format_blame_report_text(blame_report)
+                else:
+                    text = get_blame_text(project_root or ".", args.blame, args.blame_lines, args.blame_max_chars)
             elif args.stashes:
-                text = get_stashes_text(project_root or ".", max_entries=args.stash_count)
+                if args.json:
+                    stashes_report = get_stashes_report(project_root or ".", max_entries=args.stash_count)
+                    payload_extra["stashes"] = stashes_report
+                    text = format_stashes_report_text(stashes_report)
+                else:
+                    text = get_stashes_text(project_root or ".", max_entries=args.stash_count)
             elif args.check_git_fetch is not None:
                 text = get_check_fetch_text(project_root or ".", args.check_git_fetch)
             elif args.git_fetch is not None:
@@ -2030,36 +2259,57 @@ def run_local_flag(args: argparse.Namespace) -> int:
             elif args.processes:
                 text = get_processes_text(project_root or ".")
             elif args.process_output is not None:
-                text = get_process_text(project_root or ".", process_id=args.process_output, max_output_chars=args.process_max_chars)
+                process_kwargs = {"process_id": args.process_output, "max_output_chars": args.process_max_chars}
+                if args.json:
+                    process_report = get_process_report(project_root or ".", **process_kwargs)
+                    payload_extra["process"] = process_report
+                    text = format_process_report_text(process_report)
+                else:
+                    text = get_process_text(project_root or ".", **process_kwargs)
             elif args.process_output_contexts is not None:
-                text = get_process_output_contexts_text(
-                    project_root or ".",
-                    process_id=args.process_output_contexts,
-                    max_output_chars=args.process_max_chars,
-                    context_lines=args.process_output_context_lines,
-                    max_contexts=args.process_output_context_max,
-                    max_bytes_per_context=args.process_output_context_max_bytes,
-                )
+                process_context_kwargs = {
+                    "process_id": args.process_output_contexts,
+                    "max_output_chars": args.process_max_chars,
+                    "context_lines": args.process_output_context_lines,
+                    "max_contexts": args.process_output_context_max,
+                    "max_bytes_per_context": args.process_output_context_max_bytes,
+                }
+                if args.json:
+                    process_contexts_report = get_process_output_contexts_report(project_root or ".", **process_context_kwargs)
+                    payload_extra["processOutputContexts"] = process_contexts_report
+                    text = format_process_output_contexts_report_text(process_contexts_report)
+                else:
+                    text = get_process_output_contexts_text(project_root or ".", **process_context_kwargs)
             elif args.process_output_diagnostics is not None:
-                text = get_process_output_diagnostics_text(
-                    project_root or ".",
-                    process_id=args.process_output_diagnostics,
-                    max_output_chars=args.process_max_chars,
-                    context_lines=args.process_output_context_lines,
-                    max_diagnostics=args.process_output_diagnostic_max,
-                    max_contexts=args.process_output_context_max,
-                    max_bytes_per_context=args.process_output_context_max_bytes,
-                )
+                process_diagnostic_kwargs = {
+                    "process_id": args.process_output_diagnostics,
+                    "max_output_chars": args.process_max_chars,
+                    "context_lines": args.process_output_context_lines,
+                    "max_diagnostics": args.process_output_diagnostic_max,
+                    "max_contexts": args.process_output_context_max,
+                    "max_bytes_per_context": args.process_output_context_max_bytes,
+                }
+                if args.json:
+                    process_diagnostics_report = get_process_output_diagnostics_report(project_root or ".", **process_diagnostic_kwargs)
+                    payload_extra["processOutputDiagnostics"] = process_diagnostics_report
+                    text = format_process_output_diagnostics_report_text(process_diagnostics_report)
+                else:
+                    text = get_process_output_diagnostics_text(project_root or ".", **process_diagnostic_kwargs)
             elif args.wait_process is not None:
-                text = get_wait_process_text(
-                    project_root or ".",
-                    process_id=args.wait_process,
-                    timeout_ms=args.wait_timeout_ms,
-                    max_output_chars=args.wait_max_chars,
-                    stdout_contains=args.wait_stdout,
-                    stderr_contains=args.wait_stderr,
-                    regex=args.wait_regex,
-                )
+                wait_process_kwargs = {
+                    "process_id": args.wait_process,
+                    "timeout_ms": args.wait_timeout_ms,
+                    "max_output_chars": args.wait_max_chars,
+                    "stdout_contains": args.wait_stdout,
+                    "stderr_contains": args.wait_stderr,
+                    "regex": args.wait_regex,
+                }
+                if args.json:
+                    wait_process_report = get_wait_process_report(project_root or ".", **wait_process_kwargs)
+                    payload_extra["waitProcess"] = wait_process_report
+                    text = format_wait_process_report_text(wait_process_report)
+                else:
+                    text = get_wait_process_text(project_root or ".", **wait_process_kwargs)
             elif args.check_write_process is not None:
                 text = get_check_write_process_text(project_root or ".", process_id=args.check_write_process, content=args.write_stdin)
             elif args.write_process is not None:
@@ -2082,41 +2332,81 @@ def run_local_flag(args: argparse.Namespace) -> int:
                 payload_extra["doctor"] = get_doctor_report(project_root or ".", provider_env)
                 text = get_doctor_text(project_root or ".", provider_env)
             elif args.review:
-                text = get_review_text(project_root or ".", max_files=args.review_max_files, max_checks=args.review_max_checks)
+                review_report = get_review_report(
+                    project_root or ".",
+                    max_files=args.review_max_files,
+                    max_checks=args.review_max_checks,
+                )
+                payload_extra["review"] = review_report
+                text = format_review_report_text(review_report)
             elif args.handoff:
-                text = get_handoff_text(
+                handoff_report = get_handoff_report(
                     project_root or ".",
                     max_files=args.handoff_max_files,
                     max_checks=args.handoff_max_checks,
                     max_status_chars=args.handoff_max_status_chars,
                     max_plan_chars=args.handoff_max_plan_chars,
                 )
+                payload_extra["handoff"] = handoff_report
+                text = format_handoff_report_text(handoff_report)
             elif args.changes:
-                text = get_changes_text(project_root or ".", max_files=args.changes_max_files)
+                changes_report = get_changes_report(project_root or ".", max_files=args.changes_max_files)
+                payload_extra["changes"] = changes_report
+                text = format_changes_report_text(changes_report)
             elif args.diff is not None:
-                text = get_diff_text(project_root or ".", args.diff or None, max_chars=args.diff_max_chars)
+                if args.json:
+                    diff_report = get_diff_report(project_root or ".", args.diff or None, max_chars=args.diff_max_chars)
+                    payload_extra["diff"] = diff_report
+                    text = format_diff_report_text(diff_report)
+                else:
+                    text = get_diff_text(project_root or ".", args.diff or None, max_chars=args.diff_max_chars)
             elif args.diff_hunks is not None:
-                text = get_diff_hunks_text(
-                    project_root or ".",
-                    args.diff_hunks or None,
-                    max_hunks=args.diff_hunks_max_hunks,
-                    max_lines_per_hunk=args.diff_hunks_max_lines,
-                )
+                if args.json:
+                    diff_report = get_diff_hunks_report(
+                        project_root or ".",
+                        args.diff_hunks or None,
+                        max_hunks=args.diff_hunks_max_hunks,
+                        max_lines_per_hunk=args.diff_hunks_max_lines,
+                    )
+                    payload_extra["diffHunks"] = diff_report
+                    text = format_diff_hunks_report_text(diff_report)
+                else:
+                    text = get_diff_hunks_text(
+                        project_root or ".",
+                        args.diff_hunks or None,
+                        max_hunks=args.diff_hunks_max_hunks,
+                        max_lines_per_hunk=args.diff_hunks_max_lines,
+                    )
             elif args.diff_contexts is not None:
-                text = get_diff_contexts_text(
-                    project_root or ".",
-                    args.diff_contexts or None,
-                    context_lines=args.diff_context_lines,
-                    max_hunks=args.diff_contexts_max_hunks,
-                    max_bytes_per_context=args.diff_contexts_max_bytes,
-                )
+                if args.json:
+                    diff_report = get_diff_contexts_report(
+                        project_root or ".",
+                        args.diff_contexts or None,
+                        context_lines=args.diff_context_lines,
+                        max_hunks=args.diff_contexts_max_hunks,
+                        max_bytes_per_context=args.diff_contexts_max_bytes,
+                    )
+                    payload_extra["diffContexts"] = diff_report
+                    text = format_diff_contexts_report_text(diff_report)
+                else:
+                    text = get_diff_contexts_text(
+                        project_root or ".",
+                        args.diff_contexts or None,
+                        context_lines=args.diff_context_lines,
+                        max_hunks=args.diff_contexts_max_hunks,
+                        max_bytes_per_context=args.diff_contexts_max_bytes,
+                    )
             elif args.sessions:
+                payload_extra["sessions"] = get_sessions_report(project_root or ".")
                 text = get_sessions_text(project_root or ".")
             elif args.last:
+                payload_extra["sessionSummary"] = get_last_session_report(project_root or ".")
                 text = get_last_session_text(project_root or ".")
             elif args.session is not None:
+                payload_extra["sessionSummary"] = get_session_report(args.session, project_root or ".")
                 text = get_session_text(args.session, project_root or ".")
             elif args.plan is not None:
+                payload_extra["sessionPlan"] = get_plan_report(project_root or ".", args.plan or None)
                 text = get_plan_text(project_root or ".", args.plan or None)
             elif args.transcript is not None:
                 session_kwargs = {}
@@ -2124,6 +2414,7 @@ def run_local_flag(args: argparse.Namespace) -> int:
                     session_kwargs["max_events"] = args.session_transcript_event_max
                 if args.session_max_text is not None:
                     session_kwargs["max_text"] = args.session_max_text
+                payload_extra["sessionTranscript"] = get_transcript_report(project_root or ".", args.transcript or None, **session_kwargs)
                 text = get_transcript_text(project_root or ".", args.transcript or None, **session_kwargs)
             elif args.session_search is not None:
                 session_kwargs = {}
@@ -2133,6 +2424,7 @@ def run_local_flag(args: argparse.Namespace) -> int:
                     session_kwargs["max_text"] = args.session_max_text
                 if args.session_search_case_sensitive:
                     session_kwargs["case_sensitive"] = True
+                payload_extra["sessionSearch"] = get_session_search_report(project_root or ".", args.session_search, args.session_search_run, **session_kwargs)
                 text = get_session_search_text(project_root or ".", args.session_search, args.session_search_run, **session_kwargs)
             elif args.session_commands is not None:
                 session_kwargs = {}
@@ -2140,32 +2432,34 @@ def run_local_flag(args: argparse.Namespace) -> int:
                     session_kwargs["max_commands"] = args.session_max_commands
                 if args.session_max_output_chars is not None:
                     session_kwargs["max_output_chars"] = args.session_max_output_chars
+                payload_extra["sessionCommands"] = get_session_commands_report(project_root or ".", args.session_commands or None, **session_kwargs)
                 text = get_session_commands_text(project_root or ".", args.session_commands or None, **session_kwargs)
             elif args.session_output_contexts is not None:
-                text = get_session_output_contexts_text(
-                    project_root or ".",
-                    args.session_output_contexts or None,
-                    max_commands=args.session_output_command_max,
-                    max_output_chars=args.session_output_max_chars,
-                    context_lines=args.session_output_context_lines,
-                    max_contexts=args.session_output_context_max,
-                    max_bytes_per_context=args.session_output_context_max_bytes,
-                )
+                session_kwargs = {
+                    "max_commands": args.session_output_command_max,
+                    "max_output_chars": args.session_output_max_chars,
+                    "context_lines": args.session_output_context_lines,
+                    "max_contexts": args.session_output_context_max,
+                    "max_bytes_per_context": args.session_output_context_max_bytes,
+                }
+                payload_extra["sessionOutputContexts"] = get_session_output_contexts_report(project_root or ".", args.session_output_contexts or None, **session_kwargs)
+                text = get_session_output_contexts_text(project_root or ".", args.session_output_contexts or None, **session_kwargs)
             elif args.session_output_diagnostics is not None:
-                text = get_session_output_diagnostics_text(
-                    project_root or ".",
-                    args.session_output_diagnostics or None,
-                    max_commands=args.session_output_command_max,
-                    max_output_chars=args.session_output_max_chars,
-                    context_lines=args.session_output_context_lines,
-                    max_diagnostics=args.session_output_diagnostic_max,
-                    max_contexts=args.session_output_context_max,
-                    max_bytes_per_context=args.session_output_context_max_bytes,
-                )
+                session_kwargs = {
+                    "max_commands": args.session_output_command_max,
+                    "max_output_chars": args.session_output_max_chars,
+                    "context_lines": args.session_output_context_lines,
+                    "max_diagnostics": args.session_output_diagnostic_max,
+                    "max_contexts": args.session_output_context_max,
+                    "max_bytes_per_context": args.session_output_context_max_bytes,
+                }
+                payload_extra["sessionOutputDiagnostics"] = get_session_output_diagnostics_report(project_root or ".", args.session_output_diagnostics or None, **session_kwargs)
+                text = get_session_output_diagnostics_text(project_root or ".", args.session_output_diagnostics or None, **session_kwargs)
             elif args.session_files is not None:
                 session_kwargs = {}
                 if args.session_max_files is not None:
                     session_kwargs["max_files"] = args.session_max_files
+                payload_extra["sessionFiles"] = get_session_files_report(project_root or ".", args.session_files or None, **session_kwargs)
                 text = get_session_files_text(project_root or ".", args.session_files or None, **session_kwargs)
             elif args.session_failures is not None:
                 session_kwargs = {}
@@ -2173,11 +2467,13 @@ def run_local_flag(args: argparse.Namespace) -> int:
                     session_kwargs["max_failures"] = args.session_max_failures
                 if args.session_max_text is not None:
                     session_kwargs["max_text"] = args.session_max_text
+                payload_extra["sessionFailures"] = get_session_failures_report(project_root or ".", args.session_failures or None, **session_kwargs)
                 text = get_session_failures_text(project_root or ".", args.session_failures or None, **session_kwargs)
             elif args.session_verification is not None:
                 session_kwargs = {}
                 if args.session_max_checks is not None:
                     session_kwargs["max_checks"] = args.session_max_checks
+                payload_extra["sessionVerification"] = get_session_verification_report(project_root or ".", args.session_verification or None, **session_kwargs)
                 text = get_session_verification_text(project_root or ".", args.session_verification or None, **session_kwargs)
             elif args.session_audit is not None:
                 session_kwargs = {}
@@ -2191,6 +2487,7 @@ def run_local_flag(args: argparse.Namespace) -> int:
                     session_kwargs["max_checks"] = args.session_max_checks
                 if args.session_max_text is not None:
                     session_kwargs["max_text"] = args.session_max_text
+                payload_extra["sessionAudit"] = get_session_audit_report(project_root or ".", args.session_audit or None, **session_kwargs)
                 text = get_session_audit_text(project_root or ".", args.session_audit or None, **session_kwargs)
             elif args.session_handoff is not None:
                 session_kwargs = {}
@@ -2206,32 +2503,87 @@ def run_local_flag(args: argparse.Namespace) -> int:
                     session_kwargs["max_output_chars"] = args.session_max_output_chars
                 if args.session_max_text is not None:
                     session_kwargs["max_text"] = args.session_max_text
+                payload_extra["sessionHandoff"] = get_session_handoff_report(project_root or ".", args.session_handoff or None, **session_kwargs)
                 text = get_session_handoff_text(project_root or ".", args.session_handoff or None, **session_kwargs)
             elif args.checkpoint is not None:
-                text = get_checkpoint_text(project_root or ".", args.checkpoint or None)
+                if args.json:
+                    checkpoint_report = get_checkpoint_report(project_root or ".", args.checkpoint or None)
+                    payload_extra["checkpoint"] = checkpoint_report
+                    text = format_checkpoint_create_report_text(checkpoint_report)
+                else:
+                    text = get_checkpoint_text(project_root or ".", args.checkpoint or None)
             elif args.checkpoints:
-                text = get_checkpoints_text(project_root or ".")
+                if args.json:
+                    checkpoints_report = get_checkpoints_report(project_root or ".")
+                    payload_extra["checkpoints"] = checkpoints_report
+                    text = format_checkpoints_report_text(checkpoints_report)
+                else:
+                    text = get_checkpoints_text(project_root or ".")
             elif args.checkpoint_show is not None:
-                text = get_checkpoint_show_text(args.checkpoint_show, project_root or ".")
+                if args.json:
+                    checkpoint_report = get_checkpoint_show_report(args.checkpoint_show, project_root or ".")
+                    payload_extra["checkpointShow"] = checkpoint_report
+                    text = format_checkpoint_show_report_text(checkpoint_report)
+                else:
+                    text = get_checkpoint_show_text(args.checkpoint_show, project_root or ".")
             elif args.checkpoint_diff is not None:
-                text = get_checkpoint_diff_text(args.checkpoint_diff, project_root or ".")
+                if args.json:
+                    checkpoint_report = get_checkpoint_diff_report(args.checkpoint_diff, project_root or ".")
+                    payload_extra["checkpointDiff"] = checkpoint_report
+                    text = format_checkpoint_diff_report_text(checkpoint_report)
+                else:
+                    text = get_checkpoint_diff_text(args.checkpoint_diff, project_root or ".")
             elif args.checkpoint_status is not None:
-                text = get_checkpoint_status_text(args.checkpoint_status, project_root or ".")
+                if args.json:
+                    checkpoint_report = get_checkpoint_status_report(args.checkpoint_status, project_root or ".")
+                    payload_extra["checkpointStatus"] = checkpoint_report
+                    text = format_checkpoint_status_report_text(checkpoint_report)
+                else:
+                    text = get_checkpoint_status_text(args.checkpoint_status, project_root or ".")
             elif args.check_checkpoint_restore is not None:
+                if args.json:
+                    payload_extra["checkCheckpointRestore"] = get_check_checkpoint_restore_report(args.check_checkpoint_restore, project_root or ".")
                 text = get_check_checkpoint_restore_text(args.check_checkpoint_restore, project_root or ".")
             elif args.checkpoint_restore is not None:
-                text = get_checkpoint_restore_text(args.checkpoint_restore, project_root or ".")
+                if args.json:
+                    checkpoint_report = get_checkpoint_restore_report(args.checkpoint_restore, project_root or ".")
+                    payload_extra["checkpointRestore"] = checkpoint_report
+                    text = format_checkpoint_restore_report_text(checkpoint_report)
+                else:
+                    text = get_checkpoint_restore_text(args.checkpoint_restore, project_root or ".")
             elif args.check_checkpoint_delete is not None:
-                text = get_check_checkpoint_delete_text(args.check_checkpoint_delete, project_root or ".")
+                if args.json:
+                    checkpoint_report = get_check_checkpoint_delete_report(args.check_checkpoint_delete, project_root or ".")
+                    payload_extra["checkCheckpointDelete"] = checkpoint_report
+                    text = format_check_checkpoint_delete_report_text(checkpoint_report)
+                else:
+                    text = get_check_checkpoint_delete_text(args.check_checkpoint_delete, project_root or ".")
             elif args.checkpoint_delete is not None:
-                text = get_checkpoint_delete_text(args.checkpoint_delete, project_root or ".")
+                if args.json:
+                    checkpoint_report = get_checkpoint_delete_report(args.checkpoint_delete, project_root or ".")
+                    payload_extra["checkpointDelete"] = checkpoint_report
+                    text = format_checkpoint_delete_report_text(checkpoint_report)
+                else:
+                    text = get_checkpoint_delete_text(args.checkpoint_delete, project_root or ".")
             elif args.check_checkpoint_prune is not None:
-                text = get_check_checkpoint_prune_text(args.check_checkpoint_prune, project_root or ".")
+                if args.json:
+                    checkpoint_report = get_check_checkpoint_prune_report(args.check_checkpoint_prune, project_root or ".")
+                    payload_extra["checkCheckpointPrune"] = checkpoint_report
+                    text = format_check_checkpoint_prune_report_text(checkpoint_report)
+                else:
+                    text = get_check_checkpoint_prune_text(args.check_checkpoint_prune, project_root or ".")
             elif args.checkpoint_prune is not None:
-                text = get_checkpoint_prune_text(args.checkpoint_prune, project_root or ".")
+                if args.json:
+                    checkpoint_report = get_checkpoint_prune_report(args.checkpoint_prune, project_root or ".")
+                    payload_extra["checkpointPrune"] = checkpoint_report
+                    text = format_checkpoint_prune_report_text(checkpoint_report)
+                else:
+                    text = get_checkpoint_prune_text(args.checkpoint_prune, project_root or ".")
             elif args.usage:
+                payload_extra["usage"] = get_usage_report(project_root or ".")
                 text = get_usage_text(project_root or ".")
             elif args.cost:
+                payload_extra["cost"] = get_cost_report(project_root or ".")
                 text = get_cost_text(project_root or ".")
             else:
                 text = ""

@@ -682,6 +682,148 @@ def format_sessions(project_root: str | Path, limit: int = 20) -> str:
     return "\n".join(lines)
 
 
+def build_sessions_report(project_root: str | Path, limit: int = 20, max_text: int = 240) -> dict[str, Any]:
+    sessions = list_sessions(project_root, limit=limit)
+    return {
+        "exists": bool(sessions),
+        "ok": True,
+        "status": "ready" if sessions else "missing",
+        "sessions": {
+            "total": len(sessions),
+            "shown": len(sessions),
+            "items": [
+                serialize_session_info(project_root, info, max_text=max_text)
+                for info in sessions
+            ],
+        },
+        "message": f"Found {len(sessions)} session(s)." if sessions else "No sessions found.",
+    }
+
+
+def serialize_session_info(project_root: str | Path, info: SessionInfo, max_text: int = 240) -> dict[str, Any]:
+    summary = summarize_session(project_root, info.run_id)
+    return {
+        "session": info.run_id,
+        "status": session_summary_status(summary),
+        "events": info.event_count,
+        "malformed": info.malformed_count,
+        "lastEventTime": format_session_datetime(info.last_event_time),
+        "task": compact(summary.task, max_text) if summary.task else None,
+        "completed": summary.completed,
+        "failed": summary.failed,
+        "blocked": summary.blocked,
+    }
+
+
+def build_session_summary_report(summary: SessionSummary, max_text: int = 500) -> dict[str, Any]:
+    if not summary.exists:
+        return {
+            "session": summary.run_id,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": f"Session not found: {summary.run_id}",
+        }
+    return {
+        "session": summary.run_id,
+        "exists": True,
+        "ok": True,
+        "status": session_summary_status(summary),
+        "events": {
+            "total": summary.event_count,
+            "malformed": summary.malformed_count,
+            "iterations": summary.iterations,
+        },
+        "task": compact(summary.task, max_text) if summary.task else None,
+        "toolCalls": {
+            "total": len(summary.tool_calls),
+            "names": summary.tool_calls,
+        },
+        "approvals": {
+            "requested": summary.approvals_requested,
+            "approved": summary.approvals_approved,
+            "denied": summary.approvals_denied,
+        },
+        "tokens": {
+            "input": summary.input_tokens,
+            "output": summary.output_tokens,
+            "total": summary.total_tokens,
+            "cacheCreation": summary.cache_creation_tokens,
+            "cacheRead": summary.cache_read_tokens,
+        },
+        "plan": {
+            "status": session_plan_status(summary),
+            "items": [
+                {
+                    "status": item.status,
+                    "step": item.step,
+                }
+                for item in summary.latest_plan
+            ],
+        },
+        "finalReview": {
+            "seen": summary.final_review_seen,
+            "ready": summary.final_review_ready,
+            "blockingIssues": summary.final_review_blocking_issues,
+            "warnings": summary.final_review_warnings,
+            "files": summary.final_review_files,
+            "suggestedChecks": summary.final_review_suggested_checks,
+            "message": compact(summary.final_review_message, max_text) if summary.final_review_message else None,
+            "pythonFailures": summary.final_review_python_failures,
+            "configFailures": summary.final_review_config_failures,
+        },
+        "completion": {
+            "ready": summary.completion_ready,
+            "blockers": summary.completion_blockers,
+            "blockedCount": summary.completion_blocked_count,
+            "latestBlockers": summary.latest_completion_blockers,
+            "latestPendingVerificationChecks": summary.latest_completion_pending_verification_checks,
+            "latestFailedVerificationChecks": summary.latest_completion_failed_verification_checks,
+            "warnings": summary.completion_warnings,
+        },
+        "verification": {
+            "verified": summary.verification_checks,
+            "pending": summary.pending_verification_checks,
+            "failed": summary.failed_verification_checks,
+        },
+        "checkpoints": {
+            "created": summary.checkpoints_created,
+            "autoCreated": summary.auto_checkpoints_created,
+            "latestId": summary.latest_checkpoint_id,
+            "latestMessage": compact(summary.latest_checkpoint_message, max_text) if summary.latest_checkpoint_message else None,
+        },
+        "modelErrors": {
+            "total": summary.model_errors,
+            "latest": compact(summary.latest_model_error, max_text) if summary.latest_model_error else None,
+        },
+        "backgroundProcesses": {
+            "started": summary.background_processes_started,
+            "active": [
+                serialize_session_process(process)
+                for process in summary.active_background_processes
+            ],
+        },
+        "finalMessage": compact(summary.final_message, max_text) if summary.final_message else None,
+        "message": f"Read session summary for {summary.run_id}.",
+    }
+
+
+def serialize_session_process(process: SessionProcessInfo) -> dict[str, Any]:
+    return {
+        "processId": process.process_id,
+        "pid": process.pid,
+        "command": process.command,
+        "cwd": process.cwd,
+        "lineNumber": process.line_number,
+    }
+
+
+def format_session_datetime(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
 def session_summary_status(summary: SessionSummary) -> str:
     if summary.completed:
         return "completed"
@@ -734,6 +876,66 @@ def format_usage(project_root: str | Path, limit: int = 20) -> str:
     return "\n".join(lines)
 
 
+def build_usage_report(project_root: str | Path, limit: int = 20) -> dict[str, Any]:
+    usage = summarize_usage(project_root, limit=limit)
+    if usage.sessions == 0:
+        return {
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+    return {
+        "exists": True,
+        "ok": True,
+        "status": "ready",
+        "usage": serialize_usage_summary(usage),
+        "cost": {
+            "available": False,
+            "reason": "provider pricing is not configured" if usage_has_tokens(usage) else "provider token usage is not recorded",
+        },
+        "message": f"Summarized usage across {usage.sessions} session(s).",
+    }
+
+
+def serialize_usage_summary(usage: SessionUsageSummary) -> dict[str, Any]:
+    return {
+        "sessions": usage.sessions,
+        "events": usage.events,
+        "malformedRows": usage.malformed_rows,
+        "iterations": usage.iterations,
+        "toolCalls": usage.tool_calls,
+        "approvals": {
+            "requested": usage.approvals_requested,
+            "approved": usage.approvals_approved,
+            "denied": usage.approvals_denied,
+        },
+        "statuses": {
+            "completed": usage.completed,
+            "blocked": usage.blocked,
+            "incomplete": usage.incomplete,
+            "failed": usage.failed,
+        },
+        "tokens": {
+            "input": usage.input_tokens,
+            "output": usage.output_tokens,
+            "total": usage.total_tokens,
+            "cacheCreation": usage.cache_creation_tokens,
+            "cacheRead": usage.cache_read_tokens,
+        },
+    }
+
+
+def usage_has_tokens(usage: SessionUsageSummary) -> bool:
+    return bool(
+        usage.input_tokens
+        or usage.output_tokens
+        or usage.total_tokens
+        or usage.cache_creation_tokens
+        or usage.cache_read_tokens
+    )
+
+
 def format_cost(
     project_root: str | Path,
     rates: CostRates,
@@ -782,6 +984,100 @@ def format_cost(
         )
     lines.append(f"  estimatedCostUsd: {format_usd(total_cost)}")
     return "\n".join(lines)
+
+
+def build_cost_report(
+    project_root: str | Path,
+    rates: CostRates,
+    rate_errors: list[str] | None = None,
+    limit: int = 20,
+) -> dict[str, Any]:
+    usage = summarize_usage(project_root, limit=limit)
+    if usage.sessions == 0:
+        return {
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": "No sessions found.",
+        }
+
+    errors = list(rate_errors or [])
+    report: dict[str, Any] = {
+        "exists": True,
+        "ok": not errors,
+        "status": "invalid" if errors else "ready",
+        "usage": serialize_usage_summary(usage),
+        "rates": serialize_cost_rates(rates),
+        "errors": errors,
+    }
+    if errors:
+        report["estimate"] = {
+            "available": False,
+            "reason": "invalid rate configuration",
+            "missingRates": [],
+        }
+        report["message"] = "Cost estimate unavailable because rate configuration is invalid."
+        return report
+
+    if not usage_has_tokens(usage):
+        report["estimate"] = {
+            "available": False,
+            "reason": "provider token usage is not recorded",
+            "missingRates": [],
+        }
+        report["message"] = "Cost estimate unavailable because provider token usage is not recorded."
+        return report
+
+    missing = missing_cost_rate_names(usage, rates)
+    if missing:
+        report["estimate"] = {
+            "available": False,
+            "reason": "required cost rates are not configured",
+            "missingRates": missing,
+        }
+        report["message"] = "Cost estimate unavailable because required cost rates are not configured."
+        return report
+
+    input_cost = token_cost(usage.input_tokens, rates.input_usd_per_million)
+    output_cost = token_cost(usage.output_tokens, rates.output_usd_per_million)
+    cache_creation_cost = token_cost(usage.cache_creation_tokens, rates.cache_creation_usd_per_million)
+    cache_read_cost = token_cost(usage.cache_read_tokens, rates.cache_read_usd_per_million)
+    cache_cost = cache_creation_cost + cache_read_cost
+    total_cost = input_cost + output_cost + cache_cost
+    report["estimate"] = {
+        "available": True,
+        "reason": None,
+        "missingRates": [],
+        "inputCostUsd": decimal_usd_string(input_cost),
+        "outputCostUsd": decimal_usd_string(output_cost),
+        "cacheCostUsd": decimal_usd_string(cache_cost),
+        "estimatedCostUsd": decimal_usd_string(total_cost),
+        "formatted": {
+            "inputCostUsd": format_usd(input_cost),
+            "outputCostUsd": format_usd(output_cost),
+            "cacheCostUsd": format_usd(cache_cost),
+            "estimatedCostUsd": format_usd(total_cost),
+        },
+    }
+    report["message"] = "Estimated provider cost from configured rates."
+    return report
+
+
+def serialize_cost_rates(rates: CostRates) -> dict[str, str | None]:
+    return {
+        "inputUsdPerMillion": decimal_rate_string(rates.input_usd_per_million),
+        "outputUsdPerMillion": decimal_rate_string(rates.output_usd_per_million),
+        "cacheCreationUsdPerMillion": decimal_rate_string(rates.cache_creation_usd_per_million),
+        "cacheReadUsdPerMillion": decimal_rate_string(rates.cache_read_usd_per_million),
+    }
+
+
+def decimal_rate_string(value: Decimal | None) -> str | None:
+    return str(value) if value is not None else None
+
+
+def decimal_usd_string(value: Decimal) -> str:
+    return str(value.quantize(Decimal("0.000001")))
 
 
 def format_final_review_failure_lines(summary: SessionSummary, indent: str = "  ", max_text: int = 160) -> list[str]:
@@ -908,11 +1204,7 @@ def format_session_plan(summary: SessionSummary) -> str:
     if not summary.exists:
         return f"Session not found: {summary.run_id}"
 
-    plan_statuses = {item.status for item in summary.latest_plan}
-    if "in_progress" in plan_statuses:
-        status = "in_progress"
-    else:
-        status = session_summary_status(summary)
+    status = session_plan_status(summary)
     lines = [
         "Plan:",
         f"  session: {summary.run_id}",
@@ -926,6 +1218,40 @@ def format_session_plan(summary: SessionSummary) -> str:
     else:
         lines.append("  items: none")
     return "\n".join(lines)
+
+
+def session_plan_status(summary: SessionSummary) -> str:
+    plan_statuses = {item.status for item in summary.latest_plan}
+    if "in_progress" in plan_statuses:
+        return "in_progress"
+    return session_summary_status(summary)
+
+
+def build_session_plan_report(summary: SessionSummary) -> dict[str, Any]:
+    if not summary.exists:
+        return {
+            "session": summary.run_id,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": f"Session not found: {summary.run_id}",
+        }
+    status = session_plan_status(summary)
+    return {
+        "session": summary.run_id,
+        "exists": True,
+        "ok": True,
+        "status": status,
+        "task": summary.task,
+        "items": [
+            {
+                "status": item.status,
+                "step": item.step,
+            }
+            for item in summary.latest_plan
+        ],
+        "message": f"Found {len(summary.latest_plan)} plan item(s).",
+    }
 
 
 def format_session_handoff(
@@ -1100,23 +1426,13 @@ def session_audit_blockers(
     return blockers
 
 
-def failed_checkpoint_create_count(failures: list[dict[str, str | int]]) -> int:
-    return sum(
-        1
-        for failure in failures
-        if failure.get("type") == "tool_result" and failure.get("name") == "checkpoint_create"
-    )
-
-
-def format_session_audit(
-    project_root: str | Path,
-    run_id: str,
-    max_failures: int = 10,
-    max_files: int = 20,
-    max_commands: int = 10,
-    max_checks: int = 50,
-    max_text: int = 300,
-) -> str:
+def validate_session_audit_limits(
+    max_failures: int,
+    max_files: int,
+    max_commands: int,
+    max_checks: int,
+    max_text: int,
+) -> None:
     if max_failures < 1:
         raise ValueError("max_failures must be at least 1.")
     if max_failures > 200:
@@ -1137,6 +1453,314 @@ def format_session_audit(
         raise ValueError("max_text must be at least 80.")
     if max_text > 5000:
         raise ValueError("max_text must be at most 5000.")
+
+
+def build_session_audit_report(
+    project_root: str | Path,
+    run_id: str,
+    max_failures: int = 10,
+    max_files: int = 20,
+    max_commands: int = 10,
+    max_checks: int = 50,
+    max_text: int = 300,
+) -> dict[str, Any]:
+    validate_session_audit_limits(max_failures, max_files, max_commands, max_checks, max_text)
+
+    summary = summarize_session(project_root, run_id)
+    if not summary.exists:
+        return {
+            "session": run_id,
+            "exists": False,
+            "ok": False,
+            "ready": False,
+            "status": "missing",
+            "message": f"Session not found: {run_id}",
+        }
+
+    events = read_session_events(project_root, run_id)
+    failures = session_failure_entries(events, max_text=max_text)
+    command_entries = session_command_entries(events)
+    files = session_file_entries(events)
+    pending_plan_items = session_pending_plan_items(summary)
+    blockers = session_audit_blockers(summary, failures, files)
+    plan_statuses = {item.status for item in summary.latest_plan}
+    shown_failures = failures[-max_failures:]
+    shown_commands = command_entries[-max_commands:]
+    shown_files = files[:max_files]
+    shown_processes = summary.active_background_processes[:max_failures]
+
+    return {
+        "session": run_id,
+        "exists": True,
+        "ok": not blockers,
+        "ready": not blockers,
+        "status": "ready" if not blockers else "blocked",
+        "summary": {
+            "sessionStatus": session_summary_status(summary),
+            "events": summary.event_count,
+            "malformedRows": summary.malformed_count,
+            "iterations": summary.iterations,
+            "toolCalls": len(summary.tool_calls),
+            "approvals": {
+                "requested": summary.approvals_requested,
+                "approved": summary.approvals_approved,
+                "denied": summary.approvals_denied,
+            },
+            "tokens": {
+                "input": summary.input_tokens,
+                "output": summary.output_tokens,
+                "total": summary.total_tokens,
+                "cacheCreation": summary.cache_creation_tokens,
+                "cacheRead": summary.cache_read_tokens,
+            },
+            "task": summary.task,
+            "completed": summary.completed,
+            "failed": summary.failed,
+            "blocked": summary.blocked,
+            "modelErrors": summary.model_errors,
+            "latestModelError": summary.latest_model_error,
+        },
+        "finalReview": {
+            "seen": summary.final_review_seen,
+            "ready": summary.final_review_ready,
+            "blockingIssues": summary.final_review_blocking_issues,
+            "warnings": summary.final_review_warnings,
+            "files": summary.final_review_files,
+            "suggestedChecks": summary.final_review_suggested_checks,
+            "message": summary.final_review_message,
+            "failures": {
+                "python": summary.final_review_python_failures,
+                "config": summary.final_review_config_failures,
+            },
+        },
+        "checkpoints": {
+            "created": summary.checkpoints_created,
+            "autoCreated": summary.auto_checkpoints_created,
+            "latestId": summary.latest_checkpoint_id,
+            "latestMessage": summary.latest_checkpoint_message,
+        },
+        "backgroundProcesses": {
+            "started": summary.background_processes_started,
+            "active": len(summary.active_background_processes),
+            "shown": len(shown_processes),
+            "truncated": len(summary.active_background_processes) > len(shown_processes),
+            "processes": [
+                {
+                    "processId": process.process_id,
+                    "pid": process.pid,
+                    "cwd": compact(process.cwd, max_text),
+                    "command": compact(process.command, max_text),
+                    "lineNumber": process.line_number,
+                }
+                for process in shown_processes
+            ],
+        },
+        "blockers": {
+            "count": len(blockers),
+            "items": [compact(blocker, max_text) for blocker in blockers],
+        },
+        "completion": {
+            "ready": summary.completion_ready,
+            "blockers": [compact(blocker, max_text) for blocker in summary.completion_blockers],
+            "blockedCount": summary.completion_blocked_count,
+            "latestBlockers": [compact(blocker, max_text) for blocker in summary.latest_completion_blockers],
+            "latestPendingVerificationChecks": [
+                compact(check, max_text)
+                for check in summary.latest_completion_pending_verification_checks
+            ],
+            "latestFailedVerificationChecks": [
+                compact(check, max_text)
+                for check in summary.latest_completion_failed_verification_checks
+            ],
+            "warnings": [compact(warning, max_text) for warning in summary.completion_warnings],
+        },
+        "verification": {
+            "verified": limited_string_group(summary.verification_checks, max_checks, max_text),
+            "pending": limited_string_group(summary.pending_verification_checks, max_checks, max_text),
+            "failed": limited_string_group(summary.failed_verification_checks, max_checks, max_text),
+        },
+        "plan": {
+            "items": len(summary.latest_plan),
+            "inProgress": "in_progress" in plan_statuses,
+            "pending": {
+                "total": len(pending_plan_items),
+                "shown": min(len(pending_plan_items), max_failures),
+                "truncated": len(pending_plan_items) > max_failures,
+                "items": [
+                    {"status": item.status, "step": compact(item.step, max_text)}
+                    for item in pending_plan_items[:max_failures]
+                ],
+            },
+        },
+        "failures": {
+            "total": len(failures),
+            "shown": len(shown_failures),
+            "truncated": len(failures) > len(shown_failures),
+            "items": [serialize_session_failure(failure, max_text) for failure in shown_failures],
+        },
+        "commands": {
+            "total": len(command_entries),
+            "shown": len(shown_commands),
+            "truncated": len(command_entries) > len(shown_commands),
+            "items": [serialize_session_command_entry(entry, max_text) for entry in shown_commands],
+        },
+        "files": {
+            "total": len(files),
+            "shown": len(shown_files),
+            "truncated": len(files) > len(shown_files),
+            "items": [
+                {
+                    "path": compact(str(file_entry.get("path", "unknown")), max_text),
+                    "uses": file_entry.get("uses") if isinstance(file_entry.get("uses"), list) else [],
+                }
+                for file_entry in shown_files
+            ],
+        },
+        "message": "Session is ready." if not blockers else f"Session has {len(blockers)} blocker(s).",
+    }
+
+
+def validate_session_handoff_limits(max_output_chars: int) -> None:
+    if max_output_chars < 0:
+        raise ValueError("max_output_chars must be at least 0.")
+    if max_output_chars > 20_000:
+        raise ValueError("max_output_chars must be at most 20000.")
+
+
+def build_session_handoff_report(
+    project_root: str | Path,
+    run_id: str,
+    max_failures: int = 20,
+    max_files: int = 50,
+    max_commands: int = 10,
+    max_checks: int = 50,
+    max_output_chars: int = 1_000,
+    max_text: int = 500,
+) -> dict[str, Any]:
+    validate_session_audit_limits(max_failures, max_files, max_commands, max_checks, max_text)
+    validate_session_handoff_limits(max_output_chars)
+
+    audit = build_session_audit_report(
+        project_root,
+        run_id,
+        max_failures=max_failures,
+        max_files=max_files,
+        max_commands=max_commands,
+        max_checks=max_checks,
+        max_text=max_text,
+    )
+    if audit.get("exists") is not True:
+        return {
+            "session": run_id,
+            "exists": False,
+            "ok": False,
+            "ready": False,
+            "status": audit.get("status", "missing"),
+            "audit": audit,
+            "message": audit.get("message", f"Session not found: {run_id}"),
+        }
+
+    summary = summarize_session(project_root, run_id)
+    events = read_session_events(project_root, run_id)
+    failures = session_failure_entries(events, max_text=max_text)
+    files = session_file_entries(events)
+    sections = {
+        "summary": format_session_summary(summary),
+        "readiness": format_session_handoff_readiness(summary, failures, files, max_text=max_text),
+        "plan": format_session_plan(summary),
+        "verification": format_session_verification(summary, max_checks=max_checks),
+        "failures": format_session_failures(
+            project_root,
+            run_id,
+            max_failures=max_failures,
+            max_text=max_text,
+        ),
+        "files": format_session_files(project_root, run_id, max_files=max_files),
+        "commands": format_session_commands(
+            project_root,
+            run_id,
+            max_commands=max_commands,
+            max_output_chars=max_output_chars,
+        ),
+    }
+    ready = audit.get("ready") is True
+    return {
+        "session": run_id,
+        "exists": True,
+        "ok": ready,
+        "ready": ready,
+        "status": audit.get("status", "ready" if ready else "blocked"),
+        "audit": audit,
+        "sections": sections,
+        "limits": {
+            "maxFailures": max_failures,
+            "maxFiles": max_files,
+            "maxCommands": max_commands,
+            "maxChecks": max_checks,
+            "maxOutputChars": max_output_chars,
+            "maxText": max_text,
+        },
+        "message": "Session handoff is ready." if ready else "Session handoff has blocker(s).",
+    }
+
+
+def limited_string_group(items: list[str], limit: int, max_text: int) -> dict[str, Any]:
+    shown = items[:limit]
+    return {
+        "total": len(items),
+        "shown": len(shown),
+        "truncated": len(items) > len(shown),
+        "items": [compact(item, max_text) for item in shown],
+    }
+
+
+def serialize_session_failure(failure: dict[str, str | int], max_text: int) -> dict[str, Any]:
+    item: dict[str, Any] = {
+        "lineNumber": failure.get("line_number"),
+        "type": failure.get("type"),
+        "name": failure.get("name"),
+        "message": compact(str(failure.get("message", "")), max_text),
+    }
+    detail = failure.get("detail")
+    if isinstance(detail, str) and detail.strip():
+        item["detail"] = compact(detail, max_text)
+    return item
+
+
+def serialize_session_command_entry(entry: dict[str, Any], max_text: int) -> dict[str, Any]:
+    result = entry["result"]
+    command = result.get("command")
+    cwd = result.get("cwd")
+    exit_code = result.get("exit_code")
+    return {
+        "lineNumber": entry.get("line_number"),
+        "kind": entry.get("kind"),
+        "index": entry.get("index"),
+        "command": compact(command, max_text) if isinstance(command, str) else None,
+        "cwd": cwd if isinstance(cwd, str) and cwd else ".",
+        "exitCode": exit_code if isinstance(exit_code, int) else None,
+        "timedOut": result.get("timed_out") is True,
+    }
+
+
+def failed_checkpoint_create_count(failures: list[dict[str, str | int]]) -> int:
+    return sum(
+        1
+        for failure in failures
+        if failure.get("type") == "tool_result" and failure.get("name") == "checkpoint_create"
+    )
+
+
+def format_session_audit(
+    project_root: str | Path,
+    run_id: str,
+    max_failures: int = 10,
+    max_files: int = 20,
+    max_commands: int = 10,
+    max_checks: int = 50,
+    max_text: int = 300,
+) -> str:
+    validate_session_audit_limits(max_failures, max_files, max_commands, max_checks, max_text)
 
     summary = summarize_session(project_root, run_id)
     if not summary.exists:
@@ -1342,20 +1966,58 @@ def format_session_verification(summary: SessionSummary, max_checks: int = 50) -
     return "\n".join(lines)
 
 
+def build_session_verification_report(
+    project_root: str | Path,
+    run_id: str,
+    max_checks: int = 50,
+    max_text: int = 160,
+) -> dict[str, Any]:
+    if max_checks < 1:
+        raise ValueError("max_checks must be at least 1.")
+    if max_checks > 500:
+        raise ValueError("max_checks must be at most 500.")
+    if max_text < 80:
+        raise ValueError("max_text must be at least 80.")
+    if max_text > 5000:
+        raise ValueError("max_text must be at most 5000.")
+
+    summary = summarize_session(project_root, run_id)
+    if not summary.exists:
+        return {
+            "session": run_id,
+            "exists": False,
+            "ok": False,
+            "ready": False,
+            "status": "missing",
+            "message": f"Session not found: {run_id}",
+        }
+
+    verified = limited_string_group(summary.verification_checks, max_checks, max_text)
+    pending = limited_string_group(summary.pending_verification_checks, max_checks, max_text)
+    failed = limited_string_group(summary.failed_verification_checks, max_checks, max_text)
+    ok = pending["total"] == 0 and failed["total"] == 0
+    truncated = bool(verified["truncated"] or pending["truncated"] or failed["truncated"])
+    return {
+        "session": run_id,
+        "exists": True,
+        "ok": ok,
+        "ready": ok,
+        "status": "ready" if ok else "blocked",
+        "verified": verified,
+        "pending": pending,
+        "failed": failed,
+        "truncated": truncated,
+        "message": "All verification checks are complete." if ok else "Verification checks are pending or failed.",
+    }
+
+
 def format_session_transcript(
     project_root: str | Path,
     run_id: str,
     max_events: int = 80,
     max_text: int = 500,
 ) -> str:
-    if max_events < 1:
-        raise ValueError("max_events must be at least 1.")
-    if max_events > 500:
-        raise ValueError("max_events must be at most 500.")
-    if max_text < 80:
-        raise ValueError("max_text must be at least 80.")
-    if max_text > 5_000:
-        raise ValueError("max_text must be at most 5000.")
+    validate_session_transcript_limits(max_events, max_text)
 
     current_session_dir = session_dir(project_root, run_id)
     if not current_session_dir.is_dir():
@@ -1386,6 +2048,56 @@ def format_session_transcript(
     return "\n".join(lines)
 
 
+def validate_session_transcript_limits(max_events: int, max_text: int) -> None:
+    if max_events < 1:
+        raise ValueError("max_events must be at least 1.")
+    if max_events > 500:
+        raise ValueError("max_events must be at most 500.")
+    if max_text < 80:
+        raise ValueError("max_text must be at least 80.")
+    if max_text > 5_000:
+        raise ValueError("max_text must be at most 5000.")
+
+
+def build_session_transcript_report(
+    project_root: str | Path,
+    run_id: str,
+    max_events: int = 80,
+    max_text: int = 500,
+) -> dict[str, Any]:
+    validate_session_transcript_limits(max_events, max_text)
+
+    current_session_dir = session_dir(project_root, run_id)
+    if not current_session_dir.is_dir():
+        return {
+            "session": run_id,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": f"Session not found: {run_id}",
+        }
+
+    events = read_session_events(project_root, run_id)
+    shown_events = events[-max_events:]
+    omitted = len(events) - len(shown_events)
+    malformed_count = sum(1 for event in events if event.malformed)
+    return {
+        "session": run_id,
+        "exists": True,
+        "ok": True,
+        "status": "ready",
+        "events": {
+            "total": len(events),
+            "shown": len(shown_events),
+            "omitted": omitted,
+            "truncated": omitted > 0,
+            "malformed": malformed_count,
+            "items": [serialize_session_timeline_event(event, max_text=max_text) for event in shown_events],
+        },
+        "message": f"Found {len(events)} session event(s).",
+    }
+
+
 def format_session_search(
     project_root: str | Path,
     run_id: str,
@@ -1394,30 +2106,13 @@ def format_session_search(
     max_text: int = 500,
     case_sensitive: bool = False,
 ) -> str:
-    if not query.strip():
-        raise ValueError("query must not be empty.")
-    if max_matches < 1:
-        raise ValueError("max_matches must be at least 1.")
-    if max_matches > 100:
-        raise ValueError("max_matches must be at most 100.")
-    if max_text < 80:
-        raise ValueError("max_text must be at least 80.")
-    if max_text > 5_000:
-        raise ValueError("max_text must be at most 5000.")
+    validate_session_search_limits(query, max_matches, max_text)
 
     current_session_dir = session_dir(project_root, run_id)
     if not current_session_dir.is_dir():
         return f"Session not found: {run_id}"
 
-    needle = query if case_sensitive else query.casefold()
-    events = read_session_events(project_root, run_id)
-    matches: list[str] = []
-    for event in events:
-        item = format_session_event_timeline_item(event, max_text=max_text)
-        haystack = item if case_sensitive else item.casefold()
-        if needle in haystack:
-            matches.append(item)
-
+    matches = session_search_matches(project_root, run_id, query, max_text=max_text, case_sensitive=case_sensitive)
     shown = matches[:max_matches]
     lines = [
         "Session search:",
@@ -1431,10 +2126,92 @@ def format_session_search(
     if not shown:
         lines.append("    - none")
     else:
-        lines.extend(shown)
+        lines.extend(item["summary"] for item in shown)
     if len(matches) > len(shown):
         lines.append(f"    - [{len(matches) - len(shown)} later match(es) omitted]")
     return "\n".join(lines)
+
+
+def validate_session_search_limits(query: str, max_matches: int, max_text: int) -> None:
+    if not query.strip():
+        raise ValueError("query must not be empty.")
+    if max_matches < 1:
+        raise ValueError("max_matches must be at least 1.")
+    if max_matches > 100:
+        raise ValueError("max_matches must be at most 100.")
+    if max_text < 80:
+        raise ValueError("max_text must be at least 80.")
+    if max_text > 5_000:
+        raise ValueError("max_text must be at most 5000.")
+
+
+def build_session_search_report(
+    project_root: str | Path,
+    run_id: str,
+    query: str,
+    max_matches: int = 20,
+    max_text: int = 500,
+    case_sensitive: bool = False,
+) -> dict[str, Any]:
+    validate_session_search_limits(query, max_matches, max_text)
+
+    current_session_dir = session_dir(project_root, run_id)
+    if not current_session_dir.is_dir():
+        return {
+            "session": run_id,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "query": query,
+            "caseSensitive": case_sensitive,
+            "message": f"Session not found: {run_id}",
+        }
+
+    matches = session_search_matches(project_root, run_id, query, max_text=max_text, case_sensitive=case_sensitive)
+    shown = matches[:max_matches]
+    omitted = len(matches) - len(shown)
+    return {
+        "session": run_id,
+        "exists": True,
+        "ok": True,
+        "status": "ready",
+        "query": query,
+        "caseSensitive": case_sensitive,
+        "matches": {
+            "total": len(matches),
+            "shown": len(shown),
+            "omitted": omitted,
+            "truncated": omitted > 0,
+            "items": shown,
+        },
+        "message": f"Found {len(matches)} matching session event(s).",
+    }
+
+
+def session_search_matches(
+    project_root: str | Path,
+    run_id: str,
+    query: str,
+    max_text: int = 500,
+    case_sensitive: bool = False,
+) -> list[dict[str, Any]]:
+    needle = query if case_sensitive else query.casefold()
+    matches: list[dict[str, Any]] = []
+    for event in read_session_events(project_root, run_id):
+        item = serialize_session_timeline_event(event, max_text=max_text)
+        haystack = item["summary"] if case_sensitive else item["summary"].casefold()
+        if needle in haystack:
+            matches.append(item)
+    return matches
+
+
+def serialize_session_timeline_event(event: SessionEvent, max_text: int = 500) -> dict[str, Any]:
+    return {
+        "lineNumber": event.line_number,
+        "type": event.type,
+        "malformed": event.malformed,
+        "summary": format_session_event_timeline_item(event, max_text=max_text),
+    }
 
 
 def format_session_commands(
@@ -1443,14 +2220,7 @@ def format_session_commands(
     max_commands: int = 20,
     max_output_chars: int = 2_000,
 ) -> str:
-    if max_commands < 1:
-        raise ValueError("max_commands must be at least 1.")
-    if max_commands > 100:
-        raise ValueError("max_commands must be at most 100.")
-    if max_output_chars < 0:
-        raise ValueError("max_output_chars must be at least 0.")
-    if max_output_chars > 20_000:
-        raise ValueError("max_output_chars must be at most 20000.")
+    validate_session_commands_limits(max_commands, max_output_chars)
 
     current_session_dir = session_dir(project_root, run_id)
     if not current_session_dir.is_dir():
@@ -1475,6 +2245,57 @@ def format_session_commands(
     for entry in shown_entries:
         lines.extend(format_session_command_entry(entry, max_output_chars=max_output_chars))
     return "\n".join(lines)
+
+
+def validate_session_commands_limits(max_commands: int, max_output_chars: int) -> None:
+    if max_commands < 1:
+        raise ValueError("max_commands must be at least 1.")
+    if max_commands > 100:
+        raise ValueError("max_commands must be at most 100.")
+    if max_output_chars < 0:
+        raise ValueError("max_output_chars must be at least 0.")
+    if max_output_chars > 20_000:
+        raise ValueError("max_output_chars must be at most 20000.")
+
+
+def build_session_commands_report(
+    project_root: str | Path,
+    run_id: str,
+    max_commands: int = 20,
+    max_output_chars: int = 2_000,
+) -> dict[str, Any]:
+    validate_session_commands_limits(max_commands, max_output_chars)
+
+    current_session_dir = session_dir(project_root, run_id)
+    if not current_session_dir.is_dir():
+        return {
+            "session": run_id,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": f"Session not found: {run_id}",
+        }
+
+    entries = session_command_entries(read_session_events(project_root, run_id))
+    shown_entries = entries[-max_commands:]
+    omitted = len(entries) - len(shown_entries)
+    return {
+        "session": run_id,
+        "exists": True,
+        "ok": True,
+        "status": "ready",
+        "commands": {
+            "total": len(entries),
+            "shown": len(shown_entries),
+            "omitted": omitted,
+            "truncated": omitted > 0,
+            "items": [
+                serialize_session_command_with_output(entry, max_output_chars)
+                for entry in shown_entries
+            ],
+        },
+        "message": f"Found {len(entries)} command result(s).",
+    }
 
 
 def session_command_entries(events: list[SessionEvent]) -> list[dict[str, Any]]:
@@ -1541,11 +2362,32 @@ def command_output_tail(value: str, max_chars: int) -> str:
     return "[... omitted earlier output ...]\n" + value[-max_chars:]
 
 
+def serialize_session_command_with_output(entry: dict[str, Any], max_output_chars: int) -> dict[str, Any]:
+    result = entry["result"]
+    command = result.get("command")
+    cwd = result.get("cwd")
+    exit_code = result.get("exit_code")
+    signal = result.get("signal")
+    stdout = result.get("stdout")
+    stderr = result.get("stderr")
+    return {
+        "lineNumber": entry.get("line_number"),
+        "kind": entry.get("kind"),
+        "index": entry.get("index"),
+        "command": command if isinstance(command, str) else None,
+        "cwd": cwd if isinstance(cwd, str) and cwd else ".",
+        "exitCode": exit_code if isinstance(exit_code, int) else None,
+        "timedOut": result.get("timed_out") is True,
+        "signal": signal if isinstance(signal, str) and signal else None,
+        "stdout": command_output_tail(stdout if isinstance(stdout, str) else "", max_output_chars),
+        "stdoutStoredTruncated": result.get("stdout_truncated") is True,
+        "stderr": command_output_tail(stderr if isinstance(stderr, str) else "", max_output_chars),
+        "stderrStoredTruncated": result.get("stderr_truncated") is True,
+    }
+
+
 def format_session_files(project_root: str | Path, run_id: str, max_files: int = 100) -> str:
-    if max_files < 1:
-        raise ValueError("max_files must be at least 1.")
-    if max_files > 500:
-        raise ValueError("max_files must be at most 500.")
+    validate_session_files_limit(max_files)
 
     current_session_dir = session_dir(project_root, run_id)
     if not current_session_dir.is_dir():
@@ -1577,6 +2419,58 @@ def format_session_files(project_root: str | Path, run_id: str, max_files: int =
     if len(files) > len(shown_files):
         lines.append(f"    - [{len(files) - len(shown_files)} file(s) omitted]")
     return "\n".join(lines)
+
+
+def validate_session_files_limit(max_files: int) -> None:
+    if max_files < 1:
+        raise ValueError("max_files must be at least 1.")
+    if max_files > 500:
+        raise ValueError("max_files must be at most 500.")
+
+
+def build_session_files_report(
+    project_root: str | Path,
+    run_id: str,
+    max_files: int = 100,
+) -> dict[str, Any]:
+    validate_session_files_limit(max_files)
+
+    current_session_dir = session_dir(project_root, run_id)
+    if not current_session_dir.is_dir():
+        return {
+            "session": run_id,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": f"Session not found: {run_id}",
+        }
+
+    files = session_file_entries(read_session_events(project_root, run_id))
+    shown_files = files[:max_files]
+    omitted = len(files) - len(shown_files)
+    return {
+        "session": run_id,
+        "exists": True,
+        "ok": True,
+        "status": "ready",
+        "files": {
+            "total": len(files),
+            "shown": len(shown_files),
+            "omitted": omitted,
+            "truncated": omitted > 0,
+            "items": [
+                {
+                    "path": entry["path"],
+                    "tools": entry["tools"],
+                    "uses": entry["uses"],
+                    "lines": entry["lines"],
+                    "count": entry["count"],
+                }
+                for entry in shown_files
+            ],
+        },
+        "message": f"Found {len(files)} referenced file(s).",
+    }
 
 
 def session_file_entries(events: list[SessionEvent]) -> list[dict[str, Any]]:
@@ -1697,14 +2591,7 @@ def format_session_failures(
     max_failures: int = 50,
     max_text: int = 500,
 ) -> str:
-    if max_failures < 1:
-        raise ValueError("max_failures must be at least 1.")
-    if max_failures > 200:
-        raise ValueError("max_failures must be at most 200.")
-    if max_text < 80:
-        raise ValueError("max_text must be at least 80.")
-    if max_text > 5_000:
-        raise ValueError("max_text must be at most 5000.")
+    validate_session_failures_limits(max_failures, max_text)
 
     current_session_dir = session_dir(project_root, run_id)
     if not current_session_dir.is_dir():
@@ -1732,6 +2619,55 @@ def format_session_failures(
         if failure["detail"]:
             lines.append(f"      detail: {failure['detail']}")
     return "\n".join(lines)
+
+
+def validate_session_failures_limits(max_failures: int, max_text: int) -> None:
+    if max_failures < 1:
+        raise ValueError("max_failures must be at least 1.")
+    if max_failures > 200:
+        raise ValueError("max_failures must be at most 200.")
+    if max_text < 80:
+        raise ValueError("max_text must be at least 80.")
+    if max_text > 5_000:
+        raise ValueError("max_text must be at most 5000.")
+
+
+def build_session_failures_report(
+    project_root: str | Path,
+    run_id: str,
+    max_failures: int = 50,
+    max_text: int = 500,
+) -> dict[str, Any]:
+    validate_session_failures_limits(max_failures, max_text)
+
+    current_session_dir = session_dir(project_root, run_id)
+    if not current_session_dir.is_dir():
+        return {
+            "session": run_id,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": f"Session not found: {run_id}",
+        }
+
+    failures = session_failure_entries(read_session_events(project_root, run_id), max_text=max_text)
+    shown_failures = failures[-max_failures:]
+    omitted = len(failures) - len(shown_failures)
+    ok = len(failures) == 0
+    return {
+        "session": run_id,
+        "exists": True,
+        "ok": ok,
+        "status": "ready" if ok else "failed",
+        "failures": {
+            "total": len(failures),
+            "shown": len(shown_failures),
+            "omitted": omitted,
+            "truncated": omitted > 0,
+            "items": [serialize_session_failure(failure, max_text) for failure in shown_failures],
+        },
+        "message": "No session failures found." if ok else f"Found {len(failures)} session failure(s).",
+    }
 
 
 def session_failure_entries(events: list[SessionEvent], max_text: int) -> list[dict[str, str | int]]:
