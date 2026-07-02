@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.prompts import format_observations
 from vibeagent.session import summarize_session
 from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ReadFileObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction
-from vibeagent.types import CommandResult, ConfigCheckResult, FinalReviewObservation, GitChangeFile, OutputContextResult, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckResult, RunCommandObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
+from vibeagent.types import CommandResult, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckResult, RunCommandObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
 
@@ -2423,6 +2423,47 @@ class AgentTests(unittest.TestCase):
         self.assertIn("python_failure: bad.py line=1 column=9", text)
         self.assertIn("Python syntax error: invalid syntax", text)
         self.assertIn("config_failure: package.json line=1 column=2", text)
+
+    def test_format_observations_renders_final_review_focused_tests(self) -> None:
+        text = format_observations(
+            [
+                FinalReviewObservation(
+                    kind="final_review",
+                    ok=True,
+                    ready=True,
+                    blocking_issues=[],
+                    warnings=[],
+                    running_processes=[],
+                    files=[],
+                    total_files=0,
+                    suggested_checks=[],
+                    suggested_checks_total=0,
+                    suggested_checks_truncated=False,
+                    focused_test_commands=[
+                        FocusedTestCommand(
+                            command="python -m unittest discover -s tests -p test_app.py",
+                            cwd=".",
+                            test_path="tests/test_app.py",
+                            source="src/app.py",
+                            reason="related test",
+                        )
+                    ],
+                    focused_test_commands_total=1,
+                    focused_test_commands_truncated=False,
+                    focused_test_related_tests_total=1,
+                    diff_check="",
+                    staged_diff_check="",
+                    status="",
+                    message="Final review found no blocking issues.",
+                )
+            ]
+        )
+
+        self.assertIn("focusedTests=1/1", text)
+        self.assertIn("focusedTestsTruncated=false", text)
+        self.assertIn("relatedTests=1", text)
+        self.assertIn("focused_test: cwd=. command=python -m unittest discover -s tests -p test_app.py", text)
+        self.assertIn("test=tests/test_app.py source=src/app.py reason=related test", text)
 
     def test_run_agent_allows_session_handoff_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:

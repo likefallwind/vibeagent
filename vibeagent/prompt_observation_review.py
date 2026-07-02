@@ -112,7 +112,10 @@ def _format_final_review(index: int, observation: object) -> str:
             f"runningProcesses={len(observation.running_processes)} "
             f"changed={len(observation.files)}/{observation.total_files} "
             f"suggestedChecks={len(observation.suggested_checks)}/{observation.suggested_checks_total} "
-            f"suggestedChecksTruncated={str(observation.suggested_checks_truncated).lower()}"
+            f"suggestedChecksTruncated={str(observation.suggested_checks_truncated).lower()} "
+            f"focusedTests={len(observation.focused_test_commands)}/{observation.focused_test_commands_total} "
+            f"focusedTestsTruncated={str(observation.focused_test_commands_truncated).lower()} "
+            f"relatedTests={observation.focused_test_related_tests_total}"
         )
     ]
     for issue in observation.blocking_issues[:20]:
@@ -156,6 +159,13 @@ def _format_final_review(index: int, observation: object) -> str:
                 f"check: cwd={check.cwd} command={check.command} "
                 f"available={str(check.available).lower()} missingTool={check.missing_tool or '.'} "
                 f"source={check.source} reason={check.reason}"
+            )
+        )
+    for command in observation.focused_test_commands[:40]:
+        parts.append(
+            (
+                f"focused_test: cwd={command.cwd} command={command.command} "
+                f"test={command.test_path} source={command.source} reason={command.reason}"
             )
         )
     if observation.diff_check.strip():
