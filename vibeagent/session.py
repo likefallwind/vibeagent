@@ -19,16 +19,19 @@ from .session_event_report_commands import (
 )
 from .session_file_reports import (
     add_session_path,
+    build_session_files_report,
     classify_session_file_use,
     extract_session_paths,
+    format_session_files,
     session_file_entries,
     session_file_payload,
-    validate_session_files_limit,
 )
 from .session_failure_reports import (
     approval_failure_entry,
     approval_request_failure_detail,
+    build_session_failures_report,
     command_failure_entry,
+    format_session_failures,
     model_error_failure_entry,
     result_failure_detail,
     result_failure_entry,
@@ -36,6 +39,7 @@ from .session_failure_reports import (
     session_failure_entries,
     session_failure_result_failed,
     tool_result_failure_entries,
+    validate_session_failures_limits,
 )
 from .session_store import (
     list_sessions,
@@ -663,171 +667,6 @@ def build_session_verification_report(
         max_checks=max_checks,
         max_text=max_text,
     )
-
-
-def format_session_files(project_root: str | Path, run_id: str, max_files: int = 100) -> str:
-    validate_session_files_limit(max_files)
-
-    current_session_dir = session_dir(project_root, run_id)
-    if not current_session_dir.is_dir():
-        return f"Session not found: {run_id}"
-
-    files = session_file_entries(read_session_events(project_root, run_id))
-    shown_files = files[:max_files]
-    lines = [
-        "Session files:",
-        f"  session: {run_id}",
-        f"  files: {len(files)}",
-        f"  shown: {len(shown_files)}/{len(files)}",
-        "  entries:",
-    ]
-    if not shown_files:
-        lines.append("    - none")
-        return "\n".join(lines)
-    for entry in shown_files:
-        tools = ", ".join(entry["tools"])
-        uses = ", ".join(entry["uses"])
-        line_numbers = ", ".join(f"#{line}" for line in entry["lines"][:8])
-        if len(entry["lines"]) > 8:
-            line_numbers += f", +{len(entry['lines']) - 8} more"
-        lines.append(f"    - {entry['path']}")
-        lines.append(f"      uses: {uses}")
-        lines.append(f"      tools: {tools}")
-        lines.append(f"      count: {entry['count']}")
-        lines.append(f"      lines: {line_numbers}")
-    if len(files) > len(shown_files):
-        lines.append(f"    - [{len(files) - len(shown_files)} file(s) omitted]")
-    return "\n".join(lines)
-
-
-def build_session_files_report(
-    project_root: str | Path,
-    run_id: str,
-    max_files: int = 100,
-) -> dict[str, Any]:
-    validate_session_files_limit(max_files)
-
-    current_session_dir = session_dir(project_root, run_id)
-    if not current_session_dir.is_dir():
-        return {
-            "session": run_id,
-            "exists": False,
-            "ok": False,
-            "status": "missing",
-            "message": f"Session not found: {run_id}",
-        }
-
-    files = session_file_entries(read_session_events(project_root, run_id))
-    shown_files = files[:max_files]
-    omitted = len(files) - len(shown_files)
-    return {
-        "session": run_id,
-        "exists": True,
-        "ok": True,
-        "status": "ready",
-        "files": {
-            "total": len(files),
-            "shown": len(shown_files),
-            "omitted": omitted,
-            "truncated": omitted > 0,
-            "items": [
-                {
-                    "path": entry["path"],
-                    "tools": entry["tools"],
-                    "uses": entry["uses"],
-                    "lines": entry["lines"],
-                    "count": entry["count"],
-                }
-                for entry in shown_files
-            ],
-        },
-        "message": f"Found {len(files)} referenced file(s).",
-    }
-
-
-def format_session_failures(
-    project_root: str | Path,
-    run_id: str,
-    max_failures: int = 50,
-    max_text: int = 500,
-) -> str:
-    validate_session_failures_limits(max_failures, max_text)
-
-    current_session_dir = session_dir(project_root, run_id)
-    if not current_session_dir.is_dir():
-        return f"Session not found: {run_id}"
-
-    failures = session_failure_entries(read_session_events(project_root, run_id), max_text=max_text)
-    shown_failures = failures[-max_failures:]
-    omitted = len(failures) - len(shown_failures)
-    lines = [
-        "Session failures:",
-        f"  session: {run_id}",
-        f"  failures: {len(failures)}",
-        f"  shown: {len(shown_failures)}/{len(failures)}",
-        "  entries:",
-    ]
-    if omitted > 0:
-        lines.append(f"    - [{omitted} older failure(s) omitted]")
-    if not shown_failures:
-        lines.append("    - none")
-        return "\n".join(lines)
-    for failure in shown_failures:
-        lines.append(f"    - #{failure['line_number']} {failure['type']}: {failure['name']}")
-        if failure["message"]:
-            lines.append(f"      message: {failure['message']}")
-        if failure["detail"]:
-            lines.append(f"      detail: {failure['detail']}")
-    return "\n".join(lines)
-
-
-def validate_session_failures_limits(max_failures: int, max_text: int) -> None:
-    if max_failures < 1:
-        raise ValueError("max_failures must be at least 1.")
-    if max_failures > 200:
-        raise ValueError("max_failures must be at most 200.")
-    if max_text < 80:
-        raise ValueError("max_text must be at least 80.")
-    if max_text > 5_000:
-        raise ValueError("max_text must be at most 5000.")
-
-
-def build_session_failures_report(
-    project_root: str | Path,
-    run_id: str,
-    max_failures: int = 50,
-    max_text: int = 500,
-) -> dict[str, Any]:
-    validate_session_failures_limits(max_failures, max_text)
-
-    current_session_dir = session_dir(project_root, run_id)
-    if not current_session_dir.is_dir():
-        return {
-            "session": run_id,
-            "exists": False,
-            "ok": False,
-            "status": "missing",
-            "message": f"Session not found: {run_id}",
-        }
-
-    failures = session_failure_entries(read_session_events(project_root, run_id), max_text=max_text)
-    shown_failures = failures[-max_failures:]
-    omitted = len(failures) - len(shown_failures)
-    ok = len(failures) == 0
-    return {
-        "session": run_id,
-        "exists": True,
-        "ok": ok,
-        "status": "ready" if ok else "failed",
-        "failures": {
-            "total": len(failures),
-            "shown": len(shown_failures),
-            "omitted": omitted,
-            "truncated": omitted > 0,
-            "items": [serialize_session_failure(failure, max_text) for failure in shown_failures],
-        },
-        "message": "No session failures found." if ok else f"Found {len(failures)} session failure(s).",
-    }
 
 
 def build_session_resume_context(

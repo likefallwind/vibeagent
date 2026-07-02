@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
+from .session_store import read_session_events
 from .session_types import SessionEvent
+from .session_utils import session_dir
 
 
 def validate_session_files_limit(max_files: int) -> None:
@@ -10,6 +13,86 @@ def validate_session_files_limit(max_files: int) -> None:
         raise ValueError("max_files must be at least 1.")
     if max_files > 500:
         raise ValueError("max_files must be at most 500.")
+
+
+def format_session_files(project_root: str | Path, run_id: str, max_files: int = 100) -> str:
+    validate_session_files_limit(max_files)
+
+    current_session_dir = session_dir(project_root, run_id)
+    if not current_session_dir.is_dir():
+        return f"Session not found: {run_id}"
+
+    files = session_file_entries(read_session_events(project_root, run_id))
+    shown_files = files[:max_files]
+    lines = [
+        "Session files:",
+        f"  session: {run_id}",
+        f"  files: {len(files)}",
+        f"  shown: {len(shown_files)}/{len(files)}",
+        "  entries:",
+    ]
+    if not shown_files:
+        lines.append("    - none")
+        return "\n".join(lines)
+    for entry in shown_files:
+        tools = ", ".join(entry["tools"])
+        uses = ", ".join(entry["uses"])
+        line_numbers = ", ".join(f"#{line}" for line in entry["lines"][:8])
+        if len(entry["lines"]) > 8:
+            line_numbers += f", +{len(entry['lines']) - 8} more"
+        lines.append(f"    - {entry['path']}")
+        lines.append(f"      uses: {uses}")
+        lines.append(f"      tools: {tools}")
+        lines.append(f"      count: {entry['count']}")
+        lines.append(f"      lines: {line_numbers}")
+    if len(files) > len(shown_files):
+        lines.append(f"    - [{len(files) - len(shown_files)} file(s) omitted]")
+    return "\n".join(lines)
+
+
+def build_session_files_report(
+    project_root: str | Path,
+    run_id: str,
+    max_files: int = 100,
+) -> dict[str, Any]:
+    validate_session_files_limit(max_files)
+
+    current_session_dir = session_dir(project_root, run_id)
+    if not current_session_dir.is_dir():
+        return {
+            "session": run_id,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": f"Session not found: {run_id}",
+        }
+
+    files = session_file_entries(read_session_events(project_root, run_id))
+    shown_files = files[:max_files]
+    omitted = len(files) - len(shown_files)
+    return {
+        "session": run_id,
+        "exists": True,
+        "ok": True,
+        "status": "ready",
+        "files": {
+            "total": len(files),
+            "shown": len(shown_files),
+            "omitted": omitted,
+            "truncated": omitted > 0,
+            "items": [
+                {
+                    "path": entry["path"],
+                    "tools": entry["tools"],
+                    "uses": entry["uses"],
+                    "lines": entry["lines"],
+                    "count": entry["count"],
+                }
+                for entry in shown_files
+            ],
+        },
+        "message": f"Found {len(files)} referenced file(s).",
+    }
 
 
 def session_file_entries(events: list[SessionEvent]) -> list[dict[str, Any]]:

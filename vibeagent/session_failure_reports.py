@@ -1,9 +1,97 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
+from .session_audit_reports import serialize_session_failure
+from .session_store import read_session_events
 from .session_types import SessionEvent
-from .session_utils import compact, is_failed_tool_result
+from .session_utils import compact, is_failed_tool_result, session_dir
+
+
+def format_session_failures(
+    project_root: str | Path,
+    run_id: str,
+    max_failures: int = 50,
+    max_text: int = 500,
+) -> str:
+    validate_session_failures_limits(max_failures, max_text)
+
+    current_session_dir = session_dir(project_root, run_id)
+    if not current_session_dir.is_dir():
+        return f"Session not found: {run_id}"
+
+    failures = session_failure_entries(read_session_events(project_root, run_id), max_text=max_text)
+    shown_failures = failures[-max_failures:]
+    omitted = len(failures) - len(shown_failures)
+    lines = [
+        "Session failures:",
+        f"  session: {run_id}",
+        f"  failures: {len(failures)}",
+        f"  shown: {len(shown_failures)}/{len(failures)}",
+        "  entries:",
+    ]
+    if omitted > 0:
+        lines.append(f"    - [{omitted} older failure(s) omitted]")
+    if not shown_failures:
+        lines.append("    - none")
+        return "\n".join(lines)
+    for failure in shown_failures:
+        lines.append(f"    - #{failure['line_number']} {failure['type']}: {failure['name']}")
+        if failure["message"]:
+            lines.append(f"      message: {failure['message']}")
+        if failure["detail"]:
+            lines.append(f"      detail: {failure['detail']}")
+    return "\n".join(lines)
+
+
+def validate_session_failures_limits(max_failures: int, max_text: int) -> None:
+    if max_failures < 1:
+        raise ValueError("max_failures must be at least 1.")
+    if max_failures > 200:
+        raise ValueError("max_failures must be at most 200.")
+    if max_text < 80:
+        raise ValueError("max_text must be at least 80.")
+    if max_text > 5_000:
+        raise ValueError("max_text must be at most 5000.")
+
+
+def build_session_failures_report(
+    project_root: str | Path,
+    run_id: str,
+    max_failures: int = 50,
+    max_text: int = 500,
+) -> dict[str, Any]:
+    validate_session_failures_limits(max_failures, max_text)
+
+    current_session_dir = session_dir(project_root, run_id)
+    if not current_session_dir.is_dir():
+        return {
+            "session": run_id,
+            "exists": False,
+            "ok": False,
+            "status": "missing",
+            "message": f"Session not found: {run_id}",
+        }
+
+    failures = session_failure_entries(read_session_events(project_root, run_id), max_text=max_text)
+    shown_failures = failures[-max_failures:]
+    omitted = len(failures) - len(shown_failures)
+    ok = len(failures) == 0
+    return {
+        "session": run_id,
+        "exists": True,
+        "ok": ok,
+        "status": "ready" if ok else "failed",
+        "failures": {
+            "total": len(failures),
+            "shown": len(shown_failures),
+            "omitted": omitted,
+            "truncated": omitted > 0,
+            "items": [serialize_session_failure(failure, max_text) for failure in shown_failures],
+        },
+        "message": "No session failures found." if ok else f"Found {len(failures)} session failure(s).",
+    }
 
 
 def session_failure_entries(events: list[SessionEvent], max_text: int) -> list[dict[str, str | int]]:
