@@ -1,0 +1,334 @@
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+from typing import Any
+
+from .cli_local_result import local_text_or_report
+
+
+def run_git_local_flag(
+    args: argparse.Namespace,
+    project_root: Path | None,
+    commands: dict[str, Any],
+) -> tuple[str, dict[str, object]] | None:
+    root = project_root or "."
+    if args.git_status:
+        return local_text_or_report(
+            args,
+            "gitStatus",
+            lambda: commands["get_git_status_report"](root),
+            commands["format_git_status_report_text"],
+            lambda: commands["get_git_status_text"](root),
+        )
+    if args.conflicts is not None:
+        return local_text_or_report(
+            args,
+            "gitConflicts",
+            lambda: commands["get_git_conflicts_report"](root, args.conflicts or None),
+            commands["format_git_conflicts_report_text"],
+            lambda: commands["get_git_conflicts_text"](root, args.conflicts or None),
+        )
+    if args.git_info:
+        return local_text_or_report(
+            args,
+            "gitInfo",
+            lambda: commands["get_git_info_report"](root),
+            commands["format_git_info_report_text"],
+            lambda: commands["get_git_info_text"](root),
+        )
+    if args.branches:
+        return local_text_or_report(
+            args,
+            "branches",
+            lambda: commands["get_branches_report"](root),
+            commands["format_branches_report_text"],
+            lambda: commands["get_branches_text"](root),
+        )
+    if args.log is not None:
+        return local_text_or_report(
+            args,
+            "log",
+            lambda: commands["get_log_report"](root, args.log or None, args.log_count),
+            commands["format_log_report_text"],
+            lambda: commands["get_log_text"](root, args.log or None, args.log_count),
+        )
+    if args.show is not None:
+        return local_text_or_report(
+            args,
+            "show",
+            lambda: commands["get_show_report"](
+                root,
+                rev=args.show or "HEAD",
+                path=args.show_path,
+                max_output_chars=args.show_max_chars,
+            ),
+            commands["format_show_report_text"],
+            lambda: commands["get_show_text"](
+                root,
+                rev=args.show or "HEAD",
+                path=args.show_path,
+                max_output_chars=args.show_max_chars,
+            ),
+        )
+    if args.blame is not None:
+        return local_text_or_report(
+            args,
+            "blame",
+            lambda: commands["get_blame_report"](root, args.blame, args.blame_lines, args.blame_max_chars),
+            commands["format_blame_report_text"],
+            lambda: commands["get_blame_text"](root, args.blame, args.blame_lines, args.blame_max_chars),
+        )
+    if args.stashes:
+        return local_text_or_report(
+            args,
+            "stashes",
+            lambda: commands["get_stashes_report"](root, max_entries=args.stash_count),
+            commands["format_stashes_report_text"],
+            lambda: commands["get_stashes_text"](root, max_entries=args.stash_count),
+        )
+    if args.check_git_fetch is not None:
+        return local_text_or_report(
+            args,
+            "checkGitFetch",
+            lambda: commands["get_check_fetch_report"](root, args.check_git_fetch),
+            lambda report: commands["format_git_fetch_report_text"]("Check fetch", report),
+            lambda: commands["get_check_fetch_text"](root, args.check_git_fetch),
+        )
+    if args.git_fetch is not None:
+        return local_text_or_report(
+            args,
+            "gitFetch",
+            lambda: commands["get_fetch_report"](root, args.git_fetch),
+            lambda report: commands["format_git_fetch_report_text"]("Fetch", report),
+            lambda: commands["get_fetch_text"](root, args.git_fetch),
+        )
+    if args.check_git_pull:
+        return local_text_or_report(
+            args,
+            "checkGitPull",
+            lambda: commands["get_check_pull_report"](root),
+            lambda report: commands["format_git_sync_preview_report_text"]("Check pull", report),
+            lambda: commands["get_check_pull_text"](root),
+        )
+    if args.git_pull:
+        return local_text_or_report(
+            args,
+            "gitPull",
+            lambda: commands["get_pull_report"](root),
+            lambda report: commands["format_git_pull_report_text"]("Pull", report),
+            lambda: commands["get_pull_text"](root),
+        )
+    if args.check_git_push:
+        return local_text_or_report(
+            args,
+            "checkGitPush",
+            lambda: commands["get_check_push_report"](root),
+            lambda report: commands["format_git_sync_preview_report_text"]("Check push", report),
+            lambda: commands["get_check_push_text"](root),
+        )
+    if args.git_push:
+        return local_text_or_report(
+            args,
+            "gitPush",
+            lambda: commands["get_push_report"](root),
+            lambda report: commands["format_git_push_report_text"]("Push", report),
+            lambda: commands["get_push_text"](root),
+        )
+    if args.check_git_stash is not None:
+        stash_arg = commands["build_stash_argument"](args.check_git_stash, args.stash_include_untracked)
+        return local_text_or_report(
+            args,
+            "checkGitStash",
+            lambda: commands["get_check_stash_report"](root, stash_arg),
+            lambda report: commands["format_git_stash_report_text"]("Check stash", report),
+            lambda: commands["get_check_stash_text"](root, stash_arg),
+        )
+    if args.git_stash is not None:
+        stash_arg = commands["build_stash_argument"](args.git_stash, args.stash_include_untracked)
+        return local_text_or_report(
+            args,
+            "gitStash",
+            lambda: commands["get_stash_report"](root, stash_arg),
+            lambda report: commands["format_git_stash_report_text"]("Stash", report),
+            lambda: commands["get_stash_text"](root, stash_arg),
+        )
+    if args.check_git_stash_apply is not None:
+        return local_text_or_report(
+            args,
+            "checkGitStashApply",
+            lambda: commands["get_check_stash_apply_report"](root, args.check_git_stash_apply),
+            lambda report: commands["format_git_stash_apply_report_text"]("Check stash apply", report),
+            lambda: commands["get_check_stash_apply_text"](root, args.check_git_stash_apply),
+        )
+    if args.git_stash_apply is not None:
+        return local_text_or_report(
+            args,
+            "gitStashApply",
+            lambda: commands["get_stash_apply_report"](root, args.git_stash_apply),
+            lambda report: commands["format_git_stash_apply_report_text"]("Stash apply", report),
+            lambda: commands["get_stash_apply_text"](root, args.git_stash_apply),
+        )
+    if args.check_git_stash_drop is not None:
+        return local_text_or_report(
+            args,
+            "checkGitStashDrop",
+            lambda: commands["get_check_stash_drop_report"](root, args.check_git_stash_drop),
+            lambda report: commands["format_git_stash_drop_report_text"]("Check stash drop", report),
+            lambda: commands["get_check_stash_drop_text"](root, args.check_git_stash_drop),
+        )
+    if args.git_stash_drop is not None:
+        return local_text_or_report(
+            args,
+            "gitStashDrop",
+            lambda: commands["get_stash_drop_report"](root, args.git_stash_drop),
+            lambda report: commands["format_git_stash_drop_report_text"]("Stash drop", report),
+            lambda: commands["get_stash_drop_text"](root, args.git_stash_drop),
+        )
+    if args.check_git_stage is not None:
+        return local_text_or_report(
+            args,
+            "checkGitStage",
+            lambda: commands["get_check_stage_report"](root, args.check_git_stage),
+            lambda report: commands["format_git_index_report_text"]("Check stage", report),
+            lambda: commands["get_check_stage_text"](root, args.check_git_stage),
+        )
+    if args.git_stage is not None:
+        return local_text_or_report(
+            args,
+            "gitStage",
+            lambda: commands["get_stage_report"](root, args.git_stage),
+            lambda report: commands["format_git_index_report_text"]("Stage", report),
+            lambda: commands["get_stage_text"](root, args.git_stage),
+        )
+    if args.check_git_unstage is not None:
+        return local_text_or_report(
+            args,
+            "checkGitUnstage",
+            lambda: commands["get_check_unstage_report"](root, args.check_git_unstage),
+            lambda report: commands["format_git_index_report_text"]("Check unstage", report),
+            lambda: commands["get_check_unstage_text"](root, args.check_git_unstage),
+        )
+    if args.git_unstage is not None:
+        return local_text_or_report(
+            args,
+            "gitUnstage",
+            lambda: commands["get_unstage_report"](root, args.git_unstage),
+            lambda report: commands["format_git_index_report_text"]("Unstage", report),
+            lambda: commands["get_unstage_text"](root, args.git_unstage),
+        )
+    if args.check_git_commit is not None:
+        return local_text_or_report(
+            args,
+            "checkGitCommit",
+            lambda: commands["get_check_commit_report"](root, args.check_git_commit),
+            lambda report: commands["format_git_commit_report_text"]("Check commit", report),
+            lambda: commands["get_check_commit_text"](root, args.check_git_commit),
+        )
+    if args.git_commit is not None:
+        return local_text_or_report(
+            args,
+            "gitCommit",
+            lambda: commands["get_commit_report"](root, args.git_commit),
+            lambda report: commands["format_git_commit_report_text"]("Commit", report),
+            lambda: commands["get_commit_text"](root, args.git_commit),
+        )
+    if args.check_git_restore is not None:
+        return local_text_or_report(
+            args,
+            "checkGitRestore",
+            lambda: commands["get_check_restore_report"](root, args.check_git_restore),
+            lambda report: commands["format_git_restore_report_text"]("Check restore", report),
+            lambda: commands["get_check_restore_text"](root, args.check_git_restore),
+        )
+    if args.git_restore is not None:
+        return local_text_or_report(
+            args,
+            "gitRestore",
+            lambda: commands["get_restore_report"](root, args.git_restore),
+            lambda report: commands["format_git_restore_report_text"]("Restore", report),
+            lambda: commands["get_restore_text"](root, args.git_restore),
+        )
+    if args.check_git_switch is not None:
+        switch_arg = commands["build_switch_argument"](args.check_git_switch, args.git_switch_create)
+        return local_text_or_report(
+            args,
+            "checkGitSwitch",
+            lambda: commands["get_check_switch_report"](root, switch_arg),
+            lambda report: commands["format_git_switch_report_text"]("Check switch", report),
+            lambda: commands["get_check_switch_text"](root, switch_arg),
+        )
+    if args.git_switch is not None:
+        switch_arg = commands["build_switch_argument"](args.git_switch, args.git_switch_create)
+        return local_text_or_report(
+            args,
+            "gitSwitch",
+            lambda: commands["get_switch_report"](root, switch_arg),
+            lambda report: commands["format_git_switch_report_text"]("Switch", report),
+            lambda: commands["get_switch_text"](root, switch_arg),
+        )
+    return None
+
+
+def run_interactive_git_command(command: Any, commands: dict[str, Any]) -> str | None:
+    if command.type == "git_status":
+        return commands["get_git_status_text"]()
+    if command.type == "git_conflicts":
+        return commands["get_git_conflicts_text"](argument=command.argument)
+    if command.type == "git_info":
+        return commands["get_git_info_text"]()
+    if command.type == "branches":
+        return commands["get_branches_text"]()
+    if command.type == "log":
+        return commands["get_log_text"](argument=command.argument)
+    if command.type == "show":
+        return commands["get_show_text"](argument=command.argument)
+    if command.type == "blame":
+        return commands["get_blame_text"](argument=command.argument)
+    if command.type == "stashes":
+        return commands["get_stashes_text"](argument=command.argument)
+    if command.type == "check_fetch":
+        return commands["get_check_fetch_text"](argument=command.argument)
+    if command.type == "fetch":
+        return commands["get_fetch_text"](argument=command.argument)
+    if command.type == "check_pull":
+        return commands["get_check_pull_text"]()
+    if command.type == "pull":
+        return commands["get_pull_text"]()
+    if command.type == "check_push":
+        return commands["get_check_push_text"]()
+    if command.type == "push":
+        return commands["get_push_text"]()
+    if command.type == "check_stash":
+        return commands["get_check_stash_text"](argument=command.argument)
+    if command.type == "stash":
+        return commands["get_stash_text"](argument=command.argument)
+    if command.type == "check_stash_apply":
+        return commands["get_check_stash_apply_text"](argument=command.argument)
+    if command.type == "stash_apply":
+        return commands["get_stash_apply_text"](argument=command.argument)
+    if command.type == "check_stash_drop":
+        return commands["get_check_stash_drop_text"](argument=command.argument)
+    if command.type == "stash_drop":
+        return commands["get_stash_drop_text"](argument=command.argument)
+    if command.type == "check_stage":
+        return commands["get_check_stage_text"](argument=command.argument)
+    if command.type == "stage":
+        return commands["get_stage_text"](argument=command.argument)
+    if command.type == "check_unstage":
+        return commands["get_check_unstage_text"](argument=command.argument)
+    if command.type == "unstage":
+        return commands["get_unstage_text"](argument=command.argument)
+    if command.type == "check_commit":
+        return commands["get_check_commit_text"](argument=command.argument)
+    if command.type == "commit":
+        return commands["get_commit_text"](argument=command.argument)
+    if command.type == "check_restore":
+        return commands["get_check_restore_text"](argument=command.argument)
+    if command.type == "restore":
+        return commands["get_restore_text"](argument=command.argument)
+    if command.type == "check_switch":
+        return commands["get_check_switch_text"](argument=command.argument)
+    if command.type == "switch":
+        return commands["get_switch_text"](argument=command.argument)
+    return None

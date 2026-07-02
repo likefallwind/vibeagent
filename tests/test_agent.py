@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.prompts import format_observations
 from vibeagent.session import summarize_session
 from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ReadFileObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction
-from vibeagent.types import CommandResult, ConfigCheckResult, FinalReviewObservation, GitChangeFile, PythonCheckResult, RunCommandObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
+from vibeagent.types import CommandResult, ConfigCheckResult, FinalReviewObservation, GitChangeFile, OutputContextResult, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckResult, RunCommandObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
 
@@ -1805,7 +1805,7 @@ class AgentTests(unittest.TestCase):
                 ]
             )
 
-            with patch("vibeagent.actions.socket.create_connection", side_effect=ConnectionRefusedError("refused")):
+            with patch("vibeagent.runtime_checks.socket.create_connection", side_effect=ConnectionRefusedError("refused")):
                 result = run_agent("check port", base_dir=Path(base), client=client, max_iterations=2)
             payload = json.loads(client.messages[1][-1].content[0]["content"])
 
@@ -1834,7 +1834,7 @@ class AgentTests(unittest.TestCase):
                 ]
             )
 
-            with patch("vibeagent.actions.urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
+            with patch("vibeagent.runtime_checks.urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
                 result = run_agent("check http", base_dir=Path(base), client=client, max_iterations=2)
             payload = json.loads(client.messages[1][-1].content[0]["content"])
 
@@ -1863,7 +1863,7 @@ class AgentTests(unittest.TestCase):
                 ]
             )
 
-            with patch("vibeagent.actions.urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
+            with patch("vibeagent.runtime_checks.urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
                 result = run_agent("fetch http", base_dir=Path(base), client=client, max_iterations=2)
             payload = json.loads(client.messages[1][-1].content[0]["content"])
 
@@ -2328,6 +2328,53 @@ class AgentTests(unittest.TestCase):
         self.assertIn("blocker: 1 active background process(es)", text)
         self.assertIn("backgroundProcesses: started=1 active=1", text)
         self.assertIn("active_process: bg-1 pid=1234 cwd=web command=npm run dev", text)
+
+    def test_format_observations_renders_output_diagnostics_with_contexts(self) -> None:
+        text = format_observations(
+            [
+                OutputDiagnosticsObservation(
+                    kind="output_diagnostics",
+                    diagnostics=[
+                        OutputDiagnostic(
+                            severity="error",
+                            output_line=4,
+                            text="NameError: missing",
+                            path="app.py",
+                            line=12,
+                            column=8,
+                            raw="app.py:12:8: NameError: missing",
+                        )
+                    ],
+                    contexts=[
+                        OutputContextResult(
+                            path="app.py",
+                            line=12,
+                            column=8,
+                            raw="app.py:12:8",
+                            ok=True,
+                            content="11 | before\n12 | missing()\n13 | after",
+                            message="Read context.",
+                            context_lines=1,
+                            start_line=11,
+                            end_line=13,
+                            line_count=3,
+                            total_lines=20,
+                            target_line_exists=True,
+                        )
+                    ],
+                    total_diagnostics=1,
+                    total_refs=1,
+                    diagnostics_truncated=False,
+                    contexts_truncated=False,
+                    message="Extracted diagnostics.",
+                )
+            ]
+        )
+
+        self.assertIn("output_diagnostics: Extracted diagnostics.", text)
+        self.assertIn("diagnostic: error outputLine=4 app.py:12:8 text='NameError: missing'", text)
+        self.assertIn("context: app.py:12:8 raw='app.py:12:8' ok=true range=11:13", text)
+        self.assertIn("content:\n11 | before\n12 | missing()\n13 | after", text)
 
     def test_format_observations_renders_final_review_syntax_failures(self) -> None:
         text = format_observations(

@@ -1,4 +1,5 @@
 import ast
+import argparse
 import io
 import json
 import os
@@ -23,6 +24,115 @@ class Http401Error(Exception):
 
 
 class CliTests(unittest.TestCase):
+    def test_session_kwargs_helpers_keep_cli_option_mapping(self) -> None:
+        args = argparse.Namespace(
+            session_transcript_event_max=12,
+            session_max_text=500,
+            session_search_match_max=7,
+            session_search_case_sensitive=True,
+            session_max_commands=3,
+            session_max_output_chars=1000,
+            session_output_command_max=4,
+            session_output_max_chars=1200,
+            session_output_context_lines=2,
+            session_output_context_max=5,
+            session_output_context_max_bytes=800,
+            session_output_diagnostic_max=6,
+            session_max_files=9,
+            session_max_failures=10,
+            session_max_checks=11,
+        )
+
+        self.assertEqual(cli_module.session_transcript_kwargs(args), {"max_events": 12, "max_text": 500})
+        self.assertEqual(
+            cli_module.session_search_kwargs(args),
+            {"max_matches": 7, "max_text": 500, "case_sensitive": True},
+        )
+        self.assertEqual(cli_module.session_commands_kwargs(args), {"max_commands": 3, "max_output_chars": 1000})
+        self.assertEqual(
+            cli_module.session_output_contexts_kwargs(args),
+            {
+                "max_commands": 4,
+                "max_output_chars": 1200,
+                "context_lines": 2,
+                "max_contexts": 5,
+                "max_bytes_per_context": 800,
+            },
+        )
+        self.assertEqual(
+            cli_module.session_output_diagnostics_kwargs(args),
+            {
+                "max_commands": 4,
+                "max_output_chars": 1200,
+                "context_lines": 2,
+                "max_contexts": 5,
+                "max_bytes_per_context": 800,
+                "max_diagnostics": 6,
+            },
+        )
+        self.assertEqual(cli_module.session_files_kwargs(args), {"max_files": 9})
+        self.assertEqual(cli_module.session_failures_kwargs(args), {"max_failures": 10, "max_text": 500})
+        self.assertEqual(cli_module.session_verification_kwargs(args), {"max_checks": 11})
+        self.assertEqual(
+            cli_module.session_audit_kwargs(args),
+            {
+                "max_failures": 10,
+                "max_files": 9,
+                "max_commands": 3,
+                "max_checks": 11,
+                "max_text": 500,
+            },
+        )
+        self.assertEqual(
+            cli_module.session_handoff_kwargs(args),
+            {
+                "max_failures": 10,
+                "max_files": 9,
+                "max_commands": 3,
+                "max_checks": 11,
+                "max_output_chars": 1000,
+                "max_text": 500,
+            },
+        )
+
+    def test_session_kwargs_helpers_omit_unset_optional_values(self) -> None:
+        args = argparse.Namespace(
+            session_transcript_event_max=None,
+            session_max_text=None,
+            session_search_match_max=None,
+            session_search_case_sensitive=False,
+            session_max_commands=None,
+            session_max_output_chars=None,
+            session_output_command_max=20,
+            session_output_max_chars=4000,
+            session_output_context_lines=2,
+            session_output_context_max=10,
+            session_output_context_max_bytes=12000,
+            session_output_diagnostic_max=10,
+            session_max_files=None,
+            session_max_failures=None,
+            session_max_checks=None,
+        )
+
+        self.assertEqual(cli_module.session_transcript_kwargs(args), {})
+        self.assertEqual(cli_module.session_search_kwargs(args), {})
+        self.assertEqual(cli_module.session_commands_kwargs(args), {})
+        self.assertEqual(cli_module.session_files_kwargs(args), {})
+        self.assertEqual(cli_module.session_failures_kwargs(args), {})
+        self.assertEqual(cli_module.session_verification_kwargs(args), {})
+        self.assertEqual(cli_module.session_audit_kwargs(args), {})
+        self.assertEqual(cli_module.session_handoff_kwargs(args), {})
+        self.assertEqual(
+            cli_module.session_output_contexts_kwargs(args),
+            {
+                "max_commands": 20,
+                "max_output_chars": 4000,
+                "context_lines": 2,
+                "max_contexts": 10,
+                "max_bytes_per_context": 12000,
+            },
+        )
+
     def test_local_result_exit_code_covers_local_result_flags(self) -> None:
         source = textwrap.dedent(inspect.getsource(cli_module.has_local_flag))
         tree = ast.parse(source)
@@ -40,6 +150,59 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(missing, [])
         self.assertEqual(extra, [])
+
+    def test_normalize_task_bound_diff_args_moves_task_into_diff_argument(self) -> None:
+        args = argparse.Namespace(
+            diff_contexts="",
+            diff_hunks=None,
+            diff=None,
+            diff_staged=False,
+            task=["src/app.py", "tests/test_app.py"],
+        )
+
+        cli_module.normalize_task_bound_diff_args(args)
+
+        self.assertEqual(args.diff_contexts, "src/app.py tests/test_app.py")
+        self.assertEqual(args.task, [])
+
+    def test_emit_local_result_sets_failed_status_for_local_errors(self) -> None:
+        args = argparse.Namespace(json=True, tool="missing")
+
+        with patch("sys.stdout", new_callable=io.StringIO) as stdout:
+            exit_code = cli_module.emit_local_result(args, "Tool not found: missing", {"tool": {"ok": False}})
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 1)
+        self.assertFalse(payload["success"])
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["tool"], {"ok": False})
+
+    def test_build_one_shot_kwargs_from_args_keeps_main_mapping(self) -> None:
+        args = cli_module.parse_args(
+            [
+                "--chat",
+                "--approval",
+                "allow",
+                "--resume",
+                "last",
+                "--max-iterations",
+                "7",
+                "--command-timeout-ms",
+                "1234",
+                "explain",
+                "repo",
+            ]
+        )
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertEqual(kwargs["task"], "explain repo")
+        self.assertEqual(kwargs["request_mode"], "chat")
+        self.assertEqual(kwargs["approval_policy"], "allow")
+        self.assertEqual(kwargs["resume_arg"], "last")
+        self.assertEqual(kwargs["max_iterations"], 7)
+        self.assertEqual(kwargs["command_timeout_ms"], 1234)
+        self.assertIs(kwargs["provider_args"], args)
 
     def test_parse_args_accepts_explicit_aliases_but_rejects_implicit_abbreviations(self) -> None:
         command_args = cli_module.parse_args(["--command", "python3 --version"])
@@ -838,7 +1001,10 @@ class CliTests(unittest.TestCase):
         self.assertTrue(any(check["command"] == "python3 -c \"import webbrowser; webbrowser.get().open('http://127.0.0.1:5173')\"" and check["active"] for check in doctor["commandHardBlocks"]["checks"]))
         self.assertTrue(any(check["command"] == "python3 -c \"import os; os.startfile('.')\"" and check["active"] for check in doctor["commandHardBlocks"]["checks"]))
         self.assertTrue(any(check["command"] == "python3 -c \"import os; os.system('xdg-open .')\"" and check["active"] for check in doctor["commandHardBlocks"]["checks"]))
+        self.assertTrue(any(check["command"] == "python3 - <<'PY'\nimport subprocess\nsubprocess.run(['xdg-open', '.'])\nPY" and check["active"] for check in doctor["commandHardBlocks"]["checks"]))
         self.assertTrue(any(check["command"] == "node -e \"require('child_process').exec('xdg-open .')\"" and check["active"] for check in doctor["commandHardBlocks"]["checks"]))
+        self.assertTrue(any(check["command"] == "node -e \"const {exec}=require('child_process'); const cmd='xdg-open .'; exec(cmd)\"" and check["active"] for check in doctor["commandHardBlocks"]["checks"]))
+        self.assertTrue(any(check["command"] == "node - <<'JS'\nrequire('child_process').exec('xdg-open .')\nJS" and check["active"] for check in doctor["commandHardBlocks"]["checks"]))
         self.assertTrue(any(check["command"] == "node -e \"require('shelljs').exec('xdg-open .')\"" and check["active"] for check in doctor["commandHardBlocks"]["checks"]))
         self.assertTrue(any(check["command"] == "node -e \"require('execa').execaCommand('xdg-open .')\"" and check["active"] for check in doctor["commandHardBlocks"]["checks"]))
         self.assertTrue(

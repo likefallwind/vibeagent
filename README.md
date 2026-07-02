@@ -1189,10 +1189,10 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   `getattr(..., launcher)`, `importlib.import_module(...).<launcher>`,
   `builtins.__import__(...).<launcher>`, `eval`/`exec` string literals that
   contain blocked Python operations, `eval`/`exec` aliases and literal
-  `compile(...)` payloads, obvious `python -c` subprocess GUI opener calls, or
-  obvious `node -e` / `node -p` CommonJS, static ESM, or dynamic `import(...)`
-  literal launcher calls through `child_process`, `shelljs`, or `execa`, are
-  blocked.
+  `compile(...)` payloads, obvious `python -c` or Python stdin heredoc
+  subprocess GUI opener calls, or obvious `node -e` / `node -p` / Node stdin
+  heredoc CommonJS, static ESM, dynamic `import(...)`, or static string-variable
+  launcher calls through `child_process`, `shelljs`, or `execa`, are blocked.
   They stay blocked even if a caller approves command execution.
 - Project mutation tools reject paths that are themselves symbolic links or that
   pass through symbolic-link parent directories, so a model cannot write, patch,

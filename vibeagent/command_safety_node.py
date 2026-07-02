@@ -54,6 +54,7 @@ def node_one_liner_blocked_command_reason(command: str, depth: int) -> str | Non
 
 def node_script_blocked_command_reason(script: str, depth: int) -> str | None:
     identifier = r"[A-Za-z_$][A-Za-z0-9_$]*"
+    string_assignments = node_literal_string_assignments(script, identifier)
 
     child_process_aliases = {"child_process"}
     child_process_methods = {"exec", "execSync", "spawn", "spawnSync", "execFile", "execFileSync"}
@@ -127,13 +128,22 @@ def node_script_blocked_command_reason(script: str, depth: int) -> str | None:
             method = match.group(method_group)
             if method in function_aliases:
                 method = function_aliases[method]
-            nested_command = node_child_process_nested_command(script, match.end(), method)
+            nested_command = node_child_process_nested_command(script, match.end(), method, string_assignments)
             if not nested_command:
                 continue
             nested_blocked = _get_blocked_command_reason(nested_command, depth + 1)
             if nested_blocked:
                 return nested_blocked
     return None
+
+
+def node_literal_string_assignments(script: str, identifier: str) -> dict[str, str]:
+    assignments: dict[str, str] = {}
+    for match in re.finditer(rf"\bconst\s+({identifier})\s*=", script):
+        value, _ = javascript_string_literal(script, match.end())
+        if value is not None:
+            assignments[match.group(1)] = value
+    return assignments
 
 
 def node_require_assignment_aliases(script: str, require_pattern: str, identifier: str) -> set[str]:
@@ -190,11 +200,19 @@ def node_destructured_binding_alias(binding: str, separator: str, identifier: st
     return method, alias
 
 
-def node_child_process_nested_command(script: str, start: int, method: str) -> str | None:
+def node_child_process_nested_command(
+    script: str,
+    start: int,
+    method: str,
+    string_assignments: dict[str, str] | None = None,
+) -> str | None:
     index = javascript_skip_ws(script, start)
     first, index = javascript_string_literal(script, index)
     if first is None:
-        return None
+        variable, index = javascript_identifier(script, index)
+        if variable is None or string_assignments is None or variable not in string_assignments:
+            return None
+        first = string_assignments[variable]
     if method in {"exec", "execSync", "execaCommand", "execaCommandSync"}:
         return first
     index = javascript_skip_ws(script, index)
@@ -204,6 +222,14 @@ def node_child_process_nested_command(script: str, start: int, method: str) -> s
     if argv is None:
         return shlex.join([first])
     return shlex.join([first, *argv])
+
+
+def javascript_identifier(script: str, start: int) -> tuple[str | None, int]:
+    index = javascript_skip_ws(script, start)
+    match = re.match(r"[A-Za-z_$][A-Za-z0-9_$]*", script[index:])
+    if not match:
+        return None, index
+    return match.group(0), index + len(match.group(0))
 
 
 def javascript_string_array_literal(script: str, start: int) -> tuple[list[str] | None, int]:

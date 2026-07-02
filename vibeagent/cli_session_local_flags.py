@@ -1,0 +1,311 @@
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+from typing import Any
+
+from .cli_local_result import local_text_or_report
+
+
+def run_session_local_flag(
+    args: argparse.Namespace,
+    project_root: Path | None,
+    commands: dict[str, Any],
+) -> tuple[str, dict[str, object]] | None:
+    root = project_root or "."
+    if args.sessions:
+        return local_text_or_report(
+            args,
+            "sessions",
+            lambda: commands["get_sessions_report"](root),
+            commands["format_sessions_report_text"],
+            lambda: commands["get_sessions_text"](root),
+        )
+    if args.last:
+        return local_text_or_report(
+            args,
+            "sessionSummary",
+            lambda: commands["get_last_session_report"](root),
+            commands["format_session_summary_report_text"],
+            lambda: commands["get_last_session_text"](root),
+        )
+    if args.session is not None:
+        return local_text_or_report(
+            args,
+            "sessionSummary",
+            lambda: commands["get_session_report"](args.session, root),
+            commands["format_session_summary_report_text"],
+            lambda: commands["get_session_text"](args.session, root),
+        )
+    if args.plan is not None:
+        return local_text_or_report(
+            args,
+            "sessionPlan",
+            lambda: commands["get_plan_report"](root, args.plan or None),
+            commands["format_session_plan_report_text"],
+            lambda: commands["get_plan_text"](root, args.plan or None),
+        )
+    if args.transcript is not None:
+        session_kwargs = commands["session_transcript_kwargs"](args)
+        return local_text_or_report(
+            args,
+            "sessionTranscript",
+            lambda: commands["get_transcript_report"](root, args.transcript or None, **session_kwargs),
+            commands["format_session_transcript_report_text"],
+            lambda: commands["get_transcript_text"](root, args.transcript or None, **session_kwargs),
+        )
+    if args.session_search is not None:
+        session_kwargs = commands["session_search_kwargs"](args)
+        return local_text_or_report(
+            args,
+            "sessionSearch",
+            lambda: commands["get_session_search_report"](root, args.session_search, args.session_search_run, **session_kwargs),
+            commands["format_session_search_report_text"],
+            lambda: commands["get_session_search_text"](root, args.session_search, args.session_search_run, **session_kwargs),
+        )
+    if args.session_commands is not None:
+        session_kwargs = commands["session_commands_kwargs"](args)
+        return local_text_or_report(
+            args,
+            "sessionCommands",
+            lambda: commands["get_session_commands_report"](root, args.session_commands or None, **session_kwargs),
+            commands["format_session_commands_report_text"],
+            lambda: commands["get_session_commands_text"](root, args.session_commands or None, **session_kwargs),
+        )
+    if args.session_output_contexts is not None:
+        session_kwargs = commands["session_output_contexts_kwargs"](args)
+        return local_text_or_report(
+            args,
+            "sessionOutputContexts",
+            lambda: commands["get_session_output_contexts_report"](root, args.session_output_contexts or None, **session_kwargs),
+            commands["format_session_output_contexts_report_text"],
+            lambda: commands["get_session_output_contexts_text"](root, args.session_output_contexts or None, **session_kwargs),
+        )
+    if args.session_output_diagnostics is not None:
+        session_kwargs = commands["session_output_diagnostics_kwargs"](args)
+        return local_text_or_report(
+            args,
+            "sessionOutputDiagnostics",
+            lambda: commands["get_session_output_diagnostics_report"](root, args.session_output_diagnostics or None, **session_kwargs),
+            commands["format_session_output_diagnostics_report_text"],
+            lambda: commands["get_session_output_diagnostics_text"](root, args.session_output_diagnostics or None, **session_kwargs),
+        )
+    if args.session_files is not None:
+        session_kwargs = commands["session_files_kwargs"](args)
+        return local_text_or_report(
+            args,
+            "sessionFiles",
+            lambda: commands["get_session_files_report"](root, args.session_files or None, **session_kwargs),
+            commands["format_session_files_report_text"],
+            lambda: commands["get_session_files_text"](root, args.session_files or None, **session_kwargs),
+        )
+    if args.session_failures is not None:
+        session_kwargs = commands["session_failures_kwargs"](args)
+        return local_text_or_report(
+            args,
+            "sessionFailures",
+            lambda: commands["get_session_failures_report"](root, args.session_failures or None, **session_kwargs),
+            commands["format_session_failures_report_text"],
+            lambda: commands["get_session_failures_text"](root, args.session_failures or None, **session_kwargs),
+        )
+    if args.session_verification is not None:
+        session_kwargs = commands["session_verification_kwargs"](args)
+        return local_text_or_report(
+            args,
+            "sessionVerification",
+            lambda: commands["get_session_verification_report"](root, args.session_verification or None, **session_kwargs),
+            commands["format_session_verification_report_text"],
+            lambda: commands["get_session_verification_text"](root, args.session_verification or None, **session_kwargs),
+        )
+    if args.session_audit is not None:
+        session_kwargs = commands["session_audit_kwargs"](args)
+        return local_text_or_report(
+            args,
+            "sessionAudit",
+            lambda: commands["get_session_audit_report"](root, args.session_audit or None, **session_kwargs),
+            commands["format_session_audit_report_text"],
+            lambda: commands["get_session_audit_text"](root, args.session_audit or None, **session_kwargs),
+        )
+    if args.session_handoff is not None:
+        session_kwargs = commands["session_handoff_kwargs"](args)
+        return local_text_or_report(
+            args,
+            "sessionHandoff",
+            lambda: commands["get_session_handoff_report"](root, args.session_handoff or None, **session_kwargs),
+            commands["format_session_handoff_report_text"],
+            lambda: commands["get_session_handoff_text"](root, args.session_handoff or None, **session_kwargs),
+        )
+    if args.usage:
+        return local_text_or_report(
+            args,
+            "usage",
+            lambda: commands["get_usage_report"](root),
+            commands["format_usage_report_text"],
+            lambda: commands["get_usage_text"](root),
+        )
+    if args.cost:
+        return local_text_or_report(
+            args,
+            "cost",
+            lambda: commands["get_cost_report"](root),
+            commands["format_cost_report_text"],
+            lambda: commands["get_cost_text"](root),
+        )
+    return None
+
+
+def run_interactive_session_command(command: Any, commands: dict[str, Any]) -> str | None:
+    if command.type == "usage":
+        return commands["get_usage_text"]()
+    if command.type == "cost":
+        return commands["get_cost_text"]()
+    if command.type == "sessions":
+        return commands["get_sessions_text"]()
+    if command.type == "session":
+        return commands["get_session_text"](command.argument)
+    if command.type == "last":
+        return commands["get_last_session_text"]()
+    if command.type == "plan":
+        return commands["get_plan_text"](run_id=command.argument)
+    if command.type == "transcript":
+        run_id, kwargs, error = commands["parse_interactive_transcript_argument"](command.argument)
+        return error if error else commands["get_transcript_text"](run_id=run_id, **kwargs)
+    if command.type == "session_search":
+        query, run_id, kwargs, error = commands["parse_interactive_session_search_argument"](command.argument)
+        return error if error else commands["get_session_search_text"](argument=query, run_id=run_id, **kwargs)
+    if command.type == "session_commands":
+        usage = "Usage: /session-commands [run-id] [--max-commands N] [--max-output-chars N]"
+        run_id, kwargs, error = commands["parse_interactive_session_detail_argument"](
+            command.argument,
+            usage,
+            {
+                "--max-commands": ("max_commands", False),
+                "--max-output-chars": ("max_output_chars", True),
+            },
+        )
+        return error if error else commands["get_session_commands_text"](run_id=run_id, **kwargs)
+    if command.type == "session_output_contexts":
+        usage = (
+            "Usage: /session-output-contexts [run-id] [--max-commands N] "
+            "[--max-output-chars N] [--context-lines N] [--max-contexts N] [--max-bytes N]"
+        )
+        run_id, kwargs, error = commands["parse_interactive_session_detail_argument"](
+            command.argument,
+            usage,
+            {
+                "--max-commands": ("max_commands", False),
+                "--max-output-chars": ("max_output_chars", False),
+                "--context-lines": ("context_lines", True),
+                "--max-contexts": ("max_contexts", False),
+                "--max-bytes": ("max_bytes_per_context", False),
+            },
+        )
+        return error if error else commands["get_session_output_contexts_text"](run_id=run_id, **kwargs)
+    if command.type == "session_output_diagnostics":
+        usage = (
+            "Usage: /session-output-diagnostics [run-id] [--max-commands N] "
+            "[--max-output-chars N] [--context-lines N] [--max-diagnostics N] "
+            "[--max-contexts N] [--max-bytes N]"
+        )
+        run_id, kwargs, error = commands["parse_interactive_session_detail_argument"](
+            command.argument,
+            usage,
+            {
+                "--max-commands": ("max_commands", False),
+                "--max-output-chars": ("max_output_chars", False),
+                "--context-lines": ("context_lines", True),
+                "--max-diagnostics": ("max_diagnostics", False),
+                "--max-contexts": ("max_contexts", False),
+                "--max-bytes": ("max_bytes_per_context", False),
+            },
+        )
+        return error if error else commands["get_session_output_diagnostics_text"](run_id=run_id, **kwargs)
+    if command.type == "session_files":
+        usage = "Usage: /session-files [run-id] [--max-files N]"
+        run_id, kwargs, error = commands["parse_interactive_session_detail_argument"](
+            command.argument,
+            usage,
+            {"--max-files": ("max_files", False)},
+        )
+        return error if error else commands["get_session_files_text"](run_id=run_id, **kwargs)
+    if command.type == "session_failures":
+        usage = "Usage: /session-failures [run-id] [--max-failures N] [--max-text N]"
+        run_id, kwargs, error = commands["parse_interactive_session_detail_argument"](
+            command.argument,
+            usage,
+            {
+                "--max-failures": ("max_failures", False),
+                "--max-text": ("max_text", False),
+            },
+        )
+        return error if error else commands["get_session_failures_text"](run_id=run_id, **kwargs)
+    if command.type == "session_verification":
+        usage = "Usage: /session-verification [run-id] [--max-checks N]"
+        run_id, kwargs, error = commands["parse_interactive_session_detail_argument"](
+            command.argument,
+            usage,
+            {"--max-checks": ("max_checks", False)},
+        )
+        return error if error else commands["get_session_verification_text"](run_id=run_id, **kwargs)
+    if command.type == "session_audit":
+        usage = "Usage: /session-audit [run-id] [--max-failures N] [--max-files N] [--max-commands N] [--max-checks N] [--max-text N]"
+        run_id, kwargs, error = commands["parse_interactive_session_detail_argument"](
+            command.argument,
+            usage,
+            {
+                "--max-failures": ("max_failures", False),
+                "--max-files": ("max_files", False),
+                "--max-commands": ("max_commands", False),
+                "--max-checks": ("max_checks", False),
+                "--max-text": ("max_text", False),
+            },
+        )
+        return error if error else commands["get_session_audit_text"](run_id=run_id, **kwargs)
+    if command.type == "session_handoff":
+        usage = (
+            "Usage: /session-handoff [run-id] [--max-failures N] [--max-files N] "
+            "[--max-commands N] [--max-checks N] [--max-output-chars N] [--max-text N]"
+        )
+        run_id, kwargs, error = commands["parse_interactive_session_detail_argument"](
+            command.argument,
+            usage,
+            {
+                "--max-failures": ("max_failures", False),
+                "--max-files": ("max_files", False),
+                "--max-commands": ("max_commands", False),
+                "--max-checks": ("max_checks", False),
+                "--max-output-chars": ("max_output_chars", True),
+                "--max-text": ("max_text", False),
+            },
+        )
+        return error if error else commands["get_session_handoff_text"](run_id=run_id, **kwargs)
+    return None
+
+
+def run_interactive_resume_command(
+    command: Any,
+    commands: dict[str, Any],
+) -> tuple[str | None, str | None, str] | None:
+    if command.type not in {"resume", "compact"}:
+        return None
+    usage = (
+        f"Usage: /{command.type} [run-id{'|off' if command.type == 'resume' else ''}] "
+        "[--max-failures N] [--max-files N] [--max-commands N] [--max-checks N] "
+        "[--max-output-chars N] [--max-text N]"
+    )
+    run_id, kwargs, error = commands["parse_interactive_session_detail_argument"](
+        command.argument,
+        usage,
+        {
+            "--max-failures": ("max_failures", False),
+            "--max-files": ("max_files", False),
+            "--max-commands": ("max_commands", False),
+            "--max-checks": ("max_checks", False),
+            "--max-output-chars": ("max_output_chars", True),
+            "--max-text": ("max_text", False),
+        },
+    )
+    if error:
+        return None, None, error
+    getter_name = "get_resume_context" if command.type == "resume" else "get_compact_context"
+    return commands[getter_name](run_id, **kwargs)

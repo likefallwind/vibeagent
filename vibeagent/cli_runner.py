@@ -47,6 +47,37 @@ def build_context_limit_kwargs(
     return {key: value for key, value in values.items() if value is not None}
 
 
+def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "task": resolve_task_text(args.task),
+        "request_mode": "chat" if args.chat else "code",
+        "approval_policy": args.approval,
+        "resume_arg": args.resume,
+        "compact_arg": args.compact,
+        "resume_max_failures": args.resume_max_failures,
+        "resume_max_files": args.resume_max_files,
+        "resume_max_commands": args.resume_max_commands,
+        "resume_max_checks": args.resume_max_checks,
+        "resume_max_output_chars": args.resume_max_output_chars,
+        "resume_max_text": args.resume_max_text,
+        "compact_max_failures": args.compact_max_failures,
+        "compact_max_files": args.compact_max_files,
+        "compact_max_commands": args.compact_max_commands,
+        "compact_max_checks": args.compact_max_checks,
+        "compact_max_output_chars": args.compact_max_output_chars,
+        "compact_max_text": args.compact_max_text,
+        "base_dir": args.cwd,
+        "max_iterations": args.max_iterations,
+        "command_timeout_ms": args.command_timeout_ms,
+        "max_output_tokens": args.max_output_tokens,
+        "model_retries": args.model_retries,
+        "model_retry_delay_ms": args.model_retry_delay_ms,
+        "model_timeout_ms": args.model_timeout_ms,
+        "output_json": args.json,
+        "provider_args": args,
+    }
+
+
 def run_one_shot(
     task: str,
     request_mode: str,

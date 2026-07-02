@@ -3833,7 +3833,7 @@ class ActionTests(unittest.TestCase):
             workspace = create_run_workspace(root, "test-run")
 
             with patch(
-                "vibeagent.actions.read_git_conflicts",
+                "vibeagent.final_review_action_executor.read_git_conflicts",
                 return_value={
                     "ok": True,
                     "unmerged": [],
@@ -3859,7 +3859,7 @@ class ActionTests(unittest.TestCase):
             workspace = create_run_workspace(root, "test-run")
 
             with patch(
-                "vibeagent.actions.read_git_conflicts",
+                "vibeagent.final_review_action_executor.read_git_conflicts",
                 return_value={
                     "ok": False,
                     "unmerged": [],
@@ -3933,7 +3933,7 @@ class ActionTests(unittest.TestCase):
             workspace = create_run_workspace(root, "test-run")
             write_run_file(workspace, "artifact.bin", "x" * 101)
 
-            with patch("vibeagent.actions.FINAL_REVIEW_LARGE_FILE_BYTES", 100):
+            with patch("vibeagent.final_review_action_executor.FINAL_REVIEW_LARGE_FILE_BYTES", 100):
                 observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=5))
 
         self.assertEqual(observation.kind, "final_review")
@@ -4048,7 +4048,7 @@ class ActionTests(unittest.TestCase):
             workspace = create_run_workspace(root, "test-run")
             write_run_file(workspace, "src/config.py", "A" * 101)
 
-            with patch("vibeagent.actions.FINAL_REVIEW_SECRET_SCAN_BYTES", 100):
+            with patch("vibeagent.final_review_action_executor.FINAL_REVIEW_SECRET_SCAN_BYTES", 100):
                 observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=5))
 
         self.assertEqual(observation.kind, "final_review")
@@ -4068,7 +4068,7 @@ class ActionTests(unittest.TestCase):
             subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             write_run_file(workspace, "src/config.py", "A" * 101)
 
-            with patch("vibeagent.actions.FINAL_REVIEW_SECRET_SCAN_BYTES", 100):
+            with patch("vibeagent.final_review_action_executor.FINAL_REVIEW_SECRET_SCAN_BYTES", 100):
                 observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=5))
 
         self.assertEqual(observation.kind, "final_review")
@@ -4084,7 +4084,7 @@ class ActionTests(unittest.TestCase):
             write_run_file(workspace, "app.py", "VALUE = 1\n")
 
             with patch(
-                "vibeagent.actions.find_secret_like_git_diff_additions",
+                "vibeagent.final_review_action_executor.find_secret_like_git_diff_additions",
                 return_value=([], 0, False, ["git diff failed"]),
             ):
                 observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=5))
@@ -4164,7 +4164,7 @@ class ActionTests(unittest.TestCase):
             workspace = create_run_workspace(root, "test-run")
             write_run_file(workspace, "app.py", "VALUE = 1\n")
 
-            with patch("vibeagent.actions.find_changed_gitlinks", return_value=([], 0, ["git diff --raw failed"])):
+            with patch("vibeagent.final_review_action_executor.find_changed_gitlinks", return_value=([], 0, ["git diff --raw failed"])):
                 observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=5))
 
         self.assertEqual(observation.kind, "final_review")
@@ -4260,7 +4260,7 @@ class ActionTests(unittest.TestCase):
             workspace = create_run_workspace(root, "test-run")
             write_run_file(workspace, "app.py", "VALUE = 1\n")
 
-            with patch("vibeagent.actions.find_hidden_tracked_git_changes", return_value=([], 0, ["git status failed"])):
+            with patch("vibeagent.final_review_action_executor.find_hidden_tracked_git_changes", return_value=([], 0, ["git status failed"])):
                 observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=5))
 
         self.assertEqual(observation.kind, "final_review")
@@ -4277,7 +4277,7 @@ class ActionTests(unittest.TestCase):
             write_run_file(workspace, "app.py", "VALUE = 1\n")
 
             with patch(
-                "vibeagent.actions.find_unsafe_changed_symlinks",
+                "vibeagent.final_review_action_executor.find_unsafe_changed_symlinks",
                 return_value=([], 0, ["git diff --raw failed"], set()),
             ):
                 observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=5))
@@ -4337,7 +4337,7 @@ class ActionTests(unittest.TestCase):
             write_run_file(workspace, "app.py", "VALUE = 1\n")
 
             with patch(
-                "vibeagent.actions.read_git_operation_state",
+                "vibeagent.final_review_action_executor.read_git_operation_state",
                 return_value={"ok": False, "operations": [], "message": "git dir unavailable"},
             ):
                 observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=5))
@@ -4356,7 +4356,7 @@ class ActionTests(unittest.TestCase):
             write_run_file(workspace, "app.py", "VALUE = 1\n")
 
             with patch(
-                "vibeagent.actions.suggest_project_checks",
+                "vibeagent.final_review_action_executor.suggest_project_checks",
                 return_value={
                     "ok": True,
                     "checks": [
@@ -5223,12 +5223,12 @@ class ActionTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             workspace = create_run_workspace(base, "test-run")
-            with patch("vibeagent.actions.socket.create_connection", return_value=FakeConnection()):
+            with patch("vibeagent.runtime_checks.socket.create_connection", return_value=FakeConnection()):
                 reachable = execute_action(
                     workspace,
                     PortCheckAction(type="port_check", host="127.0.0.1", port=8000, timeout_ms=1000),
                 )
-            with patch("vibeagent.actions.socket.create_connection", side_effect=ConnectionRefusedError("refused")):
+            with patch("vibeagent.runtime_checks.socket.create_connection", side_effect=ConnectionRefusedError("refused")):
                 closed = execute_action(
                     workspace,
                     PortCheckAction(type="port_check", host="127.0.0.1", port=8001, timeout_ms=1000),
@@ -5249,7 +5249,7 @@ class ActionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             workspace = create_run_workspace(base, "test-run")
             with patch(
-                "vibeagent.actions.urllib.request.urlopen",
+                "vibeagent.runtime_checks.urllib.request.urlopen",
                 return_value=FakeHTTPResponse(b'{"status":"ok","ready":true}', url="http://127.0.0.1:8000/health"),
             ):
                 observation = execute_action(
@@ -5276,7 +5276,7 @@ class ActionTests(unittest.TestCase):
     def test_execute_http_check_reports_unreachable_without_failing_tool(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             workspace = create_run_workspace(base, "test-run")
-            with patch("vibeagent.actions.urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
+            with patch("vibeagent.runtime_checks.urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
                 observation = execute_action(
                     workspace,
                     HttpCheckAction(type="http_check", url="http://127.0.0.1:8000", timeout_ms=1000),
@@ -5292,7 +5292,7 @@ class ActionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             workspace = create_run_workspace(base, "test-run")
             with patch(
-                "vibeagent.actions.urllib.request.urlopen",
+                "vibeagent.runtime_checks.urllib.request.urlopen",
                 return_value=FakeHTTPResponse(b"ready"),
             ):
                 observation = execute_action(
@@ -5320,7 +5320,7 @@ class ActionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             workspace = create_run_workspace(base, "test-run")
             with patch(
-                "vibeagent.actions.urllib.request.urlopen",
+                "vibeagent.runtime_checks.urllib.request.urlopen",
                 return_value=TypedHTTPResponse(b'{"status":"ok","ready":true}', url="http://127.0.0.1:8000/api"),
             ):
                 observation = execute_action(
@@ -5346,7 +5346,7 @@ class ActionTests(unittest.TestCase):
     def test_execute_http_fetch_reports_unreachable_without_failing_tool(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             workspace = create_run_workspace(base, "test-run")
-            with patch("vibeagent.actions.urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
+            with patch("vibeagent.runtime_checks.urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
                 observation = execute_action(
                     workspace,
                     HttpFetchAction(type="http_fetch", url="http://127.0.0.1:8000", timeout_ms=1000),
@@ -7939,6 +7939,13 @@ class ActionTests(unittest.TestCase):
         self.assertIn("GUI application launch", get_blocked_command_reason("python3 -c \"import webbrowser; webbrowser.get().open('http://127.0.0.1:5173')\"") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("python3 -c \"from webbrowser import get; get().open('http://127.0.0.1:5173')\"") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("python3 -c \"__import__('webbrowser').get().open('http://127.0.0.1:5173')\"") or "")
+        self.assertIn(
+            "GUI application launch",
+            get_blocked_command_reason(
+                "python3 - <<'PY'\nimport subprocess\nsubprocess.run(['xdg-open', '.'])\nPY",
+            )
+            or "",
+        )
         self.assertIn("GUI application launch", get_blocked_command_reason("python3 -c \"import os; os.startfile('.')\"") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("python3 -c \"from os import startfile; startfile('.')\"") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("python3 -c \"__import__('os').startfile('.')\"") or "")
@@ -8005,6 +8012,14 @@ class ActionTests(unittest.TestCase):
         self.assertIn("GUI application launch", get_blocked_command_reason("node -e \"require('node:child_process').execFile('xdg-open', ['.'])\"") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("node -e \"const cp=require('child_process'); cp.spawnSync('xdg-open', ['.'])\"") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("node -e \"const { exec: run } = require('child_process'); run('xdg-open .')\"") or "")
+        self.assertIn("GUI application launch", get_blocked_command_reason("node -e \"const {exec}=require('child_process'); const cmd='xdg-open .'; exec(cmd)\"") or "")
+        self.assertIn(
+            "GUI application launch",
+            get_blocked_command_reason(
+                "node - <<'JS'\nrequire('child_process').exec('xdg-open .')\nJS",
+            )
+            or "",
+        )
         self.assertIn("high-risk command", get_blocked_command_reason("node -e \"const cp=require('child_process'); cp.exec('sudo reboot')\"") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("node -e \"require('shelljs').exec('xdg-open .')\"") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("node -e \"const shell=require('shelljs'); shell.exec('xdg-open .')\"") or "")
@@ -8028,6 +8043,7 @@ class ActionTests(unittest.TestCase):
         self.assertIn("high-risk command", get_blocked_command_reason("node --input-type=module -e \"const execa = await import('execa'); execa.execaSync('sudo', ['reboot'])\"") or "")
         self.assertIsNone(get_blocked_command_reason("node -e \"console.log('xdg-open .')\""))
         self.assertIsNone(get_blocked_command_reason("node -e \"require('child_process').exec('npm test')\""))
+        self.assertIsNone(get_blocked_command_reason("node -e \"const {exec}=require('child_process'); const cmd='npm test'; exec(cmd)\""))
         self.assertIsNone(get_blocked_command_reason("node -e \"require('shelljs').exec('npm test')\""))
         self.assertIsNone(get_blocked_command_reason("node -e \"const execa=require('execa'); execa('npm', ['test'])\""))
         self.assertIsNone(get_blocked_command_reason("node --input-type=module -e \"import { execaCommand } from 'execa'; execaCommand('npm test')\""))
@@ -8037,6 +8053,8 @@ class ActionTests(unittest.TestCase):
         self.assertIsNone(get_blocked_command_reason("python3 -c \"safe=compile('1 + 1', '<x>', 'eval'); eval(safe)\""))
         self.assertIsNone(get_blocked_command_reason("python3 -c \"exec(b'print(1)')\""))
         self.assertIsNone(get_blocked_command_reason("python3 -c \"print('exec subprocess.run xdg-open .')\""))
+        self.assertIsNone(get_blocked_command_reason("python3 - <<'PY'\nprint('xdg-open .')\nPY"))
+        self.assertIsNone(get_blocked_command_reason("node - <<'JS'\nconsole.log('xdg-open .')\nJS"))
         self.assertIn("GUI application launch", get_blocked_command_reason("python3 -c \"__import__('os').system('xdg-open .')\"") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("python3 -c \"__import__('subprocess').run(['bash', '-lc', 'xdg-open .'])\"") or "")
         self.assertIn("high-risk command", get_blocked_command_reason("python3 -c \"import os; os.system('sudo reboot')\"") or "")

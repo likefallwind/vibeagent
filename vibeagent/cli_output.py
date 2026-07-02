@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from .agent import AgentResult
+from .agent_result import AgentResult
 from .types import ApprovalDecision, ApprovalHandler, ApprovalPolicy, ApprovalRequest
 
 
