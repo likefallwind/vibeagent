@@ -552,6 +552,7 @@ python -m vibeagent --session-handoff <run-id> --session-max-failures 20 --sessi
 python -m vibeagent --checkpoint "before refactor" --cwd ../my-project
 python -m vibeagent --checkpoints --cwd ../my-project
 python -m vibeagent --checkpoint-show <checkpoint-id> --cwd ../my-project
+python -m vibeagent --checkpoint-show latest --cwd ../my-project
 python -m vibeagent --checkpoint-diff <checkpoint-id> --cwd ../my-project
 python -m vibeagent --checkpoint-status <checkpoint-id> --cwd ../my-project
 python -m vibeagent --check-checkpoint-restore <checkpoint-id> --cwd ../my-project
@@ -754,7 +755,8 @@ contents, `/checkpoint-status <id>` to compare the current worktree with a saved
 checkpoint, `/check-checkpoint-restore <id>` to preview restoring tracked staged
 and unstaged changes plus saved untracked files from a checkpoint,
 `/checkpoint-restore <id>` to restore those checkpoint contents when the
-checkpoint and current worktree are compatible,
+checkpoint and current worktree are compatible. Checkpoint commands that accept
+an id also accept `latest` for the newest saved checkpoint,
 `/check-checkpoint-delete <id>` to preview deleting one saved checkpoint snapshot,
 `/checkpoint-delete <id>` to delete one saved checkpoint snapshot,
 `/check-checkpoint-prune <keep-last>` to preview deleting older checkpoints,
@@ -874,7 +876,8 @@ did not pass `completionReady` are reported as `blocked`, not `completed`, in
 session summaries and usage totals.
 `/checkpoint [label]` saves a local
 handoff snapshot of `git status`, HEAD, unstaged diff, staged diff, and ordinary
-untracked file contents for later review or restore; `/check-checkpoint-restore <id>`
+untracked file contents for later review or restore; `latest` can be used as the
+checkpoint id for the newest saved checkpoint. `/check-checkpoint-restore <id>`
 previews the restore constraints before `/checkpoint-restore <id>` rewrites
 tracked staged/unstaged changes and saved untracked files. `/usage`
 reports locally recorded session usage and token counts when the provider returns

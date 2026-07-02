@@ -268,12 +268,13 @@ def checkpoint_status_observation(workspace: RunWorkspace, checkpoint_id: str) -
     metadata, message = read_checkpoint_metadata(workspace.root, checkpoint_id)
     if metadata is None:
         return empty_checkpoint_status(checkpoint_id, message)
+    checkpoint_id = str(metadata.get("id") or checkpoint_id)
     status = read_git_status(workspace)
     staged = read_git_diff(workspace, staged=True)
     unstaged = read_git_diff(workspace, staged=False)
     if not status.ok or not staged.ok or not unstaged.ok:
         return empty_checkpoint_status(
-            str(metadata.get("id") or checkpoint_id),
+            checkpoint_id,
             status.stderr or staged.stderr or unstaged.stderr or "git status/diff failed.",
         )
     saved_status = str(metadata.get("git_status") or "")
@@ -289,7 +290,7 @@ def checkpoint_status_observation(workspace: RunWorkspace, checkpoint_id: str) -
     return CheckpointStatusObservation(
         kind="checkpoint_status",
         ok=True,
-        checkpoint_id=str(metadata.get("id") or checkpoint_id),
+        checkpoint_id=checkpoint_id,
         matches=matches,
         status_matches=status_matches,
         staged_patch_matches=staged_matches,
@@ -311,9 +312,10 @@ def check_checkpoint_restore_observation(workspace: RunWorkspace, checkpoint_id:
     metadata, message = read_checkpoint_metadata(workspace.root, checkpoint_id)
     if metadata is None:
         return empty_check_checkpoint_restore(checkpoint_id, message)
+    checkpoint_id = str(metadata.get("id") or checkpoint_id)
     status = read_git_status(workspace)
     if not status.ok:
-        return empty_check_checkpoint_restore(str(metadata.get("id") or checkpoint_id), status.stderr or "git status failed.")
+        return empty_check_checkpoint_restore(checkpoint_id, status.stderr or "git status failed.")
     current_head = read_checkpoint_git_head(workspace.root)
     saved_head = metadata.get("head")
     current_counts = count_checkpoint_status_kinds(filter_checkpoint_status(status.stdout))
@@ -337,14 +339,14 @@ def check_checkpoint_restore_observation(workspace: RunWorkspace, checkpoint_id:
         can_restore = False
         restore_message = "Current worktree contains extra untracked files; move, delete, or commit them before checkpoint restore."
     else:
-        untracked_restore_error = check_checkpoint_untracked_restore_files(workspace.root, str(metadata.get("id") or checkpoint_id))
+        untracked_restore_error = check_checkpoint_untracked_restore_files(workspace.root, checkpoint_id)
         if untracked_restore_error:
             can_restore = False
             restore_message = untracked_restore_error
     return CheckCheckpointRestoreObservation(
         kind="check_checkpoint_restore",
         ok=can_restore,
-        checkpoint_id=str(metadata.get("id") or checkpoint_id),
+        checkpoint_id=checkpoint_id,
         can_restore=can_restore,
         saved_head=saved_head if isinstance(saved_head, str) else "",
         current_head=current_head,

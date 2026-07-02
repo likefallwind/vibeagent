@@ -220,10 +220,21 @@ def checkpoint_root(root: Path) -> Path:
 
 
 def resolve_checkpoint_dir(root: Path, checkpoint_id: str) -> Path:
+    normalized = resolve_checkpoint_id(root, checkpoint_id)
+    return checkpoint_root(root) / normalized
+
+
+def resolve_checkpoint_id(root: Path, checkpoint_id: str) -> str:
     normalized = checkpoint_id.strip()
     if not normalized or Path(normalized).name != normalized:
         raise ValueError(f"Invalid checkpoint id: {checkpoint_id}")
-    return checkpoint_root(root) / normalized
+    if normalized == "latest":
+        checkpoints = read_checkpoints(root)
+        if checkpoints:
+            latest = checkpoints[0].get("id")
+            if isinstance(latest, str) and latest:
+                return latest
+    return normalized
 
 
 def normalize_checkpoint_label(label: str | None) -> str:

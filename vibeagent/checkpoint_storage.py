@@ -117,7 +117,7 @@ def checkpoint_info_from_metadata(metadata: object) -> CheckpointInfo | None:
 
 
 def read_checkpoint_metadata(root: Path, checkpoint_id: str) -> tuple[dict[str, object] | None, str]:
-    normalized = checkpoint_id.strip()
+    normalized = resolve_checkpoint_id(root, checkpoint_id)
     if not normalized or Path(normalized).name != normalized:
         return None, f"Invalid checkpoint id: {checkpoint_id}"
     root_error = checkpoint_root_safety_error(root)
@@ -144,7 +144,7 @@ def read_checkpoint_metadata(root: Path, checkpoint_id: str) -> tuple[dict[str, 
 
 
 def checkpoint_directory_for_deletion(root: Path, checkpoint_id: str) -> tuple[Path | None, str]:
-    normalized = checkpoint_id.strip()
+    normalized = resolve_checkpoint_id(root, checkpoint_id)
     if not normalized or Path(normalized).name != normalized:
         return None, f"Invalid checkpoint id: {checkpoint_id}"
     root_error = checkpoint_root_safety_error(root)
@@ -176,7 +176,7 @@ def read_checkpoint_patch(root: Path, checkpoint_id: str, name: str) -> str:
 
 
 def checkpoint_file_for_read(root: Path, checkpoint_id: str, name: str) -> Path | None:
-    normalized = checkpoint_id.strip()
+    normalized = resolve_checkpoint_id(root, checkpoint_id)
     if not normalized or Path(normalized).name != normalized or Path(name).name != name:
         return None
     if checkpoint_root_safety_error(root):
@@ -195,6 +195,17 @@ def checkpoint_file_for_read(root: Path, checkpoint_id: str, name: str) -> Path 
     if resolved_path != resolved_dir and resolved_dir not in resolved_path.parents:
         return None
     return path
+
+
+def resolve_checkpoint_id(root: Path, checkpoint_id: str) -> str:
+    normalized = checkpoint_id.strip()
+    if not normalized or Path(normalized).name != normalized:
+        return normalized
+    if normalized == "latest":
+        checkpoints = read_checkpoint_infos(root)
+        if checkpoints:
+            return checkpoints[0].checkpoint_id
+    return normalized
 
 
 def save_checkpoint_untracked_files(root: Path, checkpoint_dir: Path, status: str) -> tuple[int, int]:

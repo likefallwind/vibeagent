@@ -10364,6 +10364,39 @@ class CommandTests(unittest.TestCase):
         self.assertFalse(changed_status["matches"])
         self.assertFalse(changed_status["checks"]["unstagedPatchMatches"])
 
+    def test_checkpoint_latest_alias_uses_newest_checkpoint(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            (root / "app.py").write_text("base\n", encoding="utf-8")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "app.py").write_text("first\n", encoding="utf-8")
+            first = get_checkpoint_report(root, "first")
+            first_checkpoint = first["checkpoint"]
+            first_id = first_checkpoint["id"] if isinstance(first_checkpoint, dict) else ""
+            (root / "app.py").write_text("second\n", encoding="utf-8")
+            second = get_checkpoint_report(root, "second")
+            second_checkpoint = second["checkpoint"]
+            second_id = second_checkpoint["id"] if isinstance(second_checkpoint, dict) else ""
+
+            shown = get_checkpoint_show_report("latest", root)
+            status = get_checkpoint_status_report("latest", root)
+            restore_check = get_check_checkpoint_restore_report("latest", root)
+            diff_text = get_checkpoint_diff_text("latest", root)
+
+        self.assertNotEqual(first_id, second_id)
+        self.assertTrue(shown["ok"])
+        self.assertEqual(shown["checkpoint"]["id"], second_id)
+        self.assertNotEqual(shown["checkpoint"]["id"], first_id)
+        self.assertTrue(status["ok"])
+        self.assertEqual(status["checkpoint"]["id"], second_id)
+        self.assertTrue(restore_check["ok"])
+        self.assertEqual(restore_check["id"], second_id)
+        self.assertIn(f"id: {second_id}", diff_text)
+
     def test_checkpoint_restore_replays_tracked_staged_and_unstaged_diffs(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
