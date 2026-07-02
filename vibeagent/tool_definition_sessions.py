@@ -411,21 +411,21 @@ SESSION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
 {
         "name": "checkpoint_show",
-        "description": "Inspect one saved checkpoint's metadata, saved short git status, and saved untracked file paths without restoring files.",
+        "description": "Inspect one saved checkpoint's metadata, saved short git status, and saved untracked file paths without restoring files. Use checkpoint_id='latest' for the newest checkpoint.",
         "input_schema": {
             "type": "object",
-            "properties": {"checkpoint_id": {"type": "string"}},
+            "properties": {"checkpoint_id": {"type": "string", "description": "Checkpoint id to inspect, or 'latest' for the newest saved checkpoint."}},
             "required": ["checkpoint_id"],
             "additionalProperties": False,
         },
     },
 {
         "name": "checkpoint_diff",
-        "description": "Read bounded staged and unstaged patch text saved in one checkpoint without restoring files.",
+        "description": "Read bounded staged and unstaged patch text saved in one checkpoint without restoring files. Use checkpoint_id='latest' for the newest checkpoint.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "checkpoint_id": {"type": "string"},
+                "checkpoint_id": {"type": "string", "description": "Checkpoint id to inspect, or 'latest' for the newest saved checkpoint."},
                 "max_chars": {
                     "type": "integer",
                     "minimum": 100,
@@ -439,50 +439,50 @@ SESSION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
 {
         "name": "checkpoint_status",
-        "description": "Compare current git status, staged patch, unstaged patch, and saved untracked file contents with one saved checkpoint.",
+        "description": "Compare current git status, staged patch, unstaged patch, and saved untracked file contents with one saved checkpoint. Use checkpoint_id='latest' for the newest checkpoint.",
         "input_schema": {
             "type": "object",
-            "properties": {"checkpoint_id": {"type": "string"}},
+            "properties": {"checkpoint_id": {"type": "string", "description": "Checkpoint id to compare, or 'latest' for the newest saved checkpoint."}},
             "required": ["checkpoint_id"],
             "additionalProperties": False,
         },
     },
 {
         "name": "check_checkpoint_restore",
-        "description": "Preview whether a checkpoint can restore tracked staged/unstaged changes and saved untracked files. Does not restore files.",
+        "description": "Preview whether a checkpoint can restore tracked staged/unstaged changes and saved untracked files. Use checkpoint_id='latest' for the newest checkpoint. Does not restore files.",
         "input_schema": {
             "type": "object",
-            "properties": {"checkpoint_id": {"type": "string"}},
+            "properties": {"checkpoint_id": {"type": "string", "description": "Checkpoint id to preview, or 'latest' for the newest saved checkpoint."}},
             "required": ["checkpoint_id"],
             "additionalProperties": False,
         },
     },
 {
         "name": "checkpoint_restore",
-        "description": "Restore tracked staged/unstaged changes and saved untracked files from one compatible checkpoint after approval. Refuses HEAD mismatches and extra current untracked files.",
+        "description": "Restore tracked staged/unstaged changes and saved untracked files from one compatible checkpoint after approval. Use checkpoint_id='latest' for the newest checkpoint. Refuses HEAD mismatches and extra current untracked files.",
         "input_schema": {
             "type": "object",
-            "properties": {"checkpoint_id": {"type": "string"}},
+            "properties": {"checkpoint_id": {"type": "string", "description": "Checkpoint id to restore, or 'latest' for the newest saved checkpoint."}},
             "required": ["checkpoint_id"],
             "additionalProperties": False,
         },
     },
 {
         "name": "check_checkpoint_delete",
-        "description": "Preview deleting one saved checkpoint snapshot. Does not delete files.",
+        "description": "Preview deleting one saved checkpoint snapshot. Use checkpoint_id='latest' for the newest checkpoint. Does not delete files.",
         "input_schema": {
             "type": "object",
-            "properties": {"checkpoint_id": {"type": "string"}},
+            "properties": {"checkpoint_id": {"type": "string", "description": "Checkpoint id to preview deleting, or 'latest' for the newest saved checkpoint."}},
             "required": ["checkpoint_id"],
             "additionalProperties": False,
         },
     },
 {
         "name": "checkpoint_delete",
-        "description": "Delete one saved checkpoint snapshot from the local runtime directory after approval. Does not modify project files.",
+        "description": "Delete one saved checkpoint snapshot from the local runtime directory after approval. Use checkpoint_id='latest' for the newest checkpoint. Does not modify project files.",
         "input_schema": {
             "type": "object",
-            "properties": {"checkpoint_id": {"type": "string"}},
+            "properties": {"checkpoint_id": {"type": "string", "description": "Checkpoint id to delete, or 'latest' for the newest saved checkpoint."}},
             "required": ["checkpoint_id"],
             "additionalProperties": False,
         },
