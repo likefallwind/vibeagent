@@ -1,0 +1,143 @@
+from __future__ import annotations
+
+import json
+
+from .agent import AgentResult
+from .types import ApprovalDecision, ApprovalHandler, ApprovalPolicy, ApprovalRequest
+
+
+def print_output(payload: dict[str, object], output_json: bool) -> None:
+    if output_json:
+        json_payload = dict(payload)
+        if json_payload.get("success") is True and "status" not in json_payload:
+            json_payload["status"] = "completed"
+        print(json.dumps(json_payload, ensure_ascii=False, sort_keys=True))
+        return
+    text = payload.get("text") if "text" in payload else payload.get("message")
+    print("" if text is None else text)
+
+
+def print_error_result(error: str, output_json: bool, exit_code: int = 1, prefix: bool = False) -> int:
+    if output_json:
+        print(json.dumps({"kind": "error", "success": False, "status": "failed", "error": error}, ensure_ascii=False, sort_keys=True))
+    else:
+        print(f"Error: {error}" if prefix else error)
+    return exit_code
+
+
+def print_interrupted_result(output_json: bool) -> int:
+    if output_json:
+        print(
+            json.dumps(
+                {"kind": "interrupted", "success": False, "status": "interrupted", "error": "Interrupted."},
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
+    else:
+        print("Interrupted.")
+    return 130
+
+
+def print_agent_result(result: AgentResult) -> None:
+    if result.message:
+        print(f"\n{result.message}")
+    elif not result.success:
+        print("\nStopped")
+    if result.completion_blockers:
+        print("Completion blockers:")
+        for blocker in result.completion_blockers:
+            print(f"- {blocker}")
+    if result.completion_warnings:
+        print("Warnings:")
+        for warning in result.completion_warnings:
+            print(f"- {warning}")
+    if result.final_review_changed_files:
+        print("Changed files:")
+        for path in result.final_review_changed_files:
+            print(f"- {path}")
+    if result.verification_checks:
+        print("Verified:")
+        for check in result.verification_checks:
+            print(f"- {check}")
+    if result.pending_verification_checks:
+        print("Pending checks:")
+        for check in result.pending_verification_checks:
+            print(f"- {check}")
+    if result.failed_verification_checks:
+        print("Failed checks:")
+        for check in result.failed_verification_checks:
+            print(f"- {check}")
+    if result.latest_completion_final_review_issues:
+        print("Latest final review issues:")
+        for issue in result.latest_completion_final_review_issues:
+            print(f"- {issue}")
+    if result.latest_completion_final_review_changed_files:
+        print("Latest final review changed files:")
+        for path in result.latest_completion_final_review_changed_files:
+            print(f"- {path}")
+    if result.latest_completion_tool_errors:
+        print("Latest tool errors:")
+        for error in result.latest_completion_tool_errors:
+            print(f"- {error}")
+    if result.latest_completion_checkpoint_failures:
+        print("Latest checkpoint failures:")
+        for failure in result.latest_completion_checkpoint_failures:
+            print(f"- {failure}")
+    if result.latest_completion_active_background_processes:
+        print("Latest active processes:")
+        for process in result.latest_completion_active_background_processes:
+            print(f"- {process}")
+    if result.latest_completion_denied_approvals:
+        print("Latest denied approvals:")
+        for approval in result.latest_completion_denied_approvals:
+            print(f"- {approval}")
+
+
+def prompt_approval(request: ApprovalRequest) -> ApprovalDecision:
+    print(f"Action: {request.action_type}")
+    print(f"Target: {request.target}")
+    print(f"Risk: {request.risk}")
+    if request.preview:
+        print(f"Preview: {request.preview}")
+    try:
+        answer = input("Approve? [y/N] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return ApprovalDecision(approved=False, message="Approval prompt interrupted.")
+
+    if answer in {"y", "yes"}:
+        return ApprovalDecision(approved=True, message="Approved by user.")
+    return ApprovalDecision(approved=False, message="Denied by user.")
+
+
+def handle_approval_command(argument: str | None, current: ApprovalPolicy) -> tuple[ApprovalPolicy, str]:
+    if not argument:
+        return current, f"Approval policy: {current}"
+    requested = argument.strip().lower()
+    if requested not in {"ask", "allow", "deny"}:
+        return current, "Usage: /approval [ask|allow|deny]"
+    policy = requested
+    return policy, f"Approval policy: {policy}"
+
+
+def build_approval_handler(policy: ApprovalPolicy) -> ApprovalHandler:
+    if policy == "allow":
+        return lambda request: ApprovalDecision(approved=True, message=f"Approved by policy for {request.action_type}.")
+    if policy == "deny":
+        return lambda request: ApprovalDecision(approved=False, message=f"Denied by policy for {request.action_type}.")
+    return prompt_approval
+
+
+def format_error(error: Exception) -> str:
+    # Expand 401 guidance; otherwise return raw error text.
+    if getattr(error, "status", None) == 401:
+        return "\n".join(
+            [
+                str(error),
+                "The configured model provider rejected the API key.",
+                "Check /model for the active provider and key source.",
+                "If you copied a value that starts with 'Bearer ', VibeAgent strips that prefix automatically.",
+            ]
+        )
+    return str(error)

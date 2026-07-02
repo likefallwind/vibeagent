@@ -108,6 +108,45 @@ from vibeagent.workspace import (
 
 
 class WorkspaceTests(unittest.TestCase):
+    def test_create_run_workspace_rejects_invalid_run_id(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            with self.assertRaisesRegex(ValueError, "Invalid session id"):
+                create_run_workspace(base, "../outside")
+
+    def test_create_run_workspace_rejects_symlink_runtime_directories(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            root = Path(base)
+            external = root / "external"
+            external.mkdir()
+            (root / ".vibeagent").symlink_to(external, target_is_directory=True)
+
+            with self.assertRaisesRegex(ValueError, "Runtime path"):
+                create_run_workspace(root, "test-run")
+            self.assertFalse((external / "sessions").exists())
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            root = Path(base)
+            external = root / "external"
+            external.mkdir()
+            (root / ".vibeagent").mkdir()
+            (root / ".vibeagent" / "sessions").symlink_to(external, target_is_directory=True)
+
+            with self.assertRaisesRegex(ValueError, "Session root path"):
+                create_run_workspace(root, "test-run")
+            self.assertEqual(list(external.iterdir()), [])
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            root = Path(base)
+            external = root / "external"
+            external.mkdir()
+            sessions = root / ".vibeagent" / "sessions"
+            sessions.mkdir(parents=True)
+            (sessions / "test-run").symlink_to(external, target_is_directory=True)
+
+            with self.assertRaisesRegex(ValueError, "Session path"):
+                create_run_workspace(root, "test-run")
+            self.assertEqual(list(external.iterdir()), [])
+
     def test_resolve_inside_run_rejects_absolute_paths(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
             workspace = create_run_workspace(base, "test-run")
@@ -196,6 +235,66 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual((workspace.root / "existing.txt").read_text(encoding="utf-8"), "new\n")
             self.assertEqual((workspace.root / "pkg/app.py").read_text(encoding="utf-8"), "print('ok')\n")
             self.assertFalse((workspace.root / ".vibeagent" / "secret.txt").exists())
+
+    def test_project_mutations_reject_symlink_file_paths(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            target = Path(base) / "real.txt"
+            link = Path(base) / "link.txt"
+            target.write_text("one\ntwo\n", encoding="utf-8")
+            try:
+                link.symlink_to(target)
+            except OSError as error:
+                self.skipTest(f"symlinks are unavailable: {error}")
+
+            patch = "--- a/link.txt\n+++ b/link.txt\n@@ -1,2 +1,2 @@\n-one\n+ONE\n two\n"
+            operations = [
+                lambda: preview_write_run_file(workspace, "link.txt", "changed\n"),
+                lambda: edit_project_file(workspace, "link.txt", "one", "ONE"),
+                lambda: preview_append_project_file(workspace, "link.txt", "three\n"),
+                lambda: preview_replace_project_file_lines(workspace, "link.txt", 1, 1, "ONE\n"),
+                lambda: delete_project_file(workspace, "link.txt"),
+                lambda: preview_set_project_file_executable(workspace, "link.txt"),
+                lambda: patch_project_file(workspace, "link.txt", patch),
+            ]
+
+            for operation in operations:
+                with self.subTest(operation=operation):
+                    with self.assertRaisesRegex(ValueError, "symbolic link"):
+                        operation()
+
+            self.assertEqual(target.read_text(encoding="utf-8"), "one\ntwo\n")
+            self.assertTrue(link.is_symlink())
+
+    def test_project_mutations_reject_symlink_parent_paths(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            real_dir = Path(base) / "real-dir"
+            link_dir = Path(base) / "link-dir"
+            real_dir.mkdir()
+            Path(base, "source.txt").write_text("source\n", encoding="utf-8")
+            try:
+                link_dir.symlink_to(real_dir, target_is_directory=True)
+            except OSError as error:
+                self.skipTest(f"symlinks are unavailable: {error}")
+
+            operations = [
+                lambda: write_run_file(workspace, "link-dir/new.txt", "new\n"),
+                lambda: create_project_directory(workspace, "link-dir/nested"),
+                lambda: move_project_file(workspace, "source.txt", "link-dir/moved.txt"),
+                lambda: copy_project_file(workspace, "source.txt", "link-dir/copied.txt"),
+            ]
+
+            for operation in operations:
+                with self.subTest(operation=operation):
+                    with self.assertRaisesRegex(ValueError, "symbolic link"):
+                        operation()
+
+            self.assertFalse((real_dir / "new.txt").exists())
+            self.assertFalse((real_dir / "nested").exists())
+            self.assertFalse((real_dir / "moved.txt").exists())
+            self.assertFalse((real_dir / "copied.txt").exists())
+            self.assertTrue((Path(base) / "source.txt").exists())
 
     def test_create_and_delete_project_empty_directory(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:

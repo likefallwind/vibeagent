@@ -1,0 +1,428 @@
+from __future__ import annotations
+
+import json
+from typing import Any
+
+from .action_parsing_helpers import (
+    ActionParseError,
+    directory_transfer_pairs,
+    format_file_mode,
+    parse_code_rename_input,
+    parse_json_patch_input,
+    parse_json_pointer_action_input,
+    parse_json_set_input,
+    parse_nonnegative_int,
+    parse_optional_nonnegative_int,
+    parse_optional_positive_int,
+    parse_plan_items,
+    parse_read_file_contexts,
+    parse_read_file_paths,
+    parse_read_file_ranges,
+    parse_run_command_items,
+    summarize_plan_update,
+)
+from .action_parsing_checkpoint import parse_checkpoint_action
+from .action_parsing_code_intel import parse_code_intel_action
+from .action_parsing_file_edit import parse_file_edit_action
+from .action_parsing_git import parse_git_action
+from .action_parsing_json import parse_json_action
+from .action_parsing_process import parse_process_action
+from .action_parsing_project import parse_project_action
+from .action_parsing_read import parse_read_action
+from .action_parsing_runtime import parse_runtime_action
+from .action_parsing_search import parse_search_action
+from .action_parsing_session import parse_session_action
+from .action_parsing_workflow import parse_workflow_action
+from .types import (
+    AgentAction,
+    AppendFileObservation,
+    CheckAppendFileObservation,
+    CheckCreateDirectoryObservation,
+    CheckCreateDirectoriesObservation,
+    CheckCopyDirectoryObservation,
+    CheckCopyDirectoriesObservation,
+    CheckCopyFileObservation,
+    CheckCopyFilesObservation,
+    CheckDeleteFileObservation,
+    CheckDeleteFilesObservation,
+    CheckDeleteEmptyDirectoryObservation,
+    CheckDeleteEmptyDirectoriesObservation,
+    CheckEditFileObservation,
+    CheckGitCommitAction,
+    CheckGitCommitObservation,
+    CheckGitFetchAction,
+    CheckGitFetchObservation,
+    CheckGitPullAction,
+    CheckGitPullObservation,
+    CheckGitPushAction,
+    CheckGitPushObservation,
+    CheckGitRestoreAction,
+    CheckGitRestoreObservation,
+    CheckGitStashAction,
+    CheckGitStashApplyAction,
+    CheckGitStashApplyObservation,
+    CheckGitStashDropAction,
+    CheckGitStashDropObservation,
+    CheckGitStashObservation,
+    CheckGitStageAction,
+    CheckGitStageObservation,
+    CheckGitSwitchAction,
+    CheckGitSwitchObservation,
+    CheckGitUnstageAction,
+    CheckGitUnstageObservation,
+    CheckInsertLinesObservation,
+    CheckJsonRemoveAction,
+    CheckJsonRemoveObservation,
+    CheckJsonPatchAction,
+    CheckJsonPatchObservation,
+    CheckJsonSetAction,
+    CheckJsonSetObservation,
+    CheckPatchObservation,
+    CheckPatchesObservation,
+    CheckMultiEditObservation,
+    CheckMoveDirectoryObservation,
+    CheckMoveDirectoriesObservation,
+    CheckMoveFileObservation,
+    CheckMoveFilesObservation,
+    CheckReplaceLinesObservation,
+    CheckReplacePythonDefinitionAction,
+    CheckReplacePythonDefinitionObservation,
+    CheckRegexReplaceObservation,
+    CheckStartCommandAction,
+    CheckStartCommandObservation,
+    CheckStopAllProcessesAction,
+    CheckStopAllProcessesObservation,
+    CheckStopProcessAction,
+    CheckStopProcessObservation,
+    CheckWriteProcessAction,
+    CheckWriteProcessObservation,
+    CheckFocusedTestCommandsObservation,
+    CheckpointInfo,
+    CheckWriteFileObservation,
+    CheckWriteFileResult,
+    CheckWriteFilesObservation,
+    CodeDependenciesAction,
+    CodeDependenciesObservation,
+    CodeDependenciesResult,
+    CodeDefinition,
+    CodeDefinitionsAction,
+    CodeDefinitionsObservation,
+    CodeImportRef,
+    CodeReference,
+    CodeReferenceContextsAction,
+    CodeReferenceContextsObservation,
+    CodeReferencesAction,
+    CodeReferencesObservation,
+    CodeRenameAction,
+    CodeRenameObservation,
+    CodeRenamePreviewAction,
+    CodeRenamePreviewFile,
+    CodeRenamePreviewObservation,
+    CodeRenameReplacement,
+    CopyFileObservation,
+    CopyFilesObservation,
+    CopyDirectoryObservation,
+    CopyDirectoriesObservation,
+    DirectoryTransfer,
+    MoveDirectoryObservation,
+    MoveDirectoriesObservation,
+    CreateDirectoryObservation,
+    CreateDirectoriesObservation,
+    CommandCheckObservation,
+    CommandResult,
+    CheckRunCommandsObservation,
+    CodeOutlineAction,
+    CodeOutlineObservation,
+    CodeOutlineResult,
+    ConfigCheckAction,
+    ConfigCheckObservation,
+    ConfigCheckResult,
+    DeleteEmptyDirectoryObservation,
+    DeleteEmptyDirectoriesObservation,
+    DeleteFileObservation,
+    DeleteFilesObservation,
+    EditFileObservation,
+    EditOperation,
+    EnvironmentInfoObservation,
+    FinalReviewObservation,
+    FinishAction,
+    FinishObservation,
+    FileInfoAction,
+    FileInfoObservation,
+    FileInfoResult,
+    FindFilesAction,
+    FindFilesObservation,
+    ImageInfoAction,
+    ImageInfoObservation,
+    ImageInfoResult,
+    GlobAction,
+    GlobObservation,
+    GitBlameObservation,
+    GitBranchInfo,
+    GitBranchesAction,
+    GitBranchesObservation,
+    GitChangeFile,
+    GitChangesAction,
+    GitChangesObservation,
+    GitConflictMarker,
+    GitConflictStatus,
+    GitConflictsAction,
+    GitConflictsObservation,
+    GitCommitAction,
+    GitCommitObservation,
+    GitDiffContext,
+    GitDiffContextsObservation,
+    GitDiffHunk,
+    GitDiffHunksObservation,
+    GitDiffObservation,
+    GitFetchAction,
+    GitFetchObservation,
+    GitPullAction,
+    GitPullObservation,
+    GitPushAction,
+    GitPushObservation,
+    GitRestoreAction,
+    GitRestoreObservation,
+    GitStashAction,
+    GitStashApplyAction,
+    GitStashApplyObservation,
+    GitStashDropAction,
+    GitStashDropObservation,
+    GitStashEntry,
+    GitStashesAction,
+    GitStashesObservation,
+    GitStashObservation,
+    GitInfoAction,
+    GitInfoObservation,
+    GitLogObservation,
+    GitRemote,
+    GitShowObservation,
+    GitStageAction,
+    GitStageObservation,
+    GitStatusAction,
+    GitStatusObservation,
+    GitSwitchAction,
+    GitSwitchObservation,
+    GitUnstageAction,
+    GitUnstageObservation,
+    HttpCheckObservation,
+    HttpFetchObservation,
+    InsertLinesObservation,
+    JsonRemoveAction,
+    JsonRemoveObservation,
+    JsonPatchAction,
+    JsonPatchObservation,
+    JsonPatchOperation,
+    JsonSetAction,
+    JsonSetObservation,
+    ListProcessesAction,
+    ListProcessesObservation,
+    ListFilesAction,
+    ListFilesObservation,
+    ListTreeAction,
+    ListTreeObservation,
+    MultiEditObservation,
+    Observation,
+    OutputContextResult,
+    OutputContextsAction,
+    OutputContextsObservation,
+    OutputDiagnostic,
+    OutputDiagnosticsAction,
+    OutputDiagnosticsObservation,
+    PatchFileObservation,
+    PatchFilesObservation,
+    PlanItem,
+    PortCheckObservation,
+    ProcessInfo,
+    ProcessOutputContextsAction,
+    ProcessOutputContextsObservation,
+    ProcessOutputDiagnosticsAction,
+    ProcessOutputDiagnosticsObservation,
+    PythonSymbol,
+    PythonSymbolsAction,
+    PythonSymbolsObservation,
+    PythonSymbolsResult,
+    PythonReference,
+    PythonCheckAction,
+    PythonCheckObservation,
+    PythonCheckResult,
+    PythonCall,
+    PythonCallGraphAction,
+    PythonCallGraphObservation,
+    PythonCallsAction,
+    PythonCallsObservation,
+    PythonDependenciesAction,
+    PythonDependenciesObservation,
+    PythonDependenciesResult,
+    PythonDefinition,
+    PythonDefinitionsAction,
+    PythonDefinitionsObservation,
+    PythonImportRef,
+    ReplacePythonDefinitionAction,
+    ReplacePythonDefinitionObservation,
+    PythonReferencesAction,
+    PythonReferenceContextsAction,
+    PythonReferenceContextsObservation,
+    PythonReferencesObservation,
+    PythonRenameAction,
+    PythonRenameObservation,
+    PythonRenamePreviewAction,
+    PythonRenamePreviewFile,
+    PythonRenamePreviewObservation,
+    PythonRenameReplacement,
+    ReferenceContextResult,
+    ProjectCommand,
+    ProjectCommandsObservation,
+    FocusedTestCommand,
+    FocusedTestCommandsObservation,
+    RelatedTestCandidate,
+    RelatedTestsObservation,
+    ProjectInstructionSource,
+    ProjectInstructionsObservation,
+    ProjectOverviewObservation,
+    ProjectTodo,
+    ProjectTodosObservation,
+    ProjectManifest,
+    ProjectManifestItem,
+    ProjectManifestsObservation,
+    ReadFileAction,
+    ReadFileContextAction,
+    ReadFileContextItem,
+    ReadFileContextObservation,
+    ReadFileContextResult,
+    ReadFileContextsAction,
+    ReadFileContextsObservation,
+    ReadFileObservation,
+    ReadFileResult,
+    ReadFilesAction,
+    ReadFilesObservation,
+    ReadFileRangeItem,
+    ReadFileRangeResult,
+    ReadFileRangesAction,
+    ReadFileRangesObservation,
+    ReadProcessAction,
+    ReadProcessObservation,
+    RegexReplaceObservation,
+    ReplaceLinesObservation,
+    ReviewChangesObservation,
+    RepoMapAction,
+    RepoMapObservation,
+    RepoMapPythonFile,
+    CheckSuggestedChecksObservation,
+    RunCommandAction,
+    RunCommandObservation,
+    RunCommandItem,
+    RunCommandsAction,
+    RunCommandsObservation,
+    RunFocusedTestCommandsObservation,
+    RunSuggestedChecksObservation,
+    RuntimeToolInfo,
+    SearchAction,
+    SearchContextsAction,
+    SearchContextsObservation,
+    SearchContextResult,
+    SearchObservation,
+    SessionCommandsObservation,
+    SessionFilesObservation,
+    SessionFailuresObservation,
+    SessionVerificationObservation,
+    SessionAuditObservation,
+    SessionAuditProcess,
+    SessionHandoffObservation,
+    SessionOutputContextsObservation,
+    SessionOutputDiagnosticsObservation,
+    SessionPlanObservation,
+    SessionSearchObservation,
+    SessionSummaryObservation,
+    SessionTranscriptObservation,
+    CheckSetExecutableObservation,
+    SetExecutableObservation,
+    StartCommandAction,
+    StartCommandObservation,
+    StopAllProcessesAction,
+    StopAllProcessesObservation,
+    StopProcessAction,
+    StopProcessObservation,
+    StoppedProcessInfo,
+    SuggestedCheck,
+    SuggestChecksObservation,
+    TailFileAction,
+    TailFileObservation,
+    UntrackedFilePreview,
+    UpdatePlanAction,
+    UpdatePlanObservation,
+    WaitProcessAction,
+    WaitProcessObservation,
+    WriteFileItem,
+    WriteFileObservation,
+    WriteFileResult,
+    WriteFilesObservation,
+    WriteProcessAction,
+    WriteProcessObservation,
+    MoveFileTransfer,
+    MoveFileObservation,
+    MoveFilesObservation,
+)
+
+
+def parse_action(value: Any, raw: str) -> AgentAction:
+    # Validate action shape against the small, finite action schema.
+    if not isinstance(value, dict):
+        raise ActionParseError("Model output must include an action object.", raw)
+
+    action_type = value.get("type")
+    read_action = parse_read_action(action_type, value, raw)
+    if read_action is not None:
+        return read_action
+
+    json_action = parse_json_action(action_type, value, raw)
+    if json_action is not None:
+        return json_action
+
+    code_intel_action = parse_code_intel_action(action_type, value, raw)
+    if code_intel_action is not None:
+        return code_intel_action
+
+    search_action = parse_search_action(action_type, value, raw)
+    if search_action is not None:
+        return search_action
+
+    git_action = parse_git_action(action_type, value, raw)
+    if git_action is not None:
+        return git_action
+
+    project_action = parse_project_action(action_type, value, raw)
+    if project_action is not None:
+        return project_action
+
+    runtime_action = parse_runtime_action(action_type, value, raw)
+    if runtime_action is not None:
+        return runtime_action
+
+    session_action = parse_session_action(action_type, value, raw)
+    if session_action is not None:
+        return session_action
+
+    checkpoint_action = parse_checkpoint_action(action_type, value, raw)
+    if checkpoint_action is not None:
+        return checkpoint_action
+
+    file_edit_action = parse_file_edit_action(action_type, value, raw)
+    if file_edit_action is not None:
+        return file_edit_action
+
+    process_action = parse_process_action(action_type, value, raw)
+    if process_action is not None:
+        return process_action
+
+    workflow_action = parse_workflow_action(action_type, value, raw)
+    if workflow_action is not None:
+        return workflow_action
+
+    raise ActionParseError("Unsupported action type.", raw)
+
+
+def parse_tool_action(name: str, tool_input: Any) -> AgentAction:
+    if not isinstance(tool_input, dict):
+        raise ActionParseError(f"{name} tool input must be an object.", json.dumps(tool_input))
+    return parse_action({"type": name, **tool_input}, json.dumps({"name": name, "input": tool_input}))

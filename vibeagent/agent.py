@@ -9,6 +9,47 @@ from typing import Any
 
 from .actions import AGENT_TOOL_DEFINITIONS, ActionParseError, execute_action, parse_tool_action, read_checkpoint_git_head
 from .prompts import build_messages
+from .redaction import redact_jsonable_payload
+from .agent_completion import (
+    PROJECT_CHANGE_OBSERVATION_KINDS,
+    auto_final_review_reason,
+    build_active_background_process_details,
+    build_checkpoint_failure_details,
+    build_completion_blocker_details,
+    build_completion_blockers,
+    build_completion_warnings,
+    build_denied_approval_details,
+    build_failed_verification_checks,
+    build_final_review_blocking_issue_details,
+    build_final_review_changed_file_details,
+    build_missing_plan_warning,
+    build_pending_verification_checks,
+    build_tool_error_details,
+    build_unfinished_plan_warning,
+    build_verification_checks,
+    command_result_failed_suggested_check_labels,
+    command_result_failed_suggested_check_result,
+    command_result_matches_successful_suggested_check,
+    command_result_suggested_check_commands,
+    failed_suggested_check_labels,
+    failed_suggested_check_results,
+    final_review_has_active_completion_blocker,
+    final_review_issue_is_verification_only,
+    final_review_running_process_count,
+    final_review_suggested_commands,
+    format_completion_blocked_feedback,
+    latest_observation_index,
+    latest_successful_process_start_index,
+    latest_successful_project_change_index,
+    observation_runs_suggested_check_successfully,
+    observations_show_multistep_coding_work,
+    should_auto_run_final_review,
+    successful_suggested_check_commands,
+    successful_suggested_check_labels,
+    suggested_check_label,
+    suggested_check_statuses_after_latest_change,
+)
+from .agent_observation_utils import observation_failed, summarize
 from .session import summarize_session
 from .types import (
     AgentLogger,
@@ -86,6 +127,7 @@ from .types import (
     EnvironmentInfoAction,
     FileInfoAction,
     ImageInfoAction,
+    FindFilesAction,
     FinalReviewAction,
     FinishAction,
     GlobAction,
@@ -209,7 +251,7 @@ from .types import (
     WriteProcessAction,
     MoveFileAction,
 )
-from .workspace import RunWorkspace, create_run_workspace
+from .workspace_core import RunWorkspace, create_run_workspace
 
 
 @dataclass(frozen=True)
@@ -233,6 +275,13 @@ class AgentResult:
     latest_completion_blockers: list[str] = field(default_factory=list)
     latest_completion_pending_verification_checks: list[str] = field(default_factory=list)
     latest_completion_failed_verification_checks: list[str] = field(default_factory=list)
+    latest_completion_final_review_issues: list[str] = field(default_factory=list)
+    latest_completion_final_review_changed_files: list[str] = field(default_factory=list)
+    latest_completion_tool_errors: list[str] = field(default_factory=list)
+    latest_completion_checkpoint_failures: list[str] = field(default_factory=list)
+    latest_completion_active_background_processes: list[str] = field(default_factory=list)
+    latest_completion_denied_approvals: list[str] = field(default_factory=list)
+    final_review_changed_files: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.status:
@@ -268,6 +317,7 @@ PARALLEL_SAFE_TOOL_NAMES = {
     "image_info",
     "search",
     "search_contexts",
+    "find_files",
     "glob",
     "python_symbols",
     "code_outline",
@@ -371,60 +421,6 @@ PARALLEL_SAFE_TOOL_NAMES = {
     "check_git_stash_apply",
     "check_git_stash_drop",
     "check_git_commit",
-}
-
-
-PROJECT_CHANGE_OBSERVATION_KINDS = {
-    "write_file",
-    "write_files",
-    "edit_file",
-    "multi_edit_file",
-    "replace_python_definition",
-    "code_rename",
-    "python_rename",
-    "replace_lines",
-    "insert_lines",
-    "append_file",
-    "regex_replace",
-    "json_set",
-    "json_remove",
-    "json_patch",
-    "patch_file",
-    "patch_files",
-    "delete_file",
-    "delete_files",
-    "move_file",
-    "move_files",
-    "copy_file",
-    "copy_files",
-    "move_dir",
-    "move_dirs",
-    "copy_dir",
-    "copy_dirs",
-    "create_dir",
-    "create_dirs",
-    "delete_empty_dir",
-    "delete_empty_dirs",
-    "set_executable",
-    "git_stage",
-    "git_unstage",
-    "git_commit",
-    "git_restore",
-    "checkpoint_restore",
-}
-
-
-MULTISTEP_CODING_FOLLOWUP_KINDS = {
-    "run_command",
-    "run_commands",
-    "run_suggested_checks",
-    "run_focused_test_commands",
-    "python_check",
-    "config_check",
-    "command_check",
-    "check_run_commands",
-    "check_suggested_checks",
-    "check_focused_test_commands",
 }
 
 
@@ -640,7 +636,7 @@ def run_agent(
                 observation = tool_error_observation(tool_name, error)
 
             observations.append(observation)
-            result_payload = to_jsonable(observation)
+            result_payload = redact_jsonable_payload(to_jsonable(observation))
             append_session_event(
                 current_workspace.session_dir,
                 "tool_result",
@@ -740,36 +736,6 @@ def completion_blocked_feedback_if_needed(
     return format_completion_blocked_feedback(blockers, details)
 
 
-def build_completion_blocker_details(success: bool, observations: list[Observation]) -> dict[str, list[str]]:
-    details: dict[str, list[str]] = {}
-    failed_verification_checks = build_failed_verification_checks(success, observations)
-    if failed_verification_checks:
-        details["failedVerificationChecks"] = failed_verification_checks
-    pending_verification_checks = build_pending_verification_checks(success, observations)
-    if pending_verification_checks:
-        details["pendingVerificationChecks"] = pending_verification_checks
-    return details
-
-
-def format_completion_blocked_feedback(blockers: list[str], details: dict[str, list[str]] | None = None) -> str:
-    lines = [
-        "Completion is not ready. Continue working before giving a final answer.",
-        "Resolve these blockers first:",
-    ]
-    lines.extend(f"- {blocker}" for blocker in blockers)
-    details = details or {}
-    failed_verification_checks = details.get("failedVerificationChecks", [])
-    if failed_verification_checks:
-        lines.append("Failed verification checks:")
-        lines.extend(f"- {check}" for check in failed_verification_checks)
-    pending_verification_checks = details.get("pendingVerificationChecks", [])
-    if pending_verification_checks:
-        lines.append("Pending verification checks:")
-        lines.extend(f"- {check}" for check in pending_verification_checks)
-    lines.append("When the blockers are resolved, finish with a concise final answer.")
-    return "\n".join(lines)
-
-
 def finish_agent_run(
     workspace: RunWorkspace,
     success: bool,
@@ -789,6 +755,7 @@ def finish_agent_run(
     verification_checks = build_verification_checks(success, observations)
     pending_verification_checks = build_pending_verification_checks(success, observations)
     failed_verification_checks = build_failed_verification_checks(success, observations)
+    final_review_changed_files = build_final_review_changed_file_details(observations)
     append_session_event(
         workspace.session_dir,
         "result",
@@ -806,6 +773,7 @@ def finish_agent_run(
             "verification_checks": verification_checks,
             "pending_verification_checks": pending_verification_checks,
             "failed_verification_checks": failed_verification_checks,
+            "final_review_changed_files": final_review_changed_files,
         },
     )
     session_summary = summarize_session(workspace.root, workspace.run_id)
@@ -829,6 +797,13 @@ def finish_agent_run(
         latest_completion_blockers=session_summary.latest_completion_blockers,
         latest_completion_pending_verification_checks=session_summary.latest_completion_pending_verification_checks,
         latest_completion_failed_verification_checks=session_summary.latest_completion_failed_verification_checks,
+        latest_completion_final_review_issues=session_summary.latest_completion_final_review_issues,
+        latest_completion_final_review_changed_files=session_summary.latest_completion_final_review_changed_files,
+        latest_completion_tool_errors=session_summary.latest_completion_tool_errors,
+        latest_completion_checkpoint_failures=session_summary.latest_completion_checkpoint_failures,
+        latest_completion_active_background_processes=session_summary.latest_completion_active_background_processes,
+        latest_completion_denied_approvals=session_summary.latest_completion_denied_approvals,
+        final_review_changed_files=session_summary.final_review_changed_files,
     )
 
 
@@ -901,6 +876,7 @@ def auto_run_final_review_if_needed(
     action = FinalReviewAction(type="final_review")
     observation = execute_action_safely(workspace, action, command_timeout_ms, "final_review")
     observations.append(observation)
+    result_payload = redact_jsonable_payload(to_jsonable(observation))
     append_session_event(
         workspace.session_dir,
         "tool_result",
@@ -909,372 +885,11 @@ def auto_run_final_review_if_needed(
             "id": "auto-final-review",
             "name": "final_review",
             "auto": True,
-            "result": to_jsonable(observation),
+            "result": result_payload,
         },
     )
     if logger:
         logger("auto final_review result", observation_summary(observation))
-
-
-def should_auto_run_final_review(success: bool, observations: list[Observation]) -> bool:
-    return auto_final_review_reason(success, observations) is not None
-
-
-def auto_final_review_reason(success: bool, observations: list[Observation]) -> str | None:
-    if not success:
-        return None
-    final_review_index = latest_observation_index(observations, {"final_review"})
-    project_change_index = latest_successful_project_change_index(observations)
-    if project_change_index is not None:
-        if final_review_index is None:
-            return "Project changes completed without final_review"
-        if project_change_index > final_review_index:
-            return "Project changes completed after final_review"
-    process_start_index = latest_successful_process_start_index(observations)
-    if process_start_index is not None:
-        if final_review_index is None:
-            return "Background command started without final_review"
-        if process_start_index > final_review_index:
-            return "Background command started after final_review"
-    return None
-
-
-def latest_observation_index(observations: list[Observation], kinds: set[str]) -> int | None:
-    for index in range(len(observations) - 1, -1, -1):
-        if observations[index].kind in kinds:
-            return index
-    return None
-
-
-def latest_successful_process_start_index(observations: list[Observation]) -> int | None:
-    for index in range(len(observations) - 1, -1, -1):
-        observation = observations[index]
-        if observation.kind == "start_command" and bool(getattr(observation, "ok", False)):
-            return index
-    return None
-
-
-def build_completion_warnings(
-    success: bool,
-    observations: list[Observation],
-    plan: list[PlanItem] | None = None,
-) -> list[str]:
-    if not success:
-        return []
-    warnings: list[str] = []
-    unfinished_plan_warning = build_unfinished_plan_warning(plan or [])
-    if unfinished_plan_warning is not None:
-        warnings.append(unfinished_plan_warning)
-    missing_plan_warning = build_missing_plan_warning(success, observations, plan or [])
-    if missing_plan_warning is not None:
-        warnings.append(missing_plan_warning)
-    reason = auto_final_review_reason(success, observations)
-    if reason is not None:
-        warnings.append(f"{reason} observation.")
-    final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
-    failed_verification_checks = build_failed_verification_checks(success, observations)
-    pending_verification_checks = build_pending_verification_checks(success, observations)
-    if final_review_has_active_completion_blocker(final_review, failed_verification_checks, pending_verification_checks):
-        warnings.append("Final review did not report ready.")
-    if any(observation.kind == "checkpoint_create" and observation_failed(observation) for observation in observations):
-        warnings.append("Checkpoint creation failed; restore point may be unavailable.")
-    running_process_count = final_review_running_process_count(final_review)
-    if running_process_count:
-        warnings.append(
-            f"Final review reported {running_process_count} running background process(es). "
-            "Stop them before finishing if they are no longer needed."
-        )
-    if failed_verification_checks:
-        warnings.append("Suggested verification checks failed after the latest project change.")
-    if pending_verification_checks:
-        warnings.append("Suggested verification checks are still pending after the latest project change.")
-    return warnings
-
-
-def build_completion_blockers(success: bool, observations: list[Observation], plan: list[PlanItem]) -> list[str]:
-    blockers: list[str] = []
-    if not success:
-        blockers.append("Run did not complete successfully.")
-    unfinished_plan_warning = build_unfinished_plan_warning(plan)
-    if unfinished_plan_warning is not None:
-        blockers.append(unfinished_plan_warning)
-    missing_plan_warning = build_missing_plan_warning(success, observations, plan)
-    if missing_plan_warning is not None:
-        blockers.append(missing_plan_warning)
-    reason = auto_final_review_reason(success, observations)
-    if reason is not None:
-        blockers.append(f"{reason} observation.")
-    final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
-    failed_verification_checks = build_failed_verification_checks(success, observations)
-    pending_verification_checks = build_pending_verification_checks(success, observations)
-    if final_review_has_active_completion_blocker(final_review, failed_verification_checks, pending_verification_checks):
-        blockers.append("Final review did not report ready.")
-    denied_approvals = sum(1 for observation in observations if observation.kind == "approval_denied")
-    if denied_approvals:
-        blockers.append(f"{denied_approvals} approval request(s) were denied.")
-    if any(observation.kind == "checkpoint_create" and observation_failed(observation) for observation in observations):
-        blockers.append("Checkpoint creation failed; restore point may be unavailable.")
-    running_process_count = final_review_running_process_count(final_review)
-    if running_process_count:
-        blockers.append(f"Final review reported {running_process_count} running background process(es).")
-    if failed_verification_checks:
-        blockers.append(f"{len(failed_verification_checks)} suggested verification check(s) failed after the latest project change.")
-    if pending_verification_checks:
-        blockers.append(f"{len(pending_verification_checks)} suggested verification check(s) are still pending after the latest project change.")
-    return blockers
-
-
-def final_review_has_active_completion_blocker(
-    final_review: Observation | None,
-    failed_verification_checks: list[str],
-    pending_verification_checks: list[str],
-) -> bool:
-    if final_review is None or getattr(final_review, "ready", None) is not False:
-        return False
-    if failed_verification_checks or pending_verification_checks:
-        return True
-    blocking_issues = getattr(final_review, "blocking_issues", None)
-    if not isinstance(blocking_issues, list) or not blocking_issues:
-        return True
-    return any(not final_review_issue_is_verification_only(str(issue)) for issue in blocking_issues)
-
-
-def final_review_issue_is_verification_only(issue: str) -> bool:
-    normalized = issue.casefold()
-    return "suggested verification check" in normalized
-
-
-def build_unfinished_plan_warning(plan: list[PlanItem]) -> str | None:
-    unfinished = [item for item in plan if item.status != "completed"]
-    if not unfinished:
-        return None
-    in_progress = [item for item in unfinished if item.status == "in_progress"]
-    pending = [item for item in unfinished if item.status == "pending"]
-    labels = [f"{item.status}: {summarize(item.step, 80)}" for item in unfinished[:3]]
-    suffix = f"; {'; '.join(labels)}" if labels else ""
-    status_parts: list[str] = []
-    if in_progress:
-        status_parts.append(f"{len(in_progress)} in_progress")
-    if pending:
-        status_parts.append(f"{len(pending)} pending")
-    status_text = ", ".join(status_parts) if status_parts else f"{len(unfinished)} unfinished"
-    return f"Task plan still has unfinished item(s): {status_text}{suffix}."
-
-
-def build_missing_plan_warning(success: bool, observations: list[Observation], plan: list[PlanItem]) -> str | None:
-    if not success or plan:
-        return None
-    if not observations_show_multistep_coding_work(observations):
-        return None
-    return "Task plan is missing for multi-step coding work; call update_plan with a short checklist before finishing."
-
-
-def observations_show_multistep_coding_work(observations: list[Observation]) -> bool:
-    successful_project_changes = [
-        observation
-        for observation in observations
-        if observation.kind in PROJECT_CHANGE_OBSERVATION_KINDS and not observation_failed(observation)
-    ]
-    if not successful_project_changes:
-        return False
-    if len(successful_project_changes) >= 2:
-        return True
-    first_change_index = next(
-        index
-        for index, observation in enumerate(observations)
-        if observation.kind in PROJECT_CHANGE_OBSERVATION_KINDS and not observation_failed(observation)
-    )
-    return any(observation.kind in MULTISTEP_CODING_FOLLOWUP_KINDS for observation in observations[first_change_index + 1 :])
-
-
-def final_review_running_process_count(final_review: Observation | None) -> int:
-    if final_review is None:
-        return 0
-    running_processes = getattr(final_review, "running_processes", [])
-    return sum(1 for process in running_processes if getattr(process, "running", False))
-
-
-def build_verification_checks(success: bool, observations: list[Observation]) -> list[str]:
-    if not success:
-        return []
-    final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
-    if final_review is None:
-        return []
-    suggested_commands = final_review_suggested_commands(final_review)
-    if not suggested_commands:
-        return []
-    last_change_index = latest_successful_project_change_index(observations)
-    if last_change_index is None:
-        return []
-
-    checks: list[str] = []
-    seen: set[str] = set()
-    for observation in observations[last_change_index + 1 :]:
-        for label in successful_suggested_check_labels(observation, suggested_commands):
-            if label not in seen:
-                checks.append(label)
-                seen.add(label)
-    return checks
-
-
-def build_pending_verification_checks(success: bool, observations: list[Observation]) -> list[str]:
-    suggested_commands, statuses = suggested_check_statuses_after_latest_change(success, observations)
-    if not suggested_commands:
-        return []
-    completed_commands = set(statuses)
-    return [suggested_check_label(command, cwd) for command, cwd in sorted(suggested_commands - completed_commands)]
-
-
-def build_failed_verification_checks(success: bool, observations: list[Observation]) -> list[str]:
-    _, statuses = suggested_check_statuses_after_latest_change(success, observations)
-    return [label for _, (passed, label) in sorted(statuses.items()) if not passed]
-
-
-def suggested_check_statuses_after_latest_change(
-    success: bool,
-    observations: list[Observation],
-) -> tuple[set[tuple[str, str]], dict[tuple[str, str], tuple[bool, str]]]:
-    if not success:
-        return set(), {}
-    final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
-    if final_review is None:
-        return set(), {}
-    suggested_commands = final_review_suggested_commands(final_review)
-    if not suggested_commands:
-        return set(), {}
-    last_change_index = latest_successful_project_change_index(observations)
-    if last_change_index is None:
-        return suggested_commands, {}
-
-    statuses: dict[tuple[str, str], tuple[bool, str]] = {}
-    for observation in observations[last_change_index + 1 :]:
-        for command, cwd in successful_suggested_check_commands(observation, suggested_commands):
-            statuses[(command, cwd)] = (True, suggested_check_label(command, cwd))
-        for command, cwd, label in failed_suggested_check_results(observation, suggested_commands):
-            statuses[(command, cwd)] = (False, label)
-    return suggested_commands, statuses
-
-
-def final_review_suggested_commands(final_review: Observation) -> set[tuple[str, str]]:
-    return {
-        (str(getattr(check, "command", "")), str(getattr(check, "cwd", ".") or "."))
-        for check in getattr(final_review, "suggested_checks", [])
-        if getattr(check, "command", None)
-    }
-
-
-def latest_successful_project_change_index(observations: list[Observation]) -> int | None:
-    for index in range(len(observations) - 1, -1, -1):
-        observation = observations[index]
-        if observation.kind in PROJECT_CHANGE_OBSERVATION_KINDS and not observation_failed(observation):
-            return index
-    return None
-
-
-def observation_runs_suggested_check_successfully(
-    observation: Observation,
-    suggested_commands: set[tuple[str, str]],
-) -> bool:
-    return bool(successful_suggested_check_commands(observation, suggested_commands))
-
-
-def successful_suggested_check_commands(
-    observation: Observation,
-    suggested_commands: set[tuple[str, str]],
-) -> set[tuple[str, str]]:
-    if observation.kind == "run_command":
-        return command_result_suggested_check_commands(observation.result, suggested_commands)
-    if observation.kind in {"run_commands", "run_suggested_checks", "run_focused_test_commands"}:
-        commands: set[tuple[str, str]] = set()
-        for result in observation.results:
-            commands.update(command_result_suggested_check_commands(result, suggested_commands))
-        return commands
-    return set()
-
-
-def successful_suggested_check_labels(
-    observation: Observation,
-    suggested_commands: set[tuple[str, str]],
-) -> list[str]:
-    return [suggested_check_label(command, cwd) for command, cwd in successful_suggested_check_commands(observation, suggested_commands)]
-
-
-def failed_suggested_check_labels(
-    observation: Observation,
-    suggested_commands: set[tuple[str, str]],
-) -> list[str]:
-    return [label for _, _, label in failed_suggested_check_results(observation, suggested_commands)]
-
-
-def failed_suggested_check_results(
-    observation: Observation,
-    suggested_commands: set[tuple[str, str]],
-) -> list[tuple[str, str, str]]:
-    if observation.kind == "run_command":
-        result = command_result_failed_suggested_check_result(observation.result, suggested_commands)
-        return [result] if result is not None else []
-    if observation.kind in {"run_commands", "run_suggested_checks", "run_focused_test_commands"}:
-        failures: list[tuple[str, str, str]] = []
-        for result in observation.results:
-            failure = command_result_failed_suggested_check_result(result, suggested_commands)
-            if failure is not None:
-                failures.append(failure)
-        return failures
-    return []
-
-
-def command_result_suggested_check_commands(
-    result: object,
-    suggested_commands: set[tuple[str, str]],
-) -> set[tuple[str, str]]:
-    if not command_result_matches_successful_suggested_check(result, suggested_commands):
-        return set()
-    command = str(getattr(result, "command", ""))
-    cwd = str(getattr(result, "cwd", ".") or ".")
-    return {(command, cwd)}
-
-
-def command_result_failed_suggested_check_labels(
-    result: object,
-    suggested_commands: set[tuple[str, str]],
-) -> list[str]:
-    failure = command_result_failed_suggested_check_result(result, suggested_commands)
-    return [failure[2]] if failure is not None else []
-
-
-def command_result_failed_suggested_check_result(
-    result: object,
-    suggested_commands: set[tuple[str, str]],
-) -> tuple[str, str, str] | None:
-    command = str(getattr(result, "command", ""))
-    cwd = str(getattr(result, "cwd", ".") or ".")
-    if (command, cwd) not in suggested_commands:
-        return None
-    if getattr(result, "exit_code", None) == 0 and not getattr(result, "timed_out", False):
-        return None
-    if getattr(result, "timed_out", False):
-        reason = "timed out"
-    else:
-        exit_code = getattr(result, "exit_code", None)
-        reason = f"exit={exit_code}" if exit_code is not None else "no exit code"
-    return command, cwd, f"{suggested_check_label(command, cwd)} ({reason})"
-
-
-def suggested_check_label(command: str, cwd: str) -> str:
-    if cwd == ".":
-        return command
-    return f"{command} (cwd: {cwd})"
-
-
-def command_result_matches_successful_suggested_check(
-    result: object,
-    suggested_commands: set[tuple[str, str]],
-) -> bool:
-    if getattr(result, "exit_code", None) != 0 or getattr(result, "timed_out", False):
-        return False
-    command = str(getattr(result, "command", ""))
-    cwd = str(getattr(result, "cwd", ".") or ".")
-    return (command, cwd) in suggested_commands
 
 
 def execute_parallel_tool_call_batch(
@@ -1359,7 +974,7 @@ def execute_parallel_tool_call_batch(
             observation = ToolErrorObservation(kind="tool_error", tool=item.tool_name or "unknown", message="Tool execution failed.")
         complete_task_step(workspace, item.step, observation, iteration, logger)
         observations.append(observation)
-        result_payload = to_jsonable(observation)
+        result_payload = redact_jsonable_payload(to_jsonable(observation))
         append_session_event(
             workspace.session_dir,
             "tool_result",
@@ -1418,7 +1033,7 @@ def create_auto_checkpoint_before_action(
     step = start_task_step(workspace, steps, iteration, checkpoint_action, logger)
     observation = execute_action_safely(workspace, checkpoint_action, command_timeout_ms, "checkpoint_create")
     complete_task_step(workspace, step, observation, iteration, logger)
-    result_payload = to_jsonable(observation)
+    result_payload = redact_jsonable_payload(to_jsonable(observation))
     append_session_event(
         workspace.session_dir,
         "tool_result",
@@ -1435,13 +1050,6 @@ def create_auto_checkpoint_before_action(
         if logger:
             logger("auto checkpoint skipped", observation_summary(observation))
     return observation
-
-
-def summarize(value: str, max_length: int = 500) -> str:
-    compact = " ".join(value.split())
-    if len(compact) <= max_length:
-        return compact
-    return f"{compact[:max_length]}..."
 
 
 def format_exception(error: Exception) -> str:
@@ -1983,6 +1591,8 @@ def build_action_target(action: object) -> str:
     if isinstance(action, SearchAction):
         return action.query
     if isinstance(action, SearchContextsAction):
+        return f"{action.query} in {action.path or '.'}"
+    if isinstance(action, FindFilesAction):
         return f"{action.query} in {action.path or '.'}"
     if isinstance(action, GlobAction):
         return action.pattern
@@ -2602,372 +2212,6 @@ def summarize_approval_decision(request: ApprovalRequest, decision: ApprovalDeci
     return f"{request.action_type} {summarize(request.target, 80)}: {summarize(message, 120)}"
 
 
-def observation_failed(observation: Observation) -> bool:
-    if observation.kind in {"tool_error", "approval_denied"}:
-        return True
-    if observation.kind == "check_write_file":
-        return not observation.ok
-    if observation.kind == "write_file":
-        return not observation.ok
-    if observation.kind == "check_write_files":
-        return not observation.ok
-    if observation.kind == "write_files":
-        return not observation.ok
-    if observation.kind == "checkpoint_create":
-        return not observation.ok
-    if observation.kind == "check_edit_file":
-        return not observation.ok
-    if observation.kind == "edit_file":
-        return not observation.ok
-    if observation.kind == "check_multi_edit_file":
-        return not observation.ok
-    if observation.kind == "multi_edit_file":
-        return not observation.ok
-    if observation.kind == "check_replace_python_definition":
-        return not observation.ok
-    if observation.kind == "replace_python_definition":
-        return not observation.ok
-    if observation.kind == "check_replace_lines":
-        return not observation.ok
-    if observation.kind == "replace_lines":
-        return not observation.ok
-    if observation.kind == "check_insert_lines":
-        return not observation.ok
-    if observation.kind == "insert_lines":
-        return not observation.ok
-    if observation.kind == "check_append_file":
-        return not observation.ok
-    if observation.kind == "append_file":
-        return not observation.ok
-    if observation.kind == "regex_replace":
-        return not observation.ok
-    if observation.kind == "check_regex_replace":
-        return not observation.ok
-    if observation.kind == "check_json_set":
-        return not observation.ok
-    if observation.kind == "json_set":
-        return not observation.ok
-    if observation.kind == "check_json_remove":
-        return not observation.ok
-    if observation.kind == "json_remove":
-        return not observation.ok
-    if observation.kind == "check_json_patch":
-        return not observation.ok
-    if observation.kind == "json_patch":
-        return not observation.ok
-    if observation.kind == "check_patch":
-        return not observation.ok
-    if observation.kind == "check_patches":
-        return not observation.ok
-    if observation.kind == "patch_file":
-        return not observation.ok
-    if observation.kind == "patch_files":
-        return not observation.ok
-    if observation.kind == "check_delete_file":
-        return not observation.ok
-    if observation.kind == "delete_file":
-        return not observation.ok
-    if observation.kind == "check_delete_files":
-        return not observation.ok
-    if observation.kind == "delete_files":
-        return not observation.ok
-    if observation.kind == "check_move_file":
-        return not observation.ok
-    if observation.kind == "move_file":
-        return not observation.ok
-    if observation.kind == "check_move_files":
-        return not observation.ok
-    if observation.kind == "move_files":
-        return not observation.ok
-    if observation.kind == "check_copy_file":
-        return not observation.ok
-    if observation.kind == "copy_file":
-        return not observation.ok
-    if observation.kind == "check_copy_files":
-        return not observation.ok
-    if observation.kind == "copy_files":
-        return not observation.ok
-    if observation.kind == "check_move_dir":
-        return not observation.ok
-    if observation.kind == "move_dir":
-        return not observation.ok
-    if observation.kind == "check_move_dirs":
-        return not observation.ok
-    if observation.kind == "move_dirs":
-        return not observation.ok
-    if observation.kind == "check_copy_dir":
-        return not observation.ok
-    if observation.kind == "copy_dir":
-        return not observation.ok
-    if observation.kind == "check_copy_dirs":
-        return not observation.ok
-    if observation.kind == "copy_dirs":
-        return not observation.ok
-    if observation.kind == "check_create_dir":
-        return not observation.ok
-    if observation.kind == "create_dir":
-        return not observation.ok
-    if observation.kind == "check_create_dirs":
-        return not observation.ok
-    if observation.kind == "create_dirs":
-        return not observation.ok
-    if observation.kind == "check_delete_empty_dir":
-        return not observation.ok
-    if observation.kind == "delete_empty_dir":
-        return not observation.ok
-    if observation.kind == "check_delete_empty_dirs":
-        return not observation.ok
-    if observation.kind == "delete_empty_dirs":
-        return not observation.ok
-    if observation.kind == "check_set_executable":
-        return not observation.ok
-    if observation.kind == "set_executable":
-        return not observation.ok
-    if observation.kind == "run_command":
-        return observation.result.exit_code != 0 or observation.result.timed_out
-    if observation.kind == "run_commands":
-        return not observation.ok
-    if observation.kind == "run_focused_test_commands":
-        return not observation.ok
-    if observation.kind == "port_check":
-        return not observation.ok
-    if observation.kind == "http_check":
-        return not observation.ok
-    if observation.kind == "http_fetch":
-        return not observation.ok
-    if observation.kind in {
-        "start_command",
-        "read_process",
-        "wait_process",
-        "check_write_process",
-        "write_process",
-        "check_stop_all_processes",
-        "check_stop_process",
-        "stop_all_processes",
-        "stop_process",
-    }:
-        return not observation.ok
-    if observation.kind == "list_processes":
-        return False
-    if observation.kind == "update_plan":
-        return False
-    if observation.kind == "repo_map":
-        return not observation.ok
-    if observation.kind == "read_file":
-        return not observation.message.startswith("Read ")
-    if observation.kind == "read_file_context":
-        return not observation.ok
-    if observation.kind == "read_file_contexts":
-        return any(not item.ok for item in observation.contexts)
-    if observation.kind == "output_contexts":
-        return any(not item.ok for item in observation.contexts)
-    if observation.kind == "output_diagnostics":
-        return any(not item.ok for item in observation.contexts)
-    if observation.kind == "tail_file":
-        return not observation.ok
-    if observation.kind == "read_files":
-        return any(not item.ok for item in observation.files)
-    if observation.kind == "read_file_ranges":
-        return any(not item.ok for item in observation.ranges)
-    if observation.kind == "file_info":
-        return any(not item.ok for item in observation.files)
-    if observation.kind == "image_info":
-        return any(not item.ok for item in observation.images)
-    if observation.kind == "python_symbols":
-        return any(not item.ok for item in observation.files)
-    if observation.kind == "code_outline":
-        return any(not item.ok for item in observation.files)
-    if observation.kind == "python_check":
-        return not observation.ok
-    if observation.kind == "config_check":
-        return not observation.ok
-    if observation.kind == "python_dependencies":
-        return not observation.ok
-    if observation.kind == "code_dependencies":
-        return not observation.ok
-    if observation.kind == "code_references":
-        return not observation.ok
-    if observation.kind == "code_reference_contexts":
-        return not observation.ok
-    if observation.kind == "code_definitions":
-        return not observation.ok
-    if observation.kind == "code_rename_preview":
-        return not observation.ok
-    if observation.kind == "code_rename":
-        return not observation.ok
-    if observation.kind == "python_definitions":
-        return not observation.ok
-    if observation.kind == "python_calls":
-        return not observation.ok
-    if observation.kind == "python_call_graph":
-        return not observation.ok
-    if observation.kind == "python_references":
-        return not observation.ok
-    if observation.kind == "python_reference_contexts":
-        return not observation.ok
-    if observation.kind == "python_rename_preview":
-        return not observation.ok
-    if observation.kind == "python_rename":
-        return not observation.ok
-    if observation.kind == "search":
-        return not observation.ok
-    if observation.kind == "search_contexts":
-        return not observation.ok
-    if observation.kind == "glob":
-        return not observation.ok
-    if observation.kind == "list_tree":
-        return not observation.ok
-    if observation.kind == "list_files":
-        return not observation.message.startswith(("Found ", "Already listed "))
-    if observation.kind == "git_status":
-        return not observation.ok
-    if observation.kind == "git_conflicts":
-        return not observation.ok
-    if observation.kind == "git_diff_contexts":
-        return not observation.ok
-    if observation.kind == "git_info":
-        return not observation.ok
-    if observation.kind == "git_changes":
-        return not observation.ok
-    if observation.kind == "git_branches":
-        return not observation.ok
-    if observation.kind == "check_git_fetch":
-        return not observation.ok
-    if observation.kind == "git_fetch":
-        return not observation.ok
-    if observation.kind == "check_git_pull":
-        return not observation.ok
-    if observation.kind == "git_pull":
-        return not observation.ok
-    if observation.kind == "check_git_push":
-        return not observation.ok
-    if observation.kind == "git_push":
-        return not observation.ok
-    if observation.kind == "check_git_restore":
-        return not observation.ok
-    if observation.kind == "git_restore":
-        return not observation.ok
-    if observation.kind == "git_stashes":
-        return not observation.ok
-    if observation.kind == "check_git_stash":
-        return not observation.ok
-    if observation.kind == "git_stash":
-        return not observation.ok
-    if observation.kind == "check_git_stash_apply":
-        return not observation.ok
-    if observation.kind == "git_stash_apply":
-        return not observation.ok
-    if observation.kind == "check_git_stash_drop":
-        return not observation.ok
-    if observation.kind == "git_stash_drop":
-        return not observation.ok
-    if observation.kind == "check_git_switch":
-        return not observation.ok
-    if observation.kind == "git_switch":
-        return not observation.ok
-    if observation.kind == "check_git_stage":
-        return not observation.ok
-    if observation.kind == "git_stage":
-        return not observation.ok
-    if observation.kind == "check_git_unstage":
-        return not observation.ok
-    if observation.kind == "git_unstage":
-        return not observation.ok
-    if observation.kind == "check_git_commit":
-        return not observation.ok
-    if observation.kind == "git_commit":
-        return not observation.ok
-    if observation.kind == "review_changes":
-        return not observation.ok
-    if observation.kind == "final_review":
-        return not observation.ok
-    if observation.kind == "suggest_checks":
-        return not observation.ok
-    if observation.kind == "check_suggested_checks":
-        return not observation.ok
-    if observation.kind == "run_suggested_checks":
-        return not observation.ok
-    if observation.kind == "project_commands":
-        return not observation.ok
-    if observation.kind == "related_tests":
-        return not observation.ok
-    if observation.kind == "focused_test_commands":
-        return not observation.ok
-    if observation.kind == "check_focused_test_commands":
-        return not observation.ok
-    if observation.kind == "run_focused_test_commands":
-        return not observation.ok
-    if observation.kind == "project_manifests":
-        return not observation.ok
-    if observation.kind == "project_instructions":
-        return not observation.ok
-    if observation.kind == "project_todos":
-        return not observation.ok
-    if observation.kind == "project_overview":
-        return not observation.ok
-    if observation.kind == "command_check":
-        return not observation.ok
-    if observation.kind == "check_run_commands":
-        return not observation.ok
-    if observation.kind == "check_start_command":
-        return not observation.ok
-    if observation.kind == "environment_info":
-        return not observation.ok
-    if observation.kind == "git_diff":
-        return not observation.ok
-    if observation.kind == "git_diff_hunks":
-        return not observation.ok
-    if observation.kind == "git_log":
-        return not observation.ok
-    if observation.kind == "git_show":
-        return not observation.ok
-    if observation.kind == "git_blame":
-        return not observation.ok
-    if observation.kind == "session_summary":
-        return not observation.ok
-    if observation.kind == "session_plan":
-        return not observation.ok
-    if observation.kind == "session_transcript":
-        return not observation.ok
-    if observation.kind == "session_search":
-        return not observation.ok
-    if observation.kind == "session_commands":
-        return not observation.ok
-    if observation.kind == "session_output_contexts":
-        return not observation.ok
-    if observation.kind == "session_output_diagnostics":
-        return not observation.ok
-    if observation.kind == "process_output_contexts":
-        return not observation.ok
-    if observation.kind == "process_output_diagnostics":
-        return not observation.ok
-    if observation.kind == "session_files":
-        return not observation.ok
-    if observation.kind == "session_failures":
-        return not observation.ok
-    if observation.kind == "session_verification":
-        return not observation.ok
-    if observation.kind == "session_audit":
-        return not observation.ok
-    if observation.kind == "session_handoff":
-        return not observation.ok
-    if observation.kind in {
-        "checkpoint_create",
-        "checkpoint_list",
-        "checkpoint_show",
-        "checkpoint_diff",
-        "checkpoint_status",
-        "check_checkpoint_restore",
-        "checkpoint_restore",
-        "check_checkpoint_delete",
-        "checkpoint_delete",
-        "check_checkpoint_prune",
-        "checkpoint_prune",
-    }:
-        return not observation.ok
-    return False
-
-
 def observation_summary(observation: Observation) -> str:
     if observation.kind == "run_command":
         return summarize_command(observation.result)
@@ -3044,6 +2288,8 @@ def log_action(logger: AgentLogger | None, action: object) -> None:
         logger("searching", getattr(action, "query"))
     elif action_type == "search_contexts":
         logger("searching contexts", build_action_target(action))
+    elif action_type == "find_files":
+        logger("finding files", build_action_target(action))
     elif action_type == "glob":
         logger("globbing", getattr(action, "pattern"))
     elif action_type == "git_status":
@@ -3371,9 +2617,9 @@ def summarize_command(result: object) -> str:
 
 def append_session_event(session_dir: Path, event_type: str, payload: dict[str, Any]) -> None:
     session_dir.mkdir(parents=True, exist_ok=True)
-    event = {"type": event_type, **payload}
+    event = redact_jsonable_payload(to_jsonable({"type": event_type, **payload}))
     with (session_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(to_jsonable(event), ensure_ascii=False) + "\n")
+        handle.write(json.dumps(event, ensure_ascii=False) + "\n")
 
 
 def to_jsonable(value: Any) -> Any:

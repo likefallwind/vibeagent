@@ -1,0 +1,1324 @@
+from __future__ import annotations
+
+import json
+import re
+import shutil
+import stat as stat_module
+from pathlib import Path
+
+from .workspace_code_intel import build_simple_diff, split_replacement_lines
+from .workspace_core import RunWorkspace
+from .workspace_file_read import read_utf8_text_file
+from .workspace_paths import is_protected_project_path
+from .workspace_resolve import resolve_mutation_path
+
+
+def write_run_file(workspace: RunWorkspace, relative_path: str, content: str) -> Path:
+    target, _before, after, _diff = build_write_file(workspace, relative_path, content)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(after, encoding="utf-8")
+    return target
+
+
+def preview_write_run_file(workspace: RunWorkspace, relative_path: str, content: str) -> tuple[Path, str]:
+    target, _before, _after, diff = build_write_file(workspace, relative_path, content)
+    return target, diff
+
+
+def build_write_file(workspace: RunWorkspace, relative_path: str, content: str) -> tuple[Path, str, str, str]:
+    # Resolve and read existing UTF-8 content when replacing a file.
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if target.exists() and not target.is_file():
+        raise ValueError(f"Path is not a file: {relative_path}")
+    before = read_utf8_text_file(target, relative_path) if target.exists() else ""
+    return target, before, content, build_simple_diff(relative_path, before, content)
+
+
+def write_run_files(workspace: RunWorkspace, files: list[tuple[str, str]]) -> list[Path]:
+    prepared = prepare_write_run_files(workspace, files)
+
+    snapshots: list[tuple[Path, bool, str | None]] = []
+    written: list[Path] = []
+    try:
+        for _relative_path, target, before, content, _diff in prepared:
+            snapshots.append((target, target.exists(), before if target.exists() else None))
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+            written.append(target)
+    except OSError as error:
+        for target, existed, previous in reversed(snapshots):
+            try:
+                if existed and previous is not None:
+                    target.write_text(previous, encoding="utf-8")
+                elif target.exists():
+                    target.unlink()
+            except OSError:
+                pass
+        raise ValueError(f"Failed to write files: {error}") from error
+
+    return written
+
+
+def preview_write_run_files(workspace: RunWorkspace, files: list[tuple[str, str]]) -> list[tuple[str, Path, str]]:
+    prepared = prepare_write_run_files(workspace, files)
+    return [(relative_path, target, diff) for relative_path, target, _before, _content, diff in prepared]
+
+
+def prepare_write_run_files(workspace: RunWorkspace, files: list[tuple[str, str]]) -> list[tuple[str, Path, str, str, str]]:
+    if not files:
+        raise ValueError("At least one file is required.")
+    if len(files) > 20:
+        raise ValueError("write_files supports at most 20 files.")
+
+    prepared: list[tuple[str, Path, str, str, str]] = []
+    seen: set[Path] = set()
+    for index, (relative_path, content) in enumerate(files, start=1):
+        if not relative_path or not relative_path.strip():
+            raise ValueError(f"File {index} path must not be empty.")
+        target, before, after, diff = build_write_file(workspace, relative_path, content)
+        if target in seen:
+            raise ValueError(f"Duplicate file path: {relative_path}")
+        seen.add(target)
+        prepared.append((relative_path, target, before, after, diff))
+
+    return prepared
+
+
+def edit_project_file(workspace: RunWorkspace, relative_path: str, old: str, new: str) -> tuple[Path, str]:
+    target, updated, diff = build_edit_file(workspace, relative_path, old, new)
+    target.write_text(updated, encoding="utf-8")
+    return target, diff
+
+
+def preview_edit_project_file(workspace: RunWorkspace, relative_path: str, old: str, new: str) -> tuple[Path, str]:
+    target, _updated, diff = build_edit_file(workspace, relative_path, old, new)
+    return target, diff
+
+
+def build_edit_file(workspace: RunWorkspace, relative_path: str, old: str, new: str) -> tuple[Path, str, str]:
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+    content = read_utf8_text_file(target, relative_path)
+    if old not in content:
+        raise ValueError(f"Old text was not found in {relative_path}")
+    updated = content.replace(old, new, 1)
+    if updated == content:
+        raise ValueError(f"Edit made no changes to {relative_path}")
+    return target, updated, build_simple_diff(relative_path, content, updated)
+
+
+def multi_edit_project_file(workspace: RunWorkspace, relative_path: str, edits: list[tuple[str, str]]) -> tuple[Path, str]:
+    target, updated, diff = build_multi_edit(workspace, relative_path, edits)
+    target.write_text(updated, encoding="utf-8")
+    return target, diff
+
+
+def preview_multi_edit_project_file(workspace: RunWorkspace, relative_path: str, edits: list[tuple[str, str]]) -> tuple[Path, str]:
+    target, _updated, diff = build_multi_edit(workspace, relative_path, edits)
+    return target, diff
+
+
+def build_multi_edit(workspace: RunWorkspace, relative_path: str, edits: list[tuple[str, str]]) -> tuple[Path, str, str]:
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+    if not edits:
+        raise ValueError("At least one edit is required.")
+
+    content = read_utf8_text_file(target, relative_path)
+    updated = content
+    for index, (old, new) in enumerate(edits, start=1):
+        if old == "":
+            raise ValueError(f"Edit {index} old text must not be empty.")
+        if old not in updated:
+            raise ValueError(f"Edit {index} old text was not found in {relative_path}")
+        updated = updated.replace(old, new, 1)
+
+    if updated == content:
+        raise ValueError(f"Edits made no changes to {relative_path}")
+    return target, updated, build_simple_diff(relative_path, content, updated)
+
+
+def json_set_project_file(
+    workspace: RunWorkspace,
+    relative_path: str,
+    pointer: str,
+    value: object,
+    create_missing: bool = False,
+) -> tuple[Path, str]:
+    target, updated, diff = build_json_set(workspace, relative_path, pointer, value, create_missing=create_missing)
+    target.write_text(updated, encoding="utf-8")
+    return target, diff
+
+
+def preview_json_set_project_file(
+    workspace: RunWorkspace,
+    relative_path: str,
+    pointer: str,
+    value: object,
+    create_missing: bool = False,
+) -> tuple[Path, str]:
+    target, _updated, diff = build_json_set(workspace, relative_path, pointer, value, create_missing=create_missing)
+    return target, diff
+
+
+def json_remove_project_file(
+    workspace: RunWorkspace,
+    relative_path: str,
+    pointer: str,
+) -> tuple[Path, str]:
+    target, updated, diff = build_json_remove(workspace, relative_path, pointer)
+    target.write_text(updated, encoding="utf-8")
+    return target, diff
+
+
+def preview_json_remove_project_file(
+    workspace: RunWorkspace,
+    relative_path: str,
+    pointer: str,
+) -> tuple[Path, str]:
+    target, _updated, diff = build_json_remove(workspace, relative_path, pointer)
+    return target, diff
+
+
+def json_patch_project_file(
+    workspace: RunWorkspace,
+    relative_path: str,
+    operations: list[dict[str, object]],
+) -> tuple[Path, str]:
+    target, updated, diff = build_json_patch(workspace, relative_path, operations)
+    target.write_text(updated, encoding="utf-8")
+    return target, diff
+
+
+def preview_json_patch_project_file(
+    workspace: RunWorkspace,
+    relative_path: str,
+    operations: list[dict[str, object]],
+) -> tuple[Path, str]:
+    target, _updated, diff = build_json_patch(workspace, relative_path, operations)
+    return target, diff
+
+
+def build_json_set(
+    workspace: RunWorkspace,
+    relative_path: str,
+    pointer: str,
+    value: object,
+    create_missing: bool = False,
+) -> tuple[Path, str, str]:
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+    before = read_utf8_text_file(target, relative_path)
+    try:
+        document = json.loads(before)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"Invalid JSON in {relative_path}: {error.msg} at line {error.lineno} column {error.colno}") from error
+
+    set_json_pointer_value(document, pointer, value, create_missing=create_missing)
+    after = format_json_document(document)
+    if after == before:
+        raise ValueError(f"JSON set made no changes to {relative_path}")
+    return target, after, build_simple_diff(relative_path, before, after)
+
+
+def build_json_remove(
+    workspace: RunWorkspace,
+    relative_path: str,
+    pointer: str,
+) -> tuple[Path, str, str]:
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+    before = read_utf8_text_file(target, relative_path)
+    try:
+        document = json.loads(before)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"Invalid JSON in {relative_path}: {error.msg} at line {error.lineno} column {error.colno}") from error
+
+    remove_json_pointer_value(document, pointer)
+    after = format_json_document(document)
+    if after == before:
+        raise ValueError(f"JSON remove made no changes to {relative_path}")
+    return target, after, build_simple_diff(relative_path, before, after)
+
+
+def build_json_patch(
+    workspace: RunWorkspace,
+    relative_path: str,
+    operations: list[dict[str, object]],
+) -> tuple[Path, str, str]:
+    if not operations:
+        raise ValueError("At least one JSON patch operation is required.")
+    if len(operations) > 50:
+        raise ValueError("json_patch supports at most 50 operations.")
+
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+    before = read_utf8_text_file(target, relative_path)
+    try:
+        document = json.loads(before)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"Invalid JSON in {relative_path}: {error.msg} at line {error.lineno} column {error.colno}") from error
+
+    for index, operation in enumerate(operations, start=1):
+        apply_json_patch_operation(document, operation, index)
+
+    after = format_json_document(document)
+    if after == before:
+        raise ValueError(f"JSON patch made no changes to {relative_path}")
+    return target, after, build_simple_diff(relative_path, before, after)
+
+
+def apply_json_patch_operation(document: object, operation: dict[str, object], index: int) -> None:
+    op = operation.get("op")
+    pointer = operation.get("path")
+    if not isinstance(op, str) or op not in {"add", "replace", "remove"}:
+        raise ValueError(f"JSON patch operation {index} has unsupported op: {op}")
+    if not isinstance(pointer, str) or not pointer.strip():
+        raise ValueError(f"JSON patch operation {index} requires a non-empty path.")
+
+    if op == "remove":
+        remove_json_pointer_value(document, pointer)
+        return
+    if "value" not in operation:
+        raise ValueError(f"JSON patch operation {index} requires value.")
+    if op == "add":
+        add_json_pointer_value(document, pointer, operation["value"])
+        return
+    set_json_pointer_value(document, pointer, operation["value"], create_missing=False)
+
+
+def add_json_pointer_value(document: object, pointer: str, value: object) -> None:
+    parts = parse_json_pointer(pointer)
+    if not parts:
+        raise ValueError("JSON pointer must target a key or array item, not the document root.")
+
+    current = document
+    for index, part in enumerate(parts[:-1]):
+        if isinstance(current, dict):
+            if part not in current:
+                raise ValueError(f"JSON pointer parent does not exist: /{'/'.join(parts[: index + 1])}")
+            current = current[part]
+            continue
+        if isinstance(current, list):
+            item_index = parse_json_array_index(part, len(current), allow_append=False)
+            current = current[item_index]
+            continue
+        raise ValueError(f"JSON pointer parent is not a container: /{'/'.join(parts[: index + 1])}")
+
+    final = parts[-1]
+    if isinstance(current, dict):
+        current[final] = value
+        return
+    if isinstance(current, list):
+        item_index = parse_json_array_index(final, len(current), allow_append=True)
+        current.insert(item_index, value)
+        return
+    raise ValueError("JSON pointer target parent is not an object or array.")
+
+
+def set_json_pointer_value(document: object, pointer: str, value: object, create_missing: bool = False) -> None:
+    parts = parse_json_pointer(pointer)
+    if not parts:
+        raise ValueError("JSON pointer must target a key or array item, not the document root.")
+
+    current = document
+    for index, part in enumerate(parts[:-1]):
+        next_part = parts[index + 1]
+        if isinstance(current, dict):
+            if part not in current:
+                if not create_missing:
+                    raise ValueError(f"JSON pointer parent does not exist: /{'/'.join(parts[: index + 1])}")
+                if next_part.isdigit() or next_part == "-":
+                    raise ValueError("create_missing can only create object parents, not array parents.")
+                current[part] = {}
+            current = current[part]
+            continue
+        if isinstance(current, list):
+            item_index = parse_json_array_index(part, len(current), allow_append=False)
+            current = current[item_index]
+            continue
+        raise ValueError(f"JSON pointer parent is not a container: /{'/'.join(parts[: index + 1])}")
+
+    final = parts[-1]
+    if isinstance(current, dict):
+        if final not in current and not create_missing:
+            raise ValueError(f"JSON object key does not exist: {final}")
+        if final in current and current[final] == value:
+            raise ValueError("JSON set made no changes.")
+        current[final] = value
+        return
+    if isinstance(current, list):
+        if final == "-":
+            current.append(value)
+            return
+        item_index = parse_json_array_index(final, len(current), allow_append=False)
+        if current[item_index] == value:
+            raise ValueError("JSON set made no changes.")
+        current[item_index] = value
+        return
+    raise ValueError("JSON pointer target parent is not an object or array.")
+
+
+def remove_json_pointer_value(document: object, pointer: str) -> None:
+    parts = parse_json_pointer(pointer)
+    if not parts:
+        raise ValueError("JSON pointer must target a key or array item, not the document root.")
+
+    current = document
+    for index, part in enumerate(parts[:-1]):
+        if isinstance(current, dict):
+            if part not in current:
+                raise ValueError(f"JSON pointer parent does not exist: /{'/'.join(parts[: index + 1])}")
+            current = current[part]
+            continue
+        if isinstance(current, list):
+            item_index = parse_json_array_index(part, len(current), allow_append=False)
+            current = current[item_index]
+            continue
+        raise ValueError(f"JSON pointer parent is not a container: /{'/'.join(parts[: index + 1])}")
+
+    final = parts[-1]
+    if isinstance(current, dict):
+        if final not in current:
+            raise ValueError(f"JSON object key does not exist: {final}")
+        del current[final]
+        return
+    if isinstance(current, list):
+        if final == "-":
+            raise ValueError("JSON array removal requires an explicit index.")
+        item_index = parse_json_array_index(final, len(current), allow_append=False)
+        del current[item_index]
+        return
+    raise ValueError("JSON pointer target parent is not an object or array.")
+
+
+def parse_json_pointer(pointer: str) -> list[str]:
+    if pointer == "":
+        return []
+    if not pointer.startswith("/"):
+        raise ValueError("JSON pointer must start with '/'.")
+    parts = pointer.split("/")[1:]
+    return [part.replace("~1", "/").replace("~0", "~") for part in parts]
+
+
+def parse_json_array_index(raw: str, length: int, allow_append: bool) -> int:
+    if raw == "-" and allow_append:
+        return length
+    if not raw.isdigit():
+        raise ValueError(f"JSON array index must be a non-negative integer: {raw}")
+    index = int(raw)
+    if index >= length:
+        raise ValueError(f"JSON array index out of range: {raw}")
+    return index
+
+
+def format_json_document(document: object) -> str:
+    return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+
+
+def replace_project_file_lines(
+    workspace: RunWorkspace,
+    relative_path: str,
+    start_line: int,
+    end_line: int,
+    new_content: str,
+) -> tuple[Path, str]:
+    target, after, diff = build_replace_lines(workspace, relative_path, start_line, end_line, new_content)
+    target.write_text(after, encoding="utf-8")
+    return target, diff
+
+
+def preview_replace_project_file_lines(
+    workspace: RunWorkspace,
+    relative_path: str,
+    start_line: int,
+    end_line: int,
+    new_content: str,
+) -> tuple[Path, str]:
+    target, _after, diff = build_replace_lines(workspace, relative_path, start_line, end_line, new_content)
+    return target, diff
+
+
+def build_replace_lines(
+    workspace: RunWorkspace,
+    relative_path: str,
+    start_line: int,
+    end_line: int,
+    new_content: str,
+) -> tuple[Path, str, str]:
+    if start_line < 1:
+        raise ValueError("start_line must be at least 1.")
+    if end_line < start_line:
+        raise ValueError("end_line must be greater than or equal to start_line.")
+
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+    before = read_utf8_text_file(target, relative_path)
+    lines = before.splitlines(keepends=True)
+    if end_line > len(lines):
+        raise ValueError(f"end_line exceeds file line count: {len(lines)}")
+
+    replacement = split_replacement_lines(new_content)
+    updated_lines = lines[: start_line - 1] + replacement + lines[end_line:]
+    after = "".join(updated_lines)
+    if after == before:
+        raise ValueError(f"Line replacement made no changes to {relative_path}")
+    return target, after, build_simple_diff(relative_path, before, after)
+
+
+def insert_project_file_lines(
+    workspace: RunWorkspace,
+    relative_path: str,
+    line: int,
+    content: str,
+) -> tuple[Path, str]:
+    target, after, diff = build_insert_lines(workspace, relative_path, line, content)
+    target.write_text(after, encoding="utf-8")
+    return target, diff
+
+
+def preview_insert_project_file_lines(
+    workspace: RunWorkspace,
+    relative_path: str,
+    line: int,
+    content: str,
+) -> tuple[Path, str]:
+    target, _after, diff = build_insert_lines(workspace, relative_path, line, content)
+    return target, diff
+
+
+def build_insert_lines(
+    workspace: RunWorkspace,
+    relative_path: str,
+    line: int,
+    content: str,
+) -> tuple[Path, str, str]:
+    if line < 1:
+        raise ValueError("line must be at least 1.")
+    if content == "":
+        raise ValueError("content must not be empty.")
+
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+    before = read_utf8_text_file(target, relative_path)
+    lines = before.splitlines(keepends=True)
+    if line > len(lines) + 1:
+        raise ValueError(f"line exceeds append position: {len(lines) + 1}")
+
+    insertion = split_replacement_lines(content)
+    updated_lines = lines[: line - 1] + insertion + lines[line - 1 :]
+    after = "".join(updated_lines)
+    if after == before:
+        raise ValueError(f"Line insertion made no changes to {relative_path}")
+    return target, after, build_simple_diff(relative_path, before, after)
+
+
+def append_project_file(workspace: RunWorkspace, relative_path: str, content: str) -> tuple[Path, str]:
+    target, after, diff = build_append_file(workspace, relative_path, content)
+    target.write_text(after, encoding="utf-8")
+    return target, diff
+
+
+def preview_append_project_file(workspace: RunWorkspace, relative_path: str, content: str) -> tuple[Path, str]:
+    target, _after, diff = build_append_file(workspace, relative_path, content)
+    return target, diff
+
+
+def build_append_file(workspace: RunWorkspace, relative_path: str, content: str) -> tuple[Path, str, str]:
+    if content == "":
+        raise ValueError("content must not be empty.")
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+    before = read_utf8_text_file(target, relative_path)
+    after = before + content
+    if after == before:
+        raise ValueError(f"Append made no changes to {relative_path}")
+    return target, after, build_simple_diff(relative_path, before, after)
+
+
+def regex_replace_project_file(
+    workspace: RunWorkspace,
+    relative_path: str,
+    pattern: str,
+    replacement: str,
+    count: int = 0,
+    case_sensitive: bool = True,
+    multiline: bool = False,
+    max_replacements: int = 100,
+) -> tuple[Path, int, str]:
+    target, after, replacements, diff = build_regex_replacement(
+        workspace,
+        relative_path,
+        pattern,
+        replacement,
+        count=count,
+        case_sensitive=case_sensitive,
+        multiline=multiline,
+        max_replacements=max_replacements,
+    )
+    target.write_text(after, encoding="utf-8")
+    return target, replacements, diff
+
+
+def preview_regex_replace_project_file(
+    workspace: RunWorkspace,
+    relative_path: str,
+    pattern: str,
+    replacement: str,
+    count: int = 0,
+    case_sensitive: bool = True,
+    multiline: bool = False,
+    max_replacements: int = 100,
+) -> tuple[Path, int, str]:
+    target, _after, replacements, diff = build_regex_replacement(
+        workspace,
+        relative_path,
+        pattern,
+        replacement,
+        count=count,
+        case_sensitive=case_sensitive,
+        multiline=multiline,
+        max_replacements=max_replacements,
+    )
+    return target, replacements, diff
+
+
+def build_regex_replacement(
+    workspace: RunWorkspace,
+    relative_path: str,
+    pattern: str,
+    replacement: str,
+    count: int = 0,
+    case_sensitive: bool = True,
+    multiline: bool = False,
+    max_replacements: int = 100,
+) -> tuple[Path, str, int, str]:
+    if pattern == "":
+        raise ValueError("pattern must not be empty.")
+    if count < 0:
+        raise ValueError("count must be non-negative.")
+    if max_replacements < 1:
+        raise ValueError("max_replacements must be at least 1.")
+
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+    before = read_utf8_text_file(target, relative_path)
+    flags = 0
+    if not case_sensitive:
+        flags |= re.IGNORECASE
+    if multiline:
+        flags |= re.MULTILINE
+    try:
+        compiled = re.compile(pattern, flags)
+    except re.error as error:
+        raise ValueError(f"Invalid regex pattern: {error}") from error
+
+    matches = list(compiled.finditer(before))
+    if not matches:
+        raise ValueError(f"Pattern was not found in {relative_path}")
+    replacements_to_apply = len(matches) if count == 0 else min(count, len(matches))
+    if replacements_to_apply > max_replacements:
+        raise ValueError(f"Regex replacement would change {replacements_to_apply} matches, above max_replacements {max_replacements}.")
+    try:
+        after, replacements = compiled.subn(replacement, before, count=count)
+    except re.error as error:
+        raise ValueError(f"Invalid regex replacement: {error}") from error
+    if replacements > max_replacements:
+        raise ValueError(f"Regex replacement changed {replacements} matches, above max_replacements {max_replacements}.")
+    if after == before:
+        raise ValueError(f"Regex replacement made no changes to {relative_path}")
+    return target, after, replacements, build_simple_diff(relative_path, before, after)
+
+
+def delete_project_file(workspace: RunWorkspace, relative_path: str) -> tuple[Path, str]:
+    target, diff = build_delete_file(workspace, relative_path)
+    target.unlink()
+    return target, diff
+
+
+def preview_delete_project_file(workspace: RunWorkspace, relative_path: str) -> tuple[Path, str]:
+    return build_delete_file(workspace, relative_path)
+
+
+def delete_project_files(workspace: RunWorkspace, relative_paths: list[str]) -> tuple[list[Path], str]:
+    targets, diff = build_delete_files(workspace, relative_paths)
+    for target in targets:
+        target.unlink()
+    return targets, diff
+
+
+def preview_delete_project_files(workspace: RunWorkspace, relative_paths: list[str]) -> tuple[list[Path], str]:
+    return build_delete_files(workspace, relative_paths)
+
+
+def build_delete_files(workspace: RunWorkspace, relative_paths: list[str]) -> tuple[list[Path], str]:
+    if not relative_paths:
+        raise ValueError("At least one file path is required.")
+    if len(relative_paths) > 100:
+        raise ValueError("At most 100 file paths can be deleted at once.")
+    seen: set[str] = set()
+    prepared: list[tuple[Path, str]] = []
+    for relative_path in relative_paths:
+        if relative_path in seen:
+            raise ValueError(f"Duplicate file path: {relative_path}")
+        seen.add(relative_path)
+        prepared.append(build_delete_file(workspace, relative_path))
+    diff = "".join(file_diff for _target, file_diff in prepared)
+    return [target for target, _diff in prepared], diff
+
+
+def build_delete_file(workspace: RunWorkspace, relative_path: str) -> tuple[Path, str]:
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+    before = read_utf8_text_file(target, relative_path)
+    return target, build_simple_diff(relative_path, before, "")
+
+
+def move_project_file(workspace: RunWorkspace, source_path: str, destination_path: str) -> tuple[Path, Path]:
+    source, destination = prepare_project_file_transfer(workspace, source_path, destination_path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    source.rename(destination)
+    return source, destination
+
+
+def preview_move_project_file(workspace: RunWorkspace, source_path: str, destination_path: str) -> tuple[Path, Path]:
+    return prepare_project_file_transfer(workspace, source_path, destination_path)
+
+
+def move_project_files(workspace: RunWorkspace, transfers: list[dict[str, str]]) -> list[tuple[Path, Path]]:
+    prepared = prepare_project_file_transfers(workspace, transfers)
+    for source, destination in prepared:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        source.rename(destination)
+    return prepared
+
+
+def preview_move_project_files(workspace: RunWorkspace, transfers: list[dict[str, str]]) -> list[tuple[Path, Path]]:
+    return prepare_project_file_transfers(workspace, transfers)
+
+
+def prepare_project_file_transfers(workspace: RunWorkspace, transfers: list[dict[str, str]]) -> list[tuple[Path, Path]]:
+    if not transfers:
+        raise ValueError("At least one file transfer is required.")
+    if len(transfers) > 100:
+        raise ValueError("At most 100 files can be moved at once.")
+
+    prepared: list[tuple[Path, Path]] = []
+    seen_sources: set[Path] = set()
+    seen_destinations: set[Path] = set()
+    for transfer in transfers:
+        source_label = transfer.get("source", "")
+        destination_label = transfer.get("destination", "")
+        source, destination = prepare_project_file_transfer(workspace, source_label, destination_label)
+        if source in seen_sources:
+            raise ValueError(f"Duplicate source file: {source_label}")
+        if destination in seen_destinations:
+            raise ValueError(f"Duplicate destination file: {destination_label}")
+        seen_sources.add(source)
+        seen_destinations.add(destination)
+        prepared.append((source, destination))
+
+    for source, destination in prepared:
+        if destination in seen_sources:
+            raise ValueError(f"Destination overlaps another source file: {destination.relative_to(workspace.root).as_posix()}")
+        if source in seen_destinations:
+            raise ValueError(f"Source overlaps another destination file: {source.relative_to(workspace.root).as_posix()}")
+        for parent in destination.parents:
+            if parent == workspace.root:
+                break
+            if parent in seen_destinations:
+                raise ValueError(f"Destination parent overlaps another destination file: {destination.relative_to(workspace.root).as_posix()}")
+            if parent in seen_sources:
+                raise ValueError(f"Destination parent overlaps another source file: {destination.relative_to(workspace.root).as_posix()}")
+
+    return prepared
+
+
+def copy_project_file(workspace: RunWorkspace, source_path: str, destination_path: str) -> tuple[Path, Path]:
+    source, destination = prepare_project_file_transfer(workspace, source_path, destination_path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, destination)
+    return source, destination
+
+
+def preview_copy_project_file(workspace: RunWorkspace, source_path: str, destination_path: str) -> tuple[Path, Path]:
+    return prepare_project_file_transfer(workspace, source_path, destination_path)
+
+
+def copy_project_files(workspace: RunWorkspace, transfers: list[dict[str, str]]) -> list[tuple[Path, Path]]:
+    prepared = prepare_project_file_copies(workspace, transfers)
+    for source, destination in prepared:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    return prepared
+
+
+def preview_copy_project_files(workspace: RunWorkspace, transfers: list[dict[str, str]]) -> list[tuple[Path, Path]]:
+    return prepare_project_file_copies(workspace, transfers)
+
+
+def prepare_project_file_copies(workspace: RunWorkspace, transfers: list[dict[str, str]]) -> list[tuple[Path, Path]]:
+    if not transfers:
+        raise ValueError("At least one file transfer is required.")
+    if len(transfers) > 100:
+        raise ValueError("At most 100 files can be copied at once.")
+
+    prepared: list[tuple[Path, Path]] = []
+    seen_destinations: set[Path] = set()
+    for transfer in transfers:
+        source_label = transfer.get("source", "")
+        destination_label = transfer.get("destination", "")
+        source, destination = prepare_project_file_transfer(workspace, source_label, destination_label)
+        if destination in seen_destinations:
+            raise ValueError(f"Duplicate destination file: {destination_label}")
+        seen_destinations.add(destination)
+        prepared.append((source, destination))
+
+    for _source, destination in prepared:
+        for parent in destination.parents:
+            if parent == workspace.root:
+                break
+            if parent in seen_destinations:
+                raise ValueError(f"Destination parent overlaps another destination file: {destination.relative_to(workspace.root).as_posix()}")
+
+    return prepared
+
+
+def prepare_project_file_transfer(workspace: RunWorkspace, source_path: str, destination_path: str) -> tuple[Path, Path]:
+    source = resolve_mutation_path(workspace.root, source_path)
+    destination = resolve_mutation_path(workspace.root, destination_path)
+    if source == destination:
+        raise ValueError("Source and destination must be different.")
+    if not source.is_file():
+        raise ValueError(f"File does not exist: {source_path}")
+    if destination.exists():
+        raise ValueError(f"Destination already exists: {destination_path}")
+    return source, destination
+
+
+def move_project_directory(workspace: RunWorkspace, source_path: str, destination_path: str) -> tuple[Path, Path]:
+    source, destination = prepare_project_directory_move(workspace, source_path, destination_path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    source.rename(destination)
+    return source, destination
+
+
+def move_project_directories(workspace: RunWorkspace, transfers: list[tuple[str, str]]) -> list[tuple[Path, Path]]:
+    prepared = preview_move_project_directories(workspace, transfers)
+    for source, destination in prepared:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        source.rename(destination)
+    return prepared
+
+
+def preview_move_project_directory(workspace: RunWorkspace, source_path: str, destination_path: str) -> tuple[Path, Path]:
+    return prepare_project_directory_move(workspace, source_path, destination_path)
+
+
+def preview_move_project_directories(workspace: RunWorkspace, transfers: list[tuple[str, str]]) -> list[tuple[Path, Path]]:
+    prepared = [prepare_project_directory_move(workspace, source, destination) for source, destination in transfers]
+    validate_project_directory_transfer_batch(prepared, operation="move")
+    return prepared
+
+
+def prepare_project_directory_move(workspace: RunWorkspace, source_path: str, destination_path: str) -> tuple[Path, Path]:
+    source = resolve_mutation_path(workspace.root, source_path)
+    destination = resolve_mutation_path(workspace.root, destination_path)
+    if source == workspace.root:
+        raise ValueError("Cannot move the project root directory.")
+    if source == destination:
+        raise ValueError("Source and destination must be different.")
+    if not source.is_dir():
+        raise ValueError(f"Directory does not exist: {source_path}")
+    if destination.exists():
+        raise ValueError(f"Destination already exists: {destination_path}")
+    if source in destination.parents:
+        raise ValueError("Cannot move a directory inside itself.")
+    return source, destination
+
+
+def copy_project_directory(
+    workspace: RunWorkspace,
+    source_path: str,
+    destination_path: str,
+    max_entries: int = 2000,
+    max_bytes: int = 50 * 1024 * 1024,
+) -> tuple[Path, Path]:
+    source, destination = prepare_project_directory_copy(
+        workspace,
+        source_path,
+        destination_path,
+        max_entries=max_entries,
+        max_bytes=max_bytes,
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source, destination)
+    return source, destination
+
+
+def copy_project_directories(
+    workspace: RunWorkspace,
+    transfers: list[tuple[str, str]],
+    max_entries: int = 2000,
+    max_bytes: int = 50 * 1024 * 1024,
+) -> list[tuple[Path, Path]]:
+    prepared = preview_copy_project_directories(
+        workspace,
+        transfers,
+        max_entries=max_entries,
+        max_bytes=max_bytes,
+    )
+    for source, destination in prepared:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source, destination)
+    return prepared
+
+
+def preview_copy_project_directory(
+    workspace: RunWorkspace,
+    source_path: str,
+    destination_path: str,
+    max_entries: int = 2000,
+    max_bytes: int = 50 * 1024 * 1024,
+) -> tuple[Path, Path]:
+    return prepare_project_directory_copy(
+        workspace,
+        source_path,
+        destination_path,
+        max_entries=max_entries,
+        max_bytes=max_bytes,
+    )
+
+
+def preview_copy_project_directories(
+    workspace: RunWorkspace,
+    transfers: list[tuple[str, str]],
+    max_entries: int = 2000,
+    max_bytes: int = 50 * 1024 * 1024,
+) -> list[tuple[Path, Path]]:
+    prepared = [
+        prepare_project_directory_copy(
+            workspace,
+            source,
+            destination,
+            max_entries=max_entries,
+            max_bytes=max_bytes,
+        )
+        for source, destination in transfers
+    ]
+    validate_project_directory_transfer_batch(prepared, operation="copy")
+    return prepared
+
+
+def prepare_project_directory_copy(
+    workspace: RunWorkspace,
+    source_path: str,
+    destination_path: str,
+    max_entries: int = 2000,
+    max_bytes: int = 50 * 1024 * 1024,
+) -> tuple[Path, Path]:
+    source = resolve_mutation_path(workspace.root, source_path)
+    destination = resolve_mutation_path(workspace.root, destination_path)
+    if source == workspace.root:
+        raise ValueError("Cannot copy the project root directory.")
+    if source == destination:
+        raise ValueError("Source and destination must be different.")
+    if not source.is_dir():
+        raise ValueError(f"Directory does not exist: {source_path}")
+    if destination.exists():
+        raise ValueError(f"Destination already exists: {destination_path}")
+    if source in destination.parents:
+        raise ValueError("Cannot copy a directory inside itself.")
+
+    entry_count = 0
+    total_bytes = 0
+    for path in source.rglob("*"):
+        entry_count += 1
+        if entry_count > max_entries:
+            raise ValueError(f"Directory has more than {max_entries} entries: {source_path}")
+        if path.is_symlink():
+            raise ValueError(f"Directory contains a symbolic link: {path.relative_to(workspace.root).as_posix()}")
+        if is_protected_project_path(workspace.root, path.resolve()):
+            raise ValueError(f"Directory contains a protected path: {path.relative_to(workspace.root).as_posix()}")
+        if path.is_file():
+            total_bytes += path.stat().st_size
+            if total_bytes > max_bytes:
+                raise ValueError(f"Directory exceeds {max_bytes} bytes: {source_path}")
+
+    return source, destination
+
+
+def validate_project_directory_transfer_batch(prepared: list[tuple[Path, Path]], operation: str) -> None:
+    if not prepared:
+        raise ValueError(f"Directory {operation} requires at least one transfer.")
+    if len(prepared) > 100:
+        raise ValueError(f"Directory {operation} supports at most 100 transfers.")
+
+    sources = [source.resolve() for source, _destination in prepared]
+    destinations = [destination.resolve() for _source, destination in prepared]
+    for index, source in enumerate(sources):
+        for other in sources[index + 1:]:
+            if source == other or source in other.parents or other in source.parents:
+                raise ValueError("Directory transfer sources must not overlap.")
+    for index, destination in enumerate(destinations):
+        for other in destinations[index + 1:]:
+            if destination == other or destination in other.parents or other in destination.parents:
+                raise ValueError("Directory transfer destinations must not overlap.")
+    for destination in destinations:
+        for source in sources:
+            if destination == source or source in destination.parents:
+                raise ValueError("Directory transfer destination must not overlap a source.")
+
+
+def create_project_directory(workspace: RunWorkspace, relative_path: str) -> Path:
+    target = preview_create_project_directory(workspace, relative_path)
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def create_project_directories(workspace: RunWorkspace, relative_paths: list[str]) -> list[Path]:
+    targets = preview_create_project_directories(workspace, relative_paths)
+    for target in targets:
+        target.mkdir(parents=True, exist_ok=True)
+    return targets
+
+
+def preview_create_project_directory(workspace: RunWorkspace, relative_path: str) -> Path:
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if target.exists() and not target.is_dir():
+        raise ValueError(f"Path already exists and is not a directory: {relative_path}")
+    return target
+
+
+def preview_create_project_directories(workspace: RunWorkspace, relative_paths: list[str]) -> list[Path]:
+    if not relative_paths:
+        raise ValueError("Directory creation requires at least one path.")
+    if len(relative_paths) > 100:
+        raise ValueError("Directory creation supports at most 100 paths.")
+
+    targets: list[Path] = []
+    seen: set[Path] = set()
+    for index, relative_path in enumerate(relative_paths, start=1):
+        target = preview_create_project_directory(workspace, relative_path)
+        normalized = target.resolve()
+        if normalized in seen:
+            raise ValueError(f"Directory path {index} duplicates an earlier target: {relative_path}")
+        seen.add(normalized)
+        targets.append(target)
+    return targets
+
+
+def delete_project_empty_directory(workspace: RunWorkspace, relative_path: str) -> Path:
+    target = preview_delete_project_empty_directory(workspace, relative_path)
+    try:
+        target.rmdir()
+    except OSError as error:
+        raise ValueError(f"Directory is not empty: {relative_path}") from error
+    return target
+
+
+def delete_project_empty_directories(workspace: RunWorkspace, relative_paths: list[str]) -> list[Path]:
+    targets = preview_delete_project_empty_directories(workspace, relative_paths)
+    for target in sorted(targets, key=lambda path: len(path.parts), reverse=True):
+        try:
+            target.rmdir()
+        except OSError as error:
+            relative_path = target.relative_to(workspace.root).as_posix()
+            raise ValueError(f"Directory is not empty: {relative_path}") from error
+    return targets
+
+
+def preview_delete_project_empty_directory(workspace: RunWorkspace, relative_path: str) -> Path:
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if not target.is_dir():
+        raise ValueError(f"Directory does not exist: {relative_path}")
+    if any(target.iterdir()):
+        raise ValueError(f"Directory is not empty: {relative_path}")
+    return target
+
+
+def preview_delete_project_empty_directories(workspace: RunWorkspace, relative_paths: list[str]) -> list[Path]:
+    if not relative_paths:
+        raise ValueError("Empty-directory deletion requires at least one path.")
+    if len(relative_paths) > 100:
+        raise ValueError("Empty-directory deletion supports at most 100 paths.")
+
+    targets: list[Path] = []
+    relative_by_target: dict[Path, str] = {}
+    for index, relative_path in enumerate(relative_paths, start=1):
+        target = resolve_mutation_path(workspace.root, relative_path)
+        normalized = target.resolve()
+        if normalized in relative_by_target:
+            raise ValueError(f"Directory path {index} duplicates an earlier target: {relative_path}")
+        if not target.is_dir():
+            raise ValueError(f"Directory does not exist: {relative_path}")
+        relative_by_target[normalized] = relative_path
+        targets.append(target)
+
+    target_set = set(relative_by_target)
+    for target in targets:
+        for child in target.iterdir():
+            child_path = child.resolve()
+            if child_path in target_set and child.is_dir():
+                continue
+            relative_path = relative_by_target[target.resolve()]
+            raise ValueError(f"Directory is not empty: {relative_path}")
+    return targets
+
+
+def set_project_file_executable(workspace: RunWorkspace, relative_path: str, executable: bool = True) -> tuple[Path, int, int]:
+    target, before, after = preview_set_project_file_executable(workspace, relative_path, executable=executable)
+    if after != before:
+        target.chmod(after)
+    return target, before, after
+
+
+def preview_set_project_file_executable(workspace: RunWorkspace, relative_path: str, executable: bool = True) -> tuple[Path, int, int]:
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+    before = stat_module.S_IMODE(target.stat().st_mode)
+    if executable:
+        after = before | stat_module.S_IXUSR | stat_module.S_IXGRP | stat_module.S_IXOTH
+    else:
+        after = before & ~(stat_module.S_IXUSR | stat_module.S_IXGRP | stat_module.S_IXOTH)
+    return target, before, after
+
+
+def patch_project_file(workspace: RunWorkspace, relative_path: str, patch: str) -> tuple[Path, str]:
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+    if not patch.strip():
+        raise ValueError("Patch must not be empty.")
+
+    before = read_utf8_text_file(target, relative_path)
+    after = apply_unified_patch(before, patch)
+    if after == before:
+        raise ValueError(f"Patch made no changes to {relative_path}")
+    target.write_text(after, encoding="utf-8")
+    return target, build_simple_diff(relative_path, before, after)
+
+
+def check_project_patch(workspace: RunWorkspace, relative_path: str, patch: str) -> tuple[Path, str]:
+    target = resolve_mutation_path(workspace.root, relative_path)
+    if not target.is_file():
+        raise ValueError(f"File does not exist: {relative_path}")
+    if not patch.strip():
+        raise ValueError("Patch must not be empty.")
+
+    before = read_utf8_text_file(target, relative_path)
+    after = apply_unified_patch(before, patch)
+    if after == before:
+        raise ValueError(f"Patch made no changes to {relative_path}")
+    return target, build_simple_diff(relative_path, before, after)
+
+
+def patch_project_files(workspace: RunWorkspace, patch: str) -> tuple[list[Path], str]:
+    if not patch.strip():
+        raise ValueError("Patch must not be empty.")
+
+    file_patches = split_unified_patch_by_file(patch)
+    if not file_patches:
+        raise ValueError("Patch must include file headers for at least one file.")
+
+    prepared: list[tuple[Path, str, str, str, str]] = []
+    seen: set[str] = set()
+    for relative_path, file_patch, operation in file_patches:
+        if relative_path in seen:
+            raise ValueError(f"Patch contains duplicate file section: {relative_path}")
+        seen.add(relative_path)
+
+        target = resolve_mutation_path(workspace.root, relative_path)
+        if operation == "create":
+            if target.exists():
+                raise ValueError(f"File already exists: {relative_path}")
+            before = ""
+        elif not target.is_file():
+            raise ValueError(f"File does not exist: {relative_path}")
+        else:
+            before = read_utf8_text_file(target, relative_path)
+        after = apply_unified_patch(before, file_patch)
+        if after == before:
+            raise ValueError(f"Patch made no changes to {relative_path}")
+        if operation == "delete" and after:
+            raise ValueError(f"Patch delete file section must remove all content: {relative_path}")
+        prepared.append((target, relative_path, before, after, operation))
+
+    for target, _relative_path, _before, after, operation in prepared:
+        if operation == "create":
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(after, encoding="utf-8")
+        elif operation == "delete":
+            target.unlink()
+        else:
+            target.write_text(after, encoding="utf-8")
+
+    diff = "".join(
+        build_simple_diff(relative_path, before, after)
+        for _target, relative_path, before, after, _operation in prepared
+    )
+    return [target for target, _relative_path, _before, _after, _operation in prepared], diff
+
+
+def check_project_patches(workspace: RunWorkspace, patch: str) -> tuple[list[Path], str]:
+    if not patch.strip():
+        raise ValueError("Patch must not be empty.")
+
+    file_patches = split_unified_patch_by_file(patch)
+    if not file_patches:
+        raise ValueError("Patch must include file headers for at least one file.")
+
+    prepared: list[tuple[Path, str, str, str]] = []
+    seen: set[str] = set()
+    for relative_path, file_patch, operation in file_patches:
+        if relative_path in seen:
+            raise ValueError(f"Patch contains duplicate file section: {relative_path}")
+        seen.add(relative_path)
+
+        target = resolve_mutation_path(workspace.root, relative_path)
+        if operation == "create":
+            if target.exists():
+                raise ValueError(f"File already exists: {relative_path}")
+            before = ""
+        elif not target.is_file():
+            raise ValueError(f"File does not exist: {relative_path}")
+        else:
+            before = read_utf8_text_file(target, relative_path)
+        after = apply_unified_patch(before, file_patch)
+        if after == before:
+            raise ValueError(f"Patch made no changes to {relative_path}")
+        if operation == "delete" and after:
+            raise ValueError(f"Patch delete file section must remove all content: {relative_path}")
+        prepared.append((target, relative_path, before, after))
+
+    diff = "".join(build_simple_diff(relative_path, before, after) for _target, relative_path, before, after in prepared)
+    return [target for target, _relative_path, _before, _after in prepared], diff
+
+
+def split_unified_patch_by_file(patch: str) -> list[tuple[str, str, str]]:
+    patch_lines = patch.splitlines(keepends=True)
+    sections: list[tuple[str, str, str]] = []
+    index = 0
+    while index < len(patch_lines):
+        if not is_file_header_at(patch_lines, index):
+            index += 1
+            continue
+
+        old_path = parse_unified_diff_path(patch_lines[index][4:])
+        new_path = parse_unified_diff_path(patch_lines[index + 1][4:])
+        if old_path is None and new_path is None:
+            raise ValueError("Patch file section must include a target path.")
+        if old_path is not None and new_path is not None and old_path != new_path:
+            raise ValueError(f"Patch rename sections are not supported: {old_path} -> {new_path}")
+        relative_path = new_path or old_path
+        if relative_path is None:
+            raise ValueError("Patch file section must include a target path.")
+        operation = "modify"
+        if old_path is None:
+            operation = "create"
+        elif new_path is None:
+            operation = "delete"
+
+        start = index
+        index += 2
+        while index < len(patch_lines) and not is_file_header_at(patch_lines, index):
+            index += 1
+        sections.append((relative_path, "".join(patch_lines[start:index]), operation))
+
+    return sections
+
+
+def is_file_header_at(lines: list[str], index: int) -> bool:
+    return index + 1 < len(lines) and lines[index].startswith("--- ") and lines[index + 1].startswith("+++ ")
+
+
+def parse_unified_diff_path(value: str) -> str | None:
+    token = value.strip().split("\t", 1)[0].strip()
+    if token == "/dev/null":
+        return None
+    if token.startswith("a/") or token.startswith("b/"):
+        token = token[2:]
+    return token
+
+
+def apply_unified_patch(content: str, patch: str) -> str:
+    lines = content.splitlines(keepends=True)
+    patch_lines = patch.splitlines(keepends=True)
+    hunks = parse_unified_patch_hunks(patch_lines)
+    if not hunks:
+        raise ValueError("Patch must contain at least one unified diff hunk.")
+
+    offset = 0
+    updated = list(lines)
+    for hunk in hunks:
+        old_start, old_count, old_chunk, new_chunk = hunk
+        if old_count == 0:
+            position = old_start + offset
+        else:
+            position = old_start - 1 + offset
+        if position < 0 or position > len(updated):
+            raise ValueError("Patch hunk target is outside the file.")
+        if updated[position : position + len(old_chunk)] != old_chunk:
+            raise ValueError("Patch context did not match file content.")
+        updated[position : position + len(old_chunk)] = new_chunk
+        offset += len(new_chunk) - len(old_chunk)
+
+    return "".join(updated)
+
+
+def parse_unified_patch_hunks(patch_lines: list[str]) -> list[tuple[int, int, list[str], list[str]]]:
+    hunks: list[tuple[int, int, list[str], list[str]]] = []
+    index = 0
+    while index < len(patch_lines):
+        line = patch_lines[index]
+        if not line.startswith("@@ "):
+            index += 1
+            continue
+
+        match = re.match(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", line)
+        if not match:
+            raise ValueError(f"Invalid patch hunk header: {line.strip()}")
+        old_start = int(match.group(1))
+        old_count = int(match.group(2) or "1")
+        new_count = int(match.group(4) or "1")
+        index += 1
+        old_chunk: list[str] = []
+        new_chunk: list[str] = []
+
+        while index < len(patch_lines) and not patch_lines[index].startswith("@@ "):
+            raw = patch_lines[index]
+            marker = raw[:1]
+            text = raw[1:]
+            if marker == " ":
+                old_chunk.append(text)
+                new_chunk.append(text)
+            elif marker == "-":
+                old_chunk.append(text)
+            elif marker == "+":
+                new_chunk.append(text)
+            elif marker == "\\":
+                pass
+            elif raw.startswith(("--- ", "+++ ", "diff ", "index ")):
+                pass
+            else:
+                raise ValueError(f"Invalid patch hunk line: {raw.strip()}")
+            index += 1
+
+        if len(old_chunk) != old_count:
+            raise ValueError("Patch hunk old line count does not match header.")
+        if len(new_chunk) != new_count:
+            raise ValueError("Patch hunk new line count does not match header.")
+        hunks.append((old_start, old_count, old_chunk, new_chunk))
+
+    return hunks

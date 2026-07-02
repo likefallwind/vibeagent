@@ -7,6 +7,8 @@ from pathlib import Path
 
 from vibeagent.config import CostRates
 from vibeagent.session import (
+    build_session_commands_report,
+    build_session_summary_report,
     build_session_resume_context,
     format_cost,
     format_session_audit,
@@ -75,6 +77,64 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(selected, "real-run")
         self.assertIn("real-run", formatted)
         self.assertNotIn("empty-run", formatted)
+
+    def test_session_readers_reject_symlink_runtime_root(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base) / "project"
+            outside = Path(base) / "outside"
+            root.mkdir()
+            write_events(outside, "outside-run", [{"type": "task", "task": "Outside secret"}], mtime=100)
+            os.symlink(outside / ".vibeagent", root / ".vibeagent")
+
+            sessions = list_sessions(root)
+            selected = get_last_session_id(root)
+            formatted = format_sessions(root)
+            with self.assertRaisesRegex(ValueError, "Session runtime path is not a regular directory"):
+                read_session_events(root, "outside-run")
+            with self.assertRaisesRegex(ValueError, "Session runtime path is not a regular directory"):
+                summarize_session(root, "outside-run")
+
+        self.assertEqual(sessions, [])
+        self.assertIsNone(selected)
+        self.assertEqual(formatted, "No sessions found.")
+
+    def test_session_readers_reject_symlink_session_directory(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base) / "project"
+            outside = Path(base) / "outside-run"
+            sessions_root = root / ".vibeagent" / "sessions"
+            sessions_root.mkdir(parents=True)
+            outside.mkdir()
+            (outside / "events.jsonl").write_text(
+                json.dumps({"type": "task", "task": "Outside secret"}) + "\n",
+                encoding="utf-8",
+            )
+            os.symlink(outside, sessions_root / "run-1")
+
+            sessions = list_sessions(root)
+            with self.assertRaisesRegex(ValueError, "Session path is not a regular directory"):
+                read_session_events(root, "run-1")
+            with self.assertRaisesRegex(ValueError, "Session path is not a regular directory"):
+                format_session_transcript(root, "run-1")
+
+        self.assertEqual(sessions, [])
+
+    def test_session_readers_reject_symlink_events_file(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base) / "project"
+            outside = Path(base) / "outside-events.jsonl"
+            run_dir = root / ".vibeagent" / "sessions" / "run-1"
+            run_dir.mkdir(parents=True)
+            outside.write_text(json.dumps({"type": "task", "task": "Outside secret"}) + "\n", encoding="utf-8")
+            os.symlink(outside, run_dir / "events.jsonl")
+
+            sessions = list_sessions(root)
+            with self.assertRaisesRegex(ValueError, "Session events path is not a regular file"):
+                read_session_events(root, "run-1")
+            with self.assertRaisesRegex(ValueError, "Session events path is not a regular file"):
+                summarize_session(root, "run-1")
+
+        self.assertEqual(sessions, [])
 
     def test_get_last_session_id_skips_local_command_sessions(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
@@ -207,6 +267,7 @@ class SessionTests(unittest.TestCase):
             )
 
             summary = summarize_session(root, "run-1")
+            report = build_session_summary_report(summary)
             text = format_session_summary(summary)
             audit = format_session_audit(root, "run-1")
 
@@ -228,6 +289,7 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(summary.final_review_blocking_issues, 1)
         self.assertEqual(summary.final_review_warnings, 1)
         self.assertEqual(summary.final_review_files, 2)
+        self.assertEqual(summary.final_review_changed_files, ["M app.py"])
         self.assertEqual(summary.final_review_suggested_checks, 3)
         self.assertEqual(summary.final_review_message, "Final review found blocking issues.")
         self.assertEqual(summary.final_review_python_failures, ["bad.py at line 1, column 9: Python syntax error: invalid syntax"])
@@ -241,6 +303,11 @@ class SessionTests(unittest.TestCase):
         self.assertIn("cacheTokens: 2 created, 3 read", text)
         self.assertIn("finalReview: ready=no, blocking=1, warnings=1, files=2, suggestedChecks=3", text)
         self.assertIn("message=Final review found blocking issues.", text)
+        self.assertIn("finalReviewChangedFiles:", text)
+        self.assertIn("M app.py", text)
+        self.assertEqual(report["finalReview"]["changedFiles"], ["M app.py"])
+        self.assertIn("finalReviewChangedFiles:", audit)
+        self.assertIn("M app.py", audit)
         self.assertIn("finalReviewFailures:", text)
         self.assertIn("python: bad.py at line 1, column 9: Python syntax error: invalid syntax", text)
         self.assertIn("config: package.json at line 1, column 2: JSON syntax error: Expecting property name", text)
@@ -466,6 +533,7 @@ class SessionTests(unittest.TestCase):
             )
 
             summary = summarize_session(root, "run-1")
+            report = build_session_summary_report(summary)
             text = format_session_summary(summary)
             transcript = format_session_transcript(root, "run-1")
 
@@ -512,6 +580,12 @@ class SessionTests(unittest.TestCase):
                         "details": {
                             "pendingVerificationChecks": ["npm test"],
                             "failedVerificationChecks": ["npm run build (exit=1)"],
+                            "finalReviewBlockingIssues": ["Changed Python files have syntax errors."],
+                            "finalReviewChangedFiles": ["M app.py"],
+                            "toolErrors": ["read_file: Tool execution failed: boom"],
+                            "checkpointFailures": ["checkpoint_create: git diff failed."],
+                            "activeBackgroundProcesses": ["bg-1: pid=123, cwd=web, command=npm run dev"],
+                            "deniedApprovals": ["write_file note.txt: Denied by policy."],
                         },
                     },
                     {
@@ -528,6 +602,7 @@ class SessionTests(unittest.TestCase):
             )
 
             summary = summarize_session(root, "run-1")
+            report = build_session_summary_report(summary)
             text = format_session_summary(summary)
             audit = format_session_audit(root, "run-1")
             handoff = format_session_handoff(root, "run-1")
@@ -538,6 +613,18 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(summary.latest_completion_blockers, ["Task plan still has unfinished item(s): 1 in_progress."])
         self.assertEqual(summary.latest_completion_pending_verification_checks, ["npm test"])
         self.assertEqual(summary.latest_completion_failed_verification_checks, ["npm run build (exit=1)"])
+        self.assertEqual(summary.latest_completion_final_review_issues, ["Changed Python files have syntax errors."])
+        self.assertEqual(summary.latest_completion_final_review_changed_files, ["M app.py"])
+        self.assertEqual(summary.latest_completion_tool_errors, ["read_file: Tool execution failed: boom"])
+        self.assertEqual(summary.latest_completion_checkpoint_failures, ["checkpoint_create: git diff failed."])
+        self.assertEqual(summary.latest_completion_active_background_processes, ["bg-1: pid=123, cwd=web, command=npm run dev"])
+        self.assertEqual(summary.latest_completion_denied_approvals, ["write_file note.txt: Denied by policy."])
+        self.assertEqual(report["completion"]["latestFinalReviewBlockingIssues"], ["Changed Python files have syntax errors."])
+        self.assertEqual(report["completion"]["latestFinalReviewChangedFiles"], ["M app.py"])
+        self.assertEqual(report["completion"]["latestToolErrors"], ["read_file: Tool execution failed: boom"])
+        self.assertEqual(report["completion"]["latestCheckpointFailures"], ["checkpoint_create: git diff failed."])
+        self.assertEqual(report["completion"]["latestActiveBackgroundProcesses"], ["bg-1: pid=123, cwd=web, command=npm run dev"])
+        self.assertEqual(report["completion"]["latestDeniedApprovals"], ["write_file note.txt: Denied by policy."])
         self.assertIn("completionBlocked: 1", text)
         self.assertIn("latestCompletionBlockers:", text)
         self.assertIn("Task plan still has unfinished item(s): 1 in_progress.", text)
@@ -545,14 +632,44 @@ class SessionTests(unittest.TestCase):
         self.assertIn("npm test", text)
         self.assertIn("latestCompletionFailedChecks:", text)
         self.assertIn("npm run build (exit=1)", text)
+        self.assertIn("latestCompletionFinalReviewIssues:", text)
+        self.assertIn("Changed Python files have syntax errors.", text)
+        self.assertIn("latestCompletionFinalReviewChangedFiles:", text)
+        self.assertIn("M app.py", text)
+        self.assertIn("latestCompletionToolErrors:", text)
+        self.assertIn("read_file: Tool execution failed: boom", text)
+        self.assertIn("latestCompletionCheckpointFailures:", text)
+        self.assertIn("checkpoint_create: git diff failed.", text)
+        self.assertIn("latestCompletionActiveProcesses:", text)
+        self.assertIn("bg-1: pid=123, cwd=web, command=npm run dev", text)
+        self.assertIn("latestCompletionDeniedApprovals:", text)
+        self.assertIn("write_file note.txt: Denied by policy.", text)
         self.assertIn("completionBlocked: 1", audit)
         self.assertIn("latestCompletionBlockers:", audit)
         self.assertIn("latestCompletionPendingChecks:", audit)
         self.assertIn("latestCompletionFailedChecks:", audit)
+        self.assertIn("latestCompletionFinalReviewIssues:", audit)
+        self.assertIn("latestCompletionFinalReviewChangedFiles:", audit)
+        self.assertIn("latestCompletionToolErrors:", audit)
+        self.assertIn("latestCompletionCheckpointFailures:", audit)
+        self.assertIn("latestCompletionActiveProcesses:", audit)
+        self.assertIn("latestCompletionDeniedApprovals:", audit)
         self.assertIn("latestCompletionPendingChecks:", handoff)
         self.assertIn("latestCompletionFailedChecks:", handoff)
+        self.assertIn("latestCompletionFinalReviewIssues:", handoff)
+        self.assertIn("latestCompletionFinalReviewChangedFiles:", handoff)
+        self.assertIn("latestCompletionToolErrors:", handoff)
+        self.assertIn("latestCompletionCheckpointFailures:", handoff)
+        self.assertIn("latestCompletionActiveProcesses:", handoff)
+        self.assertIn("latestCompletionDeniedApprovals:", handoff)
         self.assertIn("latestCompletionPendingChecks:", resume)
         self.assertIn("latestCompletionFailedChecks:", resume)
+        self.assertIn("latestCompletionFinalReviewIssues:", resume)
+        self.assertIn("latestCompletionFinalReviewChangedFiles:", resume)
+        self.assertIn("latestCompletionToolErrors:", resume)
+        self.assertIn("latestCompletionCheckpointFailures:", resume)
+        self.assertIn("latestCompletionActiveProcesses:", resume)
+        self.assertIn("latestCompletionDeniedApprovals:", resume)
 
     def test_summarize_session_marks_blocked_result_when_completion_is_not_ready(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
@@ -855,6 +972,57 @@ class SessionTests(unittest.TestCase):
         self.assertIn("omitted earlier output", text)
         self.assertNotIn("SECRET_ENV", text)
         self.assertEqual(missing, "Session not found: missing")
+
+    def test_historical_session_outputs_redact_sensitive_values(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            api_key = "sk-testsecret1234567890"
+            github_token = "ghp_abcdefghijklmnopqrstuvwx"
+            query_token = "querysecret123"
+            write_events(
+                root,
+                "run-secret",
+                [
+                    {"type": "task", "task": f"Reproduce with OPENAI_API_KEY={api_key}"},
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "run_command",
+                        "result": {
+                            "kind": "run_command",
+                            "result": {
+                                "command": f"printf OPENAI_API_KEY={api_key}",
+                                "exit_code": 1,
+                                "stdout": f"url=https://example.test/?token={query_token}\nBearer {api_key}\n",
+                                "stderr": f"Authorization: Bearer {github_token}\n",
+                                "timed_out": False,
+                                "signal": None,
+                                "cwd": ".",
+                            },
+                        },
+                    },
+                    {
+                        "type": "result",
+                        "status": "failed",
+                        "success": False,
+                        "message": f"Failed with token={query_token}",
+                    },
+                ],
+            )
+
+            outputs = [
+                format_session_commands(root, "run-secret", max_commands=5, max_output_chars=500),
+                format_session_failures(root, "run-secret", max_failures=5, max_text=500),
+                format_session_handoff(root, "run-secret", max_failures=5, max_commands=5, max_output_chars=500, max_text=500),
+                build_session_resume_context(root, "run-secret", max_commands=5, max_output_chars=500, max_text=500),
+                json.dumps(build_session_commands_report(root, "run-secret", max_commands=5, max_output_chars=500), sort_keys=True),
+            ]
+
+        for output in outputs:
+            self.assertNotIn(api_key, output)
+            self.assertNotIn(github_token, output)
+            self.assertNotIn(query_token, output)
+            self.assertIn("[REDACTED]", output)
 
     def test_format_session_audit_reports_finish_readiness_from_session_evidence(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
@@ -1636,6 +1804,24 @@ class SessionTests(unittest.TestCase):
                     {
                         "type": "tool_result",
                         "iteration": 3,
+                        "id": "review-1",
+                        "name": "final_review",
+                        "result": {
+                            "kind": "final_review",
+                            "ok": True,
+                            "ready": False,
+                            "blocking_issues": ["Suggested verification checks are still pending after the latest project change."],
+                            "warnings": [],
+                            "files": [{"path": "src/auth.py", "status": "M"}],
+                            "total_files": 1,
+                            "suggested_checks": [],
+                            "suggested_checks_total": 0,
+                            "message": "Final review found blocking issues.",
+                        },
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 3,
                         "id": "2",
                         "name": "finish",
                         "result": {"kind": "finish", "message": "Refactor complete."},
@@ -1670,6 +1856,8 @@ class SessionTests(unittest.TestCase):
         self.assertIn("session: run-1", context)
         self.assertIn("task: Refactor auth flow.", context)
         self.assertIn("tools: write_file", context)
+        self.assertIn("finalReviewChangedFiles:", context)
+        self.assertIn("M src/auth.py", context)
         self.assertIn("plan:", context)
         self.assertIn("- completed: Inspect auth files", context)
         self.assertIn("- in_progress: Update login flow", context)

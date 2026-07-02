@@ -1,0 +1,637 @@
+from __future__ import annotations
+
+import argparse
+from collections.abc import Sequence
+
+from .cli_parsing import nonnegative_int, positive_int, timeout_ms
+
+
+def parse_args(argv: Sequence[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="vibeagent",
+        description="Run VibeAgent interactively or execute one task.",
+        allow_abbrev=False,
+    )
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--chat", action="store_true", help="Run the one-shot task in daily conversation mode.")
+    mode.add_argument("--code", action="store_true", help="Run the one-shot task in coding mode. This is the default.")
+    local = parser.add_mutually_exclusive_group()
+    local.add_argument("--model", action="store_true", help="Show model provider configuration and exit.")
+    local.add_argument("--config", action="store_true", help="Show resolved provider and execution configuration and exit.")
+    local.add_argument("--tools", action="store_true", help="Show model tool names by category and exit.")
+    local.add_argument("--tool", metavar="NAME", help="Show one model tool's description and input schema and exit.")
+    local.add_argument("--permissions", action="store_true", help="Show approval-gated tools and hard command blocks and exit.")
+    local.add_argument("--checks", action="store_true", help="Show suggested test, build, and lint commands and exit.")
+    parser.add_argument("--checks-max", type=positive_int, default=20, metavar="N", help="Maximum suggested checks to show with --checks.")
+    local.add_argument("--check-suggested-checks", nargs="?", const="", metavar="N", help="Preflight suggested test, build, and lint commands and exit.")
+    parser.add_argument("--check-suggested-checks-max", type=positive_int, default=10, metavar="N", help="Maximum suggested checks to preflight with --check-suggested-checks.")
+    local.add_argument("--run-suggested-checks", nargs="?", const="", metavar="N", help="Run suggested test, build, and lint commands and exit.")
+    parser.add_argument("--run-suggested-checks-max", type=positive_int, default=10, metavar="N", help="Maximum suggested checks to run with --run-suggested-checks.")
+    local.add_argument("--commands", action="store_true", help="Show project-defined commands from manifests and exit.")
+    local.add_argument("--related-tests", nargs="*", metavar="PATH", help="Suggest test files related to paths or current git changes and exit.")
+    local.add_argument("--focused-tests", nargs="*", metavar="PATH", help="Suggest focused test commands related to paths or current git changes and exit.")
+    local.add_argument("--check-focused-tests", nargs="*", metavar="PATH", help="Preflight focused test commands related to paths or current git changes and exit.")
+    local.add_argument("--run-focused-tests", nargs="*", metavar="PATH", help="Run focused test commands related to paths or current git changes and exit.")
+    local.add_argument("--manifests", action="store_true", help="Show package and pyproject manifest metadata and exit.")
+    local.add_argument("--instructions", action="store_true", help="Show AGENTS.md and CLAUDE.md instruction sources and exit.")
+    local.add_argument("--todos", nargs="?", const="", metavar="PATH", help="Show TODO, FIXME, HACK, XXX, and BUG markers and exit.")
+    local.add_argument("--command-check", "--command", dest="command_check", metavar="COMMAND", help="Preview whether one shell command can run and exit.")
+    local.add_argument("--run-command", "--run", dest="run_command", metavar="COMMAND", help="Run one finite shell command with safety checks and exit.")
+    local.add_argument("--check-run-commands", nargs="+", metavar="COMMAND", help="Preview a short ordered command sequence and exit.")
+    local.add_argument("--run-commands", nargs="+", metavar="COMMAND", help="Run a short ordered command sequence and exit.")
+    local.add_argument("--check-start-command", metavar="COMMAND", help="Preview starting one long-running shell command and exit.")
+    local.add_argument("--start-command", "--start", dest="start_command", metavar="COMMAND", help="Start one long-running shell command and exit.")
+    local.add_argument("--port-check", type=positive_int, metavar="PORT", help="Check whether one local TCP port is reachable and exit.")
+    local.add_argument("--http-check", metavar="URL", help="Check HTTP status and optional response text and exit.")
+    local.add_argument("--http-fetch", metavar="URL", help="Fetch bounded HTTP response metadata and body text and exit.")
+    local.add_argument("--overview", action="store_true", help="Show a compact project orientation bundle and exit.")
+    local.add_argument("--repo-map", nargs="?", const="", metavar="PATH", help="Show a bounded repository tree and source symbol map and exit.")
+    local.add_argument("--search", metavar="QUERY", help="Search project text with gitignore and safety filtering and exit.")
+    local.add_argument("--search-contexts", metavar="QUERY", help="Search project text and show line-centered context snippets and exit.")
+    local.add_argument("--find-files", metavar="QUERY", help="Find project files by path fragment and exit.")
+    local.add_argument("--glob", metavar="PATTERN", help="Find project files or directories by glob pattern and exit.")
+    local.add_argument("--tree", nargs="?", const="", metavar="PATH", help="Show a bounded project directory tree and exit.")
+    local.add_argument("--symbols", nargs="+", metavar="PATH", help="Show source imports and symbol outlines and exit.")
+    local.add_argument("--file-info", nargs="+", metavar="PATH", help="Show file, directory, size, and line metadata and exit.")
+    local.add_argument("--image-info", nargs="+", metavar="PATH", help="Show image format, byte size, and dimensions and exit.")
+    local.add_argument("--read", metavar="PATH", help="Read one project file and exit.")
+    local.add_argument("--around", nargs=2, metavar=("PATH", "LINE"), help="Read one project file line with surrounding context and exit.")
+    local.add_argument("--around-many", nargs="+", metavar="PATH:LINE[:CONTEXT]", help="Read several project file lines with surrounding context and exit.")
+    local.add_argument("--output-contexts", metavar="TEXT", help="Extract file:line references from command output and read contexts.")
+    local.add_argument("--output-diagnostics", metavar="TEXT", help="Summarize command output diagnostics and read referenced contexts.")
+    local.add_argument("--python-traceback", metavar="TEXT", help="Summarize Python traceback or pytest exception output and read referenced contexts.")
+    local.add_argument("--tail", metavar="PATH", help="Read the last lines of one project file and exit.")
+    local.add_argument("--read-files", nargs="+", metavar="PATH", help="Read multiple project files and exit.")
+    local.add_argument("--read-ranges", nargs="+", metavar="PATH:START[:END]", help="Read multiple focused project file line ranges and exit.")
+    local.add_argument("--python-check", nargs="?", const="", metavar="PATH", help="Check Python syntax and exit.")
+    local.add_argument("--python-deps", nargs="?", const="", metavar="PATH", help="Inspect Python imports and dependencies and exit.")
+    local.add_argument("--python-defs", metavar="SYMBOL", help="Find Python class/function definitions and exit.")
+    local.add_argument("--python-refs", metavar="SYMBOL", help="Find Python definitions, imports, and references and exit.")
+    local.add_argument("--python-ref-contexts", metavar="SYMBOL", help="Find Python references with surrounding context and exit.")
+    local.add_argument("--python-calls", metavar="SYMBOL", help="Find Python call sites for a symbol and exit.")
+    local.add_argument("--python-call-graph", nargs="?", const="", metavar="PATH", help="Inspect Python caller-to-callee edges and exit.")
+    local.add_argument("--python-rename-preview", nargs=2, metavar=("SYMBOL", "NEW_NAME"), help="Preview a Python symbol rename and exit.")
+    local.add_argument("--python-rename", nargs=2, metavar=("SYMBOL", "NEW_NAME"), help="Rename a Python symbol and exit.")
+    local.add_argument("--check-replace-python-def", nargs=2, metavar=("SYMBOL", "CONTENT"), help="Preview replacing one Python class/function definition and exit.")
+    local.add_argument("--replace-python-def", nargs=2, metavar=("SYMBOL", "CONTENT"), help="Replace one Python class/function definition and exit.")
+    local.add_argument("--config-check", nargs="?", const="", metavar="PATH", help="Check JSON/YAML/TOML config syntax and exit.")
+    local.add_argument("--check-json-set", nargs=3, metavar=("PATH", "POINTER", "JSON_VALUE"), help="Preview updating one JSON value and exit.")
+    local.add_argument("--json-set", nargs=3, metavar=("PATH", "POINTER", "JSON_VALUE"), help="Update one JSON value and exit.")
+    parser.add_argument("--json-create-missing", action="store_true", help="Create missing JSON object parents with --check-json-set or --json-set.")
+    local.add_argument("--check-json-remove", nargs=2, metavar=("PATH", "POINTER"), help="Preview removing one JSON value and exit.")
+    local.add_argument("--json-remove", nargs=2, metavar=("PATH", "POINTER"), help="Remove one JSON value and exit.")
+    local.add_argument("--check-json-patch", nargs=2, metavar=("PATH", "JSON_OPS"), help="Preview JSON Patch operations and exit.")
+    local.add_argument("--json-patch", nargs=2, metavar=("PATH", "JSON_OPS"), help="Apply JSON Patch operations and exit.")
+    local.add_argument("--check-replace-lines", nargs=4, metavar=("PATH", "START", "END", "TEXT"), help="Preview replacing an inclusive line range and exit.")
+    local.add_argument("--replace-lines", nargs=4, metavar=("PATH", "START", "END", "TEXT"), help="Replace an inclusive line range and exit.")
+    local.add_argument("--check-insert-lines", nargs=3, metavar=("PATH", "LINE", "TEXT"), help="Preview inserting text before a line and exit.")
+    local.add_argument("--insert-lines", nargs=3, metavar=("PATH", "LINE", "TEXT"), help="Insert text before a line and exit.")
+    local.add_argument("--check-append", nargs=2, metavar=("PATH", "TEXT"), help="Preview appending text to one file and exit.")
+    local.add_argument("--append", nargs=2, metavar=("PATH", "TEXT"), help="Append text to one file and exit.")
+    local.add_argument("--check-write", nargs=2, metavar=("PATH", "TEXT"), help="Preview writing one file and exit.")
+    local.add_argument("--write", nargs=2, metavar=("PATH", "TEXT"), help="Write one file and exit.")
+    local.add_argument("--check-write-files", nargs="+", metavar="ARG", help="Preview writing multiple files and exit. Usage: --check-write-files PATH TEXT [PATH TEXT ...].")
+    local.add_argument("--write-files", nargs="+", metavar="ARG", help="Write multiple files and exit. Usage: --write-files PATH TEXT [PATH TEXT ...].")
+    local.add_argument("--check-edit", nargs=3, metavar=("PATH", "OLD", "NEW"), help="Preview replacing exact text in one file and exit.")
+    local.add_argument("--edit", nargs=3, metavar=("PATH", "OLD", "NEW"), help="Replace exact text in one file and exit.")
+    local.add_argument("--check-multi-edit", nargs="+", metavar="ARG", help="Preview multiple exact replacements in one file and exit. Usage: --check-multi-edit PATH OLD NEW [OLD NEW ...].")
+    local.add_argument("--multi-edit", nargs="+", metavar="ARG", help="Apply multiple exact replacements in one file and exit. Usage: --multi-edit PATH OLD NEW [OLD NEW ...].")
+    local.add_argument("--check-delete", metavar="PATH", help="Preview deleting one file and exit.")
+    local.add_argument("--delete", metavar="PATH", help="Delete one file and exit.")
+    local.add_argument("--check-delete-files", nargs="+", metavar="PATH", help="Preview deleting multiple files and exit.")
+    local.add_argument("--delete-files", nargs="+", metavar="PATH", help="Delete multiple files and exit.")
+    local.add_argument("--check-move", nargs=2, metavar=("SOURCE", "DESTINATION"), help="Preview moving one file and exit.")
+    local.add_argument("--move", nargs=2, metavar=("SOURCE", "DESTINATION"), help="Move one file and exit.")
+    local.add_argument("--check-move-files", nargs="+", metavar="ARG", help="Preview moving multiple files and exit. Usage: --check-move-files SOURCE DESTINATION [SOURCE DESTINATION ...].")
+    local.add_argument("--move-files", nargs="+", metavar="ARG", help="Move multiple files and exit. Usage: --move-files SOURCE DESTINATION [SOURCE DESTINATION ...].")
+    local.add_argument("--check-copy", nargs=2, metavar=("SOURCE", "DESTINATION"), help="Preview copying one file and exit.")
+    local.add_argument("--copy", nargs=2, metavar=("SOURCE", "DESTINATION"), help="Copy one file and exit.")
+    local.add_argument("--check-copy-files", nargs="+", metavar="ARG", help="Preview copying multiple files and exit. Usage: --check-copy-files SOURCE DESTINATION [SOURCE DESTINATION ...].")
+    local.add_argument("--copy-files", nargs="+", metavar="ARG", help="Copy multiple files and exit. Usage: --copy-files SOURCE DESTINATION [SOURCE DESTINATION ...].")
+    local.add_argument("--check-move-dir", nargs=2, metavar=("SOURCE", "DESTINATION"), help="Preview moving one directory and exit.")
+    local.add_argument("--move-dir", nargs=2, metavar=("SOURCE", "DESTINATION"), help="Move one directory and exit.")
+    local.add_argument("--check-move-dirs", nargs="+", metavar="ARG", help="Preview moving multiple directories and exit. Usage: --check-move-dirs SOURCE DESTINATION [SOURCE DESTINATION ...].")
+    local.add_argument("--move-dirs", nargs="+", metavar="ARG", help="Move multiple directories and exit. Usage: --move-dirs SOURCE DESTINATION [SOURCE DESTINATION ...].")
+    local.add_argument("--check-copy-dir", nargs=2, metavar=("SOURCE", "DESTINATION"), help="Preview copying one directory and exit.")
+    local.add_argument("--copy-dir", nargs=2, metavar=("SOURCE", "DESTINATION"), help="Copy one directory and exit.")
+    local.add_argument("--check-copy-dirs", nargs="+", metavar="ARG", help="Preview copying multiple directories and exit. Usage: --check-copy-dirs SOURCE DESTINATION [SOURCE DESTINATION ...].")
+    local.add_argument("--copy-dirs", nargs="+", metavar="ARG", help="Copy multiple directories and exit. Usage: --copy-dirs SOURCE DESTINATION [SOURCE DESTINATION ...].")
+    local.add_argument("--check-mkdir", metavar="PATH", help="Preview creating one directory and exit.")
+    local.add_argument("--mkdir", metavar="PATH", help="Create one directory and exit.")
+    local.add_argument("--check-mkdirs", nargs="+", metavar="PATH", help="Preview creating multiple directories and exit.")
+    local.add_argument("--mkdirs", nargs="+", metavar="PATH", help="Create multiple directories and exit.")
+    local.add_argument("--check-rmdir", metavar="PATH", help="Preview deleting one empty directory and exit.")
+    local.add_argument("--rmdir", metavar="PATH", help="Delete one empty directory and exit.")
+    local.add_argument("--check-rmdirs", nargs="+", metavar="PATH", help="Preview deleting multiple empty directories and exit.")
+    local.add_argument("--rmdirs", nargs="+", metavar="PATH", help="Delete multiple empty directories and exit.")
+    local.add_argument("--check-executable", nargs="+", metavar="ARG", help="Preview changing one file's executable bit and exit. Usage: --check-executable PATH [true|false].")
+    local.add_argument("--set-executable", nargs="+", metavar="ARG", help="Change one file's executable bit and exit. Usage: --set-executable PATH [true|false].")
+    local.add_argument("--check-patch", nargs=2, metavar=("PATH", "PATCH"), help="Preview applying one unified diff hunk to a file and exit. Use PATCH=- to read stdin.")
+    local.add_argument("--patch", nargs=2, metavar=("PATH", "PATCH"), help="Apply one unified diff hunk to a file and exit. Use PATCH=- to read stdin.")
+    local.add_argument("--check-patches", metavar="PATCH", help="Preview applying one unified diff across files and exit. Use PATCH=- to read stdin.")
+    local.add_argument("--patches", metavar="PATCH", help="Apply one unified diff across files and exit. Use PATCH=- to read stdin.")
+    local.add_argument("--check-regex-replace", nargs=3, metavar=("PATH", "PATTERN", "REPLACEMENT"), help="Preview a regex replacement and exit.")
+    local.add_argument("--regex-replace", nargs=3, metavar=("PATH", "PATTERN", "REPLACEMENT"), help="Apply a regex replacement and exit.")
+    local.add_argument("--code-deps", nargs="?", const="", metavar="PATH", help="Inspect non-Python source imports and dependencies and exit.")
+    local.add_argument("--code-refs", metavar="SYMBOL", help="Find non-Python source references for a symbol and exit.")
+    local.add_argument("--code-ref-contexts", metavar="SYMBOL", help="Find non-Python source references with surrounding context and exit.")
+    local.add_argument("--code-defs", metavar="SYMBOL", help="Find non-Python source definitions for a symbol and exit.")
+    local.add_argument("--code-rename-preview", nargs=2, metavar=("SYMBOL", "NEW_NAME"), help="Preview a non-Python source symbol or literal rename and exit.")
+    local.add_argument("--code-rename", nargs=2, metavar=("SYMBOL", "NEW_NAME"), help="Rename a non-Python source symbol or literal and exit.")
+    local.add_argument("--git-status", action="store_true", help="Show raw short git status and exit.")
+    local.add_argument("--conflicts", nargs="?", const="", metavar="PATH", help="Scan for unmerged git files and conflict marker lines and exit.")
+    local.add_argument("--git-info", action="store_true", help="Show git branch, HEAD, upstream, remotes, and short status and exit.")
+    local.add_argument("--branches", action="store_true", help="Show local git branches and current branch and exit.")
+    local.add_argument("--log", nargs="?", const="", metavar="PATH", help="Show recent git commits, optionally scoped to one path, and exit.")
+    local.add_argument("--show", nargs="?", const="HEAD", metavar="REV", help="Show one git revision with stat and patch and exit.")
+    local.add_argument("--blame", metavar="PATH", help="Show git blame for one file and exit.")
+    local.add_argument("--stashes", action="store_true", help="Show local git stash entries and exit.")
+    local.add_argument("--check-git-fetch", nargs="?", const="", metavar="REMOTE", help="Preview selecting a git remote to fetch and exit.")
+    local.add_argument("--git-fetch", nargs="?", const="", metavar="REMOTE", help="Run git fetch --prune for one remote and exit.")
+    local.add_argument("--check-git-pull", action="store_true", help="Preview fast-forward pulling the current upstream and exit.")
+    local.add_argument("--git-pull", action="store_true", help="Fast-forward pull the current upstream and exit.")
+    local.add_argument("--check-git-push", action="store_true", help="Preview pushing the current branch to upstream and exit.")
+    local.add_argument("--git-push", action="store_true", help="Push the current branch to upstream and exit.")
+    local.add_argument("--check-git-stash", nargs="?", const="", metavar="MESSAGE", help="Preview saving non-runtime changes to git stash and exit.")
+    local.add_argument("--git-stash", nargs="?", const="", metavar="MESSAGE", help="Save non-runtime changes to git stash and exit.")
+    local.add_argument("--check-git-stash-apply", metavar="STASH_REF", help="Preview applying a stash to a clean worktree and exit.")
+    local.add_argument("--git-stash-apply", metavar="STASH_REF", help="Apply a stash to a clean worktree and exit.")
+    local.add_argument("--check-git-stash-drop", metavar="STASH_REF", help="Preview deleting a stash entry and exit.")
+    local.add_argument("--git-stash-drop", metavar="STASH_REF", help="Delete a stash entry and exit.")
+    local.add_argument("--check-git-stage", nargs="+", metavar="PATH", help="Preview staging explicit project paths and exit.")
+    local.add_argument("--git-stage", nargs="+", metavar="PATH", help="Stage explicit project paths and exit.")
+    local.add_argument("--check-git-unstage", nargs="+", metavar="PATH", help="Preview unstaging explicit project paths and exit.")
+    local.add_argument("--git-unstage", nargs="+", metavar="PATH", help="Unstage explicit project paths and exit.")
+    local.add_argument("--check-git-commit", metavar="MESSAGE", help="Preview committing currently staged changes and exit.")
+    local.add_argument("--git-commit", metavar="MESSAGE", help="Commit currently staged changes and exit.")
+    local.add_argument("--check-git-restore", nargs="+", metavar="PATH", help="Preview discarding unstaged tracked-file changes and exit.")
+    local.add_argument("--git-restore", nargs="+", metavar="PATH", help="Discard unstaged tracked-file changes and exit.")
+    local.add_argument("--check-git-switch", metavar="BRANCH", help="Preview switching or creating a local branch and exit.")
+    local.add_argument("--git-switch", metavar="BRANCH", help="Switch or create a local branch and exit.")
+    local.add_argument("--env", action="store_true", help="Show local OS, runtime, and tool availability and exit.")
+    local.add_argument("--processes", action="store_true", help="Show VibeAgent-started background processes and exit.")
+    local.add_argument("--process-output", metavar="ID", help="Show captured stdout and stderr for one VibeAgent-started background process and exit.")
+    local.add_argument("--process-output-contexts", metavar="ID", help="Extract file:line source contexts from one background process output and exit.")
+    local.add_argument("--process-output-diagnostics", metavar="ID", help="Summarize diagnostics from one background process output and exit.")
+    local.add_argument("--wait-process", metavar="ID", help="Wait briefly for one VibeAgent-started background process and exit.")
+    local.add_argument("--check-write-process", metavar="ID", help="Preview writing stdin text to one VibeAgent-started background process and exit.")
+    local.add_argument("--write-process", metavar="ID", help="Write stdin text to one VibeAgent-started background process and exit.")
+    local.add_argument("--check-stop-process", metavar="ID", help="Preview stopping one VibeAgent-started background process and exit.")
+    local.add_argument("--stop-process", metavar="ID", help="Stop one VibeAgent-started background process and exit.")
+    local.add_argument("--check-stop-all-processes", action="store_true", help="Preview stopping all VibeAgent-started background processes and exit.")
+    local.add_argument("--stop-all-processes", action="store_true", help="Stop all VibeAgent-started background processes and exit.")
+    local.add_argument("--status", action="store_true", help="Show default non-interactive status and exit.")
+    local.add_argument("--context", action="store_true", help="Show project context sources and exit.")
+    local.add_argument("--init", nargs="?", const="AGENTS.md", metavar="FILE", help="Create a starter AGENTS.md or CLAUDE.md and exit.")
+    local.add_argument("--doctor", action="store_true", help="Show local diagnostics and exit.")
+    local.add_argument("--review", action="store_true", help="Review current git changes, syntax checks, and suggested commands and exit.")
+    parser.add_argument("--review-max-files", type=positive_int, default=200, metavar="N", help="Maximum changed files to show with --review.")
+    parser.add_argument("--review-max-checks", type=positive_int, default=5, metavar="N", help="Maximum suggested checks to show with --review.")
+    local.add_argument("--handoff", action="store_true", help="Show final handoff review, checks, changed files, and latest plan and exit.")
+    parser.add_argument("--handoff-max-files", type=positive_int, default=200, metavar="N", help="Maximum changed files to show with --handoff.")
+    parser.add_argument("--handoff-max-checks", type=positive_int, default=10, metavar="N", help="Maximum suggested checks to show with --handoff.")
+    parser.add_argument("--handoff-max-status-chars", type=positive_int, default=4_000, metavar="N", help="Maximum git status characters to show with --handoff.")
+    parser.add_argument("--handoff-max-plan-chars", type=positive_int, default=4_000, metavar="N", help="Maximum latest-plan characters to show with --handoff.")
+    local.add_argument("--changes", action="store_true", help="Show a structured changed-file summary and exit.")
+    parser.add_argument("--changes-max-files", type=positive_int, default=200, metavar="N", help="Maximum changed files to show with --changes.")
+    local.add_argument("--diff", nargs="?", const="", metavar="ARGS", help="Show current git diff. Optional ARGS: '--staged [path]' or '[path]'.")
+    local.add_argument("--diff-hunks", nargs="?", const="", metavar="ARGS", help="Show structured git diff hunks. Optional ARGS: '--staged [path]' or '[path]'.")
+    local.add_argument("--diff-contexts", nargs="?", const="", metavar="ARGS", help="Show source context around git diff hunks. Optional ARGS: '--staged [path]' or '[path]'.")
+    parser.add_argument("--diff-max-chars", type=positive_int, default=12_000, metavar="N", help="Maximum raw diff characters to show with --diff.")
+    parser.add_argument("--diff-hunks-max-hunks", type=positive_int, default=80, metavar="N", help="Maximum hunks to show with --diff-hunks.")
+    parser.add_argument("--diff-hunks-max-lines", type=positive_int, default=80, metavar="N", help="Maximum patch lines per hunk with --diff-hunks.")
+    parser.add_argument("--diff-context-lines", type=nonnegative_int, default=5, metavar="N", help="Surrounding source lines for --diff-contexts.")
+    parser.add_argument("--diff-contexts-max-hunks", type=positive_int, default=80, metavar="N", help="Maximum hunks to inspect with --diff-contexts.")
+    parser.add_argument("--diff-contexts-max-bytes", type=positive_int, default=20_000, metavar="N", help="Maximum bytes per source context with --diff-contexts.")
+    parser.add_argument("--staged", "--cached", action="store_true", dest="diff_staged", help="Show staged changes with --diff, --diff-hunks, or --diff-contexts.")
+    parser.add_argument("--command-cwd", metavar="PATH", help="Project-relative command cwd for --command-check or --command.")
+    parser.add_argument("--run-cwd", metavar="PATH", help="Project-relative command cwd for --run-command, --run, --run-commands, or --check-run-commands.")
+    parser.add_argument("--start-cwd", metavar="PATH", help="Project-relative command cwd for --check-start-command, --start-command, or --start.")
+    parser.add_argument("--port-host", default="127.0.0.1", metavar="HOST", help="TCP host for --port-check.")
+    parser.add_argument("--port-timeout-ms", type=timeout_ms, default=1_000, metavar="N", help="Maximum milliseconds for --port-check.")
+    parser.add_argument("--http-timeout-ms", type=timeout_ms, metavar="N", help="Maximum milliseconds for --http-check or --http-fetch.")
+    parser.add_argument("--http-max-body-chars", type=positive_int, metavar="N", help="Maximum response body characters for --http-check or --http-fetch.")
+    parser.add_argument("--http-contains", metavar="TEXT", help="Require response body text for --http-check.")
+    parser.add_argument("--http-regex", action="store_true", help="Treat --http-contains as a regular expression.")
+    parser.add_argument("--search-path", metavar="PATH", help="Project-relative search scope for --search.")
+    parser.add_argument("--search-max-matches", type=positive_int, metavar="N", help="Maximum matches to show with --search or --search-contexts.")
+    parser.add_argument("--search-regex", action="store_true", help="Treat --search or --search-contexts query as a regular expression.")
+    parser.add_argument("--search-ignore-case", action="store_true", help="Use case-insensitive matching with --search or --search-contexts.")
+    parser.add_argument("--search-context-lines", type=nonnegative_int, metavar="N", help="Surrounding source lines for --search or --search-contexts.")
+    parser.add_argument("--search-context-max-bytes", type=positive_int, metavar="N", help="Maximum bytes per context with --search-contexts.")
+    parser.add_argument("--related-tests-max-paths", type=positive_int, metavar="N", help="Maximum source paths to consider with --related-tests.")
+    parser.add_argument("--related-tests-max-candidates", type=positive_int, metavar="N", help="Maximum related test candidates to show with --related-tests.")
+    parser.add_argument("--focused-tests-max-paths", type=positive_int, metavar="N", help="Maximum source paths to consider with --focused-tests, --check-focused-tests, or --run-focused-tests.")
+    parser.add_argument("--focused-tests-max-candidates", type=positive_int, metavar="N", help="Maximum related test candidates to consider with focused test commands.")
+    parser.add_argument("--focused-tests-max-commands", type=positive_int, metavar="N", help="Maximum focused test commands to show, preflight, or run.")
+    parser.add_argument("--commands-max-commands", type=positive_int, metavar="N", help="Maximum project commands to show with --commands.")
+    parser.add_argument("--commands-max-files", type=positive_int, metavar="N", help="Maximum command metadata files to scan with --commands.")
+    parser.add_argument("--manifests-max-files", type=positive_int, metavar="N", help="Maximum manifest files to scan with --manifests.")
+    parser.add_argument("--manifests-max-items", type=positive_int, metavar="N", help="Maximum manifest items to show with --manifests.")
+    parser.add_argument("--todos-max-items", type=positive_int, metavar="N", help="Maximum TODO marker count to show with --todos.")
+    parser.add_argument("--todos-max-files", type=positive_int, metavar="N", help="Maximum files to scan with --todos.")
+    parser.add_argument("--instructions-max-files", type=positive_int, metavar="N", help="Maximum instruction files to scan with --instructions.")
+    parser.add_argument("--instructions-max-bytes", type=positive_int, metavar="N", help="Maximum instruction text bytes to include with --instructions.")
+    parser.add_argument("--overview-max-files", type=positive_int, metavar="N", help="Maximum files to show with --overview.")
+    parser.add_argument("--overview-max-commands", type=positive_int, metavar="N", help="Maximum project commands to show with --overview.")
+    parser.add_argument("--overview-max-checks", type=positive_int, metavar="N", help="Maximum suggested checks to show with --overview.")
+    parser.add_argument("--repo-map-max-depth", type=nonnegative_int, metavar="N", help="Maximum tree depth to show with --repo-map.")
+    parser.add_argument("--repo-map-max-files", type=positive_int, metavar="N", help="Maximum files to show with --repo-map.")
+    parser.add_argument("--repo-map-max-symbols", type=positive_int, metavar="N", help="Maximum symbols to show with --repo-map.")
+    parser.add_argument("--find-files-path", metavar="PATH", help="Project-relative scope for --find-files.")
+    parser.add_argument("--find-files-max-matches", type=positive_int, metavar="N", help="Maximum path matches to show with --find-files.")
+    parser.add_argument("--find-files-regex", action="store_true", help="Treat --find-files query as a regular expression.")
+    parser.add_argument("--find-files-case-sensitive", action="store_true", help="Use case-sensitive matching with --find-files.")
+    parser.add_argument("--find-files-include-dirs", action="store_true", help="Include matching directories with trailing slashes in --find-files output.")
+    parser.add_argument("--glob-max-matches", type=positive_int, metavar="N", help="Maximum file matches to show with --glob.")
+    parser.add_argument("--glob-include-dirs", action="store_true", help="Include matching directories with trailing slashes in --glob output.")
+    parser.add_argument("--tree-max-depth", type=nonnegative_int, metavar="N", help="Maximum directory depth to show with --tree.")
+    parser.add_argument("--tree-max-entries", type=positive_int, metavar="N", help="Maximum entries to show with --tree.")
+    parser.add_argument("--symbols-max", type=positive_int, metavar="N", help="Maximum symbols to show with --symbols.")
+    parser.add_argument(
+        "--python-path",
+        metavar="PATH",
+        help="Project-relative source scope for --python-defs, --python-refs, --python-ref-contexts, --python-calls, --python-rename, or --replace-python-def.",
+    )
+    parser.add_argument("--python-max-matches", type=positive_int, metavar="N", help="Maximum matches for --python-defs, --python-refs, --python-ref-contexts, or --python-calls.")
+    parser.add_argument("--python-def-max-lines", type=positive_int, metavar="N", help="Maximum definition lines to show with --python-defs.")
+    parser.add_argument("--python-context-lines", type=nonnegative_int, metavar="N", help="Surrounding source lines for --python-ref-contexts.")
+    parser.add_argument("--python-context-max-bytes", type=positive_int, metavar="N", help="Maximum bytes per context with --python-ref-contexts.")
+    parser.add_argument("--code-path", metavar="PATH", help="Project-relative source scope for --code-refs, --code-ref-contexts, --code-defs, or --code-rename.")
+    parser.add_argument("--code-max-matches", type=positive_int, metavar="N", help="Maximum matches for --code-refs, --code-ref-contexts, or --code-defs.")
+    parser.add_argument("--code-def-max-lines", type=positive_int, metavar="N", help="Maximum definition lines to show with --code-defs.")
+    parser.add_argument("--code-context-lines", type=nonnegative_int, metavar="N", help="Surrounding source lines for --code-ref-contexts.")
+    parser.add_argument("--code-context-max-bytes", type=positive_int, metavar="N", help="Maximum bytes per context with --code-ref-contexts.")
+    parser.add_argument("--read-lines", metavar="START[:END]", help="Optional inclusive line range for --read.")
+    parser.add_argument("--read-max-bytes", type=positive_int, metavar="N", help="Maximum bytes to read with --read.")
+    parser.add_argument("--read-line-numbers", action="store_true", help="Prefix full-file --read output with 1-based line numbers.")
+    parser.add_argument("--read-files-max-bytes", type=positive_int, metavar="N", help="Maximum bytes per file with --read-files.")
+    parser.add_argument("--read-files-line-numbers", action="store_true", help="Prefix --read-files output with 1-based line numbers.")
+    parser.add_argument("--read-ranges-max-bytes", type=positive_int, metavar="N", help="Maximum bytes per range with --read-ranges.")
+    parser.add_argument("--around-lines", type=nonnegative_int, default=20, metavar="N", help="Surrounding line count for --around.")
+    parser.add_argument("--around-max-bytes", type=positive_int, metavar="N", help="Maximum bytes to read with --around.")
+    parser.add_argument("--around-many-max-bytes", type=positive_int, metavar="N", help="Maximum bytes per context with --around-many.")
+    parser.add_argument("--output-context-lines", type=nonnegative_int, default=5, metavar="N", help="Surrounding line count for --output-contexts.")
+    parser.add_argument("--output-context-max", type=positive_int, default=20, metavar="N", help="Maximum contexts to read with --output-contexts.")
+    parser.add_argument("--output-context-max-bytes", type=positive_int, default=20_000, metavar="N", help="Maximum bytes per context with --output-contexts.")
+    parser.add_argument("--output-diagnostic-lines", type=nonnegative_int, default=2, metavar="N", help="Surrounding source lines for --output-diagnostics.")
+    parser.add_argument("--output-diagnostic-max", type=positive_int, default=50, metavar="N", help="Maximum diagnostic lines to show with --output-diagnostics.")
+    parser.add_argument("--output-diagnostic-context-max", type=positive_int, default=20, metavar="N", help="Maximum source contexts to read with --output-diagnostics.")
+    parser.add_argument("--output-diagnostic-context-max-bytes", type=positive_int, default=20_000, metavar="N", help="Maximum bytes per context with --output-diagnostics or --python-traceback.")
+    parser.add_argument("--session-output-command-max", type=positive_int, default=20, metavar="N", help="Maximum session command outputs to scan with --session-output-contexts or --session-output-diagnostics.")
+    parser.add_argument("--session-output-max-chars", type=positive_int, default=20_000, metavar="N", help="Maximum characters to read per session command output.")
+    parser.add_argument("--session-output-context-lines", type=nonnegative_int, default=5, metavar="N", help="Surrounding line count for --session-output-contexts or --session-output-diagnostics.")
+    parser.add_argument("--session-output-context-max", type=positive_int, default=20, metavar="N", help="Maximum contexts to read with --session-output-contexts or --session-output-diagnostics.")
+    parser.add_argument("--session-output-context-max-bytes", type=positive_int, default=20_000, metavar="N", help="Maximum bytes per session output source context.")
+    parser.add_argument("--session-output-diagnostic-max", type=positive_int, default=50, metavar="N", help="Maximum diagnostic lines to show with --session-output-diagnostics.")
+    parser.add_argument("--session-transcript-event-max", type=positive_int, metavar="N", help="Maximum timeline events to show with --transcript.")
+    parser.add_argument("--session-search-match-max", type=positive_int, metavar="N", help="Maximum matching timeline events to show with --session-search.")
+    parser.add_argument("--session-search-case-sensitive", action="store_true", help="Use case-sensitive matching with --session-search.")
+    parser.add_argument("--session-max-checks", type=positive_int, metavar="N", help="Maximum check rows per group to show with --session-verification, --session-audit, or --session-handoff.")
+    parser.add_argument("--session-max-commands", type=positive_int, metavar="N", help="Maximum command results to show with --session-commands, --session-audit, or --session-handoff.")
+    parser.add_argument("--session-max-output-chars", type=nonnegative_int, metavar="N", help="Maximum stdout/stderr tail characters per command with --session-commands or --session-handoff.")
+    parser.add_argument("--session-max-files", type=positive_int, metavar="N", help="Maximum file references to show with --session-files, --session-audit, or --session-handoff.")
+    parser.add_argument("--session-max-failures", type=positive_int, metavar="N", help="Maximum failure entries to show with --session-failures, --session-audit, or --session-handoff.")
+    parser.add_argument("--session-max-text", type=positive_int, metavar="N", help="Maximum text characters per timeline, search, failure, or readiness entry.")
+    parser.add_argument("--tail-lines", type=positive_int, default=80, metavar="N", help="Trailing line count for --tail.")
+    parser.add_argument("--tail-max-bytes", type=positive_int, metavar="N", help="Maximum bytes to read with --tail.")
+    parser.add_argument("--log-count", type=positive_int, default=5, metavar="N", help="Maximum commits to show with --log.")
+    parser.add_argument("--show-path", metavar="PATH", help="Optional project-relative path for --show.")
+    parser.add_argument("--show-max-chars", type=positive_int, default=12_000, metavar="N", help="Maximum output characters for --show.")
+    parser.add_argument("--blame-lines", metavar="START[:END]", help="Optional inclusive line range for --blame.")
+    parser.add_argument("--blame-max-chars", type=positive_int, default=12_000, metavar="N", help="Maximum output characters for --blame.")
+    parser.add_argument("--stash-count", type=positive_int, default=20, metavar="N", help="Maximum stash entries to show with --stashes.")
+    parser.add_argument("--stash-include-untracked", action="store_true", help="Include untracked files with --check-git-stash or --git-stash.")
+    parser.add_argument("--git-switch-create", action="store_true", help="Create the branch when used with --check-git-switch or --git-switch.")
+    parser.add_argument("--process-max-chars", type=positive_int, default=4_000, metavar="N", help="Maximum captured output characters for --process-output, --process-output-contexts, or --process-output-diagnostics.")
+    parser.add_argument("--process-output-context-lines", type=nonnegative_int, default=5, metavar="N", help="Context lines around each extracted process output reference.")
+    parser.add_argument("--process-output-context-max", type=positive_int, default=20, metavar="N", help="Maximum extracted process output contexts.")
+    parser.add_argument("--process-output-context-max-bytes", type=positive_int, default=20_000, metavar="N", help="Maximum bytes per extracted process output context.")
+    parser.add_argument("--process-output-diagnostic-max", type=positive_int, default=50, metavar="N", help="Maximum diagnostic lines to show with --process-output-diagnostics.")
+    parser.add_argument("--wait-timeout-ms", type=timeout_ms, default=5_000, metavar="N", help="Maximum milliseconds to wait with --wait-process.")
+    parser.add_argument("--wait-max-chars", type=positive_int, default=4_000, metavar="N", help="Maximum captured output characters for --wait-process.")
+    parser.add_argument("--wait-stdout", metavar="TEXT", help="Return early when --wait-process stdout contains TEXT.")
+    parser.add_argument("--wait-stderr", metavar="TEXT", help="Return early when --wait-process stderr contains TEXT.")
+    parser.add_argument("--wait-regex", action="store_true", help="Treat --wait-stdout or --wait-stderr as a regular expression.")
+    parser.add_argument("--write-stdin", metavar="TEXT", help="Stdin text for --check-write-process or --write-process. Use \\n when pressing Enter is required.")
+    parser.add_argument("--regex-count", type=nonnegative_int, default=0, metavar="N", help="Maximum replacements for --check-regex-replace or --regex-replace. Use 0 for all.")
+    parser.add_argument("--regex-max-replacements", type=positive_int, default=100, metavar="N", help="Safety cap for --check-regex-replace or --regex-replace.")
+    parser.add_argument("--regex-ignore-case", action="store_true", help="Use case-insensitive matching with --check-regex-replace or --regex-replace.")
+    parser.add_argument("--regex-multiline", action="store_true", help="Let ^ and $ match line boundaries with --check-regex-replace or --regex-replace.")
+    parser.add_argument("--run-timeout-ms", type=timeout_ms, default=30_000, metavar="N", help="Maximum milliseconds for --run-command, --run, --run-commands, or --run-suggested-checks.")
+    parser.add_argument("--run-max-chars", type=positive_int, default=12_000, metavar="N", help="Maximum stdout/stderr characters for --run-command, --run, --run-commands, or --run-suggested-checks.")
+    parser.add_argument("--run-continue-on-failure", action="store_true", help="Continue after a failing command with --run-commands or --run-suggested-checks.")
+    parser.add_argument("--run-output-contexts", action="store_true", help="Extract file:line source contexts from --run-command, --run, --run-commands, or --run-suggested-checks output.")
+    parser.add_argument("--run-output-diagnostics", action="store_true", help="Summarize errors, warnings, and failures from --run-command, --run, --run-commands, or --run-suggested-checks output.")
+    parser.add_argument("--run-output-context-lines", type=nonnegative_int, default=5, metavar="N", help="Context lines around each extracted run output reference.")
+    parser.add_argument("--run-output-diagnostic-max", type=positive_int, default=50, metavar="N", help="Maximum diagnostic lines to show with --run-output-diagnostics or failed-command auto-diagnostics.")
+    parser.add_argument("--run-output-context-max", type=positive_int, default=20, metavar="N", help="Maximum extracted run output contexts.")
+    parser.add_argument("--run-output-context-max-bytes", type=positive_int, default=20_000, metavar="N", help="Maximum bytes per extracted run output context.")
+    local.add_argument("--sessions", action="store_true", help="List recent local sessions and exit.")
+    local.add_argument("--last", action="store_true", help="Show the newest session summary and exit.")
+    local.add_argument("--session", metavar="RUN_ID", help="Show one compact session summary and exit.")
+    local.add_argument("--plan", nargs="?", const="", metavar="RUN_ID", help="Show the newest or selected session task plan and exit.")
+    local.add_argument("--transcript", nargs="?", const="", metavar="RUN_ID", help="Show a safe timeline of the newest or selected session and exit.")
+    local.add_argument("--session-search", metavar="QUERY", help="Search the newest or selected safe session timeline and exit.")
+    parser.add_argument("--session-search-run", metavar="RUN_ID", help="Session id for --session-search.")
+    local.add_argument("--session-commands", nargs="?", const="", metavar="RUN_ID", help="Show bounded stdout/stderr from the newest or selected session commands and exit.")
+    local.add_argument("--session-output-contexts", nargs="?", const="", metavar="RUN_ID", help="Extract file:line contexts from newest or selected session command output and exit.")
+    local.add_argument("--session-output-diagnostics", nargs="?", const="", metavar="RUN_ID", help="Summarize diagnostics from newest or selected session command output and exit.")
+    local.add_argument("--session-files", nargs="?", const="", metavar="RUN_ID", help="Show project paths referenced by the newest or selected session and exit.")
+    local.add_argument("--session-failures", nargs="?", const="", metavar="RUN_ID", help="Show failed tools, commands, final results, malformed events, and denied approvals from the newest or selected session and exit.")
+    local.add_argument("--session-verification", nargs="?", const="", metavar="RUN_ID", help="Show verified, pending, and failed suggested checks for the newest or selected session and exit.")
+    local.add_argument("--session-audit", nargs="?", const="", metavar="RUN_ID", help="Show finish-time readiness, blockers, active processes, checks, failures, commands, and files for the newest or selected session and exit.")
+    local.add_argument("--session-handoff", nargs="?", const="", metavar="RUN_ID", help="Show a compact recovery handoff bundle for the newest or selected session and exit.")
+    local.add_argument("--checkpoint", nargs="?", const="", metavar="LABEL", help="Save current git status, diffs, and ordinary untracked files as a local checkpoint and exit.")
+    local.add_argument("--checkpoints", action="store_true", help="List saved local checkpoints and exit.")
+    local.add_argument("--checkpoint-show", metavar="ID", help="Show one saved local checkpoint and exit.")
+    local.add_argument("--checkpoint-diff", metavar="ID", help="Show saved staged and unstaged checkpoint patches and exit.")
+    local.add_argument("--checkpoint-status", metavar="ID", help="Compare current git status and diffs with a saved checkpoint and exit.")
+    local.add_argument("--check-checkpoint-restore", metavar="ID", help="Preview restoring tracked staged/unstaged changes and saved untracked files from a checkpoint and exit.")
+    local.add_argument("--checkpoint-restore", metavar="ID", help="Restore tracked staged/unstaged changes and saved untracked files from a checkpoint and exit.")
+    local.add_argument("--check-checkpoint-delete", metavar="ID", help="Preview deleting one saved local checkpoint and exit.")
+    local.add_argument("--checkpoint-delete", metavar="ID", help="Delete one saved local checkpoint and exit.")
+    local.add_argument("--check-checkpoint-prune", metavar="N", help="Preview deleting older checkpoints while keeping the newest N and exit.")
+    local.add_argument("--checkpoint-prune", metavar="N", help="Delete older checkpoints while keeping the newest N and exit.")
+    local.add_argument("--usage", action="store_true", help="Show local session usage and exit.")
+    local.add_argument("--cost", action="store_true", help="Show configured cost estimate and exit.")
+    local.add_argument("--save-config", action="store_true", help="Save non-secret provider defaults to .vibeagent/config.json and exit.")
+    parser.add_argument(
+        "--approval",
+        choices=("ask", "allow", "deny"),
+        default="ask",
+        help="Approval policy for one-shot coding tasks.",
+    )
+    parser.add_argument(
+        "--resume",
+        nargs="?",
+        const="",
+        metavar="RUN_ID",
+        help="Load a previous session summary before a one-shot coding task. Omit RUN_ID to use the newest session.",
+    )
+    parser.add_argument("--resume-max-failures", type=positive_int, metavar="N", help="Maximum failure entries in --resume context.")
+    parser.add_argument("--resume-max-files", type=positive_int, metavar="N", help="Maximum file references in --resume context.")
+    parser.add_argument("--resume-max-commands", type=positive_int, metavar="N", help="Maximum command results in --resume context.")
+    parser.add_argument("--resume-max-checks", type=positive_int, metavar="N", help="Maximum check rows per group in --resume context.")
+    parser.add_argument("--resume-max-output-chars", type=nonnegative_int, metavar="N", help="Maximum stdout/stderr tail characters per command in --resume context.")
+    parser.add_argument("--resume-max-text", type=positive_int, metavar="N", help="Maximum text characters per timeline, failure, or readiness entry in --resume context.")
+    parser.add_argument(
+        "--compact",
+        nargs="?",
+        const="",
+        metavar="RUN_ID",
+        help="Load a compact previous session handoff before a one-shot coding task. Omit RUN_ID to use the newest session.",
+    )
+    parser.add_argument("--compact-max-failures", type=positive_int, metavar="N", help="Maximum failure entries in --compact context.")
+    parser.add_argument("--compact-max-files", type=positive_int, metavar="N", help="Maximum file references in --compact context.")
+    parser.add_argument("--compact-max-commands", type=positive_int, metavar="N", help="Maximum command results in --compact context.")
+    parser.add_argument("--compact-max-checks", type=positive_int, metavar="N", help="Maximum check rows per group in --compact context.")
+    parser.add_argument("--compact-max-output-chars", type=nonnegative_int, metavar="N", help="Maximum stdout/stderr tail characters per command in --compact context.")
+    parser.add_argument("--compact-max-text", type=positive_int, metavar="N", help="Maximum text characters per timeline, failure, or readiness entry in --compact context.")
+    parser.add_argument("--cwd", help="Project directory for one-shot coding tasks.")
+    parser.add_argument("--json", action="store_true", help="Print a single JSON result for one-shot or local command output.")
+    parser.add_argument(
+        "--provider",
+        choices=("minimax", "deepseek", "openai-compatible"),
+        help="Temporarily override the model provider for this command.",
+    )
+    parser.add_argument("--model-name", help="Temporarily override the model name for this command.")
+    parser.add_argument("--base-url", help="Temporarily override the provider base URL for this command.")
+    parser.add_argument("--api-key", help="Temporarily override the provider API key for this command.")
+    parser.add_argument(
+        "--max-iterations",
+        type=positive_int,
+        help="Maximum model/tool iterations for one-shot coding tasks. Defaults to project config or 20.",
+    )
+    parser.add_argument(
+        "--command-timeout-ms",
+        type=timeout_ms,
+        help="Default command timeout in milliseconds for one-shot coding tasks. Defaults to project config or 30000.",
+    )
+    parser.add_argument(
+        "--max-output-tokens",
+        type=positive_int,
+        help="Maximum model output tokens per response. Defaults to project config or 4096.",
+    )
+    parser.add_argument(
+        "--model-retries",
+        type=nonnegative_int,
+        help="Retry attempts after a provider request failure. Defaults to project config or 1.",
+    )
+    parser.add_argument(
+        "--model-retry-delay-ms",
+        type=nonnegative_int,
+        help="Milliseconds to wait between provider retry attempts. Defaults to project config or 250.",
+    )
+    parser.add_argument(
+        "--model-timeout-ms",
+        type=timeout_ms,
+        help="Provider request timeout in milliseconds. Defaults to project config or 120000.",
+    )
+    parser.add_argument("task", nargs="*", help="One-shot task text. Omit it to start the interactive prompt.")
+    return parser.parse_args(list(argv))
+
+
+def has_local_flag(args: argparse.Namespace) -> bool:
+    return any(
+        (
+            args.model,
+            args.config,
+            args.tools,
+            args.tool is not None,
+            args.permissions,
+            args.checks,
+            args.check_suggested_checks is not None,
+            args.run_suggested_checks is not None,
+            args.commands,
+            args.related_tests is not None,
+            args.focused_tests is not None,
+            args.check_focused_tests is not None,
+            args.run_focused_tests is not None,
+            args.manifests,
+            args.instructions,
+            args.todos is not None,
+            args.command_check is not None,
+            args.run_command is not None,
+            args.check_run_commands is not None,
+            args.run_commands is not None,
+            args.check_start_command is not None,
+            args.start_command is not None,
+            args.port_check is not None,
+            args.http_check is not None,
+            args.http_fetch is not None,
+            args.overview,
+            args.repo_map is not None,
+            args.search is not None,
+            args.search_contexts is not None,
+            args.find_files is not None,
+            args.glob is not None,
+            args.tree is not None,
+            args.symbols is not None,
+            args.file_info is not None,
+            args.image_info is not None,
+            args.read is not None,
+            args.around is not None,
+            args.around_many is not None,
+            args.output_contexts is not None,
+            args.output_diagnostics is not None,
+            args.python_traceback is not None,
+            args.tail is not None,
+            args.read_files is not None,
+            args.read_ranges is not None,
+            args.python_check is not None,
+            args.python_deps is not None,
+            args.python_defs is not None,
+            args.python_refs is not None,
+            args.python_ref_contexts is not None,
+            args.python_calls is not None,
+            args.python_call_graph is not None,
+            args.python_rename_preview is not None,
+            args.python_rename is not None,
+            args.check_replace_python_def is not None,
+            args.replace_python_def is not None,
+            args.config_check is not None,
+            args.check_json_set is not None,
+            args.json_set is not None,
+            args.check_json_remove is not None,
+            args.json_remove is not None,
+            args.check_json_patch is not None,
+            args.json_patch is not None,
+            args.check_replace_lines is not None,
+            args.replace_lines is not None,
+            args.check_insert_lines is not None,
+            args.insert_lines is not None,
+            args.check_append is not None,
+            args.append is not None,
+            args.check_write is not None,
+            args.write is not None,
+            args.check_write_files is not None,
+            args.write_files is not None,
+            args.check_edit is not None,
+            args.edit is not None,
+            args.check_multi_edit is not None,
+            args.multi_edit is not None,
+            args.check_delete is not None,
+            args.delete is not None,
+            args.check_delete_files is not None,
+            args.delete_files is not None,
+            args.check_move is not None,
+            args.move is not None,
+            args.check_move_files is not None,
+            args.move_files is not None,
+            args.check_copy is not None,
+            args.copy is not None,
+            args.check_copy_files is not None,
+            args.copy_files is not None,
+            args.check_move_dir is not None,
+            args.move_dir is not None,
+            args.check_move_dirs is not None,
+            args.move_dirs is not None,
+            args.check_copy_dir is not None,
+            args.copy_dir is not None,
+            args.check_copy_dirs is not None,
+            args.copy_dirs is not None,
+            args.check_mkdir is not None,
+            args.mkdir is not None,
+            args.check_mkdirs is not None,
+            args.mkdirs is not None,
+            args.check_rmdir is not None,
+            args.rmdir is not None,
+            args.check_rmdirs is not None,
+            args.rmdirs is not None,
+            args.check_executable is not None,
+            args.set_executable is not None,
+            args.check_patch is not None,
+            args.patch is not None,
+            args.check_patches is not None,
+            args.patches is not None,
+            args.check_regex_replace is not None,
+            args.regex_replace is not None,
+            args.code_deps is not None,
+            args.code_refs is not None,
+            args.code_ref_contexts is not None,
+            args.code_defs is not None,
+            args.code_rename_preview is not None,
+            args.code_rename is not None,
+            args.git_status,
+            args.conflicts is not None,
+            args.git_info,
+            args.branches,
+            args.log is not None,
+            args.show is not None,
+            args.blame is not None,
+            args.stashes,
+            args.check_git_fetch is not None,
+            args.git_fetch is not None,
+            args.check_git_pull,
+            args.git_pull,
+            args.check_git_push,
+            args.git_push,
+            args.check_git_stash is not None,
+            args.git_stash is not None,
+            args.check_git_stash_apply is not None,
+            args.git_stash_apply is not None,
+            args.check_git_stash_drop is not None,
+            args.git_stash_drop is not None,
+            args.check_git_stage is not None,
+            args.git_stage is not None,
+            args.check_git_unstage is not None,
+            args.git_unstage is not None,
+            args.check_git_commit is not None,
+            args.git_commit is not None,
+            args.check_git_restore is not None,
+            args.git_restore is not None,
+            args.check_git_switch is not None,
+            args.git_switch is not None,
+            args.env,
+            args.processes,
+            args.process_output is not None,
+            args.process_output_contexts is not None,
+            args.process_output_diagnostics is not None,
+            args.wait_process is not None,
+            args.check_write_process is not None,
+            args.write_process is not None,
+            args.check_stop_process is not None,
+            args.stop_process is not None,
+            args.check_stop_all_processes,
+            args.stop_all_processes,
+            args.status,
+            args.context,
+            args.init is not None,
+            args.doctor,
+            args.review,
+            args.handoff,
+            args.changes,
+            args.diff is not None,
+            args.diff_hunks is not None,
+            args.diff_contexts is not None,
+            args.sessions,
+            args.last,
+            args.session is not None,
+            args.plan is not None,
+            args.transcript is not None,
+            args.session_search is not None,
+            args.session_commands is not None,
+            args.session_output_contexts is not None,
+            args.session_output_diagnostics is not None,
+            args.session_files is not None,
+            args.session_failures is not None,
+            args.session_verification is not None,
+            args.session_audit is not None,
+            args.session_handoff is not None,
+            args.checkpoint is not None,
+            args.checkpoints,
+            args.checkpoint_show is not None,
+            args.checkpoint_diff is not None,
+            args.checkpoint_status is not None,
+            args.check_checkpoint_restore is not None,
+            args.checkpoint_restore is not None,
+            args.check_checkpoint_delete is not None,
+            args.checkpoint_delete is not None,
+            args.check_checkpoint_prune is not None,
+            args.checkpoint_prune is not None,
+            args.usage,
+            args.cost,
+            args.save_config,
+        )
+    )

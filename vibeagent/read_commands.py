@@ -1,0 +1,713 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from .actions import execute_action
+from .command_parsing import parse_local_path_args
+from .read_command_parsing import parse_around_many_argument, parse_around_request, parse_read_ranges_argument, parse_read_request, parse_tail_request, serialize_context_result, serialize_read_range_result, serialize_read_result
+from .types import ReadFileAction, ReadFileContextAction, ReadFileContextsAction, ReadFileRangesAction, ReadFilesAction, TailFileAction
+from .workspace_core import RunWorkspace
+
+
+def get_read_text(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    line_range: str | None = None,
+    max_bytes: int = 20_000,
+    show_line_numbers: bool = False,
+) -> str:
+    return format_read_report_text(
+        get_read_report(
+            project_root,
+            argument,
+            line_range=line_range,
+            max_bytes=max_bytes,
+            show_line_numbers=show_line_numbers,
+        )
+    )
+
+
+def get_read_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    line_range: str | None = None,
+    max_bytes: int = 20_000,
+    show_line_numbers: bool = False,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if argument is None or not argument.strip():
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "range": ".",
+            "startLine": None,
+            "lineCount": None,
+            "showLineNumbers": show_line_numbers,
+            "read": {"content": "", "totalBytes": None, "maxBytes": max_bytes, "truncated": False},
+            "message": "Usage: /read <path> [start[:end]]",
+        }
+    try:
+        path, start_line, line_count, range_label = parse_read_request(argument, line_range)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "range": ".",
+            "startLine": None,
+            "lineCount": None,
+            "showLineNumbers": show_line_numbers,
+            "read": {"content": "", "totalBytes": None, "maxBytes": max_bytes, "truncated": False},
+            "message": f"Usage: /read <path> [start[:end]]\nError: {error}",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-read", session_dir=root / ".vibeagent" / "sessions" / "local-read")
+    observation = execute_action(
+        workspace,
+        ReadFileAction(
+            type="read_file",
+            path=path,
+            start_line=start_line,
+            line_count=line_count,
+            max_bytes=max_bytes,
+            show_line_numbers=show_line_numbers,
+        ),
+    )
+    if observation.kind != "read_file":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": path,
+            "range": range_label or ".",
+            "startLine": start_line,
+            "lineCount": line_count,
+            "showLineNumbers": show_line_numbers,
+            "read": {"content": "", "totalBytes": None, "maxBytes": max_bytes, "truncated": False},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": observation.total_bytes is not None,
+        "path": observation.path,
+        "range": range_label or ".",
+        "startLine": start_line,
+        "lineCount": line_count,
+        "showLineNumbers": observation.show_line_numbers,
+        "read": {
+            "content": observation.content,
+            "totalBytes": observation.total_bytes,
+            "maxBytes": observation.max_bytes,
+            "truncated": observation.truncated,
+        },
+        "message": observation.message,
+    }
+
+
+def format_read_report_text(report: dict[str, object]) -> str:
+    message = str(report.get("message") or "")
+    if message.startswith("Usage: "):
+        return message
+    read = report.get("read") if isinstance(report.get("read"), dict) else {}
+    content = str(read.get("content") or "") if isinstance(read, dict) else ""
+    lines = [
+        "Read:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  path: {report.get('path') or ''}",
+        f"  range: {report.get('range') or '.'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  showLineNumbers: {'yes' if bool(report.get('showLineNumbers')) else 'no'}",
+        f"  totalBytes: {read.get('totalBytes') if read.get('totalBytes') is not None else 'unknown'}",
+        f"  maxBytes: {read.get('maxBytes') if read.get('maxBytes') is not None else 'unknown'}",
+        f"  truncated: {'yes' if bool(read.get('truncated')) else 'no'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    if content:
+        lines.append("  content:")
+        lines.append(_indent_block(content.rstrip("\n"), spaces=4))
+    else:
+        lines.append("  content: none")
+    return "\n".join(lines)
+
+
+def get_tail_text(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    line_count: int | None = None,
+    max_bytes: int = 20_000,
+) -> str:
+    return format_tail_report_text(
+        get_tail_report(project_root, argument, line_count=line_count, max_bytes=max_bytes)
+    )
+
+
+def get_tail_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    line_count: int | None = None,
+    max_bytes: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if max_bytes < 1_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "tail": {"content": "", "totalLines": None, "lineCount": 0, "startLine": None, "requestedLines": line_count, "maxBytes": max_bytes, "truncated": False},
+            "message": "Usage: /tail <path> [lines]\nError: max_bytes must be at least 1000.",
+        }
+    if max_bytes > 200_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "tail": {"content": "", "totalLines": None, "lineCount": 0, "startLine": None, "requestedLines": line_count, "maxBytes": max_bytes, "truncated": False},
+            "message": "Usage: /tail <path> [lines]\nError: max_bytes must be at most 200000.",
+        }
+    try:
+        path, requested_lines = parse_tail_request(argument, line_count)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "tail": {"content": "", "totalLines": None, "lineCount": 0, "startLine": None, "requestedLines": line_count, "maxBytes": max_bytes, "truncated": False},
+            "message": f"Usage: /tail <path> [lines]\nError: {error}",
+        }
+    if path is None:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "tail": {"content": "", "totalLines": None, "lineCount": 0, "startLine": None, "requestedLines": requested_lines, "maxBytes": max_bytes, "truncated": False},
+            "message": "Usage: /tail <path> [lines]",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-tail", session_dir=root / ".vibeagent" / "sessions" / "local-tail")
+    observation = execute_action(
+        workspace,
+        TailFileAction(type="tail_file", path=path, line_count=requested_lines, max_bytes=max_bytes),
+    )
+    if observation.kind != "tail_file":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": path,
+            "tail": {"content": "", "totalLines": None, "lineCount": 0, "startLine": None, "requestedLines": requested_lines, "maxBytes": max_bytes, "truncated": False},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "path": observation.path,
+        "tail": {
+            "content": observation.content,
+            "totalLines": observation.total_lines,
+            "lineCount": observation.line_count,
+            "startLine": observation.start_line,
+            "requestedLines": observation.requested_line_count,
+            "maxBytes": observation.max_bytes,
+            "truncated": observation.truncated,
+        },
+        "message": observation.message,
+    }
+
+
+def format_tail_report_text(report: dict[str, object]) -> str:
+    message = str(report.get("message") or "")
+    if message.startswith("Usage: "):
+        return message
+    tail = report.get("tail") if isinstance(report.get("tail"), dict) else {}
+    content = str(tail.get("content") or "") if isinstance(tail, dict) else ""
+    lines = [
+        "Tail:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  path: {report.get('path') or ''}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  lines: {tail.get('lineCount', 0)}/{tail.get('totalLines') if tail.get('totalLines') is not None else 'unknown'}",
+        f"  startLine: {tail.get('startLine') if tail.get('startLine') is not None else 'unknown'}",
+        f"  requestedLines: {tail.get('requestedLines') if tail.get('requestedLines') is not None else 'unknown'}",
+        f"  maxBytes: {tail.get('maxBytes') if tail.get('maxBytes') is not None else 'unknown'}",
+        f"  truncated: {'yes' if bool(tail.get('truncated')) else 'no'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    if content:
+        lines.append("  content:")
+        lines.append(_indent_block(content.rstrip("\n"), spaces=4))
+    else:
+        lines.append("  content: none")
+    return "\n".join(lines)
+
+
+def get_around_text(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    context_lines: int | None = None,
+    max_bytes: int = 20_000,
+) -> str:
+    return format_around_report_text(
+        get_around_report(project_root, argument, context_lines=context_lines, max_bytes=max_bytes)
+    )
+
+
+def get_around_report(
+    project_root: str | Path = ".",
+    argument: str | None = None,
+    context_lines: int | None = None,
+    max_bytes: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    empty_context = {
+        "content": "",
+        "startLine": None,
+        "endLine": None,
+        "contextLines": context_lines,
+        "targetLineExists": False,
+        "lineCount": 0,
+        "totalLines": None,
+        "maxBytes": max_bytes,
+        "truncated": False,
+    }
+    try:
+        path, line, selected_context = parse_around_request(argument, context_lines)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "line": None,
+            "context": empty_context,
+            "message": f"Usage: /around <path> <line> [context-lines]\nError: {error}",
+        }
+    if path is None or line is None:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": "",
+            "line": None,
+            "context": empty_context,
+            "message": "Usage: /around <path> <line> [context-lines]",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-around", session_dir=root / ".vibeagent" / "sessions" / "local-around")
+    observation = execute_action(
+        workspace,
+        ReadFileContextAction(
+            type="read_file_context",
+            path=path,
+            line=line,
+            context_lines=selected_context,
+            max_bytes=max_bytes,
+        ),
+    )
+    if observation.kind != "read_file_context":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "path": path,
+            "line": line,
+            "context": {**empty_context, "contextLines": selected_context},
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    context = serialize_context_result(observation)
+    return {
+        "projectRoot": str(root),
+        "ok": observation.ok,
+        "path": observation.path,
+        "line": observation.line,
+        "context": {key: value for key, value in context.items() if key not in {"path", "line", "ok"}},
+        "message": observation.message,
+    }
+
+
+def format_around_report_text(report: dict[str, object]) -> str:
+    message = str(report.get("message") or "")
+    if message.startswith("Usage: "):
+        return message
+    context = report.get("context") if isinstance(report.get("context"), dict) else {}
+    content = str(context.get("content") or "") if isinstance(context, dict) else ""
+    lines = [
+        "Around:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  path: {report.get('path') or ''}",
+        f"  line: {report.get('line') if report.get('line') is not None else 'unknown'}",
+        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  range: {context.get('startLine')}:{context.get('endLine')}",
+        f"  contextLines: {context.get('contextLines') if context.get('contextLines') is not None else 'unknown'}",
+        f"  targetLineExists: {'yes' if bool(context.get('targetLineExists')) else 'no'}",
+        f"  lines: {context.get('lineCount', 0)}/{context.get('totalLines') if context.get('totalLines') is not None else 'unknown'}",
+        f"  maxBytes: {context.get('maxBytes') if context.get('maxBytes') is not None else 'unknown'}",
+        f"  truncated: {'yes' if bool(context.get('truncated')) else 'no'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    if content:
+        lines.append("  content:")
+        lines.append(_indent_block(content.rstrip("\n"), spaces=4))
+    else:
+        lines.append("  content: none")
+    return "\n".join(lines)
+
+
+def get_around_many_text(
+    project_root: str | Path = ".",
+    argument: str | list[str] | None = None,
+    max_bytes_per_context: int = 20_000,
+) -> str:
+    return format_around_many_report_text(
+        get_around_many_report(project_root, argument, max_bytes_per_context=max_bytes_per_context)
+    )
+
+
+def get_around_many_report(
+    project_root: str | Path = ".",
+    argument: str | list[str] | None = None,
+    max_bytes_per_context: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if max_bytes_per_context < 1_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerContext": max_bytes_per_context,
+            "message": "Usage: /around-many <path:line[:context-lines]...>\nError: max_bytes_per_context must be at least 1000.",
+        }
+    if max_bytes_per_context > 200_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerContext": max_bytes_per_context,
+            "message": "Usage: /around-many <path:line[:context-lines]...>\nError: max_bytes_per_context must be at most 200000.",
+        }
+    try:
+        contexts = parse_around_many_argument(argument)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerContext": max_bytes_per_context,
+            "message": f"Usage: /around-many <path:line[:context-lines]...>\nError: {error}",
+        }
+    if not contexts:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "contexts": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerContext": max_bytes_per_context,
+            "message": "Usage: /around-many <path:line[:context-lines]...>",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-around-many", session_dir=root / ".vibeagent" / "sessions" / "local-around-many")
+    observation = execute_action(
+        workspace,
+        ReadFileContextsAction(
+            type="read_file_contexts",
+            contexts=contexts,
+            max_bytes_per_context=max_bytes_per_context,
+        ),
+    )
+    if observation.kind != "read_file_contexts":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "contexts": {"ok": 0, "total": len(contexts), "items": []},
+            "maxBytesPerContext": max_bytes_per_context,
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+
+    items = [serialize_context_result(item) for item in observation.contexts]
+    ok_count = sum(1 for item in items if item["ok"])
+    return {
+        "projectRoot": str(root),
+        "ok": ok_count == len(items),
+        "contexts": {"ok": ok_count, "total": len(items), "items": items},
+        "maxBytesPerContext": max_bytes_per_context,
+        "message": observation.message,
+    }
+
+
+def format_around_many_report_text(report: dict[str, object]) -> str:
+    message = str(report.get("message") or "")
+    if message.startswith("Usage: "):
+        return message
+    contexts = report.get("contexts") if isinstance(report.get("contexts"), dict) else {}
+    items = contexts.get("items") if isinstance(contexts.get("items"), list) else []
+    lines = [
+        "Around many:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  contexts: {contexts.get('ok', 0)}/{contexts.get('total', len(items))}",
+        f"  maxBytesPerContext: {report.get('maxBytesPerContext') if report.get('maxBytesPerContext') is not None else 'unknown'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    for raw_item in items:
+        item = raw_item if isinstance(raw_item, dict) else {}
+        lines.extend(
+            [
+                "",
+                f"Context: {item.get('path') or ''}:{item.get('line') if item.get('line') is not None else 'unknown'}",
+                f"  ok: {'yes' if bool(item.get('ok')) else 'no'}",
+                f"  range: {item.get('startLine')}:{item.get('endLine')}",
+                f"  contextLines: {item.get('contextLines') if item.get('contextLines') is not None else 'unknown'}",
+                f"  targetLineExists: {'yes' if bool(item.get('targetLineExists')) else 'no'}",
+                f"  lines: {item.get('lineCount', 0)}/{item.get('totalLines') if item.get('totalLines') is not None else 'unknown'}",
+                f"  maxBytes: {item.get('maxBytes') if item.get('maxBytes') is not None else 'unknown'}",
+                f"  truncated: {'yes' if bool(item.get('truncated')) else 'no'}",
+                f"  message: {item.get('message') or ''}",
+            ]
+        )
+        content = str(item.get("content") or "")
+        if content:
+            lines.append("  content:")
+            lines.append(_indent_block(content.rstrip("\n"), spaces=4))
+        else:
+            lines.append("  content: none")
+    return "\n".join(lines)
+
+
+def get_read_files_text(
+    project_root: str | Path = ".",
+    argument: str | list[str] | None = None,
+    max_bytes_per_file: int = 20_000,
+    show_line_numbers: bool = False,
+) -> str:
+    return format_read_files_report_text(
+        get_read_files_report(
+            project_root,
+            argument,
+            max_bytes_per_file=max_bytes_per_file,
+            show_line_numbers=show_line_numbers,
+        )
+    )
+
+
+def get_read_files_report(
+    project_root: str | Path = ".",
+    argument: str | list[str] | None = None,
+    max_bytes_per_file: int = 20_000,
+    show_line_numbers: bool = False,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if max_bytes_per_file < 1_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "files": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerFile": max_bytes_per_file,
+            "showLineNumbers": show_line_numbers,
+            "message": "Usage: /read-files <path...>\nError: max_bytes_per_file must be at least 1000.",
+        }
+    if max_bytes_per_file > 200_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "files": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerFile": max_bytes_per_file,
+            "showLineNumbers": show_line_numbers,
+            "message": "Usage: /read-files <path...>\nError: max_bytes_per_file must be at most 200000.",
+        }
+    try:
+        paths = parse_local_path_args(argument, max_paths=20)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "files": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerFile": max_bytes_per_file,
+            "showLineNumbers": show_line_numbers,
+            "message": f"Usage: /read-files <path...>\nError: {error}",
+        }
+    if not paths:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "files": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerFile": max_bytes_per_file,
+            "showLineNumbers": show_line_numbers,
+            "message": "Usage: /read-files <path...>",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-read-files", session_dir=root / ".vibeagent" / "sessions" / "local-read-files")
+    observation = execute_action(
+        workspace,
+        ReadFilesAction(
+            type="read_files",
+            paths=paths,
+            max_bytes_per_file=max_bytes_per_file,
+            show_line_numbers=show_line_numbers,
+        ),
+    )
+    if observation.kind != "read_files":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "files": {"ok": 0, "total": len(paths), "items": []},
+            "maxBytesPerFile": max_bytes_per_file,
+            "showLineNumbers": show_line_numbers,
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    items = [serialize_read_result(item) for item in observation.files]
+    ok_count = sum(1 for item in items if bool(item["ok"]))
+    return {
+        "projectRoot": str(root),
+        "ok": ok_count == len(items),
+        "files": {"ok": ok_count, "total": len(items), "items": items},
+        "maxBytesPerFile": max_bytes_per_file,
+        "showLineNumbers": show_line_numbers,
+        "message": observation.message,
+    }
+
+
+def format_read_files_report_text(report: dict[str, object]) -> str:
+    message = str(report.get("message") or "")
+    if message.startswith("Usage: "):
+        return message
+    files = report.get("files") if isinstance(report.get("files"), dict) else {}
+    items = files.get("items") if isinstance(files, dict) and isinstance(files.get("items"), list) else []
+    lines = [
+        "Read files:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  files: {files.get('ok', 0)}/{files.get('total', 0)}",
+        f"  maxBytesPerFile: {report.get('maxBytesPerFile', 0)}",
+        f"  showLineNumbers: {'yes' if bool(report.get('showLineNumbers')) else 'no'}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        lines.extend(
+            [
+                "",
+                f"File: {item.get('path')}",
+                f"  ok: {'yes' if bool(item.get('ok')) else 'no'}",
+                f"  totalBytes: {item.get('totalBytes') if item.get('totalBytes') is not None else 'unknown'}",
+                f"  maxBytes: {item.get('maxBytes') if item.get('maxBytes') is not None else 'unknown'}",
+                f"  truncated: {'yes' if bool(item.get('truncated')) else 'no'}",
+                f"  showLineNumbers: {'yes' if bool(item.get('showLineNumbers')) else 'no'}",
+                f"  message: {item.get('message') or ''}",
+            ]
+        )
+        content = str(item.get("content") or "")
+        if content:
+            lines.append("  content:")
+            lines.append(_indent_block(content.rstrip("\n"), spaces=4))
+        else:
+            lines.append("  content: none")
+    return "\n".join(lines)
+
+
+def get_read_ranges_text(
+    project_root: str | Path = ".",
+    argument: str | list[str] | None = None,
+    max_bytes_per_range: int = 20_000,
+) -> str:
+    return format_read_ranges_report_text(
+        get_read_ranges_report(project_root, argument, max_bytes_per_range=max_bytes_per_range)
+    )
+
+
+def get_read_ranges_report(
+    project_root: str | Path = ".",
+    argument: str | list[str] | None = None,
+    max_bytes_per_range: int = 20_000,
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if max_bytes_per_range < 1_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "ranges": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerRange": max_bytes_per_range,
+            "message": "Usage: /read-ranges <path:start[:end]...>\nError: max_bytes_per_range must be at least 1000.",
+        }
+    if max_bytes_per_range > 200_000:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "ranges": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerRange": max_bytes_per_range,
+            "message": "Usage: /read-ranges <path:start[:end]...>\nError: max_bytes_per_range must be at most 200000.",
+        }
+    try:
+        ranges = parse_read_ranges_argument(argument)
+    except ValueError as error:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "ranges": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerRange": max_bytes_per_range,
+            "message": f"Usage: /read-ranges <path:start[:end]...>\nError: {error}",
+        }
+    if not ranges:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "ranges": {"ok": 0, "total": 0, "items": []},
+            "maxBytesPerRange": max_bytes_per_range,
+            "message": "Usage: /read-ranges <path:start[:end]...>",
+        }
+
+    workspace = RunWorkspace(root=root, run_id="local-read-ranges", session_dir=root / ".vibeagent" / "sessions" / "local-read-ranges")
+    observation = execute_action(
+        workspace,
+        ReadFileRangesAction(type="read_file_ranges", ranges=ranges, max_bytes_per_range=max_bytes_per_range),
+    )
+    if observation.kind != "read_file_ranges":
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "ranges": {"ok": 0, "total": len(ranges), "items": []},
+            "maxBytesPerRange": max_bytes_per_range,
+            "message": f"Unexpected observation: {observation.kind}",
+        }
+    items = [serialize_read_range_result(item) for item in observation.ranges]
+    ok_count = sum(1 for item in items if bool(item["ok"]))
+    return {
+        "projectRoot": str(root),
+        "ok": ok_count == len(items),
+        "ranges": {"ok": ok_count, "total": len(items), "items": items},
+        "maxBytesPerRange": max_bytes_per_range,
+        "message": observation.message,
+    }
+
+
+def format_read_ranges_report_text(report: dict[str, object]) -> str:
+    message = str(report.get("message") or "")
+    if message.startswith("Usage: "):
+        return message
+    ranges = report.get("ranges") if isinstance(report.get("ranges"), dict) else {}
+    items = ranges.get("items") if isinstance(ranges, dict) and isinstance(ranges.get("items"), list) else []
+    lines = [
+        "Read ranges:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ranges: {ranges.get('ok', 0)}/{ranges.get('total', 0)}",
+        f"  maxBytesPerRange: {report.get('maxBytesPerRange', 0)}",
+        f"  message: {report.get('message') or ''}",
+    ]
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        lines.extend(
+            [
+                "",
+                f"Range: {item.get('path')}:{item.get('startLine')}:{item.get('endLine')}",
+                f"  ok: {'yes' if bool(item.get('ok')) else 'no'}",
+                f"  lineCount: {item.get('lineCount')}",
+                f"  maxBytes: {item.get('maxBytes') if item.get('maxBytes') is not None else 'unknown'}",
+                f"  truncated: {'yes' if bool(item.get('truncated')) else 'no'}",
+                f"  message: {item.get('message') or ''}",
+            ]
+        )
+        content = str(item.get("content") or "")
+        if content:
+            lines.append("  content:")
+            lines.append(_indent_block(content.rstrip("\n"), spaces=4))
+        else:
+            lines.append("  content: none")
+    return "\n".join(lines)
+
+
+def _indent_block(value: str, spaces: int = 2) -> str:
+    prefix = " " * spaces
+    return "\n".join(f"{prefix}{line}" if line else prefix.rstrip() for line in value.splitlines())

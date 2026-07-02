@@ -111,15 +111,33 @@ With `--json`, one-shot coding results include `status` (`completed`,
 `blocked`, or `failed`), `completionReady`, `completionBlockers`,
 `completionWarnings`, `completionBlockedCount`,
 `latestCompletionBlockers`, `latestCompletionPendingChecks`,
-`latestCompletionFailedChecks`, `verificationChecks`, `pendingVerificationChecks`,
-and `failedVerificationChecks` fields so automation can read the same
-final-review, blocked-attempt, and verification status shown in the text UI.
+`latestCompletionFailedChecks`, `latestCompletionFinalReviewChangedFiles`,
+`changedFiles`, `verificationChecks`, `pendingVerificationChecks`, and
+`failedVerificationChecks` fields so automation can read the same final-review,
+blocked-attempt, changed-file, and verification status shown in the text UI.
 `--json --doctor` keeps the human-readable `text` field and also includes a
 structured `doctor` object with provider metadata, executable availability, cost
 rate status, and command hard-block self-checks without exposing API key values.
+`--json --model` and `--json --config` include structured provider and
+execution-configuration payloads with model/base URL, API-key configured/source
+metadata, project-config status, execution limits, and cost-rate status without
+exposing API key values.
+`--json --save-config` includes a structured `saveConfig` object with the
+project config path, created/existing state, written non-secret keys, and the
+saved non-secret config snapshot.
+`--json --status` and `--json --context` include structured runtime status and
+prompt-context payloads with mode, approval policy, resume state, project
+instructions, command hints, and workspace snapshot text.
+`--json --init [AGENTS.md|CLAUDE.md]` includes a structured `init` object with
+the requested instruction file, resolved path, created/no-op state, existence
+state, and any validation or write error.
 `--json --permissions` likewise includes a structured `permissions` object with
 approval-required tools by category, read-only tools, and command hard-block
 self-checks.
+`--json --tools` and `--json --tool <name>` include structured tool catalog
+payloads with categories, approval-required state, required input fields,
+property metadata, full input schemas for single-tool lookups, and missing-tool
+suggestions.
 `--json --checks` includes a structured `checks` object with shown and total
 suggested verification commands, truncation state, changed files, and the same
 message shown in the text UI.
@@ -136,19 +154,93 @@ state, and shown file records.
 `--json --diff`, `--json --diff-hunks`, and `--json --diff-contexts` include
 structured diff payloads with scope, path, truncation, bounded patch text,
 hunk metadata, and source contexts.
-`--json --git-status`, `--json --git-info`, `--json --branches`,
+`--json --git-status`, `--json --conflicts`, `--json --git-info`, `--json --branches`,
 `--json --log`, `--json --show`, `--json --blame`, and `--json --stashes`
 include structured read-only git payloads with branch, status, commit, bounded
-output, blame, and stash fields instead of requiring callers to parse text.
-`--json --glob`, `--json --tree`, and `--json --symbols` include structured
-project-inspection payloads with matched files, bounded tree entries, source
-imports, symbol outlines, truncation state, and per-file errors.
+output, conflict markers, blame, and stash fields instead of requiring callers
+to parse text.
+`--json --check-git-stage`, `--json --git-stage`,
+`--json --check-git-unstage`, `--json --git-unstage`,
+`--json --check-git-commit`, `--json --git-commit`,
+`--json --check-git-restore`, and `--json --git-restore` include structured
+git mutation/preflight payloads with explicit paths, status text, commit heads,
+bounded restore diffs, and command messages.
+`--json --check-git-stash`, `--json --git-stash`,
+`--json --check-git-stash-apply`, `--json --git-stash-apply`,
+`--json --check-git-stash-drop`, and `--json --git-stash-drop` include
+structured stash mutation/preflight payloads with message text, untracked-file
+mode, stash refs, worktree-clean state, status text, bounded diffs/patches,
+remaining stash counts, and command messages.
+`--json --check-git-fetch`, `--json --git-fetch`, `--json --check-git-pull`,
+`--json --git-pull`, `--json --check-git-push`, `--json --git-push`,
+`--json --check-git-switch`, and `--json --git-switch` include structured
+remote synchronization and branch-switch payloads with remote/upstream names,
+current refs, ahead/behind counts, worktree-clean state, status text, and
+command messages.
+`--json --overview`, `--json --repo-map`, `--json --search`,
+`--json --search-contexts`, `--json --find-files`, `--json --glob`, `--json --tree`, and
+`--json --symbols` include structured project-inspection payloads with project
+orientation metadata, matched file or directory paths, bounded tree entries,
+source imports, symbol outlines, search snippets, truncation state, and
+per-file errors.
+`--json --commands`, `--json --related-tests`, `--json --manifests`,
+`--json --instructions`, and `--json --todos` include structured project
+discovery payloads with command metadata, related-test candidates, manifest
+items, instruction sources/text, TODO markers, scanned-file counts, and
+truncation state.
 `--json --file-info` and `--json --image-info` include structured inspection
 payloads with file type, size, line count, binary state, image format,
 dimensions, and per-path errors.
 `--json --read`, `--json --read-files`, and `--json --read-ranges` include
 structured file-content payloads with paths, requested ranges, bounded content,
 truncation state, and per-file or per-range errors.
+`--json --check-replace-lines`, `--json --replace-lines`,
+`--json --check-insert-lines`, `--json --insert-lines`,
+`--json --check-append`, and `--json --append` include structured line-edit
+payloads with path, affected line positions where applicable, success state,
+message, and diff lines for preflight and applied edits.
+`--json --check-json-set`, `--json --json-set`,
+`--json --check-json-remove`, `--json --json-remove`,
+`--json --check-json-patch`, and `--json --json-patch` include structured JSON
+mutation payloads with path, JSON Pointer, parsed value or operation list,
+success state, message, and diff lines for preflight and applied edits.
+`--json --check-write`, `--json --write`, `--json --check-write-files`,
+`--json --write-files`, `--json --check-edit`, `--json --edit`,
+`--json --check-multi-edit`, `--json --multi-edit`, `--json --check-patch`,
+`--json --patch`, `--json --check-patches`, `--json --patches`,
+`--json --check-regex-replace`, and `--json --regex-replace` include structured
+file mutation payloads with path, file list, or per-file entries, success state,
+message, replacement metadata when relevant, and diff lines when the underlying
+action reports a preview or edit diff.
+`--json --check-delete`, `--json --delete`, `--json --check-delete-files`, and
+`--json --delete-files` include structured delete payloads with path or path
+list entries, success state, message, and deletion diff lines.
+`--json --check-move`, `--json --move`, `--json --check-move-files`,
+`--json --move-files`, `--json --check-copy`, `--json --copy`,
+`--json --check-copy-files`, `--json --copy-files`, directory move flags, and
+directory copy flags include structured transfer payloads with
+source/destination pairs, success state, and messages.
+`--json --check-mkdir`, `--json --mkdir`, `--json --check-mkdirs`,
+`--json --mkdirs`, `--json --check-rmdir`, `--json --rmdir`,
+`--json --check-rmdirs`, `--json --rmdirs`, `--json --check-executable`, and
+`--json --set-executable` include structured directory lifecycle and
+executable-bit payloads with paths, success state, mode data when relevant, and
+messages.
+`--json --python-check`, `--json --python-deps`, `--json --python-defs`,
+`--json --python-refs`, `--json --python-ref-contexts`, `--json --python-calls`,
+`--json --python-call-graph`, Python rename flags, and Python definition
+replacement flags include structured Python code-intelligence and refactoring
+payloads with syntax results, imports, definitions, references, source contexts,
+call sites, call-graph edges, rename replacements, replacement diffs,
+truncation state, and parse errors.
+`--json --config-check` includes structured JSON/YAML/TOML syntax-check
+payloads with path scope, checked-file counts, truncation state, per-file
+format/status/location/message fields, and the overall check message.
+`--json --code-deps`, `--json --code-refs`, `--json --code-ref-contexts`, and
+`--json --code-defs`, plus code rename flags, include structured non-Python
+code-intelligence and refactoring payloads with imports, dependencies,
+definitions, references, source contexts, rename replacements, diffs,
+truncation state, and per-definition errors.
 `--json --tail`, `--json --around`, and `--json --around-many` include
 structured file-context payloads with requested line windows, line counts,
 target-line status, bounded content, truncation state, and per-context errors.
@@ -156,12 +248,29 @@ target-line status, bounded content, truncation state, and per-context errors.
 `--json --python-traceback` include structured diagnostics and source-context
 payloads with extracted references, diagnostic severities, output-line numbers,
 bounded code snippets, truncation state, and per-context errors.
-`--json --check-run-commands` includes structured batch command preflight with
-cwd validity, hard-block state, executable availability, missing tools, and
-per-command messages. `--json --run-command` and `--json --run-commands` include
+`--json --command-check`, `--json --check-run-commands`,
+`--json --check-suggested-checks`, and `--json --check-focused-tests` include
+structured command preflight with cwd validity, hard-block state, executable
+availability, missing tools, and command messages. `--json --focused-tests`
+includes structured focused-test suggestions with target paths, related-test
+totals, command metadata, availability, missing tools, and truncation state.
+`--json --run-command`, `--json --run-commands`,
+`--json --run-suggested-checks`, and `--json --run-focused-tests` include
 structured finite-command payloads with cwd, timeout, stdout/stderr, exit code,
 stop-on-failure state, truncation state, and any auto-extracted diagnostics or
-source contexts.
+source contexts. `--json --check-start-command` includes structured background
+command preflight with cwd validity, hard-block state, executable availability,
+missing tools, and safety messages. `--json --start-command` includes the
+started background process id, pid, cwd, stdout/stderr log paths, and safety
+failure messages. `--json --env` includes structured runtime diagnostics with
+platform, Python executable/version, git-repo state, and tool availability.
+`--json --processes` includes structured background-process list data with
+process ids, pids, commands, cwd, running state, exit codes, signals, and
+normalized status strings.
+`--json --check-stop-process`, `--json --stop-process`,
+`--json --check-stop-all-processes`, and `--json --stop-all-processes` include
+structured cleanup payloads with process ids, pids, status/result strings, exit
+codes, signals, command/cwd metadata when available, and stop messages.
 `--json --process-output-contexts` and `--json --process-output-diagnostics`
 include structured background-process output analysis with process status,
 captured stdout/stderr sizes, extracted references, diagnostic records, bounded
@@ -169,6 +278,12 @@ source snippets, truncation state, and per-context errors.
 `--json --process-output` and `--json --wait-process` include structured
 background-process reads with status, match/timeout state, captured stdout/stderr,
 and any auto-extracted diagnostics or source contexts.
+`--json --check-write-process` and `--json --write-process` include structured
+stdin-write payloads with process ids, pids, running state, command/cwd metadata,
+content length, and write/preflight messages.
+`--json --port-check`, `--json --http-check`, and `--json --http-fetch` include
+structured local-service verification payloads with reachability, status,
+matching state, timeout/body limits, bounded response bodies, and errors.
 `--json --usage` includes a structured `usage` object with session, event,
 approval, status, and token totals plus an explicit cost-unavailable reason.
 `--json --cost` includes a structured `cost` object with usage totals,
@@ -271,13 +386,16 @@ python -m vibeagent --check-focused-tests src/app.py --focused-tests-max-command
 python -m vibeagent --run-focused-tests src/app.py --focused-tests-max-commands 10 --run-timeout-ms 120000 --cwd ../my-project
 python -m vibeagent --manifests --manifests-max-files 30 --manifests-max-items 500 --cwd ../my-project
 python -m vibeagent --command-check "npm test" --command-cwd packages/app --cwd ../my-project
+python -m vibeagent --command "npm test" --command-cwd packages/app --cwd ../my-project
 python -m vibeagent --run-command "npm test" --run-cwd packages/app --run-timeout-ms 120000 --cwd ../my-project
+python -m vibeagent --run "npm test" --run-cwd packages/app --run-timeout-ms 120000 --cwd ../my-project
 python -m vibeagent --run-command "npm test" --run-output-contexts --run-output-context-lines 2 --cwd ../my-project
 python -m vibeagent --run-command "npm test" --run-output-diagnostics --run-output-context-lines 2 --run-output-diagnostic-max 10 --cwd ../my-project
 python -m vibeagent --check-run-commands "npm test" "npm run build" "git diff --check" --cwd ../my-project
 python -m vibeagent --run-commands "npm test" "npm run build" "git diff --check" --run-timeout-ms 120000 --cwd ../my-project
 python -m vibeagent --check-start-command "npm run dev" --start-cwd packages/app --cwd ../my-project
 python -m vibeagent --start-command "npm run dev" --start-cwd packages/app --cwd ../my-project
+python -m vibeagent --start "npm run dev" --start-cwd packages/app --cwd ../my-project
 python -m vibeagent --port-check 5173 --port-host 127.0.0.1 --port-timeout-ms 2000 --cwd ../my-project
 python -m vibeagent --http-check http://127.0.0.1:5173 --http-contains "ready" --http-timeout-ms 2000 --cwd ../my-project
 python -m vibeagent --http-fetch http://127.0.0.1:5173 --http-max-body-chars 4000 --cwd ../my-project
@@ -285,11 +403,13 @@ python -m vibeagent --overview --overview-max-files 100 --overview-max-commands 
 python -m vibeagent --repo-map src --repo-map-max-depth 3 --repo-map-max-files 80 --repo-map-max-symbols 120 --cwd ../my-project
 python -m vibeagent --search "class Agent" --search-path vibeagent --search-max-matches 20 --search-ignore-case --cwd ../my-project
 python -m vibeagent --search-contexts "class Agent" --search-path vibeagent --search-context-lines 2 --search-context-max-bytes 12000 --cwd ../my-project
-python -m vibeagent --glob "tests/test_*.py" --glob-max-matches 20 --cwd ../my-project
+python -m vibeagent --find-files "app" --find-files-path src --find-files-include-dirs --cwd ../my-project
+python -m vibeagent --glob "src*" --glob-include-dirs --glob-max-matches 20 --cwd ../my-project
 python -m vibeagent --tree src --tree-max-depth 2 --tree-max-entries 80 --cwd ../my-project
 python -m vibeagent --symbols src/app.py web/app.ts --symbols-max 120 --cwd ../my-project
 python -m vibeagent --file-info src/app.py asset.bin --cwd ../my-project
 python -m vibeagent --read vibeagent/cli.py --read-lines 90:130 --read-max-bytes 20000 --cwd ../my-project
+python -m vibeagent --read vibeagent/cli.py --read-line-numbers --read-max-bytes 20000 --cwd ../my-project
 python -m vibeagent --around src/app.py 42 --around-lines 8 --around-max-bytes 20000 --cwd ../my-project
 python -m vibeagent --around-many src/app.py:42:8 tests/test_app.py:17:5 --around-many-max-bytes 20000 --cwd ../my-project
 python -m vibeagent --output-contexts "src/app.py:42:8 tests/test_app.py:17" --output-context-lines 3 --output-context-max 10 --output-context-max-bytes 20000 --cwd ../my-project
@@ -300,6 +420,7 @@ python -m vibeagent --session-output-diagnostics --session-output-command-max 10
 python -m vibeagent --tail logs/app.log --tail-lines 80 --tail-max-bytes 20000 --cwd ../my-project
 python -m vibeagent --todos src --todos-max-items 50 --todos-max-files 500 --cwd ../my-project
 python -m vibeagent --read-files src/app.py tests/test_app.py --read-files-max-bytes 20000 --cwd ../my-project
+python -m vibeagent --read-files src/app.py tests/test_app.py --read-files-line-numbers --read-files-max-bytes 20000 --cwd ../my-project
 python -m vibeagent --read-ranges src/app.py:10:40 tests/test_app.py:1:80 --read-ranges-max-bytes 20000 --cwd ../my-project
 python -m vibeagent --python-check src --cwd ../my-project
 python -m vibeagent --python-deps src --cwd ../my-project
@@ -464,9 +585,9 @@ pyproject metadata, `/instructions [--max-files N] [--max-bytes N]` to inspect A
 `/todos [--max-items N] [--max-files N] -- [path]` to inspect TODO, FIXME, HACK, XXX, and BUG markers,
 `/command [--cwd PATH] -- <cmd>` to preflight
 one shell command without running it, `/run [opts] -- <cmd>` to run one finite shell command
-with optional output diagnostics and bounded contexts, `/check-run-seq [--cwd PATH] -- <cmd> ;; <cmd>` to preview a short ordered
-command sequence without running it, `/run-seq [opts] -- <cmd> ;; <cmd>` to run a short
-ordered command sequence with optional output diagnostics, `/check-start [--cwd PATH] -- <cmd>` to preview starting one long-running
+with optional output diagnostics and bounded contexts, `/check-run-commands [--cwd PATH] -- <cmd> ;; <cmd>` to preview a short ordered
+command sequence without running it, `/run-commands [opts] -- <cmd> ;; <cmd>` to run a short
+ordered command sequence with optional output diagnostics (`/check-run-seq` and `/run-seq` remain aliases), `/check-start [--cwd PATH] -- <cmd>` to preview starting one long-running
 shell command, `/start [--cwd PATH] -- <cmd>` to start one long-running shell command in
 the current interactive session, `/port <port> [host] [timeout-ms] [--host HOST] [--timeout-ms N]` to check
 whether a local TCP port is reachable, `/http <url> [contains] [--timeout-ms N] [--max-body-chars N] [--contains TEXT] [--regex]` to check HTTP(S)
@@ -475,7 +596,8 @@ response metadata and body text, `/overview [--max-files N] [--max-commands N] [
 orientation bundle, `/repo-map [path] [--max-depth N] [--max-files N] [--max-symbols N]` to inspect a bounded repository tree and
 source symbol map, `/search [--path PATH] [--max-matches N] [--regex] [--ignore-case] [--context-lines N] -- <query>` to search project text with gitignore and
 safety filtering, `/search-contexts [--path PATH] [--max-matches N] [--regex] [--ignore-case] [--context-lines N] [--max-bytes N] -- <query>` to search with structured surrounding
-source snippets, `/glob [--max-matches N] -- <pattern>` to find project files by path pattern,
+source snippets, `/find-files [--path PATH] [--max-matches N] [--regex] [--case-sensitive] [--include-dirs] -- <query>` to find project files by path fragment,
+`/glob [--max-matches N] [--include-dirs] -- <pattern>` to find project files or directories by path pattern,
 `/tree [path] [--max-depth N] [--max-entries N]` to inspect a bounded project directory tree,
 `/symbols [--max-symbols N] -- <path...>` to inspect imports and symbol outlines for source files,
 `/file-info <path...>` to inspect file, directory, size, binary, and line metadata,
@@ -489,7 +611,7 @@ source snippets, `/glob [--max-matches N] -- <pattern>` to find project files by
 `/session-output-contexts [run-id] [--max-commands N] [--max-output-chars N] [--context-lines N] [--max-contexts N] [--max-bytes N]` to extract file:line contexts from session command output,
 `/session-output-diagnostics [run-id] [--max-commands N] [--max-output-chars N] [--context-lines N] [--max-diagnostics N] [--max-contexts N] [--max-bytes N]` to summarize errors, warnings, failures, and referenced contexts from session command output,
 `/tail [--max-bytes N] -- <path> [lines]` to read the last lines of one project file,
-`/read-files [--max-bytes N] -- <path...>` to read multiple project files in one command,
+`/read-files [--max-bytes N] [--line-numbers] -- <path...>` to read multiple project files in one command,
 `/read-ranges [--max-bytes N] -- <path:start[:end]...>` to read multiple focused line ranges,
 `/python-check [path]` to check Python syntax,
 `/python-deps [path]` to inspect Python imports and dependencies,
@@ -653,7 +775,7 @@ cd my-project
 python -m vibeagent
 ```
 
-VibeAgent may read and search `my-project` directly, including bounded repository maps with source outlines, directory tree inspection, path globbing,
+VibeAgent may read and search `my-project` directly, including bounded repository maps with source outlines, directory tree inspection, path-fragment file finding, path globbing,
 file metadata inspection, Python symbol outlines, generic code outlines for common source languages, Python syntax checks, JSON/TOML config syntax checks, Python dependency inspection, generic source import/include inspection, generic source reference lookup, generic source definition excerpts, lexical non-Python source rename previews, Python definition excerpts, Python call-site lookup, Python call graph inspection, Python reference lookup, AST-guided Python rename previews, bounded full-file reads with truncation metadata, focused single or batched line-range reads for large files, scoped exact or regex search with total/truncation metadata, structured search contexts for matching source snippets, dry-run regex replacement previews, structured JSON value update/removal and JSON Patch previews, and dry-run patch validation. It can create or replace one or several text files, apply lexical non-Python source renames, apply AST-guided Python identifier renames after syntax validation, replace a unique Python class/function definition after syntax validation, replace exact text blocks, apply bounded regex replacements, update or remove one JSON value by JSON Pointer, apply multiple JSON add/replace/remove operations atomically, replace focused line ranges, insert text at a known line, append exact text to an existing file, or apply
 single-file or multi-file unified diff hunks to existing files, and can safely
 copy, move or delete one or several explicit files, adjust executable bits on individual files, create directories, copy directories, move directories, or delete empty directories. It can also inspect git branch/upstream state, list local branches and stashes, `git status`, merge/rebase conflict state, structured changed-file summaries, pre-final review results with suggested checks, raw and structured `git diff` hunks, source context around diff hunks, bounded untracked text-file previews, line-level `git blame`, fetch and fast-forward pull upstream state with approval, push current-branch commits to upstream with approval, switch or create local branches from a clean worktree with approval, stage or unstage explicit project paths, discard unstaged tracked-file changes with approval, save non-runtime changes to git stash with approval, apply stash entries to a clean worktree with approval, drop explicit stash entries with approval, and create local commits from staged changes with approval
@@ -666,8 +788,11 @@ processes, inspected through captured stdout/stderr tails across CLI calls, sent
 through local TCP and HTTP readiness probes, and stopped individually or all at once. In the CLI, edits, patches, writes, file lifecycle changes, and
 command starts/runs ask for approval before execution; when a matching read-only
 preview was run first, the approval prompt and session event include a short
-preview summary without embedding full file content. Session logs are stored
-under `.vibeagent/sessions/<session-id>/events.jsonl`.
+  preview summary without embedding full file content. Session logs are stored
+  under `.vibeagent/sessions/<session-id>/events.jsonl`; workspace creation and
+  historical session readers refuse symlink `.vibeagent`, `.vibeagent/sessions`,
+  session directories, or `events.jsonl` files so runtime logs are not written
+  outside the project or read back through symlink roots.
 For multi-step coding tasks, the model can also maintain a compact task plan;
 the latest plan is captured in the run result, session log, `/session` and
 `/last` summaries, and `/resume` context. If a successful run finishes while
@@ -684,8 +809,10 @@ run completes after project-changing tools without a `final_review`, VibeAgent
 automatically records a read-only `final_review`; if that review is not ready,
 or if its suggested checks were not run after the latest project change, the
 agent feeds those completion blockers back to the model and continues while
-iteration budget remains. If the budget is exhausted, the final result and
-session summary include a completion warning. Session summaries and audits also
+iteration budget remains. Running background processes reported by the latest
+`final_review` also block completion until they are stopped or no longer
+running. If the budget is exhausted, the final result and session summary
+include the blocker and warning. Session summaries and audits also
 report how many attempted completions were blocked and the latest blocker list.
 Successful
 suggested checks run after the latest project change are also recorded as
@@ -705,6 +832,10 @@ context explicitly. Both one-shot forms accept `--resume-max-failures`,
 user instruction. When no run id is supplied, these recovery commands skip
 `local-*` sessions created by read-only CLI utilities. `/resume off` or `/clear`
 clears it before a fresh task.
+Tool result payloads sent back to the model and persisted session events redact
+common API keys, tokens, passwords, bearer values, and secret query parameters.
+Session summaries, handoffs, resumes, transcripts, and command-output tails apply
+the same redaction when reading historical events.
 `/transcript [run-id] [--max-events N] [--max-text N]` shows a bounded event
 timeline for diagnosing what happened in a previous run, and
 `/session-search [--run run-id] [--max-matches N] [--case-sensitive] [--max-text N] <query>`
@@ -785,7 +916,7 @@ CLI input
 Core modules:
 
 - `vibeagent/cli.py`: interactive command-line entry point. It handles local
-commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/permissions`, `/checks`, `/check-suggested-checks`, `/run-suggested-checks`, `/commands`, `/related-tests`, `/focused-tests`, `/check-focused-tests`, `/run-focused-tests`, `/manifests`, `/instructions`, `/todos`, `/command`, `/run`, `/check-run-seq`, `/run-seq`, `/check-start`, `/start`, `/port`, `/http`, `/http-fetch`, `/overview`, `/repo-map`, `/search`, `/search-contexts`, `/glob`, `/tree`, `/symbols`, `/file-info`, `/image-info`, `/read`, `/around`, `/around-many`, `/output-contexts`, `/output-diagnostics`, `/python-traceback`, `/tail`, `/read-files`, `/read-ranges`, `/python-check`, `/python-deps`, `/python-defs`, `/python-refs`, `/python-ref-contexts`, `/python-calls`, `/python-call-graph`, `/python-rename-preview`, `/python-rename`, `/check-replace-python-def`, `/replace-python-def`, `/config-check`, `/check-json-set`, `/json-set`, `/check-json-remove`, `/json-remove`, `/check-json-patch`, `/json-patch`, `/check-replace-lines`, `/replace-lines`, `/check-insert-lines`, `/insert-lines`, `/check-append`, `/append`, `/check-write`, `/write`, `/check-write-files`, `/write-files`, `/check-edit`, `/edit`, `/check-multi-edit`, `/multi-edit`, `/check-delete`, `/delete`, `/check-delete-files`, `/delete-files`, `/check-move`, `/move`, `/check-move-files`, `/move-files`, `/check-copy`, `/copy`, `/check-copy-files`, `/copy-files`, `/check-move-dir`, `/move-dir`, `/check-move-dirs`, `/move-dirs`, `/check-copy-dir`, `/copy-dir`, `/check-copy-dirs`, `/copy-dirs`, `/check-mkdir`, `/mkdir`, `/check-mkdirs`, `/mkdirs`, `/check-rmdir`, `/rmdir`, `/check-rmdirs`, `/check-executable`, `/set-executable`, `/check-patch`, `/patch`, `/check-patches`, `/patches`, `/check-regex-replace`, `/regex-replace`, `/code-deps`, `/code-refs`, `/code-ref-contexts`, `/code-defs`, `/code-rename-preview`, `/code-rename`, `/git-status`, `/conflicts`, `/git-info`, `/branches`, `/log`, `/show`, `/blame`, `/stashes`, `/check-fetch`, `/fetch`, `/check-pull`, `/pull`, `/check-push`, `/push`, `/check-stash`, `/stash`, `/check-stash-apply`, `/stash-apply`, `/check-stash-drop`, `/stash-drop`, `/check-stage`, `/stage`, `/check-unstage`, `/unstage`, `/check-commit`, `/commit`, `/check-restore`, `/restore`, `/check-switch`, `/switch`, `/env`, `/processes`, `/process`, `/process-output-contexts`, `/process-output-diagnostics`, `/wait-process`, `/check-write-process`, `/write-process`, `/check-stop-process`, `/stop-process`, `/check-stop-processes`, `/check-stop-all-processes`, `/stop-processes`, `/stop-all-processes`, `/status`, `/context`, `/init`, `/doctor`, `/review`, `/handoff`, `/changes`, `/diff`, `/diff-hunks`, `/diff-contexts`, `/clear`, `/usage`, `/cost`, `/approval`, `/plan`, `/transcript`, `/session-search`, `/session-commands`, `/session-output-contexts`, `/session-output-diagnostics`, `/session-files`, `/session-failures`, `/session-verification`, `/session-audit`, `/session-handoff`, `/checkpoint`, `/checkpoints`, `/checkpoint-show`, `/checkpoint-diff`, `/checkpoint-status`, `/check-checkpoint-restore`, `/checkpoint-restore`, `/check-checkpoint-delete`, `/checkpoint-delete`, `/check-checkpoint-prune`, `/checkpoint-prune`, `/resume`,
+commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/permissions`, `/checks`, `/check-suggested-checks`, `/run-suggested-checks`, `/commands`, `/related-tests`, `/focused-tests`, `/check-focused-tests`, `/run-focused-tests`, `/manifests`, `/instructions`, `/todos`, `/command`, `/run`, `/check-run-seq`, `/run-seq`, `/check-start`, `/start`, `/port`, `/http`, `/http-fetch`, `/overview`, `/repo-map`, `/search`, `/search-contexts`, `/find-files`, `/glob`, `/tree`, `/symbols`, `/file-info`, `/image-info`, `/read`, `/around`, `/around-many`, `/output-contexts`, `/output-diagnostics`, `/python-traceback`, `/tail`, `/read-files`, `/read-ranges`, `/python-check`, `/python-deps`, `/python-defs`, `/python-refs`, `/python-ref-contexts`, `/python-calls`, `/python-call-graph`, `/python-rename-preview`, `/python-rename`, `/check-replace-python-def`, `/replace-python-def`, `/config-check`, `/check-json-set`, `/json-set`, `/check-json-remove`, `/json-remove`, `/check-json-patch`, `/json-patch`, `/check-replace-lines`, `/replace-lines`, `/check-insert-lines`, `/insert-lines`, `/check-append`, `/append`, `/check-write`, `/write`, `/check-write-files`, `/write-files`, `/check-edit`, `/edit`, `/check-multi-edit`, `/multi-edit`, `/check-delete`, `/delete`, `/check-delete-files`, `/delete-files`, `/check-move`, `/move`, `/check-move-files`, `/move-files`, `/check-copy`, `/copy`, `/check-copy-files`, `/copy-files`, `/check-move-dir`, `/move-dir`, `/check-move-dirs`, `/move-dirs`, `/check-copy-dir`, `/copy-dir`, `/check-copy-dirs`, `/copy-dirs`, `/check-mkdir`, `/mkdir`, `/check-mkdirs`, `/mkdirs`, `/check-rmdir`, `/rmdir`, `/check-rmdirs`, `/check-executable`, `/set-executable`, `/check-patch`, `/patch`, `/check-patches`, `/patches`, `/check-regex-replace`, `/regex-replace`, `/code-deps`, `/code-refs`, `/code-ref-contexts`, `/code-defs`, `/code-rename-preview`, `/code-rename`, `/git-status`, `/conflicts`, `/git-info`, `/branches`, `/log`, `/show`, `/blame`, `/stashes`, `/check-fetch`, `/fetch`, `/check-pull`, `/pull`, `/check-push`, `/push`, `/check-stash`, `/stash`, `/check-stash-apply`, `/stash-apply`, `/check-stash-drop`, `/stash-drop`, `/check-stage`, `/stage`, `/check-unstage`, `/unstage`, `/check-commit`, `/commit`, `/check-restore`, `/restore`, `/check-switch`, `/switch`, `/env`, `/processes`, `/process`, `/process-output-contexts`, `/process-output-diagnostics`, `/wait-process`, `/check-write-process`, `/write-process`, `/check-stop-process`, `/stop-process`, `/check-stop-processes`, `/check-stop-all-processes`, `/stop-processes`, `/stop-all-processes`, `/status`, `/context`, `/init`, `/doctor`, `/review`, `/handoff`, `/changes`, `/diff`, `/diff-hunks`, `/diff-contexts`, `/clear`, `/usage`, `/cost`, `/approval`, `/plan`, `/transcript`, `/session-search`, `/session-commands`, `/session-output-contexts`, `/session-output-diagnostics`, `/session-files`, `/session-failures`, `/session-verification`, `/session-audit`, `/session-handoff`, `/checkpoint`, `/checkpoints`, `/checkpoint-show`, `/checkpoint-diff`, `/checkpoint-status`, `/check-checkpoint-restore`, `/checkpoint-restore`, `/check-checkpoint-delete`, `/checkpoint-delete`, `/check-checkpoint-prune`, `/checkpoint-prune`, `/resume`,
   `/compact`, `/chat`, `/code`, and
   `/exit`, then delegates input to the selected mode.
 - `vibeagent/agent.py`: orchestrates the ReAct loop. It creates a run
@@ -819,14 +950,14 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/permissions`
   chat completions APIs. It maps generic tool blocks to `tool_calls` and `role: tool` messages.
 - `vibeagent/actions.py`: defines the coding tools, validates tool inputs into
   typed actions, and executes them. Supported actions include `list_files`,
-  `list_tree`, `repo_map`, line-range `read_file`, line-centered `read_file_context`, batch line-centered `read_file_contexts`, output-derived `output_contexts`, diagnostic `output_diagnostics`, Python-focused `python_traceback`, tail-focused `tail_file`, batch `read_files`, batch line-range `read_file_ranges`, `file_info`, `image_info`, `python_symbols`, `code_outline`, `python_check`, `config_check`, `check_json_set`, `json_set`, `check_json_remove`, `json_remove`, `check_json_patch`, `json_patch`, `python_dependencies`, `code_dependencies`, `code_references`, `code_reference_contexts`, `code_definitions`, `code_rename_preview`, `code_rename`, `python_definitions`, `python_calls`, `python_call_graph`, `python_references`, `python_reference_contexts`, `python_rename_preview`, `python_rename`, path-pattern `glob`, scoped/regex/context `search`, `git_info`, `git_status`, `git_conflicts`, `git_changes`, `git_branches`, `git_stashes`, `check_git_fetch`, `git_fetch`, `check_git_pull`, `git_pull`, `check_git_push`, `git_push`, `check_git_restore`, `git_restore`, `check_git_stash`, `git_stash`, `check_git_stash_apply`, `git_stash_apply`, `check_git_stash_drop`, `git_stash_drop`, `check_git_switch`, `git_switch`, `check_git_stage`, `git_stage`, `check_git_unstage`, `git_unstage`, `check_git_commit`, `git_commit`, `review_changes`, `final_review`, `suggest_checks`, `check_suggested_checks`, `run_suggested_checks`, `project_commands`, `related_tests`, `focused_test_commands`, `project_manifests`, `project_instructions`, `project_todos`, `project_overview`, `command_check`, `check_run_commands`, `run_commands`, `port_check`, `http_check`, `http_fetch`, `environment_info`, `git_diff`, `git_diff_hunks`, `git_diff_contexts`, `git_log`, `git_show`, `git_blame`, `session_summary`, `session_plan`, `session_transcript`, `session_search`, `session_commands`, `session_output_contexts`, `session_output_diagnostics`, `session_files`, `session_failures`, `session_verification`, `session_audit`, `session_handoff`, `check_edit_file`, `edit_file`,
+  `list_tree`, `repo_map`, line-range `read_file`, line-centered `read_file_context`, batch line-centered `read_file_contexts`, output-derived `output_contexts`, diagnostic `output_diagnostics`, Python-focused `python_traceback`, tail-focused `tail_file`, batch `read_files`, batch line-range `read_file_ranges`, `file_info`, `image_info`, `python_symbols`, `code_outline`, `python_check`, `config_check`, `check_json_set`, `json_set`, `check_json_remove`, `json_remove`, `check_json_patch`, `json_patch`, `python_dependencies`, `code_dependencies`, `code_references`, `code_reference_contexts`, `code_definitions`, `code_rename_preview`, `code_rename`, `python_definitions`, `python_calls`, `python_call_graph`, `python_references`, `python_reference_contexts`, `python_rename_preview`, `python_rename`, path-fragment `find_files`, path-pattern `glob`, scoped/regex/context `search`, `git_info`, `git_status`, `git_conflicts`, `git_changes`, `git_branches`, `git_stashes`, `check_git_fetch`, `git_fetch`, `check_git_pull`, `git_pull`, `check_git_push`, `git_push`, `check_git_restore`, `git_restore`, `check_git_stash`, `git_stash`, `check_git_stash_apply`, `git_stash_apply`, `check_git_stash_drop`, `git_stash_drop`, `check_git_switch`, `git_switch`, `check_git_stage`, `git_stage`, `check_git_unstage`, `git_unstage`, `check_git_commit`, `git_commit`, `review_changes`, `final_review`, `suggest_checks`, `check_suggested_checks`, `run_suggested_checks`, `project_commands`, `related_tests`, `focused_test_commands`, `project_manifests`, `project_instructions`, `project_todos`, `project_overview`, `command_check`, `check_run_commands`, `run_commands`, `port_check`, `http_check`, `http_fetch`, `environment_info`, `git_diff`, `git_diff_hunks`, `git_diff_contexts`, `git_log`, `git_show`, `git_blame`, `session_summary`, `session_plan`, `session_transcript`, `session_search`, `session_commands`, `session_output_contexts`, `session_output_diagnostics`, `session_files`, `session_failures`, `session_verification`, `session_audit`, `session_handoff`, `check_edit_file`, `edit_file`,
   `checkpoint_create`, `checkpoint_list`, `checkpoint_show`, `checkpoint_diff`, `checkpoint_status`, `check_checkpoint_restore`, `checkpoint_restore`, `check_checkpoint_delete`, `checkpoint_delete`, `check_checkpoint_prune`, `checkpoint_prune`, `check_multi_edit_file`, `multi_edit_file`, `check_replace_python_definition`, `replace_python_definition`, `check_replace_lines`, `check_insert_lines`, `check_append_file`, `check_regex_replace`, `regex_replace`, `replace_lines`, `insert_lines`, `append_file`, `check_patch`, `check_patches`, `patch_file`, `patch_files`, `check_write_file`, `write_file`, `check_write_files`, `write_files`, `check_delete_file`, `delete_file`, `check_delete_files`, `delete_files`, `check_move_file`, `move_file`, `check_move_files`, `move_files`, `check_copy_file`, `copy_file`, `check_copy_files`, `copy_files`, `check_move_dir`, `move_dir`, `check_move_dirs`, `move_dirs`, `check_copy_dir`, `copy_dir`, `check_copy_dirs`, `copy_dirs`, `check_create_dir`, `create_dir`, `check_create_dirs`, `create_dirs`, `check_delete_empty_dir`, `delete_empty_dir`, `check_delete_empty_dirs`, `delete_empty_dirs`, `check_set_executable`, `set_executable`,
   `run_command`, `check_start_command`, `start_command`, `list_processes`, `read_process`, `process_output_contexts`, `process_output_diagnostics`, `wait_process`, `check_write_process`, `write_process`,
   `check_stop_all_processes`, `check_stop_process`, `stop_all_processes`, `stop_process`, `update_plan`, and `finish`.
 - `vibeagent/workspace.py`: treats the current directory as the project root,
   creates `.vibeagent/sessions/<session-id>/`, resolves relative file paths,
-  rejects path escapes, protects `.git/` and `.vibeagent/`, and builds project
-  file snapshots for prompts.
+  rejects path escapes, protects `.git/` and `.vibeagent/`, rejects symlink
+  runtime session roots, and builds project file snapshots for prompts.
 - `vibeagent/types.py`: shared dataclasses and protocols for chat messages,
   actions, command results, observations, and agent status.
 
@@ -927,7 +1058,20 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   checks, and runtime tool availability.
 - `final_review` is a read-only handoff bundle for non-trivial code changes:
   blocking issues, warnings, running background processes, changed files, and
-  suggested verification commands.
+  suggested verification commands. It blocks incomplete changed-file reviews,
+  incomplete Python or config syntax checks, unresolved merge conflicts,
+  incomplete or failed merge-conflict scans, and changed files larger than
+  100 MiB before the agent reports completion. It
+  also blocks high-confidence secret-like values in changed files, files changed
+  by the current session even when git ignores them, or added diff lines without
+  echoing the matched secret text, incomplete secret-like value scans, nested git
+  repositories left inside the project tree, changed git
+  submodule links, tracked changes hidden by project safety filters, changed
+  symlinks pointing outside the project or into protected or ignored project
+  paths, in-progress git operations such as merge, rebase, cherry-pick, or
+  revert, and incomplete safety scans for secret-like diff additions, git
+  submodule links, hidden tracked changes, changed symlinks, or git operation
+  state, and suggested verification checks whose executables are missing.
 - `checkpoint_create` writes checkpoint metadata, patch snapshots, and ordinary
   saved untracked files under `.vibeagent/checkpoints/`; model tools can list
   checkpoints, inspect metadata and saved patch text, compare current status,
@@ -935,16 +1079,21 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   plus saved untracked file contents after approval when compatibility checks
   pass. Runs also create one best-effort checkpoint automatically before the
   first approved project-changing tool when the workspace has a git HEAD.
-  Restore refuses checkpoints whose untracked files were not fully saved
-  and refuses worktrees with extra current untracked files. `check_checkpoint_delete`
-  previews whether one saved checkpoint snapshot can be removed; `checkpoint_delete`
-  can remove it after approval, and
-  `checkpoint_prune` can remove older checkpoint snapshots after previewing with
-  `check_checkpoint_prune`.
+  Restore refuses checkpoints whose untracked files were not fully saved,
+  refuses worktrees with extra current untracked files, and checkpoint
+  untracked-file save, status comparison, and restore refuse symlink paths or
+  parents. Checkpoint patch and untracked-manifest reads ignore symlink files.
+  Checkpoint create/list/read/delete/prune refuse a symlink `.vibeagent` or
+  `.vibeagent/checkpoints` root. Checkpoint listing, delete, and prune only
+  accept regular checkpoint directories whose metadata id matches the directory
+  name; symlink checkpoints are ignored or refused. `check_checkpoint_delete`
+  previews whether one saved checkpoint snapshot can be removed;
+  `checkpoint_delete` can remove it after approval, and `checkpoint_prune` can
+  remove older checkpoint snapshots after previewing with `check_checkpoint_prune`.
 - `session_summary`, `session_plan`, `session_transcript`, `session_search`, `session_commands`, `session_output_contexts`, `session_output_diagnostics`, `session_files`, `session_failures`, `session_verification`, `session_audit`, and `session_handoff` let the model
   inspect compact session state, the latest task checklist, a safe event
   timeline, targeted timeline matches, bounded command output tails, command-output file:line contexts, command-output diagnostics, referenced path summaries, verification status, checkpoint recovery points, finish-readiness blockers, failure summaries, and compact recovery handoff bundles without exposing complete tool payloads.
-- `file_info`, `image_info`, `read_file_context`, `read_file_contexts`, `output_contexts`, `output_diagnostics`, `python_traceback`, `tail_file`, `python_dependencies`, `code_dependencies`, `code_references`, `code_reference_contexts`, `code_definitions`, `code_rename_preview`, `python_references`, `python_reference_contexts`, `session_summary`, `session_plan`, `session_transcript`, `session_search`, `session_commands`, `session_output_contexts`, `session_output_diagnostics`, `session_files`, `session_failures`, `session_verification`, `session_audit`, `session_handoff`, `checkpoint_list`, `checkpoint_show`, `checkpoint_diff`, `checkpoint_status`, `check_checkpoint_restore`, `check_checkpoint_delete`, `check_checkpoint_prune`, `check_write_file`, `check_write_files`, `check_edit_file`, `check_multi_edit_file`, `check_replace_python_definition`, `check_replace_lines`, `check_insert_lines`, `check_append_file`, `check_delete_file`, `check_delete_files`, `check_move_file`, `check_move_files`, `check_copy_file`, `check_copy_files`, `check_move_dir`, `check_move_dirs`, `check_copy_dir`, `check_copy_dirs`, `check_create_dir`, `check_create_dirs`, `check_delete_empty_dir`, `check_delete_empty_dirs`, `check_set_executable`, `check_git_fetch`, `check_git_pull`, `check_git_push`, `check_git_restore`, `check_git_stash`, `check_git_stash_apply`, `check_git_stash_drop`, `check_git_switch`, `check_git_stage`, `check_git_unstage`, `check_git_commit`, `check_regex_replace`, `check_json_set`, `check_json_remove`, `check_json_patch`, `git_info`, `git_status`, `git_conflicts`, `git_changes`, `git_branches`, `git_stashes`, `review_changes`, `final_review`, `suggest_checks`, `check_suggested_checks`, `project_commands`, `related_tests`, `focused_test_commands`, `project_manifests`, `project_instructions`, `project_todos`, `project_overview`, `command_check`, `check_run_commands`, `port_check`, `http_check`, `http_fetch`, `check_start_command`, `process_output_contexts`, `process_output_diagnostics`, `wait_process`, `check_write_process`, `check_stop_all_processes`, `check_stop_process`, `environment_info`,
+- `file_info`, `image_info`, `read_file_context`, `read_file_contexts`, `output_contexts`, `output_diagnostics`, `python_traceback`, `tail_file`, `python_dependencies`, `code_dependencies`, `code_references`, `code_reference_contexts`, `code_definitions`, `code_rename_preview`, `python_references`, `python_reference_contexts`, `find_files`, `session_summary`, `session_plan`, `session_transcript`, `session_search`, `session_commands`, `session_output_contexts`, `session_output_diagnostics`, `session_files`, `session_failures`, `session_verification`, `session_audit`, `session_handoff`, `checkpoint_list`, `checkpoint_show`, `checkpoint_diff`, `checkpoint_status`, `check_checkpoint_restore`, `check_checkpoint_delete`, `check_checkpoint_prune`, `check_write_file`, `check_write_files`, `check_edit_file`, `check_multi_edit_file`, `check_replace_python_definition`, `check_replace_lines`, `check_insert_lines`, `check_append_file`, `check_delete_file`, `check_delete_files`, `check_move_file`, `check_move_files`, `check_copy_file`, `check_copy_files`, `check_move_dir`, `check_move_dirs`, `check_copy_dir`, `check_copy_dirs`, `check_create_dir`, `check_create_dirs`, `check_delete_empty_dir`, `check_delete_empty_dirs`, `check_set_executable`, `check_git_fetch`, `check_git_pull`, `check_git_push`, `check_git_restore`, `check_git_stash`, `check_git_stash_apply`, `check_git_stash_drop`, `check_git_switch`, `check_git_stage`, `check_git_unstage`, `check_git_commit`, `check_regex_replace`, `check_json_set`, `check_json_remove`, `check_json_patch`, `git_info`, `git_status`, `git_conflicts`, `git_changes`, `git_branches`, `git_stashes`, `review_changes`, `final_review`, `suggest_checks`, `check_suggested_checks`, `project_commands`, `related_tests`, `focused_test_commands`, `project_manifests`, `project_instructions`, `project_todos`, `project_overview`, `command_check`, `check_run_commands`, `port_check`, `http_check`, `http_fetch`, `check_start_command`, `process_output_contexts`, `process_output_diagnostics`, `wait_process`, `check_write_process`, `check_stop_all_processes`, `check_stop_process`, `environment_info`,
   `git_diff`, `git_diff_hunks`, `git_diff_contexts`, `git_log`, `git_show`, and `git_blame` are read-only and do not require approval.
   `suggest_checks` marks each suggested command with whether its main executable is available on `PATH`; the local `/checks` command and `--checks` flag expose suggested-check bounds;
   `check_suggested_checks` preflights those discovered checks without running them, and `run_suggested_checks` runs available discovered checks after approval;
@@ -1011,11 +1160,43 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   prints `Interrupted.` instead of a traceback; one-shot and local-command
   invocations exit with status 130, while the interactive prompt returns to the
   next input.
-- Some obviously dangerous or disruptive commands, such as `sudo`, broad
-  `rm -rf` targets, raw device writes, network script pipes like
-  `curl ... | bash`, GUI file openers like `xdg-open .` or `explorer.exe .`,
-  and GUI app launchers like `code .` or `firefox ...`, are blocked. They stay
-  blocked even if a caller approves command execution.
+- Some obviously dangerous or disruptive commands, such as `sudo`, `sudoedit`,
+  `doas`, `pkexec`, or `reboot` even through path-qualified or wrapped forms
+  like `/usr/bin/sudo reboot` and `env sudo reboot`, broad `rm -rf` targets including path-qualified forms like
+  `/bin/rm -rf /`, raw device writes, network script pipes like
+  `curl ... | bash` or `/usr/bin/curl ... | /bin/bash`, forced
+  untracked-directory cleanup like `git clean -ffdx`,
+  destructive storage or partition changes like `wipefs -a /dev/sda` or
+  `parted /dev/sda mklabel gpt`,
+  destructive container or cluster changes like `docker system prune -af`,
+  `kubectl delete pod app`, or `helm uninstall release`,
+  system mount/swap changes like `mount /dev/sda1 /mnt` or `swapon /swapfile`,
+  kernel module or kernel-parameter changes like `modprobe overlay` or
+  `sysctl -w net.ipv4.ip_forward=1`,
+  service state changes like `systemctl restart ssh` or `service nginx reload`,
+  broad process termination like `pkill -f node` or `kill -9 -1`,
+  network or firewall state changes like `ip link set eth0 down` or `iptables -F`,
+  PowerShell network execution like `pwsh iwr ... | iex` or
+  `/usr/bin/pwsh iwr ... | iex`,
+  recursive permission or ownership changes of broad paths like
+  `chmod -R 777 /`, GUI file openers like `xdg-open .`, `open -a Finder .`, or
+  `explorer.exe .`, GUI app launchers like `code .` or `firefox ...`, and common
+  indirect launch forms through `cmd.exe`, `start`, `rundll32
+  url.dll,FileProtocolHandler`, PowerShell, `python -m webbrowser`,
+  `webbrowser.open`, `webbrowser.get().open`, `os.startfile`, `os.system`,
+  `os.popen`, `os.spawn*`, `os.exec*`, `os.posix_spawn*`,
+  `subprocess.getoutput`, `asyncio.create_subprocess_*`, `pty.spawn`,
+  `getattr(..., launcher)`, `importlib.import_module(...).<launcher>`,
+  `builtins.__import__(...).<launcher>`, `eval`/`exec` string literals that
+  contain blocked Python operations, `eval`/`exec` aliases and literal
+  `compile(...)` payloads, obvious `python -c` subprocess GUI opener calls, or
+  obvious `node -e` / `node -p` CommonJS, static ESM, or dynamic `import(...)`
+  literal launcher calls through `child_process`, `shelljs`, or `execa`, are
+  blocked.
+  They stay blocked even if a caller approves command execution.
+- Project mutation tools reject paths that are themselves symbolic links or that
+  pass through symbolic-link parent directories, so a model cannot write, patch,
+  move, copy, delete, chmod, or create files through an alternate link target.
 - Commands time out after 30 seconds by default.
 - V1 is a local development prototype, not a strong OS sandbox. It does not try
   to block every dangerous shell command.

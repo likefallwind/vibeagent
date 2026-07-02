@@ -1,0 +1,197 @@
+from __future__ import annotations
+
+import argparse
+from collections.abc import Sequence
+from pathlib import Path
+import sys
+
+from .agent import run_agent
+from .chat import run_chat
+from .cli_config import build_provider_env, resolve_project_root
+from .cli_output import (
+    build_approval_handler,
+    format_error,
+    print_agent_result,
+    print_error_result,
+    print_interrupted_result,
+    print_output,
+)
+from .commands import get_compact_context, get_resume_context
+from .config import resolve_execution_config
+from .providers import create_chat_client
+from .types import ApprovalPolicy
+
+
+def resolve_task_text(parts: Sequence[str]) -> str:
+    if len(parts) == 1 and parts[0] == "-":
+        return sys.stdin.read().strip()
+    return " ".join(parts)
+
+
+def build_context_limit_kwargs(
+    max_failures: int | None = None,
+    max_files: int | None = None,
+    max_commands: int | None = None,
+    max_checks: int | None = None,
+    max_output_chars: int | None = None,
+    max_text: int | None = None,
+) -> dict[str, int]:
+    values = {
+        "max_failures": max_failures,
+        "max_files": max_files,
+        "max_commands": max_commands,
+        "max_checks": max_checks,
+        "max_output_chars": max_output_chars,
+        "max_text": max_text,
+    }
+    return {key: value for key, value in values.items() if value is not None}
+
+
+def run_one_shot(
+    task: str,
+    request_mode: str,
+    approval_policy: ApprovalPolicy,
+    resume_arg: str | None = None,
+    compact_arg: str | None = None,
+    resume_max_failures: int | None = None,
+    resume_max_files: int | None = None,
+    resume_max_commands: int | None = None,
+    resume_max_checks: int | None = None,
+    resume_max_output_chars: int | None = None,
+    resume_max_text: int | None = None,
+    compact_max_failures: int | None = None,
+    compact_max_files: int | None = None,
+    compact_max_commands: int | None = None,
+    compact_max_checks: int | None = None,
+    compact_max_output_chars: int | None = None,
+    compact_max_text: int | None = None,
+    base_dir: str | None = None,
+    max_iterations: int | None = None,
+    command_timeout_ms: int | None = None,
+    max_output_tokens: int | None = None,
+    model_retries: int | None = None,
+    model_retry_delay_ms: int | None = None,
+    model_timeout_ms: int | None = None,
+    output_json: bool = False,
+    provider_args: argparse.Namespace | None = None,
+    create_chat_client_func=create_chat_client,
+    run_chat_func=run_chat,
+    run_agent_func=run_agent,
+    get_resume_context_func=get_resume_context,
+    get_compact_context_func=get_compact_context,
+) -> int:
+    try:
+        if not task.strip():
+            return print_error_result("No task provided.", output_json)
+        project_root = resolve_project_root(base_dir) or Path.cwd()
+        config_root = project_root
+        execution_config = resolve_execution_config(
+            config_root,
+            max_iterations=max_iterations,
+            command_timeout_ms=command_timeout_ms,
+            max_output_tokens=max_output_tokens,
+            model_retries=model_retries,
+            model_retry_delay_ms=model_retry_delay_ms,
+            model_timeout_ms=model_timeout_ms,
+        )
+        provider_env = build_provider_env(provider_args, config_root)
+        if request_mode == "chat":
+            client = create_chat_client_func(provider_env)
+            response = run_chat_func(
+                task,
+                client=client,
+                history=[],
+                max_output_tokens=execution_config.max_output_tokens,
+                model_retries=execution_config.model_retries,
+                model_retry_delay_ms=execution_config.model_retry_delay_ms,
+                model_timeout_ms=execution_config.model_timeout_ms,
+            )
+            print_output({"kind": "chat", "success": True, "message": response}, output_json)
+            return 0
+
+        resume_context = None
+        if resume_arg is not None:
+            normalized_resume_arg = normalize_resume_arg(resume_arg)
+            resume_kwargs = build_context_limit_kwargs(
+                max_failures=resume_max_failures,
+                max_files=resume_max_files,
+                max_commands=resume_max_commands,
+                max_checks=resume_max_checks,
+                max_output_chars=resume_max_output_chars,
+                max_text=resume_max_text,
+            )
+            _selected, resume_context, text = get_resume_context_func(normalized_resume_arg, project_root, **resume_kwargs)
+            if resume_context is None and not is_resume_clear_arg(normalized_resume_arg):
+                return print_error_result(text, output_json)
+        elif compact_arg is not None:
+            compact_kwargs = build_context_limit_kwargs(
+                max_failures=compact_max_failures,
+                max_files=compact_max_files,
+                max_commands=compact_max_commands,
+                max_checks=compact_max_checks,
+                max_output_chars=compact_max_output_chars,
+                max_text=compact_max_text,
+            )
+            _selected, resume_context, text = get_compact_context_func(normalize_resume_arg(compact_arg), project_root, **compact_kwargs)
+            if resume_context is None:
+                return print_error_result(text, output_json)
+        client = create_chat_client_func(provider_env)
+        result = run_agent_func(
+            task,
+            client=client,
+            base_dir=project_root,
+            max_iterations=execution_config.max_iterations,
+            command_timeout_ms=execution_config.command_timeout_ms,
+            max_output_tokens=execution_config.max_output_tokens,
+            model_retries=execution_config.model_retries,
+            model_retry_delay_ms=execution_config.model_retry_delay_ms,
+            model_timeout_ms=execution_config.model_timeout_ms,
+            approval_handler=build_approval_handler(approval_policy),
+            prior_context=resume_context,
+        )
+        if output_json:
+            print_output(
+                {
+                    "kind": "code",
+                    "success": result.success,
+                    "status": result.status,
+                    "message": result.message,
+                    "runId": result.run_id,
+                    "runDir": str(result.run_dir),
+                    "iterations": result.iterations,
+                    "steps": len(result.steps),
+                    "completionReady": result.completion_ready,
+                    "completionBlockers": result.completion_blockers,
+                    "completionWarnings": result.completion_warnings,
+                    "completionBlockedCount": result.completion_blocked_count,
+                    "latestCompletionBlockers": result.latest_completion_blockers,
+                    "latestCompletionPendingChecks": result.latest_completion_pending_verification_checks,
+                    "latestCompletionFailedChecks": result.latest_completion_failed_verification_checks,
+                    "latestCompletionFinalReviewIssues": result.latest_completion_final_review_issues,
+                    "latestCompletionFinalReviewChangedFiles": result.latest_completion_final_review_changed_files,
+                    "latestCompletionToolErrors": result.latest_completion_tool_errors,
+                    "latestCompletionCheckpointFailures": result.latest_completion_checkpoint_failures,
+                    "latestCompletionActiveProcesses": result.latest_completion_active_background_processes,
+                    "latestCompletionDeniedApprovals": result.latest_completion_denied_approvals,
+                    "changedFiles": result.final_review_changed_files,
+                    "verificationChecks": result.verification_checks,
+                    "pendingVerificationChecks": result.pending_verification_checks,
+                    "failedVerificationChecks": result.failed_verification_checks,
+                },
+                True,
+            )
+        else:
+            print_agent_result(result)
+        return 0 if result.success and result.completion_ready else 1
+    except KeyboardInterrupt:
+        return print_interrupted_result(output_json)
+    except Exception as error:
+        return print_error_result(format_error(error), output_json, prefix=True)
+
+
+def normalize_resume_arg(value: str) -> str | None:
+    return value or None
+
+
+def is_resume_clear_arg(value: str | None) -> bool:
+    return isinstance(value, str) and value.strip().lower() in {"off", "clear", "none"}
