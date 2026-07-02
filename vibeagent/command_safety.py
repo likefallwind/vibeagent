@@ -5,6 +5,7 @@ import re
 import shlex
 
 from .command_safety_args import args_after_operand, command_operands, first_command_operand
+from .command_safety_gui import command_launches_gui_application
 from .command_safety_network import (
     firewall_invocation_changes_network_state,
     ip_invocation_changes_network_state,
@@ -86,7 +87,6 @@ from .command_safety_shell import (
     command_contains_dangerous_git_clean,
     command_contains_dangerous_rm,
     command_executes_powershell_network_script,
-    command_launches_gui_application,
     command_path_arguments,
     command_pipes_network_script_to_shell,
     command_recursively_changes_broad_permissions,
