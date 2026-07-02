@@ -26,7 +26,9 @@ from vibeagent.session import (
     format_usage,
     get_last_session_id,
     list_sessions,
+    read_events_file,
     read_session_events,
+    read_session_info,
     summarize_session,
     summarize_usage,
 )
@@ -44,6 +46,27 @@ def write_events(project_root: Path, run_id: str, rows: list[dict | str], mtime:
 
 
 class SessionTests(unittest.TestCase):
+    def test_session_module_reexports_store_readers(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            events_path = write_events(
+                root,
+                "run-1",
+                [
+                    {"type": "task", "task": "Real work"},
+                    "{bad json",
+                ],
+                mtime=100,
+            )
+
+            events = read_events_file(events_path)
+            info = read_session_info(events_path.parent)
+
+        self.assertEqual([event.type for event in events], ["task", "malformed"])
+        self.assertEqual(info.run_id, "run-1")
+        self.assertEqual(info.event_count, 1)
+        self.assertEqual(info.malformed_count, 1)
+
     def test_list_sessions_returns_newest_first_with_counts(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
             root = Path(base)
