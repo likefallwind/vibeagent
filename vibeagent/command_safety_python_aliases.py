@@ -73,6 +73,55 @@ def python_assignment_alias_source(
         return python_name_alias_source(node.id, aliases)
     if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
         return python_attribute_alias_source(node.value.id, node.attr, aliases, os_exec_spawn_function_name)
+    getattr_source = python_getattr_alias_source(node, aliases, os_exec_spawn_function_name)
+    if getattr_source is not None:
+        return getattr_source
+    return None
+
+
+def python_getattr_alias_source(
+    node: ast.AST,
+    aliases: PythonImportAliases,
+    os_exec_spawn_function_name: Callable[[str], str | None],
+) -> tuple[str, str | None] | None:
+    if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name) or node.func.id != "getattr" or len(node.args) < 2:
+        return None
+    attr = node.args[1]
+    if not isinstance(attr, ast.Constant) or not isinstance(attr.value, str):
+        return None
+    module_name = python_getattr_target_module_name(node.args[0], aliases)
+    if module_name is None:
+        return None
+    return python_attribute_alias_source(module_name, attr.value, aliases, os_exec_spawn_function_name)
+
+
+def python_getattr_target_module_name(node: ast.AST, aliases: PythonImportAliases) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Call):
+        return python_dynamic_import_alias_name(node, aliases)
+    return None
+
+
+def python_dynamic_import_alias_name(node: ast.Call, aliases: PythonImportAliases) -> str | None:
+    module_name = python_first_string_argument(node)
+    if module_name is None:
+        return None
+    func = node.func
+    if isinstance(func, ast.Name) and func.id == "__import__":
+        return module_name
+    if isinstance(func, ast.Name) and func.id in aliases.import_module_aliases:
+        return module_name
+    if isinstance(func, ast.Attribute) and func.attr == "__import__" and isinstance(func.value, ast.Name) and func.value.id in aliases.builtins_aliases:
+        return module_name
+    if isinstance(func, ast.Attribute) and func.attr == "import_module" and isinstance(func.value, ast.Name) and func.value.id in aliases.importlib_aliases:
+        return module_name
+    return None
+
+
+def python_first_string_argument(node: ast.Call) -> str | None:
+    if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+        return node.args[0].value
     return None
 
 

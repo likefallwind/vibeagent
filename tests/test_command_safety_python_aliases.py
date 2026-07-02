@@ -71,6 +71,30 @@ class PythonAssignmentAliasTests(unittest.TestCase):
         self.assertIn("start_exec", aliases.asyncio_subprocess_aliases)
         self.assertEqual(aliases.asyncio_subprocess_alias_functions["start_exec"], "create_subprocess_exec")
 
+    def test_collects_static_getattr_execution_assignment_aliases(self) -> None:
+        tree = ast.parse(
+            "import os\n"
+            "import asyncio\n"
+            "import subprocess\n"
+            "run_shell = getattr(os, 'system')\n"
+            "run_proc = getattr(subprocess, 'run')\n"
+            "run_file = getattr(os, 'execvp')\n"
+            "start_exec = getattr(asyncio, 'create_subprocess_exec')\n"
+            "dynamic_proc = getattr(__import__('subprocess'), 'run')\n"
+        )
+        aliases = collect_python_import_aliases(tree, python_os_exec_spawn_function_name)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                add_python_assignment_aliases(node, aliases, python_os_exec_spawn_function_name)
+
+        self.assertIn("run_shell", aliases.os_launcher_aliases)
+        self.assertIn("run_proc", aliases.subprocess_launcher_aliases)
+        self.assertIn("run_file", aliases.os_exec_spawn_aliases)
+        self.assertEqual(aliases.os_exec_spawn_alias_functions["run_file"], "execvp")
+        self.assertIn("start_exec", aliases.asyncio_subprocess_aliases)
+        self.assertEqual(aliases.asyncio_subprocess_alias_functions["start_exec"], "create_subprocess_exec")
+        self.assertIn("dynamic_proc", aliases.subprocess_launcher_aliases)
+
     def test_collects_file_and_browser_assignment_aliases(self) -> None:
         tree = ast.parse(
             "import io\n"
@@ -84,6 +108,32 @@ class PythonAssignmentAliasTests(unittest.TestCase):
             "Path = pathlib.Path\n"
             "remove_tree = shutil.rmtree\n"
             "start_file = os.startfile\n"
+        )
+        aliases = collect_python_import_aliases(tree, python_os_exec_spawn_function_name)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                add_python_assignment_aliases(node, aliases, python_os_exec_spawn_function_name)
+
+        self.assertIn("browser_open", aliases.webbrowser_open_aliases)
+        self.assertIn("io_open", aliases.io_open_aliases)
+        self.assertIn("os_open", aliases.os_open_aliases)
+        self.assertIn("Path", aliases.pathlib_path_aliases)
+        self.assertIn("remove_tree", aliases.shutil_rmtree_aliases)
+        self.assertIn("start_file", aliases.os_startfile_aliases)
+
+    def test_collects_static_getattr_file_and_browser_assignment_aliases(self) -> None:
+        tree = ast.parse(
+            "import io\n"
+            "import os\n"
+            "import pathlib\n"
+            "import shutil\n"
+            "import webbrowser\n"
+            "browser_open = getattr(webbrowser, 'open')\n"
+            "io_open = getattr(io, 'open')\n"
+            "os_open = getattr(os, 'open')\n"
+            "Path = getattr(pathlib, 'Path')\n"
+            "remove_tree = getattr(shutil, 'rmtree')\n"
+            "start_file = getattr(os, 'startfile')\n"
         )
         aliases = collect_python_import_aliases(tree, python_os_exec_spawn_function_name)
         for node in ast.walk(tree):
