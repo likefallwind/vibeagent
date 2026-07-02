@@ -861,11 +861,11 @@ def python_string_sequence(node: ast.expr) -> list[str] | None:
     return values
 
 
-def python_command_argument(node: ast.Call) -> str | None:
+def python_command_argument(node: ast.Call, keyword_names: tuple[str, ...] = ("args", "command", "cmd")) -> str | None:
     command_arg = node.args[0] if node.args else None
     if command_arg is None:
         for keyword in node.keywords:
-            if keyword.arg == "args":
+            if keyword.arg in keyword_names:
                 command_arg = keyword.value
                 break
     if command_arg is None:
