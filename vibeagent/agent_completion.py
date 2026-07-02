@@ -380,8 +380,8 @@ def build_verification_checks(success: bool, observations: list[Observation]) ->
     final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
     if final_review is None:
         return []
-    suggested_commands = final_review_suggested_commands(final_review)
-    if not suggested_commands:
+    verification_commands = final_review_verification_commands(final_review)
+    if not verification_commands:
         return []
     last_change_index = latest_successful_project_change_index(observations)
     if last_change_index is None:
@@ -390,18 +390,18 @@ def build_verification_checks(success: bool, observations: list[Observation]) ->
     checks: list[str] = []
     seen: set[str] = set()
     for observation in observations[last_change_index + 1 :]:
-        for label in successful_suggested_check_labels(observation, suggested_commands):
+        for label in successful_suggested_check_labels(observation, verification_commands):
             if label not in seen:
                 checks.append(label)
                 seen.add(label)
     return checks
 
 def build_pending_verification_checks(success: bool, observations: list[Observation]) -> list[str]:
-    suggested_commands, statuses = suggested_check_statuses_after_latest_change(success, observations)
-    if not suggested_commands:
+    verification_commands, statuses = suggested_check_statuses_after_latest_change(success, observations)
+    if not verification_commands:
         return []
     completed_commands = set(statuses)
-    return [suggested_check_label(command, cwd) for command, cwd in sorted(suggested_commands - completed_commands)]
+    return [suggested_check_label(command, cwd) for command, cwd in sorted(verification_commands - completed_commands)]
 
 def build_failed_verification_checks(success: bool, observations: list[Observation]) -> list[str]:
     _, statuses = suggested_check_statuses_after_latest_change(success, observations)
@@ -416,26 +416,39 @@ def suggested_check_statuses_after_latest_change(
     final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
     if final_review is None:
         return set(), {}
-    suggested_commands = final_review_suggested_commands(final_review)
-    if not suggested_commands:
+    verification_commands = final_review_verification_commands(final_review)
+    if not verification_commands:
         return set(), {}
     last_change_index = latest_successful_project_change_index(observations)
     if last_change_index is None:
-        return suggested_commands, {}
+        return verification_commands, {}
 
     statuses: dict[tuple[str, str], tuple[bool, str]] = {}
     for observation in observations[last_change_index + 1 :]:
-        for command, cwd in successful_suggested_check_commands(observation, suggested_commands):
+        for command, cwd in successful_suggested_check_commands(observation, verification_commands):
             statuses[(command, cwd)] = (True, suggested_check_label(command, cwd))
-        for command, cwd, label in failed_suggested_check_results(observation, suggested_commands):
+        for command, cwd, label in failed_suggested_check_results(observation, verification_commands):
             statuses[(command, cwd)] = (False, label)
-    return suggested_commands, statuses
+    return verification_commands, statuses
+
+def final_review_verification_commands(final_review: Observation) -> set[tuple[str, str]]:
+    suggested_commands = final_review_suggested_commands(final_review)
+    if suggested_commands:
+        return suggested_commands
+    return final_review_focused_test_commands(final_review)
 
 def final_review_suggested_commands(final_review: Observation) -> set[tuple[str, str]]:
     return {
         (str(getattr(check, "command", "")), str(getattr(check, "cwd", ".") or "."))
         for check in getattr(final_review, "suggested_checks", [])
         if getattr(check, "command", None)
+    }
+
+def final_review_focused_test_commands(final_review: Observation) -> set[tuple[str, str]]:
+    return {
+        (str(getattr(command, "command", "")), str(getattr(command, "cwd", ".") or "."))
+        for command in getattr(final_review, "focused_test_commands", [])
+        if getattr(command, "command", None)
     }
 
 def latest_successful_project_change_index(observations: list[Observation]) -> int | None:
@@ -540,4 +553,3 @@ def command_result_matches_successful_suggested_check(
     command = str(getattr(result, "command", ""))
     cwd = str(getattr(result, "cwd", ".") or ".")
     return (command, cwd) in suggested_commands
-

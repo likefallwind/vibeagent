@@ -3985,6 +3985,105 @@ class AgentTests(unittest.TestCase):
         plan = [agent_module.PlanItem(step="Run unit tests", status="completed")]
         self.assertEqual(agent_module.build_completion_warnings(True, observations, plan), [])
 
+    def test_completion_verification_tracks_pending_focused_tests(self) -> None:
+        focused_test = FocusedTestCommand(
+            command="python -m unittest discover -s tests -p test_app.py",
+            cwd=".",
+            test_path="tests/test_app.py",
+            source="src/app.py",
+            reason="related test",
+        )
+        observations = [
+            WriteFileObservation(kind="write_file", path="src/app.py", ok=True, message="Wrote src/app.py."),
+            FinalReviewObservation(
+                kind="final_review",
+                ok=True,
+                ready=True,
+                blocking_issues=[],
+                warnings=[],
+                running_processes=[],
+                files=[],
+                total_files=1,
+                suggested_checks=[],
+                suggested_checks_total=0,
+                suggested_checks_truncated=False,
+                focused_test_commands=[focused_test],
+                focused_test_commands_total=1,
+                focused_test_related_tests_total=1,
+                diff_check="",
+                staged_diff_check="",
+                status="",
+                message="Ready.",
+            ),
+        ]
+
+        self.assertEqual(agent_module.build_verification_checks(True, observations), [])
+        self.assertEqual(
+            agent_module.build_pending_verification_checks(True, observations),
+            ["python -m unittest discover -s tests -p test_app.py"],
+        )
+        self.assertEqual(agent_module.build_failed_verification_checks(True, observations), [])
+
+    def test_completion_verification_clears_focused_test_after_focused_runner_success(self) -> None:
+        focused_test = FocusedTestCommand(
+            command="python -m unittest discover -s tests -p test_app.py",
+            cwd=".",
+            test_path="tests/test_app.py",
+            source="src/app.py",
+            reason="related test",
+        )
+        observations = [
+            WriteFileObservation(kind="write_file", path="src/app.py", ok=True, message="Wrote src/app.py."),
+            types_module.RunFocusedTestCommandsObservation(
+                kind="run_focused_test_commands",
+                ok=True,
+                results=[
+                    CommandResult(
+                        command="python -m unittest discover -s tests -p test_app.py",
+                        exit_code=0,
+                        stdout="",
+                        stderr="",
+                        timed_out=False,
+                        signal=None,
+                        cwd=".",
+                    )
+                ],
+                focused_commands=[focused_test],
+                target_paths=["src/app.py"],
+                total=1,
+                truncated=False,
+                max_commands=5,
+                related_tests_total=1,
+                stopped_early=False,
+                skipped_unavailable=0,
+                message="Focused tests passed.",
+            ),
+            FinalReviewObservation(
+                kind="final_review",
+                ok=True,
+                ready=True,
+                blocking_issues=[],
+                warnings=[],
+                running_processes=[],
+                files=[],
+                total_files=1,
+                suggested_checks=[],
+                suggested_checks_total=0,
+                suggested_checks_truncated=False,
+                focused_test_commands=[focused_test],
+                focused_test_commands_total=1,
+                focused_test_related_tests_total=1,
+                diff_check="",
+                staged_diff_check="",
+                status="",
+                message="Ready.",
+            ),
+        ]
+
+        self.assertEqual(agent_module.build_verification_checks(True, observations), ["python -m unittest discover -s tests -p test_app.py"])
+        self.assertEqual(agent_module.build_pending_verification_checks(True, observations), [])
+        self.assertEqual(agent_module.build_failed_verification_checks(True, observations), [])
+
     def test_completion_blocked_feedback_includes_final_review_blocking_issues(self) -> None:
         observations = [
             FinalReviewObservation(
