@@ -778,7 +778,12 @@ def python_asyncio_subprocess_command(node: ast.Call, name: str) -> str | None:
     if name == "create_subprocess_shell":
         return python_command_argument(node)
     if name == "create_subprocess_exec":
-        return python_executable_command_from_args(node.args, path_index=0, argv_index=None)
+        return python_executable_command_from_call(
+            node,
+            path_index=0,
+            argv_index=None,
+            path_keyword_names=("program",),
+        )
     return None
 
 
@@ -818,20 +823,56 @@ def python_os_exec_spawn_command(node: ast.Call, name: str) -> str | None:
         argv_index = path_index + 1
     elif function_name.startswith("posix_spawn"):
         argv_index = 1
-    return python_executable_command_from_args(node.args, path_index=path_index, argv_index=argv_index)
+    return python_executable_command_from_call(node, path_index=path_index, argv_index=argv_index)
 
 
 def python_executable_command_from_args(args: list[ast.expr], path_index: int, argv_index: int | None) -> str | None:
-    if len(args) <= path_index:
+    return python_executable_command_from_values(
+        args=args,
+        path_expr=args[path_index] if len(args) > path_index else None,
+        argv_expr=args[argv_index] if argv_index is not None and len(args) > argv_index else None,
+        path_index=path_index,
+        argv_index=argv_index,
+    )
+
+
+def python_executable_command_from_call(
+    node: ast.Call,
+    path_index: int,
+    argv_index: int | None,
+    path_keyword_names: tuple[str, ...] = ("path", "file"),
+    argv_keyword_names: tuple[str, ...] = ("args", "argv"),
+) -> str | None:
+    path_expr = node.args[path_index] if len(node.args) > path_index else python_keyword_value(node, path_keyword_names)
+    argv_expr = None
+    if argv_index is not None:
+        argv_expr = node.args[argv_index] if len(node.args) > argv_index else python_keyword_value(node, argv_keyword_names)
+    return python_executable_command_from_values(
+        args=node.args,
+        path_expr=path_expr,
+        argv_expr=argv_expr,
+        path_index=path_index,
+        argv_index=argv_index,
+    )
+
+
+def python_executable_command_from_values(
+    args: list[ast.expr],
+    path_expr: ast.expr | None,
+    argv_expr: ast.expr | None,
+    path_index: int,
+    argv_index: int | None,
+) -> str | None:
+    if path_expr is None:
         return None
-    path = python_string_constant(args[path_index])
+    path = python_string_constant(path_expr)
     if path is None:
         return None
     parts = [path]
     if argv_index is not None:
-        if len(args) <= argv_index:
+        if argv_expr is None:
             return shlex.join(parts)
-        argv = python_string_sequence(args[argv_index])
+        argv = python_string_sequence(argv_expr)
         if argv:
             parts.extend(argv)
         return shlex.join(parts)
@@ -841,6 +882,13 @@ def python_executable_command_from_args(args: list[ast.expr], path_index: int, a
             break
         parts.append(value)
     return shlex.join(parts)
+
+
+def python_keyword_value(node: ast.Call, names: tuple[str, ...]) -> ast.expr | None:
+    for keyword in node.keywords:
+        if keyword.arg in names:
+            return keyword.value
+    return None
 
 
 def python_string_constant(node: ast.expr) -> str | None:
