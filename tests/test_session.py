@@ -1463,6 +1463,59 @@ class SessionTests(unittest.TestCase):
         self.assertIn("truncated: no", limited)
         self.assertIn("1 pending verification check(s)", audit)
 
+    def test_summarize_session_derives_pending_focused_tests_without_suggested_checks(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "write_file",
+                        "result": {"kind": "write_file", "path": "src/app.py", "ok": True, "message": "Wrote src/app.py."},
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 2,
+                        "name": "final_review",
+                        "result": {
+                            "kind": "final_review",
+                            "ok": True,
+                            "ready": False,
+                            "blocking_issues": [],
+                            "warnings": [],
+                            "files": [],
+                            "total_files": 1,
+                            "suggested_checks": [],
+                            "suggested_checks_total": 0,
+                            "focused_test_commands": [
+                                {
+                                    "command": "python -m unittest discover -s tests -p test_app.py",
+                                    "cwd": ".",
+                                    "test_path": "tests/test_app.py",
+                                    "source": "src/app.py",
+                                    "reason": "related test",
+                                }
+                            ],
+                            "focused_test_commands_total": 1,
+                            "focused_test_related_tests_total": 1,
+                            "message": "Review needs focused tests.",
+                        },
+                    },
+                ],
+            )
+
+            summary = summarize_session(root, "run-1")
+            verification = format_session_verification(summary)
+
+        self.assertEqual(summary.verification_checks, [])
+        self.assertEqual(summary.pending_verification_checks, ["python -m unittest discover -s tests -p test_app.py"])
+        self.assertEqual(summary.failed_verification_checks, [])
+        self.assertIn("pendingChecks: 1/1", verification)
+        self.assertIn("python -m unittest discover -s tests -p test_app.py", verification)
+
     def test_format_session_verification_respects_max_checks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
             root = Path(base)
@@ -1657,6 +1710,79 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(summary.verification_checks, ["python -m unittest discover -s tests"])
         self.assertEqual(summary.pending_verification_checks, [])
         self.assertEqual(summary.failed_verification_checks, [])
+
+    def test_summarize_session_derives_focused_test_success_without_suggested_checks(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "write_file",
+                        "result": {"kind": "write_file", "path": "src/app.py", "ok": True, "message": "Wrote src/app.py."},
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 2,
+                        "name": "run_focused_test_commands",
+                        "result": {
+                            "kind": "run_focused_test_commands",
+                            "ok": True,
+                            "results": [
+                                {
+                                    "command": "python -m unittest discover -s tests -p test_app.py",
+                                    "exit_code": 0,
+                                    "stdout": "",
+                                    "stderr": "",
+                                    "timed_out": False,
+                                    "signal": None,
+                                    "cwd": ".",
+                                }
+                            ],
+                        },
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 3,
+                        "name": "final_review",
+                        "result": {
+                            "kind": "final_review",
+                            "ok": True,
+                            "ready": True,
+                            "blocking_issues": [],
+                            "warnings": [],
+                            "files": [],
+                            "total_files": 1,
+                            "suggested_checks": [],
+                            "suggested_checks_total": 0,
+                            "focused_test_commands": [
+                                {
+                                    "command": "python -m unittest discover -s tests -p test_app.py",
+                                    "cwd": ".",
+                                    "test_path": "tests/test_app.py",
+                                    "source": "src/app.py",
+                                    "reason": "related test",
+                                }
+                            ],
+                            "focused_test_commands_total": 1,
+                            "focused_test_related_tests_total": 1,
+                            "message": "Ready.",
+                        },
+                    },
+                ],
+            )
+
+            summary = summarize_session(root, "run-1")
+            verification = format_session_verification(summary)
+
+        self.assertEqual(summary.verification_checks, ["python -m unittest discover -s tests -p test_app.py"])
+        self.assertEqual(summary.pending_verification_checks, [])
+        self.assertEqual(summary.failed_verification_checks, [])
+        self.assertIn("verified:", verification)
+        self.assertIn("python -m unittest discover -s tests -p test_app.py", verification)
 
     def test_format_session_transcript_supports_legacy_action_observation_events(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:

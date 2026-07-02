@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .session import read_session_events
-from .types import SuggestedCheck
+from .types import FocusedTestCommand, SuggestedCheck
 from .workspace_core import RunWorkspace
 from .workspace_git_utils import parse_git_short_status, run_readonly_git, should_ignore_git_path
 from .workspace import (
@@ -77,13 +77,22 @@ SECRET_LIKE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 def final_review_session_verification_issues(
     workspace: RunWorkspace,
     suggested_checks: list[SuggestedCheck],
+    focused_test_commands: list[FocusedTestCommand] | None = None,
 ) -> tuple[list[str], list[str]]:
     suggested_commands = {
         (check.command, check.cwd or ".")
         for check in suggested_checks
         if check.command
     }
-    if not suggested_commands:
+    if suggested_commands:
+        verification_commands = suggested_commands
+    else:
+        verification_commands = {
+            (command.command, command.cwd or ".")
+            for command in focused_test_commands or []
+            if command.command
+        }
+    if not verification_commands:
         return [], []
 
     events = read_session_events(workspace.root, workspace.run_id)
@@ -98,7 +107,7 @@ def final_review_session_verification_issues(
             continue
         for command_result in iter_command_results(result):
             key = command_result_key(command_result)
-            if key not in suggested_commands:
+            if key not in verification_commands:
                 continue
             statuses[key] = command_result_succeeded(command_result)
 
@@ -107,7 +116,7 @@ def final_review_session_verification_issues(
     failed_labels = [suggested_check_label(command, cwd) for command, cwd in sorted(failed_commands)]
     pending_labels = [
         suggested_check_label(command, cwd)
-        for command, cwd in sorted(suggested_commands - verified_commands - failed_commands)
+        for command, cwd in sorted(verification_commands - verified_commands - failed_commands)
     ]
     blockers: list[str] = []
     warnings: list[str] = []

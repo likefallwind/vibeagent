@@ -16,6 +16,7 @@ import vibeagent.types as types_module
 from vibeagent.actions import AGENT_TOOL_DEFINITIONS, execute_action
 from vibeagent.agent import run_agent
 from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
+from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations
 from vibeagent.session import summarize_session
 from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ReadFileObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction
@@ -4083,6 +4084,42 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(agent_module.build_verification_checks(True, observations), ["python -m unittest discover -s tests -p test_app.py"])
         self.assertEqual(agent_module.build_pending_verification_checks(True, observations), [])
         self.assertEqual(agent_module.build_failed_verification_checks(True, observations), [])
+
+    def test_final_review_session_verification_uses_focused_tests_without_suggested_checks(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            events_dir = root / ".vibeagent" / "sessions" / "run-1"
+            events_dir.mkdir(parents=True)
+            events = [
+                {
+                    "type": "tool_result",
+                    "iteration": 1,
+                    "name": "write_file",
+                    "result": {"kind": "write_file", "path": "src/app.py", "ok": True, "message": "Wrote src/app.py."},
+                }
+            ]
+            events_dir.joinpath("events.jsonl").write_text(
+                "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n",
+                encoding="utf-8",
+            )
+            workspace = create_run_workspace(root, "run-1")
+
+            blockers, warnings = final_review_session_verification_issues(
+                workspace,
+                [],
+                [
+                    FocusedTestCommand(
+                        command="python -m unittest discover -s tests -p test_app.py",
+                        cwd=".",
+                        test_path="tests/test_app.py",
+                        source="src/app.py",
+                        reason="related test",
+                    )
+                ],
+            )
+
+        self.assertEqual(blockers, ["Suggested verification checks are still pending after the latest project change."])
+        self.assertEqual(warnings, ["Pending suggested check(s): python -m unittest discover -s tests -p test_app.py."])
 
     def test_completion_blocked_feedback_includes_final_review_blocking_issues(self) -> None:
         observations = [

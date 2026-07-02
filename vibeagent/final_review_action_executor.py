@@ -286,6 +286,7 @@ def final_review_observation(workspace: RunWorkspace, action: FinalReviewAction)
     verification_blockers, verification_warnings = final_review_session_verification_issues(
         workspace,
         all_suggested_checks,
+        focused_test_commands,
     )
     blocking_issues.extend(verification_blockers)
 

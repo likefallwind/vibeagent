@@ -47,7 +47,7 @@ SESSION_PROJECT_CHANGE_RESULT_KINDS = {
 
 
 def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[str], list[str], list[str]]:
-    suggested_commands: set[tuple[str, str]] = set()
+    verification_commands: set[tuple[str, str]] = set()
     last_change_index: int | None = None
     for index, event in enumerate(events):
         if event.malformed or event.type != "tool_result":
@@ -57,11 +57,11 @@ def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[s
             continue
         kind = result.get("kind")
         if kind == "final_review":
-            suggested_commands = session_final_review_suggested_commands(result)
+            verification_commands = session_final_review_verification_commands(result)
         if kind in SESSION_PROJECT_CHANGE_RESULT_KINDS and result.get("ok") is not False:
             last_change_index = index
 
-    if not suggested_commands or last_change_index is None:
+    if not verification_commands or last_change_index is None:
         return [], [], []
 
     statuses: dict[tuple[str, str], tuple[bool, str]] = {}
@@ -73,7 +73,7 @@ def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[s
             continue
         for command_result in session_iter_command_results(result):
             key = session_command_result_key(command_result)
-            if key not in suggested_commands:
+            if key not in verification_commands:
                 continue
             if command_result_failed(command_result):
                 statuses[key] = (False, session_failed_suggested_check_label(command_result))
@@ -85,13 +85,35 @@ def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[s
     completed_commands = set(statuses)
     pending = [
         session_suggested_check_label(command, cwd)
-        for command, cwd in sorted(suggested_commands - completed_commands)
+        for command, cwd in sorted(verification_commands - completed_commands)
     ]
     return verified, pending, failed_checks
 
 
+def session_final_review_verification_commands(result: dict[str, Any]) -> set[tuple[str, str]]:
+    suggested_commands = session_final_review_suggested_commands(result)
+    if suggested_commands:
+        return suggested_commands
+    return session_final_review_focused_test_commands(result)
+
+
 def session_final_review_suggested_commands(result: dict[str, Any]) -> set[tuple[str, str]]:
     checks = result.get("suggested_checks")
+    if not isinstance(checks, list):
+        return set()
+    commands: set[tuple[str, str]] = set()
+    for check in checks:
+        if not isinstance(check, dict):
+            continue
+        command = check.get("command")
+        cwd = check.get("cwd")
+        if isinstance(command, str) and command.strip():
+            commands.add((command, cwd if isinstance(cwd, str) and cwd else "."))
+    return commands
+
+
+def session_final_review_focused_test_commands(result: dict[str, Any]) -> set[tuple[str, str]]:
+    checks = result.get("focused_test_commands")
     if not isinstance(checks, list):
         return set()
     commands: set[tuple[str, str]] = set()
