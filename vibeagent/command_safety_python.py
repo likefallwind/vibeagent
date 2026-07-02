@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 import shlex
 
-from .command_safety_python_aliases import collect_python_import_aliases
+from .command_safety_python_aliases import add_python_assignment_aliases, collect_python_import_aliases
 from .command_safety_python_args import (
     python_command_argument,
     python_executable_command_from_args,
@@ -65,6 +65,7 @@ def python_script_blocked_command_reason(script: str, depth: int) -> str | None:
     compiled_literal_scripts: dict[str, str] = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign):
+            add_python_assignment_aliases(node, aliases, python_os_exec_spawn_function_name)
             if python_expr_is_eval_or_exec_reference(node.value, aliases.builtins_aliases, aliases.eval_exec_aliases):
                 aliases.eval_exec_aliases.update(target.id for target in node.targets if isinstance(target, ast.Name))
             elif python_expr_is_compile_reference(node.value, aliases.builtins_aliases, aliases.compile_aliases):

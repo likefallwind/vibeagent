@@ -49,6 +49,132 @@ def collect_python_import_aliases(
     return aliases
 
 
+def add_python_assignment_aliases(
+    node: ast.Assign,
+    aliases: PythonImportAliases,
+    os_exec_spawn_function_name: Callable[[str], str | None],
+) -> None:
+    targets = [target.id for target in node.targets if isinstance(target, ast.Name)]
+    if not targets:
+        return
+    source = python_assignment_alias_source(node.value, aliases, os_exec_spawn_function_name)
+    if source is None:
+        return
+    for target in targets:
+        add_python_function_alias(target, source, aliases)
+
+
+def python_assignment_alias_source(
+    node: ast.AST,
+    aliases: PythonImportAliases,
+    os_exec_spawn_function_name: Callable[[str], str | None],
+) -> tuple[str, str | None] | None:
+    if isinstance(node, ast.Name):
+        return python_name_alias_source(node.id, aliases)
+    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+        return python_attribute_alias_source(node.value.id, node.attr, aliases, os_exec_spawn_function_name)
+    return None
+
+
+def python_name_alias_source(name: str, aliases: PythonImportAliases) -> tuple[str, str | None] | None:
+    if name in aliases.webbrowser_open_aliases:
+        return ("webbrowser_open", None)
+    if name in aliases.webbrowser_get_aliases:
+        return ("webbrowser_get", None)
+    if name in aliases.io_open_aliases:
+        return ("io_open", None)
+    if name in aliases.import_module_aliases:
+        return ("import_module", None)
+    if name in aliases.os_open_aliases:
+        return ("os_open", None)
+    if name in aliases.os_startfile_aliases:
+        return ("os_startfile", None)
+    if name in aliases.os_exec_spawn_aliases:
+        return ("os_exec_spawn", aliases.os_exec_spawn_alias_functions.get(name, name))
+    if name in aliases.asyncio_subprocess_aliases:
+        return ("asyncio_subprocess", aliases.asyncio_subprocess_alias_functions.get(name, name))
+    if name in aliases.pathlib_path_aliases:
+        return ("pathlib_path", None)
+    if name in aliases.pty_spawn_aliases:
+        return ("pty_spawn", None)
+    if name in aliases.shutil_rmtree_aliases:
+        return ("shutil_rmtree", None)
+    if name in aliases.os_launcher_aliases:
+        return ("os_launcher", None)
+    if name in aliases.subprocess_launcher_aliases:
+        return ("subprocess_launcher", None)
+    return None
+
+
+def python_attribute_alias_source(
+    module_name: str,
+    attr: str,
+    aliases: PythonImportAliases,
+    os_exec_spawn_function_name: Callable[[str], str | None],
+) -> tuple[str, str | None] | None:
+    if module_name in aliases.webbrowser_aliases and attr.startswith("open"):
+        return ("webbrowser_open", None)
+    if module_name in aliases.webbrowser_aliases and attr == "get":
+        return ("webbrowser_get", None)
+    if module_name in aliases.io_aliases and attr == "open":
+        return ("io_open", None)
+    if module_name in aliases.importlib_aliases and attr == "import_module":
+        return ("import_module", None)
+    if module_name in aliases.os_aliases and attr == "open":
+        return ("os_open", None)
+    if module_name in aliases.os_aliases and attr in {"system", "popen"}:
+        return ("os_launcher", None)
+    if module_name in aliases.os_aliases and attr == "startfile":
+        return ("os_startfile", None)
+    if module_name in aliases.os_aliases and os_exec_spawn_function_name(attr):
+        return ("os_exec_spawn", attr)
+    if module_name in aliases.asyncio_aliases and attr in {"create_subprocess_exec", "create_subprocess_shell"}:
+        return ("asyncio_subprocess", attr)
+    if module_name in aliases.pathlib_aliases and attr == "Path":
+        return ("pathlib_path", None)
+    if module_name in aliases.pty_aliases and attr == "spawn":
+        return ("pty_spawn", None)
+    if module_name in aliases.shutil_aliases and attr == "rmtree":
+        return ("shutil_rmtree", None)
+    if module_name in aliases.subprocess_aliases and attr in {"run", "call", "Popen", "check_call", "check_output", "getoutput", "getstatusoutput"}:
+        return ("subprocess_launcher", None)
+    return None
+
+
+def add_python_function_alias(alias: str, source: tuple[str, str | None], aliases: PythonImportAliases) -> None:
+    kind, function_name = source
+    if kind == "webbrowser_open":
+        aliases.webbrowser_open_aliases.add(alias)
+    elif kind == "webbrowser_get":
+        aliases.webbrowser_get_aliases.add(alias)
+    elif kind == "io_open":
+        aliases.io_open_aliases.add(alias)
+    elif kind == "import_module":
+        aliases.import_module_aliases.add(alias)
+    elif kind == "os_open":
+        aliases.os_open_aliases.add(alias)
+    elif kind == "os_launcher":
+        aliases.os_launcher_aliases.add(alias)
+    elif kind == "os_startfile":
+        aliases.os_startfile_aliases.add(alias)
+    elif kind == "os_exec_spawn":
+        aliases.os_exec_spawn_aliases.add(alias)
+        if function_name is not None:
+            aliases.os_exec_spawn_alias_functions[alias] = function_name
+    elif kind == "asyncio_subprocess":
+        aliases.asyncio_subprocess_aliases.add(alias)
+        if function_name is not None:
+            aliases.asyncio_subprocess_alias_functions[alias] = function_name
+    elif kind == "pathlib_path":
+        aliases.pathlib_path_aliases.add(alias)
+    elif kind == "pty_spawn":
+        aliases.pty_spawn_aliases.add(alias)
+    elif kind == "shutil_rmtree":
+        aliases.shutil_rmtree_aliases.add(alias)
+    elif kind == "subprocess_launcher":
+        aliases.subprocess_launcher_aliases.add(alias)
+
+
 def add_import_aliases(node: ast.Import, aliases: PythonImportAliases) -> None:
     for alias in node.names:
         name = alias.name

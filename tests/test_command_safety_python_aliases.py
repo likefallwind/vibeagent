@@ -2,7 +2,7 @@ import ast
 import unittest
 
 from vibeagent.command_safety_python import python_call_shell_command, python_os_exec_spawn_function_name
-from vibeagent.command_safety_python_aliases import collect_python_import_aliases
+from vibeagent.command_safety_python_aliases import add_python_assignment_aliases, collect_python_import_aliases
 
 
 class PythonImportAliasTests(unittest.TestCase):
@@ -43,6 +43,59 @@ class PythonImportAliasTests(unittest.TestCase):
         self.assertIn("os_open", aliases.os_open_aliases)
         self.assertIn("P", aliases.pathlib_path_aliases)
         self.assertIn("remove_tree", aliases.shutil_rmtree_aliases)
+
+
+class PythonAssignmentAliasTests(unittest.TestCase):
+    def test_collects_execution_assignment_aliases(self) -> None:
+        tree = ast.parse(
+            "import os\n"
+            "import asyncio\n"
+            "import subprocess\n"
+            "run_shell = os.system\n"
+            "run_proc = subprocess.run\n"
+            "run_file = os.execvp\n"
+            "run_file_again = run_file\n"
+            "start_exec = asyncio.create_subprocess_exec\n"
+        )
+        aliases = collect_python_import_aliases(tree, python_os_exec_spawn_function_name)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                add_python_assignment_aliases(node, aliases, python_os_exec_spawn_function_name)
+
+        self.assertIn("run_shell", aliases.os_launcher_aliases)
+        self.assertIn("run_proc", aliases.subprocess_launcher_aliases)
+        self.assertIn("run_file", aliases.os_exec_spawn_aliases)
+        self.assertEqual(aliases.os_exec_spawn_alias_functions["run_file"], "execvp")
+        self.assertIn("run_file_again", aliases.os_exec_spawn_aliases)
+        self.assertEqual(aliases.os_exec_spawn_alias_functions["run_file_again"], "execvp")
+        self.assertIn("start_exec", aliases.asyncio_subprocess_aliases)
+        self.assertEqual(aliases.asyncio_subprocess_alias_functions["start_exec"], "create_subprocess_exec")
+
+    def test_collects_file_and_browser_assignment_aliases(self) -> None:
+        tree = ast.parse(
+            "import io\n"
+            "import os\n"
+            "import pathlib\n"
+            "import shutil\n"
+            "import webbrowser\n"
+            "browser_open = webbrowser.open\n"
+            "io_open = io.open\n"
+            "os_open = os.open\n"
+            "Path = pathlib.Path\n"
+            "remove_tree = shutil.rmtree\n"
+            "start_file = os.startfile\n"
+        )
+        aliases = collect_python_import_aliases(tree, python_os_exec_spawn_function_name)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                add_python_assignment_aliases(node, aliases, python_os_exec_spawn_function_name)
+
+        self.assertIn("browser_open", aliases.webbrowser_open_aliases)
+        self.assertIn("io_open", aliases.io_open_aliases)
+        self.assertIn("os_open", aliases.os_open_aliases)
+        self.assertIn("Path", aliases.pathlib_path_aliases)
+        self.assertIn("remove_tree", aliases.shutil_rmtree_aliases)
+        self.assertIn("start_file", aliases.os_startfile_aliases)
 
 
 class PythonShellCommandCompatibilityTests(unittest.TestCase):
