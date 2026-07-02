@@ -241,6 +241,7 @@ def build_session_audit_report_from_parts(
             "autoCreated": summary.auto_checkpoints_created,
             "latestId": summary.latest_checkpoint_id,
             "latestMessage": summary.latest_checkpoint_message,
+            "restoreHint": CHECKPOINT_RESTORE_HINT if summary.latest_checkpoint_id else None,
         },
         "backgroundProcesses": {
             "started": summary.background_processes_started,

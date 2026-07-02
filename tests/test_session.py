@@ -7,6 +7,7 @@ from pathlib import Path
 
 from vibeagent.config import CostRates
 from vibeagent.session import (
+    build_session_audit_report,
     build_session_commands_report,
     build_session_summary_report,
     build_session_resume_context,
@@ -4044,6 +4045,7 @@ class SessionTests(unittest.TestCase):
 
             summary = summarize_session(root, "run-1")
             text = format_session_summary(summary)
+            report = build_session_summary_report(summary)
 
         self.assertTrue(summary.completed)
         self.assertFalse(summary.failed)
@@ -4056,6 +4058,7 @@ class SessionTests(unittest.TestCase):
         self.assertIn("checkpoints: created=1, auto=0", text)
         self.assertIn("Saved checkpoint ckpt-safe.", text)
         self.assertNotIn("restoreHint:", text)
+        self.assertIsNone(report["checkpoints"]["restoreHint"])
         self.assertNotIn("SECRET_LABEL", text)
 
     def test_summarize_session_reports_latest_auto_checkpoint(self) -> None:
@@ -4109,6 +4112,8 @@ class SessionTests(unittest.TestCase):
             text = format_session_summary(summary)
             audit = format_session_audit(root, "run-1")
             handoff = format_session_handoff(root, "run-1")
+            summary_report = build_session_summary_report(summary)
+            audit_report = build_session_audit_report(root, "run-1")
 
         self.assertTrue(summary.completed)
         self.assertEqual(summary.checkpoints_created, 1)
@@ -4122,6 +4127,8 @@ class SessionTests(unittest.TestCase):
         self.assertIn("restoreHint: /check-checkpoint-restore latest", audit)
         self.assertIn("checkpoints: created=1, auto=1, latest=ckpt-auto", handoff)
         self.assertIn("restoreHint: /check-checkpoint-restore latest", handoff)
+        self.assertEqual(summary_report["checkpoints"]["restoreHint"], "/check-checkpoint-restore latest")
+        self.assertEqual(audit_report["checkpoints"]["restoreHint"], "/check-checkpoint-restore latest")
         self.assertNotIn("SECRET_LABEL", text)
         self.assertNotIn("SECRET_LABEL", audit)
         self.assertNotIn("SECRET_LABEL", handoff)

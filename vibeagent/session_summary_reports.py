@@ -93,6 +93,7 @@ def build_session_summary_report(summary: SessionSummary, max_text: int = 500) -
             "autoCreated": summary.auto_checkpoints_created,
             "latestId": summary.latest_checkpoint_id,
             "latestMessage": compact(summary.latest_checkpoint_message, max_text) if summary.latest_checkpoint_message else None,
+            "restoreHint": CHECKPOINT_RESTORE_HINT if summary.latest_checkpoint_id else None,
         },
         "modelErrors": {
             "total": summary.model_errors,
