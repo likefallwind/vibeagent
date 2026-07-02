@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import shlex
 
+from .command_safety_python_aliases import collect_python_import_aliases
 from .command_safety_python_args import (
     python_command_argument,
     python_executable_command_from_args,
@@ -60,115 +61,16 @@ def python_script_blocked_command_reason(script: str, depth: int) -> str | None:
     except SyntaxError:
         return None
 
-    builtins_aliases = {"builtins", "__builtins__"}
-    eval_exec_aliases = {"eval", "exec"}
-    compile_aliases = {"compile"}
+    aliases = collect_python_import_aliases(tree, python_os_exec_spawn_function_name)
     compiled_literal_scripts: dict[str, str] = {}
-    webbrowser_aliases = {"webbrowser"}
-    webbrowser_open_aliases: set[str] = set()
-    webbrowser_get_aliases: set[str] = set()
-    io_aliases = {"io"}
-    io_open_aliases: set[str] = set()
-    importlib_aliases = {"importlib"}
-    import_module_aliases: set[str] = set()
-    os_aliases = {"os"}
-    os_open_aliases: set[str] = set()
-    os_startfile_aliases: set[str] = set()
-    os_exec_spawn_aliases: set[str] = set()
-    asyncio_aliases = {"asyncio"}
-    asyncio_subprocess_aliases: set[str] = set()
-    pathlib_aliases = {"pathlib"}
-    pathlib_path_aliases: set[str] = set()
-    pty_aliases = {"pty"}
-    pty_spawn_aliases: set[str] = set()
-    shutil_aliases = {"shutil"}
-    shutil_rmtree_aliases: set[str] = set()
-    subprocess_aliases = {"subprocess"}
-    os_launcher_aliases: set[str] = set()
-    subprocess_launcher_aliases: set[str] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                name = alias.name
-                asname = alias.asname or name.split(".", 1)[0]
-                if name == "builtins":
-                    builtins_aliases.add(asname)
-                elif name == "webbrowser":
-                    webbrowser_aliases.add(asname)
-                elif name == "io":
-                    io_aliases.add(asname)
-                elif name == "importlib":
-                    importlib_aliases.add(asname)
-                elif name == "os":
-                    os_aliases.add(asname)
-                elif name == "asyncio":
-                    asyncio_aliases.add(asname)
-                elif name == "pathlib":
-                    pathlib_aliases.add(asname)
-                elif name == "pty":
-                    pty_aliases.add(asname)
-                elif name == "shutil":
-                    shutil_aliases.add(asname)
-                elif name == "subprocess":
-                    subprocess_aliases.add(asname)
-        elif isinstance(node, ast.ImportFrom):
-            if node.module == "webbrowser":
-                for alias in node.names:
-                    if alias.name.startswith("open"):
-                        webbrowser_open_aliases.add(alias.asname or alias.name)
-                    elif alias.name == "get":
-                        webbrowser_get_aliases.add(alias.asname or alias.name)
-            elif node.module == "os":
-                for alias in node.names:
-                    if alias.name == "open":
-                        os_open_aliases.add(alias.asname or alias.name)
-                    elif alias.name in {"system", "popen"}:
-                        os_launcher_aliases.add(alias.asname or alias.name)
-                    elif alias.name == "startfile":
-                        os_startfile_aliases.add(alias.asname or alias.name)
-                    elif python_os_exec_spawn_function_name(alias.name):
-                        os_exec_spawn_aliases.add(alias.asname or alias.name)
-            elif node.module == "asyncio":
-                for alias in node.names:
-                    if alias.name in {"create_subprocess_exec", "create_subprocess_shell"}:
-                        asyncio_subprocess_aliases.add(alias.asname or alias.name)
-            elif node.module == "io":
-                for alias in node.names:
-                    if alias.name == "open":
-                        io_open_aliases.add(alias.asname or alias.name)
-            elif node.module == "importlib":
-                for alias in node.names:
-                    if alias.name == "import_module":
-                        import_module_aliases.add(alias.asname or alias.name)
-            elif node.module == "pathlib":
-                for alias in node.names:
-                    if alias.name == "Path":
-                        pathlib_path_aliases.add(alias.asname or alias.name)
-            elif node.module == "pty":
-                for alias in node.names:
-                    if alias.name == "spawn":
-                        pty_spawn_aliases.add(alias.asname or alias.name)
-            elif node.module == "shutil":
-                for alias in node.names:
-                    if alias.name == "rmtree":
-                        shutil_rmtree_aliases.add(alias.asname or alias.name)
-            elif node.module == "subprocess":
-                for alias in node.names:
-                    if alias.name in {"run", "call", "Popen", "check_call", "check_output", "getoutput", "getstatusoutput"}:
-                        subprocess_launcher_aliases.add(alias.asname or alias.name)
-            elif node.module == "builtins":
-                for alias in node.names:
-                    if alias.name in {"eval", "exec"}:
-                        eval_exec_aliases.add(alias.asname or alias.name)
-                    elif alias.name == "compile":
-                        compile_aliases.add(alias.asname or alias.name)
-        elif isinstance(node, ast.Assign):
-            if python_expr_is_eval_or_exec_reference(node.value, builtins_aliases, eval_exec_aliases):
-                eval_exec_aliases.update(target.id for target in node.targets if isinstance(target, ast.Name))
-            elif python_expr_is_compile_reference(node.value, builtins_aliases, compile_aliases):
-                compile_aliases.update(target.id for target in node.targets if isinstance(target, ast.Name))
+        if isinstance(node, ast.Assign):
+            if python_expr_is_eval_or_exec_reference(node.value, aliases.builtins_aliases, aliases.eval_exec_aliases):
+                aliases.eval_exec_aliases.update(target.id for target in node.targets if isinstance(target, ast.Name))
+            elif python_expr_is_compile_reference(node.value, aliases.builtins_aliases, aliases.compile_aliases):
+                aliases.compile_aliases.update(target.id for target in node.targets if isinstance(target, ast.Name))
             else:
-                compiled_script = python_literal_compile_script(node.value, builtins_aliases, compile_aliases)
+                compiled_script = python_literal_compile_script(node.value, aliases.builtins_aliases, aliases.compile_aliases)
                 if compiled_script is not None:
                     for target in node.targets:
                         if isinstance(target, ast.Name):
@@ -179,9 +81,9 @@ def python_script_blocked_command_reason(script: str, depth: int) -> str | None:
             continue
         nested_python = python_literal_eval_exec_script(
             node,
-            builtins_aliases,
-            eval_exec_aliases,
-            compile_aliases,
+            aliases.builtins_aliases,
+            aliases.eval_exec_aliases,
+            aliases.compile_aliases,
             compiled_literal_scripts,
         )
         if nested_python is not None:
@@ -190,59 +92,61 @@ def python_script_blocked_command_reason(script: str, depth: int) -> str | None:
                 return nested_python_blocked
         if python_call_writes_raw_device(
             node,
-            io_aliases,
-            io_open_aliases,
-            os_aliases,
-            os_open_aliases,
-            pathlib_aliases,
-            pathlib_path_aliases,
-            builtins_aliases,
-            importlib_aliases,
-            import_module_aliases,
+            aliases.io_aliases,
+            aliases.io_open_aliases,
+            aliases.os_aliases,
+            aliases.os_open_aliases,
+            aliases.pathlib_aliases,
+            aliases.pathlib_path_aliases,
+            aliases.builtins_aliases,
+            aliases.importlib_aliases,
+            aliases.import_module_aliases,
         ):
             return RAW_DEVICE_WRITE_BLOCK_REASON
         if python_call_deletes_broad_path(
             node,
-            shutil_aliases,
-            shutil_rmtree_aliases,
-            builtins_aliases,
-            importlib_aliases,
-            import_module_aliases,
+            aliases.shutil_aliases,
+            aliases.shutil_rmtree_aliases,
+            aliases.builtins_aliases,
+            aliases.importlib_aliases,
+            aliases.import_module_aliases,
         ):
             return RECURSIVE_DELETE_BLOCK_REASON
         if python_call_is_webbrowser_open(
             node,
-            webbrowser_aliases,
-            webbrowser_open_aliases,
-            webbrowser_get_aliases,
-            builtins_aliases,
-            importlib_aliases,
-            import_module_aliases,
+            aliases.webbrowser_aliases,
+            aliases.webbrowser_open_aliases,
+            aliases.webbrowser_get_aliases,
+            aliases.builtins_aliases,
+            aliases.importlib_aliases,
+            aliases.import_module_aliases,
         ):
             return "GUI application launch commands are not allowed in project mode"
         if python_call_is_os_startfile(
             node,
-            os_aliases,
-            os_startfile_aliases,
-            builtins_aliases,
-            importlib_aliases,
-            import_module_aliases,
+            aliases.os_aliases,
+            aliases.os_startfile_aliases,
+            aliases.builtins_aliases,
+            aliases.importlib_aliases,
+            aliases.import_module_aliases,
         ):
             return "GUI application launch commands are not allowed in project mode"
         nested_command = python_call_shell_command(
             node,
-            os_aliases,
-            subprocess_aliases,
-            asyncio_aliases,
-            pty_aliases,
-            os_launcher_aliases,
-            subprocess_launcher_aliases,
-            os_exec_spawn_aliases,
-            asyncio_subprocess_aliases,
-            pty_spawn_aliases,
-            builtins_aliases,
-            importlib_aliases,
-            import_module_aliases,
+            aliases.os_aliases,
+            aliases.subprocess_aliases,
+            aliases.asyncio_aliases,
+            aliases.pty_aliases,
+            aliases.os_launcher_aliases,
+            aliases.subprocess_launcher_aliases,
+            aliases.os_exec_spawn_aliases,
+            aliases.asyncio_subprocess_aliases,
+            aliases.pty_spawn_aliases,
+            aliases.builtins_aliases,
+            aliases.importlib_aliases,
+            aliases.import_module_aliases,
+            os_exec_spawn_alias_functions=aliases.os_exec_spawn_alias_functions,
+            asyncio_subprocess_alias_functions=aliases.asyncio_subprocess_alias_functions,
         )
         if nested_command:
             nested_blocked = get_blocked_command_reason(nested_command, _depth=depth + 1)
@@ -686,6 +590,9 @@ def python_call_shell_command(
     builtins_aliases: set[str],
     importlib_aliases: set[str],
     import_module_aliases: set[str],
+    *,
+    os_exec_spawn_alias_functions: dict[str, str] | None = None,
+    asyncio_subprocess_alias_functions: dict[str, str] | None = None,
 ) -> str | None:
     func = node.func
     if isinstance(func, ast.Call):
@@ -708,9 +615,13 @@ def python_call_shell_command(
         if func.id in os_launcher_aliases or func.id in subprocess_launcher_aliases:
             return python_command_argument(node)
         if func.id in os_exec_spawn_aliases:
-            return python_os_exec_spawn_command(node, func.id)
+            function_name = os_exec_spawn_alias_functions.get(func.id, func.id) if os_exec_spawn_alias_functions else func.id
+            return python_os_exec_spawn_command(node, function_name)
         if func.id in asyncio_subprocess_aliases:
-            return python_asyncio_subprocess_command(node, func.id)
+            function_name = (
+                asyncio_subprocess_alias_functions.get(func.id, func.id) if asyncio_subprocess_alias_functions else func.id
+            )
+            return python_asyncio_subprocess_command(node, function_name)
         if func.id in pty_spawn_aliases:
             return python_command_argument(node)
         return None
