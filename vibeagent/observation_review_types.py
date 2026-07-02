@@ -5,7 +5,7 @@ from typing import Literal
 
 from .observation_git_types import GitChangeFile, GitDiffHunk, UntrackedFilePreview
 from .observation_process_types import ProcessInfo
-from .observation_project_types import SuggestedCheck
+from .observation_project_types import FocusedTestCommand, SuggestedCheck
 from .observation_read_types import ConfigCheckResult, PythonCheckResult
 
 
@@ -67,3 +67,7 @@ class FinalReviewObservation:
     config: list[ConfigCheckResult] = field(default_factory=list)
     config_total: int = 0
     config_truncated: bool = False
+    focused_test_commands: list[FocusedTestCommand] = field(default_factory=list)
+    focused_test_commands_total: int = 0
+    focused_test_commands_truncated: bool = False
+    focused_test_related_tests_total: int = 0

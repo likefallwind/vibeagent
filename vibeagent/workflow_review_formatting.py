@@ -47,6 +47,12 @@ def format_review_check(item: dict[str, object]) -> str:
     return f"    - [{availability}] {item.get('command')} (cwd: {item.get('cwd')})"
 
 
+def format_focused_test_command(item: dict[str, object]) -> str:
+    availability = "available" if item.get("available") is not False else f"missing {item.get('missingTool')}"
+    test = f"; test: {item.get('test')}" if item.get("test") else ""
+    return f"    - [{availability}] {item.get('command')} (cwd: {item.get('cwd')}{test})"
+
+
 def format_review_syntax_check(item: dict[str, object]) -> str:
     location = format_check_location(item.get("line"), item.get("column"))
     return f"    - {item.get('path')}: failed{location} - {item.get('message')}"

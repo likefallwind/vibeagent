@@ -416,7 +416,7 @@ GIT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
 {
         "name": "final_review",
-        "description": "Run a read-only final handoff review that summarizes blocking issues, warnings, changed files, and suggested verification commands before finishing.",
+        "description": "Run a read-only final handoff review that summarizes blocking issues, warnings, changed files, suggested verification commands, and focused test commands inferred from changed files before finishing.",
         "input_schema": {
             "type": "object",
             "properties": {

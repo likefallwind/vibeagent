@@ -20,6 +20,7 @@ from .types import (
     ConfigCheckResult,
     FinalReviewAction,
     FinalReviewObservation,
+    FocusedTestCommand,
     GitChangeFile,
     GitDiffHunk,
     Observation,
@@ -29,7 +30,7 @@ from .types import (
     SuggestedCheck,
     UntrackedFilePreview,
 )
-from .workspace import RunWorkspace, read_git_conflicts, review_project_changes, suggest_project_checks
+from .workspace import RunWorkspace, read_git_conflicts, review_project_changes, suggest_focused_test_commands, suggest_project_checks
 
 
 def execute_final_review_action(workspace: RunWorkspace, action: AgentAction) -> Observation | None:
@@ -157,6 +158,34 @@ def final_review_observation(workspace: RunWorkspace, action: FinalReviewAction)
         or len(all_suggested_checks) > len(suggested_checks)
         or suggested_checks_total > len(suggested_checks)
     )
+    focused_test_commands: list[FocusedTestCommand] = []
+    focused_test_commands_total = 0
+    focused_test_commands_truncated = False
+    focused_test_related_tests_total = 0
+    changed_paths = [item.path for item in files]
+    if changed_paths:
+        try:
+            focused_metadata = suggest_focused_test_commands(
+                workspace,
+                paths=changed_paths,
+                max_paths=action.max_files,
+                max_candidates=200,
+                max_commands=action.max_checks,
+            )
+            focused_test_commands = [FocusedTestCommand(**item) for item in focused_metadata["commands"]]
+            focused_test_commands_total = int(focused_metadata["total"])
+            focused_test_commands_truncated = bool(focused_metadata["truncated"])
+            focused_test_related_tests_total = int(focused_metadata["related_tests_total"])
+        except ValueError as error:
+            focused_test_commands = []
+            focused_test_commands_total = 0
+            focused_test_commands_truncated = False
+            focused_test_related_tests_total = 0
+            focused_test_warning = f"Could not suggest focused tests: {error}."
+        else:
+            focused_test_warning = ""
+    else:
+        focused_test_warning = ""
     running_processes = [process for process in list_background_processes(workspace.root).processes if process.running]
     conflict_scan = read_git_conflicts(workspace, max_markers=20, max_files=5000)
     review_scan_files = final_review_scan_file_items(workspace, list(review["files"]))
@@ -333,6 +362,10 @@ def final_review_observation(workspace: RunWorkspace, action: FinalReviewAction)
         warnings.append(f"Config syntax checks truncated at {len(review['config'])}/{int(review['config_total'])}.")
     if suggested_checks_truncated:
         warnings.append(f"Suggested checks truncated at {len(suggested_checks)}/{suggested_checks_total}.")
+    if focused_test_commands_truncated:
+        warnings.append(f"Focused test suggestions truncated at {len(focused_test_commands)}/{focused_test_commands_total}.")
+    if focused_test_warning:
+        warnings.append(focused_test_warning)
     if unavailable:
         missing = ", ".join(sorted({item.missing_tool or item.command.split()[0] for item in unavailable})[:5])
         warnings.append(f"Some suggested checks have missing executables: {missing}.")
@@ -362,6 +395,10 @@ def final_review_observation(workspace: RunWorkspace, action: FinalReviewAction)
         config=config,
         config_total=int(review["config_total"]),
         config_truncated=bool(review["config_truncated"]),
+        focused_test_commands=focused_test_commands,
+        focused_test_commands_total=focused_test_commands_total,
+        focused_test_commands_truncated=focused_test_commands_truncated,
+        focused_test_related_tests_total=focused_test_related_tests_total,
         suggested_checks=suggested_checks,
         suggested_checks_total=suggested_checks_total,
         suggested_checks_truncated=suggested_checks_truncated,

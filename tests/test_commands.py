@@ -516,7 +516,7 @@ from vibeagent.commands import (
     is_exit_command,
     parse_local_command,
 )
-from vibeagent.types import CheckStartCommandObservation, CheckStopAllProcessesObservation, CheckStopProcessObservation, CheckWriteProcessObservation, FinalReviewObservation, HttpCheckObservation, HttpFetchObservation, ListProcessesObservation, OutputContextResult, OutputDiagnostic, PortCheckObservation, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadProcessObservation, StartCommandObservation, StopAllProcessesObservation, StopProcessObservation, StoppedProcessInfo, SuggestedCheck, WaitProcessObservation, WriteProcessObservation
+from vibeagent.types import CheckStartCommandObservation, CheckStopAllProcessesObservation, CheckStopProcessObservation, CheckWriteProcessObservation, FinalReviewObservation, FocusedTestCommand, HttpCheckObservation, HttpFetchObservation, ListProcessesObservation, OutputContextResult, OutputDiagnostic, PortCheckObservation, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadProcessObservation, StartCommandObservation, StopAllProcessesObservation, StopProcessObservation, StoppedProcessInfo, SuggestedCheck, WaitProcessObservation, WriteProcessObservation
 
 
 def write_session_events(project_root: Path, run_id: str, rows: list[dict], mtime: int | None = None) -> None:
@@ -10786,6 +10786,27 @@ class CommandTests(unittest.TestCase):
         self.assertIn("npm run test", commands)
         self.assertIsInstance(report["warnings"], list)
 
+    def test_get_review_report_includes_focused_tests_for_changed_files(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (root / "src").mkdir()
+            (root / "tests").mkdir()
+            (root / "src" / "app.py").write_text("def run():\n    return 1\n", encoding="utf-8")
+            (root / "tests" / "test_app.py").write_text("def test_run():\n    assert True\n", encoding="utf-8")
+
+            report = get_review_report(root, max_checks=5)
+            rendered = commands_module.format_review_report_text(report)
+
+        focused = report["focusedTests"]
+        self.assertIsInstance(focused, dict)
+        self.assertGreaterEqual(focused["total"], 1)
+        self.assertGreaterEqual(focused["relatedTestsTotal"], 1)
+        focused_commands = [item["command"] for item in focused["commands"] if isinstance(item, dict)]
+        self.assertIn("python -m unittest discover -s tests -p test_app.py", focused_commands)
+        self.assertIn("focusedTests:", rendered)
+        self.assertIn("tests/test_app.py", rendered)
+
     def test_get_review_report_blocks_unavailable_suggested_checks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -10858,6 +10879,17 @@ class CommandTests(unittest.TestCase):
                 ],
                 suggested_checks_total=1,
                 suggested_checks_truncated=False,
+                focused_test_commands=[
+                    FocusedTestCommand(
+                        command="python -m unittest discover -s tests -p test_app.py",
+                        cwd=".",
+                        test_path="tests/test_app.py",
+                        source="src/app.py",
+                        reason="related test",
+                    )
+                ],
+                focused_test_commands_total=1,
+                focused_test_related_tests_total=1,
                 diff_check="",
                 staged_diff_check="",
                 status=" M app.py\n",
@@ -10877,6 +10909,7 @@ class CommandTests(unittest.TestCase):
             "changedFiles",
             "runningProcesses",
             "suggestedChecks",
+            "focusedTests",
             "syntaxChecks",
         ]
         for key in shared_keys:

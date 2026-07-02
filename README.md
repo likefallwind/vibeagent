@@ -143,11 +143,12 @@ suggested verification commands, truncation state, changed files, and the same
 message shown in the text UI.
 `--json --review` includes a structured `review` object with readiness,
 blocking issues, warnings, changed files, running background processes,
-syntax-check summaries, suggested verification commands, and diff-check output.
+syntax-check summaries, suggested verification commands, focused test
+commands inferred from changed files, and diff-check output.
 `--json --handoff` includes a structured `handoff` object with final-review
 readiness, blocking issues, warnings, changed files, running background
-processes, suggested verification commands, filtered git status, and the latest
-plan text.
+processes, suggested verification commands, focused test commands inferred
+from changed files, filtered git status, and the latest plan text.
 `--json --changes` includes a structured `changes` object with changed-file
 counts, staged/unstaged/untracked totals, insertion/deletion totals, truncation
 state, and shown file records.
@@ -733,8 +734,8 @@ source snippets, `/find-files [--path PATH] [--max-matches N] [--regex] [--case-
 tasks, `/init [AGENTS.md|CLAUDE.md]` to create a starter project instruction
 file, `/doctor` to inspect local
 configuration, workspace diagnostics, and command hard-block self-checks, `/review [--max-files N] [--max-checks N]` to review current git changes,
-syntax checks, and suggested verification commands, `/handoff [--max-files N] [--max-checks N] [--max-status-chars N] [--max-plan-chars N]` to inspect a final
-handoff bundle with review status, changed files, suggested checks, git status,
+syntax checks, suggested verification commands, and focused tests inferred from changed files, `/handoff [--max-files N] [--max-checks N] [--max-status-chars N] [--max-plan-chars N]` to inspect a final
+handoff bundle with review status, changed files, suggested checks, focused tests, git status,
 and the latest plan, `/changes [--max-files N]` to inspect a structured changed-file summary,
 `/diff [--staged] [--max-chars N] [path]` to inspect the current patch,
 `/diff-hunks [--staged] [--max-hunks N] [--max-lines N] [path]` to inspect structured git diff hunks,
@@ -1058,7 +1059,8 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   checks, and runtime tool availability.
 - `final_review` is a read-only handoff bundle for non-trivial code changes:
   blocking issues, warnings, running background processes, changed files, and
-  suggested verification commands. It blocks incomplete changed-file reviews,
+  suggested verification commands plus focused test commands inferred from
+  changed files. It blocks incomplete changed-file reviews,
   incomplete Python or config syntax checks, unresolved merge conflicts,
   incomplete or failed merge-conflict scans, and changed files larger than
   100 MiB before the agent reports completion. It

@@ -109,6 +109,7 @@ from .workflow_review_formatting import (
     clip_text as _clip,
     filter_handoff_status,
     format_check_location,
+    format_focused_test_command,
     format_review_check,
     format_review_file,
     format_review_process,
@@ -154,6 +155,7 @@ def final_review_common_report(root: Path, observation: object, *, max_files: in
         files = files[:max_files]
     running_processes = list(getattr(observation, "running_processes", []))
     suggested_checks = list(getattr(observation, "suggested_checks", []))
+    focused_tests = list(getattr(observation, "focused_test_commands", []))
     python_results = list(getattr(observation, "python", []))
     config_results = list(getattr(observation, "config", []))
     status_checks = final_review_status_checks(blocking_issues)
@@ -178,6 +180,13 @@ def final_review_common_report(root: Path, observation: object, *, max_files: in
             "truncated": bool(getattr(observation, "suggested_checks_truncated", False)),
             "commands": [_plain_data(item) for item in suggested_checks],
         },
+        "focusedTests": {
+            "shown": len(focused_tests),
+            "total": int(getattr(observation, "focused_test_commands_total", 0)),
+            "truncated": bool(getattr(observation, "focused_test_commands_truncated", False)),
+            "relatedTestsTotal": int(getattr(observation, "focused_test_related_tests_total", 0)),
+            "commands": [serialize_focused_review_command(item) for item in focused_tests],
+        },
         "syntaxChecks": {
             "python": {
                 "ok": bool(status_checks["python"]),
@@ -194,6 +203,18 @@ def final_review_common_report(root: Path, observation: object, *, max_files: in
                 "results": [_plain_data(item) for item in config_results],
             },
         },
+    }
+
+
+def serialize_focused_review_command(command: object) -> dict[str, object]:
+    return {
+        "command": str(getattr(command, "command", "") or ""),
+        "cwd": str(getattr(command, "cwd", ".") or "."),
+        "test": str(getattr(command, "test_path", "") or ""),
+        "source": str(getattr(command, "source", "") or ""),
+        "reason": str(getattr(command, "reason", "") or ""),
+        "available": bool(getattr(command, "available", False)),
+        "missingTool": getattr(command, "missing_tool", None),
     }
 
 
@@ -236,6 +257,7 @@ def get_review_report(project_root: str | Path = ".", max_files: int = 200, max_
                 "config": {"ok": False, "shown": 0, "total": 0, "truncated": False, "results": []},
             },
             "suggestedChecks": {"shown": 0, "total": 0, "truncated": False, "commands": []},
+            "focusedTests": {"shown": 0, "total": 0, "truncated": False, "relatedTestsTotal": 0, "commands": []},
             "diffCheckOutput": "",
             "stagedDiffCheckOutput": "",
             "status": "",
@@ -261,6 +283,8 @@ def format_review_report_text(report: dict[str, object]) -> str:
     running_processes = running.get("processes", []) if isinstance(running, dict) else []
     checks_report = report["suggestedChecks"] if isinstance(report["suggestedChecks"], dict) else {}
     checks = checks_report.get("commands", []) if isinstance(checks_report, dict) else []
+    focused_report = report["focusedTests"] if isinstance(report.get("focusedTests"), dict) else {}
+    focused_tests = focused_report.get("commands", []) if isinstance(focused_report, dict) else []
     syntax_checks = report["syntaxChecks"] if isinstance(report["syntaxChecks"], dict) else {}
     python_report = syntax_checks.get("python", {}) if isinstance(syntax_checks, dict) else {}
     config_report = syntax_checks.get("config", {}) if isinstance(syntax_checks, dict) else {}
@@ -291,6 +315,9 @@ def format_review_report_text(report: dict[str, object]) -> str:
     if checks:
         lines.append("  suggestedChecks:")
         lines.extend(format_review_check(item) for item in checks if isinstance(item, dict))
+    if focused_tests:
+        lines.append("  focusedTests:")
+        lines.extend(format_focused_test_command(item) for item in focused_tests if isinstance(item, dict))
     if str(report.get("diffCheckOutput", "")).strip():
         lines.append("  diffCheckOutput:")
         lines.append(_indent_block(_clip(str(report["diffCheckOutput"]).strip(), 2_000), spaces=4))
@@ -347,6 +374,7 @@ def get_handoff_report(
             "changedFiles": {"shown": 0, "total": 0, "files": []},
             "runningProcesses": {"count": 0, "processes": []},
             "suggestedChecks": {"shown": 0, "total": 0, "truncated": False, "commands": []},
+            "focusedTests": {"shown": 0, "total": 0, "truncated": False, "relatedTestsTotal": 0, "commands": []},
             "syntaxChecks": {
                 "python": {"shown": 0, "total": 0, "truncated": False, "results": []},
                 "config": {"shown": 0, "total": 0, "truncated": False, "results": []},
@@ -382,6 +410,8 @@ def format_handoff_report_text(report: dict[str, object]) -> str:
     running_processes = running.get("processes", []) if isinstance(running, dict) else []
     suggested = report["suggestedChecks"] if isinstance(report["suggestedChecks"], dict) else {}
     suggested_checks = suggested.get("commands", []) if isinstance(suggested, dict) else []
+    focused = report["focusedTests"] if isinstance(report.get("focusedTests"), dict) else {}
+    focused_tests = focused.get("commands", []) if isinstance(focused, dict) else []
     syntax = report["syntaxChecks"] if isinstance(report["syntaxChecks"], dict) else {}
     python_report = syntax.get("python", {}) if isinstance(syntax, dict) else {}
     config_report = syntax.get("config", {}) if isinstance(syntax, dict) else {}
@@ -396,6 +426,7 @@ def format_handoff_report_text(report: dict[str, object]) -> str:
         f"  ready: {'yes' if bool(report['ready']) else 'no'}",
         f"  changedFiles: {changed_files.get('total', 0)}",
         f"  suggestedChecks: {suggested.get('shown', 0)}/{suggested.get('total', 0)}",
+        f"  focusedTests: {focused.get('shown', 0)}/{focused.get('total', 0)}",
         f"  checksTruncated: {'yes' if bool(suggested.get('truncated')) else 'no'}",
     ]
     if blocking_issues:
@@ -427,6 +458,11 @@ def format_handoff_report_text(report: dict[str, object]) -> str:
         lines.extend(format_review_check(item) for item in suggested_checks if isinstance(item, dict))
     else:
         lines.append("  suggestedChecks: none")
+    if focused_tests:
+        lines.append("  focusedTests:")
+        lines.extend(format_focused_test_command(item) for item in focused_tests if isinstance(item, dict))
+    else:
+        lines.append("  focusedTests: none")
     status = str(git_status.get("text", ""))
     if status.strip():
         lines.append("  gitStatus:")
