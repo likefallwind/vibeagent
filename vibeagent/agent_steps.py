@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from .agent_action_descriptions import build_action_target, build_step_label
+from .agent_action_labels import build_step_label
+from .agent_action_targets import build_action_target
 from .agent_observation_utils import observation_failed
 from .agent_runtime_utils import append_session_event, summarize_command
 from .types import AgentLogger, Observation, TaskStep

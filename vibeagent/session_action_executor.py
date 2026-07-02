@@ -7,7 +7,7 @@ from .action_results import (
     parse_session_files_counts,
     parse_session_search_counts,
 )
-from .process_runtime import output_context_results_from_dicts, output_diagnostics_from_dicts
+from .output_conversion import output_context_results_from_dicts, output_diagnostics_from_dicts
 from .session import (
     format_session_audit,
     format_session_commands,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 
-from .cli_parsing import build_diff_argument
+from .cli_parse_diff_git import build_diff_argument
 
 
 def normalize_task_bound_diff_args(args: argparse.Namespace) -> None:

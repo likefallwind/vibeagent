@@ -1,16 +1,21 @@
 from __future__ import annotations
 
-import json
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from .session_command_reports import (
     command_output_tail,
-    format_session_command_entry,
-    format_session_command_stream,
-    serialize_session_command_with_output,
     session_command_entries,
+)
+from .session_event_report_commands import (
+    build_session_commands_report,
+    build_session_search_report,
+    build_session_transcript_report,
+    format_session_commands,
+    format_session_search,
+    format_session_transcript,
+    session_search_matches,
+    validate_session_commands_limits,
 )
 from .session_file_reports import (
     add_session_path,
@@ -24,7 +29,6 @@ from .session_failure_reports import (
     approval_failure_entry,
     approval_request_failure_detail,
     command_failure_entry,
-    command_result_failed,
     model_error_failure_entry,
     result_failure_detail,
     result_failure_entry,
@@ -33,6 +37,13 @@ from .session_failure_reports import (
     session_failure_result_failed,
     tool_result_failure_entries,
 )
+from .session_store import (
+    list_sessions,
+    read_events_file,
+    read_session_events,
+    read_session_info,
+    session_info_has_rows,
+)
 from .session_timeline_reports import (
     format_detail_suffix,
     format_session_event_timeline_item,
@@ -40,15 +51,6 @@ from .session_timeline_reports import (
     legacy_model_raw_summary,
     model_tool_call_names,
     serialize_session_timeline_event,
-)
-from .session_text_reports import (
-    build_session_search_report_from_matches,
-    build_session_transcript_report_from_events,
-    format_session_search_matches,
-    format_session_transcript_events,
-    session_search_matches_from_events,
-    validate_session_search_limits,
-    validate_session_transcript_limits,
 )
 from .session_verification_reports import (
     build_session_verification_report_from_summary,
@@ -83,237 +85,41 @@ from .session_audit_reports import (
     validate_session_handoff_limits,
 )
 from .session_types import (
-    SessionEvent,
     SessionInfo,
-    SessionPlanItem,
     SessionProcessInfo,
     SessionSummary,
+)
+from .session_summary_helpers import (
+    checkpoint_result_id,
+    merge_session_process_info,
+    parse_session_plan,
+    parse_string_list,
+    session_changed_file_labels,
+    session_check_failure_labels,
+    session_check_location,
+    session_process_info,
+    update_session_background_processes,
 )
 from .session_utils import (
     as_int,
     as_nonnegative_int,
     compact,
-    events_path,
     has_tool_call_content,
     is_failed_tool_result,
     is_local_session_id,
     model_text,
     parse_usage_payload,
     session_dir,
-    session_events_safety_error,
-    session_store_safety_error,
-    sessions_dir,
 )
-
-
-SESSION_PROJECT_CHANGE_RESULT_KINDS = {
-    "write_file",
-    "write_files",
-    "edit_file",
-    "multi_edit_file",
-    "replace_python_definition",
-    "code_rename",
-    "python_rename",
-    "replace_lines",
-    "insert_lines",
-    "append_file",
-    "regex_replace",
-    "json_set",
-    "json_remove",
-    "json_patch",
-    "patch_file",
-    "patch_files",
-    "delete_file",
-    "delete_files",
-    "move_file",
-    "move_files",
-    "copy_file",
-    "copy_files",
-    "move_dir",
-    "move_dirs",
-    "copy_dir",
-    "copy_dirs",
-    "create_dir",
-    "create_dirs",
-    "delete_empty_dir",
-    "delete_empty_dirs",
-    "set_executable",
-    "git_stage",
-    "git_unstage",
-    "git_commit",
-    "git_restore",
-    "checkpoint_restore",
-}
-
-
-def list_sessions(project_root: str | Path, limit: int = 20) -> list[SessionInfo]:
-    if session_store_safety_error(project_root):
-        return []
-    sessions_root = sessions_dir(project_root)
-    if not sessions_root.is_dir():
-        return []
-
-    infos: list[SessionInfo] = []
-    for path in sessions_root.iterdir():
-        if path.is_symlink() or not path.is_dir():
-            continue
-        try:
-            info = read_session_info(path)
-        except ValueError:
-            continue
-        if session_info_has_rows(info):
-            infos.append(info)
-    infos.sort(key=lambda info: info.last_event_time or datetime.min.replace(tzinfo=UTC), reverse=True)
-    return infos[:limit]
-
-
-def session_info_has_rows(info: SessionInfo) -> bool:
-    return info.event_count > 0 or info.malformed_count > 0
-
-
-def read_session_events(project_root: str | Path, run_id: str) -> list[SessionEvent]:
-    return read_events_file(events_path(project_root, run_id))
-
-
-def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[str], list[str], list[str]]:
-    suggested_commands: set[tuple[str, str]] = set()
-    last_change_index: int | None = None
-    for index, event in enumerate(events):
-        if event.malformed or event.type != "tool_result":
-            continue
-        result = event.payload.get("result")
-        if not isinstance(result, dict):
-            continue
-        kind = result.get("kind")
-        if kind == "final_review":
-            suggested_commands = session_final_review_suggested_commands(result)
-        if kind in SESSION_PROJECT_CHANGE_RESULT_KINDS and result.get("ok") is not False:
-            last_change_index = index
-
-    if not suggested_commands or last_change_index is None:
-        return [], [], []
-
-    statuses: dict[tuple[str, str], tuple[bool, str]] = {}
-    for event in events[last_change_index + 1 :]:
-        if event.malformed or event.type != "tool_result":
-            continue
-        result = event.payload.get("result")
-        if not isinstance(result, dict):
-            continue
-        for command_result in session_iter_command_results(result):
-            key = session_command_result_key(command_result)
-            if key not in suggested_commands:
-                continue
-            if command_result_failed(command_result):
-                statuses[key] = (False, session_failed_suggested_check_label(command_result))
-            else:
-                statuses[key] = (True, session_suggested_check_label(*key))
-
-    verified = [label for _, (passed, label) in sorted(statuses.items()) if passed]
-    failed_checks = [label for _, (passed, label) in sorted(statuses.items()) if not passed]
-    completed_commands = set(statuses)
-    pending = [
-        session_suggested_check_label(command, cwd)
-        for command, cwd in sorted(suggested_commands - completed_commands)
-    ]
-    return verified, pending, failed_checks
-
-
-def session_final_review_suggested_commands(result: dict[str, Any]) -> set[tuple[str, str]]:
-    checks = result.get("suggested_checks")
-    if not isinstance(checks, list):
-        return set()
-    commands: set[tuple[str, str]] = set()
-    for check in checks:
-        if not isinstance(check, dict):
-            continue
-        command = check.get("command")
-        cwd = check.get("cwd")
-        if isinstance(command, str) and command.strip():
-            commands.add((command, cwd if isinstance(cwd, str) and cwd else "."))
-    return commands
-
-
-def session_iter_command_results(result: dict[str, Any]) -> list[dict[str, Any]]:
-    kind = result.get("kind")
-    if kind == "run_command":
-        command_result = result.get("result")
-        return [command_result] if isinstance(command_result, dict) else []
-    if kind in {"run_commands", "run_suggested_checks", "run_focused_test_commands"}:
-        command_results = result.get("results")
-        if isinstance(command_results, list):
-            return [item for item in command_results if isinstance(item, dict)]
-    return []
-
-
-def session_command_result_key(result: dict[str, Any]) -> tuple[str, str]:
-    command = result.get("command")
-    cwd = result.get("cwd")
-    return (command if isinstance(command, str) else "", cwd if isinstance(cwd, str) and cwd else ".")
-
-
-def session_suggested_check_label(command: str, cwd: str) -> str:
-    return command if cwd == "." else f"{command} (cwd: {cwd})"
-
-
-def session_failed_suggested_check_label(result: dict[str, Any]) -> str:
-    command, cwd = session_command_result_key(result)
-    if result.get("timed_out") is True:
-        reason = "timed out"
-    else:
-        exit_code = result.get("exit_code")
-        reason = f"exit={exit_code}" if isinstance(exit_code, int) else "no exit code"
-    return f"{session_suggested_check_label(command, cwd)} ({reason})"
-
-
-def parse_string_list(value: Any) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    return [item for item in value if isinstance(item, str) and item.strip()]
-
-
-def session_check_failure_labels(value: Any) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    failures: list[str] = []
-    for item in value:
-        if not isinstance(item, dict) or item.get("ok") is not False:
-            continue
-        path = item.get("path")
-        message = item.get("message")
-        if not isinstance(path, str) or not path.strip():
-            path = "unknown"
-        if not isinstance(message, str) or not message.strip():
-            message = "failed"
-        location = session_check_location(item.get("line"), item.get("column"))
-        failures.append(f"{path}{location}: {message}")
-    return failures
-
-
-def session_changed_file_labels(value: Any) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    labels: list[str] = []
-    for item in value:
-        if not isinstance(item, dict):
-            continue
-        path = item.get("path")
-        if not isinstance(path, str) or not path.strip():
-            continue
-        status = item.get("status")
-        status_label = status.strip() if isinstance(status, str) and status.strip() else "?"
-        labels.append(f"{status_label} {path.strip()}")
-    return labels
-
-
-def session_check_location(line: Any, column: Any) -> str:
-    line_number = as_int(line)
-    column_number = as_int(column)
-    if line_number is None:
-        return ""
-    if column_number is None:
-        return f" at line {line_number}"
-    return f" at line {line_number}, column {column_number}"
+from .session_verification_state import (
+    SESSION_PROJECT_CHANGE_RESULT_KINDS,
+    session_command_result_key,
+    session_failed_suggested_check_label,
+    session_final_review_suggested_commands,
+    session_iter_command_results,
+    session_suggested_check_label,
+    session_verification_from_events,
+)
 
 
 def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
@@ -593,92 +399,6 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
     )
 
 
-def update_session_background_processes(
-    active_processes: dict[str, SessionProcessInfo],
-    result: dict[str, Any],
-    line_number: int,
-) -> None:
-    kind = result.get("kind")
-    if kind == "start_command":
-        if result.get("ok") is not True:
-            return
-        process_id = result.get("process_id")
-        if not isinstance(process_id, str) or not process_id.strip():
-            return
-        active_processes[process_id] = session_process_info(result, line_number=line_number)
-        return
-
-    if kind in {"read_process", "wait_process"}:
-        process_id = result.get("process_id")
-        if not isinstance(process_id, str) or process_id not in active_processes:
-            return
-        if result.get("running") is False:
-            active_processes.pop(process_id, None)
-            return
-        if result.get("running") is True:
-            active_processes[process_id] = merge_session_process_info(
-                active_processes[process_id],
-                result,
-                line_number=line_number,
-            )
-        return
-
-    if kind == "stop_process":
-        process_id = result.get("process_id")
-        if result.get("ok") is True and isinstance(process_id, str):
-            active_processes.pop(process_id, None)
-        return
-
-    if kind == "stop_all_processes":
-        if result.get("ok") is not True:
-            return
-        stopped = result.get("stopped")
-        if isinstance(stopped, list):
-            for item in stopped:
-                if isinstance(item, dict) and isinstance(item.get("process_id"), str):
-                    active_processes.pop(item["process_id"], None)
-            return
-        active_processes.clear()
-        return
-
-    if kind == "final_review":
-        running_processes = result.get("running_processes")
-        if not isinstance(running_processes, list):
-            return
-        active_processes.clear()
-        for process in running_processes:
-            if isinstance(process, dict) and isinstance(process.get("process_id"), str):
-                active_processes[process["process_id"]] = session_process_info(process, line_number=line_number)
-
-
-def session_process_info(result: dict[str, Any], line_number: int) -> SessionProcessInfo:
-    process_id = result.get("process_id")
-    command = result.get("command")
-    cwd = result.get("cwd")
-    return SessionProcessInfo(
-        process_id=process_id if isinstance(process_id, str) and process_id.strip() else "unknown",
-        pid=as_int(result.get("pid")),
-        command=command.strip() if isinstance(command, str) and command.strip() else "unknown",
-        cwd=cwd.strip() if isinstance(cwd, str) and cwd.strip() else ".",
-        line_number=line_number,
-    )
-
-
-def merge_session_process_info(
-    previous: SessionProcessInfo,
-    result: dict[str, Any],
-    line_number: int,
-) -> SessionProcessInfo:
-    current = session_process_info(result, line_number=line_number)
-    return SessionProcessInfo(
-        process_id=previous.process_id,
-        pid=current.pid if current.pid is not None else previous.pid,
-        command=current.command if current.command != "unknown" else previous.command,
-        cwd=current.cwd if current.cwd != "." else previous.cwd,
-        line_number=line_number,
-    )
-
-
 def format_sessions(project_root: str | Path, limit: int = 20) -> str:
     sessions = list_sessions(project_root, limit=limit)
     if not sessions:
@@ -943,205 +663,6 @@ def build_session_verification_report(
         max_checks=max_checks,
         max_text=max_text,
     )
-
-
-def format_session_transcript(
-    project_root: str | Path,
-    run_id: str,
-    max_events: int = 80,
-    max_text: int = 500,
-) -> str:
-    validate_session_transcript_limits(max_events, max_text)
-
-    current_session_dir = session_dir(project_root, run_id)
-    if not current_session_dir.is_dir():
-        return f"Session not found: {run_id}"
-
-    return format_session_transcript_events(
-        run_id,
-        read_session_events(project_root, run_id),
-        max_events=max_events,
-        max_text=max_text,
-    )
-
-
-def build_session_transcript_report(
-    project_root: str | Path,
-    run_id: str,
-    max_events: int = 80,
-    max_text: int = 500,
-) -> dict[str, Any]:
-    validate_session_transcript_limits(max_events, max_text)
-
-    current_session_dir = session_dir(project_root, run_id)
-    if not current_session_dir.is_dir():
-        return {
-            "session": run_id,
-            "exists": False,
-            "ok": False,
-            "status": "missing",
-            "message": f"Session not found: {run_id}",
-        }
-
-    return build_session_transcript_report_from_events(
-        run_id,
-        read_session_events(project_root, run_id),
-        max_events=max_events,
-        max_text=max_text,
-    )
-
-
-def format_session_search(
-    project_root: str | Path,
-    run_id: str,
-    query: str,
-    max_matches: int = 20,
-    max_text: int = 500,
-    case_sensitive: bool = False,
-) -> str:
-    validate_session_search_limits(query, max_matches, max_text)
-
-    current_session_dir = session_dir(project_root, run_id)
-    if not current_session_dir.is_dir():
-        return f"Session not found: {run_id}"
-
-    return format_session_search_matches(
-        run_id,
-        query,
-        session_search_matches(project_root, run_id, query, max_text=max_text, case_sensitive=case_sensitive),
-        max_matches=max_matches,
-        case_sensitive=case_sensitive,
-    )
-
-
-def build_session_search_report(
-    project_root: str | Path,
-    run_id: str,
-    query: str,
-    max_matches: int = 20,
-    max_text: int = 500,
-    case_sensitive: bool = False,
-) -> dict[str, Any]:
-    validate_session_search_limits(query, max_matches, max_text)
-
-    current_session_dir = session_dir(project_root, run_id)
-    if not current_session_dir.is_dir():
-        return {
-            "session": run_id,
-            "exists": False,
-            "ok": False,
-            "status": "missing",
-            "query": query,
-            "caseSensitive": case_sensitive,
-            "message": f"Session not found: {run_id}",
-        }
-
-    return build_session_search_report_from_matches(
-        run_id,
-        query,
-        session_search_matches(project_root, run_id, query, max_text=max_text, case_sensitive=case_sensitive),
-        max_matches=max_matches,
-        case_sensitive=case_sensitive,
-    )
-
-
-def session_search_matches(
-    project_root: str | Path,
-    run_id: str,
-    query: str,
-    max_text: int = 500,
-    case_sensitive: bool = False,
-) -> list[dict[str, Any]]:
-    return session_search_matches_from_events(
-        read_session_events(project_root, run_id),
-        query,
-        max_text=max_text,
-        case_sensitive=case_sensitive,
-    )
-
-
-def format_session_commands(
-    project_root: str | Path,
-    run_id: str,
-    max_commands: int = 20,
-    max_output_chars: int = 2_000,
-) -> str:
-    validate_session_commands_limits(max_commands, max_output_chars)
-
-    current_session_dir = session_dir(project_root, run_id)
-    if not current_session_dir.is_dir():
-        return f"Session not found: {run_id}"
-
-    entries = session_command_entries(read_session_events(project_root, run_id))
-    shown_entries = entries[-max_commands:]
-    omitted = len(entries) - len(shown_entries)
-    lines = [
-        "Command results:",
-        f"  session: {run_id}",
-        f"  commands: {len(entries)}",
-        f"  shown: {len(shown_entries)}/{len(entries)}",
-        "  entries:",
-    ]
-    if omitted > 0:
-        lines.append(f"    - [{omitted} older command result(s) omitted]")
-    if not shown_entries:
-        lines.append("    - none")
-        return "\n".join(lines)
-
-    for entry in shown_entries:
-        lines.extend(format_session_command_entry(entry, max_output_chars=max_output_chars))
-    return "\n".join(lines)
-
-
-def validate_session_commands_limits(max_commands: int, max_output_chars: int) -> None:
-    if max_commands < 1:
-        raise ValueError("max_commands must be at least 1.")
-    if max_commands > 100:
-        raise ValueError("max_commands must be at most 100.")
-    if max_output_chars < 0:
-        raise ValueError("max_output_chars must be at least 0.")
-    if max_output_chars > 20_000:
-        raise ValueError("max_output_chars must be at most 20000.")
-
-
-def build_session_commands_report(
-    project_root: str | Path,
-    run_id: str,
-    max_commands: int = 20,
-    max_output_chars: int = 2_000,
-) -> dict[str, Any]:
-    validate_session_commands_limits(max_commands, max_output_chars)
-
-    current_session_dir = session_dir(project_root, run_id)
-    if not current_session_dir.is_dir():
-        return {
-            "session": run_id,
-            "exists": False,
-            "ok": False,
-            "status": "missing",
-            "message": f"Session not found: {run_id}",
-        }
-
-    entries = session_command_entries(read_session_events(project_root, run_id))
-    shown_entries = entries[-max_commands:]
-    omitted = len(entries) - len(shown_entries)
-    return {
-        "session": run_id,
-        "exists": True,
-        "ok": True,
-        "status": "ready",
-        "commands": {
-            "total": len(entries),
-            "shown": len(shown_entries),
-            "omitted": omitted,
-            "truncated": omitted > 0,
-            "items": [
-                serialize_session_command_with_output(entry, max_output_chars)
-                for entry in shown_entries
-            ],
-        },
-        "message": f"Found {len(entries)} command result(s).",
-    }
 
 
 def format_session_files(project_root: str | Path, run_id: str, max_files: int = 100) -> str:
@@ -1412,33 +933,6 @@ def read_events_file(path: Path) -> list[SessionEvent]:
             )
         )
     return events
-
-
-def parse_session_plan(value: Any) -> list[SessionPlanItem]:
-    if not isinstance(value, list):
-        return []
-    items: list[SessionPlanItem] = []
-    for item in value[:20]:
-        if not isinstance(item, dict):
-            continue
-        step = item.get("step")
-        status = item.get("status")
-        if not isinstance(step, str) or not step.strip():
-            continue
-        if status not in {"pending", "in_progress", "completed"}:
-            continue
-        items.append(SessionPlanItem(step=step.strip(), status=status))
-    return items
-
-
-def checkpoint_result_id(result: dict[str, Any]) -> str | None:
-    checkpoint = result.get("checkpoint")
-    if not isinstance(checkpoint, dict):
-        return None
-    checkpoint_id = checkpoint.get("checkpoint_id")
-    if isinstance(checkpoint_id, str) and checkpoint_id.strip():
-        return checkpoint_id.strip()
-    return None
 
 
 from .session_usage import (

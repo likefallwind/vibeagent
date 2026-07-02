@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import json
 
 from .actions import ActionParseError, execute_action, parse_tool_action
-from .agent_action_descriptions import log_action
+from .agent_action_logging import log_action
 from .agent_parallel_safety import is_parallel_safe_action
 from .agent_runtime_utils import append_session_event, find_repeated_list_observation, to_jsonable
 from .agent_steps import complete_task_step, start_task_step

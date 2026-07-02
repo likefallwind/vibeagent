@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Sequence
 
-from .cli_parsing import nonnegative_int, positive_int, timeout_ms
+from .cli_parse_core import nonnegative_int, positive_int, timeout_ms
 
 
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:

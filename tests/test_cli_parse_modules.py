@@ -1,0 +1,162 @@
+from __future__ import annotations
+
+import argparse
+import unittest
+
+from vibeagent import cli_parsing
+from vibeagent.cli_parse_core import build_focused_tests_kwargs, parse_cli_json_value, timeout_ms
+from vibeagent.cli_parse_code_intel import parse_interactive_python_symbol_argument, parse_interactive_test_paths_argument
+from vibeagent.cli_parse_discovery import (
+    parse_interactive_glob_argument,
+    parse_interactive_overview_argument,
+    parse_interactive_search_argument,
+)
+from vibeagent.cli_parse_diff_git import build_diff_argument, parse_interactive_diff_argument
+from vibeagent.cli_parse_runtime_checks import parse_interactive_http_argument, parse_interactive_port_argument
+from vibeagent.cli_parse_read import (
+    parse_interactive_read_argument,
+    parse_interactive_read_files_argument,
+    parse_interactive_tree_argument,
+)
+from vibeagent.cli_parse_run import (
+    parse_interactive_check_run_sequence_argument,
+    parse_interactive_run_argument,
+    parse_interactive_run_sequence_argument,
+)
+from vibeagent.cli_parse_session import parse_interactive_session_search_argument, parse_interactive_transcript_argument
+
+
+class CliParseModuleTests(unittest.TestCase):
+    def test_compat_module_reexports_split_helpers(self) -> None:
+        self.assertIs(cli_parsing.timeout_ms, timeout_ms)
+        self.assertIs(cli_parsing.parse_cli_json_value, parse_cli_json_value)
+        self.assertIs(cli_parsing.build_diff_argument, build_diff_argument)
+        self.assertIs(cli_parsing.parse_interactive_diff_argument, parse_interactive_diff_argument)
+        self.assertIs(cli_parsing.parse_interactive_transcript_argument, parse_interactive_transcript_argument)
+        self.assertIs(cli_parsing.parse_interactive_session_search_argument, parse_interactive_session_search_argument)
+        self.assertIs(cli_parsing.parse_interactive_http_argument, parse_interactive_http_argument)
+        self.assertIs(cli_parsing.parse_interactive_port_argument, parse_interactive_port_argument)
+        self.assertIs(cli_parsing.parse_interactive_search_argument, parse_interactive_search_argument)
+        self.assertIs(cli_parsing.parse_interactive_glob_argument, parse_interactive_glob_argument)
+        self.assertIs(cli_parsing.parse_interactive_overview_argument, parse_interactive_overview_argument)
+        self.assertIs(cli_parsing.parse_interactive_read_argument, parse_interactive_read_argument)
+        self.assertIs(cli_parsing.parse_interactive_read_files_argument, parse_interactive_read_files_argument)
+        self.assertIs(cli_parsing.parse_interactive_tree_argument, parse_interactive_tree_argument)
+        self.assertIs(cli_parsing.parse_interactive_python_symbol_argument, parse_interactive_python_symbol_argument)
+        self.assertIs(cli_parsing.parse_interactive_test_paths_argument, parse_interactive_test_paths_argument)
+        self.assertIs(cli_parsing.parse_interactive_run_argument, parse_interactive_run_argument)
+        self.assertIs(cli_parsing.parse_interactive_run_sequence_argument, parse_interactive_run_sequence_argument)
+        self.assertIs(cli_parsing.parse_interactive_check_run_sequence_argument, parse_interactive_check_run_sequence_argument)
+
+    def test_core_helpers_keep_existing_behavior(self) -> None:
+        args = argparse.Namespace(
+            focused_tests_max_paths=2,
+            focused_tests_max_candidates=None,
+            focused_tests_max_commands=3,
+        )
+
+        self.assertEqual(parse_cli_json_value('{"ok": true}'), {"ok": True})
+        self.assertEqual(timeout_ms("100"), 100)
+        self.assertEqual(build_focused_tests_kwargs(args), {"max_paths": 2, "max_commands": 3})
+
+    def test_diff_and_session_parsers_keep_existing_behavior(self) -> None:
+        diff_arg, max_chars, error = parse_interactive_diff_argument("--max-chars=5 --staged src/app.py")
+        query, run_id, kwargs, search_error = parse_interactive_session_search_argument(
+            "--run run-1 --max-matches 2 --case-sensitive failure"
+        )
+
+        self.assertEqual(build_diff_argument("src/app.py", True, ["extra.py"]), "--staged src/app.py extra.py")
+        self.assertEqual((diff_arg, max_chars, error), ("--staged src/app.py", 5, None))
+        self.assertEqual((query, run_id, kwargs, search_error), ("failure", "run-1", {"max_matches": 2, "case_sensitive": True}, None))
+
+    def test_runtime_check_parsers_keep_existing_behavior(self) -> None:
+        port, port_kwargs, port_error, port_handled = parse_interactive_port_argument("--host 0.0.0.0 --timeout-ms 1500 5173")
+        url, http_kwargs, http_error, http_handled = parse_interactive_http_argument(
+            "--timeout-ms=2000 --max-body-chars 100 --contains ready --regex http://127.0.0.1:8000"
+        )
+
+        self.assertEqual((port, port_kwargs, port_error, port_handled), (5173, {"host": "0.0.0.0", "timeout_ms": 1500}, None, True))
+        self.assertEqual(
+            (url, http_kwargs, http_error, http_handled),
+            ("http://127.0.0.1:8000", {"timeout_ms": 2000, "max_body_chars": 100, "contains": "ready", "regex": True}, None, True),
+        )
+
+    def test_discovery_parsers_keep_existing_behavior(self) -> None:
+        query, search_kwargs, search_error, search_handled = parse_interactive_search_argument(
+            "--path vibeagent --regex --context-lines 2 --max-bytes 100 -- TODO",
+            include_max_bytes=True,
+        )
+        pattern, glob_kwargs, glob_error, glob_handled = parse_interactive_glob_argument("--include-dirs --max-matches=4 -- *.py")
+        overview_kwargs, overview_error, overview_handled = parse_interactive_overview_argument(
+            "--max-files 3 --max-commands=2 --max-checks 1"
+        )
+
+        self.assertEqual(
+            (query, search_kwargs, search_error, search_handled),
+            ("TODO", {"path": "vibeagent", "regex": True, "context_lines": 2, "max_bytes_per_context": 100}, None, True),
+        )
+        self.assertEqual((pattern, glob_kwargs, glob_error, glob_handled), ("*.py", {"include_dirs": True, "max_matches": 4}, None, True))
+        self.assertEqual((overview_kwargs, overview_error, overview_handled), ({"max_files": 3, "max_commands": 2, "max_checks": 1}, None, True))
+
+    def test_read_parsers_keep_existing_behavior(self) -> None:
+        read_arg, read_kwargs, read_error, read_handled = parse_interactive_read_argument(
+            "--line-numbers --max-bytes 80 -- src/app.py 10:12"
+        )
+        paths, files_kwargs, files_error, files_handled = parse_interactive_read_files_argument(
+            "--line-numbers=false --max-bytes=200 -- a.py b.py"
+        )
+        tree_path, tree_kwargs, tree_error, tree_handled = parse_interactive_tree_argument(
+            "--max-depth 2 --max-entries=5 src"
+        )
+
+        self.assertEqual((read_arg, read_kwargs, read_error, read_handled), ("src/app.py 10:12", {"show_line_numbers": True, "max_bytes": 80}, None, True))
+        self.assertEqual((paths, files_kwargs, files_error, files_handled), (["a.py", "b.py"], {"show_line_numbers": False, "max_bytes_per_file": 200}, None, True))
+        self.assertEqual((tree_path, tree_kwargs, tree_error, tree_handled), ("src", {"max_depth": 2, "max_entries": 5}, None, True))
+
+    def test_code_intel_parsers_keep_existing_behavior(self) -> None:
+        path_arg, test_kwargs, test_error, test_handled = parse_interactive_test_paths_argument(
+            "--max-paths 2 --max-candidates=3 --max-commands 4 -- src/app.py tests/test_app.py",
+            "Usage: /run-focused-tests [path...]",
+            include_max_commands=True,
+        )
+        symbol, path, symbol_kwargs, symbol_error, symbol_handled = parse_interactive_python_symbol_argument(
+            "--path src/app.py --max-matches 5 --context-lines 2 --max-bytes=100 -- handle_request",
+            command_name="python-ref-contexts",
+            include_context=True,
+        )
+
+        self.assertEqual((path_arg, test_kwargs, test_error, test_handled), ("src/app.py tests/test_app.py", {"max_paths": 2, "max_candidates": 3, "max_commands": 4}, None, True))
+        self.assertEqual((symbol, path, symbol_kwargs, symbol_error, symbol_handled), ("handle_request", "src/app.py", {"max_matches": 5, "context_lines": 2, "max_bytes_per_context": 100}, None, True))
+
+    def test_run_parsers_keep_existing_behavior(self) -> None:
+        command, kwargs, error, handled = parse_interactive_run_argument(
+            "--timeout-ms 1000 --max-chars=80 --cwd src --output-contexts -- python -m unittest"
+        )
+        commands, seq_kwargs, seq_error, seq_handled = parse_interactive_run_sequence_argument(
+            "--continue-on-failure --timeout-ms=2000 -- echo one ;; echo two"
+        )
+        preview_commands, cwd, preview_error, preview_handled = parse_interactive_check_run_sequence_argument(
+            "--cwd src -- echo one ;; echo two"
+        )
+
+        self.assertEqual(
+            (command, kwargs, error, handled),
+            (
+                "python -m unittest",
+                {"timeout_ms": 1000, "max_output_chars": 80, "cwd": "src", "extract_output_contexts": True},
+                None,
+                True,
+            ),
+        )
+        self.assertEqual(
+            (commands, seq_kwargs, seq_error, seq_handled),
+            (["echo one", "echo two"], {"stop_on_failure": False, "timeout_ms": 2000}, None, True),
+        )
+        self.assertEqual(
+            (preview_commands, cwd, preview_error, preview_handled),
+            (["echo one", "echo two"], "src", None, True),
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

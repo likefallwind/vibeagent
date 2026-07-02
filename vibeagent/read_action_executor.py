@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .process_runtime import output_context_results_from_dicts, output_diagnostics_from_dicts
+from .output_conversion import output_context_results_from_dicts, output_diagnostics_from_dicts
 from .types import (
     AgentAction,
     CodeOutlineAction,

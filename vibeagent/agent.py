@@ -10,7 +10,7 @@ from .agent_model import complete_with_retries
 from .agent_result import AgentResult
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
-from .agent_action_descriptions import log_action
+from .agent_action_logging import log_action
 from .agent_approval import (
     build_approval_request,
     request_approval,
