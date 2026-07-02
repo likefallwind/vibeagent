@@ -4,6 +4,7 @@ from typing import Any
 
 from .session_failure_reports import command_result_failed
 from .session_types import SessionEvent
+from .verification_command_utils import command_keys_from_dicts, verification_commands_from_final_review_payload
 
 
 SESSION_PROJECT_CHANGE_RESULT_KINDS = {
@@ -91,40 +92,15 @@ def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[s
 
 
 def session_final_review_verification_commands(result: dict[str, Any]) -> set[tuple[str, str]]:
-    suggested_commands = session_final_review_suggested_commands(result)
-    if suggested_commands:
-        return suggested_commands
-    return session_final_review_focused_test_commands(result)
+    return verification_commands_from_final_review_payload(result)
 
 
 def session_final_review_suggested_commands(result: dict[str, Any]) -> set[tuple[str, str]]:
-    checks = result.get("suggested_checks")
-    if not isinstance(checks, list):
-        return set()
-    commands: set[tuple[str, str]] = set()
-    for check in checks:
-        if not isinstance(check, dict):
-            continue
-        command = check.get("command")
-        cwd = check.get("cwd")
-        if isinstance(command, str) and command.strip():
-            commands.add((command, cwd if isinstance(cwd, str) and cwd else "."))
-    return commands
+    return command_keys_from_dicts(result.get("suggested_checks"))
 
 
 def session_final_review_focused_test_commands(result: dict[str, Any]) -> set[tuple[str, str]]:
-    checks = result.get("focused_test_commands")
-    if not isinstance(checks, list):
-        return set()
-    commands: set[tuple[str, str]] = set()
-    for check in checks:
-        if not isinstance(check, dict):
-            continue
-        command = check.get("command")
-        cwd = check.get("cwd")
-        if isinstance(command, str) and command.strip():
-            commands.add((command, cwd if isinstance(cwd, str) and cwd else "."))
-    return commands
+    return command_keys_from_dicts(result.get("focused_test_commands"))
 
 
 def session_iter_command_results(result: dict[str, Any]) -> list[dict[str, Any]]:

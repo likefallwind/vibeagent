@@ -8,6 +8,7 @@ from typing import Any
 
 from .session import read_session_events
 from .types import FocusedTestCommand, SuggestedCheck
+from .verification_command_utils import verification_commands_from_objects
 from .workspace_core import RunWorkspace
 from .workspace_git_utils import parse_git_short_status, run_readonly_git, should_ignore_git_path
 from .workspace import (
@@ -79,19 +80,7 @@ def final_review_session_verification_issues(
     suggested_checks: list[SuggestedCheck],
     focused_test_commands: list[FocusedTestCommand] | None = None,
 ) -> tuple[list[str], list[str]]:
-    suggested_commands = {
-        (check.command, check.cwd or ".")
-        for check in suggested_checks
-        if check.command
-    }
-    if suggested_commands:
-        verification_commands = suggested_commands
-    else:
-        verification_commands = {
-            (command.command, command.cwd or ".")
-            for command in focused_test_commands or []
-            if command.command
-        }
+    verification_commands = verification_commands_from_objects(suggested_checks, focused_test_commands or [])
     if not verification_commands:
         return [], []
 

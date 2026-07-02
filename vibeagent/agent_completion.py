@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .agent_observation_utils import observation_failed, summarize
 from .types import Observation, PlanItem
+from .verification_command_utils import command_keys_from_objects, verification_commands_from_final_review
 
 
 PROJECT_CHANGE_OBSERVATION_KINDS = {
@@ -432,24 +433,13 @@ def suggested_check_statuses_after_latest_change(
     return verification_commands, statuses
 
 def final_review_verification_commands(final_review: Observation) -> set[tuple[str, str]]:
-    suggested_commands = final_review_suggested_commands(final_review)
-    if suggested_commands:
-        return suggested_commands
-    return final_review_focused_test_commands(final_review)
+    return verification_commands_from_final_review(final_review)
 
 def final_review_suggested_commands(final_review: Observation) -> set[tuple[str, str]]:
-    return {
-        (str(getattr(check, "command", "")), str(getattr(check, "cwd", ".") or "."))
-        for check in getattr(final_review, "suggested_checks", [])
-        if getattr(check, "command", None)
-    }
+    return command_keys_from_objects(getattr(final_review, "suggested_checks", []))
 
 def final_review_focused_test_commands(final_review: Observation) -> set[tuple[str, str]]:
-    return {
-        (str(getattr(command, "command", "")), str(getattr(command, "cwd", ".") or "."))
-        for command in getattr(final_review, "focused_test_commands", [])
-        if getattr(command, "command", None)
-    }
+    return command_keys_from_objects(getattr(final_review, "focused_test_commands", []))
 
 def latest_successful_project_change_index(observations: list[Observation]) -> int | None:
     for index in range(len(observations) - 1, -1, -1):
