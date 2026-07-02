@@ -7,6 +7,9 @@ from .session_types import SessionProcessInfo, SessionSummary
 from .session_utils import compact, count_names
 
 
+CHECKPOINT_RESTORE_HINT = "/check-checkpoint-restore latest"
+
+
 def build_session_summary_report(summary: SessionSummary, max_text: int = 500) -> dict[str, Any]:
     if not summary.exists:
         return {
@@ -209,6 +212,8 @@ def format_session_summary(summary: SessionSummary) -> str:
         if summary.latest_checkpoint_message:
             checkpoint_line += f", message={compact(summary.latest_checkpoint_message, 160)}"
         lines.append(checkpoint_line)
+        if summary.latest_checkpoint_id:
+            lines.append(f"  restoreHint: {CHECKPOINT_RESTORE_HINT}")
     if summary.latest_plan:
         lines.append("  plan:")
         lines.extend(f"    - {item.status}: {compact(item.step, 160)}" for item in summary.latest_plan)

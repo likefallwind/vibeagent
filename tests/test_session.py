@@ -4055,6 +4055,7 @@ class SessionTests(unittest.TestCase):
         self.assertIn("checkpoint_create", text)
         self.assertIn("checkpoints: created=1, auto=0", text)
         self.assertIn("Saved checkpoint ckpt-safe.", text)
+        self.assertNotIn("restoreHint:", text)
         self.assertNotIn("SECRET_LABEL", text)
 
     def test_summarize_session_reports_latest_auto_checkpoint(self) -> None:
@@ -4115,9 +4116,12 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(summary.latest_checkpoint_id, "ckpt-auto")
         self.assertEqual(summary.latest_checkpoint_message, "Saved checkpoint ckpt-auto.")
         self.assertIn("checkpoints: created=1, auto=1, latest=ckpt-auto", text)
+        self.assertIn("restoreHint: /check-checkpoint-restore latest", text)
         self.assertIn("Saved checkpoint ckpt-auto.", text)
         self.assertIn("checkpoints: created=1, auto=1, latest=ckpt-auto", audit)
+        self.assertIn("restoreHint: /check-checkpoint-restore latest", audit)
         self.assertIn("checkpoints: created=1, auto=1, latest=ckpt-auto", handoff)
+        self.assertIn("restoreHint: /check-checkpoint-restore latest", handoff)
         self.assertNotIn("SECRET_LABEL", text)
         self.assertNotIn("SECRET_LABEL", audit)
         self.assertNotIn("SECRET_LABEL", handoff)

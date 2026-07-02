@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .session_summary_reports import (
+    CHECKPOINT_RESTORE_HINT,
     format_final_review_failure_lines,
     format_latest_completion_detail_lines,
     session_summary_status,
@@ -57,6 +58,8 @@ def format_session_handoff_readiness(
         if summary.latest_checkpoint_id:
             checkpoint_line += f", latest={compact(summary.latest_checkpoint_id, max_text)}"
         lines.append(checkpoint_line)
+        if summary.latest_checkpoint_id:
+            lines.append(f"  restoreHint: {CHECKPOINT_RESTORE_HINT}")
     if summary.background_processes_started or summary.active_background_processes:
         lines.append(
             "  backgroundProcesses: "
@@ -456,6 +459,8 @@ def format_session_audit_from_parts(
         if summary.latest_checkpoint_id:
             checkpoint_line += f", latest={compact(summary.latest_checkpoint_id, max_text)}"
         lines.append(checkpoint_line)
+        if summary.latest_checkpoint_id:
+            lines.append(f"  restoreHint: {CHECKPOINT_RESTORE_HINT}")
     if summary.final_review_seen:
         ready = "yes" if summary.final_review_ready is True else "no" if summary.final_review_ready is False else "unknown"
         lines.append(

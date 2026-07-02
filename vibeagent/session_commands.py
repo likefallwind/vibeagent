@@ -34,6 +34,7 @@ from .session_output_commands import (
     get_session_output_diagnostics_report,
     get_session_output_diagnostics_text,
 )
+from .session_summary_reports import CHECKPOINT_RESTORE_HINT
 
 
 def get_sessions_text(project_root: str | Path = ".") -> str:
@@ -586,6 +587,8 @@ def format_session_audit_report_text(report: dict[str, object]) -> str:
         if checkpoints.get("latestId"):
             checkpoint_line += f", latest={checkpoints.get('latestId')}"
         lines.append(checkpoint_line)
+        if checkpoints.get("latestId"):
+            lines.append(f"  restoreHint: {CHECKPOINT_RESTORE_HINT}")
     if final_review.get("seen"):
         final_ready = final_review.get("ready")
         ready = "yes" if final_ready is True else "no" if final_ready is False else "unknown"
