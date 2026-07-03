@@ -52,9 +52,6 @@ from .cli_interactive import run_interactive_loop as _run_interactive_loop
 from .cli_main_args import normalize_task_bound_diff_args
 from .cli_runner import (
     build_one_shot_kwargs_from_args,
-    build_context_limit_kwargs,
-    is_resume_clear_arg,
-    normalize_resume_arg,
     resolve_task_text,
     run_one_shot as _run_one_shot,
 )
