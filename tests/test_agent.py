@@ -3719,6 +3719,32 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(summary.final_review_changed_files, ["?? note.txt"])
         self.assertEqual(result.steps[0].status, "completed")
 
+    def test_run_agent_auto_reviews_successful_command_side_effects(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            command = "python3 -c \"open('generated.txt','w').write('ok\\\\n')\""
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "run_command", "input": {"command": command}}],
+                    [{"type": "text", "text": "Generated file."}],
+                ]
+            )
+
+            result = run_agent(
+                "generate file with a command",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_handler=approve_all,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual([item.kind for item in result.observations], ["run_command", "final_review"])
+        self.assertTrue(result.observations[1].ready)
+        self.assertEqual(result.observations[1].total_files, 1)
+        self.assertEqual(result.final_review_changed_files, ["?? generated.txt"])
+
     def test_run_agent_does_not_duplicate_existing_final_review(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)
@@ -3804,6 +3830,43 @@ class AgentTests(unittest.TestCase):
             agent_module.auto_final_review_reason(True, [review, process]),
             "Background command started after final_review",
         )
+
+    def test_auto_final_review_reason_detects_command_without_review(self) -> None:
+        command = RunCommandObservation(
+            kind="run_command",
+            result=CommandResult(
+                command="python3 scripts/generate.py",
+                exit_code=0,
+                stdout="generated\n",
+                stderr="",
+                timed_out=False,
+                signal=None,
+                cwd=".",
+            ),
+        )
+        review = FinalReviewObservation(
+            kind="final_review",
+            ok=True,
+            ready=True,
+            blocking_issues=[],
+            warnings=[],
+            running_processes=[],
+            files=[],
+            total_files=0,
+            suggested_checks=[],
+            suggested_checks_total=0,
+            suggested_checks_truncated=False,
+            diff_check="",
+            staged_diff_check="",
+            status="",
+            message="Ready.",
+        )
+
+        self.assertEqual(
+            agent_module.auto_final_review_reason(True, [command]),
+            "Command execution completed without final_review",
+        )
+        self.assertIsNone(agent_module.auto_final_review_reason(True, [review, command]))
 
     def test_run_agent_blocks_when_final_review_reports_running_background_process(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
@@ -4111,6 +4174,53 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(agent_module.build_failed_verification_checks(True, observations), [])
         plan = [agent_module.PlanItem(step="Run unit tests", status="completed")]
         self.assertEqual(agent_module.build_completion_warnings(True, observations, plan), [])
+
+    def test_completion_verification_requires_checks_after_untracked_command_side_effects(self) -> None:
+        check = SuggestedCheck(
+            command="python -m unittest discover -s tests",
+            cwd=".",
+            source="tests",
+            reason="unit tests",
+        )
+        review = FinalReviewObservation(
+            kind="final_review",
+            ok=True,
+            ready=True,
+            blocking_issues=[],
+            warnings=[],
+            running_processes=[],
+            files=[],
+            total_files=1,
+            suggested_checks=[check],
+            suggested_checks_total=1,
+            suggested_checks_truncated=False,
+            diff_check="",
+            staged_diff_check="",
+            status="",
+            message="Ready.",
+        )
+        command = RunCommandObservation(
+            kind="run_command",
+            result=CommandResult(
+                command="python -m unittest discover -s tests",
+                exit_code=0,
+                stdout="",
+                stderr="",
+                timed_out=False,
+                signal=None,
+                cwd=".",
+            ),
+        )
+
+        self.assertEqual(
+            agent_module.build_pending_verification_checks(True, [review]),
+            ["python -m unittest discover -s tests"],
+        )
+        self.assertEqual(agent_module.build_pending_verification_checks(True, [review, command]), [])
+        self.assertEqual(
+            agent_module.build_verification_checks(True, [review, command]),
+            ["python -m unittest discover -s tests"],
+        )
 
     def test_next_action_instruction_guides_pending_final_review_suggested_checks(self) -> None:
         observation = FinalReviewObservation(

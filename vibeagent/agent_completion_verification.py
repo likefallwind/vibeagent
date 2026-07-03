@@ -17,7 +17,12 @@ def build_verification_checks(success: bool, observations: list[Observation]) ->
         return []
     last_change_index = latest_successful_project_change_index(observations)
     if last_change_index is None:
-        return []
+        if int(getattr(final_review, "total_files", 0) or 0) <= 0:
+            return []
+        final_review_index = latest_observation_index(observations, {"final_review"})
+        if final_review_index is None:
+            return []
+        last_change_index = final_review_index
 
     checks: list[str] = []
     seen: set[str] = set()
@@ -56,7 +61,12 @@ def suggested_check_statuses_after_latest_change(
         return set(), {}
     last_change_index = latest_successful_project_change_index(observations)
     if last_change_index is None:
-        return verification_commands, {}
+        if int(getattr(final_review, "total_files", 0) or 0) <= 0:
+            return verification_commands, {}
+        final_review_index = latest_observation_index(observations, {"final_review"})
+        if final_review_index is None:
+            return verification_commands, {}
+        last_change_index = final_review_index
 
     statuses: dict[tuple[str, str], tuple[bool, str]] = {}
     for observation in observations[last_change_index + 1 :]:
@@ -83,6 +93,13 @@ def latest_successful_project_change_index(observations: list[Observation]) -> i
     for index in range(len(observations) - 1, -1, -1):
         observation = observations[index]
         if observation.kind in PROJECT_CHANGE_OBSERVATION_KINDS and not observation_failed(observation):
+            return index
+    return None
+
+
+def latest_observation_index(observations: list[Observation], kinds: set[str]) -> int | None:
+    for index in range(len(observations) - 1, -1, -1):
+        if observations[index].kind in kinds:
             return index
     return None
 
