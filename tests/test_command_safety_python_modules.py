@@ -1,6 +1,7 @@
 import unittest
 
 from vibeagent import command_safety_python
+from vibeagent import command_safety_python_eval
 from vibeagent import command_safety_python_filesystem
 from vibeagent import command_safety_python_gui
 from vibeagent import command_safety_python_introspection
@@ -37,6 +38,21 @@ class CommandSafetyPythonModuleTests(unittest.TestCase):
             command_safety_python.python_pathlib_call_writes_raw_device,
             command_safety_python_filesystem.python_pathlib_call_writes_raw_device,
         )
+
+    def test_command_safety_python_reexports_eval_helpers(self) -> None:
+        self.assertIs(command_safety_python.python_call_is_compile, command_safety_python_eval.python_call_is_compile)
+        self.assertIs(command_safety_python.python_call_is_eval_or_exec, command_safety_python_eval.python_call_is_eval_or_exec)
+        self.assertIs(
+            command_safety_python.python_expr_is_compile_reference,
+            command_safety_python_eval.python_expr_is_compile_reference,
+        )
+        self.assertIs(
+            command_safety_python.python_expr_is_eval_or_exec_reference,
+            command_safety_python_eval.python_expr_is_eval_or_exec_reference,
+        )
+        self.assertIs(command_safety_python.python_literal_compile_script, command_safety_python_eval.python_literal_compile_script)
+        self.assertIs(command_safety_python.python_literal_eval_exec_script, command_safety_python_eval.python_literal_eval_exec_script)
+        self.assertIs(command_safety_python.python_literal_source_text, command_safety_python_eval.python_literal_source_text)
 
 
 if __name__ == "__main__":
