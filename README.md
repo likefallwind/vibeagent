@@ -314,7 +314,7 @@ bounded safe timeline matches and truncation state.
 bounded failed tools, failed commands, denied approvals, malformed events, and
 failed final results.
 `--json --session-commands` includes a structured `sessionCommands` object with
-bounded command result metadata and stdout/stderr tails.
+bounded command result metadata, duration, and stdout/stderr tails.
 `--json --session-output-contexts` includes a structured
 `sessionOutputContexts` object with command scan counts, extracted
 file-reference contexts, source snippets, and truncation state.

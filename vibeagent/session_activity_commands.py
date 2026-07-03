@@ -96,6 +96,8 @@ def format_session_commands_report_text(report: dict[str, object]) -> str:
             f"exit={item.get('exitCode') if isinstance(item.get('exitCode'), int) else 'unknown'}",
             f"timedOut={'yes' if bool(item.get('timedOut')) else 'no'}",
         ]
+        if isinstance(item.get("durationMs"), int):
+            parts.append(f"durationMs={item.get('durationMs')}")
         if item.get("signal"):
             parts.append(f"signal={item.get('signal')}")
         if item.get("cwd"):

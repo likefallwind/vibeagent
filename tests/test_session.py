@@ -943,6 +943,7 @@ class SessionTests(unittest.TestCase):
                                     "stdout": "ok\n",
                                     "stderr": "",
                                     "timed_out": False,
+                                    "duration_ms": 1234,
                                     "signal": None,
                                     "cwd": ".",
                                 },
@@ -972,6 +973,7 @@ class SessionTests(unittest.TestCase):
                                     "stdout": "suggested ok\n",
                                     "stderr": "",
                                     "timed_out": False,
+                                    "duration_ms": 2345,
                                     "signal": None,
                                     "cwd": ".",
                                 }
@@ -982,6 +984,7 @@ class SessionTests(unittest.TestCase):
             )
 
             text = format_session_commands(root, "run-1", max_commands=3, max_output_chars=8)
+            report = build_session_commands_report(root, "run-1", max_commands=3, max_output_chars=8)
             missing = format_session_commands(root, "missing")
 
         self.assertIn("Command results:", text)
@@ -989,8 +992,11 @@ class SessionTests(unittest.TestCase):
         self.assertIn("commands: 4", text)
         self.assertIn("shown: 3/4", text)
         self.assertIn("1 older command result(s) omitted", text)
-        self.assertIn("#2 run_commands[1]: exit=0, timedOut=no, cwd=.", text)
-        self.assertIn("#3 run_suggested_checks[1]: exit=0, timedOut=no, cwd=.", text)
+        self.assertIn("#2 run_commands[1]: exit=0, timedOut=no, durationMs=1234, cwd=.", text)
+        self.assertIn("#3 run_suggested_checks[1]: exit=0, timedOut=no, durationMs=2345, cwd=.", text)
+        self.assertEqual(report["commands"]["items"][0]["durationMs"], 1234)
+        self.assertIsNone(report["commands"]["items"][1]["durationMs"])
+        self.assertEqual(report["commands"]["items"][2]["durationMs"], 2345)
         self.assertIn("command: python -m unittest discover -s tests", text)
         self.assertIn("command: npm test", text)
         self.assertIn("omitted earlier output", text)

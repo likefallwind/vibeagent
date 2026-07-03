@@ -36,10 +36,13 @@ def format_session_command_entry(entry: dict[str, Any], max_output_chars: int) -
     timed_out = result.get("timed_out")
     cwd = result.get("cwd")
     signal = result.get("signal")
+    duration_ms = result.get("duration_ms")
     parts = [
         f"exit={exit_code if isinstance(exit_code, int) else 'unknown'}",
         f"timedOut={'yes' if timed_out is True else 'no'}",
     ]
+    if isinstance(duration_ms, int):
+        parts.append(f"durationMs={duration_ms}")
     if isinstance(signal, str) and signal:
         parts.append(f"signal={signal}")
     if isinstance(cwd, str) and cwd:
@@ -78,6 +81,7 @@ def serialize_session_command_with_output(entry: dict[str, Any], max_output_char
     cwd = result.get("cwd")
     exit_code = result.get("exit_code")
     signal = result.get("signal")
+    duration_ms = result.get("duration_ms")
     stdout = result.get("stdout")
     stderr = result.get("stderr")
     return {
@@ -88,10 +92,10 @@ def serialize_session_command_with_output(entry: dict[str, Any], max_output_char
         "cwd": cwd if isinstance(cwd, str) and cwd else ".",
         "exitCode": exit_code if isinstance(exit_code, int) else None,
         "timedOut": result.get("timed_out") is True,
+        "durationMs": duration_ms if isinstance(duration_ms, int) else None,
         "signal": signal if isinstance(signal, str) and signal else None,
         "stdout": command_output_tail(stdout if isinstance(stdout, str) else "", max_output_chars),
         "stdoutStoredTruncated": result.get("stdout_truncated") is True,
         "stderr": command_output_tail(stderr if isinstance(stderr, str) else "", max_output_chars),
         "stderrStoredTruncated": result.get("stderr_truncated") is True,
     }
-
