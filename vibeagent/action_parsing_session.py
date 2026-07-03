@@ -114,6 +114,7 @@ def parse_session_action(action_type: object, value: dict[str, Any], raw: str) -
         run_id = _parse_run_id(value.get("run_id"), raw, "session_search")
         if not isinstance(query, str) or not query.strip():
             raise ActionParseError("session_search action query must be a non-empty string.", raw)
+        normalized_query = query.strip()
         max_matches = parse_optional_positive_int(value.get("max_matches", 20), "max_matches", raw, maximum=100) or 20
         max_text = _parse_min_text(value.get("max_text", 500), raw, default=500)
         case_sensitive = value.get("case_sensitive", False)
@@ -121,7 +122,7 @@ def parse_session_action(action_type: object, value: dict[str, Any], raw: str) -
             raise ActionParseError("session_search action case_sensitive must be a boolean.", raw)
         return SessionSearchAction(
             type="session_search",
-            query=query,
+            query=normalized_query,
             run_id=run_id,
             max_matches=max_matches,
             max_text=max_text,

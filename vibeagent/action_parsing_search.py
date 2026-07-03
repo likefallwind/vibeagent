@@ -81,6 +81,7 @@ def parse_search_action(action_type: object, value: dict[str, Any], raw: str) ->
         query = value.get("query")
         if not isinstance(query, str) or not query.strip():
             raise ActionParseError("find_files action requires a non-empty query.", raw)
+        normalized_query = query.strip()
         path = value.get("path")
         regex = value.get("regex", False)
         case_sensitive = value.get("case_sensitive", False)
@@ -97,7 +98,7 @@ def parse_search_action(action_type: object, value: dict[str, Any], raw: str) ->
         max_matches = parse_optional_positive_int(max_matches, "max_matches", raw, maximum=500) or 100
         return FindFilesAction(
             type="find_files",
-            query=query,
+            query=normalized_query,
             path=path,
             regex=regex,
             case_sensitive=case_sensitive,

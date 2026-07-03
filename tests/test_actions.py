@@ -800,11 +800,15 @@ class ActionTests(unittest.TestCase):
         action = parse_tool_action("write_file", {"path": "app.py", "content": "print('ok')\n"})
         spaced_session = parse_tool_action("session_summary", {"run_id": " run-1 ", "recent_limit": 3})
         blank_session = parse_tool_action("session_plan", {"run_id": "   "})
+        session_search = parse_tool_action("session_search", {"query": " missing config "})
+        find_files = parse_tool_action("find_files", {"query": " app.py "})
 
         self.assertEqual(action.type, "write_file")
         self.assertEqual(action.path, "app.py")
         self.assertEqual(spaced_session.run_id, "run-1")
         self.assertIsNone(blank_session.run_id)
+        self.assertEqual(session_search.query, "missing config")
+        self.assertEqual(find_files.query, "app.py")
 
         with self.assertRaisesRegex(ActionParseError, "read_file action requires a string path"):
             parse_tool_action("read_file", {})
