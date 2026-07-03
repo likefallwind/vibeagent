@@ -53,9 +53,9 @@ def build_session_verification_report_from_summary(
     max_checks: int = 50,
     max_text: int = 160,
 ) -> dict[str, Any]:
-    verified = limited_string_group(summary.verification_checks, max_checks, max_text)
-    pending = limited_string_group(summary.pending_verification_checks, max_checks, max_text)
-    failed = limited_string_group(summary.failed_verification_checks, max_checks, max_text)
+    verified = limited_string_group(summary.verification_checks, max_checks, max_text, status="verified")
+    pending = limited_string_group(summary.pending_verification_checks, max_checks, max_text, status="pending")
+    failed = limited_string_group(summary.failed_verification_checks, max_checks, max_text, status="failed")
     ok = pending["total"] == 0 and failed["total"] == 0
     truncated = bool(verified["truncated"] or pending["truncated"] or failed["truncated"])
     return {
@@ -72,11 +72,45 @@ def build_session_verification_report_from_summary(
     }
 
 
-def limited_string_group(items: list[str], limit: int, max_text: int) -> dict[str, Any]:
+def limited_string_group(items: list[str], limit: int, max_text: int, status: str | None = None) -> dict[str, Any]:
     shown = items[:limit]
-    return {
+    group: dict[str, Any] = {
         "total": len(items),
         "shown": len(shown),
         "truncated": len(items) > len(shown),
         "items": [compact(item, max_text) for item in shown],
     }
+    if status is not None:
+        group["commands"] = [
+            parse_verification_check_label(item, status=status, max_text=max_text)
+            for item in shown
+        ]
+    return group
+
+
+def parse_verification_check_label(label: str, *, status: str, max_text: int) -> dict[str, Any]:
+    body = label
+    failure_reason: str | None = None
+    if status == "failed" and body.endswith(")") and " (" in body:
+        prefix, suffix = body.rsplit(" (", 1)
+        reason = suffix[:-1]
+        if reason == "timed out" or reason == "no exit code" or reason.startswith("exit="):
+            body = prefix
+            failure_reason = reason
+
+    command = body
+    cwd = "."
+    if body.endswith(")") and " (cwd: " in body:
+        prefix, suffix = body.rsplit(" (cwd: ", 1)
+        cwd = suffix[:-1] or "."
+        command = prefix
+
+    item: dict[str, Any] = {
+        "status": status,
+        "command": compact(command, max_text),
+        "cwd": compact(cwd, max_text),
+        "label": compact(label, max_text),
+    }
+    if failure_reason is not None:
+        item["failureReason"] = compact(failure_reason, max_text)
+    return item

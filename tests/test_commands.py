@@ -9788,8 +9788,8 @@ class CommandTests(unittest.TestCase):
                         "iterations": 1,
                         "message": "Result",
                         "verification_checks": ["python3 -m unittest", "npm test"],
-                        "pending_verification_checks": ["npm run build", "npm run lint"],
-                        "failed_verification_checks": ["mypy . (exit=1)"],
+                        "pending_verification_checks": ["npm run build (cwd: server)", "npm run lint"],
+                        "failed_verification_checks": ["mypy . (cwd: server) (exit=1)"],
                     }
                 ],
             )
@@ -9807,9 +9807,27 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(report["verified"]["shown"], 1)
         self.assertTrue(report["verified"]["truncated"])
         self.assertEqual(report["verified"]["items"], ["python3 -m unittest"])
+        self.assertEqual(
+            report["verified"]["commands"],
+            [
+                {
+                    "status": "verified",
+                    "command": "python3 -m unittest",
+                    "cwd": ".",
+                    "label": "python3 -m unittest",
+                }
+            ],
+        )
         self.assertEqual(report["pending"]["total"], 2)
-        self.assertEqual(report["pending"]["items"], ["npm run build"])
-        self.assertEqual(report["failed"]["items"], ["mypy . (exit=1)"])
+        self.assertEqual(report["pending"]["items"], ["npm run build (cwd: server)"])
+        self.assertEqual(report["pending"]["commands"][0]["command"], "npm run build")
+        self.assertEqual(report["pending"]["commands"][0]["cwd"], "server")
+        self.assertEqual(report["pending"]["commands"][0]["status"], "pending")
+        self.assertEqual(report["failed"]["items"], ["mypy . (cwd: server) (exit=1)"])
+        self.assertEqual(report["failed"]["commands"][0]["command"], "mypy .")
+        self.assertEqual(report["failed"]["commands"][0]["cwd"], "server")
+        self.assertEqual(report["failed"]["commands"][0]["status"], "failed")
+        self.assertEqual(report["failed"]["commands"][0]["failureReason"], "exit=1")
         self.assertTrue(report["truncated"])
         self.assertIn("Session verification:", rendered)
         self.assertIn("verified: 1/2", rendered)
@@ -9818,7 +9836,7 @@ class CommandTests(unittest.TestCase):
         self.assertIn("pendingChecks: 1/2", rendered)
         self.assertIn("npm run build", rendered)
         self.assertIn("failedChecks: 1/1", rendered)
-        self.assertIn("mypy . (exit=1)", rendered)
+        self.assertIn("mypy . (cwd: server) (exit=1)", rendered)
         self.assertIn("truncated: yes", rendered)
         self.assertFalse(missing["exists"])
         self.assertFalse(missing["ok"])
@@ -10000,6 +10018,10 @@ class CommandTests(unittest.TestCase):
         self.assertTrue(report["verification"]["verified"]["truncated"])
         self.assertEqual(report["verification"]["pending"]["items"], ["npm test"])
         self.assertEqual(report["verification"]["failed"]["items"], ["ruff check"])
+        self.assertEqual(report["verification"]["pending"]["commands"][0]["command"], "npm test")
+        self.assertEqual(report["verification"]["pending"]["commands"][0]["status"], "pending")
+        self.assertEqual(report["verification"]["failed"]["commands"][0]["command"], "ruff check")
+        self.assertEqual(report["verification"]["failed"]["commands"][0]["status"], "failed")
         self.assertEqual(report["finalReview"]["changedFiles"], ["M app.py"])
         self.assertEqual(report["failures"]["shown"], 1)
         self.assertEqual(report["commands"]["items"][0]["command"], "python3 -m unittest")

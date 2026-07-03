@@ -308,9 +308,9 @@ def build_session_audit_report_from_parts(
             "warnings": [compact(warning, max_text) for warning in summary.completion_warnings],
         },
         "verification": {
-            "verified": limited_string_group(summary.verification_checks, max_checks, max_text),
-            "pending": limited_string_group(summary.pending_verification_checks, max_checks, max_text),
-            "failed": limited_string_group(summary.failed_verification_checks, max_checks, max_text),
+            "verified": limited_string_group(summary.verification_checks, max_checks, max_text, status="verified"),
+            "pending": limited_string_group(summary.pending_verification_checks, max_checks, max_text, status="pending"),
+            "failed": limited_string_group(summary.failed_verification_checks, max_checks, max_text, status="failed"),
         },
         "plan": {
             "items": len(summary.latest_plan),

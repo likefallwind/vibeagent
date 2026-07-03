@@ -297,7 +297,8 @@ preflight/execution flags include structured checkpoint payloads with saved
 metadata, patch sizes, match/preflight state, mutation results, and recovery
 messages.
 `--json --session-verification` includes a structured `sessionVerification`
-object with verified, pending, and failed check groups plus truncation state.
+object with verified, pending, and failed check groups, truncation state, and
+machine-readable command/cwd entries for each shown check.
 `--json --sessions` includes a structured `sessions` object with recent session
 run ids, statuses, event counts, last event times, and tasks.
 `--json --last` and `--json --session` include a structured `sessionSummary`
