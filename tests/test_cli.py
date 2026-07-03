@@ -558,6 +558,7 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.get_compact_context", return_value=(None, None, "No sessions found.")),
                 patch("vibeagent.cli.run_agent", return_value=result),
                 redirect_stdout(stdout),
             ):
@@ -572,6 +573,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["runId"], "one-shot")
         self.assertEqual(payload["iterations"], 2)
         self.assertEqual(payload["steps"], 1)
+        self.assertEqual(payload["priorContext"], {"loaded": False, "source": "auto_compact", "runId": None})
         self.assertEqual(
             payload["plan"],
             [
@@ -12689,6 +12691,36 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         get_compact_context.assert_called_once_with(None, Path(base).resolve())
         self.assertEqual(run_agent.call_args.kwargs["prior_context"], "latest compact context")
+
+    def test_main_one_shot_json_reports_auto_loaded_compact_context(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="new-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            stdout = io.StringIO()
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch(
+                    "vibeagent.cli.get_compact_context",
+                    return_value=("latest-run", "latest compact context", "Compacted context loaded from session latest-run."),
+                ),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "continue", "task"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.kwargs["prior_context"], "latest compact context")
+        self.assertEqual(payload["priorContext"], {"loaded": True, "source": "auto_compact", "runId": "latest-run"})
 
     def test_main_one_shot_code_task_without_sessions_runs_without_prior_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:

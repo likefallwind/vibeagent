@@ -138,7 +138,7 @@ def run_one_shot(
             max_output_chars=compact_max_output_chars,
             max_text=compact_max_text,
         )
-        resume_context, context_error = resolve_one_shot_prior_context(
+        prior_context = resolve_one_shot_prior_context(
             resume_arg=resume_arg,
             compact_arg=compact_arg,
             project_root=project_root,
@@ -147,8 +147,8 @@ def run_one_shot(
             get_resume_context_func=get_resume_context_func,
             get_compact_context_func=get_compact_context_func,
         )
-        if context_error is not None:
-            return print_error_result(context_error, output_json)
+        if prior_context.error is not None:
+            return print_error_result(prior_context.error, output_json)
         client = create_chat_client_func(provider_env)
         result = run_agent_func(
             task,
@@ -161,7 +161,7 @@ def run_one_shot(
             model_retry_delay_ms=execution_config.model_retry_delay_ms,
             model_timeout_ms=execution_config.model_timeout_ms,
             approval_handler=build_approval_handler(approval_policy),
-            prior_context=resume_context,
+            prior_context=prior_context.context,
         )
         if output_json:
             print_output(
@@ -174,6 +174,7 @@ def run_one_shot(
                     "runDir": str(result.run_dir),
                     "iterations": result.iterations,
                     "steps": len(result.steps),
+                    "priorContext": prior_context.to_json(),
                     "plan": [{"status": item.status, "step": item.step} for item in result.plan],
                     "completionReady": result.completion_ready,
                     "completionBlockers": result.completion_blockers,

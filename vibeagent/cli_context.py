@@ -1,10 +1,30 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
 
 SessionContextGetter = Callable[..., tuple[str | None, str | None, str]]
+
+
+@dataclass(frozen=True)
+class OneShotPriorContext:
+    context: str | None = None
+    error: str | None = None
+    source: str = "auto_compact"
+    run_id: str | None = None
+
+    @property
+    def loaded(self) -> bool:
+        return self.context is not None
+
+    def to_json(self) -> dict[str, object]:
+        return {
+            "loaded": self.loaded,
+            "source": self.source,
+            "runId": self.run_id,
+        }
 
 
 def build_context_limit_kwargs(
@@ -43,18 +63,19 @@ def resolve_one_shot_prior_context(
     compact_kwargs: dict[str, int],
     get_resume_context_func: SessionContextGetter,
     get_compact_context_func: SessionContextGetter,
-) -> tuple[str | None, str | None]:
+) -> OneShotPriorContext:
     if resume_arg is not None:
         normalized_resume_arg = normalize_resume_arg(resume_arg)
-        _selected, resume_context, text = get_resume_context_func(normalized_resume_arg, project_root, **resume_kwargs)
+        selected, resume_context, text = get_resume_context_func(normalized_resume_arg, project_root, **resume_kwargs)
         if resume_context is None and not is_resume_clear_arg(normalized_resume_arg):
-            return None, text
-        return resume_context, None
+            return OneShotPriorContext(error=text, source="resume", run_id=selected)
+        source = "resume_clear" if is_resume_clear_arg(normalized_resume_arg) else "resume"
+        return OneShotPriorContext(context=resume_context, source=source, run_id=selected)
     if compact_arg is not None:
-        _selected, resume_context, text = get_compact_context_func(normalize_resume_arg(compact_arg), project_root, **compact_kwargs)
+        selected, resume_context, text = get_compact_context_func(normalize_resume_arg(compact_arg), project_root, **compact_kwargs)
         if resume_context is None:
-            return None, text
-        return resume_context, None
+            return OneShotPriorContext(error=text, source="compact", run_id=selected)
+        return OneShotPriorContext(context=resume_context, source="compact", run_id=selected)
 
-    _selected, resume_context, _text = get_compact_context_func(None, project_root)
-    return resume_context, None
+    selected, resume_context, _text = get_compact_context_func(None, project_root)
+    return OneShotPriorContext(context=resume_context, source="auto_compact", run_id=selected)

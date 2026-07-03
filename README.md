@@ -108,7 +108,8 @@ printf "summarize the project risks\n" | python -m vibeagent -
 `--model-retry-delay-ms`, and `--model-timeout-ms` are per-command overrides;
 they do not rewrite environment variables or local config files.
 With `--json`, one-shot coding results include `status` (`completed`,
-`blocked`, or `failed`), structured `plan` items, `completionReady`, `completionBlockers`,
+`blocked`, or `failed`), a `priorContext` object with loaded/source/run id
+metadata, structured `plan` items, `completionReady`, `completionBlockers`,
 `completionWarnings`, `completionBlockedCount`,
 `latestCompletionBlockers`, `latestCompletionPendingChecks`,
 `latestCompletionFailedChecks`, `latestCompletionFinalReviewChangedFiles`,
