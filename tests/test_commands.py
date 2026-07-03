@@ -10903,7 +10903,7 @@ class CommandTests(unittest.TestCase):
                 message="Final review found 1 blocking issue(s).",
             )
 
-            with patch("vibeagent.workflow_commands.execute_action", return_value=observation):
+            with patch("vibeagent.workflow_review_commands.execute_action", return_value=observation):
                 report = get_review_report(root, max_files=5, max_checks=5)
                 rendered = commands_module.format_review_report_text(report)
 
@@ -10962,7 +10962,7 @@ class CommandTests(unittest.TestCase):
                 message="Final review found 1 blocking issue(s).",
             )
 
-            with patch("vibeagent.workflow_commands.execute_action", return_value=observation):
+            with patch("vibeagent.workflow_review_commands.execute_action", return_value=observation):
                 review = get_review_report(root, max_files=5, max_checks=5)
                 handoff = get_handoff_report(root, max_files=5, max_checks=5)
 
@@ -11384,7 +11384,7 @@ class CommandTests(unittest.TestCase):
                 status="",
                 message="Final review ready: 0 changed file(s), 0 suggested check(s).",
             )
-            with patch("vibeagent.workflow_commands.execute_action", return_value=observation):
+            with patch("vibeagent.workflow_review_commands.execute_action", return_value=observation):
                 text = get_handoff_text(root)
 
         self.assertIn("warnings:", text)
