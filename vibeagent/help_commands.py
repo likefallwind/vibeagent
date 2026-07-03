@@ -58,7 +58,7 @@ def get_help_text() -> str:
             "  /python-refs [--path PATH] [--max-matches N] -- <symbol> [path] Find Python definitions, imports, and references.",
             "  /python-ref-contexts [--path PATH] [--max-matches N] [--context-lines N] [--max-bytes N] -- <symbol> [path] Find Python references with surrounding context.",
             "  /python-calls [--path PATH] [--max-matches N] -- <symbol> [path] Find Python call sites for a symbol.",
-            "  /python-call-graph [path] Inspect Python caller -> callee edges.",
+            "  /python-call-graph [--max-files N] [--max-edges N] -- [path] Inspect Python caller -> callee edges.",
             "  /python-rename-preview <symbol> <new_name> [path] Preview a Python symbol rename.",
             "  /python-rename <symbol> <new_name> [path] Rename a Python symbol.",
             "  /check-replace-python-def <symbol> <content> [path] Preview replacing one Python definition.",

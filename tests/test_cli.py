@@ -13762,6 +13762,29 @@ class CliTests(unittest.TestCase):
         get_python_calls_text.assert_called_once_with(symbol="helper", path="src", max_matches=6)
         create_chat_client.assert_not_called()
 
+    def test_main_parses_interactive_python_call_graph_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/python-call-graph --max-files 2 --max-edges=7 -- src",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_python_call_graph_text", return_value="Python call graph:\n  edges: 3/3") as get_python_call_graph_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Python call graph:", output)
+        get_python_call_graph_text.assert_called_once_with(argument="src", max_files=2, max_edges=7)
+        create_chat_client.assert_not_called()
+
     def test_main_reports_interactive_python_symbol_option_errors(self) -> None:
         stdout = io.StringIO()
 
@@ -13808,6 +13831,35 @@ class CliTests(unittest.TestCase):
         get_python_refs_text.assert_not_called()
         get_python_ref_contexts_text.assert_not_called()
         get_python_calls_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_python_call_graph_option_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/python-call-graph --max-files 0 -- src",
+                    "/python-call-graph --max-edges 0 -- src",
+                    "/python-call-graph --unknown 1 -- src",
+                    "/python-call-graph src tests --max-files 2",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_python_call_graph_text") as get_python_call_graph_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /python-call-graph [--max-files N] [--max-edges N] -- [path]", output)
+        self.assertIn("error: --max-files must be a positive integer.", output)
+        self.assertIn("error: --max-edges must be a positive integer.", output)
+        self.assertIn("error: Unknown option: --unknown", output)
+        get_python_call_graph_text.assert_not_called()
         create_chat_client.assert_not_called()
 
     def test_main_parses_interactive_code_symbol_options(self) -> None:

@@ -1023,7 +1023,7 @@ class CommandTests(unittest.TestCase):
         self.assertIn("/python-refs [--path PATH] [--max-matches N]", get_help_text())
         self.assertIn("/python-ref-contexts [--path PATH] [--max-matches N]", get_help_text())
         self.assertIn("/python-calls [--path PATH] [--max-matches N]", get_help_text())
-        self.assertIn("/python-call-graph [path]", get_help_text())
+        self.assertIn("/python-call-graph [--max-files N] [--max-edges N] -- [path]", get_help_text())
         self.assertIn("/python-rename-preview <symbol> <new_name> [path]", get_help_text())
         self.assertIn("/python-rename <symbol> <new_name> [path]", get_help_text())
         self.assertIn("/check-replace-python-def <symbol> <content> [path]", get_help_text())

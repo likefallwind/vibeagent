@@ -158,3 +158,62 @@ def parse_interactive_python_symbol_argument(
             return None, None, {}, f"{usage}\n  error: path can only be provided once.", True
         path = symbol_parts[1]
     return symbol_parts[0], path, kwargs, None, True
+
+
+def parse_interactive_python_call_graph_argument(
+    argument: str | None,
+) -> tuple[str | None, dict[str, int], str | None, bool]:
+    usage = "Usage: /python-call-graph [--max-files N] [--max-edges N] -- [path]"
+    if not argument:
+        return None, {}, None, False
+
+    option_specs = {
+        "--max-files": "max_files",
+        "--max-edges": "max_edges",
+    }
+    try:
+        parts = shlex.split(argument)
+    except ValueError as error:
+        if any(flag in argument for flag in option_specs):
+            return None, {}, f"{usage}\n  error: {error}", True
+        return None, {}, None, False
+
+    uses_named_options = "--" in parts
+    if not uses_named_options:
+        for part in parts:
+            flag = part.split("=", 1)[0] if part.startswith("--") else part
+            if part.startswith("--") or flag in option_specs:
+                uses_named_options = True
+                break
+    if not uses_named_options:
+        return None, {}, None, False
+
+    path_parts: list[str] = []
+    kwargs: dict[str, int] = {}
+    index = 0
+    while index < len(parts):
+        part = parts[index]
+        if part == "--":
+            path_parts.extend(parts[index + 1 :])
+            break
+        flag = part.split("=", 1)[0] if part.startswith("--") else part
+        if flag in option_specs:
+            if "=" in part:
+                raw_value = part.split("=", 1)[1]
+                index += 1
+            else:
+                raw_value = parts[index + 1] if index + 1 < len(parts) else None
+                index += 2
+            value, error = parse_interactive_positive_option(flag, raw_value)
+            if error:
+                return None, {}, f"{usage}\n  error: {error}", True
+            kwargs[option_specs[flag]] = int(value)
+            continue
+        if part.startswith("--"):
+            return None, {}, f"{usage}\n  error: Unknown option: {part}", True
+        path_parts.append(part)
+        index += 1
+
+    if len(path_parts) > 1:
+        return None, {}, usage, True
+    return (path_parts[0] if path_parts else None), kwargs, None, True

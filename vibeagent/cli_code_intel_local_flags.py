@@ -329,7 +329,6 @@ def _symbol_text(
 SIMPLE_CODE_INTEL_COMMANDS: dict[str, str] = {
     "python_check": "get_python_check_text",
     "python_deps": "get_python_deps_text",
-    "python_call_graph": "get_python_call_graph_text",
     "python_rename_preview": "get_python_rename_preview_text",
     "python_rename": "get_python_rename_text",
     "check_replace_python_definition": "get_check_replace_python_definition_text",
@@ -344,6 +343,13 @@ def run_interactive_code_intel_command(command: Any, commands: dict[str, Any]) -
     simple_getter = SIMPLE_CODE_INTEL_COMMANDS.get(command.type)
     if simple_getter is not None:
         return commands[simple_getter](argument=command.argument)
+    if command.type == "python_call_graph":
+        path, kwargs, error, uses_named_options = commands["parse_interactive_python_call_graph_argument"](command.argument)
+        if error:
+            return error
+        if uses_named_options:
+            return commands["get_python_call_graph_text"](argument=path, **kwargs)
+        return commands["get_python_call_graph_text"](argument=command.argument)
     if command.type == "python_defs":
         return _symbol_text(
             command,

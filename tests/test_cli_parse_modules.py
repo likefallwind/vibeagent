@@ -5,7 +5,11 @@ import unittest
 
 from vibeagent import cli_parsing
 from vibeagent.cli_parse_core import build_focused_tests_kwargs, parse_cli_json_value, timeout_ms
-from vibeagent.cli_parse_code_intel import parse_interactive_python_symbol_argument, parse_interactive_test_paths_argument
+from vibeagent.cli_parse_code_intel import (
+    parse_interactive_python_call_graph_argument,
+    parse_interactive_python_symbol_argument,
+    parse_interactive_test_paths_argument,
+)
 from vibeagent.cli_parse_discovery import (
     parse_interactive_glob_argument,
     parse_interactive_overview_argument,
@@ -42,6 +46,7 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertIs(cli_parsing.parse_interactive_read_argument, parse_interactive_read_argument)
         self.assertIs(cli_parsing.parse_interactive_read_files_argument, parse_interactive_read_files_argument)
         self.assertIs(cli_parsing.parse_interactive_tree_argument, parse_interactive_tree_argument)
+        self.assertIs(cli_parsing.parse_interactive_python_call_graph_argument, parse_interactive_python_call_graph_argument)
         self.assertIs(cli_parsing.parse_interactive_python_symbol_argument, parse_interactive_python_symbol_argument)
         self.assertIs(cli_parsing.parse_interactive_test_paths_argument, parse_interactive_test_paths_argument)
         self.assertIs(cli_parsing.parse_interactive_run_argument, parse_interactive_run_argument)
@@ -124,9 +129,13 @@ class CliParseModuleTests(unittest.TestCase):
             command_name="python-ref-contexts",
             include_context=True,
         )
+        graph_path, graph_kwargs, graph_error, graph_handled = parse_interactive_python_call_graph_argument(
+            "--max-files 2 --max-edges=7 -- src/app.py"
+        )
 
         self.assertEqual((path_arg, test_kwargs, test_error, test_handled), ("src/app.py tests/test_app.py", {"max_paths": 2, "max_candidates": 3, "max_commands": 4}, None, True))
         self.assertEqual((symbol, path, symbol_kwargs, symbol_error, symbol_handled), ("handle_request", "src/app.py", {"max_matches": 5, "context_lines": 2, "max_bytes_per_context": 100}, None, True))
+        self.assertEqual((graph_path, graph_kwargs, graph_error, graph_handled), ("src/app.py", {"max_files": 2, "max_edges": 7}, None, True))
 
     def test_run_parsers_keep_existing_behavior(self) -> None:
         command, kwargs, error, handled = parse_interactive_run_argument(
