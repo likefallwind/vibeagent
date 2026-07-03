@@ -45,6 +45,29 @@ def unwrapped_shell_command_parts(parts: list[str]) -> list[str]:
         if executable == "dbus-launch":
             remaining = strip_dbus_launch_prefix(remaining[1:])
             continue
+        if executable == "dbus-run-session":
+            remaining = strip_dbus_run_session_prefix(remaining[1:])
+            continue
+        if executable == "systemd-run":
+            remaining = strip_systemd_run_prefix(remaining[1:])
+            continue
+        break
+    return remaining
+
+
+def strip_dbus_run_session_prefix(parts: list[str]) -> list[str]:
+    remaining = list(parts)
+    while remaining:
+        token = remaining[0]
+        if token == "--":
+            return remaining[1:]
+        option = token.split("=", 1)[0]
+        if option in {"--config-file", "--dbus-daemon"}:
+            remaining = remaining[2:] if "=" not in token and len(remaining) > 1 else remaining[1:]
+            continue
+        if token.startswith("-"):
+            remaining = remaining[1:]
+            continue
         break
     return remaining
 
@@ -57,6 +80,49 @@ def strip_dbus_launch_prefix(parts: list[str]) -> list[str]:
             return remaining[1:]
         option = token.split("=", 1)[0]
         if option in {"--autolaunch", "--config-file"}:
+            remaining = remaining[2:] if "=" not in token and len(remaining) > 1 else remaining[1:]
+            continue
+        if token.startswith("-"):
+            remaining = remaining[1:]
+            continue
+        break
+    return remaining
+
+
+SYSTEMD_RUN_OPTIONS_WITH_VALUES = {
+    "-E",
+    "-G",
+    "-M",
+    "-p",
+    "--description",
+    "--gid",
+    "--machine",
+    "--nice",
+    "--on-active",
+    "--on-boot",
+    "--on-calendar",
+    "--on-startup",
+    "--on-unit-active",
+    "--on-unit-inactive",
+    "--property",
+    "--service-type",
+    "--setenv",
+    "--slice",
+    "--timer-property",
+    "--uid",
+    "--unit",
+    "--working-directory",
+}
+
+
+def strip_systemd_run_prefix(parts: list[str]) -> list[str]:
+    remaining = list(parts)
+    while remaining:
+        token = remaining[0]
+        if token == "--":
+            return remaining[1:]
+        option = token.split("=", 1)[0]
+        if option in SYSTEMD_RUN_OPTIONS_WITH_VALUES:
             remaining = remaining[2:] if "=" not in token and len(remaining) > 1 else remaining[1:]
             continue
         if token.startswith("-"):
@@ -356,7 +422,9 @@ __all__ = [
     "shell_command_segments",
     "shell_pipeline_segments",
     "strip_dbus_launch_prefix",
+    "strip_dbus_run_session_prefix",
     "strip_env_command_prefix",
+    "strip_systemd_run_prefix",
     "unwrapped_shell_command_parts",
     "unwrapped_shell_executable_name",
 ]

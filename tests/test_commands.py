@@ -1274,6 +1274,8 @@ class CommandTests(unittest.TestCase):
         self.assertIn("env -- xdg-open .", text)
         self.assertIn("dbus-launch xdg-open .", text)
         self.assertIn("setsid dbus-launch --exit-with-session xdg-open .", text)
+        self.assertIn("dbus-run-session -- xdg-open .", text)
+        self.assertIn("systemd-run --user xdg-open .", text)
         self.assertIn("kioclient5 exec .", text)
         self.assertIn("exo-open .", text)
         self.assertIn("mimeopen .", text)
@@ -1354,6 +1356,8 @@ class CommandTests(unittest.TestCase):
                 for check in hard_blocks["checks"]
             )
         )
+        self.assertTrue(any(check["command"] == "dbus-run-session -- xdg-open ." and check["active"] for check in hard_blocks["checks"]))
+        self.assertTrue(any(check["command"] == "systemd-run --user xdg-open ." and check["active"] for check in hard_blocks["checks"]))
         self.assertTrue(any(check["command"] == "kioclient5 exec ." and check["active"] for check in hard_blocks["checks"]))
         self.assertTrue(any(check["command"] == "exo-open ." and check["active"] for check in hard_blocks["checks"]))
         self.assertTrue(any(check["command"] == "mimeopen ." and check["active"] for check in hard_blocks["checks"]))

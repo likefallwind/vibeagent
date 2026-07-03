@@ -232,17 +232,7 @@ def shell_wrapped_blocked_command_reason(command: str, depth: int) -> str | None
         parts = shlex.split(command)
     except ValueError:
         return None
-    while parts:
-        executable = Path(parts[0]).name.lower()
-        if executable in {"nohup", "setsid"}:
-            parts = parts[1:]
-            continue
-        if executable == "env":
-            parts = parts[1:]
-            while parts and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", parts[0]):
-                parts = parts[1:]
-            continue
-        break
+    parts = unwrapped_shell_command_parts(parts)
     if len(parts) < 3:
         return None
     executable = Path(parts[0]).name.lower()
