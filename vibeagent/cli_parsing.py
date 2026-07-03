@@ -22,6 +22,7 @@ from .cli_parse_diff_git import (
     parse_interactive_diff_hunks_argument,
 )
 from .cli_parse_session import (
+    parse_interactive_run_session_verification_argument,
     parse_interactive_session_detail_argument,
     parse_interactive_session_search_argument,
     parse_interactive_transcript_argument,

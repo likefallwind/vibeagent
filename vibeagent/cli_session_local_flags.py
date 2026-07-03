@@ -192,6 +192,15 @@ def run_session_local_flag(
             commands["format_session_verification_report_text"],
             lambda: commands["get_session_verification_text"](root, args.session_verification or None, **session_kwargs),
         )
+    if args.run_session_verification is not None:
+        session_kwargs = commands["run_session_verification_kwargs"](args)
+        return local_text_or_report(
+            args,
+            "runSessionVerification",
+            lambda: commands["get_run_session_verification_report"](root, args.run_session_verification or None, **session_kwargs),
+            commands["format_run_session_verification_report_text"],
+            lambda: commands["get_run_session_verification_text"](root, args.run_session_verification or None, **session_kwargs),
+        )
     if args.session_audit is not None:
         session_kwargs = commands["session_audit_kwargs"](args)
         return local_text_or_report(
@@ -251,6 +260,9 @@ def run_interactive_session_command(command: Any, commands: dict[str, Any]) -> s
     if command.type in SESSION_DETAIL_COMMAND_SPECS:
         usage, options, getter_name = SESSION_DETAIL_COMMAND_SPECS[command.type]
         return _interactive_session_detail_text(command, commands, usage, options, getter_name)
+    if command.type == "run_session_verification":
+        run_id, kwargs, error = commands["parse_interactive_run_session_verification_argument"](command.argument)
+        return error if error else commands["get_run_session_verification_text"](run_id=run_id, **kwargs)
     return None
 
 

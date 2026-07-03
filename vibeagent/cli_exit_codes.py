@@ -187,6 +187,7 @@ LOCAL_RESULT_ARG_NAMES = frozenset(
         "session_files",
         "session_failures",
         "session_verification",
+        "run_session_verification",
         "session_audit",
         "session_handoff",
         "checkpoint",

@@ -892,6 +892,11 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(parse_local_command("/session-failures run-1"), LocalCommand(type="session_failures", argument="run-1"))
         self.assertEqual(parse_local_command("/session-verification"), LocalCommand(type="session_verification"))
         self.assertEqual(parse_local_command("/session-verification run-1"), LocalCommand(type="session_verification", argument="run-1"))
+        self.assertEqual(parse_local_command("/run-session-verification"), LocalCommand(type="run_session_verification"))
+        self.assertEqual(
+            parse_local_command("/run-session-verification run-1 --no-failed"),
+            LocalCommand(type="run_session_verification", argument="run-1 --no-failed"),
+        )
         self.assertEqual(parse_local_command("/session-audit"), LocalCommand(type="session_audit"))
         self.assertEqual(parse_local_command("/session-audit run-1"), LocalCommand(type="session_audit", argument="run-1"))
         self.assertEqual(parse_local_command("/session-handoff"), LocalCommand(type="session_handoff"))
@@ -9842,6 +9847,48 @@ class CommandTests(unittest.TestCase):
         self.assertFalse(missing["ok"])
         self.assertEqual(missing["status"], "missing")
         self.assertEqual(missing_text, "Session not found: missing")
+
+    def test_get_run_session_verification_report_runs_selected_checks(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "result",
+                        "success": False,
+                        "status": "blocked",
+                        "iterations": 1,
+                        "message": "Needs checks",
+                        "pending_verification_checks": ['python3 -c "print(\\"pending-ok\\")"'],
+                        "failed_verification_checks": ['python3 -c "import sys; print(\\"failed\\"); sys.exit(3)" (exit=3)'],
+                    }
+                ],
+            )
+
+            failed_first = commands_module.get_run_session_verification_report(root, "run-1")
+            pending_only = commands_module.get_run_session_verification_report(
+                root,
+                "run-1",
+                include_failed=False,
+            )
+            rendered = commands_module.format_run_session_verification_report_text(pending_only)
+            missing = commands_module.get_run_session_verification_text(root, "missing")
+
+        self.assertFalse(failed_first["ok"])
+        self.assertEqual(failed_first["selectedCount"], 2)
+        self.assertEqual(failed_first["commands"], {"shown": 1, "total": 2})
+        self.assertTrue(failed_first["stoppedEarly"])
+        self.assertEqual(failed_first["results"][0]["exitCode"], 3)
+        self.assertTrue(pending_only["ok"])
+        self.assertEqual(pending_only["selectedCount"], 1)
+        self.assertEqual(pending_only["commands"], {"shown": 1, "total": 1})
+        self.assertIn("pending-ok", pending_only["results"][0]["stdout"])
+        self.assertIn("Run session verification:", rendered)
+        self.assertIn("ok: yes", rendered)
+        self.assertIn("pending-ok", rendered)
+        self.assertIn("Session not found: missing", missing)
 
     def test_get_session_audit_text_reports_newest_or_selected_readiness(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:

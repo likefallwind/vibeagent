@@ -27,7 +27,11 @@ from vibeagent.cli_parse_run import (
     parse_interactive_run_argument,
     parse_interactive_run_sequence_argument,
 )
-from vibeagent.cli_parse_session import parse_interactive_session_search_argument, parse_interactive_transcript_argument
+from vibeagent.cli_parse_session import (
+    parse_interactive_run_session_verification_argument,
+    parse_interactive_session_search_argument,
+    parse_interactive_transcript_argument,
+)
 
 
 class CliParseModuleTests(unittest.TestCase):
@@ -37,6 +41,7 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertIs(cli_parsing.build_diff_argument, build_diff_argument)
         self.assertIs(cli_parsing.parse_interactive_diff_argument, parse_interactive_diff_argument)
         self.assertIs(cli_parsing.parse_interactive_transcript_argument, parse_interactive_transcript_argument)
+        self.assertIs(cli_parsing.parse_interactive_run_session_verification_argument, parse_interactive_run_session_verification_argument)
         self.assertIs(cli_parsing.parse_interactive_session_search_argument, parse_interactive_session_search_argument)
         self.assertIs(cli_parsing.parse_interactive_http_argument, parse_interactive_http_argument)
         self.assertIs(cli_parsing.parse_interactive_port_argument, parse_interactive_port_argument)
@@ -73,6 +78,30 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertEqual(build_diff_argument("src/app.py", True, ["extra.py"]), "--staged src/app.py extra.py")
         self.assertEqual((diff_arg, max_chars, error), ("--staged src/app.py", 5, None))
         self.assertEqual((query, run_id, kwargs, search_error), ("failure", "run-1", {"max_matches": 2, "case_sensitive": True}, None))
+
+    def test_run_session_verification_parser_accepts_options(self) -> None:
+        run_id, kwargs, error = parse_interactive_run_session_verification_argument(
+            "--max-checks=2 --timeout-ms 1000 --max-output-chars 2000 --no-failed --continue-on-failure run-1"
+        )
+        bad_run_id, bad_kwargs, bad_error = parse_interactive_run_session_verification_argument(
+            "--no-failed --no-pending"
+        )
+
+        self.assertEqual(run_id, "run-1")
+        self.assertEqual(
+            kwargs,
+            {
+                "max_checks": 2,
+                "timeout_ms": 1000,
+                "max_output_chars": 2000,
+                "include_failed": False,
+                "stop_on_failure": False,
+            },
+        )
+        self.assertIsNone(error)
+        self.assertIsNone(bad_run_id)
+        self.assertEqual(bad_kwargs, {})
+        self.assertIn("cannot be used together", bad_error or "")
 
     def test_runtime_check_parsers_keep_existing_behavior(self) -> None:
         port, port_kwargs, port_error, port_handled = parse_interactive_port_argument("--host 0.0.0.0 --timeout-ms 1500 5173")

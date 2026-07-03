@@ -63,6 +63,21 @@ def session_verification_kwargs(args: argparse.Namespace) -> dict[str, Any]:
     return _present_kwargs(("max_checks", args.session_max_checks))
 
 
+def run_session_verification_kwargs(args: argparse.Namespace) -> dict[str, Any]:
+    kwargs = _present_kwargs(
+        ("max_checks", args.session_max_checks),
+        ("timeout_ms", args.run_timeout_ms),
+        ("max_output_chars", args.run_max_chars),
+    )
+    if args.run_session_no_failed:
+        kwargs["include_failed"] = False
+    if args.run_session_no_pending:
+        kwargs["include_pending"] = False
+    if args.run_continue_on_failure:
+        kwargs["stop_on_failure"] = False
+    return kwargs
+
+
 def session_audit_kwargs(args: argparse.Namespace) -> dict[str, Any]:
     return _present_kwargs(
         ("max_failures", args.session_max_failures),

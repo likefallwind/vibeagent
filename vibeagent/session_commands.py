@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .session import build_session_audit_report, build_session_handoff_report, build_session_resume_context, build_session_verification_report, get_last_session_id
+from .session import build_session_audit_report, build_session_handoff_report, build_session_resume_context, get_last_session_id
 from .session_accounting_commands import (
     format_cost_report_text as _format_cost_report_text,
     format_sessions_report_text as _format_sessions_report_text,
@@ -47,6 +47,13 @@ from .session_output_commands import (
     get_session_output_diagnostics_observation,
     get_session_output_diagnostics_report,
     get_session_output_diagnostics_text,
+)
+from .session_verification_commands import (
+    format_run_session_verification_report_text,
+    get_run_session_verification_report,
+    get_run_session_verification_text,
+    get_session_verification_report,
+    get_session_verification_text,
 )
 
 
@@ -182,50 +189,6 @@ def get_session_search_report(
 
 def format_session_search_report_text(report: dict[str, object]) -> str:
     return _format_session_search_report_text(report)
-
-
-def get_session_verification_text(
-    project_root: str | Path = ".",
-    run_id: str | None = None,
-    max_checks: int = 50,
-) -> str:
-    return format_session_verification_report_text(
-        get_session_verification_report(project_root, run_id, max_checks=max_checks)
-    )
-
-
-def get_session_verification_report(
-    project_root: str | Path = ".",
-    run_id: str | None = None,
-    max_checks: int = 50,
-    max_text: int = 160,
-) -> dict[str, object]:
-    selected = run_id or get_last_session_id(project_root)
-    if not selected:
-        return {
-            "session": None,
-            "exists": False,
-            "ok": False,
-            "ready": False,
-            "status": "missing",
-            "message": "No sessions found.",
-        }
-    try:
-        return build_session_verification_report(
-            project_root,
-            selected,
-            max_checks=max_checks,
-            max_text=max_text,
-        )
-    except ValueError as error:
-        return {
-            "session": selected,
-            "exists": False,
-            "ok": False,
-            "ready": False,
-            "status": "invalid",
-            "message": str(error),
-        }
 
 
 def format_session_verification_report_text(report: dict[str, object]) -> str:

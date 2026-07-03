@@ -87,6 +87,11 @@ class CliTests(unittest.TestCase):
             session_max_files=9,
             session_max_failures=10,
             session_max_checks=11,
+            run_timeout_ms=1500,
+            run_max_chars=2000,
+            run_session_no_failed=True,
+            run_session_no_pending=False,
+            run_continue_on_failure=True,
         )
 
         self.assertEqual(cli_module.session_transcript_kwargs(args), {"max_events": 12, "max_text": 500})
@@ -119,6 +124,16 @@ class CliTests(unittest.TestCase):
         self.assertEqual(cli_module.session_files_kwargs(args), {"max_files": 9})
         self.assertEqual(cli_module.session_failures_kwargs(args), {"max_failures": 10, "max_text": 500})
         self.assertEqual(cli_module.session_verification_kwargs(args), {"max_checks": 11})
+        self.assertEqual(
+            cli_module.run_session_verification_kwargs(args),
+            {
+                "max_checks": 11,
+                "timeout_ms": 1500,
+                "max_output_chars": 2000,
+                "include_failed": False,
+                "stop_on_failure": False,
+            },
+        )
         self.assertEqual(
             cli_module.session_audit_kwargs(args),
             {
@@ -158,6 +173,11 @@ class CliTests(unittest.TestCase):
             session_max_files=None,
             session_max_failures=None,
             session_max_checks=None,
+            run_timeout_ms=30000,
+            run_max_chars=12000,
+            run_session_no_failed=False,
+            run_session_no_pending=False,
+            run_continue_on_failure=False,
         )
 
         self.assertEqual(cli_module.session_transcript_kwargs(args), {})
@@ -166,6 +186,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(cli_module.session_files_kwargs(args), {})
         self.assertEqual(cli_module.session_failures_kwargs(args), {})
         self.assertEqual(cli_module.session_verification_kwargs(args), {})
+        self.assertEqual(cli_module.run_session_verification_kwargs(args), {"timeout_ms": 30000, "max_output_chars": 12000})
         self.assertEqual(cli_module.session_audit_kwargs(args), {})
         self.assertEqual(cli_module.session_handoff_kwargs(args), {})
         self.assertEqual(
@@ -2563,6 +2584,69 @@ class CliTests(unittest.TestCase):
         get_session_verification_report.assert_called_once_with(Path(base).resolve(), "run-1")
         format_session_verification_report_text.assert_called_once_with(report)
         get_session_verification_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
+    def test_main_run_session_verification_json_uses_local_flag(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+            report = {
+                "projectRoot": str(Path(base).resolve()),
+                "session": "run-1",
+                "ok": False,
+                "selectedCount": 1,
+                "commands": {"shown": 1, "total": 1},
+                "results": [{"command": "npm test", "exitCode": 1}],
+                "message": "Ran 1/1 session verification command(s); one or more failed.",
+            }
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_run_session_verification_report", return_value=report) as get_report,
+                patch(
+                    "vibeagent.cli.format_run_session_verification_report_text",
+                    return_value=(
+                        "Run session verification:\n"
+                        "  session: run-1\n"
+                        "  ok: no\n"
+                        "  commands: 1/1\n"
+                        "  message: failed"
+                    ),
+                ) as format_text,
+                patch("vibeagent.cli.get_run_session_verification_text", return_value="old text path") as get_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--cwd",
+                        base,
+                        "--run-session-verification",
+                        "run-1",
+                        "--session-max-checks",
+                        "2",
+                        "--run-session-no-pending",
+                        "--run-timeout-ms",
+                        "1000",
+                        "--run-max-chars",
+                        "2000",
+                        "--json",
+                    ]
+                )
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 1)
+        self.assertFalse(payload["success"])
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["runSessionVerification"], report)
+        get_report.assert_called_once_with(
+            Path(base).resolve(),
+            "run-1",
+            max_checks=2,
+            timeout_ms=1000,
+            max_output_chars=2000,
+            include_pending=False,
+        )
+        format_text.assert_called_once_with(report)
+        get_text.assert_not_called()
         create_chat_client.assert_not_called()
 
     def test_main_runs_session_audit_local_flag_without_creating_client(self) -> None:
@@ -5266,9 +5350,9 @@ class CliTests(unittest.TestCase):
     def test_main_reports_run_options_without_run_command_as_local_flag_error(self) -> None:
         cases = [
             (["--run-cwd", "src", "fix"], "--run-cwd can only be used with --run-command, --run, --run-commands, or --check-run-commands.\n"),
-            (["--run-timeout-ms", "2000", "fix"], "--run-timeout-ms can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests.\n"),
-            (["--run-max-chars", "2000", "fix"], "--run-max-chars can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests.\n"),
-            (["--run-continue-on-failure", "fix"], "--run-continue-on-failure can only be used with --run-commands, --run-suggested-checks, or --run-focused-tests.\n"),
+            (["--run-timeout-ms", "2000", "fix"], "--run-timeout-ms can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.\n"),
+            (["--run-max-chars", "2000", "fix"], "--run-max-chars can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.\n"),
+            (["--run-continue-on-failure", "fix"], "--run-continue-on-failure can only be used with --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.\n"),
             (["--run-output-contexts", "fix"], "--run-output-contexts can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests.\n"),
             (["--run-output-diagnostics", "fix"], "--run-output-diagnostics can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests.\n"),
             (["--run-output-context-lines", "2", "fix"], "--run-output-context-lines can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests.\n"),
@@ -12026,7 +12110,7 @@ class CliTests(unittest.TestCase):
             ),
             (
                 ["--session-max-checks", "3", "fix", "tests"],
-                "--session-max-checks can only be used with --session-verification, --session-audit, or --session-handoff.\n",
+                "--session-max-checks can only be used with --session-verification, --run-session-verification, --session-audit, or --session-handoff.\n",
             ),
             (
                 ["--session-max-commands", "3", "fix", "tests"],

@@ -66,6 +66,7 @@ from .cli_session_kwargs import (
     session_handoff_kwargs,
     session_output_contexts_kwargs,
     session_output_diagnostics_kwargs,
+    run_session_verification_kwargs,
     session_search_kwargs,
     session_transcript_kwargs,
     session_verification_kwargs,
@@ -83,6 +84,7 @@ from .cli_parse_diff_git import (
 )
 from .cli_parse_session import (
     parse_interactive_session_detail_argument,
+    parse_interactive_run_session_verification_argument,
     parse_interactive_session_search_argument,
     parse_interactive_transcript_argument,
 )
@@ -558,6 +560,9 @@ from .commands import (
     get_restore_text,
     format_run_report_text,
     get_run_report,
+    format_run_session_verification_report_text,
+    get_run_session_verification_report,
+    get_run_session_verification_text,
     format_run_sequence_report_text,
     get_run_sequence_report,
     get_run_sequence_text,

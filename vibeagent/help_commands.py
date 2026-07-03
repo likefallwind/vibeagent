@@ -194,6 +194,7 @@ def get_help_text() -> str:
             "  /session-files [run-id] [--max-files N]  Show project paths referenced by a session.",
             "  /session-failures [run-id] [--max-failures N] [--max-text N]  Show failed tools, commands, and approvals.",
             "  /session-verification [run-id] [--max-checks N]  Show verified, pending, and failed suggested checks.",
+            "  /run-session-verification [run-id] [--max-checks N] [--timeout-ms N] [--max-output-chars N] [--no-failed] [--no-pending] [--continue-on-failure]  Rerun recorded failed and pending verification commands.",
             "  /session-audit [run-id] [--max-failures N] [--max-files N] [--max-commands N] [--max-checks N] [--max-text N]  Show finish-time readiness, blockers, active processes, checks, failures, commands, and files.",
             "  /session-handoff [run-id] [--max-failures N] [--max-files N] [--max-commands N] [--max-checks N] [--max-output-chars N] [--max-text N]  Show compact session recovery handoff bundle.",
             "  /checkpoint [label]  Save the current git status, diffs, and ordinary untracked files under .vibeagent.",

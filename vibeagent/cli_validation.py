@@ -195,8 +195,8 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--session-search-match-max can only be used with --session-search."
     if args.session_search_case_sensitive and not session_search_view:
         return "--session-search-case-sensitive can only be used with --session-search."
-    if args.session_max_checks is not None and args.session_verification is None and args.session_audit is None and args.session_handoff is None:
-        return "--session-max-checks can only be used with --session-verification, --session-audit, or --session-handoff."
+    if args.session_max_checks is not None and args.session_verification is None and args.run_session_verification is None and args.session_audit is None and args.session_handoff is None:
+        return "--session-max-checks can only be used with --session-verification, --run-session-verification, --session-audit, or --session-handoff."
     if args.session_max_commands is not None and not session_command_view:
         return "--session-max-commands can only be used with --session-commands, --session-audit, or --session-handoff."
     if args.session_max_output_chars is not None and args.session_commands is None and args.session_handoff is None:
@@ -281,25 +281,42 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--check-write-process requires --write-stdin."
     if args.write_process is not None and args.write_stdin is None:
         return "--write-process requires --write-stdin."
-    run_target = args.run_command is not None or args.run_commands is not None or args.run_suggested_checks is not None or args.run_focused_tests is not None
+    run_target = (
+        args.run_command is not None
+        or args.run_commands is not None
+        or args.run_suggested_checks is not None
+        or args.run_focused_tests is not None
+        or args.run_session_verification is not None
+    )
     if args.run_timeout_ms != 30000 and not run_target:
-        return "--run-timeout-ms can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests."
+        return "--run-timeout-ms can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification."
     if args.run_max_chars != 12000 and not run_target:
-        return "--run-max-chars can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests."
-    if args.run_continue_on_failure and args.run_commands is None and args.run_suggested_checks is None and args.run_focused_tests is None:
-        return "--run-continue-on-failure can only be used with --run-commands, --run-suggested-checks, or --run-focused-tests."
-    run_output_context_target = run_target
+        return "--run-max-chars can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification."
+    if args.run_continue_on_failure and args.run_commands is None and args.run_suggested_checks is None and args.run_focused_tests is None and args.run_session_verification is None:
+        return "--run-continue-on-failure can only be used with --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification."
+    if args.run_session_no_failed and args.run_session_verification is None:
+        return "--run-session-no-failed can only be used with --run-session-verification."
+    if args.run_session_no_pending and args.run_session_verification is None:
+        return "--run-session-no-pending can only be used with --run-session-verification."
+    if args.run_session_no_failed and args.run_session_no_pending:
+        return "--run-session-no-failed and --run-session-no-pending cannot be used together."
+    run_output_context_target = (
+        args.run_command is not None
+        or args.run_commands is not None
+        or args.run_suggested_checks is not None
+        or args.run_focused_tests is not None
+    )
     if args.run_output_contexts and not run_output_context_target:
         return "--run-output-contexts can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests."
     if args.run_output_diagnostics and not run_output_context_target:
         return "--run-output-diagnostics can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests."
-    if args.run_output_context_lines != 5 and not run_target:
+    if args.run_output_context_lines != 5 and not run_output_context_target:
         return "--run-output-context-lines can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests."
-    if args.run_output_context_max != 20 and not run_target:
+    if args.run_output_context_max != 20 and not run_output_context_target:
         return "--run-output-context-max can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests."
-    if args.run_output_context_max_bytes != 20000 and not run_target:
+    if args.run_output_context_max_bytes != 20000 and not run_output_context_target:
         return "--run-output-context-max-bytes can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests."
-    if args.run_output_diagnostic_max != 50 and not run_target:
+    if args.run_output_diagnostic_max != 50 and not run_output_context_target:
         return "--run-output-diagnostic-max can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests."
     if args.resume is not None and args.compact is not None:
         return "--resume and --compact cannot be used together."

@@ -170,3 +170,62 @@ def parse_interactive_session_detail_argument(
         run_id = part
         index += 1
     return run_id, kwargs, None
+
+
+def parse_interactive_run_session_verification_argument(
+    argument: str | None,
+) -> tuple[str | None, dict[str, int | bool], str | None]:
+    usage = (
+        "Usage: /run-session-verification [run-id] [--max-checks N] [--timeout-ms N] "
+        "[--max-output-chars N] [--no-failed] [--no-pending] [--continue-on-failure]"
+    )
+    if not argument:
+        return None, {}, None
+    try:
+        parts = shlex.split(argument)
+    except ValueError as error:
+        return None, {}, f"{usage}\n  error: {error}"
+    run_id: str | None = None
+    kwargs: dict[str, int | bool] = {}
+    index = 0
+    while index < len(parts):
+        part = parts[index]
+        flag = part.split("=", 1)[0] if part.startswith("--") else part
+        if flag in {"--max-checks", "--timeout-ms", "--max-output-chars"}:
+            keyword = {
+                "--max-checks": "max_checks",
+                "--timeout-ms": "timeout_ms",
+                "--max-output-chars": "max_output_chars",
+            }[flag]
+            if "=" in part:
+                raw_value = part.split("=", 1)[1]
+                index += 1
+            else:
+                raw_value = parts[index + 1] if index + 1 < len(parts) else None
+                index += 2
+            value, error = parse_interactive_positive_option(flag, raw_value)
+            if error:
+                return None, {}, f"{usage}\n  error: {error}"
+            kwargs[keyword] = int(value)
+            continue
+        if part == "--no-failed":
+            kwargs["include_failed"] = False
+            index += 1
+            continue
+        if part == "--no-pending":
+            kwargs["include_pending"] = False
+            index += 1
+            continue
+        if part == "--continue-on-failure":
+            kwargs["stop_on_failure"] = False
+            index += 1
+            continue
+        if part.startswith("--"):
+            return None, {}, f"{usage}\n  error: Unknown option: {part}"
+        if run_id is not None:
+            return None, {}, usage
+        run_id = part
+        index += 1
+    if kwargs.get("include_failed") is False and kwargs.get("include_pending") is False:
+        return None, {}, f"{usage}\n  error: --no-failed and --no-pending cannot be used together."
+    return run_id, kwargs, None
