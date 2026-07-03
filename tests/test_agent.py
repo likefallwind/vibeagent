@@ -1097,6 +1097,101 @@ class AgentTests(unittest.TestCase):
         self.assertTrue(any("Pending verification checks:\n- python -m unittest discover -s tests" in message for message in feedback_messages))
         self.assertTrue(any("Final review changed files:\n- ?? src/app.py\n- ?? tests/test_sample.py" in message for message in feedback_messages))
 
+    def test_run_agent_keeps_verification_after_stage_and_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+            tests_dir = root / "tests"
+            tests_dir.mkdir()
+            (tests_dir / "test_sample.py").write_text(
+                "import unittest\n\nclass SampleTests(unittest.TestCase):\n    def test_ok(self):\n        self.assertTrue(True)\n",
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "add", "tests/test_sample.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "1",
+                            "name": "update_plan",
+                            "input": {
+                                "plan": [
+                                    {"step": "Create src/app.py", "status": "in_progress"},
+                                    {"step": "Run unit tests", "status": "pending"},
+                                    {"step": "Commit changes", "status": "pending"},
+                                ]
+                            },
+                        }
+                    ],
+                    [{"type": "tool_call", "id": "2", "name": "write_file", "input": {"path": "src/app.py", "content": "VALUE = 1\n"}}],
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "3",
+                            "name": "run_command",
+                            "input": {"command": "python -m unittest discover -s tests", "timeout_ms": 10000},
+                        }
+                    ],
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "4",
+                            "name": "update_plan",
+                            "input": {
+                                "plan": [
+                                    {"step": "Create src/app.py", "status": "completed"},
+                                    {"step": "Run unit tests", "status": "completed"},
+                                    {"step": "Commit changes", "status": "in_progress"},
+                                ]
+                            },
+                        }
+                    ],
+                    [{"type": "tool_call", "id": "5", "name": "git_stage", "input": {"paths": ["src/app.py"]}}],
+                    [{"type": "tool_call", "id": "6", "name": "git_commit", "input": {"message": "Add app"}}],
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "7",
+                            "name": "update_plan",
+                            "input": {
+                                "plan": [
+                                    {"step": "Create src/app.py", "status": "completed"},
+                                    {"step": "Run unit tests", "status": "completed"},
+                                    {"step": "Commit changes", "status": "completed"},
+                                ]
+                            },
+                        }
+                    ],
+                    [{"type": "text", "text": "Done after commit."}],
+                ]
+            )
+
+            result = run_agent(
+                "create app, test, and commit",
+                base_dir=root,
+                client=client,
+                max_iterations=8,
+                approval_handler=approve_all,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "Done after commit.")
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
+        self.assertIn("python -m unittest discover -s tests", result.verification_checks)
+        self.assertEqual([item.status for item in result.plan], ["completed", "completed", "completed"])
+        observation_kinds = [item.kind for item in result.observations]
+        self.assertIn("checkpoint_create", observation_kinds)
+        self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("git_stage"))
+        self.assertLess(observation_kinds.index("git_stage"), observation_kinds.index("git_commit"))
+        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("final_review"))
+
     def test_run_agent_returns_blocked_command_as_tool_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             client = MockClient(

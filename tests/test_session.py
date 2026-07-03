@@ -1735,6 +1735,91 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(summary.pending_verification_checks, [])
         self.assertEqual(summary.failed_verification_checks, [])
 
+    def test_summarize_session_keeps_verification_after_git_metadata_changes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "write_file",
+                        "result": {"kind": "write_file", "path": "src/app.py", "ok": True, "message": "Wrote src/app.py."},
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 2,
+                        "name": "run_command",
+                        "result": {
+                            "kind": "run_command",
+                            "result": {
+                                "command": "python -m unittest discover -s tests",
+                                "exit_code": 0,
+                                "stdout": "",
+                                "stderr": "",
+                                "timed_out": False,
+                                "signal": None,
+                                "cwd": ".",
+                            },
+                        },
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 3,
+                        "name": "git_stage",
+                        "result": {"kind": "git_stage", "ok": True, "paths": ["src/app.py"], "status": "A  src/app.py", "message": "Staged paths."},
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 4,
+                        "name": "git_commit",
+                        "result": {
+                            "kind": "git_commit",
+                            "ok": True,
+                            "head_before": "abc123",
+                            "head_after": "def456",
+                            "status": "",
+                            "message": "Committed staged changes.",
+                        },
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 5,
+                        "name": "final_review",
+                        "result": {
+                            "kind": "final_review",
+                            "ok": True,
+                            "ready": True,
+                            "blocking_issues": [],
+                            "warnings": [],
+                            "files": [],
+                            "total_files": 0,
+                            "suggested_checks": [
+                                {
+                                    "command": "python -m unittest discover -s tests",
+                                    "cwd": ".",
+                                    "source": "tests",
+                                    "reason": "unit tests",
+                                }
+                            ],
+                            "suggested_checks_total": 1,
+                            "message": "Ready.",
+                        },
+                    },
+                ],
+            )
+
+            summary = summarize_session(root, "run-1")
+            verification = format_session_verification(summary)
+
+        self.assertEqual(summary.verification_checks, ["python -m unittest discover -s tests"])
+        self.assertEqual(summary.pending_verification_checks, [])
+        self.assertEqual(summary.failed_verification_checks, [])
+        self.assertIn("verified:", verification)
+        self.assertIn("pendingChecks: none", verification)
+
     def test_summarize_session_derives_focused_test_success_without_suggested_checks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
             root = Path(base)

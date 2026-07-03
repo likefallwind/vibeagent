@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .agent_completion_kinds import VCS_METADATA_OBSERVATION_KINDS
 from .session_failure_reports import command_result_failed
 from .session_types import SessionEvent
 from .verification_command_utils import command_keys_from_dicts, verification_commands_from_final_review_payload
@@ -47,6 +48,9 @@ SESSION_PROJECT_CHANGE_RESULT_KINDS = {
 }
 
 
+SESSION_VERIFICATION_INVALIDATING_RESULT_KINDS = SESSION_PROJECT_CHANGE_RESULT_KINDS - VCS_METADATA_OBSERVATION_KINDS
+
+
 def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[str], list[str], list[str]]:
     verification_commands: set[tuple[str, str]] = set()
     last_change_index: int | None = None
@@ -59,7 +63,7 @@ def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[s
         kind = result.get("kind")
         if kind == "final_review":
             verification_commands = session_final_review_verification_commands(result)
-        if kind in SESSION_PROJECT_CHANGE_RESULT_KINDS and result.get("ok") is not False:
+        if kind in SESSION_VERIFICATION_INVALIDATING_RESULT_KINDS and result.get("ok") is not False:
             last_change_index = index
 
     if not verification_commands or last_change_index is None:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .agent_completion_kinds import PROJECT_CHANGE_OBSERVATION_KINDS
+from .agent_completion_kinds import PROJECT_CHANGE_OBSERVATION_KINDS, VERIFICATION_INVALIDATING_OBSERVATION_KINDS
 from .agent_observation_utils import observation_failed
 from .types import Observation
 from .verification_command_utils import command_keys_from_objects, verification_commands_from_final_review
@@ -15,7 +15,7 @@ def build_verification_checks(success: bool, observations: list[Observation]) ->
     verification_commands = final_review_verification_commands(final_review)
     if not verification_commands:
         return []
-    last_change_index = latest_successful_project_change_index(observations)
+    last_change_index = latest_successful_verification_invalidating_change_index(observations)
     if last_change_index is None:
         if int(getattr(final_review, "total_files", 0) or 0) <= 0:
             return []
@@ -59,7 +59,7 @@ def suggested_check_statuses_after_latest_change(
     verification_commands = final_review_verification_commands(final_review)
     if not verification_commands:
         return set(), {}
-    last_change_index = latest_successful_project_change_index(observations)
+    last_change_index = latest_successful_verification_invalidating_change_index(observations)
     if last_change_index is None:
         if int(getattr(final_review, "total_files", 0) or 0) <= 0:
             return verification_commands, {}
@@ -93,6 +93,14 @@ def latest_successful_project_change_index(observations: list[Observation]) -> i
     for index in range(len(observations) - 1, -1, -1):
         observation = observations[index]
         if observation.kind in PROJECT_CHANGE_OBSERVATION_KINDS and not observation_failed(observation):
+            return index
+    return None
+
+
+def latest_successful_verification_invalidating_change_index(observations: list[Observation]) -> int | None:
+    for index in range(len(observations) - 1, -1, -1):
+        observation = observations[index]
+        if observation.kind in VERIFICATION_INVALIDATING_OBSERVATION_KINDS and not observation_failed(observation):
             return index
     return None
 
