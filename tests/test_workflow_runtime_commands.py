@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from vibeagent import command_hard_blocks
+from vibeagent import workflow_doctor_commands
 from vibeagent import workflow_commands
 from vibeagent.workflow_runtime_commands import (
     blocked_command_examples,
@@ -28,6 +29,9 @@ class WorkflowRuntimeCommandModuleTests(unittest.TestCase):
     def test_workflow_commands_reexports_runtime_helpers(self) -> None:
         self.assertIs(blocked_command_examples, command_hard_blocks.blocked_command_examples)
         self.assertIs(get_command_hard_block_report, command_hard_blocks.get_command_hard_block_report)
+        self.assertIs(get_doctor_report, workflow_doctor_commands.get_doctor_report)
+        self.assertIs(get_doctor_text, workflow_doctor_commands.get_doctor_text)
+        self.assertIs(format_doctor_report_text, workflow_doctor_commands.format_doctor_report_text)
         self.assertIs(workflow_commands.blocked_command_examples, blocked_command_examples)
         self.assertIs(workflow_commands.get_command_hard_block_report, get_command_hard_block_report)
         self.assertIs(workflow_commands.get_status_report, get_status_report)
