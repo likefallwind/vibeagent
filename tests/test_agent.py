@@ -495,6 +495,46 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(len(ends), 2)
         self.assertLess(max(started_at for _path, started_at in starts), min(ended_at for _path, ended_at in ends))
 
+    def test_run_agent_parallelizes_safe_prefix_before_serial_tool_call(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            (root / "a.txt").write_text("a\n", encoding="utf-8")
+            (root / "b.txt").write_text("b\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [
+                        {"type": "tool_call", "id": "1", "name": "read_file", "input": {"path": "a.txt"}},
+                        {"type": "tool_call", "id": "2", "name": "read_file", "input": {"path": "b.txt"}},
+                        {"type": "tool_call", "id": "3", "name": "finish", "input": {"message": "done"}},
+                    ],
+                ]
+            )
+            lock = threading.Lock()
+            starts: list[tuple[str, float]] = []
+            ends: list[tuple[str, float]] = []
+
+            def fake_execute_action(workspace: object, action: object, command_timeout_ms: int = 30_000) -> object:
+                if getattr(action, "type", "") != "read_file":
+                    return execute_action(workspace, action, command_timeout_ms)
+                path = str(getattr(action, "path"))
+                with lock:
+                    starts.append((path, time.monotonic()))
+                time.sleep(0.05)
+                with lock:
+                    ends.append((path, time.monotonic()))
+                return ReadFileObservation(kind="read_file", path=path, content=f"{path}\n", message=f"Read {path}.")
+
+            with patch("vibeagent.agent.execute_action", side_effect=fake_execute_action):
+                result = run_agent("read both files then finish", base_dir=root, client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "done")
+        self.assertEqual([item.kind for item in result.observations], ["read_file", "read_file", "finish"])
+        self.assertEqual([item.path for item in result.observations[:2]], ["a.txt", "b.txt"])
+        self.assertEqual(len(starts), 2)
+        self.assertEqual(len(ends), 2)
+        self.assertLess(max(started_at for _path, started_at in starts), min(ended_at for _path, ended_at in ends))
+
     def test_run_agent_skips_duplicate_parallel_list_files_in_same_batch(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)

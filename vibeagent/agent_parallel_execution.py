@@ -31,6 +31,12 @@ class PreparedParallelToolCall:
     duplicate_list_source_index: int | None = None
 
 
+@dataclass(frozen=True)
+class ParallelToolCallBatchResult:
+    tool_results: list[ContentBlock]
+    handled_count: int
+
+
 def execute_parallel_tool_call_batch(
     workspace: RunWorkspace,
     tool_calls: list[ContentBlock],
@@ -40,7 +46,7 @@ def execute_parallel_tool_call_batch(
     command_timeout_ms: int,
     logger: AgentLogger | None,
     execute: Callable[[RunWorkspace, object, int], Observation] = execute_action,
-) -> list[ContentBlock] | None:
+) -> ParallelToolCallBatchResult | None:
     if len(tool_calls) < 2:
         return None
 
@@ -52,10 +58,12 @@ def execute_parallel_tool_call_batch(
         try:
             action = parse_tool_action(tool_name, tool_input)
         except ActionParseError:
-            return None
+            break
         if not is_parallel_safe_action(action):
-            return None
+            break
         parsed.append((tool_id, tool_name, tool_input, action))
+    if len(parsed) < 2:
+        return None
 
     prepared: list[PreparedParallelToolCall] = []
     list_files_source_indexes: dict[str, int] = {}
@@ -133,4 +141,4 @@ def execute_parallel_tool_call_batch(
                 "content": json.dumps(result_payload, ensure_ascii=False),
             }
         )
-    return tool_results
+    return ParallelToolCallBatchResult(tool_results=tool_results, handled_count=len(prepared))

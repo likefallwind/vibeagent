@@ -211,7 +211,7 @@ def run_agent(
                 logger=logger,
             )
 
-        parallel_tool_results = execute_parallel_tool_call_batch(
+        parallel_batch_result = execute_parallel_tool_call_batch(
             current_workspace,
             tool_calls,
             observations,
@@ -221,13 +221,17 @@ def run_agent(
             logger,
             execute=execute_action,
         )
-        if parallel_tool_results is not None:
-            messages.append(ChatMessage(role="user", content=parallel_tool_results))
+        tool_results: list[ContentBlock] = []
+        handled_tool_calls = 0
+        if parallel_batch_result is not None:
+            tool_results.extend(parallel_batch_result.tool_results)
+            handled_tool_calls = parallel_batch_result.handled_count
+        if handled_tool_calls == len(tool_calls):
+            messages.append(ChatMessage(role="user", content=tool_results))
             continue
 
-        tool_results: list[ContentBlock] = []
         blocked_completion_feedback: str | None = None
-        for block in tool_calls:
+        for block in tool_calls[handled_tool_calls:]:
             tool_id = str(block.get("id") or "")
             tool_name = str(block.get("name") or "")
             tool_input = block.get("input") or {}
