@@ -312,6 +312,18 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             target=f"{action.process_id} ({len(action.content)} chars)",
             risk="This will write input to a running background process.",
         )
+    if isinstance(action, t.StopProcessAction):
+        return t.ApprovalRequest(
+            action_type="stop_process",
+            target=action.process_id,
+            risk="This will stop a background process started from the active project.",
+        )
+    if isinstance(action, t.StopAllProcessesAction):
+        return t.ApprovalRequest(
+            action_type="stop_all_processes",
+            target="background processes",
+            risk="This will stop all background processes started from the active project.",
+        )
     return None
 
 

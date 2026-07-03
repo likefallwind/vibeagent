@@ -53,6 +53,8 @@ APPROVAL_REQUIRED_TOOL_NAMES = {
     "run_suggested_checks",
     "set_executable",
     "start_command",
+    "stop_all_processes",
+    "stop_process",
     "write_file",
     "write_files",
     "write_process",

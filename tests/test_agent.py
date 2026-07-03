@@ -3732,21 +3732,37 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result.observations[0].processes, [])
         self.assertEqual(result.steps[0].status, "completed")
 
-    def test_run_agent_allows_stop_all_processes_without_approval_handler(self) -> None:
+    def test_run_agent_denies_stop_process_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "stop_process", "input": {"process_id": "bg-1"}}],
+                ]
+            )
+
+            result = run_agent("stop process", base_dir=Path(base), client=client, max_iterations=1)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.observations[0].kind, "approval_denied")
+        self.assertEqual(result.observations[0].action_type, "stop_process")
+        self.assertEqual(result.observations[0].target, "bg-1")
+        self.assertEqual(result.steps[0].status, "denied")
+
+    def test_run_agent_denies_stop_all_processes_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             client = MockClient(
                 [
                     [{"type": "tool_call", "id": "1", "name": "stop_all_processes", "input": {}}],
-                    [{"type": "text", "text": "Stopped background processes."}],
                 ]
             )
 
-            result = run_agent("stop all processes", base_dir=Path(base), client=client, max_iterations=2)
+            result = run_agent("stop all processes", base_dir=Path(base), client=client, max_iterations=1)
 
-        self.assertTrue(result.success)
-        self.assertEqual(result.observations[0].kind, "stop_all_processes")
-        self.assertTrue(result.observations[0].ok)
-        self.assertEqual(result.steps[0].status, "completed")
+        self.assertFalse(result.success)
+        self.assertEqual(result.observations[0].kind, "approval_denied")
+        self.assertEqual(result.observations[0].action_type, "stop_all_processes")
+        self.assertEqual(result.observations[0].target, "background processes")
+        self.assertEqual(result.steps[0].status, "denied")
         self.assertEqual(result.steps[0].target, "background processes")
 
     def test_run_agent_guards_repeated_list_files(self) -> None:

@@ -290,7 +290,7 @@ PROCESS_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
 {
         "name": "stop_all_processes",
-        "description": "Stop all background commands started by start_command for the current project.",
+        "description": "Stop all background commands started by start_command for the current project after approval.",
         "input_schema": {
             "type": "object",
             "properties": {},
@@ -299,7 +299,7 @@ PROCESS_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
 {
         "name": "stop_process",
-        "description": "Stop a background command started by start_command.",
+        "description": "Stop a background command started by start_command after approval.",
         "input_schema": {
             "type": "object",
             "properties": {"process_id": {"type": "string"}},
