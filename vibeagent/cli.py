@@ -45,6 +45,7 @@ from .cli_edit_local_flags import run_edit_local_flag
 from .cli_local_result import emit_local_result
 from .cli_git_local_flags import run_git_local_flag
 from .cli_json_local_flags import run_json_local_flag
+from .cli_local_dispatch import dispatch_local_flag
 from .cli_patch_local_flags import run_patch_local_flag
 from .cli_session_local_flags import run_session_local_flag
 from .cli_interactive import run_interactive_loop as _run_interactive_loop
@@ -713,47 +714,8 @@ def run_local_flag(args: argparse.Namespace) -> int:
                 text = save_project_config_from_args(args, config_root)
         else:
             provider_env = build_provider_env(args, config_root)
-            if (project_result := run_project_local_flag(args, project_root, config_root, provider_env, globals())) is not None:
-                text, payload = project_result
-                payload_extra.update(payload)
-            elif (command_result := run_command_local_flag(args, project_root, globals())) is not None:
-                text, payload = command_result
-                payload_extra.update(payload)
-            elif (read_result := run_read_local_flag(args, project_root, globals())) is not None:
-                text, payload = read_result
-                payload_extra.update(payload)
-            elif (python_result := run_python_local_flag(args, project_root, globals())) is not None:
-                text, payload = python_result
-                payload_extra.update(payload)
-            elif (json_result := run_json_local_flag(args, project_root, globals())) is not None:
-                text, payload = json_result
-                payload_extra.update(payload)
-            elif (text_edit_result := run_text_edit_local_flag(args, project_root, globals())) is not None:
-                text, payload = text_edit_result
-                payload_extra.update(payload)
-            elif (edit_result := run_edit_local_flag(args, project_root, globals())) is not None:
-                text, payload = edit_result
-                payload_extra.update(payload)
-            elif (patch_result := run_patch_local_flag(args, project_root, globals())) is not None:
-                text, payload = patch_result
-                payload_extra.update(payload)
-            elif (code_intel_result := run_code_intel_local_flag(args, project_root, globals())) is not None:
-                text, payload = code_intel_result
-                payload_extra.update(payload)
-            elif (git_result := run_git_local_flag(args, project_root, globals())) is not None:
-                text, payload = git_result
-                payload_extra.update(payload)
-            elif (runtime_result := run_runtime_local_flag(args, project_root, globals())) is not None:
-                text, payload = runtime_result
-                payload_extra.update(payload)
-            elif (review_result := run_review_local_flag(args, project_root, provider_env, globals())) is not None:
-                text, payload = review_result
-                payload_extra.update(payload)
-            elif (session_result := run_session_local_flag(args, project_root, globals())) is not None:
-                text, payload = session_result
-                payload_extra.update(payload)
-            elif (checkpoint_result := run_checkpoint_local_flag(args, project_root, globals())) is not None:
-                text, payload = checkpoint_result
+            if (flag_result := dispatch_local_flag(args, project_root, config_root, provider_env, globals())) is not None:
+                text, payload = flag_result
                 payload_extra.update(payload)
             else:
                 text = ""

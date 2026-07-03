@@ -16,6 +16,7 @@ from unittest.mock import Mock, call, patch
 from vibeagent import cli as cli_module
 from vibeagent.agent import AgentResult
 from vibeagent.cli import build_approval_handler, format_error, handle_approval_command, main, print_agent_result, prompt_approval
+from vibeagent.cli_local_dispatch import LOCAL_FLAG_HANDLER_NAMES, dispatch_local_flag
 from vibeagent.types import ApprovalRequest, TaskStep
 
 
@@ -24,6 +25,53 @@ class Http401Error(Exception):
 
 
 class CliTests(unittest.TestCase):
+    def test_dispatch_local_flag_preserves_order_and_handler_signatures(self) -> None:
+        args = argparse.Namespace()
+        project_root = Path("/tmp/project")
+        config_root = Path("/tmp/config")
+        provider_env = {"VIBEAGENT_PROVIDER": "minimax"}
+        calls: list[tuple[str, object, ...]] = []
+
+        def generic_handler(name: str, result: tuple[str, dict[str, object]] | None = None):
+            def run(args, project_root, commands):
+                calls.append((name, project_root, commands))
+                return result
+
+            return run
+
+        def project_handler(name: str, result: tuple[str, dict[str, object]] | None = None):
+            def run(args, project_root, config_root, provider_env, commands):
+                calls.append((name, project_root, config_root, provider_env, commands))
+                return result
+
+            return run
+
+        def review_handler(result: tuple[str, dict[str, object]] | None = None):
+            def run(args, project_root, provider_env, commands):
+                calls.append(("run_review_local_flag", project_root, provider_env, commands))
+                return result
+
+            return run
+
+        namespace = {
+            name: (
+                review_handler(("review text", {"review": {"ok": True}}))
+                if name == "run_review_local_flag"
+                else project_handler(name)
+                if name == "run_project_local_flag"
+                else generic_handler(name)
+            )
+            for name in LOCAL_FLAG_HANDLER_NAMES
+        }
+
+        result = dispatch_local_flag(args, project_root, config_root, provider_env, namespace)
+
+        self.assertEqual(result, ("review text", {"review": {"ok": True}}))
+        self.assertEqual([call[0] for call in calls], list(LOCAL_FLAG_HANDLER_NAMES[:12]))
+        self.assertEqual(calls[0], ("run_project_local_flag", project_root, config_root, provider_env, namespace))
+        self.assertEqual(calls[1], ("run_command_local_flag", project_root, namespace))
+        self.assertEqual(calls[-1], ("run_review_local_flag", project_root, provider_env, namespace))
+
     def test_session_kwargs_helpers_keep_cli_option_mapping(self) -> None:
         args = argparse.Namespace(
             session_transcript_event_max=12,
