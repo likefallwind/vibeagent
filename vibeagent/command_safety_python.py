@@ -13,6 +13,17 @@ from .command_safety_python_args import (
     python_string_constant,
     python_string_sequence,
 )
+from .command_safety_python_gui import (
+    python_call_is_os_startfile,
+    python_call_is_webbrowser_get,
+    python_call_is_webbrowser_open,
+)
+from .command_safety_python_introspection import (
+    python_dynamic_import_name,
+    python_first_string_argument,
+    python_getattr_attribute,
+    python_static_getattr_target,
+)
 
 
 RAW_DEVICE_WRITE_BLOCK_REASON = "raw device writes are not allowed in project mode"
@@ -436,147 +447,6 @@ def python_pathlib_call_path(
     return None
 
 
-def python_call_is_webbrowser_open(
-    node: ast.Call,
-    module_aliases: set[str],
-    function_aliases: set[str],
-    get_function_aliases: set[str],
-    builtins_aliases: set[str],
-    importlib_aliases: set[str],
-    import_module_aliases: set[str],
-) -> bool:
-    func = node.func
-    if isinstance(func, ast.Name) and func.id in function_aliases:
-        return True
-    if isinstance(func, ast.Call):
-        attr = python_getattr_attribute(func, module_aliases, builtins_aliases, importlib_aliases, import_module_aliases)
-        return attr is not None and attr.startswith("open")
-    if not isinstance(func, ast.Attribute) or not func.attr.startswith("open"):
-        return False
-    if isinstance(func.value, ast.Name) and func.value.id in module_aliases:
-        return True
-    if not isinstance(func.value, ast.Call):
-        return False
-    if python_call_is_webbrowser_get(func.value, module_aliases, get_function_aliases, builtins_aliases, importlib_aliases, import_module_aliases):
-        return True
-    return python_dynamic_import_name(func.value, builtins_aliases, importlib_aliases, import_module_aliases) == "webbrowser"
-
-
-def python_call_is_webbrowser_get(
-    node: ast.Call,
-    module_aliases: set[str],
-    function_aliases: set[str],
-    builtins_aliases: set[str],
-    importlib_aliases: set[str],
-    import_module_aliases: set[str],
-) -> bool:
-    func = node.func
-    if isinstance(func, ast.Name) and func.id in function_aliases:
-        return True
-    if isinstance(func, ast.Call):
-        return python_getattr_attribute(func, module_aliases, builtins_aliases, importlib_aliases, import_module_aliases) == "get"
-    if isinstance(func, ast.Attribute) and func.attr == "get":
-        if isinstance(func.value, ast.Name) and func.value.id in module_aliases:
-            return True
-        if isinstance(func.value, ast.Call) and python_dynamic_import_name(func.value, builtins_aliases, importlib_aliases, import_module_aliases) == "webbrowser":
-            return True
-    return False
-
-
-def python_call_is_os_startfile(
-    node: ast.Call,
-    module_aliases: set[str],
-    function_aliases: set[str],
-    builtins_aliases: set[str],
-    importlib_aliases: set[str],
-    import_module_aliases: set[str],
-) -> bool:
-    func = node.func
-    if isinstance(func, ast.Name) and func.id in function_aliases:
-        return True
-    if isinstance(func, ast.Call):
-        return python_getattr_attribute(func, module_aliases, builtins_aliases, importlib_aliases, import_module_aliases) == "startfile"
-    if not isinstance(func, ast.Attribute) or func.attr != "startfile":
-        return False
-    if isinstance(func.value, ast.Name) and func.value.id in module_aliases:
-        return True
-    if isinstance(func.value, ast.Call) and python_dynamic_import_name(func.value, builtins_aliases, importlib_aliases, import_module_aliases) == "os":
-        return True
-    return False
-
-
-def python_dynamic_import_name(
-    node: ast.Call,
-    builtins_aliases: set[str] | None = None,
-    importlib_aliases: set[str] | None = None,
-    import_module_aliases: set[str] | None = None,
-) -> str | None:
-    importer = node
-    builtins_aliases = builtins_aliases or {"builtins", "__builtins__"}
-    importlib_aliases = importlib_aliases or {"importlib"}
-    import_module_aliases = import_module_aliases or set()
-    module_name = python_first_string_argument(importer)
-    if module_name is None:
-        return None
-    if (
-        isinstance(importer.func, ast.Name)
-        and importer.func.id == "__import__"
-    ):
-        return module_name
-    if (
-        isinstance(importer.func, ast.Attribute)
-        and importer.func.attr == "__import__"
-        and isinstance(importer.func.value, ast.Name)
-        and importer.func.value.id in builtins_aliases
-    ):
-        return module_name
-    if (
-        isinstance(importer.func, ast.Name)
-        and importer.func.id in import_module_aliases
-    ):
-        return module_name
-    if (
-        isinstance(importer.func, ast.Attribute)
-        and importer.func.attr == "import_module"
-        and isinstance(importer.func.value, ast.Name)
-        and importer.func.value.id in importlib_aliases
-    ):
-        return module_name
-    if (
-        isinstance(importer.func, ast.Attribute)
-        and importer.func.attr == "import_module"
-        and isinstance(importer.func.value, ast.Call)
-        and python_dynamic_import_name(importer.func.value, builtins_aliases, importlib_aliases, import_module_aliases) == "importlib"
-    ):
-        return module_name
-    getattr_target = python_static_getattr_target(importer.func)
-    if getattr_target is None:
-        return None
-    target, attr = getattr_target
-    if attr == "__import__" and isinstance(target, ast.Name) and target.id in builtins_aliases:
-        return module_name
-    if attr == "import_module" and isinstance(target, ast.Call):
-        target_name = python_dynamic_import_name(target, builtins_aliases, importlib_aliases, import_module_aliases)
-        if target_name == "importlib":
-            return module_name
-    return None
-
-
-def python_first_string_argument(node: ast.Call) -> str | None:
-    if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
-        return node.args[0].value
-    return None
-
-
-def python_static_getattr_target(node: ast.AST) -> tuple[ast.AST, str] | None:
-    if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name) or node.func.id != "getattr" or len(node.args) < 2:
-        return None
-    attr = node.args[1]
-    if not isinstance(attr, ast.Constant) or not isinstance(attr.value, str):
-        return None
-    return node.args[0], attr.value
-
-
 def python_call_shell_command(
     node: ast.Call,
     os_aliases: set[str],
@@ -670,28 +540,6 @@ def python_call_shell_command(
     ):
         return python_command_argument(node)
     return None
-
-
-def python_getattr_attribute(
-    node: ast.Call,
-    module_aliases: set[str],
-    builtins_aliases: set[str],
-    importlib_aliases: set[str],
-    import_module_aliases: set[str],
-) -> str | None:
-    getattr_target = python_static_getattr_target(node)
-    if getattr_target is None:
-        return None
-    target, attr_value = getattr_target
-    if isinstance(target, ast.Name):
-        target_name = target.id
-    elif isinstance(target, ast.Call):
-        target_name = python_dynamic_import_name(target, builtins_aliases, importlib_aliases, import_module_aliases)
-    else:
-        return None
-    if target_name not in module_aliases:
-        return None
-    return attr_value
 
 
 def python_asyncio_subprocess_command(node: ast.Call, name: str) -> str | None:
