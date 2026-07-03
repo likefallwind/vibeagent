@@ -21,12 +21,17 @@ def run_python_local_flag(
             lambda: commands["get_python_check_text"](root, args.python_check or None),
         )
     if args.python_deps is not None:
+        python_deps_kwargs = {}
+        if args.python_deps_max_files is not None:
+            python_deps_kwargs["max_files"] = args.python_deps_max_files
+        if args.python_deps_max_imports is not None:
+            python_deps_kwargs["max_imports"] = args.python_deps_max_imports
         return local_text_or_report(
             args,
             "pythonDependencies",
-            lambda: commands["get_python_deps_report"](root, args.python_deps or None),
+            lambda: commands["get_python_deps_report"](root, args.python_deps or None, **python_deps_kwargs),
             commands["format_python_deps_report_text"],
-            lambda: commands["get_python_deps_text"](root, args.python_deps or None),
+            lambda: commands["get_python_deps_text"](root, args.python_deps or None, **python_deps_kwargs),
         )
     if args.python_defs is not None:
         python_kwargs = {}
@@ -328,7 +333,6 @@ def _symbol_text(
 
 SIMPLE_CODE_INTEL_COMMANDS: dict[str, str] = {
     "python_check": "get_python_check_text",
-    "python_deps": "get_python_deps_text",
     "python_rename_preview": "get_python_rename_preview_text",
     "python_rename": "get_python_rename_text",
     "check_replace_python_definition": "get_check_replace_python_definition_text",
@@ -343,6 +347,13 @@ def run_interactive_code_intel_command(command: Any, commands: dict[str, Any]) -
     simple_getter = SIMPLE_CODE_INTEL_COMMANDS.get(command.type)
     if simple_getter is not None:
         return commands[simple_getter](argument=command.argument)
+    if command.type == "python_deps":
+        path, kwargs, error, uses_named_options = commands["parse_interactive_python_deps_argument"](command.argument)
+        if error:
+            return error
+        if uses_named_options:
+            return commands["get_python_deps_text"](argument=path, **kwargs)
+        return commands["get_python_deps_text"](argument=command.argument)
     if command.type == "python_call_graph":
         path, kwargs, error, uses_named_options = commands["parse_interactive_python_call_graph_argument"](command.argument)
         if error:

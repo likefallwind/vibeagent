@@ -58,6 +58,7 @@ from .cli_parse_read import (
 )
 from .cli_parse_code_intel import (
     parse_interactive_python_call_graph_argument,
+    parse_interactive_python_deps_argument,
     parse_interactive_python_symbol_argument,
     parse_interactive_test_paths_argument,
 )

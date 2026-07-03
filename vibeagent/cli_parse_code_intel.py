@@ -160,17 +160,15 @@ def parse_interactive_python_symbol_argument(
     return symbol_parts[0], path, kwargs, None, True
 
 
-def parse_interactive_python_call_graph_argument(
+def _parse_interactive_path_options_argument(
     argument: str | None,
+    *,
+    usage: str,
+    option_specs: dict[str, str],
 ) -> tuple[str | None, dict[str, int], str | None, bool]:
-    usage = "Usage: /python-call-graph [--max-files N] [--max-edges N] -- [path]"
     if not argument:
         return None, {}, None, False
 
-    option_specs = {
-        "--max-files": "max_files",
-        "--max-edges": "max_edges",
-    }
     try:
         parts = shlex.split(argument)
     except ValueError as error:
@@ -217,3 +215,29 @@ def parse_interactive_python_call_graph_argument(
     if len(path_parts) > 1:
         return None, {}, usage, True
     return (path_parts[0] if path_parts else None), kwargs, None, True
+
+
+def parse_interactive_python_deps_argument(
+    argument: str | None,
+) -> tuple[str | None, dict[str, int], str | None, bool]:
+    return _parse_interactive_path_options_argument(
+        argument,
+        usage="Usage: /python-deps [--max-files N] [--max-imports N] -- [path]",
+        option_specs={
+            "--max-files": "max_files",
+            "--max-imports": "max_imports",
+        },
+    )
+
+
+def parse_interactive_python_call_graph_argument(
+    argument: str | None,
+) -> tuple[str | None, dict[str, int], str | None, bool]:
+    return _parse_interactive_path_options_argument(
+        argument,
+        usage="Usage: /python-call-graph [--max-files N] [--max-edges N] -- [path]",
+        option_specs={
+            "--max-files": "max_files",
+            "--max-edges": "max_edges",
+        },
+    )

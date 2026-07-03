@@ -1018,7 +1018,7 @@ class CommandTests(unittest.TestCase):
         self.assertIn("/python-traceback [--context-lines N] [--max-diagnostics N] [--max-contexts N] [--max-bytes N] -- <text>", get_help_text())
         self.assertIn("/tail [--max-bytes N] -- <path> [lines]", get_help_text())
         self.assertIn("/python-check [path]", get_help_text())
-        self.assertIn("/python-deps [path]", get_help_text())
+        self.assertIn("/python-deps [--max-files N] [--max-imports N] -- [path]", get_help_text())
         self.assertIn("/python-defs [--path PATH] [--max-matches N]", get_help_text())
         self.assertIn("/python-refs [--path PATH] [--max-matches N]", get_help_text())
         self.assertIn("/python-ref-contexts [--path PATH] [--max-matches N]", get_help_text())

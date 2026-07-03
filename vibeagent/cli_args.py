@@ -257,6 +257,8 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--python-def-max-lines", type=positive_int, metavar="N", help="Maximum definition lines to show with --python-defs.")
     parser.add_argument("--python-context-lines", type=nonnegative_int, metavar="N", help="Surrounding source lines for --python-ref-contexts.")
     parser.add_argument("--python-context-max-bytes", type=positive_int, metavar="N", help="Maximum bytes per context with --python-ref-contexts.")
+    parser.add_argument("--python-deps-max-files", type=positive_int, metavar="N", help="Maximum Python files to inspect with --python-deps.")
+    parser.add_argument("--python-deps-max-imports", type=positive_int, metavar="N", help="Maximum imports to show with --python-deps.")
     parser.add_argument("--python-call-graph-max-files", type=positive_int, metavar="N", help="Maximum Python files to inspect with --python-call-graph.")
     parser.add_argument("--python-call-graph-max-edges", type=positive_int, metavar="N", help="Maximum call graph edges to show with --python-call-graph.")
     parser.add_argument("--code-path", metavar="PATH", help="Project-relative source scope for --code-refs, --code-ref-contexts, --code-defs, or --code-rename.")

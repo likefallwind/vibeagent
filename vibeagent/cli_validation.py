@@ -110,6 +110,10 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--python-context-lines can only be used with --python-ref-contexts."
     if args.python_context_max_bytes is not None and args.python_ref_contexts is None:
         return "--python-context-max-bytes can only be used with --python-ref-contexts."
+    if args.python_deps_max_files is not None and args.python_deps is None:
+        return "--python-deps-max-files can only be used with --python-deps."
+    if args.python_deps_max_imports is not None and args.python_deps is None:
+        return "--python-deps-max-imports can only be used with --python-deps."
     if args.python_call_graph_max_files is not None and args.python_call_graph is None:
         return "--python-call-graph-max-files can only be used with --python-call-graph."
     if args.python_call_graph_max_edges is not None and args.python_call_graph is None:

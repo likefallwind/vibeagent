@@ -6669,6 +6669,33 @@ class CliTests(unittest.TestCase):
         get_python_deps_text.assert_called_once_with(Path(base).resolve(), "src")
         create_chat_client.assert_not_called()
 
+    def test_main_runs_python_deps_local_flag_with_bounds(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_python_deps_text", return_value="Python dependencies:\n  files: 1/1") as get_python_deps_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--cwd",
+                        base,
+                        "--python-deps",
+                        "src",
+                        "--python-deps-max-files",
+                        "7",
+                        "--python-deps-max-imports",
+                        "8",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Python dependencies:", stdout.getvalue())
+        get_python_deps_text.assert_called_once_with(Path(base).resolve(), "src", max_files=7, max_imports=8)
+        create_chat_client.assert_not_called()
+
     def test_main_runs_python_defs_local_flag_without_creating_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
@@ -6815,6 +6842,14 @@ class CliTests(unittest.TestCase):
                 "--python-context-max-bytes can only be used with --python-ref-contexts.",
             ),
             (
+                ["--python-deps-max-files", "5"],
+                "--python-deps-max-files can only be used with --python-deps.",
+            ),
+            (
+                ["--python-deps-max-imports", "20"],
+                "--python-deps-max-imports can only be used with --python-deps.",
+            ),
+            (
                 ["--python-call-graph-max-files", "5"],
                 "--python-call-graph-max-files can only be used with --python-call-graph.",
             ),
@@ -6876,12 +6911,12 @@ class CliTests(unittest.TestCase):
                 {},
             ),
             (
-                ["--python-deps", "src"],
+                ["--python-deps", "src", "--python-deps-max-files", "7", "--python-deps-max-imports", "8"],
                 "vibeagent.cli.get_python_deps_report",
                 "vibeagent.cli.format_python_deps_report_text",
                 "pythonDependencies",
                 (Path, "src"),
-                {},
+                {"max_files": 7, "max_imports": 8},
             ),
             (
                 ["--python-defs", "Runner.run", "--python-path", "src", "--python-max-matches", "3", "--python-def-max-lines", "40"],
@@ -13762,6 +13797,32 @@ class CliTests(unittest.TestCase):
         get_python_calls_text.assert_called_once_with(symbol="helper", path="src", max_matches=6)
         create_chat_client.assert_not_called()
 
+    def test_main_parses_interactive_python_deps_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/python-deps --max-files 2 --max-imports=7 -- src",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch(
+                "vibeagent.cli.get_python_deps_text",
+                return_value="Python dependencies:\n  files: 1/1",
+            ) as get_python_deps_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Python dependencies:", output)
+        get_python_deps_text.assert_called_once_with(argument="src", max_files=2, max_imports=7)
+        create_chat_client.assert_not_called()
+
     def test_main_parses_interactive_python_call_graph_options(self) -> None:
         stdout = io.StringIO()
 
@@ -13831,6 +13892,35 @@ class CliTests(unittest.TestCase):
         get_python_refs_text.assert_not_called()
         get_python_ref_contexts_text.assert_not_called()
         get_python_calls_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_python_deps_option_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/python-deps --max-files 0 -- src",
+                    "/python-deps --max-imports 0 -- src",
+                    "/python-deps --unknown 1 -- src",
+                    "/python-deps src tests --max-files 2",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_python_deps_text") as get_python_deps_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /python-deps [--max-files N] [--max-imports N] -- [path]", output)
+        self.assertIn("error: --max-files must be a positive integer.", output)
+        self.assertIn("error: --max-imports must be a positive integer.", output)
+        self.assertIn("error: Unknown option: --unknown", output)
+        get_python_deps_text.assert_not_called()
         create_chat_client.assert_not_called()
 
     def test_main_reports_interactive_python_call_graph_option_errors(self) -> None:

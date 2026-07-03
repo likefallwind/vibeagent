@@ -53,7 +53,7 @@ def get_help_text() -> str:
             "  /read-files [--max-bytes N] [--line-numbers] -- <path...> Read multiple project files.",
             "  /read-ranges [--max-bytes N] -- <path:start[:end]...> Read multiple focused line ranges.",
             "  /python-check [path] Check Python syntax.",
-            "  /python-deps [path] Inspect Python imports and dependencies.",
+            "  /python-deps [--max-files N] [--max-imports N] -- [path] Inspect Python imports and dependencies.",
             "  /python-defs [--path PATH] [--max-matches N] [--max-lines N] -- <symbol> [path] Find Python class/function definitions.",
             "  /python-refs [--path PATH] [--max-matches N] -- <symbol> [path] Find Python definitions, imports, and references.",
             "  /python-ref-contexts [--path PATH] [--max-matches N] [--context-lines N] [--max-bytes N] -- <symbol> [path] Find Python references with surrounding context.",
