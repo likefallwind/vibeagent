@@ -47,6 +47,32 @@ def build_context_limit_kwargs(
     return {key: value for key, value in values.items() if value is not None}
 
 
+def resolve_one_shot_prior_context(
+    *,
+    resume_arg: str | None,
+    compact_arg: str | None,
+    project_root: Path,
+    resume_kwargs: dict[str, int],
+    compact_kwargs: dict[str, int],
+    get_resume_context_func,
+    get_compact_context_func,
+) -> tuple[str | None, str | None]:
+    if resume_arg is not None:
+        normalized_resume_arg = normalize_resume_arg(resume_arg)
+        _selected, resume_context, text = get_resume_context_func(normalized_resume_arg, project_root, **resume_kwargs)
+        if resume_context is None and not is_resume_clear_arg(normalized_resume_arg):
+            return None, text
+        return resume_context, None
+    if compact_arg is not None:
+        _selected, resume_context, text = get_compact_context_func(normalize_resume_arg(compact_arg), project_root, **compact_kwargs)
+        if resume_context is None:
+            return None, text
+        return resume_context, None
+
+    _selected, resume_context, _text = get_compact_context_func(None, project_root)
+    return resume_context, None
+
+
 def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, object]:
     return {
         "task": resolve_task_text(args.task),
@@ -140,32 +166,33 @@ def run_one_shot(
             print_output({"kind": "chat", "success": True, "message": response}, output_json)
             return 0
 
-        resume_context = None
-        if resume_arg is not None:
-            normalized_resume_arg = normalize_resume_arg(resume_arg)
-            resume_kwargs = build_context_limit_kwargs(
-                max_failures=resume_max_failures,
-                max_files=resume_max_files,
-                max_commands=resume_max_commands,
-                max_checks=resume_max_checks,
-                max_output_chars=resume_max_output_chars,
-                max_text=resume_max_text,
-            )
-            _selected, resume_context, text = get_resume_context_func(normalized_resume_arg, project_root, **resume_kwargs)
-            if resume_context is None and not is_resume_clear_arg(normalized_resume_arg):
-                return print_error_result(text, output_json)
-        elif compact_arg is not None:
-            compact_kwargs = build_context_limit_kwargs(
-                max_failures=compact_max_failures,
-                max_files=compact_max_files,
-                max_commands=compact_max_commands,
-                max_checks=compact_max_checks,
-                max_output_chars=compact_max_output_chars,
-                max_text=compact_max_text,
-            )
-            _selected, resume_context, text = get_compact_context_func(normalize_resume_arg(compact_arg), project_root, **compact_kwargs)
-            if resume_context is None:
-                return print_error_result(text, output_json)
+        resume_kwargs = build_context_limit_kwargs(
+            max_failures=resume_max_failures,
+            max_files=resume_max_files,
+            max_commands=resume_max_commands,
+            max_checks=resume_max_checks,
+            max_output_chars=resume_max_output_chars,
+            max_text=resume_max_text,
+        )
+        compact_kwargs = build_context_limit_kwargs(
+            max_failures=compact_max_failures,
+            max_files=compact_max_files,
+            max_commands=compact_max_commands,
+            max_checks=compact_max_checks,
+            max_output_chars=compact_max_output_chars,
+            max_text=compact_max_text,
+        )
+        resume_context, context_error = resolve_one_shot_prior_context(
+            resume_arg=resume_arg,
+            compact_arg=compact_arg,
+            project_root=project_root,
+            resume_kwargs=resume_kwargs,
+            compact_kwargs=compact_kwargs,
+            get_resume_context_func=get_resume_context_func,
+            get_compact_context_func=get_compact_context_func,
+        )
+        if context_error is not None:
+            return print_error_result(context_error, output_json)
         client = create_chat_client_func(provider_env)
         result = run_agent_func(
             task,
