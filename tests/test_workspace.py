@@ -4,6 +4,8 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
+from vibeagent import workspace_file_helpers
+from vibeagent import workspace_file_read
 from vibeagent.workspace import (
     append_project_file,
     build_repo_map,
@@ -108,6 +110,17 @@ from vibeagent.workspace import (
 
 
 class WorkspaceTests(unittest.TestCase):
+    def test_workspace_file_read_reexports_file_helpers(self) -> None:
+        self.assertIs(workspace_file_read.truncate_utf8_text_bytes, workspace_file_helpers.truncate_utf8_text_bytes)
+        self.assertIs(workspace_file_read.read_utf8_text_file, workspace_file_helpers.read_utf8_text_file)
+        self.assertIs(workspace_file_read.parse_image_header, workspace_file_helpers.parse_image_header)
+        self.assertIs(workspace_file_read.parse_jpeg_dimensions, workspace_file_helpers.parse_jpeg_dimensions)
+        self.assertIs(workspace_file_read.parse_webp_dimensions, workspace_file_helpers.parse_webp_dimensions)
+        self.assertIs(workspace_file_read.detect_binary_file, workspace_file_helpers.detect_binary_file)
+        self.assertIs(workspace_file_read.count_file_lines, workspace_file_helpers.count_file_lines)
+        self.assertIs(workspace_file_read.format_line_excerpt, workspace_file_helpers.format_line_excerpt)
+        self.assertIs(workspace_file_read.format_numbered_lines, workspace_file_helpers.format_numbered_lines)
+
     def test_create_run_workspace_rejects_invalid_run_id(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
             with self.assertRaisesRegex(ValueError, "Invalid session id"):
