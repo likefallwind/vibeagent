@@ -47,6 +47,12 @@ from vibeagent.git_stash_commands import (
     parse_stash_argument,
     parse_stashes_request,
 )
+from vibeagent.git_local_report_helpers import (
+    format_git_commit_report_text,
+    format_git_index_report_text,
+    format_git_restore_report_text,
+    format_git_switch_report_text,
+)
 
 
 class GitCommandModuleTests(unittest.TestCase):
@@ -91,6 +97,12 @@ class GitCommandModuleTests(unittest.TestCase):
         self.assertIs(git_commands.format_git_stash_drop_report_text, format_git_stash_drop_report_text)
         self.assertIs(git_commands.parse_stash_argument, parse_stash_argument)
         self.assertIs(git_commands.parse_stashes_request, parse_stashes_request)
+
+    def test_git_commands_reexports_local_report_helpers(self) -> None:
+        self.assertIs(git_commands.format_git_index_report_text, format_git_index_report_text)
+        self.assertIs(git_commands.format_git_commit_report_text, format_git_commit_report_text)
+        self.assertIs(git_commands.format_git_restore_report_text, format_git_restore_report_text)
+        self.assertIs(git_commands.format_git_switch_report_text, format_git_switch_report_text)
 
     def test_stash_text_helpers_resolve_compatibility_patch_targets(self) -> None:
         root = Path(".").resolve()
