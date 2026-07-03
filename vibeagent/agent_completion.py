@@ -51,8 +51,14 @@ def auto_final_review_reason(success: bool, observations: list[Observation]) -> 
         if process_start_index > final_review_index:
             return "Background command started after final_review"
     command_index = latest_successful_finite_command_index(observations)
-    if command_index is not None and final_review_index is None:
-        return "Command execution completed without final_review"
+    if command_index is not None:
+        if final_review_index is None:
+            return "Command execution completed without final_review"
+        if command_index > final_review_index and not finite_command_matches_final_review_check(
+            observations[command_index],
+            observations[final_review_index],
+        ):
+            return "Command execution completed after final_review"
     return None
 
 def should_auto_run_final_review(success: bool, observations: list[Observation]) -> bool:
@@ -78,6 +84,15 @@ def latest_successful_finite_command_index(observations: list[Observation]) -> i
             if not observation_failed(observation):
                 return index
     return None
+
+def finite_command_matches_final_review_check(command_observation: Observation, final_review: Observation) -> bool:
+    check_commands = final_review_suggested_commands(final_review) | final_review_focused_test_commands(final_review)
+    if not check_commands:
+        return False
+    return bool(
+        successful_suggested_check_commands(command_observation, check_commands)
+        or failed_suggested_check_results(command_observation, check_commands)
+    )
 
 def build_completion_blocker_details(success: bool, observations: list[Observation]) -> dict[str, list[str]]:
     details: dict[str, list[str]] = {}

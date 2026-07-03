@@ -3770,6 +3770,33 @@ class AgentTests(unittest.TestCase):
         self.assertTrue(result.observations[1].ready)
         self.assertEqual(result.completion_warnings, [])
 
+    def test_run_agent_reruns_final_review_after_non_check_command(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            command = "python3 -c \"open('generated.txt','w').write('ok\\\\n')\""
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "final_review", "input": {}}],
+                    [{"type": "tool_call", "id": "2", "name": "run_command", "input": {"command": command}}],
+                    [{"type": "text", "text": "Generated file."}],
+                ]
+            )
+
+            result = run_agent(
+                "review then generate file with a command",
+                base_dir=root,
+                client=client,
+                max_iterations=3,
+                approval_handler=approve_all,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual([item.kind for item in result.observations], ["final_review", "run_command", "final_review"])
+        self.assertEqual(result.observations[0].total_files, 0)
+        self.assertEqual(result.observations[2].total_files, 1)
+        self.assertEqual(result.final_review_changed_files, ["?? generated.txt"])
+
     def test_run_agent_reruns_final_review_when_project_changes_after_review(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)
@@ -3832,6 +3859,12 @@ class AgentTests(unittest.TestCase):
         )
 
     def test_auto_final_review_reason_detects_command_without_review(self) -> None:
+        check = SuggestedCheck(
+            command="python3 scripts/generate.py",
+            cwd=".",
+            source="tests",
+            reason="exercise suggested command matching",
+        )
         command = RunCommandObservation(
             kind="run_command",
             result=CommandResult(
@@ -3853,8 +3886,8 @@ class AgentTests(unittest.TestCase):
             running_processes=[],
             files=[],
             total_files=0,
-            suggested_checks=[],
-            suggested_checks_total=0,
+            suggested_checks=[check],
+            suggested_checks_total=1,
             suggested_checks_truncated=False,
             diff_check="",
             staged_diff_check="",
@@ -3867,6 +3900,42 @@ class AgentTests(unittest.TestCase):
             "Command execution completed without final_review",
         )
         self.assertIsNone(agent_module.auto_final_review_reason(True, [review, command]))
+
+    def test_auto_final_review_reason_detects_non_check_command_after_review(self) -> None:
+        review = FinalReviewObservation(
+            kind="final_review",
+            ok=True,
+            ready=True,
+            blocking_issues=[],
+            warnings=[],
+            running_processes=[],
+            files=[],
+            total_files=0,
+            suggested_checks=[],
+            suggested_checks_total=0,
+            suggested_checks_truncated=False,
+            diff_check="",
+            staged_diff_check="",
+            status="",
+            message="Ready.",
+        )
+        command = RunCommandObservation(
+            kind="run_command",
+            result=CommandResult(
+                command="python3 scripts/generate.py",
+                exit_code=0,
+                stdout="generated\n",
+                stderr="",
+                timed_out=False,
+                signal=None,
+                cwd=".",
+            ),
+        )
+
+        self.assertEqual(
+            agent_module.auto_final_review_reason(True, [review, command]),
+            "Command execution completed after final_review",
+        )
 
     def test_run_agent_blocks_when_final_review_reports_running_background_process(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
