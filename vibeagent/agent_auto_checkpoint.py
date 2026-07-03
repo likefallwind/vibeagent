@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from .actions import read_checkpoint_git_head
-from .agent_completion import PROJECT_CHANGE_OBSERVATION_KINDS
+from .agent_completion_kinds import FINITE_COMMAND_OBSERVATION_KINDS, PROJECT_CHANGE_OBSERVATION_KINDS
 from .agent_observation_utils import observation_failed
 from .agent_runtime_utils import append_session_event, to_jsonable
 from .agent_steps import complete_task_step, observation_summary, start_task_step
@@ -17,7 +17,8 @@ ExecuteActionSafely = Callable[[RunWorkspace, object, int, str], Observation]
 
 def should_auto_checkpoint_before_action(workspace: RunWorkspace, action: object) -> bool:
     action_type = str(getattr(action, "type", ""))
-    if action_type not in PROJECT_CHANGE_OBSERVATION_KINDS:
+    checkpointed_action_kinds = PROJECT_CHANGE_OBSERVATION_KINDS | FINITE_COMMAND_OBSERVATION_KINDS
+    if action_type not in checkpointed_action_kinds:
         return False
     return bool(read_checkpoint_git_head(workspace.root))
 

@@ -4777,6 +4777,46 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(auto_events[0]["name"], "checkpoint_create")
         self.assertEqual(auto_events[0]["before_action_type"], "write_file")
 
+    def test_run_agent_auto_checkpoints_before_first_approved_finite_command(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            init_git_repo_with_commit(root)
+            (root / "app.py").write_text("dirty\n", encoding="utf-8")
+            command = "python3 -c \"open('generated.txt','w').write('ok\\\\n')\""
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "run_command", "input": {"command": command}}],
+                    [{"type": "text", "text": "Generated file."}],
+                ]
+            )
+
+            result = run_agent(
+                "generate file",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_handler=approve_all,
+            )
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+            generated_content = (root / "generated.txt").read_text(encoding="utf-8")
+
+        self.assertTrue(result.success)
+        self.assertEqual([item.kind for item in result.observations[:2]], ["checkpoint_create", "run_command"])
+        self.assertTrue(result.observations[0].ok)
+        self.assertEqual(result.observations[0].checkpoint.label, "auto before run_command")
+        self.assertEqual(result.observations[0].checkpoint.unstaged_files, 1)
+        self.assertEqual(generated_content, "ok\n")
+        self.assertEqual(len(client.messages[1][-1].content), 1)
+        self.assertIn("run_command", client.messages[1][-1].content[0]["content"])
+        auto_events = [
+            event
+            for event in events
+            if event.get("type") == "tool_result" and event.get("auto") is True and event.get("name") == "checkpoint_create"
+        ]
+        self.assertEqual(len(auto_events), 1)
+        self.assertEqual(auto_events[0]["before_action_type"], "run_command")
+
     def test_run_agent_redacts_auto_final_review_session_event(self) -> None:
         secret_path = "src/sk-testsecret1234567890.py"
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
@@ -4881,6 +4921,33 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result.observations[0].kind, "approval_denied")
         self.assertFalse(checkpoint_dir_exists)
         self.assertEqual(result.steps[0].action_type, "write_file")
+        self.assertEqual(result.steps[0].status, "denied")
+
+    def test_run_agent_does_not_auto_checkpoint_denied_finite_command(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            init_git_repo_with_commit(root)
+            command = "python3 -c \"open('generated.txt','w').write('ok\\\\n')\""
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "run_command", "input": {"command": command}}],
+                    [{"type": "text", "text": "Command denied."}],
+                ]
+            )
+
+            result = run_agent(
+                "generate file",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_handler=deny_all,
+            )
+            checkpoint_dir_exists = (root / ".vibeagent" / "checkpoints").exists()
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "approval_denied")
+        self.assertFalse(checkpoint_dir_exists)
+        self.assertEqual(result.steps[0].action_type, "run_command")
         self.assertEqual(result.steps[0].status, "denied")
 
     def test_run_agent_auto_checkpoints_only_once_for_multiple_project_changes(self) -> None:

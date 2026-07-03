@@ -41,11 +41,16 @@ PROJECT_CHANGE_OBSERVATION_KINDS = {
 }
 
 
-MULTISTEP_CODING_FOLLOWUP_KINDS = {
+FINITE_COMMAND_OBSERVATION_KINDS = {
     "run_command",
     "run_commands",
     "run_suggested_checks",
     "run_focused_test_commands",
+}
+
+
+MULTISTEP_CODING_FOLLOWUP_KINDS = {
+    *FINITE_COMMAND_OBSERVATION_KINDS,
     "python_check",
     "config_check",
     "command_check",

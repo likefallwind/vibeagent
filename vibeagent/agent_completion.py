@@ -10,7 +10,11 @@ from .agent_completion_details import (
     build_tool_error_details,
     final_review_running_process_count,
 )
-from .agent_completion_kinds import MULTISTEP_CODING_FOLLOWUP_KINDS, PROJECT_CHANGE_OBSERVATION_KINDS
+from .agent_completion_kinds import (
+    FINITE_COMMAND_OBSERVATION_KINDS,
+    MULTISTEP_CODING_FOLLOWUP_KINDS,
+    PROJECT_CHANGE_OBSERVATION_KINDS,
+)
 from .agent_completion_verification import (
     build_failed_verification_checks,
     build_pending_verification_checks,
@@ -80,7 +84,7 @@ def latest_successful_process_start_index(observations: list[Observation]) -> in
 def latest_successful_finite_command_index(observations: list[Observation]) -> int | None:
     for index in range(len(observations) - 1, -1, -1):
         observation = observations[index]
-        if observation.kind in {"run_command", "run_commands", "run_suggested_checks", "run_focused_test_commands"}:
+        if observation.kind in FINITE_COMMAND_OBSERVATION_KINDS:
             if not observation_failed(observation):
                 return index
     return None
