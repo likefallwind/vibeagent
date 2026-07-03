@@ -41,8 +41,17 @@ GUI_LAUNCHER_EXECUTABLES = {
     "mousepad",
     "kate",
     "firefox",
+    "sensible-browser",
+    "x-www-browser",
+    "www-browser",
+    "gnome-www-browser",
     "google-chrome",
     "google-chrome-stable",
+    "brave-browser",
+    "vivaldi",
+    "vivaldi-stable",
+    "opera",
+    "librewolf",
     "chromium",
     "chromium-browser",
     "microsoft-edge",
@@ -61,7 +70,9 @@ def command_launches_gui_application(lowered_command: str) -> bool:
         r"gnome-open|kde-open(?:5|6)?|kioclient(?:5|6)?|exo-open|mimeopen|rifle|"
         r"open|nautilus|dolphin|thunar|nemo|pcmanfm|caja|konqueror|"
         r"code|code-insiders|cursor|windsurf|subl|mate|gedit|mousepad|kate|"
-        r"firefox|google-chrome|google-chrome-stable|chromium|chromium-browser|microsoft-edge)\b"
+        r"firefox|sensible-browser|x-www-browser|www-browser|gnome-www-browser|"
+        r"google-chrome|google-chrome-stable|brave-browser|vivaldi|vivaldi-stable|opera|librewolf|"
+        r"chromium|chromium-browser|microsoft-edge)\b"
     )
     file_protocol_handler = r"rundll32(?:\.exe)?\s+url\.dll,fileprotocolhandler\b"
     bare_start_gui = r"start\b\s+(?:\"[^\"]*\"\s+)?(?:\.|~|/|[a-z]:[\\/]|https?://|file:)"

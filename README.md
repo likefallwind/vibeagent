@@ -1187,7 +1187,7 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   `chmod -R 777 /`, GUI file openers like `xdg-open .`, `env -i DISPLAY=:0
   xdg-open .`, `kioclient5 exec .`, `exo-open .`, `mimeopen .`,
   `open -a Finder .`, or `explorer.exe .`, GUI app launchers like
-  `code .` or `firefox ...`, and common indirect launch forms through `cmd.exe`,
+  `code .`, `sensible-browser ...`, or `firefox ...`, and common indirect launch forms through `cmd.exe`,
   `cmd /s /c start ...`, `start`, `rundll32
   url.dll,FileProtocolHandler`, PowerShell, `python -m webbrowser`,
   `webbrowser.open`, `webbrowser.get().open`, `os.startfile`, `os.system`,
