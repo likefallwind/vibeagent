@@ -12,9 +12,17 @@ GUI_LAUNCHER_EXECUTABLES = {
     "xdg-open",
     "wslview",
     "wsl-open",
+    "gvfs-open",
     "gnome-open",
     "kde-open",
     "kde-open5",
+    "kde-open6",
+    "kioclient",
+    "kioclient5",
+    "kioclient6",
+    "exo-open",
+    "mimeopen",
+    "rifle",
     "open",
     "nautilus",
     "dolphin",
@@ -49,8 +57,9 @@ def command_launches_gui_application(lowered_command: str) -> bool:
     wrappers = rf"(?:(?:nohup|setsid)\s+|env\s+(?:{env_option}\s+)*)*"
     executable_path = r"(?:[./~]?\S*[/\\])?"
     launcher = (
-        r"(?:explorer(?:\.exe)?|xdg-open|wslview|wsl-open|gio\s+open|"
-        r"gnome-open|kde-open(?:5)?|open|nautilus|dolphin|thunar|nemo|pcmanfm|caja|konqueror|"
+        r"(?:explorer(?:\.exe)?|xdg-open|wslview|wsl-open|gvfs-open|gio\s+open|"
+        r"gnome-open|kde-open(?:5|6)?|kioclient(?:5|6)?|exo-open|mimeopen|rifle|"
+        r"open|nautilus|dolphin|thunar|nemo|pcmanfm|caja|konqueror|"
         r"code|code-insiders|cursor|windsurf|subl|mate|gedit|mousepad|kate|"
         r"firefox|google-chrome|google-chrome-stable|chromium|chromium-browser|microsoft-edge)\b"
     )
