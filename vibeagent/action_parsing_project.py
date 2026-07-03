@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .action_parsing_helpers import ActionParseError, parse_nonnegative_int, parse_optional_positive_int
+from .tool_categories import valid_tool_categories
 from .types import (
     CheckFocusedTestCommandsAction,
     CheckSuggestedChecksAction,
@@ -149,6 +150,10 @@ def parse_project_action(action_type: object, value: dict[str, Any], raw: str) -
         category = value.get("category")
         if category is not None and not isinstance(category, str):
             raise ActionParseError("tool_search action category must be a string when provided.", raw)
+        normalized_category = category.strip() if isinstance(category, str) and category.strip() else None
+        if normalized_category is not None and normalized_category not in valid_tool_categories():
+            valid = ", ".join(valid_tool_categories())
+            raise ActionParseError(f"tool_search action category must be one of: {valid}.", raw)
         approval_required = value.get("approval_required")
         if approval_required is not None and not isinstance(approval_required, bool):
             raise ActionParseError("tool_search action approval_required must be a boolean when provided.", raw)
@@ -156,7 +161,7 @@ def parse_project_action(action_type: object, value: dict[str, Any], raw: str) -
             type="tool_search",
             query=query.strip(),
             max_matches=max_matches,
-            category=category.strip() if isinstance(category, str) and category.strip() else None,
+            category=normalized_category,
             approval_required=approval_required,
         )
 

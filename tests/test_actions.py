@@ -1749,6 +1749,9 @@ class ActionTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionParseError, "tool_search action query must be a non-empty string"):
             parse_tool_action("tool_search", {"query": ""})
 
+        with self.assertRaisesRegex(ActionParseError, "tool_search action category must be one of:"):
+            parse_tool_action("tool_search", {"query": "read", "category": "missing"})
+
         with self.assertRaisesRegex(ActionParseError, "related_tests action paths must be a list of non-empty strings"):
             parse_tool_action("related_tests", {"paths": "app.py"})
 
