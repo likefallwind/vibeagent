@@ -1441,6 +1441,30 @@ class WorkspaceTests(unittest.TestCase):
         self.assertNotIn("empty/CLAUDE.md", short or "")
         self.assertTrue((bounded or "").endswith("[project instructions truncated]"))
 
+    def test_read_project_instructions_orders_parent_scopes_before_nested_scopes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            write_run_file(workspace, "0pkg/AGENTS.md", "Nested first alphabetically.\n")
+            write_run_file(workspace, "AGENTS.md", "Root agents.\n")
+            write_run_file(workspace, "CLAUDE.md", "Root claude.\n")
+            write_run_file(workspace, "pkg/CLAUDE.md", "Nested claude.\n")
+            metadata = read_project_instruction_sources(workspace, max_files=3)
+
+        sources = metadata["files"]
+        self.assertIsInstance(sources, list)
+        self.assertEqual(
+            [(item["path"], item["scope"], item["included"]) for item in sources],
+            [
+                ("AGENTS.md", ".", True),
+                ("CLAUDE.md", ".", True),
+                ("0pkg/AGENTS.md", "0pkg", True),
+            ],
+        )
+        text = str(metadata["text"])
+        self.assertLess(text.index("File: AGENTS.md"), text.index("File: CLAUDE.md"))
+        self.assertLess(text.index("File: CLAUDE.md"), text.index("File: 0pkg/AGENTS.md"))
+        self.assertEqual(metadata["omitted_files"], 1)
+
     def test_read_project_instruction_sources_reports_metadata_and_bounds(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
             workspace = create_run_workspace(base, "test-run")

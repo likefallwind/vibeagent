@@ -75,7 +75,10 @@ def read_project_instruction_sources(
     if max_files > 200:
         raise ValueError("max_files must be at most 200.")
 
-    instruction_files = [file for file in list_files(workspace.root) if Path(file).name in PROJECT_INSTRUCTION_FILE_NAMES]
+    instruction_files = sorted(
+        (file for file in list_files(workspace.root) if Path(file).name in PROJECT_INSTRUCTION_FILE_NAMES),
+        key=project_instruction_sort_key,
+    )
     scanned_files = instruction_files[:max_files]
     sources: list[dict[str, object]] = []
     chunks: list[str] = []
@@ -146,6 +149,13 @@ def read_project_instruction_sources(
 def project_instruction_scope(relative_path: str) -> str:
     scope = Path(relative_path).parent.as_posix()
     return "." if scope == "." else scope
+
+
+def project_instruction_sort_key(relative_path: str) -> tuple[int, str, int, str]:
+    path = Path(relative_path)
+    scope = project_instruction_scope(relative_path)
+    file_order = {"AGENTS.md": 0, "CLAUDE.md": 1}.get(path.name, 2)
+    return len(path.parts), scope, file_order, relative_path
 
 
 def read_project_command_hints(workspace: RunWorkspace, max_bytes: int = 8_000, max_files: int = 30) -> str | None:
