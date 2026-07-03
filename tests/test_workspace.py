@@ -4,6 +4,8 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
+from vibeagent import workspace_code_intel
+from vibeagent import workspace_code_language
 from vibeagent import workspace_file_helpers
 from vibeagent import workspace_file_read
 from vibeagent.workspace import (
@@ -110,6 +112,14 @@ from vibeagent.workspace import (
 
 
 class WorkspaceTests(unittest.TestCase):
+    def test_workspace_code_intel_reexports_language_helpers(self) -> None:
+        self.assertIs(workspace_code_intel.code_language_for_path, workspace_code_language.code_language_for_path)
+        self.assertIs(workspace_code_intel.collect_generic_code_outline, workspace_code_language.collect_generic_code_outline)
+        self.assertIs(workspace_code_intel.collect_code_imports, workspace_code_language.collect_code_imports)
+        self.assertIs(workspace_code_intel.build_code_reference_pattern, workspace_code_language.build_code_reference_pattern)
+        self.assertIs(workspace_code_intel.collect_code_rename_replacements, workspace_code_language.collect_code_rename_replacements)
+        self.assertIs(workspace_code_intel.apply_code_rename_replacements, workspace_code_language.apply_code_rename_replacements)
+
     def test_workspace_file_read_reexports_file_helpers(self) -> None:
         self.assertIs(workspace_file_read.truncate_utf8_text_bytes, workspace_file_helpers.truncate_utf8_text_bytes)
         self.assertIs(workspace_file_read.read_utf8_text_file, workspace_file_helpers.read_utf8_text_file)
