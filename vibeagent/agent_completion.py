@@ -1,6 +1,15 @@
 from __future__ import annotations
 
 from .agent_observation_utils import observation_failed, summarize
+from .agent_completion_details import (
+    build_active_background_process_details,
+    build_checkpoint_failure_details,
+    build_denied_approval_details,
+    build_final_review_blocking_issue_details,
+    build_final_review_changed_file_details,
+    build_tool_error_details,
+    final_review_running_process_count,
+)
 from .types import Observation, PlanItem
 from .verification_command_utils import command_keys_from_objects, verification_commands_from_final_review
 
@@ -292,88 +301,6 @@ def observations_show_multistep_coding_work(observations: list[Observation]) -> 
         if observation.kind in PROJECT_CHANGE_OBSERVATION_KINDS and not observation_failed(observation)
     )
     return any(observation.kind in MULTISTEP_CODING_FOLLOWUP_KINDS for observation in observations[first_change_index + 1 :])
-
-def final_review_running_process_count(final_review: Observation | None) -> int:
-    if final_review is None:
-        return 0
-    running_processes = getattr(final_review, "running_processes", [])
-    return sum(1 for process in running_processes if getattr(process, "running", False))
-
-def build_active_background_process_details(observations: list[Observation]) -> list[str]:
-    final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
-    if final_review is None:
-        return []
-    running_processes = getattr(final_review, "running_processes", [])
-    details: list[str] = []
-    for process in running_processes:
-        if not getattr(process, "running", False):
-            continue
-        process_id = str(getattr(process, "process_id", "unknown") or "unknown")
-        pid = getattr(process, "pid", None)
-        cwd = str(getattr(process, "cwd", ".") or ".")
-        command = str(getattr(process, "command", "") or "")
-        details.append(f"{process_id}: pid={pid if pid is not None else 'unknown'}, cwd={cwd}, command={command}")
-    return details
-
-def build_final_review_blocking_issue_details(observations: list[Observation]) -> list[str]:
-    final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
-    if final_review is None:
-        return []
-    issues = getattr(final_review, "blocking_issues", [])
-    if not isinstance(issues, list):
-        return []
-    return [str(issue) for issue in issues if str(issue).strip()]
-
-def build_final_review_changed_file_details(observations: list[Observation]) -> list[str]:
-    final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
-    if final_review is None:
-        return []
-    files = getattr(final_review, "files", [])
-    if not isinstance(files, list):
-        return []
-    details: list[str] = []
-    for file in files:
-        path = str(getattr(file, "path", "") or "").strip()
-        if not path:
-            continue
-        status = str(getattr(file, "status", "") or "?").strip() or "?"
-        details.append(f"{status} {path}")
-    return details
-
-def build_tool_error_details(observations: list[Observation]) -> list[str]:
-    details: list[str] = []
-    for observation in observations:
-        if observation.kind != "tool_error":
-            continue
-        tool = str(getattr(observation, "tool", "unknown") or "unknown")
-        message = str(getattr(observation, "message", "") or "tool execution failed")
-        details.append(f"{tool}: {message}")
-    return details
-
-def build_checkpoint_failure_details(observations: list[Observation]) -> list[str]:
-    details: list[str] = []
-    for observation in observations:
-        if observation.kind != "checkpoint_create" or not observation_failed(observation):
-            continue
-        message = str(getattr(observation, "message", "") or "checkpoint creation failed")
-        details.append(f"checkpoint_create: {message}")
-    return details
-
-def build_denied_approval_details(observations: list[Observation]) -> list[str]:
-    details: list[str] = []
-    for observation in observations:
-        if observation.kind != "approval_denied":
-            continue
-        action_type = str(getattr(observation, "action_type", "unknown") or "unknown")
-        target = str(getattr(observation, "target", "") or "")
-        message = str(getattr(observation, "message", "") or "")
-        detail = action_type
-        if target:
-            detail += f" {target}"
-        if message:
-            detail += f": {message}"
-        details.append(detail)
-    return details
 
 def build_verification_checks(success: bool, observations: list[Observation]) -> list[str]:
     if not success:
