@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from vibeagent import workspace, workspace_review_ops, workspace_review_tests
+from vibeagent import workspace, workspace_review_checks, workspace_review_ops, workspace_review_tests
 
 
 class WorkspaceReviewOpsTests(unittest.TestCase):
@@ -75,6 +75,9 @@ class WorkspaceReviewOpsTests(unittest.TestCase):
         for name in names:
             with self.subTest(name=name):
                 self.assertIs(getattr(workspace_review_ops, name), getattr(workspace_review_tests, name))
+
+    def test_workspace_review_ops_reexports_project_check_suggestions(self) -> None:
+        self.assertIs(workspace_review_ops.suggest_project_checks, workspace_review_checks.suggest_project_checks)
 
 
 if __name__ == "__main__":
