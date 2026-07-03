@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from vibeagent import smart_code_commands, smart_python_commands
+from vibeagent import smart_code_commands, smart_python_commands, smart_python_symbols
 
 
 class SmartPythonCommandsTests(unittest.TestCase):
@@ -26,6 +26,28 @@ class SmartPythonCommandsTests(unittest.TestCase):
             smart_code_commands.get_replace_python_definition_report,
             smart_python_commands.get_replace_python_definition_report,
         )
+
+    def test_smart_python_commands_reexports_symbol_commands(self) -> None:
+        names = [
+            "get_python_defs_report",
+            "format_python_defs_report_text",
+            "get_python_refs_report",
+            "format_python_refs_report_text",
+            "get_python_ref_contexts_report",
+            "format_python_ref_contexts_report_text",
+            "get_python_calls_report",
+            "format_python_calls_report_text",
+            "get_python_call_graph_report",
+            "format_python_call_graph_report_text",
+            "get_python_defs_text",
+            "get_python_refs_text",
+            "get_python_ref_contexts_text",
+            "get_python_calls_text",
+            "get_python_call_graph_text",
+        ]
+        for name in names:
+            with self.subTest(name=name):
+                self.assertIs(getattr(smart_python_commands, name), getattr(smart_python_symbols, name))
 
 
 if __name__ == "__main__":
