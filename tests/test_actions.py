@@ -21,6 +21,7 @@ from vibeagent.actions import (
     run_command,
     save_checkpoint_untracked_files,
 )
+from vibeagent.prompt_observation_session import format_session_observation
 from vibeagent.types import (
     AppendFileAction,
     CheckAppendFileAction,
@@ -5634,10 +5635,21 @@ class ActionTests(unittest.TestCase):
             observation = execute_action(workspace, SessionVerificationAction(type="session_verification", max_checks=1))
             missing = execute_action(workspace, SessionVerificationAction(type="session_verification", run_id="missing"))
             invalid = execute_action(workspace, SessionVerificationAction(type="session_verification", run_id="../bad"))
+            feedback = format_session_observation(1, observation)
 
         self.assertEqual(observation.kind, "session_verification")
         self.assertTrue(observation.ok)
         self.assertEqual(observation.run_id, "run-1")
+        self.assertEqual(observation.verified_count, 2)
+        self.assertEqual(observation.pending_count, 2)
+        self.assertEqual(observation.failed_count, 2)
+        self.assertTrue(observation.verification_truncated)
+        self.assertEqual(observation.verified_commands[0]["command"], "python3 -m unittest")
+        self.assertEqual(observation.verified_commands[0]["status"], "verified")
+        self.assertEqual(observation.pending_commands[0]["command"], "npm test")
+        self.assertEqual(observation.pending_commands[0]["status"], "pending")
+        self.assertEqual(observation.failed_commands[0]["command"], "npm run build")
+        self.assertEqual(observation.failed_commands[0]["failureReason"], "exit=1")
         self.assertIn("Session verification:", observation.verification)
         self.assertIn("verified: 1/2", observation.verification)
         self.assertIn("python3 -m unittest", observation.verification)
@@ -5648,8 +5660,14 @@ class ActionTests(unittest.TestCase):
         self.assertIn("failedChecks: 1/2", observation.verification)
         self.assertIn("npm run build (exit=1)", observation.verification)
         self.assertIn("truncated: yes", observation.verification)
+        self.assertIsNotNone(feedback)
+        self.assertIn("pendingCommands: 1/2", feedback or "")
+        self.assertIn("failedCommands: 1/2", feedback or "")
+        self.assertIn("npm run build (exit=1)", feedback or "")
         self.assertEqual(missing.kind, "session_verification")
         self.assertFalse(missing.ok)
+        self.assertEqual(missing.pending_commands, [])
+        self.assertEqual(missing.failed_commands, [])
         self.assertIn("Session not found: missing", missing.message)
         self.assertEqual(invalid.kind, "session_verification")
         self.assertFalse(invalid.ok)

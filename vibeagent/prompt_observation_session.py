@@ -7,6 +7,19 @@ from .prompt_observation_output import (
 from .prompt_observation_utils import truncate
 
 
+def format_verification_command_lines(label: str, commands: list[dict[str, object]], total: int) -> list[str]:
+    if not commands:
+        return [f"{label}: none"]
+    lines = [f"{label}: {len(commands)}/{total}"]
+    for command in commands:
+        cwd = str(command.get("cwd") or ".")
+        suffix = "" if cwd == "." else f" (cwd: {cwd})"
+        reason = command.get("failureReason")
+        reason_suffix = f" ({reason})" if isinstance(reason, str) and reason else ""
+        lines.append(f"- {command.get('command') or ''}{suffix}{reason_suffix}")
+    return lines
+
+
 def format_session_observation(index: int, observation: object) -> str | None:
     if observation.kind == "session_summary":
         return "\n".join(
@@ -84,10 +97,23 @@ def format_session_observation(index: int, observation: object) -> str | None:
         )
 
     if observation.kind == "session_verification":
+        verified_commands = getattr(observation, "verified_commands", [])
+        pending_commands = getattr(observation, "pending_commands", [])
+        failed_commands = getattr(observation, "failed_commands", [])
+        verified_count = int(getattr(observation, "verified_count", len(verified_commands)) or 0)
+        pending_count = int(getattr(observation, "pending_count", len(pending_commands)) or 0)
+        failed_count = int(getattr(observation, "failed_count", len(failed_commands)) or 0)
+        command_lines: list[str] = []
+        command_lines.extend(format_verification_command_lines("verifiedCommands", verified_commands, verified_count))
+        command_lines.extend(format_verification_command_lines("pendingCommands", pending_commands, pending_count))
+        command_lines.extend(format_verification_command_lines("failedCommands", failed_commands, failed_count))
         return "\n".join(
             [
                 f"{index}. session_verification {observation.run_id}: {observation.message}",
                 f"ok: {str(observation.ok).lower()}",
+                f"truncated: {str(bool(getattr(observation, 'verification_truncated', False))).lower()}",
+                "commands:",
+                truncate("\n".join(command_lines)),
                 f"verification:\n{truncate(observation.verification)}",
             ]
         )

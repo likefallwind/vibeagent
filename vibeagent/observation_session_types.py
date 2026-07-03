@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from .observation_read_types import OutputContextResult, OutputDiagnostic
 
@@ -114,6 +114,13 @@ class SessionVerificationObservation:
     run_id: str
     ok: bool
     verification: str
+    verified_commands: list[dict[str, Any]]
+    pending_commands: list[dict[str, Any]]
+    failed_commands: list[dict[str, Any]]
+    verified_count: int
+    pending_count: int
+    failed_count: int
+    verification_truncated: bool
     message: str
 
 

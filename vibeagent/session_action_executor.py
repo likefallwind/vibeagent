@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from .action_results import (
     build_session_command_output_scan_text,
     parse_session_commands_counts,
@@ -9,6 +11,7 @@ from .action_results import (
 )
 from .output_conversion import output_context_results_from_dicts, output_diagnostics_from_dicts
 from .session import (
+    build_session_verification_report,
     format_session_audit,
     format_session_commands,
     format_session_failures,
@@ -55,6 +58,12 @@ from .types import (
     SessionVerificationObservation,
 )
 from .workspace import RunWorkspace, read_output_contexts_result, read_output_diagnostics_result
+
+
+def session_verification_group(report: dict[str, Any], name: str) -> tuple[list[dict[str, Any]], int]:
+    group = report.get(name) if isinstance(report.get(name), dict) else {}
+    commands = group.get("commands") if isinstance(group.get("commands"), list) else []
+    return [item for item in commands if isinstance(item, dict)], int(group.get("total", 0) or 0)
 
 
 def execute_session_action(workspace: RunWorkspace, action: object) -> Observation | None:
@@ -377,11 +386,24 @@ def execute_session_action(workspace: RunWorkspace, action: object) -> Observati
 
     if isinstance(action, SessionVerificationAction):
         run_id = action.run_id or workspace.run_id
+        verified_commands: list[dict[str, object]] = []
+        pending_commands: list[dict[str, object]] = []
+        failed_commands: list[dict[str, object]] = []
+        verified_count = 0
+        pending_count = 0
+        failed_count = 0
+        verification_truncated = False
         try:
             summary = summarize_session(workspace.root, run_id)
             verification = format_session_verification(summary, max_checks=action.max_checks)
             ok = not verification.startswith("Session not found:")
             message = f"Read session verification for {run_id}." if ok else verification
+            if ok:
+                report = build_session_verification_report(workspace.root, run_id, max_checks=action.max_checks)
+                verified_commands, verified_count = session_verification_group(report, "verified")
+                pending_commands, pending_count = session_verification_group(report, "pending")
+                failed_commands, failed_count = session_verification_group(report, "failed")
+                verification_truncated = bool(report.get("truncated"))
         except ValueError as error:
             verification = ""
             ok = False
@@ -391,6 +413,13 @@ def execute_session_action(workspace: RunWorkspace, action: object) -> Observati
             run_id=run_id,
             ok=ok,
             verification=verification,
+            verified_commands=verified_commands,
+            pending_commands=pending_commands,
+            failed_commands=failed_commands,
+            verified_count=verified_count,
+            pending_count=pending_count,
+            failed_count=failed_count,
+            verification_truncated=verification_truncated,
             message=message,
         )
 
