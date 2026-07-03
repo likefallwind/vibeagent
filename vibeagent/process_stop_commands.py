@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 
 from .actions import execute_action as _default_execute_action
+from .process_report_helpers import process_status_text, serialize_process_info
 from .types import CheckStopAllProcessesAction, CheckStopProcessAction, StopAllProcessesAction, StopProcessAction
 from .workspace_core import RunWorkspace
 
@@ -260,32 +261,6 @@ def format_stop_all_processes_report_text(report: dict[str, object]) -> str:
         lines.append("  processes: none")
     lines.append(f"  message: {report.get('message') or ''}")
     return "\n".join(lines)
-
-
-def process_status_text(running: bool, exit_code: int | None, signal: str | None) -> str:
-    if signal:
-        return f"signaled({signal})"
-    if running:
-        return "running"
-    if exit_code is not None:
-        return f"exited({exit_code})"
-    return "unknown"
-
-
-def serialize_process_info(process: object) -> dict[str, object]:
-    running = bool(getattr(process, "running", False))
-    exit_code = getattr(process, "exit_code", None)
-    signal = getattr(process, "signal", None)
-    return {
-        "processId": str(getattr(process, "process_id", "") or ""),
-        "pid": getattr(process, "pid", None),
-        "command": str(getattr(process, "command", "") or ""),
-        "cwd": str(getattr(process, "cwd", ".") or "."),
-        "running": running,
-        "exitCode": exit_code,
-        "signal": signal,
-        "status": process_status_text(running, exit_code, signal),
-    }
 
 
 def serialize_stopped_process_info(process: object) -> dict[str, object]:
