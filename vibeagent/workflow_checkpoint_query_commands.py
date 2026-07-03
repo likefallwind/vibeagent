@@ -1,0 +1,270 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from .types import CheckpointInfo
+from .workflow_checkpoint_formatting import (
+    format_checkpoint_diff_report_text,
+    format_checkpoint_show_report_text,
+    format_checkpoint_status_report_text,
+    format_checkpoints_report_text,
+)
+from .workflow_checkpoint_utils import (
+    clip_local_checkpoint_untracked_paths,
+    count_status_kinds,
+    display_checkpoint_file,
+    local_checkpoint_untracked_files_match,
+    read_checkpoint_patch,
+    read_checkpoints,
+    read_local_checkpoint_untracked_manifest,
+    resolve_checkpoint_dir,
+    short_head,
+)
+from .workflow_diff_commands import clip_with_flag
+from .workflow_review_formatting import filter_handoff_status
+from .workspace import read_git_diff, read_git_status
+from .workspace_core import RunWorkspace
+
+
+def serialize_checkpoint_metadata(metadata: dict[str, object]) -> dict[str, object]:
+    return {
+        "id": str(metadata.get("id") or ""),
+        "label": str(metadata.get("label") or ""),
+        "createdAt": str(metadata.get("created_at") or ""),
+        "projectRoot": str(metadata.get("project_root") or ""),
+        "head": str(metadata.get("head") or ""),
+        "shortHead": short_head(str(metadata.get("head") or "")),
+        "changedFiles": int(metadata.get("changed_files") or 0),
+        "stagedFiles": int(metadata.get("staged_files") or 0),
+        "unstagedFiles": int(metadata.get("unstaged_files") or 0),
+        "untrackedFiles": int(metadata.get("untracked_files") or 0),
+        "untrackedSavedFiles": int(metadata.get("untracked_saved_files") or 0),
+        "untrackedSkippedFiles": int(metadata.get("untracked_skipped_files") or 0),
+        "stagedPatchChars": int(metadata.get("staged_diff_chars") or 0),
+        "unstagedPatchChars": int(metadata.get("unstaged_diff_chars") or 0),
+    }
+
+
+def serialize_checkpoint_info(info: CheckpointInfo) -> dict[str, object]:
+    return {
+        "id": info.checkpoint_id,
+        "label": info.label,
+        "createdAt": info.created_at,
+        "head": info.head,
+        "shortHead": short_head(info.head),
+        "changedFiles": info.changed_files,
+        "stagedFiles": info.staged_files,
+        "unstagedFiles": info.unstaged_files,
+        "untrackedFiles": info.untracked_files,
+    }
+
+
+def get_checkpoints_report(project_root: str | Path = ".") -> dict[str, object]:
+    root = Path(project_root).resolve()
+    checkpoints = read_checkpoints(root)
+    return {
+        "projectRoot": str(root),
+        "ok": True,
+        "total": len(checkpoints),
+        "checkpoints": [serialize_checkpoint_metadata(metadata) for metadata in checkpoints],
+        "message": f"Found {len(checkpoints)} checkpoint(s).",
+    }
+
+
+def get_checkpoints_text(project_root: str | Path = ".") -> str:
+    return format_checkpoints_report_text(get_checkpoints_report(project_root))
+
+
+def read_local_checkpoint_metadata(root: Path, checkpoint_id: str | None, usage: str) -> tuple[Path | None, dict[str, object] | None, str]:
+    if not checkpoint_id or not checkpoint_id.strip():
+        return None, None, f"Usage: {usage}"
+    try:
+        checkpoint_dir = resolve_checkpoint_dir(root, checkpoint_id)
+    except ValueError as error:
+        return None, None, str(error)
+    metadata_path = checkpoint_dir / "metadata.json"
+    if not metadata_path.is_file():
+        return checkpoint_dir, None, f"Checkpoint not found: {checkpoint_id}"
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return checkpoint_dir, None, f"Checkpoint metadata is unreadable: {checkpoint_id}"
+    if not isinstance(metadata, dict):
+        return checkpoint_dir, None, f"Checkpoint metadata is invalid: {checkpoint_id}"
+    return checkpoint_dir, metadata, ""
+
+
+def get_checkpoint_show_report(checkpoint_id: str | None, project_root: str | Path = ".") -> dict[str, object]:
+    root = Path(project_root).resolve()
+    checkpoint_dir, metadata, error = read_local_checkpoint_metadata(root, checkpoint_id, "/checkpoint-show <id>")
+    if metadata is None:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "exists": False,
+            "checkpoint": None,
+            "gitStatus": "",
+            "savedUntrackedPaths": {"shown": [], "truncated": False},
+            "message": error,
+        }
+    status = str(metadata.get("git_status") or "")
+    saved_untracked_paths, saved_untracked_paths_truncated = clip_local_checkpoint_untracked_paths(
+        [item["path"] for item in read_local_checkpoint_untracked_manifest(checkpoint_dir or root)],
+    )
+    return {
+        "projectRoot": str(root),
+        "ok": True,
+        "exists": True,
+        "checkpoint": serialize_checkpoint_metadata(metadata),
+        "patches": {
+            "unstagedPath": display_checkpoint_file(root, (checkpoint_dir or root) / "unstaged.patch"),
+            "stagedPath": display_checkpoint_file(root, (checkpoint_dir or root) / "staged.patch"),
+            "unstagedChars": int(metadata.get("unstaged_diff_chars") or 0),
+            "stagedChars": int(metadata.get("staged_diff_chars") or 0),
+        },
+        "gitStatus": status,
+        "savedUntrackedPaths": {
+            "shown": saved_untracked_paths,
+            "truncated": saved_untracked_paths_truncated,
+        },
+        "message": f"Read checkpoint {metadata.get('id') or checkpoint_id}.",
+    }
+
+
+def get_checkpoint_show_text(checkpoint_id: str | None, project_root: str | Path = ".") -> str:
+    return format_checkpoint_show_report_text(get_checkpoint_show_report(checkpoint_id, project_root))
+
+
+def get_checkpoint_diff_report(
+    checkpoint_id: str | None,
+    project_root: str | Path = ".",
+    max_chars: int = 40_000,
+) -> dict[str, object]:
+    if max_chars < 100:
+        raise ValueError("max_chars must be at least 100.")
+    if max_chars > 200_000:
+        raise ValueError("max_chars must be at most 200000.")
+    root = Path(project_root).resolve()
+    checkpoint_dir, metadata, error = read_local_checkpoint_metadata(root, checkpoint_id, "/checkpoint-diff <id>")
+    if metadata is None:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "exists": False,
+            "id": checkpoint_id or "",
+            "diff": None,
+            "message": error,
+        }
+    staged = read_checkpoint_patch((checkpoint_dir or root) / "staged.patch")
+    unstaged = read_checkpoint_patch((checkpoint_dir or root) / "unstaged.patch")
+    staged_text, staged_truncated = clip_with_flag(staged, max_chars)
+    unstaged_text, unstaged_truncated = clip_with_flag(unstaged, max_chars)
+    return {
+        "projectRoot": str(root),
+        "ok": True,
+        "exists": True,
+        "checkpoint": serialize_checkpoint_metadata(metadata),
+        "diff": {
+            "maxChars": max_chars,
+            "stagedPatch": staged_text,
+            "stagedChars": len(staged),
+            "stagedTruncated": staged_truncated,
+            "unstagedPatch": unstaged_text,
+            "unstagedChars": len(unstaged),
+            "unstagedTruncated": unstaged_truncated,
+        },
+        "message": f"Read checkpoint diff {metadata.get('id') or checkpoint_id}.",
+    }
+
+
+def get_checkpoint_diff_text(checkpoint_id: str | None, project_root: str | Path = ".", max_chars: int = 40_000) -> str:
+    return format_checkpoint_diff_report_text(get_checkpoint_diff_report(checkpoint_id, project_root, max_chars=max_chars))
+
+
+def get_checkpoint_status_report(checkpoint_id: str | None, project_root: str | Path = ".") -> dict[str, object]:
+    root = Path(project_root).resolve()
+    checkpoint_dir, metadata, error = read_local_checkpoint_metadata(root, checkpoint_id, "/checkpoint-status <id>")
+    if metadata is None:
+        return {
+            "projectRoot": str(root),
+            "ok": False,
+            "exists": False,
+            "id": checkpoint_id or "",
+            "matches": False,
+            "message": error,
+        }
+    workspace = RunWorkspace(root=root, run_id="local-checkpoint-status", session_dir=root / ".vibeagent" / "sessions" / "local-checkpoint-status")
+    status = read_git_status(workspace)
+    if not status.ok:
+        return checkpoint_status_error_report(root, metadata, status.stderr or "git status failed.")
+    staged = read_git_diff(workspace, staged=True)
+    if not staged.ok:
+        return checkpoint_status_error_report(root, metadata, staged.stderr or "git diff --staged failed.")
+    unstaged = read_git_diff(workspace, staged=False)
+    if not unstaged.ok:
+        return checkpoint_status_error_report(root, metadata, unstaged.stderr or "git diff failed.")
+
+    saved_status = str(metadata.get("git_status") or "")
+    saved_staged = read_checkpoint_patch((checkpoint_dir or root) / "staged.patch")
+    saved_unstaged = read_checkpoint_patch((checkpoint_dir or root) / "unstaged.patch")
+    current_status = filter_handoff_status(status.stdout)
+    current_counts = count_status_kinds(current_status)
+    status_matches = current_status == saved_status
+    staged_matches = staged.stdout == saved_staged
+    unstaged_matches = unstaged.stdout == saved_unstaged
+    untracked_matches = local_checkpoint_untracked_files_match(root, checkpoint_dir or root, int(metadata.get("untracked_files") or 0))
+    matches = status_matches and staged_matches and unstaged_matches and untracked_matches
+    return {
+        "projectRoot": str(root),
+        "ok": True,
+        "exists": True,
+        "checkpoint": serialize_checkpoint_metadata(metadata),
+        "matches": matches,
+        "checks": {
+            "statusMatches": status_matches,
+            "stagedPatchMatches": staged_matches,
+            "unstagedPatchMatches": unstaged_matches,
+            "untrackedFileMatches": untracked_matches,
+        },
+        "saved": {
+            "changedFiles": int(metadata.get("changed_files") or 0),
+            "stagedFiles": int(metadata.get("staged_files") or 0),
+            "unstagedFiles": int(metadata.get("unstaged_files") or 0),
+            "untrackedFiles": int(metadata.get("untracked_files") or 0),
+            "stagedPatchChars": len(saved_staged),
+            "unstagedPatchChars": len(saved_unstaged),
+        },
+        "current": {
+            "changedFiles": current_counts["changed_files"],
+            "stagedFiles": current_counts["staged_files"],
+            "unstagedFiles": current_counts["unstaged_files"],
+            "untrackedFiles": current_counts["untracked_files"],
+            "stagedPatchChars": len(staged.stdout),
+            "unstagedPatchChars": len(unstaged.stdout),
+        },
+        "message": "Current worktree matches checkpoint." if matches else "Current worktree differs from checkpoint.",
+    }
+
+
+def checkpoint_status_error_report(root: Path, metadata: dict[str, object], message: str) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "exists": True,
+        "checkpoint": serialize_checkpoint_metadata(metadata),
+        "matches": False,
+        "checks": {
+            "statusMatches": False,
+            "stagedPatchMatches": False,
+            "unstagedPatchMatches": False,
+            "untrackedFileMatches": False,
+        },
+        "saved": {},
+        "current": {},
+        "message": message,
+    }
+
+
+def get_checkpoint_status_text(checkpoint_id: str | None, project_root: str | Path = ".") -> str:
+    return format_checkpoint_status_report_text(get_checkpoint_status_report(checkpoint_id, project_root))

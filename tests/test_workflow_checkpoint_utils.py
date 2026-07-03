@@ -3,6 +3,7 @@ import unittest
 from vibeagent import workflow_checkpoint_utils
 from vibeagent import workflow_checkpoint_formatting
 from vibeagent import workflow_checkpoint_commands
+from vibeagent import workflow_checkpoint_query_commands
 from vibeagent import workflow_commands
 
 
@@ -62,6 +63,18 @@ class WorkflowCheckpointUtilsTests(unittest.TestCase):
         self.assertIs(workflow_commands.serialize_checkpoint_info, workflow_checkpoint_commands.serialize_checkpoint_info)
         self.assertEqual(workflow_commands.get_checkpoint_restore_text.__module__, "vibeagent.workflow_commands")
         self.assertEqual(workflow_commands.get_checkpoint_prune_text.__module__, "vibeagent.workflow_commands")
+
+    def test_checkpoint_commands_reexports_query_helpers(self) -> None:
+        self.assertIs(workflow_checkpoint_commands.get_checkpoints_report, workflow_checkpoint_query_commands.get_checkpoints_report)
+        self.assertIs(workflow_checkpoint_commands.get_checkpoints_text, workflow_checkpoint_query_commands.get_checkpoints_text)
+        self.assertIs(workflow_checkpoint_commands.get_checkpoint_show_report, workflow_checkpoint_query_commands.get_checkpoint_show_report)
+        self.assertIs(workflow_checkpoint_commands.get_checkpoint_show_text, workflow_checkpoint_query_commands.get_checkpoint_show_text)
+        self.assertIs(workflow_checkpoint_commands.get_checkpoint_diff_report, workflow_checkpoint_query_commands.get_checkpoint_diff_report)
+        self.assertIs(workflow_checkpoint_commands.get_checkpoint_diff_text, workflow_checkpoint_query_commands.get_checkpoint_diff_text)
+        self.assertIs(workflow_checkpoint_commands.get_checkpoint_status_report, workflow_checkpoint_query_commands.get_checkpoint_status_report)
+        self.assertIs(workflow_checkpoint_commands.get_checkpoint_status_text, workflow_checkpoint_query_commands.get_checkpoint_status_text)
+        self.assertIs(workflow_checkpoint_commands.serialize_checkpoint_metadata, workflow_checkpoint_query_commands.serialize_checkpoint_metadata)
+        self.assertIs(workflow_checkpoint_commands.serialize_checkpoint_info, workflow_checkpoint_query_commands.serialize_checkpoint_info)
 
 
 if __name__ == "__main__":
