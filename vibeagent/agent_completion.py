@@ -10,61 +10,29 @@ from .agent_completion_details import (
     build_tool_error_details,
     final_review_running_process_count,
 )
+from .agent_completion_kinds import MULTISTEP_CODING_FOLLOWUP_KINDS, PROJECT_CHANGE_OBSERVATION_KINDS
+from .agent_completion_verification import (
+    build_failed_verification_checks,
+    build_pending_verification_checks,
+    build_verification_checks,
+    command_result_failed_suggested_check_labels,
+    command_result_failed_suggested_check_result,
+    command_result_matches_successful_suggested_check,
+    command_result_suggested_check_commands,
+    failed_suggested_check_labels,
+    failed_suggested_check_results,
+    final_review_focused_test_commands,
+    final_review_suggested_commands,
+    final_review_verification_commands,
+    latest_successful_project_change_index,
+    observation_runs_suggested_check_successfully,
+    successful_suggested_check_commands,
+    successful_suggested_check_labels,
+    suggested_check_label,
+    suggested_check_statuses_after_latest_change,
+)
 from .types import Observation, PlanItem
-from .verification_command_utils import command_keys_from_objects, verification_commands_from_final_review
 
-
-PROJECT_CHANGE_OBSERVATION_KINDS = {
-    "write_file",
-    "write_files",
-    "edit_file",
-    "multi_edit_file",
-    "replace_python_definition",
-    "code_rename",
-    "python_rename",
-    "replace_lines",
-    "insert_lines",
-    "append_file",
-    "regex_replace",
-    "json_set",
-    "json_remove",
-    "json_patch",
-    "patch_file",
-    "patch_files",
-    "delete_file",
-    "delete_files",
-    "move_file",
-    "move_files",
-    "copy_file",
-    "copy_files",
-    "move_dir",
-    "move_dirs",
-    "copy_dir",
-    "copy_dirs",
-    "create_dir",
-    "create_dirs",
-    "delete_empty_dir",
-    "delete_empty_dirs",
-    "set_executable",
-    "git_stage",
-    "git_unstage",
-    "git_commit",
-    "git_restore",
-    "checkpoint_restore",
-}
-
-MULTISTEP_CODING_FOLLOWUP_KINDS = {
-    "run_command",
-    "run_commands",
-    "run_suggested_checks",
-    "run_focused_test_commands",
-    "python_check",
-    "config_check",
-    "command_check",
-    "check_run_commands",
-    "check_suggested_checks",
-    "check_focused_test_commands",
-}
 
 def auto_final_review_reason(success: bool, observations: list[Observation]) -> str | None:
     if not success:
@@ -301,172 +269,3 @@ def observations_show_multistep_coding_work(observations: list[Observation]) -> 
         if observation.kind in PROJECT_CHANGE_OBSERVATION_KINDS and not observation_failed(observation)
     )
     return any(observation.kind in MULTISTEP_CODING_FOLLOWUP_KINDS for observation in observations[first_change_index + 1 :])
-
-def build_verification_checks(success: bool, observations: list[Observation]) -> list[str]:
-    if not success:
-        return []
-    final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
-    if final_review is None:
-        return []
-    verification_commands = final_review_verification_commands(final_review)
-    if not verification_commands:
-        return []
-    last_change_index = latest_successful_project_change_index(observations)
-    if last_change_index is None:
-        return []
-
-    checks: list[str] = []
-    seen: set[str] = set()
-    for observation in observations[last_change_index + 1 :]:
-        for label in successful_suggested_check_labels(observation, verification_commands):
-            if label not in seen:
-                checks.append(label)
-                seen.add(label)
-    return checks
-
-def build_pending_verification_checks(success: bool, observations: list[Observation]) -> list[str]:
-    verification_commands, statuses = suggested_check_statuses_after_latest_change(success, observations)
-    if not verification_commands:
-        return []
-    completed_commands = set(statuses)
-    return [suggested_check_label(command, cwd) for command, cwd in sorted(verification_commands - completed_commands)]
-
-def build_failed_verification_checks(success: bool, observations: list[Observation]) -> list[str]:
-    _, statuses = suggested_check_statuses_after_latest_change(success, observations)
-    return [label for _, (passed, label) in sorted(statuses.items()) if not passed]
-
-def suggested_check_statuses_after_latest_change(
-    success: bool,
-    observations: list[Observation],
-) -> tuple[set[tuple[str, str]], dict[tuple[str, str], tuple[bool, str]]]:
-    if not success:
-        return set(), {}
-    final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
-    if final_review is None:
-        return set(), {}
-    verification_commands = final_review_verification_commands(final_review)
-    if not verification_commands:
-        return set(), {}
-    last_change_index = latest_successful_project_change_index(observations)
-    if last_change_index is None:
-        return verification_commands, {}
-
-    statuses: dict[tuple[str, str], tuple[bool, str]] = {}
-    for observation in observations[last_change_index + 1 :]:
-        for command, cwd in successful_suggested_check_commands(observation, verification_commands):
-            statuses[(command, cwd)] = (True, suggested_check_label(command, cwd))
-        for command, cwd, label in failed_suggested_check_results(observation, verification_commands):
-            statuses[(command, cwd)] = (False, label)
-    return verification_commands, statuses
-
-def final_review_verification_commands(final_review: Observation) -> set[tuple[str, str]]:
-    return verification_commands_from_final_review(final_review)
-
-def final_review_suggested_commands(final_review: Observation) -> set[tuple[str, str]]:
-    return command_keys_from_objects(getattr(final_review, "suggested_checks", []))
-
-def final_review_focused_test_commands(final_review: Observation) -> set[tuple[str, str]]:
-    return command_keys_from_objects(getattr(final_review, "focused_test_commands", []))
-
-def latest_successful_project_change_index(observations: list[Observation]) -> int | None:
-    for index in range(len(observations) - 1, -1, -1):
-        observation = observations[index]
-        if observation.kind in PROJECT_CHANGE_OBSERVATION_KINDS and not observation_failed(observation):
-            return index
-    return None
-
-def observation_runs_suggested_check_successfully(
-    observation: Observation,
-    suggested_commands: set[tuple[str, str]],
-) -> bool:
-    return bool(successful_suggested_check_commands(observation, suggested_commands))
-
-def successful_suggested_check_commands(
-    observation: Observation,
-    suggested_commands: set[tuple[str, str]],
-) -> set[tuple[str, str]]:
-    if observation.kind == "run_command":
-        return command_result_suggested_check_commands(observation.result, suggested_commands)
-    if observation.kind in {"run_commands", "run_suggested_checks", "run_focused_test_commands"}:
-        commands: set[tuple[str, str]] = set()
-        for result in observation.results:
-            commands.update(command_result_suggested_check_commands(result, suggested_commands))
-        return commands
-    return set()
-
-def successful_suggested_check_labels(
-    observation: Observation,
-    suggested_commands: set[tuple[str, str]],
-) -> list[str]:
-    return [suggested_check_label(command, cwd) for command, cwd in successful_suggested_check_commands(observation, suggested_commands)]
-
-def failed_suggested_check_labels(
-    observation: Observation,
-    suggested_commands: set[tuple[str, str]],
-) -> list[str]:
-    return [label for _, _, label in failed_suggested_check_results(observation, suggested_commands)]
-
-def failed_suggested_check_results(
-    observation: Observation,
-    suggested_commands: set[tuple[str, str]],
-) -> list[tuple[str, str, str]]:
-    if observation.kind == "run_command":
-        result = command_result_failed_suggested_check_result(observation.result, suggested_commands)
-        return [result] if result is not None else []
-    if observation.kind in {"run_commands", "run_suggested_checks", "run_focused_test_commands"}:
-        failures: list[tuple[str, str, str]] = []
-        for result in observation.results:
-            failure = command_result_failed_suggested_check_result(result, suggested_commands)
-            if failure is not None:
-                failures.append(failure)
-        return failures
-    return []
-
-def command_result_suggested_check_commands(
-    result: object,
-    suggested_commands: set[tuple[str, str]],
-) -> set[tuple[str, str]]:
-    if not command_result_matches_successful_suggested_check(result, suggested_commands):
-        return set()
-    command = str(getattr(result, "command", ""))
-    cwd = str(getattr(result, "cwd", ".") or ".")
-    return {(command, cwd)}
-
-def command_result_failed_suggested_check_labels(
-    result: object,
-    suggested_commands: set[tuple[str, str]],
-) -> list[str]:
-    failure = command_result_failed_suggested_check_result(result, suggested_commands)
-    return [failure[2]] if failure is not None else []
-
-def command_result_failed_suggested_check_result(
-    result: object,
-    suggested_commands: set[tuple[str, str]],
-) -> tuple[str, str, str] | None:
-    command = str(getattr(result, "command", ""))
-    cwd = str(getattr(result, "cwd", ".") or ".")
-    if (command, cwd) not in suggested_commands:
-        return None
-    if getattr(result, "exit_code", None) == 0 and not getattr(result, "timed_out", False):
-        return None
-    if getattr(result, "timed_out", False):
-        reason = "timed out"
-    else:
-        exit_code = getattr(result, "exit_code", None)
-        reason = f"exit={exit_code}" if exit_code is not None else "no exit code"
-    return command, cwd, f"{suggested_check_label(command, cwd)} ({reason})"
-
-def suggested_check_label(command: str, cwd: str) -> str:
-    if cwd == ".":
-        return command
-    return f"{command} (cwd: {cwd})"
-
-def command_result_matches_successful_suggested_check(
-    result: object,
-    suggested_commands: set[tuple[str, str]],
-) -> bool:
-    if getattr(result, "exit_code", None) != 0 or getattr(result, "timed_out", False):
-        return False
-    command = str(getattr(result, "command", ""))
-    cwd = str(getattr(result, "cwd", ".") or ".")
-    return (command, cwd) in suggested_commands
