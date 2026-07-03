@@ -5,6 +5,7 @@ from vibeagent import command_safety_python_eval
 from vibeagent import command_safety_python_filesystem
 from vibeagent import command_safety_python_gui
 from vibeagent import command_safety_python_introspection
+from vibeagent import command_safety_python_shell
 
 
 class CommandSafetyPythonModuleTests(unittest.TestCase):
@@ -53,6 +54,15 @@ class CommandSafetyPythonModuleTests(unittest.TestCase):
         self.assertIs(command_safety_python.python_literal_compile_script, command_safety_python_eval.python_literal_compile_script)
         self.assertIs(command_safety_python.python_literal_eval_exec_script, command_safety_python_eval.python_literal_eval_exec_script)
         self.assertIs(command_safety_python.python_literal_source_text, command_safety_python_eval.python_literal_source_text)
+
+    def test_command_safety_python_reexports_shell_helpers(self) -> None:
+        self.assertIs(command_safety_python.python_asyncio_subprocess_command, command_safety_python_shell.python_asyncio_subprocess_command)
+        self.assertIs(command_safety_python.python_call_shell_command, command_safety_python_shell.python_call_shell_command)
+        self.assertIs(command_safety_python.python_os_exec_spawn_command, command_safety_python_shell.python_os_exec_spawn_command)
+        self.assertIs(
+            command_safety_python.python_os_exec_spawn_function_name,
+            command_safety_python_shell.python_os_exec_spawn_function_name,
+        )
 
 
 if __name__ == "__main__":
