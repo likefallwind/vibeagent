@@ -5,6 +5,7 @@ from pathlib import Path
 import shlex
 from typing import Any
 
+from .cli_parse_tool_search import parse_interactive_tool_search_argument
 from .cli_local_result import local_text_or_report
 
 
@@ -319,7 +320,10 @@ def run_interactive_project_command(command: Any, commands: dict[str, Any], appr
     if command.type == "tool":
         return commands["get_tool_text"](command.argument)
     if command.type == "tool_search":
-        return commands["get_tool_search_text"](command.argument)
+        query, kwargs, error = parse_interactive_tool_search_argument(command.argument)
+        if error:
+            return error
+        return commands["get_tool_search_text"](query, **kwargs)
     if command.type == "permissions":
         return commands["get_permissions_text"](approval_policy)
     if command.type == "checks":

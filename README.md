@@ -580,8 +580,9 @@ Use `/help` to list local commands, `/model` to inspect the configured provider,
 model, base URL, and API key source, `/config` to inspect resolved provider,
 execution, project config, and cost-rate settings, `/status` to inspect local mode, approval,
 and resume state, `/tools` to inspect the model tool catalog, `/tool <name>` to
-inspect one tool's description and input schema, `/tool-search <query>` to
-search tools by name, description, category, or input fields, `/permissions` to inspect
+inspect one tool's description and input schema,
+`/tool-search [--max N] [--category CATEGORY] [--approval any|yes|no] <query>`
+to search tools by name, description, category, approval state, or input fields, `/permissions` to inspect
 approval-gated tools and command hard blocks, `/checks [--max-checks N]` to inspect suggested
 test, build, and lint commands without running them,
 `/check-suggested-checks [max|--max-checks N]` to preflight those suggested commands,

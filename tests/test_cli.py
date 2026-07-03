@@ -13036,6 +13036,24 @@ class CliTests(unittest.TestCase):
         self.assertEqual(Path.cwd(), original_cwd)
         create_chat_client.assert_not_called()
 
+    def test_main_interactive_tool_search_reports_invalid_option_without_creating_client(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("builtins.input", side_effect=["/tool-search --category missing verification", "/exit"]),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_tool_search_text") as get_tool_search_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main([])
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /tool-search", output)
+        self.assertIn("--category must be one of:", output)
+        get_tool_search_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
     def test_main_one_shot_code_task_reports_missing_resume_without_creating_client(self) -> None:
         stdout = io.StringIO()
 
@@ -13071,7 +13089,7 @@ class CliTests(unittest.TestCase):
                         "/diff-contexts --staged app.py",
                         "/tools",
                         "/tool read_file",
-                        "/tool-search verification",
+                        "/tool-search --max 3 --category session --approval no verification",
                         "/permissions",
                         "/checks",
                         "/commands",
@@ -13622,7 +13640,7 @@ class CliTests(unittest.TestCase):
         get_config_text.assert_called_once_with()
         get_handoff_text.assert_called_once_with()
         get_changes_text.assert_called_once_with()
-        get_tool_search_text.assert_called_once_with("verification")
+        get_tool_search_text.assert_called_once_with("verification", max_matches=3, category="session", approval_required=False)
         get_permissions_text.assert_called_once_with("ask")
         get_checks_text.assert_called_once_with()
         get_commands_text.assert_called_once_with()
