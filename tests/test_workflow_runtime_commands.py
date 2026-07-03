@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from vibeagent import command_hard_blocks
+from vibeagent import workflow_context_commands
 from vibeagent import workflow_doctor_commands
 from vibeagent import workflow_init_commands
 from vibeagent import workflow_commands
@@ -38,6 +39,9 @@ class WorkflowRuntimeCommandModuleTests(unittest.TestCase):
         self.assertIs(format_init_report_text, workflow_init_commands.format_init_report_text)
         self.assertIs(normalize_project_instructions_file_name, workflow_init_commands.normalize_project_instructions_file_name)
         self.assertIs(build_project_instructions_template, workflow_init_commands.build_project_instructions_template)
+        self.assertIs(get_context_report, workflow_context_commands.get_context_report)
+        self.assertIs(get_context_text, workflow_context_commands.get_context_text)
+        self.assertIs(format_context_report_text, workflow_context_commands.format_context_report_text)
         self.assertIs(workflow_commands.blocked_command_examples, blocked_command_examples)
         self.assertIs(workflow_commands.get_command_hard_block_report, get_command_hard_block_report)
         self.assertIs(workflow_commands.get_status_report, get_status_report)
