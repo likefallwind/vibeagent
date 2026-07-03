@@ -3,7 +3,7 @@ from __future__ import annotations
 import shlex
 
 from .cli_parse_core import parse_interactive_positive_option
-from .tool_catalog import valid_tool_categories
+from .tool_categories import valid_tool_categories
 
 
 def parse_interactive_tool_search_argument(argument: str | None) -> tuple[str | None, dict[str, object], str | None]:

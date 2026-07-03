@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import re
 
+from .tool_categories import TOOL_CATEGORIES, valid_tool_categories
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
-
-
-TOOL_CATEGORIES = ("project", "code", "edit", "git", "command", "session", "checkpoint", "other")
 
 
 APPROVAL_REQUIRED_TOOL_NAMES = {
@@ -468,10 +466,6 @@ def categorize_tools() -> dict[str, list[str]]:
         name = str(tool["name"])
         categories[tool_category(name)].append(name)
     return categories
-
-
-def valid_tool_categories() -> tuple[str, ...]:
-    return TOOL_CATEGORIES
 
 
 def tool_category(name: str) -> str:

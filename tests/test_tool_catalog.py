@@ -5,7 +5,9 @@ import unittest
 from vibeagent.tool_catalog import (
     format_tool_search_report_text,
     get_tool_search_report,
+    valid_tool_categories,
 )
+from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
 
 
 class ToolCatalogTests(unittest.TestCase):
@@ -37,6 +39,14 @@ class ToolCatalogTests(unittest.TestCase):
 
         self.assertFalse(report["ok"])
         self.assertEqual(format_tool_search_report_text(report), "Usage: /tool-search <query>")
+
+    def test_tool_search_schema_category_enum_uses_shared_categories(self) -> None:
+        tool = next(item for item in AGENT_TOOL_DEFINITIONS if item["name"] == "tool_search")
+        schema = tool["input_schema"]
+        properties = schema["properties"]
+        category_schema = properties["category"]
+
+        self.assertEqual(category_schema["enum"], list(valid_tool_categories()))
 
 
 if __name__ == "__main__":

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .tool_categories import valid_tool_categories
+
 
 PROJECT_RUNTIME_TOOL_DEFINITIONS: list[dict[str, Any]] = [
 {
@@ -44,7 +46,7 @@ PROJECT_RUNTIME_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
                 "category": {
                     "type": "string",
-                    "enum": ["project", "code", "edit", "git", "command", "session", "checkpoint", "other"],
+                    "enum": list(valid_tool_categories()),
                     "description": "Optional category filter.",
                 },
                 "approval_required": {
