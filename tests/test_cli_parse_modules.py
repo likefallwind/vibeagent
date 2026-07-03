@@ -128,6 +128,14 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertIn("Usage: /tool-search", error or "")
         self.assertIn("--category must be one of:", error or "")
 
+    def test_tool_search_parser_rejects_unknown_approval_filter(self) -> None:
+        query, kwargs, error = parse_interactive_tool_search_argument("--approval maybe verification")
+
+        self.assertIsNone(query)
+        self.assertEqual(kwargs, {})
+        self.assertIn("Usage: /tool-search", error or "")
+        self.assertIn("--approval must be one of: any, yes, no.", error or "")
+
     def test_runtime_check_parsers_keep_existing_behavior(self) -> None:
         port, port_kwargs, port_error, port_handled = parse_interactive_port_argument("--host 0.0.0.0 --timeout-ms 1500 5173")
         url, http_kwargs, http_error, http_handled = parse_interactive_http_argument(

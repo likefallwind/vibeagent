@@ -4,6 +4,7 @@ import shlex
 
 from .cli_parse_core import parse_interactive_positive_option
 from .tool_categories import valid_tool_categories
+from .tool_search_options import tool_search_approval_choices, tool_search_approval_filter
 
 
 def parse_interactive_tool_search_argument(argument: str | None) -> tuple[str | None, dict[str, object], str | None]:
@@ -70,16 +71,9 @@ def _apply_tool_search_option(flag: str, raw_value: str | None, kwargs: dict[str
         if raw_value is None:
             return f"{flag} requires a value."
         approval = raw_value.strip()
-        if approval not in {"any", "yes", "no"}:
-            return f"{flag} must be one of: any, yes, no."
-        kwargs["approval_required"] = _tool_search_approval_filter(approval)
+        choices = tool_search_approval_choices()
+        if approval not in choices:
+            return f"{flag} must be one of: {', '.join(choices)}."
+        kwargs["approval_required"] = tool_search_approval_filter(approval)
         return None
     return f"Unknown option: {flag}"
-
-
-def _tool_search_approval_filter(value: str) -> bool | None:
-    if value == "yes":
-        return True
-    if value == "no":
-        return False
-    return None

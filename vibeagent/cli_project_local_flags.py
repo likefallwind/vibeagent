@@ -7,14 +7,7 @@ from typing import Any
 
 from .cli_parse_tool_search import parse_interactive_tool_search_argument
 from .cli_local_result import local_text_or_report
-
-
-def _tool_search_approval_filter(value: str) -> bool | None:
-    if value == "yes":
-        return True
-    if value == "no":
-        return False
-    return None
+from .tool_search_options import tool_search_approval_filter
 
 
 def run_project_local_flag(
@@ -66,7 +59,7 @@ def run_project_local_flag(
             lambda: commands["get_tool_text"](args.tool),
         )
     if args.tool_search is not None:
-        approval_required = _tool_search_approval_filter(args.tool_search_approval)
+        approval_required = tool_search_approval_filter(args.tool_search_approval)
         return local_text_or_report(
             args,
             "toolSearch",

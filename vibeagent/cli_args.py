@@ -9,6 +9,7 @@ from .cli_local_flag_detection import (
     has_local_flag as _has_local_flag,
 )
 from .tool_categories import valid_tool_categories
+from .tool_search_options import tool_search_approval_choices
 
 
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
@@ -34,7 +35,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--tool-search-approval",
-        choices=["any", "yes", "no"],
+        choices=tool_search_approval_choices(),
         default="any",
         help="Optional approval filter for --tool-search.",
     )

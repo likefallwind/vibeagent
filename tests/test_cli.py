@@ -16,6 +16,7 @@ from vibeagent.cli import build_approval_handler, format_error, handle_approval_
 from vibeagent.cli_local_dispatch import LOCAL_FLAG_HANDLER_NAMES, dispatch_local_flag
 from vibeagent.cli_local_flag_detection import LOCAL_FLAG_ARG_NAMES
 from vibeagent.tool_categories import valid_tool_categories
+from vibeagent.tool_search_options import tool_search_approval_choices
 from vibeagent.types import ApprovalRequest, PlanItem, TaskStep
 
 
@@ -285,6 +286,19 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("invalid choice: 'missing'", stderr.getvalue())
+
+    def test_parse_args_tool_search_approval_uses_shared_choices(self) -> None:
+        for approval in tool_search_approval_choices():
+            with self.subTest(approval=approval):
+                args = cli_module.parse_args(["--tool-search", "read", "--tool-search-approval", approval])
+                self.assertEqual(args.tool_search_approval, approval)
+
+        stderr = io.StringIO()
+        with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            cli_module.parse_args(["--tool-search", "read", "--tool-search-approval", "maybe"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("invalid choice: 'maybe'", stderr.getvalue())
 
     def test_format_error_uses_provider_neutral_401_guidance(self) -> None:
         text = format_error(Http401Error("unauthorized"))
