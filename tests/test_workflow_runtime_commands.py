@@ -4,6 +4,7 @@ import unittest
 
 from vibeagent import command_hard_blocks
 from vibeagent import workflow_doctor_commands
+from vibeagent import workflow_init_commands
 from vibeagent import workflow_commands
 from vibeagent.workflow_runtime_commands import (
     blocked_command_examples,
@@ -32,6 +33,11 @@ class WorkflowRuntimeCommandModuleTests(unittest.TestCase):
         self.assertIs(get_doctor_report, workflow_doctor_commands.get_doctor_report)
         self.assertIs(get_doctor_text, workflow_doctor_commands.get_doctor_text)
         self.assertIs(format_doctor_report_text, workflow_doctor_commands.format_doctor_report_text)
+        self.assertIs(get_init_report, workflow_init_commands.get_init_report)
+        self.assertIs(init_project_instructions, workflow_init_commands.init_project_instructions)
+        self.assertIs(format_init_report_text, workflow_init_commands.format_init_report_text)
+        self.assertIs(normalize_project_instructions_file_name, workflow_init_commands.normalize_project_instructions_file_name)
+        self.assertIs(build_project_instructions_template, workflow_init_commands.build_project_instructions_template)
         self.assertIs(workflow_commands.blocked_command_examples, blocked_command_examples)
         self.assertIs(workflow_commands.get_command_hard_block_report, get_command_hard_block_report)
         self.assertIs(workflow_commands.get_status_report, get_status_report)
