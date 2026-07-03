@@ -8,6 +8,14 @@ from typing import Any
 from .cli_local_result import local_text_or_report
 
 
+def _tool_search_approval_filter(value: str) -> bool | None:
+    if value == "yes":
+        return True
+    if value == "no":
+        return False
+    return None
+
+
 def run_project_local_flag(
     args: argparse.Namespace,
     project_root: Path | None,
@@ -57,12 +65,23 @@ def run_project_local_flag(
             lambda: commands["get_tool_text"](args.tool),
         )
     if args.tool_search is not None:
+        approval_required = _tool_search_approval_filter(args.tool_search_approval)
         return local_text_or_report(
             args,
             "toolSearch",
-            lambda: commands["get_tool_search_report"](args.tool_search),
+            lambda: commands["get_tool_search_report"](
+                args.tool_search,
+                max_matches=args.tool_search_max,
+                category=args.tool_search_category,
+                approval_required=approval_required,
+            ),
             commands["format_tool_search_report_text"],
-            lambda: commands["get_tool_search_text"](args.tool_search),
+            lambda: commands["get_tool_search_text"](
+                args.tool_search,
+                max_matches=args.tool_search_max,
+                category=args.tool_search_category,
+                approval_required=approval_required,
+            ),
         )
     if args.permissions:
         return local_text_or_report(

@@ -1213,7 +1213,51 @@ class CliTests(unittest.TestCase):
         self.assertTrue(payload["success"])
         self.assertEqual(payload["status"], "completed")
         self.assertEqual(payload["toolSearch"], report)
-        get_tool_search_report.assert_called_once_with("read")
+        get_tool_search_report.assert_called_once_with("read", max_matches=20, category=None, approval_required=None)
+        create_chat_client.assert_not_called()
+
+    def test_main_runs_filtered_tool_search_local_flag_with_json_output(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(
+                [
+                    "--json",
+                    "--tool-search",
+                    "verification",
+                    "--tool-search-max",
+                    "3",
+                    "--tool-search-category",
+                    "session",
+                    "--tool-search-approval",
+                    "no",
+                ]
+            )
+
+        payload = json.loads(stdout.getvalue())
+        matches = payload["toolSearch"]["matches"]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["toolSearch"]["shown"], 3)
+        self.assertTrue(all(match["category"] == "session" for match in matches))
+        self.assertTrue(all(not match["approvalRequired"] for match in matches))
+        create_chat_client.assert_not_called()
+
+    def test_tool_search_filter_options_require_tool_search(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--json", "--tool-search-category", "session"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(payload["kind"], "error")
+        self.assertEqual(payload["error"], "--tool-search-category can only be used with --tool-search.")
         create_chat_client.assert_not_called()
 
     def test_main_runs_review_local_flag_without_creating_client(self) -> None:

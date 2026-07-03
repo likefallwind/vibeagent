@@ -37,6 +37,12 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--search-context-lines can only be used with --search or --search-contexts."
     if args.search_context_max_bytes is not None and args.search_contexts is None:
         return "--search-context-max-bytes can only be used with --search-contexts."
+    if args.tool_search_max != 20 and args.tool_search is None:
+        return "--tool-search-max can only be used with --tool-search."
+    if args.tool_search_category is not None and args.tool_search is None:
+        return "--tool-search-category can only be used with --tool-search."
+    if args.tool_search_approval != "any" and args.tool_search is None:
+        return "--tool-search-approval can only be used with --tool-search."
     if args.find_files_path and args.find_files is None:
         return "--find-files-path can only be used with --find-files."
     if args.find_files_max_matches is not None and args.find_files is None:

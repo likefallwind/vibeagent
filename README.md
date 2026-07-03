@@ -138,7 +138,9 @@ self-checks.
 `--json --tools`, `--json --tool <name>`, and `--json --tool-search <query>`
 include structured tool catalog payloads with categories, approval-required
 state, required input fields, search matches, property metadata, full input
-schemas for single-tool lookups, and missing-tool suggestions.
+schemas for single-tool lookups, and missing-tool suggestions. Tool search can
+be filtered with `--tool-search-max`, `--tool-search-category`, and
+`--tool-search-approval`.
 `--json --checks` includes a structured `checks` object with shown and total
 suggested verification commands, truncation state, changed files, and the same
 message shown in the text UI.
@@ -383,6 +385,7 @@ python -m vibeagent --config --cwd ../my-project
 python -m vibeagent --tools
 python -m vibeagent --tool read_file
 python -m vibeagent --tool-search verification
+python -m vibeagent --tool-search verification --tool-search-category session --tool-search-approval no --tool-search-max 5
 python -m vibeagent --permissions --approval deny
 python -m vibeagent --checks --cwd ../my-project
 python -m vibeagent --checks --checks-max 10 --cwd ../my-project
