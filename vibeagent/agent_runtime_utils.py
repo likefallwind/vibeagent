@@ -17,6 +17,7 @@ from .workspace_core import RunWorkspace
 AGENT_MESSAGE_COMPACT_THRESHOLD = 18
 AGENT_COMPACT_OBSERVATION_LIMIT = 20
 AGENT_COMPACT_CONTEXT_MAX_LENGTH = 12_000
+SESSION_TOOL_INPUT_REDACT_KEYS = {"content", "old", "new", "replacement", "patch", "value"}
 
 
 def format_exception(error: Exception) -> str:
@@ -163,9 +164,71 @@ def summarize_command(result: object) -> str:
 
 def append_session_event(session_dir: Path, event_type: str, payload: dict[str, Any]) -> None:
     session_dir.mkdir(parents=True, exist_ok=True)
-    event = redact_jsonable_payload(to_jsonable({"type": event_type, **payload}))
+    event = redact_jsonable_payload(sanitize_session_event_payload(event_type, to_jsonable(payload)))
+    event = {"type": event_type, **event}
     with (session_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+
+def sanitize_session_event_payload(event_type: str, payload: Any) -> Any:
+    if not isinstance(payload, dict):
+        return payload
+    sanitized = dict(payload)
+    if event_type == "tool_call":
+        sanitized["input"] = sanitize_tool_call_input(sanitized.get("input"))
+    if event_type == "model":
+        sanitized["content"] = sanitize_model_event_content(sanitized.get("content"))
+    return sanitized
+
+
+def sanitize_model_event_content(content: Any) -> Any:
+    if not isinstance(content, list):
+        return content
+    sanitized_blocks: list[Any] = []
+    for block in content:
+        if not isinstance(block, dict) or block.get("type") != "tool_call":
+            sanitized_blocks.append(block)
+            continue
+        sanitized_block = dict(block)
+        sanitized_block["input"] = sanitize_tool_call_input(sanitized_block.get("input"))
+        sanitized_blocks.append(sanitized_block)
+    return sanitized_blocks
+
+
+def sanitize_tool_call_input(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(key): redacted_tool_input_value(str(key), item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [sanitize_tool_call_input(item) for item in value]
+    return value
+
+
+def redacted_tool_input_value(key: str, value: Any) -> Any:
+    if key in SESSION_TOOL_INPUT_REDACT_KEYS:
+        return summarize_redacted_tool_input_value(value)
+    if isinstance(value, dict):
+        return sanitize_tool_call_input(value)
+    if isinstance(value, list):
+        return [sanitize_tool_call_input(item) for item in value]
+    return value
+
+
+def summarize_redacted_tool_input_value(value: Any) -> dict[str, Any]:
+    summary: dict[str, Any] = {"redacted": True}
+    if isinstance(value, str):
+        summary.update({"type": "string", "chars": len(value), "lines": len(value.splitlines())})
+    elif isinstance(value, list):
+        summary.update({"type": "list", "items": len(value)})
+    elif isinstance(value, dict):
+        summary.update({"type": "object", "keys": len(value)})
+    elif value is None:
+        summary.update({"type": "null"})
+    else:
+        summary.update({"type": type(value).__name__})
+    return summary
 
 
 def to_jsonable(value: Any) -> Any:

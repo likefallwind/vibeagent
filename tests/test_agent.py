@@ -4846,6 +4846,51 @@ class AgentTests(unittest.TestCase):
         self.assertNotIn("sk-testsecret1234567890", events_text)
         self.assertIn("src/[REDACTED].py", events_text)
 
+    def test_run_agent_redacts_tool_input_text_from_session_events(self) -> None:
+        content = "plain confidential content\nsecond line\n"
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "1",
+                            "name": "write_file",
+                            "input": {"path": "note.txt", "content": content},
+                        }
+                    ],
+                    [{"type": "text", "text": "Created note.txt."}],
+                ]
+            )
+
+            result = run_agent(
+                "create confidential note",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_handler=approve_all,
+            )
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events_text = events_path.read_text(encoding="utf-8")
+            events = [json.loads(line) for line in events_text.splitlines()]
+            written_content = (root / "note.txt").read_text(encoding="utf-8")
+
+        self.assertTrue(result.success)
+        self.assertEqual(written_content, content)
+        self.assertNotIn("plain confidential content", events_text)
+        model_event = next(event for event in events if event["type"] == "model")
+        model_input = model_event["content"][0]["input"]
+        tool_call_event = next(event for event in events if event["type"] == "tool_call")
+        tool_input = tool_call_event["input"]
+        for payload in (model_input, tool_input):
+            self.assertEqual(payload["path"], "note.txt")
+            self.assertEqual(
+                payload["content"],
+                {"redacted": True, "type": "string", "chars": len(content), "lines": 2},
+            )
+
     def test_run_agent_warns_when_auto_checkpoint_fails_before_project_change(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)
