@@ -4891,6 +4891,39 @@ class AgentTests(unittest.TestCase):
                 {"redacted": True, "type": "string", "chars": len(content), "lines": 2},
             )
 
+    def test_run_agent_redacts_tool_result_content_from_session_events_only(self) -> None:
+        content = "plain confidential output\nsecond line\n"
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            (root / "note.txt").write_text(content, encoding="utf-8")
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "read_file", "input": {"path": "note.txt"}}],
+                    [{"type": "text", "text": "Read note.txt."}],
+                ]
+            )
+
+            result = run_agent(
+                "read confidential note",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_handler=approve_all,
+            )
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events_text = events_path.read_text(encoding="utf-8")
+            events = [json.loads(line) for line in events_text.splitlines()]
+            model_tool_result = client.messages[1][-1].content[0]["content"]
+
+        self.assertTrue(result.success)
+        self.assertIn("plain confidential output", model_tool_result)
+        self.assertNotIn("plain confidential output", events_text)
+        tool_result_event = next(event for event in events if event["type"] == "tool_result")
+        self.assertEqual(
+            tool_result_event["result"]["content"],
+            {"redacted": True, "type": "string", "chars": len(content), "lines": 2},
+        )
+
     def test_run_agent_warns_when_auto_checkpoint_fails_before_project_change(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)

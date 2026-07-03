@@ -18,6 +18,7 @@ AGENT_MESSAGE_COMPACT_THRESHOLD = 18
 AGENT_COMPACT_OBSERVATION_LIMIT = 20
 AGENT_COMPACT_CONTEXT_MAX_LENGTH = 12_000
 SESSION_TOOL_INPUT_REDACT_KEYS = {"content", "old", "new", "replacement", "patch", "value"}
+SESSION_TOOL_RESULT_REDACT_KEYS = {"content", "diff"}
 
 
 def format_exception(error: Exception) -> str:
@@ -176,6 +177,8 @@ def sanitize_session_event_payload(event_type: str, payload: Any) -> Any:
     sanitized = dict(payload)
     if event_type == "tool_call":
         sanitized["input"] = sanitize_tool_call_input(sanitized.get("input"))
+    if event_type == "tool_result":
+        sanitized["result"] = sanitize_tool_result_payload(sanitized.get("result"))
     if event_type == "model":
         sanitized["content"] = sanitize_model_event_content(sanitized.get("content"))
     return sanitized
@@ -213,6 +216,27 @@ def redacted_tool_input_value(key: str, value: Any) -> Any:
         return sanitize_tool_call_input(value)
     if isinstance(value, list):
         return [sanitize_tool_call_input(item) for item in value]
+    return value
+
+
+def sanitize_tool_result_payload(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(key): redacted_tool_result_value(str(key), item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [sanitize_tool_result_payload(item) for item in value]
+    return value
+
+
+def redacted_tool_result_value(key: str, value: Any) -> Any:
+    if key in SESSION_TOOL_RESULT_REDACT_KEYS:
+        return summarize_redacted_tool_input_value(value)
+    if isinstance(value, dict):
+        return sanitize_tool_result_payload(value)
+    if isinstance(value, list):
+        return [sanitize_tool_result_payload(item) for item in value]
     return value
 
 
