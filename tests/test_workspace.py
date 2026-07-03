@@ -10,6 +10,8 @@ from vibeagent import workspace_file_helpers
 from vibeagent import workspace_file_read
 from vibeagent import workspace_project_info
 from vibeagent import workspace_project_metadata
+from vibeagent import workspace_python_intel
+from vibeagent import workspace_python_symbols
 from vibeagent.workspace import (
     append_project_file,
     build_repo_map,
@@ -129,6 +131,14 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIs(workspace_project_info.read_pyproject_scripts, workspace_project_metadata.read_pyproject_scripts)
         self.assertIs(workspace_project_info.read_makefile_targets, workspace_project_metadata.read_makefile_targets)
         self.assertIs(workspace_project_info.missing_command_tool, workspace_project_metadata.missing_command_tool)
+
+    def test_workspace_python_intel_reexports_symbol_helpers(self) -> None:
+        self.assertIs(workspace_python_intel.collect_python_call_graph_edges, workspace_python_symbols.collect_python_call_graph_edges)
+        self.assertIs(workspace_python_intel.collect_python_call_matches, workspace_python_symbols.collect_python_call_matches)
+        self.assertIs(workspace_python_intel.collect_python_references, workspace_python_symbols.collect_python_references)
+        self.assertIs(workspace_python_intel.collect_python_rename_replacements, workspace_python_symbols.collect_python_rename_replacements)
+        self.assertIs(workspace_python_intel.apply_python_rename_replacements, workspace_python_symbols.apply_python_rename_replacements)
+        self.assertIs(workspace_python_intel.python_call_name, workspace_python_symbols.python_call_name)
 
     def test_workspace_file_read_reexports_file_helpers(self) -> None:
         self.assertIs(workspace_file_read.truncate_utf8_text_bytes, workspace_file_helpers.truncate_utf8_text_bytes)
