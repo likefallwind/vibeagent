@@ -1750,6 +1750,25 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(payload["kind"], "project_commands")
         self.assertEqual(result.steps[0].status, "completed")
 
+    def test_run_agent_allows_tool_search_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "tool_search", "input": {"query": "verification"}}],
+                    [{"type": "text", "text": "Found tools."}],
+                ]
+            )
+
+            result = run_agent("find verification tools", base_dir=Path(base), client=client, max_iterations=2)
+            payload = json.loads(client.messages[1][-1].content[0]["content"])
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "tool_search")
+        self.assertTrue(result.observations[0].ok)
+        self.assertTrue(any(match["name"] == "session_verification" for match in result.observations[0].matches))
+        self.assertEqual(payload["kind"], "tool_search")
+        self.assertEqual(result.steps[0].status, "completed")
+
     def test_run_agent_allows_related_tests_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)

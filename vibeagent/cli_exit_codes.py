@@ -7,6 +7,7 @@ LOCAL_RESULT_ARG_NAMES = frozenset(
     {
         "model",
         "tool",
+        "tool_search",
         "config",
         "tools",
         "permissions",

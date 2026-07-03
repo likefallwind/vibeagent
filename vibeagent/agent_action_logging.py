@@ -146,6 +146,8 @@ def log_action(logger: t.AgentLogger | None, action: object) -> None:
         logger("running suggested checks", build_action_target(action))
     elif action_type == "project_commands":
         logger("reading project commands", None)
+    elif action_type == "tool_search":
+        logger("searching tool catalog", build_action_target(action))
     elif action_type == "related_tests":
         logger("finding related tests", build_action_target(action))
     elif action_type == "focused_test_commands":

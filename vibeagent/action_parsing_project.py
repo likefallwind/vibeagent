@@ -18,6 +18,7 @@ from .types import (
     RunFocusedTestCommandsAction,
     RunSuggestedChecksAction,
     SuggestChecksAction,
+    ToolSearchAction,
 )
 
 
@@ -28,6 +29,7 @@ PROJECT_ACTION_TYPES = {
     "check_suggested_checks",
     "run_suggested_checks",
     "project_commands",
+    "tool_search",
     "related_tests",
     "focused_test_commands",
     "check_focused_test_commands",
@@ -138,6 +140,25 @@ def parse_project_action(action_type: object, value: dict[str, Any], raw: str) -
         max_commands = parse_optional_positive_int(value.get("max_commands", 100), "max_commands", raw, maximum=500) or 100
         max_files = parse_optional_positive_int(value.get("max_files", 30), "max_files", raw, maximum=200) or 30
         return ProjectCommandsAction(type="project_commands", max_commands=max_commands, max_files=max_files)
+
+    if action_type == "tool_search":
+        query = value.get("query")
+        if not isinstance(query, str) or not query.strip():
+            raise ActionParseError("tool_search action query must be a non-empty string.", raw)
+        max_matches = parse_optional_positive_int(value.get("max_matches", 20), "max_matches", raw, maximum=100) or 20
+        category = value.get("category")
+        if category is not None and not isinstance(category, str):
+            raise ActionParseError("tool_search action category must be a string when provided.", raw)
+        approval_required = value.get("approval_required")
+        if approval_required is not None and not isinstance(approval_required, bool):
+            raise ActionParseError("tool_search action approval_required must be a boolean when provided.", raw)
+        return ToolSearchAction(
+            type="tool_search",
+            query=query.strip(),
+            max_matches=max_matches,
+            category=category.strip() if isinstance(category, str) and category.strip() else None,
+            approval_required=approval_required,
+        )
 
     if action_type == "related_tests":
         max_paths = parse_optional_positive_int(value.get("max_paths", 100), "max_paths", raw, maximum=500) or 100

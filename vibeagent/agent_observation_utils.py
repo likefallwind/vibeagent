@@ -298,6 +298,8 @@ def observation_failed(observation: Observation) -> bool:
         return not observation.ok
     if observation.kind == "project_commands":
         return not observation.ok
+    if observation.kind == "tool_search":
+        return not observation.ok
     if observation.kind == "related_tests":
         return not observation.ok
     if observation.kind == "focused_test_commands":

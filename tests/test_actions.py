@@ -212,6 +212,7 @@ from vibeagent.types import (
     StopProcessAction,
     CheckSuggestedChecksAction,
     SuggestChecksAction,
+    ToolSearchAction,
     WaitProcessAction,
     WriteFileAction,
     WriteFileItem,
@@ -477,6 +478,11 @@ class ActionTests(unittest.TestCase):
                 "run_suggested_checks",
             ),
             ("project_commands", {"max_commands": 10, "max_files": 5}, "project_commands"),
+            (
+                "tool_search",
+                {"query": "verification", "max_matches": 5, "category": "session", "approval_required": False},
+                "tool_search",
+            ),
             ("related_tests", {"paths": ["vibeagent/actions.py"], "max_paths": 10, "max_candidates": 5}, "related_tests"),
             (
                 "focused_test_commands",
@@ -1740,6 +1746,9 @@ class ActionTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionParseError, "max_files must be at most 200"):
             parse_tool_action("project_commands", {"max_files": 201})
 
+        with self.assertRaisesRegex(ActionParseError, "tool_search action query must be a non-empty string"):
+            parse_tool_action("tool_search", {"query": ""})
+
         with self.assertRaisesRegex(ActionParseError, "related_tests action paths must be a list of non-empty strings"):
             parse_tool_action("related_tests", {"paths": "app.py"})
 
@@ -2030,6 +2039,7 @@ class ActionTests(unittest.TestCase):
         self.assertIn("check_suggested_checks", names)
         self.assertIn("run_suggested_checks", names)
         self.assertIn("project_commands", names)
+        self.assertIn("tool_search", names)
         self.assertIn("related_tests", names)
         self.assertIn("focused_test_commands", names)
         self.assertIn("check_focused_test_commands", names)
@@ -4799,6 +4809,29 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(invalid.kind, "project_commands")
         self.assertFalse(invalid.ok)
         self.assertIn("max_files must be at most 200", invalid.message)
+
+    def test_execute_tool_search_action_reports_matching_tools(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
+            workspace = create_run_workspace(base, "test-run")
+
+            observation = execute_action(
+                workspace,
+                ToolSearchAction(type="tool_search", query="verification", max_matches=2),
+            )
+            invalid = execute_action(
+                workspace,
+                ToolSearchAction(type="tool_search", query="read", max_matches=101),
+            )
+
+        self.assertEqual(observation.kind, "tool_search")
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.query, "verification")
+        self.assertEqual(observation.shown, 2)
+        self.assertGreaterEqual(observation.total, 2)
+        self.assertTrue(any(match["name"] == "session_verification" for match in observation.matches))
+        self.assertEqual(invalid.kind, "tool_search")
+        self.assertFalse(invalid.ok)
+        self.assertIn("max_matches must be at most 100", invalid.message)
 
     def test_execute_related_tests_action_reports_candidates(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:

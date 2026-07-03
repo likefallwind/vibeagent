@@ -56,6 +56,14 @@ def run_project_local_flag(
             commands["format_tool_report_text"],
             lambda: commands["get_tool_text"](args.tool),
         )
+    if args.tool_search is not None:
+        return local_text_or_report(
+            args,
+            "toolSearch",
+            lambda: commands["get_tool_search_report"](args.tool_search),
+            commands["format_tool_search_report_text"],
+            lambda: commands["get_tool_search_text"](args.tool_search),
+        )
     if args.permissions:
         return local_text_or_report(
             args,
@@ -291,6 +299,8 @@ def run_interactive_project_command(command: Any, commands: dict[str, Any], appr
         return commands["get_tools_text"]()
     if command.type == "tool":
         return commands["get_tool_text"](command.argument)
+    if command.type == "tool_search":
+        return commands["get_tool_search_text"](command.argument)
     if command.type == "permissions":
         return commands["get_permissions_text"](approval_policy)
     if command.type == "checks":

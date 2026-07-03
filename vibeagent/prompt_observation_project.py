@@ -10,6 +10,8 @@ def format_project_observation(index: int, observation: object) -> str | None:
         return _format_check_suggested_checks(index, observation)
     if observation.kind == "project_commands":
         return _format_project_commands(index, observation)
+    if observation.kind == "tool_search":
+        return _format_tool_search(index, observation)
     if observation.kind == "related_tests":
         return _format_related_tests(index, observation)
     if observation.kind == "focused_test_commands":
@@ -86,6 +88,40 @@ def _format_project_commands(index: int, observation: object) -> str:
                 f"source={command.source} file={command.file} detail={command.detail}"
             )
         )
+    return "\n".join(parts)
+
+
+def _format_tool_search(index: int, observation: object) -> str:
+    parts = [
+        (
+            f"{index}. tool_search: {observation.message} "
+            f"query={observation.query} "
+            f"shown={observation.shown}/{observation.total} "
+            f"truncated={str(observation.truncated).lower()}"
+        )
+    ]
+    if observation.category:
+        parts.append(f"category: {observation.category}")
+    if observation.approval_required is not None:
+        parts.append(f"approval_required: {str(observation.approval_required).lower()}")
+    for match in observation.matches:
+        name = str(match.get("name", ""))
+        if not name:
+            continue
+        matched_fields = match.get("matchedFields")
+        matched_text = ", ".join(str(item) for item in matched_fields) if isinstance(matched_fields, list) else "."
+        required = match.get("required")
+        required_text = ", ".join(str(item) for item in required) if isinstance(required, list) and required else "."
+        parts.append(
+            (
+                f"tool: name={name} category={match.get('category', 'other')} "
+                f"approvalRequired={str(bool(match.get('approvalRequired'))).lower()} "
+                f"score={match.get('score', 0)} matched={matched_text} required={required_text} "
+                f"description={match.get('description', '')}"
+            )
+        )
+    if observation.suggestions and not observation.matches:
+        parts.append("suggestions: " + ", ".join(observation.suggestions))
     return "\n".join(parts)
 
 

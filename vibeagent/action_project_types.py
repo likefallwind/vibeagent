@@ -52,6 +52,15 @@ class ProjectCommandsAction:
 
 
 @dataclass(frozen=True)
+class ToolSearchAction:
+    type: Literal["tool_search"]
+    query: str
+    max_matches: int = 20
+    category: str | None = None
+    approval_required: bool | None = None
+
+
+@dataclass(frozen=True)
 class RelatedTestsAction:
     type: Literal["related_tests"]
     paths: list[str] | None = None

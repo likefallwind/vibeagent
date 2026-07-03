@@ -160,6 +160,7 @@ from .observation_project_types import (
     RunSuggestedChecksObservation,
     SuggestChecksObservation,
     SuggestedCheck,
+    ToolSearchObservation,
 )
 from .observation_read_types import (
     CodeOutlineObservation,
@@ -354,6 +355,7 @@ Observation: TypeAlias = (
     | CheckSuggestedChecksObservation
     | RunSuggestedChecksObservation
     | ProjectCommandsObservation
+    | ToolSearchObservation
     | RelatedTestsObservation
     | FocusedTestCommandsObservation
     | CheckFocusedTestCommandsObservation

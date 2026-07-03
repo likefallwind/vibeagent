@@ -24,6 +24,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     local.add_argument("--config", action="store_true", help="Show resolved provider and execution configuration and exit.")
     local.add_argument("--tools", action="store_true", help="Show model tool names by category and exit.")
     local.add_argument("--tool", metavar="NAME", help="Show one model tool's description and input schema and exit.")
+    local.add_argument("--tool-search", metavar="QUERY", help="Search model tools by name, description, category, or input fields and exit.")
     local.add_argument("--permissions", action="store_true", help="Show approval-gated tools and hard command blocks and exit.")
     local.add_argument("--checks", action="store_true", help="Show suggested test, build, and lint commands and exit.")
     parser.add_argument("--checks-max", type=positive_int, default=20, metavar="N", help="Maximum suggested checks to show with --checks.")

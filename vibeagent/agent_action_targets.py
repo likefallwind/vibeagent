@@ -174,6 +174,8 @@ def build_action_target(action: object) -> str:
         return "check commands"
     if isinstance(action, t.ProjectCommandsAction):
         return "project commands"
+    if isinstance(action, t.ToolSearchAction):
+        return action.query
     if isinstance(action, t.RelatedTestsAction):
         return "related tests"
     if isinstance(action, t.FocusedTestCommandsAction):

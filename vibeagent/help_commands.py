@@ -11,6 +11,7 @@ def get_help_text() -> str:
             "  /config Show resolved provider and execution configuration.",
             "  /tools  Show the tools exposed to the model.",
             "  /tool <name>  Show one tool's description and input schema.",
+            "  /tool-search <query>  Search tools by name, description, category, or input fields.",
             "  /permissions  Show approval-gated tools and hard command blocks.",
             "  /checks [--max-checks N] Show suggested test, build, and lint commands.",
             "  /check-suggested-checks [max|--max-checks N] Preflight suggested test, build, and lint commands.",

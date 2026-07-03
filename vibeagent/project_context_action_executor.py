@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .process_runtime import execute_run_command_item
 from .runtime_checks import build_command_check_observation
+from .tool_catalog import get_tool_search_report
 from .types import (
     AgentAction,
     CheckFocusedTestCommandsAction,
@@ -40,6 +41,8 @@ from .types import (
     SuggestedCheck,
     SuggestChecksAction,
     SuggestChecksObservation,
+    ToolSearchAction,
+    ToolSearchObservation,
 )
 from .workspace import (
     build_repo_map,
@@ -212,6 +215,44 @@ def execute_project_context_action(
                 truncated=False,
                 total_files=0,
                 scanned_files=0,
+                message=str(error),
+            )
+
+    if isinstance(action, ToolSearchAction):
+        try:
+            metadata = get_tool_search_report(
+                action.query,
+                max_matches=action.max_matches,
+                category=action.category,
+                approval_required=action.approval_required,
+            )
+            return ToolSearchObservation(
+                kind="tool_search",
+                ok=bool(metadata["ok"]),
+                query=str(metadata["query"]),
+                matches=[item for item in metadata["matches"] if isinstance(item, dict)],
+                total=int(metadata["total"]),
+                shown=int(metadata["shown"]),
+                truncated=bool(metadata["truncated"]),
+                category=str(metadata["category"]) if metadata.get("category") is not None else None,
+                approval_required=(
+                    bool(metadata["approvalRequired"]) if metadata.get("approvalRequired") is not None else None
+                ),
+                suggestions=[str(item) for item in metadata.get("suggestions", [])],
+                message=str(metadata["message"]),
+            )
+        except ValueError as error:
+            return ToolSearchObservation(
+                kind="tool_search",
+                ok=False,
+                query=action.query,
+                matches=[],
+                total=0,
+                shown=0,
+                truncated=False,
+                category=action.category,
+                approval_required=action.approval_required,
+                suggestions=[],
                 message=str(error),
             )
 

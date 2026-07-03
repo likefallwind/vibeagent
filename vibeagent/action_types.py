@@ -172,6 +172,7 @@ from .action_project_types import (
     RunFocusedTestCommandsAction,
     RunSuggestedChecksAction,
     SuggestChecksAction,
+    ToolSearchAction,
 )
 from .action_read_types import (
     CheckWriteFileAction,
@@ -300,6 +301,7 @@ AgentAction: TypeAlias = (
     | CheckSuggestedChecksAction
     | RunSuggestedChecksAction
     | ProjectCommandsAction
+    | ToolSearchAction
     | RelatedTestsAction
     | FocusedTestCommandsAction
     | CheckFocusedTestCommandsAction

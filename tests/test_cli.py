@@ -1170,6 +1170,52 @@ class CliTests(unittest.TestCase):
         get_tools_report.assert_called_once_with()
         create_chat_client.assert_not_called()
 
+    def test_main_runs_tool_search_local_flag_without_creating_client(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--tool-search", "verification"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Tool search:", stdout.getvalue())
+        self.assertIn("session_verification", stdout.getvalue())
+        create_chat_client.assert_not_called()
+
+    def test_main_runs_tool_search_local_flag_with_json_output(self) -> None:
+        stdout = io.StringIO()
+        report = {
+            "ok": True,
+            "query": "read",
+            "matches": [{"name": "read_file", "category": "project", "approvalRequired": False}],
+            "total": 1,
+            "shown": 1,
+            "truncated": False,
+            "category": None,
+            "approvalRequired": None,
+            "suggestions": ["read_file"],
+            "message": "Found 1 matching tool(s).",
+        }
+
+        with (
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_tool_search_report", return_value=report) as get_tool_search_report,
+            patch("vibeagent.cli.format_tool_search_report_text", return_value="Tool search:\n  matches: 1/1"),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--json", "--tool-search", "read"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "local")
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["toolSearch"], report)
+        get_tool_search_report.assert_called_once_with("read")
+        create_chat_client.assert_not_called()
+
     def test_main_runs_review_local_flag_without_creating_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
@@ -12981,6 +13027,7 @@ class CliTests(unittest.TestCase):
                         "/diff-contexts --staged app.py",
                         "/tools",
                         "/tool read_file",
+                        "/tool-search verification",
                         "/permissions",
                         "/checks",
                         "/commands",
@@ -13170,6 +13217,7 @@ class CliTests(unittest.TestCase):
             get_diff_contexts_text = stack.enter_context(patch("vibeagent.cli.get_diff_contexts_text", return_value="Diff contexts:\n  contexts: 1/1"))
             stack.enter_context(patch("vibeagent.cli.get_tools_text", return_value="Tools:\n  total: 1"))
             stack.enter_context(patch("vibeagent.cli.get_tool_text", return_value="Tool: read_file"))
+            get_tool_search_text = stack.enter_context(patch("vibeagent.cli.get_tool_search_text", return_value="Tool search:\n  matches: 1/1"))
             get_permissions_text = stack.enter_context(patch("vibeagent.cli.get_permissions_text", return_value="Permissions:\n  approvalPolicy: ask"))
             get_checks_text = stack.enter_context(patch("vibeagent.cli.get_checks_text", return_value="Checks:\n  suggestedChecks: 1/1"))
             get_commands_text = stack.enter_context(patch("vibeagent.cli.get_commands_text", return_value="Project commands:\n  commands: 1/1"))
@@ -13358,6 +13406,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("Diff contexts:", output)
         self.assertIn("Tools:", output)
         self.assertIn("Tool: read_file", output)
+        self.assertIn("Tool search:", output)
         self.assertIn("Permissions:", output)
         self.assertIn("Checks:", output)
         self.assertIn("Project commands:", output)
@@ -13529,6 +13578,7 @@ class CliTests(unittest.TestCase):
         get_config_text.assert_called_once_with()
         get_handoff_text.assert_called_once_with()
         get_changes_text.assert_called_once_with()
+        get_tool_search_text.assert_called_once_with("verification")
         get_permissions_text.assert_called_once_with("ask")
         get_checks_text.assert_called_once_with()
         get_commands_text.assert_called_once_with()

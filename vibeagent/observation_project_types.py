@@ -78,6 +78,21 @@ class ProjectCommandsObservation:
 
 
 @dataclass(frozen=True)
+class ToolSearchObservation:
+    kind: Literal["tool_search"]
+    ok: bool
+    query: str
+    matches: list[dict[str, object]]
+    total: int
+    shown: int
+    truncated: bool
+    category: str | None
+    approval_required: bool | None
+    suggestions: list[str]
+    message: str
+
+
+@dataclass(frozen=True)
 class RelatedTestCandidate:
     source_path: str
     test_path: str

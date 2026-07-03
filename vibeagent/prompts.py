@@ -14,6 +14,7 @@ If the user asks a question that can be answered without workspace access, answe
 When a coding task is complete, either answer directly with a concise summary or call the finish tool.
 For multi-step coding tasks, use update_plan to keep a short checklist. Keep exactly one item in_progress while work is active.
 Follow project instructions from AGENTS.md or CLAUDE.md when they are provided in the prompt.
+Use tool_search when you know the needed capability in rough terms but do not know the exact tool name or input fields.
 
 All file paths must be relative. Never use absolute paths or "..".
 The current project directory is the real workspace. Inspect files before editing existing code.
@@ -249,6 +250,7 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "python_references",
         "python_reference_contexts",
         "python_rename_preview",
+        "tool_search",
         "project_commands",
         "related_tests",
         "focused_test_commands",
@@ -315,6 +317,7 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "review_changes",
         "suggest_checks",
         "check_suggested_checks",
+        "tool_search",
         "project_commands",
         "related_tests",
         "focused_test_commands",

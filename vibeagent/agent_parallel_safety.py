@@ -51,6 +51,7 @@ PARALLEL_SAFE_TOOL_NAMES = {
     "final_review",
     "suggest_checks",
     "project_commands",
+    "tool_search",
     "related_tests",
     "focused_test_commands",
     "project_manifests",

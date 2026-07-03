@@ -27,6 +27,36 @@ PROJECT_RUNTIME_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
 {
+        "name": "tool_search",
+        "description": "Search the model tool catalog by tool name, category, description, required inputs, or input property names without executing project actions.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search terms such as a rough capability, tool name fragment, input property, or category.",
+                },
+                "max_matches": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Maximum matching tools to return. Defaults to 20.",
+                },
+                "category": {
+                    "type": "string",
+                    "enum": ["project", "code", "edit", "git", "command", "session", "checkpoint", "other"],
+                    "description": "Optional category filter.",
+                },
+                "approval_required": {
+                    "type": "boolean",
+                    "description": "Optional approval filter. True returns approval-gated tools; false returns read-only tools.",
+                },
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    },
+{
         "name": "related_tests",
         "description": "Suggest likely related test files for explicit project paths or the current git changes without running tests.",
         "input_schema": {
