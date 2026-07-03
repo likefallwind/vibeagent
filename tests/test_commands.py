@@ -11639,6 +11639,32 @@ class CommandTests(unittest.TestCase):
                 get_report.assert_called_once_with(*args)
                 formatter.assert_called_once_with(report)
 
+    def test_session_readiness_formatters_delegate_to_audit_report_helpers(self) -> None:
+        report = {"exists": True, "session": "run-1"}
+        cases = [
+            (
+                commands_module.format_session_verification_report_text,
+                "vibeagent.session_commands._format_session_verification_report_text",
+            ),
+            (
+                commands_module.format_session_audit_report_text,
+                "vibeagent.session_commands._format_session_audit_report_text",
+            ),
+            (
+                commands_module.format_session_handoff_report_text,
+                "vibeagent.session_commands._format_session_handoff_report_text",
+            ),
+        ]
+
+        for formatter, target in cases:
+            with self.subTest(formatter=formatter.__name__):
+                rendered = f"{formatter.__name__} rendered"
+                with patch(target, return_value=rendered) as helper:
+                    result = formatter(report)
+
+                self.assertEqual(result, rendered)
+                helper.assert_called_once_with(report)
+
     def test_get_model_text_reports_model_configuration_without_exposing_the_key(self) -> None:
         text = get_model_text(
             {
