@@ -15,7 +15,7 @@ from vibeagent.agent import AgentResult
 from vibeagent.cli import build_approval_handler, format_error, handle_approval_command, main, print_agent_result, prompt_approval
 from vibeagent.cli_local_dispatch import LOCAL_FLAG_HANDLER_NAMES, dispatch_local_flag
 from vibeagent.cli_local_flag_detection import LOCAL_FLAG_ARG_NAMES
-from vibeagent.types import ApprovalRequest, TaskStep
+from vibeagent.types import ApprovalRequest, PlanItem, TaskStep
 
 
 class Http401Error(Exception):
@@ -532,6 +532,10 @@ class CliTests(unittest.TestCase):
                 iterations=2,
                 observations=[],
                 steps=[TaskStep(id=1, label="Read file", action_type="read_file", target="app.py", status="completed")],
+                plan=[
+                    PlanItem(step="Inspect failure", status="completed"),
+                    PlanItem(step="Run verification", status="pending"),
+                ],
                 completion_ready=False,
                 completion_blockers=["1 suggested verification check(s) are still pending after the latest project change."],
                 completion_warnings=["Suggested verification checks are still pending after the latest project change."],
@@ -568,6 +572,13 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["runId"], "one-shot")
         self.assertEqual(payload["iterations"], 2)
         self.assertEqual(payload["steps"], 1)
+        self.assertEqual(
+            payload["plan"],
+            [
+                {"status": "completed", "step": "Inspect failure"},
+                {"status": "pending", "step": "Run verification"},
+            ],
+        )
         self.assertFalse(payload["completionReady"])
         self.assertEqual(payload["completionBlockers"], ["1 suggested verification check(s) are still pending after the latest project change."])
         self.assertEqual(payload["completionWarnings"], ["Suggested verification checks are still pending after the latest project change."])

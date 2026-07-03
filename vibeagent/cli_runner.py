@@ -174,6 +174,7 @@ def run_one_shot(
                     "runDir": str(result.run_dir),
                     "iterations": result.iterations,
                     "steps": len(result.steps),
+                    "plan": [{"status": item.status, "step": item.step} for item in result.plan],
                     "completionReady": result.completion_ready,
                     "completionBlockers": result.completion_blockers,
                     "completionWarnings": result.completion_warnings,
