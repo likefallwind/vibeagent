@@ -5,12 +5,16 @@ from pathlib import Path
 import time
 from typing import Any
 
-from .actions import AGENT_TOOL_DEFINITIONS, ActionParseError, execute_action, parse_tool_action, read_checkpoint_git_head
+from .actions import AGENT_TOOL_DEFINITIONS, ActionParseError, execute_action, parse_tool_action
 from .agent_model import complete_with_retries
 from .agent_result import AgentResult
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .agent_action_logging import log_action
+from .agent_auto_checkpoint import (
+    create_auto_checkpoint_before_action as _create_auto_checkpoint_before_action,
+    should_auto_checkpoint_before_action as _should_auto_checkpoint_before_action,
+)
 from .agent_approval import (
     build_approval_request,
     request_approval,
@@ -28,7 +32,6 @@ from .agent_parallel_safety import PARALLEL_SAFE_TOOL_NAMES, is_parallel_safe_ac
 from .agent_parallel_execution import execute_parallel_tool_call_batch
 from .agent_steps import complete_task_step, observation_summary, start_task_step
 from .agent_completion import (
-    PROJECT_CHANGE_OBSERVATION_KINDS,
     auto_final_review_reason,
     build_active_background_process_details,
     build_checkpoint_failure_details,
@@ -84,7 +87,6 @@ from .types import (
     ApprovalHandler,
     ChatClient,
     ChatMessage,
-    CheckpointCreateAction,
     ContentBlock,
     FinalReviewAction,
     ListFilesObservation,
@@ -540,10 +542,7 @@ def execute_action_safely(
 
 
 def should_auto_checkpoint_before_action(workspace: RunWorkspace, action: object) -> bool:
-    action_type = str(getattr(action, "type", ""))
-    if action_type not in PROJECT_CHANGE_OBSERVATION_KINDS:
-        return False
-    return bool(read_checkpoint_git_head(workspace.root))
+    return _should_auto_checkpoint_before_action(workspace, action)
 
 
 def create_auto_checkpoint_before_action(
@@ -554,27 +553,12 @@ def create_auto_checkpoint_before_action(
     command_timeout_ms: int,
     logger: AgentLogger | None,
 ) -> Observation | None:
-    action_type = str(getattr(action, "type", "project change"))
-    checkpoint_action = CheckpointCreateAction(type="checkpoint_create", label=f"auto before {action_type}")
-    if logger:
-        logger("auto checkpoint", f"Creating checkpoint before {action_type}.")
-    step = start_task_step(workspace, steps, iteration, checkpoint_action, logger)
-    observation = execute_action_safely(workspace, checkpoint_action, command_timeout_ms, "checkpoint_create")
-    complete_task_step(workspace, step, observation, iteration, logger)
-    result_payload = redact_jsonable_payload(to_jsonable(observation))
-    append_session_event(
-        workspace.session_dir,
-        "tool_result",
-        {
-            "iteration": iteration,
-            "id": "auto-checkpoint",
-            "name": "checkpoint_create",
-            "auto": True,
-            "before_action_type": action_type,
-            "result": result_payload,
-        },
+    return _create_auto_checkpoint_before_action(
+        workspace,
+        action,
+        steps,
+        iteration,
+        command_timeout_ms,
+        logger,
+        execute_action_safely,
     )
-    if observation_failed(observation):
-        if logger:
-            logger("auto checkpoint skipped", observation_summary(observation))
-    return observation
