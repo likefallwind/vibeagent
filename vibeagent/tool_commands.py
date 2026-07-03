@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .tool_catalog import (
     APPROVAL_REQUIRED_TOOL_NAMES,
+    TOOL_CATEGORIES,
     categorize_tools,
     format_permissions_report_text,
     format_tool_property,
@@ -19,12 +20,14 @@ from .tool_catalog import (
     suggest_tool_names,
     tool_category,
     tool_requires_approval,
+    valid_tool_categories,
     wrap_tool_names,
 )
 
 
 __all__ = [
     "APPROVAL_REQUIRED_TOOL_NAMES",
+    "TOOL_CATEGORIES",
     "categorize_tools",
     "format_permissions_report_text",
     "format_tool_property",
@@ -42,5 +45,6 @@ __all__ = [
     "suggest_tool_names",
     "tool_category",
     "tool_requires_approval",
+    "valid_tool_categories",
     "wrap_tool_names",
 ]

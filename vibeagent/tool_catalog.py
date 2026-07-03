@@ -5,6 +5,9 @@ import re
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
 
 
+TOOL_CATEGORIES = ("project", "code", "edit", "git", "command", "session", "checkpoint", "other")
+
+
 APPROVAL_REQUIRED_TOOL_NAMES = {
     "append_file",
     "checkpoint_delete",
@@ -254,7 +257,7 @@ def get_tool_search_report(
         raise ValueError("max_matches must be at most 100")
 
     normalized_category = category.strip().lower() if isinstance(category, str) and category.strip() else None
-    valid_categories = set(categorize_tools())
+    valid_categories = set(valid_tool_categories())
     if normalized_category is not None and normalized_category not in valid_categories:
         return {
             "ok": False,
@@ -460,20 +463,15 @@ def wrap_tool_names(names: list[str], width: int = 100) -> list[str]:
 
 
 def categorize_tools() -> dict[str, list[str]]:
-    categories: dict[str, list[str]] = {
-        "project": [],
-        "code": [],
-        "edit": [],
-        "git": [],
-        "command": [],
-        "session": [],
-        "checkpoint": [],
-        "other": [],
-    }
+    categories: dict[str, list[str]] = {category: [] for category in TOOL_CATEGORIES}
     for tool in AGENT_TOOL_DEFINITIONS:
         name = str(tool["name"])
         categories[tool_category(name)].append(name)
     return categories
+
+
+def valid_tool_categories() -> tuple[str, ...]:
+    return TOOL_CATEGORIES
 
 
 def tool_category(name: str) -> str:

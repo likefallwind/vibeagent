@@ -32,6 +32,7 @@ from vibeagent.cli_parse_session import (
     parse_interactive_session_search_argument,
     parse_interactive_transcript_argument,
 )
+from vibeagent.cli_parse_tool_search import parse_interactive_tool_search_argument
 
 
 class CliParseModuleTests(unittest.TestCase):
@@ -57,6 +58,7 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertIs(cli_parsing.parse_interactive_run_argument, parse_interactive_run_argument)
         self.assertIs(cli_parsing.parse_interactive_run_sequence_argument, parse_interactive_run_sequence_argument)
         self.assertIs(cli_parsing.parse_interactive_check_run_sequence_argument, parse_interactive_check_run_sequence_argument)
+        self.assertIs(cli_parsing.parse_interactive_tool_search_argument, parse_interactive_tool_search_argument)
 
     def test_core_helpers_keep_existing_behavior(self) -> None:
         args = argparse.Namespace(
@@ -102,6 +104,29 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertIsNone(bad_run_id)
         self.assertEqual(bad_kwargs, {})
         self.assertIn("cannot be used together", bad_error or "")
+
+    def test_tool_search_parser_accepts_filters(self) -> None:
+        query, kwargs, error = parse_interactive_tool_search_argument(
+            "--max=3 --category session --approval no verification"
+        )
+        any_query, any_kwargs, any_error = parse_interactive_tool_search_argument(
+            "--category=project --approval=any tool search"
+        )
+
+        self.assertEqual(query, "verification")
+        self.assertEqual(kwargs, {"max_matches": 3, "category": "session", "approval_required": False})
+        self.assertIsNone(error)
+        self.assertEqual(any_query, "tool search")
+        self.assertEqual(any_kwargs, {"category": "project", "approval_required": None})
+        self.assertIsNone(any_error)
+
+    def test_tool_search_parser_rejects_unknown_category(self) -> None:
+        query, kwargs, error = parse_interactive_tool_search_argument("--category missing verification")
+
+        self.assertIsNone(query)
+        self.assertEqual(kwargs, {})
+        self.assertIn("Usage: /tool-search", error or "")
+        self.assertIn("--category must be one of:", error or "")
 
     def test_runtime_check_parsers_keep_existing_behavior(self) -> None:
         port, port_kwargs, port_error, port_handled = parse_interactive_port_argument("--host 0.0.0.0 --timeout-ms 1500 5173")

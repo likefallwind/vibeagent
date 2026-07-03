@@ -72,3 +72,4 @@ from .cli_parse_run import (
     parse_interactive_run_suggested_checks_argument,
     parse_interactive_wait_process_argument,
 )
+from .cli_parse_tool_search import parse_interactive_tool_search_argument

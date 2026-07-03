@@ -3,6 +3,7 @@ from __future__ import annotations
 import shlex
 
 from .cli_parse_core import parse_interactive_positive_option
+from .tool_catalog import valid_tool_categories
 
 
 def parse_interactive_tool_search_argument(argument: str | None) -> tuple[str | None, dict[str, object], str | None]:
@@ -60,7 +61,7 @@ def _apply_tool_search_option(flag: str, raw_value: str | None, kwargs: dict[str
         if raw_value is None:
             return f"{flag} requires a value."
         category = raw_value.strip()
-        valid_categories = {"project", "code", "edit", "git", "command", "session", "checkpoint", "other"}
+        valid_categories = valid_tool_categories()
         if category not in valid_categories:
             return f"{flag} must be one of: {', '.join(sorted(valid_categories))}."
         kwargs["category"] = category
