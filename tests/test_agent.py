@@ -156,6 +156,44 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(rows[0]["task"], "继续上次任务")
         self.assertIn("old-run", rows[0]["prior_context"])
 
+    def test_run_agent_compacts_long_message_history(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            (root / "app.py").write_text("print('ok')\n", encoding="utf-8")
+            responses: list[list[ContentBlock]] = [
+                [{"type": "tool_call", "id": str(index), "name": "read_file", "input": {"path": "app.py"}}]
+                for index in range(1, 10)
+            ]
+            responses.append([{"type": "tool_call", "id": "10", "name": "finish", "input": {"message": "done"}}])
+            client = MockClient(responses)
+
+            result = run_agent(
+                "read repeatedly then finish",
+                base_dir=root,
+                client=client,
+                max_iterations=10,
+                prior_context="session: old-run\nfinal: keep this evidence",
+            )
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            rows = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+
+        compaction_rows = [row for row in rows if row["type"] == "context_compacted"]
+        final_call_user = client.messages[9][1].content
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "done")
+        self.assertEqual(len(client.messages[9]), 2)
+        self.assertIsInstance(final_call_user, str)
+        self.assertIn("Compacted current-run context:", final_call_user)
+        self.assertIn("Total observations so far: 9.", final_call_user)
+        self.assertIn("Original prior-session context:", final_call_user)
+        self.assertIn("session: old-run", final_call_user)
+        self.assertIn("Compacted current-run observations:", final_call_user)
+        self.assertIn("read_file app.py", final_call_user)
+        self.assertEqual(len(compaction_rows), 1)
+        self.assertEqual(compaction_rows[0]["previous_messages"], 20)
+        self.assertEqual(compaction_rows[0]["new_messages"], 2)
+        self.assertEqual(compaction_rows[0]["observations"], 9)
+
     def test_run_agent_records_model_token_usage_without_raw_response_payload(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             client = MockClient(

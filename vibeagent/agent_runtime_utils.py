@@ -7,8 +7,16 @@ from typing import Any
 
 from .action_parsing import ActionParseError
 from .agent_observation_utils import summarize
+from .prompt_observations import format_observations
+from .prompts import build_messages
 from .redaction import redact_jsonable_payload
-from .types import ContentBlock, ListFilesObservation, Observation, ToolErrorObservation
+from .types import ChatMessage, ContentBlock, ListFilesObservation, Observation, ToolErrorObservation
+from .workspace_core import RunWorkspace
+
+
+AGENT_MESSAGE_COMPACT_THRESHOLD = 18
+AGENT_COMPACT_OBSERVATION_LIMIT = 20
+AGENT_COMPACT_CONTEXT_MAX_LENGTH = 12_000
 
 
 def format_exception(error: Exception) -> str:
@@ -25,6 +33,67 @@ def compact_session_context(value: str | None, max_length: int = 4000) -> str | 
     if len(compact) <= max_length:
         return compact
     return f"{compact[:max_length]}..."
+
+
+def compact_agent_message_history(
+    task: str,
+    workspace: RunWorkspace,
+    messages: list[ChatMessage],
+    observations: list[Observation],
+    original_prior_context: str | None,
+    iteration: int,
+    threshold: int = AGENT_MESSAGE_COMPACT_THRESHOLD,
+    observation_limit: int = AGENT_COMPACT_OBSERVATION_LIMIT,
+    max_context_length: int = AGENT_COMPACT_CONTEXT_MAX_LENGTH,
+) -> list[ChatMessage]:
+    if len(messages) <= threshold:
+        return messages
+
+    prior_context = build_compacted_agent_context(
+        observations,
+        original_prior_context=original_prior_context,
+        observation_limit=observation_limit,
+        max_context_length=max_context_length,
+    )
+    compacted_messages = build_messages(task, workspace, observations, prior_context=prior_context)
+    append_session_event(
+        workspace.session_dir,
+        "context_compacted",
+        {
+            "iteration": iteration,
+            "previous_messages": len(messages),
+            "new_messages": len(compacted_messages),
+            "observations": len(observations),
+            "retained_observations": min(len(observations), observation_limit),
+        },
+    )
+    return compacted_messages
+
+
+def build_compacted_agent_context(
+    observations: list[Observation],
+    original_prior_context: str | None = None,
+    observation_limit: int = AGENT_COMPACT_OBSERVATION_LIMIT,
+    max_context_length: int = AGENT_COMPACT_CONTEXT_MAX_LENGTH,
+) -> str:
+    recent_observations = observations[-observation_limit:]
+    sections = [
+        "Compacted current-run context:",
+        f"Total observations so far: {len(observations)}.",
+        f"Recent observations retained: {len(recent_observations)}.",
+    ]
+    if original_prior_context:
+        compacted_prior = compact_session_context(original_prior_context)
+        if compacted_prior:
+            sections.extend(["Original prior-session context:", compacted_prior])
+    sections.extend(
+        [
+            "Compacted current-run observations:",
+            format_observations(recent_observations),
+        ]
+    )
+    compacted = "\n".join(sections)
+    return compact_session_context(compacted, max_context_length) or ""
 
 
 def list_files_action_path(action: object) -> str | None:

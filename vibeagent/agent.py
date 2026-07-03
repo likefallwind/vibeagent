@@ -80,6 +80,7 @@ from .agent_observation_utils import observation_failed, summarize
 from .agent_runtime_utils import (
     append_session_event,
     compact_session_context,
+    compact_agent_message_history,
     content_blocks_to_text,
     normalize_assistant_content,
     summarize_command,
@@ -123,6 +124,7 @@ def run_agent(
     steps: list[TaskStep] = []
     plan: list[PlanItem] = []
     messages = build_messages(task, current_workspace, prior_context=prior_context)
+    original_prior_context = prior_context
     auto_checkpoint_attempted = False
     append_session_event(
         current_workspace.session_dir,
@@ -228,6 +230,14 @@ def run_agent(
             handled_tool_calls = parallel_batch_result.handled_count
         if handled_tool_calls == len(tool_calls):
             messages.append(ChatMessage(role="user", content=tool_results))
+            messages = compact_agent_message_history(
+                task,
+                current_workspace,
+                messages,
+                observations,
+                original_prior_context,
+                iteration,
+            )
             continue
 
         blocked_completion_feedback: str | None = None
@@ -320,6 +330,14 @@ def run_agent(
             continue
 
         messages.append(ChatMessage(role="user", content=tool_results))
+        messages = compact_agent_message_history(
+            task,
+            current_workspace,
+            messages,
+            observations,
+            original_prior_context,
+            iteration,
+        )
 
     # Return failure only after exhausting max iterations without an explicit finish action.
     return finish_agent_run(
