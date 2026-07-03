@@ -31,6 +31,7 @@ from .agent_approval_preview import (
 from .agent_parallel_safety import PARALLEL_SAFE_TOOL_NAMES, is_parallel_safe_action
 from .agent_parallel_execution import execute_parallel_tool_call_batch
 from .agent_steps import complete_task_step, observation_summary, start_task_step
+from .agent_tool_execution import execute_parsed_tool_action
 from .agent_completion import (
     auto_final_review_reason,
     build_active_background_process_details,
@@ -74,7 +75,6 @@ from .agent_runtime_utils import (
     append_session_event,
     compact_session_context,
     content_blocks_to_text,
-    find_repeated_list_observation,
     normalize_assistant_content,
     summarize_command,
     to_jsonable,
@@ -83,13 +83,11 @@ from .agent_runtime_utils import (
 from .session import summarize_session
 from .types import (
     AgentLogger,
-    ApprovalDeniedObservation,
     ApprovalHandler,
     ChatClient,
     ChatMessage,
     ContentBlock,
     FinalReviewAction,
-    ListFilesObservation,
     Observation,
     PlanItem,
     RunCommandObservation,
@@ -236,79 +234,27 @@ def run_agent(
 
             try:
                 action = parse_tool_action(tool_name, tool_input)
-                step = start_task_step(current_workspace, steps, iteration, action, logger)
-                log_action(logger, action)
-                repeated_list = find_repeated_list_observation(action, observations)
-                if repeated_list:
-                    observation = ListFilesObservation(
-                        kind="list_files",
-                        path=repeated_list.path,
-                        files=repeated_list.files,
-                        total=repeated_list.total,
-                        truncated=repeated_list.truncated,
-                        message=(
-                            f"Already listed {repeated_list.path}: {repeated_list.message} "
-                            "Do not call list_files for this path again. Choose a useful tool call or answer directly."
-                        ),
-                    )
-                else:
-                    approval_request = build_approval_request(action)
-                    if approval_request:
-                        approval_request = attach_approval_preview(approval_request, action, observations)
-                        append_session_event(
-                            current_workspace.session_dir,
-                            "approval_requested",
-                            {"iteration": iteration, "step": step, "request": approval_request},
-                        )
-                        if logger:
-                            logger("approval required", summarize_approval_request(approval_request))
-                        decision = request_approval(approval_handler, approval_request)
-                        append_session_event(
-                            current_workspace.session_dir,
-                            "approval_decision",
-                            {"iteration": iteration, "step": step, "decision": decision},
-                        )
-                        if logger:
-                            status = "approval approved" if decision.approved else "approval denied"
-                            logger(status, summarize_approval_decision(approval_request, decision))
-                        if not decision.approved:
-                            observation = ApprovalDeniedObservation(
-                                kind="approval_denied",
-                                action_type=approval_request.action_type,
-                                target=approval_request.target,
-                                message=decision.message or "Action was denied by approval policy.",
-                            )
-                        else:
-                            if not auto_checkpoint_attempted and should_auto_checkpoint_before_action(current_workspace, action):
-                                auto_checkpoint_attempted = True
-                                auto_checkpoint = create_auto_checkpoint_before_action(
-                                    current_workspace,
-                                    action,
-                                    steps,
-                                    iteration,
-                                    command_timeout_ms,
-                                    logger,
-                                )
-                                if auto_checkpoint is not None:
-                                    observations.append(auto_checkpoint)
-                            observation = execute_action_safely(current_workspace, action, command_timeout_ms, tool_name)
-                    else:
-                        if not auto_checkpoint_attempted and should_auto_checkpoint_before_action(current_workspace, action):
-                            auto_checkpoint_attempted = True
-                            auto_checkpoint = create_auto_checkpoint_before_action(
-                                current_workspace,
-                                action,
-                                steps,
-                                iteration,
-                                command_timeout_ms,
-                                logger,
-                            )
-                            if auto_checkpoint is not None:
-                                observations.append(auto_checkpoint)
-                        observation = execute_action_safely(current_workspace, action, command_timeout_ms, tool_name)
+                execution = execute_parsed_tool_action(
+                    current_workspace,
+                    action,
+                    observations,
+                    steps,
+                    iteration,
+                    command_timeout_ms,
+                    logger,
+                    approval_handler,
+                    tool_name,
+                    auto_checkpoint_attempted,
+                    execute_action_safely,
+                    should_auto_checkpoint_before_action,
+                    create_auto_checkpoint_before_action,
+                )
+                observation = execution.observation
+                auto_checkpoint_attempted = execution.auto_checkpoint_attempted
+                if execution.auto_checkpoint is not None:
+                    observations.append(execution.auto_checkpoint)
                 if observation.kind == "update_plan":
                     plan = list(observation.plan)
-                complete_task_step(current_workspace, step, observation, iteration, logger)
             except ActionParseError as error:
                 observation = tool_error_observation(tool_name, error)
 
