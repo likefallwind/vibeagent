@@ -6,11 +6,31 @@ from unittest.mock import patch
 
 from vibeagent import git_commands
 from vibeagent.git_read_commands import (
+    _clip,
+    _indent_block,
+    clip_with_flag,
     format_blame_report_text,
+    format_branches_report_text,
+    format_git_conflicts_report_text,
+    format_git_info_report_text,
     format_git_status_report_text,
+    format_log_report_text,
+    format_show_report_text,
     get_blame_report,
     get_git_status_report,
     parse_log_request,
+)
+from vibeagent.git_read_report_helpers import (
+    clip,
+    clip_with_flag as report_clip_with_flag,
+    format_blame_report_text as report_format_blame_report_text,
+    format_branches_report_text as report_format_branches_report_text,
+    format_git_conflicts_report_text as report_format_git_conflicts_report_text,
+    format_git_info_report_text as report_format_git_info_report_text,
+    format_git_status_report_text as report_format_git_status_report_text,
+    format_log_report_text as report_format_log_report_text,
+    format_show_report_text as report_format_show_report_text,
+    indent_block,
 )
 from vibeagent.git_sync_commands import (
     format_git_fetch_report_text,
@@ -62,6 +82,18 @@ class GitCommandModuleTests(unittest.TestCase):
         self.assertIs(git_commands.get_blame_report, get_blame_report)
         self.assertIs(git_commands.format_blame_report_text, format_blame_report_text)
         self.assertIs(git_commands.parse_log_request, parse_log_request)
+
+    def test_git_read_commands_reexports_report_helpers(self) -> None:
+        self.assertIs(_clip, clip)
+        self.assertIs(_indent_block, indent_block)
+        self.assertIs(clip_with_flag, report_clip_with_flag)
+        self.assertIs(format_git_status_report_text, report_format_git_status_report_text)
+        self.assertIs(format_git_conflicts_report_text, report_format_git_conflicts_report_text)
+        self.assertIs(format_git_info_report_text, report_format_git_info_report_text)
+        self.assertIs(format_branches_report_text, report_format_branches_report_text)
+        self.assertIs(format_log_report_text, report_format_log_report_text)
+        self.assertIs(format_show_report_text, report_format_show_report_text)
+        self.assertIs(format_blame_report_text, report_format_blame_report_text)
 
     def test_git_commands_reexports_sync_helpers(self) -> None:
         self.assertIs(git_commands.get_check_fetch_report, get_check_fetch_report)
