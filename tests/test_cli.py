@@ -6814,6 +6814,14 @@ class CliTests(unittest.TestCase):
                 ["--python-context-max-bytes", "1000"],
                 "--python-context-max-bytes can only be used with --python-ref-contexts.",
             ),
+            (
+                ["--python-call-graph-max-files", "5"],
+                "--python-call-graph-max-files can only be used with --python-call-graph.",
+            ),
+            (
+                ["--python-call-graph-max-edges", "20"],
+                "--python-call-graph-max-edges can only be used with --python-call-graph.",
+            ),
         ]
 
         for argv, expected in cases:
@@ -6839,11 +6847,22 @@ class CliTests(unittest.TestCase):
                 patch("vibeagent.cli.get_python_call_graph_text", return_value="Python call graph:\n  edges: 3/3") as get_python_call_graph_text,
                 redirect_stdout(stdout),
             ):
-                exit_code = main(["--cwd", base, "--python-call-graph", "src"])
+                exit_code = main(
+                    [
+                        "--cwd",
+                        base,
+                        "--python-call-graph",
+                        "src",
+                        "--python-call-graph-max-files",
+                        "7",
+                        "--python-call-graph-max-edges",
+                        "9",
+                    ]
+                )
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Python call graph:", stdout.getvalue())
-        get_python_call_graph_text.assert_called_once_with(Path(base).resolve(), "src")
+        get_python_call_graph_text.assert_called_once_with(Path(base).resolve(), "src", max_files=7, max_edges=9)
         create_chat_client.assert_not_called()
 
     def test_main_runs_python_code_intelligence_local_flags_as_json_without_creating_client(self) -> None:
@@ -6908,12 +6927,12 @@ class CliTests(unittest.TestCase):
                 {"symbol": "helper", "path": "src", "max_matches": 6},
             ),
             (
-                ["--python-call-graph", "src"],
+                ["--python-call-graph", "src", "--python-call-graph-max-files", "7", "--python-call-graph-max-edges", "8"],
                 "vibeagent.cli.get_python_call_graph_report",
                 "vibeagent.cli.format_python_call_graph_report_text",
                 "pythonCallGraph",
                 (Path, "src"),
-                {},
+                {"max_files": 7, "max_edges": 8},
             ),
         ]
         for argv_tail, getter_target, formatter_target, payload_key, expected_args, expected_kwargs in cases:

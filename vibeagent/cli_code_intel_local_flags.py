@@ -119,12 +119,17 @@ def run_python_local_flag(
             ),
         )
     if args.python_call_graph is not None:
+        python_call_graph_kwargs = {}
+        if args.python_call_graph_max_files is not None:
+            python_call_graph_kwargs["max_files"] = args.python_call_graph_max_files
+        if args.python_call_graph_max_edges is not None:
+            python_call_graph_kwargs["max_edges"] = args.python_call_graph_max_edges
         return local_text_or_report(
             args,
             "pythonCallGraph",
-            lambda: commands["get_python_call_graph_report"](root, args.python_call_graph or None),
+            lambda: commands["get_python_call_graph_report"](root, args.python_call_graph or None, **python_call_graph_kwargs),
             commands["format_python_call_graph_report_text"],
-            lambda: commands["get_python_call_graph_text"](root, args.python_call_graph or None),
+            lambda: commands["get_python_call_graph_text"](root, args.python_call_graph or None, **python_call_graph_kwargs),
         )
     if args.python_rename_preview is not None:
         python_rename_kwargs = {
