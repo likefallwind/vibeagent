@@ -380,23 +380,17 @@ def get_resume_context(
 ) -> tuple[str | None, str | None, str]:
     if run_id and run_id.strip().lower() in {"off", "clear", "none"}:
         return None, None, "Resume context cleared."
-    selected = run_id or get_last_session_id(project_root)
-    if not selected:
-        return None, None, "No sessions found."
-    try:
-        context = build_session_resume_context(
-            project_root,
-            selected,
-            max_failures=max_failures,
-            max_files=max_files,
-            max_commands=max_commands,
-            max_checks=max_checks,
-            max_output_chars=max_output_chars,
-            max_text=max_text,
-        )
-    except ValueError as error:
-        return None, None, str(error)
-    return selected, context, f"Resume context loaded from session {selected}."
+    return _load_session_context(
+        run_id,
+        project_root,
+        success_label="Resume context",
+        max_failures=max_failures,
+        max_files=max_files,
+        max_commands=max_commands,
+        max_checks=max_checks,
+        max_output_chars=max_output_chars,
+        max_text=max_text,
+    )
 
 
 def get_compact_context(
@@ -408,6 +402,31 @@ def get_compact_context(
     max_checks: int = 50,
     max_output_chars: int = 1_000,
     max_text: int = 500,
+) -> tuple[str | None, str | None, str]:
+    return _load_session_context(
+        run_id,
+        project_root,
+        success_label="Compacted context",
+        max_failures=max_failures,
+        max_files=max_files,
+        max_commands=max_commands,
+        max_checks=max_checks,
+        max_output_chars=max_output_chars,
+        max_text=max_text,
+    )
+
+
+def _load_session_context(
+    run_id: str | None,
+    project_root: str | Path,
+    *,
+    success_label: str,
+    max_failures: int,
+    max_files: int,
+    max_commands: int,
+    max_checks: int,
+    max_output_chars: int,
+    max_text: int,
 ) -> tuple[str | None, str | None, str]:
     selected = run_id or get_last_session_id(project_root)
     if not selected:
@@ -425,4 +444,4 @@ def get_compact_context(
         )
     except ValueError as error:
         return None, None, str(error)
-    return selected, context, f"Compacted context loaded from session {selected}."
+    return selected, context, f"{success_label} loaded from session {selected}."
