@@ -2598,6 +2598,27 @@ class AgentTests(unittest.TestCase):
         self.assertIn("context: app.py:12:8 raw='app.py:12:8' ok=true range=11:13", text)
         self.assertIn("content:\n11 | before\n12 | missing()\n13 | after", text)
 
+    def test_format_observations_renders_command_duration(self) -> None:
+        text = format_observations(
+            [
+                RunCommandObservation(
+                    kind="run_command",
+                    result=CommandResult(
+                        command="python3 --version",
+                        exit_code=0,
+                        stdout="Python 3\n",
+                        stderr="",
+                        timed_out=False,
+                        signal=None,
+                        timeout_ms=1000,
+                        duration_ms=42,
+                    ),
+                )
+            ]
+        )
+
+        self.assertIn("durationMs: 42", text)
+
     def test_format_observations_renders_final_review_syntax_failures(self) -> None:
         text = format_observations(
             [

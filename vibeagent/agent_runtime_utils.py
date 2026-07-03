@@ -157,9 +157,10 @@ def summarize_command(result: object) -> str:
     exit_code = getattr(result, "exit_code")
     timed_out = getattr(result, "timed_out")
     timeout_ms = getattr(result, "timeout_ms", "unknown")
+    duration_ms = getattr(result, "duration_ms", 0)
     truncated = getattr(result, "stdout_truncated", False) or getattr(result, "stderr_truncated", False)
     output = getattr(result, "stderr") or getattr(result, "stdout") or "(no output)"
-    return f"exit={exit_code} timedOut={timed_out} timeoutMs={timeout_ms} outputTruncated={truncated} {summarize(output, 300)}"
+    return f"exit={exit_code} timedOut={timed_out} timeoutMs={timeout_ms} durationMs={duration_ms} outputTruncated={truncated} {summarize(output, 300)}"
 
 
 def append_session_event(session_dir: Path, event_type: str, payload: dict[str, Any]) -> None:

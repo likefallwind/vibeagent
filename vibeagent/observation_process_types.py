@@ -19,6 +19,7 @@ class CommandResult:
     stdout_truncated: bool = False
     stderr_truncated: bool = False
     max_output_chars: int = 12_000
+    duration_ms: int = 0
     output_contexts: list[OutputContextResult] = field(default_factory=list)
     output_context_total_refs: int = 0
     output_contexts_truncated: bool = False

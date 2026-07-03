@@ -360,6 +360,7 @@ def format_run_suggested_checks_report_text(report: dict[str, object]) -> str:
                     f"      timedOut: {'yes' if bool(result.get('timedOut')) else 'no'}",
                     f"      signal: {result.get('signal') or '.'}",
                     f"      timeoutMs: {result.get('timeoutMs', 0)}",
+                    f"      durationMs: {result.get('durationMs', 0)}",
                     f"      maxOutputChars: {result.get('maxOutputChars', 0)}",
                     f"      stdoutTruncated: {'yes' if bool(result.get('stdoutTruncated')) else 'no'}",
                     f"      stderrTruncated: {'yes' if bool(result.get('stderrTruncated')) else 'no'}",

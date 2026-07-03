@@ -259,7 +259,7 @@ totals, command metadata, availability, missing tools, and truncation state.
 `--json --run-command`, `--json --run-commands`,
 `--json --run-suggested-checks`, and `--json --run-focused-tests` include
 structured finite-command payloads with cwd, timeout, stdout/stderr, exit code,
-stop-on-failure state, truncation state, and any auto-extracted diagnostics or
+duration, stop-on-failure state, truncation state, and any auto-extracted diagnostics or
 source contexts. `--json --check-start-command` includes structured background
 command preflight with cwd validity, hard-block state, executable availability,
 missing tools, and safety messages. `--json --start-command` includes the

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -88,6 +89,7 @@ def run_command(
 ) -> CommandResult:
     # Run shell command in controlled cwd, capture stdout/stderr, and enforce execution timeout.
     timed_out = False
+    started = time.monotonic()
     process = subprocess.Popen(
         command,
         cwd=Path(cwd),
@@ -105,6 +107,7 @@ def run_command(
         timed_out = True
         _terminate_process(process)
         stdout, stderr = process.communicate()
+    duration_ms = max(0, round((time.monotonic() - started) * 1000))
 
     stdout_value, stdout_truncated = truncate_command_output(stdout or "", max_output_chars)
     stderr_value, stderr_truncated = truncate_command_output(stderr or "", max_output_chars)
@@ -120,6 +123,7 @@ def run_command(
         stdout_truncated=stdout_truncated,
         stderr_truncated=stderr_truncated,
         max_output_chars=max_output_chars,
+        duration_ms=duration_ms,
     )
 
 
