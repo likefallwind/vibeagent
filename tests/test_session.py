@@ -1093,6 +1093,7 @@ class SessionTests(unittest.TestCase):
                                 "stdout": "",
                                 "stderr": "AssertionError",
                                 "timed_out": False,
+                                "duration_ms": 345,
                                 "signal": None,
                                 "cwd": ".",
                             },
@@ -1110,6 +1111,7 @@ class SessionTests(unittest.TestCase):
             )
 
             text = format_session_audit(root, "run-1")
+            report = build_session_audit_report(root, "run-1")
             missing = format_session_audit(root, "missing")
 
         self.assertIn("Session audit:", text)
@@ -1121,6 +1123,8 @@ class SessionTests(unittest.TestCase):
         self.assertIn("pending: 1", text)
         self.assertIn("npm test", text)
         self.assertIn("in_progress: Test", text)
+        self.assertIn("durationMs=345", text)
+        self.assertEqual(report["commands"]["items"][0]["durationMs"], 345)
         self.assertIn("python3 -m unittest", text)
         self.assertIn("src/app.py", text)
         self.assertNotIn("SECRET_CONTENT", text)
@@ -1377,6 +1381,7 @@ class SessionTests(unittest.TestCase):
                                 "stdout": "failure line",
                                 "stderr": "AssertionError",
                                 "timed_out": False,
+                                "duration_ms": 678,
                                 "signal": None,
                                 "cwd": ".",
                             },
@@ -1425,6 +1430,7 @@ class SessionTests(unittest.TestCase):
         self.assertIn("pendingChecks: 1/2", text)
         self.assertIn("failedChecks: 1/2", text)
         self.assertIn("truncated: yes", text)
+        self.assertIn("durationMs=678", text)
         self.assertIn("python3 -m unittest", text)
         self.assertIn("npm test (exit=1)", text)
         verification_section = text.split("  failures:", 1)[0].split("  verification:", 1)[1]

@@ -403,6 +403,7 @@ def serialize_session_command_entry(entry: dict[str, Any], max_text: int) -> dic
     command = result.get("command")
     cwd = result.get("cwd")
     exit_code = result.get("exit_code")
+    duration_ms = result.get("duration_ms")
     return {
         "lineNumber": entry.get("line_number"),
         "kind": entry.get("kind"),
@@ -411,6 +412,7 @@ def serialize_session_command_entry(entry: dict[str, Any], max_text: int) -> dic
         "cwd": cwd if isinstance(cwd, str) and cwd else ".",
         "exitCode": exit_code if isinstance(exit_code, int) else None,
         "timedOut": result.get("timed_out") is True,
+        "durationMs": duration_ms if isinstance(duration_ms, int) else None,
     }
 
 
@@ -578,11 +580,14 @@ def format_session_audit_from_parts(
             exit_code = result.get("exit_code")
             timed_out = result.get("timed_out")
             cwd = result.get("cwd")
+            duration_ms = result.get("duration_ms")
+            duration_text = f"durationMs={duration_ms}, " if isinstance(duration_ms, int) else ""
             lines.append(
                 "    - "
                 f"#{entry['line_number']} {entry['kind']}[{entry['index']}]: "
                 f"exit={exit_code if isinstance(exit_code, int) else 'unknown'}, "
                 f"timedOut={'yes' if timed_out is True else 'no'}, "
+                f"{duration_text}"
                 f"cwd={cwd if isinstance(cwd, str) and cwd else '.'}, "
                 f"command={compact(command, max_text) if isinstance(command, str) else 'unknown'}"
             )

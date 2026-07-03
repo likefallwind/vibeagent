@@ -236,11 +236,14 @@ def _append_audit_commands(lines: list[str], commands: dict[str, object]) -> Non
         return
     for command in items:
         exit_code = command.get("exitCode")
+        duration_ms = command.get("durationMs")
+        duration_text = f"durationMs={duration_ms}, " if isinstance(duration_ms, int) else ""
         lines.append(
             "    - "
             f"#{command.get('lineNumber', '')} {command.get('kind') or ''}[{command.get('index')}]: "
             f"exit={exit_code if isinstance(exit_code, int) else 'unknown'}, "
             f"timedOut={'yes' if command.get('timedOut') is True else 'no'}, "
+            f"{duration_text}"
             f"cwd={command.get('cwd') or '.'}, "
             f"command={command.get('command') or 'unknown'}"
         )

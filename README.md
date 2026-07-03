@@ -325,11 +325,11 @@ and truncation state.
 referenced paths, tools, uses, line numbers, counts, and truncation state.
 `--json --session-audit` includes a structured `sessionAudit` object with
 session readiness, blockers, completion status, verification groups, pending
-plan items, failures, command results, referenced files, and active background
+plan items, failures, command results with duration, referenced files, and active background
 processes.
 `--json --session-handoff` includes a structured `sessionHandoff` object with
 the same readiness audit plus bounded summary, readiness, plan, verification,
-failure, file, and command sections for recovery workflows.
+failure, file, and command sections with duration for recovery workflows.
 One-shot coding commands exit with a nonzero status when `completionReady` is
 false, even if the agent run itself returned `success: true`.
 JSON error results use `kind: "error"` with `status: "failed"`, and interrupted
