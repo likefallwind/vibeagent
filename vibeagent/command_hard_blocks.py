@@ -31,6 +31,8 @@ BLOCKED_COMMAND_EXAMPLES: tuple[str, ...] = (
     "nohup env DISPLAY=:0 xdg-open .",
     "setsid env DISPLAY=:0 xdg-open .",
     "env -- xdg-open .",
+    "dbus-launch xdg-open .",
+    "setsid dbus-launch --exit-with-session xdg-open .",
     "kioclient5 exec .",
     "exo-open .",
     "mimeopen .",
