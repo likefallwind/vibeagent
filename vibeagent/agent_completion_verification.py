@@ -125,7 +125,7 @@ def successful_suggested_check_commands(
 ) -> set[tuple[str, str]]:
     if observation.kind == "run_command":
         return command_result_suggested_check_commands(observation.result, suggested_commands)
-    if observation.kind in {"run_commands", "run_suggested_checks", "run_focused_test_commands"}:
+    if observation.kind in {"run_commands", "run_suggested_checks", "run_focused_test_commands", "run_session_verification"}:
         commands: set[tuple[str, str]] = set()
         for result in observation.results:
             commands.update(command_result_suggested_check_commands(result, suggested_commands))
@@ -154,7 +154,7 @@ def failed_suggested_check_results(
     if observation.kind == "run_command":
         result = command_result_failed_suggested_check_result(observation.result, suggested_commands)
         return [result] if result is not None else []
-    if observation.kind in {"run_commands", "run_suggested_checks", "run_focused_test_commands"}:
+    if observation.kind in {"run_commands", "run_suggested_checks", "run_focused_test_commands", "run_session_verification"}:
         failures: list[tuple[str, str, str]] = []
         for result in observation.results:
             failure = command_result_failed_suggested_check_result(result, suggested_commands)

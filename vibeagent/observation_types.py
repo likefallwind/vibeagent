@@ -220,6 +220,7 @@ from .observation_session_types import (
     SessionOutputContextsObservation,
     SessionOutputDiagnosticsObservation,
     SessionPlanObservation,
+    RunSessionVerificationObservation,
     SessionSearchObservation,
     SessionSummaryObservation,
     SessionTranscriptObservation,
@@ -384,6 +385,7 @@ Observation: TypeAlias = (
     | SessionFilesObservation
     | SessionFailuresObservation
     | SessionVerificationObservation
+    | RunSessionVerificationObservation
     | SessionAuditObservation
     | SessionHandoffObservation
     | CheckpointCreateObservation

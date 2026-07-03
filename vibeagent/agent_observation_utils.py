@@ -356,6 +356,8 @@ def observation_failed(observation: Observation) -> bool:
         return not observation.ok
     if observation.kind == "session_verification":
         return not observation.ok
+    if observation.kind == "run_session_verification":
+        return not observation.ok
     if observation.kind == "session_audit":
         return not observation.ok
     if observation.kind == "session_handoff":
@@ -375,4 +377,3 @@ def observation_failed(observation: Observation) -> bool:
     }:
         return not observation.ok
     return False
-

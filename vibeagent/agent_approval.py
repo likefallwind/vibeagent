@@ -300,6 +300,17 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             target=f"up to {action.max_commands} focused test command(s)",
             risk="This will discover and run focused project test commands from the active project directory.",
         )
+    if isinstance(action, t.RunSessionVerificationAction):
+        groups = []
+        if action.include_failed:
+            groups.append("failed")
+        if action.include_pending:
+            groups.append("pending")
+        return t.ApprovalRequest(
+            action_type="run_session_verification",
+            target=f"{'/'.join(groups)} verification command(s) from {action.run_id or 'current session'}",
+            risk="This will rerun verification shell commands recorded in a local session from the active project directory.",
+        )
     if isinstance(action, t.StartCommandAction):
         return t.ApprovalRequest(
             action_type="start_command",

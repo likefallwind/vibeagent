@@ -189,6 +189,7 @@ from vibeagent.types import (
     RunCommandItem,
     RunCommandsAction,
     RunFocusedTestCommandsAction,
+    RunSessionVerificationAction,
     TailFileAction,
     RunSuggestedChecksAction,
     SearchAction,
@@ -551,6 +552,19 @@ class ActionTests(unittest.TestCase):
             ("session_files", {"run_id": "run-1", "max_files": 10}, "session_files"),
             ("session_failures", {"run_id": "run-1", "max_failures": 3, "max_text": 120}, "session_failures"),
             ("session_verification", {"run_id": "run-1", "max_checks": 2}, "session_verification"),
+            (
+                "run_session_verification",
+                {
+                    "run_id": "run-1",
+                    "max_checks": 2,
+                    "include_failed": True,
+                    "include_pending": False,
+                    "timeout_ms": 1000,
+                    "max_output_chars": 2000,
+                    "stop_on_failure": False,
+                },
+                "run_session_verification",
+            ),
             ("session_audit", {"run_id": "run-1", "max_failures": 3, "max_files": 10, "max_commands": 3, "max_checks": 2, "max_text": 120}, "session_audit"),
             (
                 "session_handoff",
@@ -1520,6 +1534,21 @@ class ActionTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ActionParseError, "max_checks must be at most 500"):
             parse_tool_action("session_verification", {"max_checks": 501})
+
+        with self.assertRaisesRegex(ActionParseError, "run_session_verification action run_id must be a string"):
+            parse_tool_action("run_session_verification", {"run_id": 1})
+
+        with self.assertRaisesRegex(ActionParseError, "max_checks must be at most 10"):
+            parse_tool_action("run_session_verification", {"max_checks": 11})
+
+        with self.assertRaisesRegex(ActionParseError, "include_pending must be a boolean"):
+            parse_tool_action("run_session_verification", {"include_pending": "yes"})
+
+        with self.assertRaisesRegex(ActionParseError, "must include pending or failed checks"):
+            parse_tool_action("run_session_verification", {"include_pending": False, "include_failed": False})
+
+        with self.assertRaisesRegex(ActionParseError, "max_output_chars must be at least 1000"):
+            parse_tool_action("run_session_verification", {"max_output_chars": 999})
 
         with self.assertRaisesRegex(ActionParseError, "session_audit action run_id must be a string"):
             parse_tool_action("session_audit", {"run_id": 1})
@@ -5672,6 +5701,58 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(invalid.kind, "session_verification")
         self.assertFalse(invalid.ok)
         self.assertIn("Invalid session id", invalid.message)
+
+    def test_execute_run_session_verification_reruns_failed_and_pending_checks(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
+            workspace = create_run_workspace(base, "run-1")
+            (workspace.session_dir / "events.jsonl").write_text(
+                '{"type":"result","success":false,"status":"blocked","iterations":1,"message":"Needs checks.",'
+                '"pending_verification_checks":["python3 -c \\"print(\\\\\\"pending\\\\\\")\\""],'
+                '"failed_verification_checks":["python3 -c \\"import sys; print(\\\\\\"failed\\\\\\"); sys.exit(3)\\" (exit=3)"]}\n',
+                encoding="utf-8",
+            )
+
+            observation = execute_action(
+                workspace,
+                RunSessionVerificationAction(
+                    type="run_session_verification",
+                    max_checks=2,
+                    timeout_ms=10_000,
+                    max_output_chars=2_000,
+                ),
+            )
+            pending_only = execute_action(
+                workspace,
+                RunSessionVerificationAction(
+                    type="run_session_verification",
+                    include_failed=False,
+                    include_pending=True,
+                    max_checks=2,
+                    timeout_ms=10_000,
+                    max_output_chars=2_000,
+                ),
+            )
+            missing = execute_action(
+                workspace,
+                RunSessionVerificationAction(type="run_session_verification", run_id="missing"),
+            )
+
+        self.assertEqual(observation.kind, "run_session_verification")
+        self.assertFalse(observation.ok)
+        self.assertEqual(observation.selected_count, 2)
+        self.assertEqual(observation.pending_count, 1)
+        self.assertEqual(observation.failed_count, 1)
+        self.assertTrue(observation.stopped_early)
+        self.assertEqual(len(observation.results), 1)
+        self.assertEqual(observation.results[0].exit_code, 3)
+        self.assertIn("failed", observation.results[0].stdout)
+        self.assertEqual(pending_only.kind, "run_session_verification")
+        self.assertTrue(pending_only.ok)
+        self.assertEqual(pending_only.selected_count, 1)
+        self.assertEqual(pending_only.results[0].stdout, "pending\n")
+        self.assertEqual(missing.kind, "run_session_verification")
+        self.assertFalse(missing.ok)
+        self.assertIn("Session not found", missing.message)
 
     def test_execute_session_audit_action_reads_finish_readiness(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:

@@ -196,6 +196,8 @@ def log_action(logger: t.AgentLogger | None, action: object) -> None:
         logger("reading session failures", build_action_target(action))
     elif action_type == "session_verification":
         logger("reading session verification", build_action_target(action))
+    elif action_type == "run_session_verification":
+        logger("running session verification", build_action_target(action))
     elif action_type == "session_audit":
         logger("reading session audit", build_action_target(action))
     elif action_type == "session_handoff":

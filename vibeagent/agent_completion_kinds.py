@@ -56,6 +56,7 @@ FINITE_COMMAND_OBSERVATION_KINDS = {
     "run_commands",
     "run_suggested_checks",
     "run_focused_test_commands",
+    "run_session_verification",
 }
 
 

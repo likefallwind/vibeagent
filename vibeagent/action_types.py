@@ -208,6 +208,7 @@ from .action_session_types import (
     SessionOutputContextsAction,
     SessionOutputDiagnosticsAction,
     SessionPlanAction,
+    RunSessionVerificationAction,
     SessionSearchAction,
     SessionSummaryAction,
     SessionTranscriptAction,
@@ -330,6 +331,7 @@ AgentAction: TypeAlias = (
     | SessionFilesAction
     | SessionFailuresAction
     | SessionVerificationAction
+    | RunSessionVerificationAction
     | SessionAuditAction
     | SessionHandoffAction
     | CheckpointCreateAction

@@ -118,6 +118,28 @@ def format_session_observation(index: int, observation: object) -> str | None:
             ]
         )
 
+    if observation.kind == "run_session_verification":
+        lines = [
+            f"{index}. run_session_verification {observation.run_id}: {observation.message}",
+            f"ok: {str(observation.ok).lower()}",
+            f"selected: {observation.selected_count}",
+            f"pendingTotal: {observation.pending_count}",
+            f"failedTotal: {observation.failed_count}",
+            f"stoppedEarly: {str(observation.stopped_early).lower()}",
+        ]
+        for result in observation.results:
+            lines.extend(
+                [
+                    f"command: {result.command}",
+                    f"cwd: {result.cwd}",
+                    f"exitCode: {result.exit_code}",
+                    f"timedOut: {str(result.timed_out).lower()}",
+                    f"stdout:\n{truncate(result.stdout)}",
+                    f"stderr:\n{truncate(result.stderr)}",
+                ]
+            )
+        return "\n".join(lines)
+
     if observation.kind == "session_audit":
         process_lines = [
             (

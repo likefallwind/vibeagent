@@ -57,6 +57,7 @@ PREVIEW_KIND_BY_ACTION_TYPE = {
     "run_commands": "check_run_commands",
     "run_suggested_checks": "check_suggested_checks",
     "run_focused_test_commands": "check_focused_test_commands",
+    "run_session_verification": "session_verification",
     "start_command": "check_start_command",
     "write_process": "check_write_process",
     "stop_process": "check_stop_process",
@@ -163,6 +164,8 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
     if kind in {"run_focused_test_commands", "check_focused_test_commands"}:
         paths = tuple(getattr(value, "paths", None) or ())
         return ("run_focused_test_commands", paths, getattr(value, "max_commands", None))
+    if kind in {"run_session_verification", "session_verification"}:
+        return ("run_session_verification", getattr(value, "run_id", None))
     if kind in {"write_process", "check_write_process"}:
         return ("write_process", getattr(value, "process_id", ""), getattr(value, "content_chars", len(getattr(value, "content", ""))))
     if kind in {"stop_process", "check_stop_process"}:

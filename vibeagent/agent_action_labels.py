@@ -110,6 +110,8 @@ def build_step_label(action: object) -> str:
     if isinstance(action, t.RunCommandAction):
         suffix = f" in {action.cwd}" if action.cwd else ""
         return f"Run {summarize(action.command, 80)}{suffix}"
+    if isinstance(action, t.RunSessionVerificationAction):
+        return f"Run session verification {action.run_id or 'current'}"
     if isinstance(action, t.StartCommandAction):
         suffix = f" in {action.cwd}" if action.cwd else ""
         return f"Start {summarize(action.command, 80)}{suffix}"

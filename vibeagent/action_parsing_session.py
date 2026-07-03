@@ -12,6 +12,7 @@ from .types import (
     SessionOutputContextsAction,
     SessionOutputDiagnosticsAction,
     SessionPlanAction,
+    RunSessionVerificationAction,
     SessionSearchAction,
     SessionSummaryAction,
     SessionTranscriptAction,
@@ -30,6 +31,7 @@ SESSION_ACTION_TYPES = {
     "session_files",
     "session_failures",
     "session_verification",
+    "run_session_verification",
     "session_audit",
     "session_handoff",
 }
@@ -188,6 +190,37 @@ def parse_session_action(action_type: object, value: dict[str, Any], raw: str) -
         run_id = _parse_run_id(value.get("run_id"), raw, "session_verification")
         max_checks = parse_optional_positive_int(value.get("max_checks", 50), "max_checks", raw, maximum=500) or 50
         return SessionVerificationAction(type="session_verification", run_id=run_id, max_checks=max_checks)
+
+    if action_type == "run_session_verification":
+        run_id = _parse_run_id(value.get("run_id"), raw, "run_session_verification")
+        max_checks = parse_optional_positive_int(value.get("max_checks", 10), "max_checks", raw, maximum=10) or 10
+        timeout_ms = parse_optional_positive_int(value.get("timeout_ms", 30_000), "timeout_ms", raw, maximum=600_000) or 30_000
+        if timeout_ms < 100:
+            raise ActionParseError("timeout_ms must be at least 100.", raw)
+        max_output_chars = parse_optional_positive_int(value.get("max_output_chars", 12_000), "max_output_chars", raw, maximum=50_000) or 12_000
+        if max_output_chars < 1_000:
+            raise ActionParseError("max_output_chars must be at least 1000.", raw)
+        include_pending = value.get("include_pending", True)
+        include_failed = value.get("include_failed", True)
+        stop_on_failure = value.get("stop_on_failure", True)
+        if not isinstance(include_pending, bool):
+            raise ActionParseError("run_session_verification action include_pending must be a boolean.", raw)
+        if not isinstance(include_failed, bool):
+            raise ActionParseError("run_session_verification action include_failed must be a boolean.", raw)
+        if not include_pending and not include_failed:
+            raise ActionParseError("run_session_verification action must include pending or failed checks.", raw)
+        if not isinstance(stop_on_failure, bool):
+            raise ActionParseError("run_session_verification action stop_on_failure must be a boolean.", raw)
+        return RunSessionVerificationAction(
+            type="run_session_verification",
+            run_id=run_id,
+            max_checks=max_checks,
+            include_pending=include_pending,
+            include_failed=include_failed,
+            timeout_ms=timeout_ms,
+            max_output_chars=max_output_chars,
+            stop_on_failure=stop_on_failure,
+        )
 
     if action_type == "session_audit":
         run_id = _parse_run_id(value.get("run_id"), raw, "session_audit")

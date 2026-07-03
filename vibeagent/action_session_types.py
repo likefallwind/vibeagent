@@ -89,6 +89,18 @@ class SessionVerificationAction:
 
 
 @dataclass(frozen=True)
+class RunSessionVerificationAction:
+    type: Literal["run_session_verification"]
+    run_id: str | None = None
+    max_checks: int = 10
+    include_pending: bool = True
+    include_failed: bool = True
+    timeout_ms: int = 30_000
+    max_output_chars: int = 12_000
+    stop_on_failure: bool = True
+
+
+@dataclass(frozen=True)
 class SessionAuditAction:
     type: Literal["session_audit"]
     run_id: str | None = None

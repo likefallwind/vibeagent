@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from .observation_process_types import CommandResult
 from .observation_read_types import OutputContextResult, OutputDiagnostic
 
 
@@ -121,6 +122,20 @@ class SessionVerificationObservation:
     pending_count: int
     failed_count: int
     verification_truncated: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class RunSessionVerificationObservation:
+    kind: Literal["run_session_verification"]
+    run_id: str
+    ok: bool
+    selected_commands: list[dict[str, Any]]
+    selected_count: int
+    pending_count: int
+    failed_count: int
+    results: list[CommandResult]
+    stopped_early: bool
     message: str
 
 

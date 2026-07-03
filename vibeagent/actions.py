@@ -247,7 +247,7 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
     if runtime_observation is not None:
         return runtime_observation
 
-    session_observation = execute_session_action(workspace, action)
+    session_observation = execute_session_action(workspace, action, command_timeout_ms)
     if session_observation is not None:
         return session_observation
 

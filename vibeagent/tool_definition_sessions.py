@@ -286,6 +286,50 @@ SESSION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
 {
+        "name": "run_session_verification",
+        "description": "Rerun failed and/or pending verification commands recorded in a local VibeAgent session after approval. Defaults to the current run and stops on the first failure.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "run_id": {
+                    "type": "string",
+                    "description": "Optional session id to inspect. Defaults to the current run id.",
+                },
+                "max_checks": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "Maximum failed and pending check rows to inspect per group. Defaults to 10.",
+                },
+                "include_failed": {
+                    "type": "boolean",
+                    "description": "Whether to rerun failed verification checks. Defaults to true.",
+                },
+                "include_pending": {
+                    "type": "boolean",
+                    "description": "Whether to run pending verification checks. Defaults to true.",
+                },
+                "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 600000,
+                    "description": "Per-command timeout in milliseconds. Defaults to 30000.",
+                },
+                "max_output_chars": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 50000,
+                    "description": "Maximum stdout/stderr characters per command. Defaults to 12000.",
+                },
+                "stop_on_failure": {
+                    "type": "boolean",
+                    "description": "Stop after the first failed command. Defaults to true.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+{
         "name": "session_audit",
         "description": "Read a finish-time audit for a local VibeAgent session: readiness, blockers, active background processes, verification counts, plan status, failures, recent commands, and referenced files. Defaults to the current run.",
         "input_schema": {

@@ -113,6 +113,13 @@ def build_action_target(action: object) -> str:
         return f"{action.command} (cwd: {action.cwd or '.'})"
     if isinstance(action, t.RunCommandsAction):
         return ", ".join(f"{item.command} (cwd: {item.cwd or '.'})" for item in action.commands)
+    if isinstance(action, t.RunSessionVerificationAction):
+        groups = []
+        if action.include_failed:
+            groups.append("failed")
+        if action.include_pending:
+            groups.append("pending")
+        return f"{action.run_id or 'current'} ({'/'.join(groups)})"
     if isinstance(action, t.StartCommandAction):
         return f"{action.command} (cwd: {action.cwd or '.'})"
     if isinstance(action, (t.ReadProcessAction, t.StopProcessAction)):

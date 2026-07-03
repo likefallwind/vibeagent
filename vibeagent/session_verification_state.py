@@ -112,7 +112,7 @@ def session_iter_command_results(result: dict[str, Any]) -> list[dict[str, Any]]
     if kind == "run_command":
         command_result = result.get("result")
         return [command_result] if isinstance(command_result, dict) else []
-    if kind in {"run_commands", "run_suggested_checks", "run_focused_test_commands"}:
+    if kind in {"run_commands", "run_suggested_checks", "run_focused_test_commands", "run_session_verification"}:
         command_results = result.get("results")
         if isinstance(command_results, list):
             return [item for item in command_results if isinstance(item, dict)]

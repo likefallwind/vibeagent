@@ -1984,6 +1984,38 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result.observations[0].action_type, "run_commands")
         self.assertEqual(result.steps[0].status, "denied")
 
+    def test_run_agent_denies_run_session_verification_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            marker = root / "marker.txt"
+            session_dir = root / ".vibeagent" / "sessions" / "run-1"
+            session_dir.mkdir(parents=True)
+            (session_dir / "events.jsonl").write_text(
+                '{"type":"result","success":false,"status":"blocked","iterations":1,"message":"Needs checks.",'
+                '"pending_verification_checks":["python3 -c \\"from pathlib import Path; Path(\\\\\\"marker.txt\\\\\\").write_text(\\\\\\"ran\\\\\\")\\""]}\n',
+                encoding="utf-8",
+            )
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "1",
+                            "name": "run_session_verification",
+                            "input": {"run_id": "run-1"},
+                        }
+                    ]
+                ]
+            )
+
+            result = run_agent("rerun session verification", base_dir=root, client=client, max_iterations=1)
+
+        self.assertFalse(result.success)
+        self.assertFalse(marker.exists())
+        self.assertEqual(result.observations[0].kind, "approval_denied")
+        self.assertEqual(result.observations[0].action_type, "run_session_verification")
+        self.assertEqual(result.steps[0].status, "denied")
+
     def test_run_agent_allows_check_start_command_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             client = MockClient(

@@ -50,6 +50,7 @@ APPROVAL_REQUIRED_TOOL_NAMES = {
     "run_command",
     "run_commands",
     "run_focused_test_commands",
+    "run_session_verification",
     "run_suggested_checks",
     "set_executable",
     "start_command",
@@ -368,6 +369,7 @@ def tool_category(name: str) -> str:
         "session_files",
         "session_failures",
         "session_verification",
+        "run_session_verification",
         "session_audit",
         "session_handoff",
     }:
