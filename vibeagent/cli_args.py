@@ -8,6 +8,7 @@ from .cli_local_flag_detection import (
     LOCAL_FLAG_ARG_NAMES,
     has_local_flag as _has_local_flag,
 )
+from .tool_categories import valid_tool_categories
 
 
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
@@ -28,7 +29,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--tool-search-max", type=positive_int, default=20, metavar="N", help="Maximum matching tools to show with --tool-search.")
     parser.add_argument(
         "--tool-search-category",
-        choices=["project", "code", "edit", "git", "command", "session", "checkpoint", "other"],
+        choices=valid_tool_categories(),
         help="Optional category filter for --tool-search.",
     )
     parser.add_argument(

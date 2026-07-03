@@ -15,6 +15,7 @@ from vibeagent.agent import AgentResult
 from vibeagent.cli import build_approval_handler, format_error, handle_approval_command, main, print_agent_result, prompt_approval
 from vibeagent.cli_local_dispatch import LOCAL_FLAG_HANDLER_NAMES, dispatch_local_flag
 from vibeagent.cli_local_flag_detection import LOCAL_FLAG_ARG_NAMES
+from vibeagent.tool_categories import valid_tool_categories
 from vibeagent.types import ApprovalRequest, PlanItem, TaskStep
 
 
@@ -271,6 +272,19 @@ class CliTests(unittest.TestCase):
         self.assertEqual(start_args.start_command, "npm run dev")
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("unrecognized arguments: --mod", stderr.getvalue())
+
+    def test_parse_args_tool_search_category_uses_shared_categories(self) -> None:
+        for category in valid_tool_categories():
+            with self.subTest(category=category):
+                args = cli_module.parse_args(["--tool-search", "read", "--tool-search-category", category])
+                self.assertEqual(args.tool_search_category, category)
+
+        stderr = io.StringIO()
+        with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            cli_module.parse_args(["--tool-search", "read", "--tool-search-category", "missing"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("invalid choice: 'missing'", stderr.getvalue())
 
     def test_format_error_uses_provider_neutral_401_guidance(self) -> None:
         text = format_error(Http401Error("unauthorized"))
