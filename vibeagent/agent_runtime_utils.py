@@ -10,7 +10,7 @@ from .agent_observation_utils import summarize
 from .prompt_observations import format_observations
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
-from .types import ChatMessage, ContentBlock, ListFilesObservation, Observation, ToolErrorObservation
+from .types import ChatMessage, ContentBlock, ListFilesObservation, Observation, PlanItem, ToolErrorObservation
 from .workspace_core import RunWorkspace
 
 
@@ -40,6 +40,7 @@ def compact_agent_message_history(
     workspace: RunWorkspace,
     messages: list[ChatMessage],
     observations: list[Observation],
+    plan: list[PlanItem],
     original_prior_context: str | None,
     iteration: int,
     threshold: int = AGENT_MESSAGE_COMPACT_THRESHOLD,
@@ -51,6 +52,7 @@ def compact_agent_message_history(
 
     prior_context = build_compacted_agent_context(
         observations,
+        plan=plan,
         original_prior_context=original_prior_context,
         observation_limit=observation_limit,
         max_context_length=max_context_length,
@@ -64,6 +66,7 @@ def compact_agent_message_history(
             "previous_messages": len(messages),
             "new_messages": len(compacted_messages),
             "observations": len(observations),
+            "plan_items": len(plan),
             "retained_observations": min(len(observations), observation_limit),
         },
     )
@@ -72,16 +75,22 @@ def compact_agent_message_history(
 
 def build_compacted_agent_context(
     observations: list[Observation],
+    plan: list[PlanItem] | None = None,
     original_prior_context: str | None = None,
     observation_limit: int = AGENT_COMPACT_OBSERVATION_LIMIT,
     max_context_length: int = AGENT_COMPACT_CONTEXT_MAX_LENGTH,
 ) -> str:
     recent_observations = observations[-observation_limit:]
+    current_plan = plan or []
     sections = [
         "Compacted current-run context:",
         f"Total observations so far: {len(observations)}.",
+        f"Current task plan items: {len(current_plan)}.",
         f"Recent observations retained: {len(recent_observations)}.",
     ]
+    if current_plan:
+        sections.append("Current task plan:")
+        sections.extend(f"- {item.status}: {item.step}" for item in current_plan)
     if original_prior_context:
         compacted_prior = compact_session_context(original_prior_context)
         if compacted_prior:

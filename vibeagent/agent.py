@@ -235,6 +235,7 @@ def run_agent(
                 current_workspace,
                 messages,
                 observations,
+                plan,
                 original_prior_context,
                 iteration,
             )
@@ -335,6 +336,7 @@ def run_agent(
             current_workspace,
             messages,
             observations,
+            plan,
             original_prior_context,
             iteration,
         )
