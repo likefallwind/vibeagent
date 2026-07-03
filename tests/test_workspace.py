@@ -8,6 +8,8 @@ from vibeagent import workspace_code_intel
 from vibeagent import workspace_code_language
 from vibeagent import workspace_file_helpers
 from vibeagent import workspace_file_read
+from vibeagent import workspace_project_info
+from vibeagent import workspace_project_metadata
 from vibeagent.workspace import (
     append_project_file,
     build_repo_map,
@@ -119,6 +121,14 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIs(workspace_code_intel.build_code_reference_pattern, workspace_code_language.build_code_reference_pattern)
         self.assertIs(workspace_code_intel.collect_code_rename_replacements, workspace_code_language.collect_code_rename_replacements)
         self.assertIs(workspace_code_intel.apply_code_rename_replacements, workspace_code_language.apply_code_rename_replacements)
+
+    def test_workspace_project_info_reexports_metadata_helpers(self) -> None:
+        self.assertIs(workspace_project_info.read_package_json_manifest, workspace_project_metadata.read_package_json_manifest)
+        self.assertIs(workspace_project_info.read_pyproject_manifest, workspace_project_metadata.read_pyproject_manifest)
+        self.assertIs(workspace_project_info.read_package_json_scripts, workspace_project_metadata.read_package_json_scripts)
+        self.assertIs(workspace_project_info.read_pyproject_scripts, workspace_project_metadata.read_pyproject_scripts)
+        self.assertIs(workspace_project_info.read_makefile_targets, workspace_project_metadata.read_makefile_targets)
+        self.assertIs(workspace_project_info.missing_command_tool, workspace_project_metadata.missing_command_tool)
 
     def test_workspace_file_read_reexports_file_helpers(self) -> None:
         self.assertIs(workspace_file_read.truncate_utf8_text_bytes, workspace_file_helpers.truncate_utf8_text_bytes)
