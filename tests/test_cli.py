@@ -1,12 +1,9 @@
-import ast
 import argparse
 import io
 import json
 import os
-import inspect
 import subprocess
 import tempfile
-import textwrap
 import time
 import unittest
 from contextlib import ExitStack, redirect_stderr, redirect_stdout
@@ -17,6 +14,7 @@ from vibeagent import cli as cli_module
 from vibeagent.agent import AgentResult
 from vibeagent.cli import build_approval_handler, format_error, handle_approval_command, main, print_agent_result, prompt_approval
 from vibeagent.cli_local_dispatch import LOCAL_FLAG_HANDLER_NAMES, dispatch_local_flag
+from vibeagent.cli_local_flag_detection import LOCAL_FLAG_ARG_NAMES
 from vibeagent.types import ApprovalRequest, TaskStep
 
 
@@ -182,22 +180,8 @@ class CliTests(unittest.TestCase):
         )
 
     def test_local_result_exit_code_covers_local_result_flags(self) -> None:
-        source = textwrap.dedent(inspect.getsource(cli_module.has_local_flag))
-        tree = ast.parse(source)
-        local_flags = {
-            node.attr
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Attribute)
-            and isinstance(node.value, ast.Name)
-            and node.value.id == "args"
-        }
-
-        allowed_without_result_exit_code = {"usage"}
-        missing = sorted(local_flags - cli_module.LOCAL_RESULT_ARG_NAMES - allowed_without_result_exit_code)
-        extra = sorted(cli_module.LOCAL_RESULT_ARG_NAMES - local_flags)
-
-        self.assertEqual(missing, [])
-        self.assertEqual(extra, [])
+        self.assertEqual(LOCAL_FLAG_ARG_NAMES - cli_module.LOCAL_RESULT_ARG_NAMES, {"usage"})
+        self.assertEqual(cli_module.LOCAL_RESULT_ARG_NAMES - LOCAL_FLAG_ARG_NAMES, set())
 
     def test_normalize_task_bound_diff_args_moves_task_into_diff_argument(self) -> None:
         args = argparse.Namespace(
