@@ -35,6 +35,7 @@ BLOCKED_COMMAND_EXAMPLES: tuple[str, ...] = (
     "setsid dbus-launch --exit-with-session xdg-open .",
     "dbus-run-session -- xdg-open .",
     "systemd-run --user xdg-open .",
+    "timeout 5 xdg-open .",
     "kioclient5 exec .",
     "exo-open .",
     "mimeopen .",

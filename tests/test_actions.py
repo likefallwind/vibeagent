@@ -7764,6 +7764,8 @@ class ActionTests(unittest.TestCase):
         self.assertIn("high-risk command", get_blocked_command_reason("dbus-run-session -- sudo reboot") or "")
         self.assertIn("high-risk command", get_blocked_command_reason("systemd-run --user sudo reboot") or "")
         self.assertIn("high-risk command", get_blocked_command_reason("systemd-run --user --unit boot sudo reboot") or "")
+        self.assertIn("high-risk command", get_blocked_command_reason("timeout --preserve-status 5 sudo reboot") or "")
+        self.assertIn("high-risk command", get_blocked_command_reason("timeout -k 1s 5 sudo reboot") or "")
         self.assertIn("high-risk command", get_blocked_command_reason("wipefs -a /dev/sda") or "")
         self.assertIn("high-risk command", get_blocked_command_reason("/usr/sbin/wipefs --all /dev/nvme0n1") or "")
         self.assertIn("high-risk command", get_blocked_command_reason("blkdiscard /dev/sda") or "")
@@ -7935,6 +7937,8 @@ class ActionTests(unittest.TestCase):
         self.assertIn("GUI application launch", get_blocked_command_reason("systemd-run --user xdg-open .") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("systemd-run --user --unit opener xdg-open .") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("systemd-run --user --collect xdg-open .") or "")
+        self.assertIn("GUI application launch", get_blocked_command_reason("timeout 5 xdg-open .") or "")
+        self.assertIn("GUI application launch", get_blocked_command_reason("timeout --foreground --kill-after=1s 5 xdg-open .") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("kioclient5 exec .") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("kioclient6 exec file:///tmp") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("exo-open .") or "")
@@ -8129,6 +8133,7 @@ class ActionTests(unittest.TestCase):
         self.assertIsNone(get_blocked_command_reason("python3 -c \"print('webbrowser.open')\""))
         self.assertIsNone(get_blocked_command_reason("bash -lc 'python3 -c \"print(1)\"'"))
         self.assertIsNone(get_blocked_command_reason("npm start"))
+        self.assertIsNone(get_blocked_command_reason("timeout 5 npm test"))
         self.assertIsNone(get_blocked_command_reason("python3 -m unittest discover -s tests"))
 
     def test_execute_background_process_actions_start_read_and_stop_process(self) -> None:

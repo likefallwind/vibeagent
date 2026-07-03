@@ -51,7 +51,36 @@ def unwrapped_shell_command_parts(parts: list[str]) -> list[str]:
         if executable == "systemd-run":
             remaining = strip_systemd_run_prefix(remaining[1:])
             continue
+        if executable == "timeout":
+            remaining = strip_timeout_prefix(remaining[1:])
+            continue
         break
+    return remaining
+
+
+TIMEOUT_OPTIONS_WITH_VALUES = {"-k", "-s", "--kill-after", "--signal"}
+
+
+def strip_timeout_prefix(parts: list[str]) -> list[str]:
+    remaining = list(parts)
+    while remaining:
+        token = remaining[0]
+        if token == "--":
+            remaining = remaining[1:]
+            break
+        option = token.split("=", 1)[0]
+        if option in TIMEOUT_OPTIONS_WITH_VALUES:
+            remaining = remaining[2:] if "=" not in token and len(remaining) > 1 else remaining[1:]
+            continue
+        if token.startswith("-"):
+            remaining = remaining[1:]
+            continue
+        break
+    if not remaining:
+        return []
+    remaining = remaining[1:]
+    if remaining and remaining[0] == "--":
+        remaining = remaining[1:]
     return remaining
 
 
@@ -425,6 +454,7 @@ __all__ = [
     "strip_dbus_run_session_prefix",
     "strip_env_command_prefix",
     "strip_systemd_run_prefix",
+    "strip_timeout_prefix",
     "unwrapped_shell_command_parts",
     "unwrapped_shell_executable_name",
 ]
