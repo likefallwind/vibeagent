@@ -121,6 +121,53 @@ def build_messages(
     ]
 
 
+def _format_next_action_items(items: list[str], max_items: int = 3) -> str:
+    shown = items[:max_items]
+    suffix = "" if len(items) <= max_items else f"; +{len(items) - max_items} more"
+    return "; ".join(shown) + suffix
+
+
+def _observation_commands(values: object) -> list[str]:
+    commands: list[str] = []
+    if not isinstance(values, list):
+        return commands
+    for value in values:
+        command = str(getattr(value, "command", "") or "").strip()
+        if command:
+            commands.append(command)
+    return commands
+
+
+def _final_review_next_action_instruction(base: str, latest: Observation) -> str:
+    if getattr(latest, "ready", None) is not False:
+        return f"{base} Use the final review report to decide whether to run verification, continue, or answer directly."
+
+    suggested_commands = _observation_commands(getattr(latest, "suggested_checks", []))
+    if suggested_commands:
+        return (
+            f"{base} Final review is not ready and lists suggested verification checks. "
+            f"Run run_suggested_checks or run_command for: {_format_next_action_items(suggested_commands)}. "
+            "Fix failures before finishing."
+        )
+
+    focused_commands = _observation_commands(getattr(latest, "focused_test_commands", []))
+    if focused_commands:
+        return (
+            f"{base} Final review is not ready and lists focused verification checks. "
+            f"Run run_focused_test_commands or run_command for: {_format_next_action_items(focused_commands)}. "
+            "Fix failures before finishing."
+        )
+
+    issues = [str(issue).strip() for issue in getattr(latest, "blocking_issues", []) if str(issue).strip()]
+    if issues:
+        return (
+            f"{base} Final review is not ready. "
+            f"Fix final review blocking issue(s) before finishing: {_format_next_action_items(issues)}."
+        )
+
+    return f"{base} Final review is not ready. Inspect its warnings and changed files, fix blockers, then rerun final_review before finishing."
+
+
 def get_next_action_instruction(task: str, observations: list[Observation]) -> str:
     base = "Choose the next response: call a tool if needed, or answer directly if the task is complete."
     if not observations:
@@ -166,6 +213,9 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
 
     if latest.kind == "stop_all_processes":
         return f"{base} All tracked background processes were stopped. Continue with the next check or answer directly if the task is complete."
+
+    if latest.kind == "final_review":
+        return _final_review_next_action_instruction(base, latest)
 
     if latest.kind in {
         "read_file",
@@ -215,7 +265,6 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "check_git_stash_apply",
         "check_git_stash_drop",
         "check_git_switch",
-        "final_review",
         "command_check",
         "check_run_commands",
         "check_suggested_checks",
@@ -264,7 +313,6 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "git_switch",
         "git_changes",
         "review_changes",
-        "final_review",
         "suggest_checks",
         "check_suggested_checks",
         "project_commands",
