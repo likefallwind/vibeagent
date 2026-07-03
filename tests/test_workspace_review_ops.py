@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from vibeagent import workspace, workspace_review_ops
+from vibeagent import workspace, workspace_review_ops, workspace_review_tests
 
 
 class WorkspaceReviewOpsTests(unittest.TestCase):
@@ -47,6 +47,34 @@ class WorkspaceReviewOpsTests(unittest.TestCase):
         self.assertIn(("web/src/__tests__/app.test.ts", "Test path mirrors the source path.", 95), js_candidates)
         self.assertTrue(workspace_review_ops.is_project_test_file("web/src/app.test.ts"))
         self.assertEqual(workspace_review_ops.source_module_stem(Path("pkg/__init__.py")), "pkg")
+
+    def test_workspace_review_ops_reexports_related_test_helpers(self) -> None:
+        names = [
+            "find_related_tests",
+            "suggest_focused_test_commands",
+            "add_focused_test_commands_for_file",
+            "add_focused_test_command",
+            "focused_npm_test_command",
+            "nearest_package_json",
+            "preferred_test_script_name",
+            "project_has_pytest_evidence",
+            "normalize_related_test_targets",
+            "is_project_test_file",
+            "related_test_candidates_for_target",
+            "source_module_stem",
+            "normalized_test_stem",
+            "expected_test_names",
+            "expected_test_paths",
+            "related_test_candidate_sort_key",
+            "is_check_script_name",
+            "add_check_suggestion",
+            "check_suggestion_sort_key",
+            "find_python_test_dirs",
+            "find_python_package_dirs",
+        ]
+        for name in names:
+            with self.subTest(name=name):
+                self.assertIs(getattr(workspace_review_ops, name), getattr(workspace_review_tests, name))
 
 
 if __name__ == "__main__":
