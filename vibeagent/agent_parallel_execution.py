@@ -8,7 +8,13 @@ import json
 from .actions import ActionParseError, execute_action, parse_tool_action
 from .agent_action_logging import log_action
 from .agent_parallel_safety import is_parallel_safe_action
-from .agent_runtime_utils import append_session_event, find_repeated_list_observation, to_jsonable
+from .agent_runtime_utils import (
+    append_session_event,
+    build_repeated_list_observation,
+    find_repeated_list_observation,
+    list_files_action_path,
+    to_jsonable,
+)
 from .agent_steps import complete_task_step, start_task_step
 from .redaction import redact_jsonable_payload
 from .types import AgentLogger, ContentBlock, ListFilesObservation, Observation, TaskStep, ToolErrorObservation
@@ -21,7 +27,8 @@ class PreparedParallelToolCall:
     tool_name: str
     action: object
     step: TaskStep
-    repeated_observation: Observation | None = None
+    repeated_observation: ListFilesObservation | None = None
+    duplicate_list_source_index: int | None = None
 
 
 def execute_parallel_tool_call_batch(
@@ -51,6 +58,7 @@ def execute_parallel_tool_call_batch(
         parsed.append((tool_id, tool_name, tool_input, action))
 
     prepared: list[PreparedParallelToolCall] = []
+    list_files_source_indexes: dict[str, int] = {}
     for tool_id, tool_name, tool_input, action in parsed:
         append_session_event(
             workspace.session_dir,
@@ -59,13 +67,20 @@ def execute_parallel_tool_call_batch(
         )
         step = start_task_step(workspace, steps, iteration, action, logger)
         log_action(logger, action)
+        repeated_observation = find_repeated_list_observation(action, observations)
+        list_path = list_files_action_path(action)
+        duplicate_list_source_index = None
+        if repeated_observation is None and list_path is not None:
+            duplicate_list_source_index = list_files_source_indexes.get(list_path)
+            list_files_source_indexes.setdefault(list_path, len(prepared))
         prepared.append(
             PreparedParallelToolCall(
                 tool_id=tool_id,
                 tool_name=tool_name,
                 action=action,
                 step=step,
-                repeated_observation=find_repeated_list_observation(action, observations),
+                repeated_observation=repeated_observation,
+                duplicate_list_source_index=duplicate_list_source_index,
             )
         )
 
@@ -74,18 +89,9 @@ def execute_parallel_tool_call_batch(
         futures = {}
         for index, item in enumerate(prepared):
             if item.repeated_observation is not None:
-                repeated = item.repeated_observation
-                batch_observations[index] = ListFilesObservation(
-                    kind="list_files",
-                    path=repeated.path,
-                    files=repeated.files,
-                    total=repeated.total,
-                    truncated=repeated.truncated,
-                    message=(
-                        f"Already listed {repeated.path}: {repeated.message} "
-                        "Do not call list_files for this path again. Choose a useful tool call or answer directly."
-                    ),
-                )
+                batch_observations[index] = build_repeated_list_observation(item.repeated_observation)
+                continue
+            if item.duplicate_list_source_index is not None:
                 continue
             futures[executor.submit(execute, workspace, item.action, command_timeout_ms)] = index
 
@@ -100,6 +106,13 @@ def execute_parallel_tool_call_batch(
                     tool=item.tool_name or "unknown",
                     message=f"Tool execution failed: {error}",
                 )
+
+    for index, item in enumerate(prepared):
+        if batch_observations[index] is not None or item.duplicate_list_source_index is None:
+            continue
+        source = batch_observations[item.duplicate_list_source_index]
+        if isinstance(source, ListFilesObservation):
+            batch_observations[index] = build_repeated_list_observation(source)
 
     tool_results: list[ContentBlock] = []
     for item, observation in zip(prepared, batch_observations):

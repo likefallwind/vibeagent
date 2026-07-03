@@ -27,11 +27,31 @@ def compact_session_context(value: str | None, max_length: int = 4000) -> str | 
     return f"{compact[:max_length]}..."
 
 
-def find_repeated_list_observation(action: object, observations: list[Observation]) -> ListFilesObservation | None:
+def list_files_action_path(action: object) -> str | None:
     if getattr(action, "type", None) != "list_files":
         return None
+    return str(getattr(action, "path", None) or ".")
 
-    path = getattr(action, "path", None) or "."
+
+def build_repeated_list_observation(repeated_list: ListFilesObservation) -> ListFilesObservation:
+    return ListFilesObservation(
+        kind="list_files",
+        path=repeated_list.path,
+        files=repeated_list.files,
+        total=repeated_list.total,
+        truncated=repeated_list.truncated,
+        message=(
+            f"Already listed {repeated_list.path}: {repeated_list.message} "
+            "Do not call list_files for this path again. Choose a useful tool call or answer directly."
+        ),
+    )
+
+
+def find_repeated_list_observation(action: object, observations: list[Observation]) -> ListFilesObservation | None:
+    path = list_files_action_path(action)
+    if path is None:
+        return None
+
     for observation in reversed(observations):
         if observation.kind == "list_files" and observation.path == path:
             return observation

@@ -11,13 +11,12 @@ from .agent_approval import (
     summarize_approval_request,
 )
 from .agent_approval_preview import attach_approval_preview
-from .agent_runtime_utils import append_session_event, find_repeated_list_observation
+from .agent_runtime_utils import append_session_event, build_repeated_list_observation, find_repeated_list_observation
 from .agent_steps import complete_task_step, start_task_step
 from .types import (
     AgentLogger,
     ApprovalDeniedObservation,
     ApprovalHandler,
-    ListFilesObservation,
     Observation,
     TaskStep,
 )
@@ -87,17 +86,7 @@ def _build_repeated_list_observation(action: object, observations: list[Observat
     repeated_list = find_repeated_list_observation(action, observations)
     if not repeated_list:
         return None
-    return ListFilesObservation(
-        kind="list_files",
-        path=repeated_list.path,
-        files=repeated_list.files,
-        total=repeated_list.total,
-        truncated=repeated_list.truncated,
-        message=(
-            f"Already listed {repeated_list.path}: {repeated_list.message} "
-            "Do not call list_files for this path again. Choose a useful tool call or answer directly."
-        ),
-    )
+    return build_repeated_list_observation(repeated_list)
 
 
 def _execute_non_repeated_action(

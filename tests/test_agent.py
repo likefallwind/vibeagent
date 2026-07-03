@@ -495,6 +495,35 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(len(ends), 2)
         self.assertLess(max(started_at for _path, started_at in starts), min(ended_at for _path, ended_at in ends))
 
+    def test_run_agent_skips_duplicate_parallel_list_files_in_same_batch(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            (root / "app.py").write_text("print('ok')\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [
+                        {"type": "tool_call", "id": "1", "name": "list_files", "input": {"path": "."}},
+                        {"type": "tool_call", "id": "2", "name": "list_files", "input": {"path": "."}},
+                    ],
+                    [{"type": "tool_call", "id": "3", "name": "finish", "input": {"message": "done"}}],
+                ]
+            )
+            list_calls: list[str] = []
+
+            def fake_execute_action(workspace: object, action: object, command_timeout_ms: int = 30_000) -> object:
+                if getattr(action, "type", "") == "list_files":
+                    list_calls.append(str(getattr(action, "path", None) or "."))
+                return execute_action(workspace, action, command_timeout_ms)
+
+            with patch("vibeagent.agent.execute_action", side_effect=fake_execute_action):
+                result = run_agent("list the same path twice", base_dir=root, client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(list_calls, ["."])
+        self.assertEqual([item.kind for item in result.observations], ["list_files", "list_files", "finish"])
+        self.assertIn("Already listed", result.observations[1].message)
+        self.assertEqual([block["tool_call_id"] for block in client.messages[1][-1].content], ["1", "2"])
+
     def test_parallel_safe_tools_exclude_approval_required_actions(self) -> None:
         overlap = sorted(agent_module.PARALLEL_SAFE_TOOL_NAMES & APPROVAL_REQUIRED_TOOL_NAMES)
 
