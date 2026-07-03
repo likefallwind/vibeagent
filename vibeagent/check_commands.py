@@ -7,6 +7,7 @@ from .local_runtime_commands import (
     format_structured_command_output_analysis_lines,
     serialize_command_check,
     serialize_command_result,
+    sum_command_result_duration_ms,
     validate_run_output_context_options,
 )
 from .types import CheckSuggestedChecksAction, RunSuggestedChecksAction
@@ -322,6 +323,7 @@ def get_run_suggested_checks_report(
         "truncated": observation.truncated,
         "stopOnFailure": stop_on_failure,
         "stoppedEarly": observation.stopped_early,
+        "durationMs": sum_command_result_duration_ms(list(observation.results)),
         "results": [serialize_command_result(result, index=index) for index, result in enumerate(observation.results, start=1)],
         "message": observation.message,
     }
@@ -343,6 +345,7 @@ def format_run_suggested_checks_report_text(report: dict[str, object]) -> str:
         f"  truncated: {'yes' if bool(report.get('truncated')) else 'no'}",
         f"  stopOnFailure: {'yes' if bool(report.get('stopOnFailure')) else 'no'}",
         f"  stoppedEarly: {'yes' if bool(report.get('stoppedEarly')) else 'no'}",
+        f"  durationMs: {report.get('durationMs', 0)}",
         f"  message: {message}",
     ]
     if results:

@@ -20,6 +20,17 @@ def empty_command_output_analysis() -> dict[str, object]:
     }
 
 
+def sum_command_result_duration_ms(results: list[object]) -> int:
+    total = 0
+    for result in results:
+        duration = getattr(result, "duration_ms", 0)
+        try:
+            total += max(0, int(duration or 0))
+        except (TypeError, ValueError):
+            continue
+    return total
+
+
 def serialize_command_result(result: object, index: int | None = None) -> dict[str, object]:
     exit_code = getattr(result, "exit_code", None)
     timed_out = bool(getattr(result, "timed_out", False))
@@ -132,6 +143,7 @@ def format_run_sequence_report_text(report: dict[str, object]) -> str:
         f"  commands: {int(commands.get('shown', len(results)) or 0)}/{int(commands.get('total', len(results)) or 0)}",
         f"  stopOnFailure: {'yes' if bool(report.get('stopOnFailure')) else 'no'}",
         f"  stoppedEarly: {'yes' if bool(report.get('stoppedEarly')) else 'no'}",
+        f"  durationMs: {report.get('durationMs', 0)}",
         f"  message: {message}",
     ]
     if results:

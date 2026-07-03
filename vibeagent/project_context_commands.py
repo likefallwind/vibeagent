@@ -8,6 +8,7 @@ from .check_commands import serialize_focused_test_command
 from .local_runtime_commands import (
     serialize_command_check,
     serialize_command_result,
+    sum_command_result_duration_ms,
     validate_run_output_context_options,
 )
 from .project_context_formatting import (
@@ -437,6 +438,7 @@ def get_run_focused_test_commands_report(
         "truncated": observation.truncated,
         "stopOnFailure": stop_on_failure,
         "stoppedEarly": observation.stopped_early,
+        "durationMs": sum_command_result_duration_ms(list(observation.results)),
         "results": [serialize_command_result(result, index=index) for index, result in enumerate(observation.results, start=1)],
         "message": observation.message,
     }

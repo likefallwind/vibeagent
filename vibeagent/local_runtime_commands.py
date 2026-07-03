@@ -35,6 +35,7 @@ from .local_runtime_reports import (
     serialize_command_check,
     serialize_command_output_analysis,
     serialize_command_result,
+    sum_command_result_duration_ms,
     validate_run_output_context_options,
 )
 from .types import (
@@ -317,6 +318,7 @@ def get_run_sequence_report(
         },
         "stopOnFailure": stop_on_failure,
         "stoppedEarly": observation.stopped_early,
+        "durationMs": sum_command_result_duration_ms(list(observation.results)),
         "results": [serialize_command_result(result, index=index) for index, result in enumerate(observation.results, start=1)],
         "message": observation.message,
     }

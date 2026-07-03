@@ -1585,9 +1585,12 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(report["suggestedChecks"]["shown"], 1)
         self.assertEqual(report["ran"], 1)
         self.assertFalse(report["stoppedEarly"])
+        self.assertIsInstance(report["durationMs"], int)
+        self.assertGreaterEqual(report["durationMs"], report["results"][0]["durationMs"])
         self.assertEqual(report["results"][0]["command"], "python -m unittest discover -s tests")
         self.assertEqual(report["results"][0]["exitCode"], 0)
         self.assertIn("Run suggested checks:", rendered)
+        self.assertIn("durationMs:", rendered)
         self.assertIn("results:", rendered)
 
     def test_run_suggested_checks_report_is_not_ok_when_truncated(self) -> None:
@@ -1851,9 +1854,12 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(report["targetPaths"], ["pkg/actions.py"])
         self.assertEqual(report["focusedCommands"]["shown"], 1)
         self.assertEqual(report["ran"], 1)
+        self.assertIsInstance(report["durationMs"], int)
+        self.assertGreaterEqual(report["durationMs"], report["results"][0]["durationMs"])
         self.assertEqual(report["results"][0]["command"], "python -m unittest discover -s tests -p test_actions.py")
         self.assertEqual(report["results"][0]["exitCode"], 0)
         self.assertIn("Run focused test commands:", rendered)
+        self.assertIn("durationMs:", rendered)
 
     def test_get_repo_map_text_reports_tree_files_and_symbols(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -8125,6 +8131,8 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(report["commands"]["requested"][2], "python3 -c \"print('skip')\"")
         self.assertTrue(report["stopOnFailure"])
         self.assertTrue(report["stoppedEarly"])
+        self.assertIsInstance(report["durationMs"], int)
+        self.assertGreaterEqual(report["durationMs"], 0)
         self.assertEqual(len(report["results"]), 2)
         self.assertTrue(report["results"][0]["ok"])
         self.assertEqual(report["results"][0]["stdout"], "one\n")
@@ -8138,6 +8146,7 @@ class CommandTests(unittest.TestCase):
         self.assertIn("Run sequence:", rendered)
         self.assertIn("commands: 2/3", rendered)
         self.assertIn("stoppedEarly: yes", rendered)
+        self.assertIn("durationMs:", rendered)
         self.assertIn("outputDiagnostics: 1/1", rendered)
         self.assertFalse(usage["ok"])
         self.assertEqual(format_run_sequence_report_text(usage), "Usage: /run-seq <cmd> ;; <cmd>\nError: at least one command is required.")

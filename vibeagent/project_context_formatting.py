@@ -157,6 +157,7 @@ def format_run_focused_test_commands_report_text(report: dict[str, object]) -> s
         f"  truncated: {'yes' if bool(report.get('truncated')) else 'no'}",
         f"  stopOnFailure: {'yes' if bool(report.get('stopOnFailure')) else 'no'}",
         f"  stoppedEarly: {'yes' if bool(report.get('stoppedEarly')) else 'no'}",
+        f"  durationMs: {report.get('durationMs', 0)}",
         f"  message: {message}",
     ]
     if results:
@@ -172,6 +173,10 @@ def format_run_focused_test_commands_report_text(report: dict[str, object]) -> s
                     f"      ok: {'yes' if bool(result.get('ok')) else 'no'}",
                     f"      exitCode: {result.get('exitCode') if result.get('exitCode') is not None else '.'}",
                     f"      timedOut: {'yes' if bool(result.get('timedOut')) else 'no'}",
+                    f"      signal: {result.get('signal') or '.'}",
+                    f"      timeoutMs: {result.get('timeoutMs', 0)}",
+                    f"      durationMs: {result.get('durationMs', 0)}",
+                    f"      maxOutputChars: {result.get('maxOutputChars', 0)}",
                     f"      stdoutTruncated: {'yes' if bool(result.get('stdoutTruncated')) else 'no'}",
                     f"      stderrTruncated: {'yes' if bool(result.get('stderrTruncated')) else 'no'}",
                 ]
