@@ -40,7 +40,9 @@ SESSION_ACTION_TYPES = {
 def _parse_run_id(value: Any, raw: str, action_type: str) -> str | None:
     if value is not None and not isinstance(value, str):
         raise ActionParseError(f"{action_type} action run_id must be a string when provided.", raw)
-    return value
+    if not isinstance(value, str):
+        return None
+    return value.strip() or None
 
 
 def _parse_min_text(value: Any, raw: str, default: int) -> int:
