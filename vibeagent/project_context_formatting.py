@@ -145,6 +145,11 @@ def format_run_focused_test_commands_report_text(report: dict[str, object]) -> s
         return message
     target_paths = [str(item) for item in report.get("targetPaths", [])] if isinstance(report.get("targetPaths"), list) else []
     focused = report.get("focusedCommands") if isinstance(report.get("focusedCommands"), dict) else {}
+    focused_items = (
+        [item for item in focused.get("items", []) if isinstance(item, dict)]
+        if isinstance(focused.get("items"), list)
+        else []
+    )
     results = [item for item in report.get("results", []) if isinstance(item, dict)] if isinstance(report.get("results"), list) else []
     lines = [
         "Run focused test commands:",
@@ -160,6 +165,27 @@ def format_run_focused_test_commands_report_text(report: dict[str, object]) -> s
         f"  durationMs: {report.get('durationMs', 0)}",
         f"  message: {message}",
     ]
+    if target_paths:
+        lines.append("  targets:")
+        lines.extend(f"    - {path}" for path in target_paths)
+    else:
+        lines.append("  targets: none")
+    if focused_items:
+        lines.append("  focusedCommands:")
+        for command in focused_items:
+            lines.extend(
+                [
+                    f"    - command: {command.get('command') or ''}",
+                    f"      cwd: {command.get('cwd') or '.'}",
+                    f"      test: {command.get('test') or ''}",
+                    f"      source: {command.get('source') or ''}",
+                    f"      available: {'yes' if bool(command.get('available')) else 'no'}",
+                    f"      missingTool: {command.get('missingTool') or 'none'}",
+                    f"      reason: {command.get('reason') or ''}",
+                ]
+            )
+    else:
+        lines.append("  focusedCommands: none")
     if results:
         lines.append("  results:")
         for position, result in enumerate(results, start=1):

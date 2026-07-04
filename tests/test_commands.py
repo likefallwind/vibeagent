@@ -1835,8 +1835,13 @@ class CommandTests(unittest.TestCase):
 
         self.assertIn("Run focused test commands:", text)
         self.assertIn("targetPaths: 1", text)
+        self.assertIn("targets:", text)
+        self.assertIn("pkg/actions.py", text)
         self.assertIn("focusedCommands: 1/1", text)
         self.assertIn("python -m unittest discover -s tests -p test_actions.py", text)
+        self.assertIn("test: tests/test_actions.py", text)
+        self.assertIn("source: pkg/actions.py", text)
+        self.assertIn("reason:", text)
         self.assertIn("exitCode: 0", text)
         self.assertIn("Usage: /run-focused-tests [path...]", invalid)
         self.assertIn("options are not supported", invalid)
@@ -1864,6 +1869,11 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(report["results"][0]["command"], "python -m unittest discover -s tests -p test_actions.py")
         self.assertEqual(report["results"][0]["exitCode"], 0)
         self.assertIn("Run focused test commands:", rendered)
+        self.assertIn("targets:", rendered)
+        self.assertIn("pkg/actions.py", rendered)
+        self.assertIn("focusedCommands:", rendered)
+        self.assertIn("test: tests/test_actions.py", rendered)
+        self.assertIn("source: pkg/actions.py", rendered)
         self.assertIn("durationMs:", rendered)
 
     def test_get_repo_map_text_reports_tree_files_and_symbols(self) -> None:
