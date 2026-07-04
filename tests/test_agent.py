@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalDeniedObservation, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckGitStageObservation, CheckRunCommandsObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CommandCheckObservation, ContentBlock, EnvironmentInfoObservation, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ProjectInstructionSource, ProjectInstructionsObservation, ProjectManifest, ProjectManifestItem, ProjectManifestsObservation, ProjectOverviewObservation, ProjectTodo, ProjectTodosObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, RuntimeToolInfo, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, ToolErrorObservation, ToolSearchObservation, WaitProcessObservation
+from vibeagent.types import ApprovalDecision, ApprovalDeniedObservation, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckGitStageObservation, CheckRunCommandsObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CodeReference, CodeReferencesObservation, CommandCheckObservation, ContentBlock, EnvironmentInfoObservation, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ProjectInstructionSource, ProjectInstructionsObservation, ProjectManifest, ProjectManifestItem, ProjectManifestsObservation, ProjectOverviewObservation, ProjectTodo, ProjectTodosObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, RuntimeToolInfo, SearchObservation, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, ToolErrorObservation, ToolSearchObservation, WaitProcessObservation
 from vibeagent.types import CheckEditFileObservation, CheckJsonSetObservation, CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, GitChangesObservation, GitCommitObservation, GitDiffObservation, GitStageObservation, GitStatusObservation, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PatchFilesObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -4898,6 +4898,85 @@ class AgentTests(unittest.TestCase):
         self.assertIn("session_audit", instruction)
         self.assertIn("answer directly", instruction)
 
+    def test_next_action_instruction_guides_read_file_to_edit_or_verify(self) -> None:
+        observation = ReadFileObservation(
+            kind="read_file",
+            path="vibeagent/agent.py",
+            content="def run_agent():\n    pass\n",
+            message="Read file.",
+        )
+
+        instruction = get_next_action_instruction("inspect agent", [observation])
+
+        self.assertIn("Source file vibeagent/agent.py was read", instruction)
+        self.assertIn("choose the next edit", instruction)
+        self.assertIn("referenced code", instruction)
+        self.assertIn("run the relevant verification", instruction)
+
+    def test_next_action_instruction_guides_truncated_read_file_to_focused_slice(self) -> None:
+        observation = ReadFileObservation(
+            kind="read_file",
+            path="vibeagent/agent.py",
+            content="large file\n",
+            message="Read file.",
+            truncated=True,
+        )
+
+        instruction = get_next_action_instruction("inspect agent", [observation])
+
+        self.assertIn("was read but truncated", instruction)
+        self.assertIn("start_line/line_count", instruction)
+        self.assertIn("read_file_context", instruction)
+        self.assertIn("search_contexts", instruction)
+
+    def test_next_action_instruction_guides_search_matches_to_context_reads(self) -> None:
+        observation = SearchObservation(
+            kind="search",
+            ok=True,
+            query="run_agent",
+            matches=["vibeagent/agent.py:120:def run_agent(...):"],
+            total=1,
+            truncated=False,
+            message="Found matches.",
+        )
+
+        instruction = get_next_action_instruction("find run_agent", [observation])
+
+        self.assertIn("Search found 1 match", instruction)
+        self.assertIn("vibeagent/agent.py:120", instruction)
+        self.assertIn("search_contexts", instruction)
+        self.assertIn("read_file_context", instruction)
+        self.assertIn("before editing", instruction)
+
+    def test_next_action_instruction_guides_code_references_to_contexts(self) -> None:
+        observation = CodeReferencesObservation(
+            kind="code_references",
+            symbol="run_agent",
+            path=None,
+            references=[
+                CodeReference(
+                    path="tests/test_agent.py",
+                    language="python",
+                    line=42,
+                    column=8,
+                    symbol="run_agent",
+                    context="result = run_agent('task')",
+                )
+            ],
+            total=1,
+            truncated=False,
+            ok=True,
+            message="Found references.",
+        )
+
+        instruction = get_next_action_instruction("inspect references", [observation])
+
+        self.assertIn("Code references were found", instruction)
+        self.assertIn("tests/test_agent.py:42 run_agent", instruction)
+        self.assertIn("code_reference_contexts", instruction)
+        self.assertIn("read_file_context", instruction)
+        self.assertIn("before editing", instruction)
+
     def test_next_action_instruction_guides_checkpoint_list_to_inspection(self) -> None:
         observation = CheckpointListObservation(
             kind="checkpoint_list",
@@ -6052,7 +6131,7 @@ class AgentTests(unittest.TestCase):
         self.assertIn("rerun the relevant check", instruction)
         self.assertIn("before finishing", instruction)
 
-    def test_next_action_instruction_keeps_plain_source_context_generic_without_recovery_signal(self) -> None:
+    def test_next_action_instruction_guides_plain_source_context_to_edit_or_inspect(self) -> None:
         context = ReadFileContextObservation(
             kind="read_file_context",
             path="tests/test_agent.py",
@@ -6070,7 +6149,10 @@ class AgentTests(unittest.TestCase):
 
         instruction = get_next_action_instruction("inspect the code", [context])
 
-        self.assertIn("Do not repeat inspection", instruction)
+        self.assertIn("Targeted file context for tests/test_agent.py was read", instruction)
+        self.assertIn("make the edit", instruction)
+        self.assertIn("next focused inspection", instruction)
+        self.assertIn("run verification", instruction)
         self.assertNotIn("rerun the failed command", instruction)
 
     def test_next_action_instruction_guides_failed_python_check_to_fix_error(self) -> None:

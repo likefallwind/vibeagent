@@ -6,6 +6,7 @@ from .prompt_next_action_edit import EDIT_NEXT_ACTION_KINDS, edit_next_action_in
 from .prompt_next_action_error import ERROR_NEXT_ACTION_KINDS, error_next_action_instruction
 from .prompt_next_action_git import GIT_NEXT_ACTION_KINDS, git_next_action_instruction
 from .prompt_next_action_project import PROJECT_NEXT_ACTION_KINDS, project_next_action_instruction
+from .prompt_next_action_read import READ_NEXT_ACTION_KINDS, read_next_action_instruction
 from .prompt_next_action_runtime import runtime_next_action_instruction
 from .prompt_next_action_session import SESSION_NEXT_ACTION_KINDS, session_next_action_instruction
 from .types import Observation
@@ -42,31 +43,11 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
     if latest.kind in EDIT_NEXT_ACTION_KINDS:
         return edit_next_action_instruction(base, latest)
 
+    if latest.kind in READ_NEXT_ACTION_KINDS:
+        return read_next_action_instruction(base, latest)
+
     if latest.kind in {
-        "read_file",
-        "read_file_context",
-        "read_file_contexts",
         "python_traceback",
-        "tail_file",
-        "read_files",
-        "read_file_ranges",
-        "file_info",
-        "image_info",
-        "repo_map",
-        "python_symbols",
-        "code_outline",
-        "python_dependencies",
-        "code_dependencies",
-        "code_references",
-        "code_reference_contexts",
-        "code_definitions",
-        "code_rename_preview",
-        "python_definitions",
-        "python_calls",
-        "python_call_graph",
-        "python_references",
-        "python_reference_contexts",
-        "python_rename_preview",
         "project_commands",
         "related_tests",
         "focused_test_commands",
@@ -83,11 +64,6 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "port_check",
         "http_check",
         "http_fetch",
-        "list_files",
-        "search",
-        "search_contexts",
-        "list_tree",
-        "glob",
     }:
         return (
             f"{base} Do not repeat inspection unless you need specific missing information. "
