@@ -4542,6 +4542,51 @@ class AgentTests(unittest.TestCase):
         self.assertIn("python -m unittest discover -s tests -p test_agent.py", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_guides_focused_and_suggested_checks(self) -> None:
+        observation = FinalReviewObservation(
+            kind="final_review",
+            ok=True,
+            ready=False,
+            blocking_issues=["Suggested verification checks are still pending after the latest project change."],
+            warnings=[],
+            running_processes=[],
+            files=[],
+            total_files=1,
+            suggested_checks=[
+                SuggestedCheck(
+                    command="python -m unittest discover -s tests",
+                    cwd=".",
+                    source="tests",
+                    reason="unit tests",
+                )
+            ],
+            suggested_checks_total=1,
+            suggested_checks_truncated=False,
+            focused_test_commands=[
+                FocusedTestCommand(
+                    command="python -m unittest tests.test_agent",
+                    cwd=".",
+                    test_path="tests/test_agent.py",
+                    source="vibeagent/prompts.py",
+                    reason="related test",
+                )
+            ],
+            focused_test_commands_total=1,
+            focused_test_related_tests_total=1,
+            diff_check="",
+            staged_diff_check="",
+            status="blocked",
+            message="Not ready.",
+        )
+
+        instruction = get_next_action_instruction("finish only after verification", [observation])
+
+        self.assertIn("run_focused_test_commands", instruction)
+        self.assertIn("python -m unittest tests.test_agent", instruction)
+        self.assertIn("run_suggested_checks", instruction)
+        self.assertIn("python -m unittest discover -s tests", instruction)
+        self.assertIn("Fix failures before finishing.", instruction)
+
     def test_next_action_instruction_guides_final_review_blocking_issues(self) -> None:
         observation = FinalReviewObservation(
             kind="final_review",

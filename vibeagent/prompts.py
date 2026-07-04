@@ -169,7 +169,16 @@ def _final_review_next_action_instruction(base: str, latest: Observation) -> str
             f"{_format_next_action_items(running_processes)}. Rerun final_review before finishing."
         )
 
+    focused_commands = _observation_commands(getattr(latest, "focused_test_commands", []))
     suggested_commands = _observation_commands(getattr(latest, "suggested_checks", []))
+    if focused_commands and suggested_commands:
+        return (
+            f"{base} Final review is not ready and lists focused and suggested verification checks. "
+            f"Run run_focused_test_commands or run_command first for: {_format_next_action_items(focused_commands)}. "
+            f"Then run run_suggested_checks or run_command for broader checks: {_format_next_action_items(suggested_commands)}. "
+            "Fix failures before finishing."
+        )
+
     if suggested_commands:
         return (
             f"{base} Final review is not ready and lists suggested verification checks. "
@@ -177,7 +186,6 @@ def _final_review_next_action_instruction(base: str, latest: Observation) -> str
             "Fix failures before finishing."
         )
 
-    focused_commands = _observation_commands(getattr(latest, "focused_test_commands", []))
     if focused_commands:
         return (
             f"{base} Final review is not ready and lists focused verification checks. "
