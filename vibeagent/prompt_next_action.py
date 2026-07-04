@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .prompt_next_action_checkpoint import CHECKPOINT_NEXT_ACTION_KINDS, checkpoint_next_action_instruction
+from .prompt_next_action_edit import EDIT_NEXT_ACTION_KINDS, edit_next_action_instruction
 from .prompt_next_action_git import GIT_NEXT_ACTION_KINDS, git_next_action_instruction
 from .prompt_next_action_project import PROJECT_NEXT_ACTION_KINDS, project_next_action_instruction
 from .prompt_next_action_runtime import runtime_next_action_instruction
@@ -114,6 +115,9 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
     if latest.kind in GIT_NEXT_ACTION_KINDS:
         return git_next_action_instruction(base, latest)
 
+    if latest.kind in EDIT_NEXT_ACTION_KINDS:
+        return edit_next_action_instruction(base, latest)
+
     if latest.kind in {
         "read_file",
         "read_file_context",
@@ -127,9 +131,6 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "repo_map",
         "python_symbols",
         "code_outline",
-        "check_json_set",
-        "check_json_remove",
-        "check_json_patch",
         "python_dependencies",
         "code_dependencies",
         "code_references",
@@ -212,42 +213,7 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
     }:
         return f"{base} Use the repository or session information to decide whether to continue, run a check, or answer directly."
 
-    if latest.kind in {
-        "check_patch",
-        "check_patches",
-        "check_regex_replace",
-        "check_write_file",
-        "check_write_files",
-        "check_edit_file",
-        "check_multi_edit_file",
-        "check_replace_python_definition",
-        "check_replace_lines",
-        "check_insert_lines",
-        "check_append_file",
-        "check_json_set",
-        "check_json_remove",
-        "check_json_patch",
-        "check_delete_file",
-        "check_delete_files",
-        "check_move_file",
-        "check_move_files",
-        "check_copy_file",
-        "check_copy_files",
-        "check_move_dir",
-        "check_move_dirs",
-        "check_copy_dir",
-        "check_copy_dirs",
-        "check_create_dir",
-        "check_create_dirs",
-        "check_delete_empty_dir",
-        "check_delete_empty_dirs",
-        "check_set_executable",
-    }:
-        if latest.ok:
-            return f"{base} The dry-run succeeded. Apply it if the diff or validation result matches the requested change, or continue with the next required step."
-        return f"{base} The dry-run failed, so fix the context or choose another edit tool before applying changes."
-
-    if latest.kind in {"write_file", "write_files", "edit_file", "multi_edit_file", "replace_python_definition", "python_rename", "regex_replace", "json_set", "json_remove", "json_patch", "replace_lines", "insert_lines", "append_file", "patch_file", "patch_files", "delete_file", "delete_files", "move_file", "move_files", "copy_file", "copy_files", "move_dir", "move_dirs", "copy_dir", "copy_dirs", "create_dir", "create_dirs", "delete_empty_dir", "delete_empty_dirs", "set_executable", "git_fetch", "git_pull", "git_push", "git_restore", "git_stash", "git_stash_apply", "git_stash_drop", "git_switch"}:
+    if latest.kind in {"git_fetch", "git_pull", "git_push", "git_restore", "git_stash", "git_stash_apply", "git_stash_drop", "git_switch"}:
         return f"{base} Continue with the next required file, run one appropriate check, or answer directly if the task is complete."
 
     if latest.kind == "update_plan":

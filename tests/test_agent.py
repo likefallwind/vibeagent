@@ -20,7 +20,7 @@ from vibeagent.final_review_actions import final_review_session_verification_iss
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
 from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckGitStageObservation, CheckRunCommandsObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CommandCheckObservation, ContentBlock, EnvironmentInfoObservation, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ProjectInstructionSource, ProjectInstructionsObservation, ProjectManifest, ProjectManifestItem, ProjectManifestsObservation, ProjectOverviewObservation, ProjectTodo, ProjectTodosObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, RuntimeToolInfo, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, ToolSearchObservation, WaitProcessObservation
-from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, GitChangesObservation, GitCommitObservation, GitDiffObservation, GitStageObservation, GitStatusObservation, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
+from vibeagent.types import CheckEditFileObservation, CheckJsonSetObservation, CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, GitChangesObservation, GitCommitObservation, GitDiffObservation, GitStageObservation, GitStatusObservation, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PatchFilesObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
 
@@ -5527,6 +5527,73 @@ class AgentTests(unittest.TestCase):
         self.assertIn("git_status", instruction)
         self.assertIn("git_push if explicitly requested", instruction)
         self.assertIn("answer directly with the commit hash", instruction)
+
+    def test_next_action_instruction_guides_edit_dry_run_to_apply_after_diff_review(self) -> None:
+        observation = CheckEditFileObservation(
+            kind="check_edit_file",
+            path="vibeagent/agent.py",
+            ok=True,
+            message="Preview edit.",
+            diff="--- a/vibeagent/agent.py\n+++ b/vibeagent/agent.py\n@@\n-old\n+new\n",
+        )
+
+        instruction = get_next_action_instruction("preview edit", [observation])
+
+        self.assertIn("File change dry-run succeeded", instruction)
+        self.assertIn("vibeagent/agent.py", instruction)
+        self.assertIn("Review the preview diff", instruction)
+        self.assertIn("apply edit_file only if it matches the request", instruction)
+
+    def test_next_action_instruction_guides_json_dry_run_to_json_apply(self) -> None:
+        observation = CheckJsonSetObservation(
+            kind="check_json_set",
+            path="package.json",
+            pointer="/scripts/test",
+            ok=True,
+            message="Preview JSON update.",
+            diff='--- a/package.json\n+++ b/package.json\n@@\n-"test": "old"\n+"test": "new"\n',
+        )
+
+        instruction = get_next_action_instruction("preview package json", [observation])
+
+        self.assertIn("File change dry-run succeeded", instruction)
+        self.assertIn("package.json", instruction)
+        self.assertIn("apply json_set only if it matches the request", instruction)
+        self.assertNotIn("Do not repeat inspection", instruction)
+
+    def test_next_action_instruction_guides_applied_write_to_diff_tests_and_final_review(self) -> None:
+        observation = WriteFileObservation(
+            kind="write_file",
+            path="src/app.py",
+            ok=True,
+            message="Wrote src/app.py.",
+        )
+
+        instruction = get_next_action_instruction("write app", [observation])
+
+        self.assertIn("File change applied", instruction)
+        self.assertIn("src/app.py", instruction)
+        self.assertIn("git_diff", instruction)
+        self.assertIn("review_changes", instruction)
+        self.assertIn("related_tests", instruction)
+        self.assertIn("focused_test_commands", instruction)
+        self.assertIn("final_review before finishing", instruction)
+
+    def test_next_action_instruction_guides_applied_patch_files_with_targets(self) -> None:
+        observation = PatchFilesObservation(
+            kind="patch_files",
+            files=["vibeagent/agent.py", "tests/test_agent.py"],
+            ok=True,
+            message="Applied patches.",
+            diff="diff --git a/vibeagent/agent.py b/vibeagent/agent.py\n",
+        )
+
+        instruction = get_next_action_instruction("apply patches", [observation])
+
+        self.assertIn("File change applied", instruction)
+        self.assertIn("vibeagent/agent.py; tests/test_agent.py", instruction)
+        self.assertIn("git_diff", instruction)
+        self.assertIn("run relevant verification", instruction)
 
     def test_next_action_instruction_guides_failed_command_diagnostics(self) -> None:
         observation = RunCommandObservation(
