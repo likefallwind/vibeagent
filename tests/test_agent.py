@@ -20,7 +20,7 @@ from vibeagent.final_review_actions import final_review_session_verification_iss
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
 from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ReadFileContextObservation, ReadFileObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction
-from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
+from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
 
@@ -4759,6 +4759,70 @@ class AgentTests(unittest.TestCase):
         instruction = get_next_action_instruction("verify syntax", [observation])
 
         self.assertIn("python_check passed", instruction)
+        self.assertIn("Continue with the next required check", instruction)
+        self.assertIn("answer directly", instruction)
+
+    def test_next_action_instruction_guides_failed_suggested_checks_to_diagnostics_and_rerun(self) -> None:
+        observation = RunSuggestedChecksObservation(
+            kind="run_suggested_checks",
+            ok=False,
+            results=[
+                CommandResult(
+                    command="python -m unittest tests.test_agent",
+                    exit_code=1,
+                    stdout="FAIL tests/test_agent.py:42\n",
+                    stderr="AssertionError: expected ready\n",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                )
+            ],
+            suggested_checks=[
+                SuggestedCheck(
+                    command="python -m unittest tests.test_agent",
+                    cwd=".",
+                    source="tests",
+                    reason="unit tests",
+                )
+            ],
+            total=1,
+            truncated=False,
+            max_commands=1,
+            stopped_early=True,
+            skipped_unavailable=0,
+            message="Suggested checks failed.",
+        )
+
+        instruction = get_next_action_instruction("fix failing checks", [observation])
+
+        self.assertIn("run_suggested_checks had failed command", instruction)
+        self.assertIn("python -m unittest tests.test_agent (cwd=., exit 1)", instruction)
+        self.assertIn("output_diagnostics", instruction)
+        self.assertIn("rerun the failed command", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_successful_run_commands_to_continue_or_finish(self) -> None:
+        observation = RunCommandsObservation(
+            kind="run_commands",
+            results=[
+                CommandResult(
+                    command="python -m unittest tests.test_agent",
+                    exit_code=0,
+                    stdout="OK\n",
+                    stderr="",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                )
+            ],
+            ok=True,
+            stopped_early=False,
+            message="All commands passed.",
+        )
+
+        instruction = get_next_action_instruction("verify checks", [observation])
+
+        self.assertIn("run_commands completed without failed commands", instruction)
         self.assertIn("Continue with the next required check", instruction)
         self.assertIn("answer directly", instruction)
 

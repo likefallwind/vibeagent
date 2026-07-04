@@ -13,6 +13,13 @@ SOURCE_CONTEXT_KINDS = {
     "read_file_contexts",
 }
 
+BATCH_COMMAND_RESULT_KINDS = {
+    "run_commands",
+    "run_suggested_checks",
+    "run_focused_test_commands",
+    "run_session_verification",
+}
+
 
 def _format_next_action_items(items: list[str], max_items: int = 3) -> str:
     shown = items[:max_items]
@@ -117,6 +124,29 @@ def _check_failure_labels(values: object) -> list[str]:
             labels.append(label)
         elif message:
             labels.append(message)
+    return labels
+
+
+def _command_result_failed(result: object) -> bool:
+    return bool(getattr(result, "timed_out", False)) or getattr(result, "exit_code", 0) != 0
+
+
+def _failed_command_labels(results: object) -> list[str]:
+    labels: list[str] = []
+    if not isinstance(results, list):
+        return labels
+    for result in results:
+        if not _command_result_failed(result):
+            continue
+        command = str(getattr(result, "command", "") or "").strip()
+        cwd = str(getattr(result, "cwd", ".") or ".").strip()
+        exit_code = getattr(result, "exit_code", None)
+        timed_out = bool(getattr(result, "timed_out", False))
+        status = "timed out" if timed_out else f"exit {exit_code}"
+        if command:
+            labels.append(f"{command} (cwd={cwd}, {status})")
+        else:
+            labels.append(status)
     return labels
 
 
@@ -297,6 +327,19 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
             )
         return f"{base} The latest {latest.kind} failed. Inspect its message, fix the issue, and rerun the check before finishing."
 
+    if latest.kind in BATCH_COMMAND_RESULT_KINDS:
+        failed_commands = _failed_command_labels(getattr(latest, "results", []))
+        if failed_commands:
+            return (
+                f"{base} The latest {latest.kind} had failed command(s). Inspect stdout/stderr; "
+                "use output_diagnostics, output_contexts, or python_traceback for noisy output with file references. "
+                f"Fix the issue(s) and rerun the failed command(s) before finishing: {_format_next_action_items(failed_commands)}."
+            )
+        return (
+            f"{base} The latest {latest.kind} completed without failed commands. "
+            "Continue with the next required check, or answer directly if the requested work is complete."
+        )
+
     if latest.kind in {
         "read_file",
         "read_file_context",
@@ -475,7 +518,7 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
             return f"{base} The dry-run succeeded. Apply it if the diff or validation result matches the requested change, or continue with the next required step."
         return f"{base} The dry-run failed, so fix the context or choose another edit tool before applying changes."
 
-    if latest.kind in {"project_overview", "write_file", "write_files", "edit_file", "multi_edit_file", "replace_python_definition", "python_rename", "regex_replace", "json_set", "json_remove", "json_patch", "replace_lines", "insert_lines", "append_file", "patch_file", "patch_files", "delete_file", "delete_files", "move_file", "move_files", "copy_file", "copy_files", "move_dir", "move_dirs", "copy_dir", "copy_dirs", "create_dir", "create_dirs", "delete_empty_dir", "delete_empty_dirs", "set_executable", "git_fetch", "git_pull", "git_push", "git_restore", "git_stash", "git_stash_apply", "git_stash_drop", "git_switch", "git_stage", "git_unstage", "git_commit", "checkpoint_create", "checkpoint_restore", "checkpoint_delete", "checkpoint_prune", "run_commands", "run_suggested_checks", "run_focused_test_commands"}:
+    if latest.kind in {"project_overview", "write_file", "write_files", "edit_file", "multi_edit_file", "replace_python_definition", "python_rename", "regex_replace", "json_set", "json_remove", "json_patch", "replace_lines", "insert_lines", "append_file", "patch_file", "patch_files", "delete_file", "delete_files", "move_file", "move_files", "copy_file", "copy_files", "move_dir", "move_dirs", "copy_dir", "copy_dirs", "create_dir", "create_dirs", "delete_empty_dir", "delete_empty_dirs", "set_executable", "git_fetch", "git_pull", "git_push", "git_restore", "git_stash", "git_stash_apply", "git_stash_drop", "git_switch", "git_stage", "git_unstage", "git_commit", "checkpoint_create", "checkpoint_restore", "checkpoint_delete", "checkpoint_prune"}:
         return f"{base} Continue with the next required file, run one appropriate check, or answer directly if the task is complete."
 
     if latest.kind == "update_plan":
