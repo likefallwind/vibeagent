@@ -216,7 +216,12 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
                 f"{base} The latest command succeeded. If it checked the requested work, your next action must be "
                 "a concise final answer. Do not run another check unless the output contains a concrete error."
             )
-        return f"{base} The latest command failed or timed out, so fix the concrete error before finishing."
+        return (
+            f"{base} The latest command failed or timed out. Inspect its stdout/stderr for concrete errors; "
+            "if the output names file:line locations or is noisy, use output_diagnostics, output_contexts, "
+            "or python_traceback to locate the relevant source before editing. Fix the issue and rerun the "
+            "failed command before finishing."
+        )
 
     if latest.kind == "start_command":
         if latest.ok:

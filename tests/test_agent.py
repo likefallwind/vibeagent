@@ -4506,6 +4506,29 @@ class AgentTests(unittest.TestCase):
         self.assertIn("python -m unittest discover -s tests", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_guides_failed_command_diagnostics(self) -> None:
+        observation = RunCommandObservation(
+            kind="run_command",
+            result=CommandResult(
+                command="python -m unittest tests.test_agent",
+                exit_code=1,
+                stdout="FAIL: tests/test_agent.py:42\n",
+                stderr="AssertionError: expected ready\n",
+                timed_out=False,
+                signal=None,
+                cwd=".",
+            ),
+        )
+
+        instruction = get_next_action_instruction("fix the failing test", [observation])
+
+        self.assertIn("stdout/stderr", instruction)
+        self.assertIn("output_diagnostics", instruction)
+        self.assertIn("output_contexts", instruction)
+        self.assertIn("python_traceback", instruction)
+        self.assertIn("rerun the failed command", instruction)
+        self.assertIn("before finishing", instruction)
+
     def test_next_action_instruction_guides_pending_final_review_focused_tests(self) -> None:
         observation = FinalReviewObservation(
             kind="final_review",
