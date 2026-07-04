@@ -111,10 +111,11 @@ def _run_command_next_action_instruction(base: str, latest: Observation) -> str:
         )
     output_issues = _command_result_output_issue_labels([result])
     if output_issues:
-        return (
-            f"{base} The latest command failed or timed out. Inline output analysis identified referenced "
-            f"source location(s): {format_next_action_items(output_issues)}. Inspect or edit the referenced "
-            "source, fix the issue, and rerun the failed command before finishing."
+        return _inline_output_issue_instruction(
+            base,
+            "The latest command failed or timed out.",
+            output_issues,
+            "fix the issue, and rerun the failed command before finishing.",
         )
     return (
         f"{base} The latest command failed or timed out. Inspect its stdout/stderr for concrete errors; "
@@ -139,10 +140,11 @@ def _read_process_next_action_instruction(base: str, latest: Observation) -> str
     if process_exited_with_failure(latest):
         output_issues = _inline_output_issue_labels(latest)
         if output_issues:
-            return (
-                f"{base} The background command exited with a failure. Inline output analysis identified "
-                f"referenced source location(s): {format_next_action_items(output_issues)}. Inspect or edit "
-                "the referenced source, fix the issue, and rerun the relevant check before finishing."
+            return _inline_output_issue_instruction(
+                base,
+                "The background command exited with a failure.",
+                output_issues,
+                "fix the issue, and rerun the relevant check before finishing.",
             )
         return (
             f"{base} The background command exited with a failure. Inspect stdout/stderr; use "
@@ -158,10 +160,11 @@ def _wait_process_next_action_instruction(base: str, latest: Observation) -> str
     if process_exited_with_failure(latest):
         output_issues = _inline_output_issue_labels(latest)
         if output_issues:
-            return (
-                f"{base} The waited background command exited with a failure. Inline output analysis identified "
-                f"referenced source location(s): {format_next_action_items(output_issues)}. Inspect or edit "
-                "the referenced source, fix the issue, and rerun the relevant check before finishing."
+            return _inline_output_issue_instruction(
+                base,
+                "The waited background command exited with a failure.",
+                output_issues,
+                "fix the issue, and rerun the relevant check before finishing.",
             )
         return (
             f"{base} The waited background command exited with a failure. Inspect stdout/stderr; use "
@@ -276,11 +279,14 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
     if failed_commands:
         output_issues = _command_result_output_issue_labels(results)
         if output_issues:
-            return (
-                f"{base} The latest {latest.kind} had failed command(s). Inline output analysis identified "
-                f"referenced source location(s): {format_next_action_items(output_issues)}. Inspect or edit "
-                f"the referenced source, fix the issue(s), and rerun the failed command(s) before finishing: "
-                f"{format_next_action_items(failed_commands)}."
+            return _inline_output_issue_instruction(
+                base,
+                f"The latest {latest.kind} had failed command(s).",
+                output_issues,
+                (
+                    "fix the issue(s), and rerun the failed command(s) before finishing: "
+                    f"{format_next_action_items(failed_commands)}."
+                ),
             )
         return (
             f"{base} The latest {latest.kind} had failed command(s). Inspect stdout/stderr; "
@@ -298,6 +304,18 @@ def _inline_output_issue_labels(value: object) -> list[str]:
     if diagnostics:
         return diagnostics
     return context_labels(getattr(value, "output_contexts", []))
+
+
+def _inline_output_issue_instruction(
+    base: str,
+    intro: str,
+    output_issues: list[str],
+    resolution: str,
+) -> str:
+    return (
+        f"{base} {intro} Inline output analysis identified referenced source location(s): "
+        f"{format_next_action_items(output_issues)}. Inspect or edit the referenced source, {resolution}"
+    )
 
 
 def _command_result_output_issue_labels(results: object) -> list[str]:
@@ -329,12 +347,14 @@ def _run_session_verification_next_action_instruction(base: str, latest: Observa
         )
         output_issues = _command_result_output_issue_labels(results)
         if output_issues:
-            return (
-                f"{base} run_session_verification reran recorded verification check(s) and found failed command(s)."
-                f"{stopped} Inline output analysis identified referenced source location(s): "
-                f"{format_next_action_items(output_issues)}. Inspect or edit the referenced source, fix the issue(s), "
-                f"then rerun run_session_verification or session_verification before finishing: "
-                f"{format_next_action_items(failed_commands)}.{not_run_detail}"
+            return _inline_output_issue_instruction(
+                base,
+                f"run_session_verification reran recorded verification check(s) and found failed command(s).{stopped}",
+                output_issues,
+                (
+                    "fix the issue(s), then rerun run_session_verification or session_verification before finishing: "
+                    f"{format_next_action_items(failed_commands)}.{not_run_detail}"
+                ),
             )
         return (
             f"{base} run_session_verification reran recorded verification check(s) and found failed command(s)."
