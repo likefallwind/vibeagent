@@ -5,6 +5,7 @@ from pathlib import Path
 from .actions import execute_action
 from .output_serialization import serialize_output_context_result, serialize_output_diagnostic
 from .session import get_last_session_id
+from .session_input import normalize_optional_run_id
 from .types import SessionOutputContextsAction, SessionOutputDiagnosticsAction
 from .workspace_core import RunWorkspace
 
@@ -45,7 +46,7 @@ def get_session_output_contexts_observation(
     max_contexts: int = 20,
     max_bytes_per_context: int = 20_000,
 ):
-    selected = run_id or get_last_session_id(project_root)
+    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
     if not selected:
         return None
     root = Path(project_root).resolve()
@@ -73,7 +74,7 @@ def get_session_output_contexts_report(
     max_contexts: int = 20,
     max_bytes_per_context: int = 20_000,
 ) -> dict[str, object]:
-    selected = run_id or get_last_session_id(project_root)
+    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
     if not selected:
         return {
             "session": None,
@@ -250,7 +251,7 @@ def get_session_output_diagnostics_observation(
     max_contexts: int = 20,
     max_bytes_per_context: int = 20_000,
 ):
-    selected = run_id or get_last_session_id(project_root)
+    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
     if not selected:
         return None
     root = Path(project_root).resolve()
@@ -280,7 +281,7 @@ def get_session_output_diagnostics_report(
     max_contexts: int = 20,
     max_bytes_per_context: int = 20_000,
 ) -> dict[str, object]:
-    selected = run_id or get_last_session_id(project_root)
+    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
     if not selected:
         return {
             "session": None,

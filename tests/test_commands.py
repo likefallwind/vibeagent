@@ -9311,11 +9311,14 @@ class CommandTests(unittest.TestCase):
             )
 
             report = get_session_commands_report(root, "run-1", max_commands=1, max_output_chars=8)
+            spaced = get_session_commands_report(root, " run-1 ", max_commands=1, max_output_chars=8)
             missing = get_session_commands_report(root, "missing")
             rendered = format_session_commands_report_text(report)
             missing_text = format_session_commands_report_text(missing)
 
         self.assertEqual(report["session"], "run-1")
+        self.assertEqual(spaced["session"], "run-1")
+        self.assertEqual(spaced["commands"]["total"], 2)
         self.assertTrue(report["exists"])
         self.assertTrue(report["ok"])
         self.assertEqual(report["commands"]["total"], 2)
@@ -9411,6 +9414,7 @@ class CommandTests(unittest.TestCase):
             )
 
             report = get_session_output_contexts_report(root, context_lines=1, max_contexts=10, max_bytes_per_context=1000)
+            spaced = get_session_output_contexts_report(root, " new-run ", context_lines=1, max_contexts=10, max_bytes_per_context=1000)
             missing = get_session_output_contexts_report(root, "missing")
             rendered = format_session_output_contexts_report_text(report)
             missing_text = format_session_output_contexts_report_text(missing)
@@ -9418,6 +9422,8 @@ class CommandTests(unittest.TestCase):
         self.assertTrue(report["ok"])
         self.assertEqual(report["status"], "ready")
         self.assertEqual(report["session"], "new-run")
+        self.assertEqual(spaced["session"], "new-run")
+        self.assertEqual(spaced["contexts"]["total"], 1)
         self.assertEqual(report["commands"]["total"], 1)
         self.assertEqual(report["contexts"]["total"], 1)
         self.assertEqual(report["contexts"]["ok"], 1)
@@ -9515,6 +9521,7 @@ class CommandTests(unittest.TestCase):
             )
 
             report = get_session_output_diagnostics_report(root, context_lines=1, max_diagnostics=10, max_contexts=10, max_bytes_per_context=1000)
+            spaced = get_session_output_diagnostics_report(root, " new-run ", context_lines=1, max_diagnostics=10, max_contexts=10, max_bytes_per_context=1000)
             missing = get_session_output_diagnostics_report(root, "missing")
             rendered = format_session_output_diagnostics_report_text(report)
             missing_text = format_session_output_diagnostics_report_text(missing)
@@ -9522,6 +9529,8 @@ class CommandTests(unittest.TestCase):
         self.assertTrue(report["ok"])
         self.assertEqual(report["status"], "ready")
         self.assertEqual(report["session"], "new-run")
+        self.assertEqual(spaced["session"], "new-run")
+        self.assertEqual(spaced["diagnostics"]["total"], 1)
         self.assertEqual(report["commands"]["shown"], 1)
         self.assertEqual(report["diagnostics"]["total"], 1)
         self.assertEqual(report["diagnostics"]["shown"], 1)
@@ -9603,11 +9612,14 @@ class CommandTests(unittest.TestCase):
             )
 
             report = get_session_files_report(root, "run-1", max_files=1)
+            spaced = get_session_files_report(root, " run-1 ", max_files=1)
             missing = get_session_files_report(root, "missing")
             rendered = format_session_files_report_text(report)
             missing_text = format_session_files_report_text(missing)
 
         self.assertEqual(report["session"], "run-1")
+        self.assertEqual(spaced["session"], "run-1")
+        self.assertEqual(spaced["files"]["total"], 2)
         self.assertTrue(report["exists"])
         self.assertTrue(report["ok"])
         self.assertEqual(report["files"]["total"], 2)
@@ -9707,11 +9719,14 @@ class CommandTests(unittest.TestCase):
             )
 
             report = get_session_failures_report(root, "run-1", max_failures=1, max_text=80)
+            spaced = get_session_failures_report(root, " run-1 ", max_failures=1, max_text=80)
             missing = get_session_failures_report(root, "missing")
             rendered = format_session_failures_report_text(report)
             missing_text = format_session_failures_report_text(missing)
 
         self.assertEqual(report["session"], "run-1")
+        self.assertEqual(spaced["session"], "run-1")
+        self.assertEqual(spaced["failures"]["total"], 2)
         self.assertTrue(report["exists"])
         self.assertFalse(report["ok"])
         self.assertEqual(report["status"], "failed")
@@ -9810,11 +9825,14 @@ class CommandTests(unittest.TestCase):
             )
 
             report = get_session_verification_report(root, "run-1", max_checks=1)
+            spaced = get_session_verification_report(root, " run-1 ", max_checks=1)
             missing = get_session_verification_report(root, "missing")
             rendered = format_session_verification_report_text(report)
             missing_text = format_session_verification_report_text(missing)
 
         self.assertEqual(report["session"], "run-1")
+        self.assertEqual(spaced["session"], "run-1")
+        self.assertEqual(spaced["verified"]["total"], 2)
         self.assertTrue(report["exists"])
         self.assertFalse(report["ok"])
         self.assertEqual(report["status"], "blocked")
@@ -9878,6 +9896,7 @@ class CommandTests(unittest.TestCase):
             )
 
             failed_first = commands_module.get_run_session_verification_report(root, "run-1")
+            spaced_failed_first = commands_module.get_run_session_verification_report(root, " run-1 ")
             pending_only = commands_module.get_run_session_verification_report(
                 root,
                 "run-1",
@@ -9889,6 +9908,8 @@ class CommandTests(unittest.TestCase):
         self.assertFalse(failed_first["ok"])
         self.assertEqual(failed_first["selectedCount"], 2)
         self.assertEqual(failed_first["commands"], {"shown": 1, "total": 2})
+        self.assertEqual(spaced_failed_first["session"], "run-1")
+        self.assertEqual(spaced_failed_first["selectedCount"], 2)
         self.assertTrue(failed_first["stoppedEarly"])
         self.assertEqual(failed_first["results"][0]["exitCode"], 3)
         self.assertTrue(pending_only["ok"])

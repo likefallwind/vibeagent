@@ -9,6 +9,7 @@ from .local_runtime_reports import (
 )
 from .session import build_session_verification_report, get_last_session_id
 from .session_audit_reports import format_session_verification_report_text as _format_session_verification_report_text
+from .session_input import normalize_optional_run_id
 from .session_verification_action_executor import execute_run_session_verification_action
 from .types import RunSessionVerificationAction
 from .workspace_core import RunWorkspace
@@ -30,7 +31,7 @@ def get_session_verification_report(
     max_checks: int = 50,
     max_text: int = 160,
 ) -> dict[str, object]:
-    selected = run_id or get_last_session_id(project_root)
+    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
     if not selected:
         return {
             "session": None,
@@ -97,8 +98,9 @@ def get_run_session_verification_report(
     stop_on_failure: bool = True,
 ) -> dict[str, object]:
     root = Path(project_root).resolve()
+    selected = normalize_optional_run_id(run_id)
 
-    def failure(message: str, selected: str | None = run_id) -> dict[str, object]:
+    def failure(message: str, selected: str | None = selected) -> dict[str, object]:
         return {
             "projectRoot": str(root),
             "session": selected,
@@ -118,7 +120,7 @@ def get_run_session_verification_report(
             "message": message,
         }
 
-    selected = run_id or get_last_session_id(project_root)
+    selected = selected or get_last_session_id(project_root)
     if not selected:
         return failure("No sessions found.", None)
     if max_checks < 1:

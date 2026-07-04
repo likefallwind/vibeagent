@@ -6,6 +6,7 @@ from .session import get_last_session_id
 from .session_event_report_commands import build_session_commands_report
 from .session_failure_reports import build_session_failures_report
 from .session_file_reports import build_session_files_report
+from .session_input import normalize_optional_run_id
 
 
 def _missing_session_report() -> dict[str, object]:
@@ -50,7 +51,7 @@ def get_session_commands_report(
     max_commands: int = 20,
     max_output_chars: int = 2_000,
 ) -> dict[str, object]:
-    selected = run_id or get_last_session_id(project_root)
+    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
     if not selected:
         return _missing_session_report()
     try:
@@ -134,7 +135,7 @@ def get_session_files_report(
     run_id: str | None = None,
     max_files: int = 100,
 ) -> dict[str, object]:
-    selected = run_id or get_last_session_id(project_root)
+    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
     if not selected:
         return _missing_session_report()
     try:
@@ -214,7 +215,7 @@ def get_session_failures_report(
     max_failures: int = 50,
     max_text: int = 500,
 ) -> dict[str, object]:
-    selected = run_id or get_last_session_id(project_root)
+    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
     if not selected:
         return _missing_session_report()
     try:
