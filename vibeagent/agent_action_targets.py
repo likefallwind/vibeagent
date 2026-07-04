@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+from .agent_approval_targets import (
+    command_batch_target,
+    command_target,
+    focused_test_commands_target,
+    session_verification_target,
+    suggested_checks_target,
+)
 from .agent_observation_utils import summarize
 from . import types as t
 
@@ -110,18 +117,13 @@ def build_action_target(action: object) -> str:
     if isinstance(action, (t.CheckSetExecutableAction, t.SetExecutableAction)):
         return action.path
     if isinstance(action, t.RunCommandAction):
-        return f"{action.command} (cwd: {action.cwd or '.'})"
+        return command_target(action.command, action.cwd)
     if isinstance(action, t.RunCommandsAction):
-        return ", ".join(f"{item.command} (cwd: {item.cwd or '.'})" for item in action.commands)
+        return command_batch_target(action.commands)
     if isinstance(action, t.RunSessionVerificationAction):
-        groups = []
-        if action.include_failed:
-            groups.append("failed")
-        if action.include_pending:
-            groups.append("pending")
-        return f"{action.run_id or 'current'} ({'/'.join(groups)})"
+        return session_verification_target(action.run_id, action.include_failed, action.include_pending)
     if isinstance(action, t.StartCommandAction):
-        return f"{action.command} (cwd: {action.cwd or '.'})"
+        return command_target(action.command, action.cwd)
     if isinstance(action, (t.ReadProcessAction, t.StopProcessAction)):
         return action.process_id
     if isinstance(action, (t.ListProcessesAction, t.CheckStopAllProcessesAction, t.StopAllProcessesAction)):
@@ -181,7 +183,7 @@ def build_action_target(action: object) -> str:
     if isinstance(action, t.FocusedTestCommandsAction):
         return "focused test commands"
     if isinstance(action, (t.CheckFocusedTestCommandsAction, t.RunFocusedTestCommandsAction)):
-        return f"up to {action.max_commands} focused test command(s)"
+        return focused_test_commands_target(action.max_commands)
     if isinstance(action, t.ProjectManifestsAction):
         return "project manifests"
     if isinstance(action, t.ProjectInstructionsAction):
@@ -227,11 +229,11 @@ def build_action_target(action: object) -> str:
     if isinstance(action, (t.CheckGitCommitAction, t.GitCommitAction)):
         return summarize(action.message, 80)
     if isinstance(action, (t.RunCommandAction, t.CheckStartCommandAction, t.StartCommandAction)):
-        return f"{action.command} (cwd: {action.cwd or '.'})"
+        return command_target(action.command, action.cwd)
     if isinstance(action, (t.CheckRunCommandsAction, t.RunCommandsAction)):
-        return ", ".join(f"{item.command} (cwd: {item.cwd or '.'})" for item in action.commands)
+        return command_batch_target(action.commands)
     if isinstance(action, (t.CheckSuggestedChecksAction, t.RunSuggestedChecksAction)):
-        return f"up to {action.max_commands} suggested checks"
+        return suggested_checks_target(action.max_commands)
     if isinstance(action, (t.WaitProcessAction, t.CheckStopProcessAction)):
         return action.process_id
     if isinstance(action, (t.CheckWriteProcessAction, t.WriteProcessAction)):

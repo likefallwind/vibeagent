@@ -25,6 +25,41 @@ class AgentActionDescriptionTests(unittest.TestCase):
         self.assertEqual(build_step_label(action), "Run python3 -m unittest in tests")
         self.assertEqual(build_action_target(action), "python3 -m unittest (cwd: tests)")
 
+    def test_action_targets_reuse_approval_command_target_format(self) -> None:
+        action = t.CheckRunCommandsAction(
+            type="check_run_commands",
+            commands=[
+                t.RunCommandItem(command="python -m unittest", cwd="."),
+                t.RunCommandItem(command="npm test", cwd="web"),
+            ],
+        )
+
+        self.assertEqual(
+            build_action_target(action),
+            "python -m unittest (cwd: .), npm test (cwd: web)",
+        )
+
+    def test_action_targets_reuse_verification_runner_target_format(self) -> None:
+        self.assertEqual(
+            build_action_target(t.CheckSuggestedChecksAction(type="check_suggested_checks", max_commands=2)),
+            "up to 2 suggested check command(s)",
+        )
+        self.assertEqual(
+            build_action_target(t.CheckFocusedTestCommandsAction(type="check_focused_test_commands", max_commands=3)),
+            "up to 3 focused test command(s)",
+        )
+        self.assertEqual(
+            build_action_target(
+                t.RunSessionVerificationAction(
+                    type="run_session_verification",
+                    run_id="run-1",
+                    include_failed=True,
+                    include_pending=False,
+                )
+            ),
+            "failed verification command(s) from run-1",
+        )
+
     def test_log_action_uses_action_target(self) -> None:
         events: list[tuple[str, str | None]] = []
         action = t.ReadFileAction(type="read_file", path="vibeagent/agent.py")
