@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .prompt_next_action_checkpoint import CHECKPOINT_NEXT_ACTION_KINDS, checkpoint_next_action_instruction
 from .prompt_next_action_edit import EDIT_NEXT_ACTION_KINDS, edit_next_action_instruction
+from .prompt_next_action_error import ERROR_NEXT_ACTION_KINDS, error_next_action_instruction
 from .prompt_next_action_git import GIT_NEXT_ACTION_KINDS, git_next_action_instruction
 from .prompt_next_action_project import PROJECT_NEXT_ACTION_KINDS, project_next_action_instruction
 from .prompt_next_action_runtime import runtime_next_action_instruction
@@ -99,6 +100,9 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
     runtime_instruction = runtime_next_action_instruction(base, observations)
     if runtime_instruction is not None:
         return runtime_instruction
+
+    if latest.kind in ERROR_NEXT_ACTION_KINDS:
+        return error_next_action_instruction(base, latest)
 
     if latest.kind == "final_review":
         return _final_review_next_action_instruction(base, latest)
