@@ -208,16 +208,33 @@ def _source_context_labels(observation: Observation) -> list[str]:
     return []
 
 
-def _recovery_rerun_target(observations: list[Observation]) -> str | None:
+def _session_recovery_rerun_target(observations: list[Observation]) -> str:
     for observation in reversed(observations):
+        if observation.kind == "run_session_verification":
+            if _failed_command_labels(getattr(observation, "results", [])):
+                return "run_session_verification"
+            return "session_verification"
+        if observation.kind == "session_verification":
+            return "run_session_verification"
+        if observation.kind in {"session_handoff", "session_audit"}:
+            return "session_audit"
+    return "relevant check"
+
+
+def _recovery_rerun_target(observations: list[Observation]) -> str | None:
+    for index in range(len(observations) - 1, -1, -1):
+        observation = observations[index]
         if observation.kind in SESSION_RECOVERY_SIGNAL_KINDS:
-            return "relevant check"
+            return _session_recovery_rerun_target(observations[:index])
         if observation.kind in PROCESS_RECOVERY_SIGNAL_KINDS:
             return "relevant check"
         if observation.kind in RECOVERY_SIGNAL_KINDS:
             return "failed command"
         if observation.kind in {"read_process", "wait_process"} and _process_exited_with_failure(observation):
             return "relevant check"
+        if observation.kind == "run_session_verification":
+            if _failed_command_labels(getattr(observation, "results", [])):
+                return "run_session_verification"
         if observation.kind in BATCH_COMMAND_RESULT_KINDS:
             if _failed_command_labels(getattr(observation, "results", [])):
                 return "failed command"

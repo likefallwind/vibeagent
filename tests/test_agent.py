@@ -7023,6 +7023,80 @@ class AgentTests(unittest.TestCase):
         self.assertIn("rerun the relevant check", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_reruns_session_verification_after_session_diagnostics_context(self) -> None:
+        verification = RunSessionVerificationObservation(
+            kind="run_session_verification",
+            run_id="run-1",
+            ok=False,
+            selected_commands=[{"command": "npm test", "cwd": ".", "status": "failed"}],
+            selected_count=1,
+            pending_count=0,
+            failed_count=1,
+            results=[
+                CommandResult(
+                    command="npm test",
+                    exit_code=1,
+                    stdout="FAIL tests/test_agent.py:42\n",
+                    stderr="AssertionError\n",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                )
+            ],
+            stopped_early=False,
+            message="Ran 1/1 session verification command(s); one or more failed.",
+        )
+        diagnostics = SessionOutputDiagnosticsObservation(
+            kind="session_output_diagnostics",
+            run_id="run-1",
+            ok=True,
+            diagnostics=[
+                OutputDiagnostic(
+                    severity="failure",
+                    output_line=1,
+                    text="AssertionError",
+                    path="tests/test_agent.py",
+                    line=42,
+                    column=None,
+                    raw="tests/test_agent.py:42: AssertionError",
+                )
+            ],
+            contexts=[],
+            command_count=1,
+            shown_commands=1,
+            total_diagnostics=1,
+            total_refs=1,
+            diagnostics_truncated=False,
+            contexts_truncated=False,
+            message="Extracted session output diagnostics.",
+        )
+        context = ReadFileContextObservation(
+            kind="read_file_context",
+            path="tests/test_agent.py",
+            ok=True,
+            content="41 | before\n42 | broken()\n43 | after",
+            message="Read context.",
+            line=42,
+            context_lines=1,
+            start_line=41,
+            end_line=43,
+            line_count=3,
+            total_lines=100,
+            target_line_exists=True,
+        )
+
+        instruction = get_next_action_instruction(
+            "fix recovered verification",
+            [verification, diagnostics, context],
+        )
+
+        self.assertIn("Source context was inspected after a failed command or diagnostic lookup", instruction)
+        self.assertIn("tests/test_agent.py:42", instruction)
+        self.assertIn("edit the relevant code", instruction)
+        self.assertIn("rerun the run_session_verification", instruction)
+        self.assertIn("before finishing", instruction)
+        self.assertNotIn("rerun the relevant check", instruction)
+
     def test_next_action_instruction_guides_plain_source_context_to_edit_or_inspect(self) -> None:
         context = ReadFileContextObservation(
             kind="read_file_context",
