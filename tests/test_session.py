@@ -1194,6 +1194,55 @@ class SessionTests(unittest.TestCase):
         self.assertIn("ready: yes", handoff)
         self.assertNotIn("failure event(s)", handoff)
 
+    def test_session_audit_treats_resolved_denied_approvals_as_non_blocking_evidence(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(
+                root,
+                "run-recovered-approval",
+                [
+                    {"type": "task", "task": "Recover from denied approval."},
+                    {
+                        "type": "approval_requested",
+                        "iteration": 1,
+                        "request": {"action_type": "write_file", "target": "note.txt"},
+                    },
+                    {
+                        "type": "approval_decision",
+                        "iteration": 1,
+                        "decision": {"approved": False, "message": "Denied by policy."},
+                    },
+                    {
+                        "type": "completion_blocked",
+                        "iteration": 2,
+                        "message": "Done early.",
+                        "blockers": ["1 approval request(s) were denied."],
+                        "details": {"deniedApprovals": ["write_file note.txt: Denied by policy."]},
+                    },
+                    {
+                        "type": "result",
+                        "success": True,
+                        "status": "completed",
+                        "iterations": 3,
+                        "message": "Recovered with an approved alternative.",
+                        "completion_ready": True,
+                        "completion_blockers": [],
+                    },
+                ],
+            )
+
+            summary = summarize_session(root, "run-recovered-approval")
+            audit = format_session_audit(root, "run-recovered-approval")
+            report = build_session_audit_report(root, "run-recovered-approval")
+
+        self.assertTrue(summary.completed)
+        self.assertEqual(summary.approvals_denied, 1)
+        self.assertTrue(summary.completion_ready)
+        self.assertIn("ready: yes", audit)
+        self.assertIn("status: ready", audit)
+        self.assertNotIn("denied approval(s)", audit)
+        self.assertEqual(report["blockers"]["items"], [])
+
     def test_session_readiness_blocks_incomplete_session_without_failures(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
             root = Path(base)

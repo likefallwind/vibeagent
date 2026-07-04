@@ -117,8 +117,9 @@ def session_audit_blockers(
         blockers.append("session status is incomplete")
     if summary.malformed_count:
         blockers.append(f"{summary.malformed_count} malformed session row(s)")
-    if summary.approvals_denied:
-        blockers.append(f"{summary.approvals_denied} denied approval(s)")
+    denied_approval_blocker_count = session_audit_denied_approval_blocker_count(summary)
+    if denied_approval_blocker_count:
+        blockers.append(f"{denied_approval_blocker_count} denied approval(s)")
     if failures and (summary.failed or not summary.completed):
         blockers.append(f"{len(failures)} failure event(s)")
     if checkpoint_failures:
@@ -138,6 +139,16 @@ def session_audit_blockers(
     if summary.active_background_processes:
         blockers.append(f"{len(summary.active_background_processes)} active background process(es)")
     return blockers
+
+
+def session_audit_denied_approval_blocker_count(summary: SessionSummary) -> int:
+    if summary.completion_ready is True:
+        return 0
+    if summary.latest_completion_denied_approvals:
+        return len(summary.latest_completion_denied_approvals)
+    if summary.completion_ready is False or not summary.completed:
+        return summary.approvals_denied
+    return 0
 
 
 def validate_session_audit_limits(
