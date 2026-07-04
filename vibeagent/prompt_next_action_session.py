@@ -50,6 +50,101 @@ def _verification_command_labels(values: object) -> list[str]:
     return labels
 
 
+def _session_summary_next_action_instruction(base: str, latest: Observation) -> str:
+    summary = str(getattr(latest, "summary", "") or "")
+    summary_lower = summary.lower()
+
+    if not getattr(latest, "ok", False):
+        return (
+            f"{base} Session summary could not be read. Use session_handoff or session_search to recover context, "
+            "then continue with the next useful action before finishing."
+        )
+
+    if "ready: yes" in summary_lower or "status: ready" in summary_lower:
+        return (
+            f"{base} Session summary reports the recovered session is ready. "
+            "Confirm any requested deliverable is present, or answer directly if the task is complete."
+        )
+
+    if summary.strip():
+        return (
+            f"{base} Session summary gives recovered task context. "
+            "Use it to choose the next concrete work item, inspect session_plan or session_files if exact state is needed, "
+            "then run session_verification or session_audit before finishing."
+        )
+
+    return (
+        f"{base} Session summary is empty. Use session_handoff, session_plan, or session_transcript to recover context, "
+        "then continue with the next useful action before finishing."
+    )
+
+
+def _session_transcript_next_action_instruction(base: str, latest: Observation) -> str:
+    transcript = str(getattr(latest, "transcript", "") or "")
+
+    if not getattr(latest, "ok", False):
+        return (
+            f"{base} Session transcript could not be read. Use session_summary or session_handoff to recover context, "
+            "then continue with the next useful action before finishing."
+        )
+
+    if transcript.strip():
+        return (
+            f"{base} Session transcript gives detailed prior turn history. "
+            "Continue from the latest unfinished action, use session_plan, session_files, or session_commands for targeted follow-up if needed, "
+            "then run session_verification or session_audit before finishing."
+        )
+
+    return (
+        f"{base} Session transcript is empty. Use session_summary, session_plan, or session_handoff to recover context, "
+        "or answer directly if the task is complete."
+    )
+
+
+def _session_search_next_action_instruction(base: str, latest: Observation) -> str:
+    total_matches = int(getattr(latest, "total_matches", 0) or 0)
+
+    if not getattr(latest, "ok", False):
+        return (
+            f"{base} Session search could not be read. Use session_summary or session_handoff to recover context, "
+            "then continue with the next useful action before finishing."
+        )
+
+    if total_matches > 0:
+        return (
+            f"{base} Session search found {total_matches} matching event(s). "
+            "Use the matches to narrow the resumed context; inspect session_transcript, session_commands, or session_files if more detail is needed, "
+            "then continue the relevant work and verify before finishing."
+        )
+
+    return (
+        f"{base} Session search found no matches. Use session_summary or session_handoff for broader recovery, "
+        "or answer directly if the task is complete."
+    )
+
+
+def _session_commands_next_action_instruction(base: str, latest: Observation) -> str:
+    command_count = int(getattr(latest, "command_count", 0) or 0)
+
+    if not getattr(latest, "ok", False):
+        return (
+            f"{base} Session commands could not be read. Use session_summary or session_handoff to recover context, "
+            "then continue with the next useful action before finishing."
+        )
+
+    if command_count > 0:
+        return (
+            f"{base} Session commands reports {command_count} command event(s). "
+            "Use the command history to identify failed or pending checks; inspect session_output_diagnostics or session_output_contexts for failures, "
+            "or use session_verification or session_audit to confirm readiness before finishing."
+        )
+
+    return (
+        f"{base} Session commands found no command history. Use session_plan, session_files, or session_handoff to recover task state, "
+        "or answer directly if the task is complete."
+    )
+
+
 def _session_verification_next_action_instruction(base: str, latest: Observation) -> str:
     failed = _verification_command_labels(getattr(latest, "failed_commands", []))
     pending = _verification_command_labels(getattr(latest, "pending_commands", []))
@@ -233,6 +328,10 @@ def _session_files_next_action_instruction(base: str, latest: Observation) -> st
 
 
 SESSION_NEXT_ACTION_KINDS = {
+    "session_summary",
+    "session_transcript",
+    "session_search",
+    "session_commands",
     "session_verification",
     "session_audit",
     "session_handoff",
@@ -243,6 +342,14 @@ SESSION_NEXT_ACTION_KINDS = {
 
 
 def session_next_action_instruction(base: str, latest: Observation) -> str:
+    if latest.kind == "session_summary":
+        return _session_summary_next_action_instruction(base, latest)
+    if latest.kind == "session_transcript":
+        return _session_transcript_next_action_instruction(base, latest)
+    if latest.kind == "session_search":
+        return _session_search_next_action_instruction(base, latest)
+    if latest.kind == "session_commands":
+        return _session_commands_next_action_instruction(base, latest)
     if latest.kind == "session_verification":
         return _session_verification_next_action_instruction(base, latest)
     if latest.kind == "session_audit":

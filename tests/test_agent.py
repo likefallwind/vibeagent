@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionVerificationObservation, StopAllProcessesAction, WaitProcessObservation
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, WaitProcessObservation
 from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -4675,6 +4675,100 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Session handoff reports the recovered session is ready", instruction)
         self.assertIn("plan and verification sections", instruction)
         self.assertIn("answer directly", instruction)
+
+    def test_next_action_instruction_guides_session_summary_to_recovered_task_state(self) -> None:
+        observation = SessionSummaryObservation(
+            kind="session_summary",
+            run_id="run-1",
+            ok=True,
+            summary="Session summary:\n  status: active\n  latest task: fix retry loop",
+            recent_sessions=[],
+            message="Read session summary for run-1.",
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session summary gives recovered task context", instruction)
+        self.assertIn("next concrete work item", instruction)
+        self.assertIn("session_plan", instruction)
+        self.assertIn("session_files", instruction)
+        self.assertIn("session_verification", instruction)
+        self.assertIn("session_audit", instruction)
+
+    def test_next_action_instruction_guides_ready_session_summary_to_finish(self) -> None:
+        observation = SessionSummaryObservation(
+            kind="session_summary",
+            run_id="run-1",
+            ok=True,
+            summary="Session summary:\n  readiness:\n    status: ready\n    ready: yes",
+            recent_sessions=[],
+            message="Read session summary for run-1.",
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session summary reports the recovered session is ready", instruction)
+        self.assertIn("Confirm any requested deliverable", instruction)
+        self.assertIn("answer directly", instruction)
+
+    def test_next_action_instruction_guides_session_transcript_to_latest_unfinished_action(self) -> None:
+        observation = SessionTranscriptObservation(
+            kind="session_transcript",
+            run_id="run-1",
+            ok=True,
+            transcript="1. user: continue\n2. assistant: editing retry loop\n3. tool: tests failed",
+            message="Read session transcript for run-1.",
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session transcript gives detailed prior turn history", instruction)
+        self.assertIn("latest unfinished action", instruction)
+        self.assertIn("session_plan", instruction)
+        self.assertIn("session_files", instruction)
+        self.assertIn("session_commands", instruction)
+        self.assertIn("session_verification", instruction)
+
+    def test_next_action_instruction_guides_session_search_matches_to_targeted_followup(self) -> None:
+        observation = SessionSearchObservation(
+            kind="session_search",
+            run_id="run-1",
+            ok=True,
+            query="retry",
+            matches="2. tool_result: retry test failed",
+            total_matches=3,
+            shown_matches=1,
+            message="Read session search for run-1.",
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session search found 3 matching event", instruction)
+        self.assertIn("narrow the resumed context", instruction)
+        self.assertIn("session_transcript", instruction)
+        self.assertIn("session_commands", instruction)
+        self.assertIn("session_files", instruction)
+        self.assertIn("verify before finishing", instruction)
+
+    def test_next_action_instruction_guides_session_commands_to_failures_or_readiness(self) -> None:
+        observation = SessionCommandsObservation(
+            kind="session_commands",
+            run_id="run-1",
+            ok=True,
+            commands="Session commands:\n  npm test exit=1\n  python -m unittest pending",
+            command_count=2,
+            shown_commands=2,
+            message="Read session commands for run-1.",
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session commands reports 2 command event", instruction)
+        self.assertIn("failed or pending checks", instruction)
+        self.assertIn("session_output_diagnostics", instruction)
+        self.assertIn("session_output_contexts", instruction)
+        self.assertIn("session_verification", instruction)
+        self.assertIn("session_audit", instruction)
 
     def test_next_action_instruction_guides_session_plan_unfinished_work(self) -> None:
         observation = SessionPlanObservation(
