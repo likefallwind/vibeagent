@@ -121,6 +121,9 @@ def observation_target_tokens(observation: Observation) -> set[str]:
     tokens: set[str] = set()
     for name in ("path", "definition_path", "source", "destination", "process_id"):
         tokens.update(normalized_approval_target_tokens(getattr(observation, name, "")))
+    summary_target = observation_summary_target_token(observation)
+    if summary_target:
+        tokens.add(summary_target)
     command = str(getattr(observation, "command", "") or "").strip()
     if command:
         cwd = str(getattr(observation, "cwd", ".") or ".")
@@ -150,6 +153,23 @@ def observation_target_tokens(observation: Observation) -> set[str]:
             tokens.update(normalized_approval_target_tokens(getattr(transfer, "source", "")))
             tokens.update(normalized_approval_target_tokens(getattr(transfer, "destination", "")))
     return tokens
+
+
+def observation_summary_target_token(observation: Observation) -> str | None:
+    max_commands = getattr(observation, "max_commands", None)
+    if observation.kind == "run_suggested_checks" and isinstance(max_commands, int):
+        return f"up to {max_commands} suggested check command(s)"
+    if observation.kind == "run_focused_test_commands" and isinstance(max_commands, int):
+        return f"up to {max_commands} focused test command(s)"
+    if observation.kind == "run_session_verification":
+        groups = []
+        if int(getattr(observation, "failed_count", 0) or 0) > 0:
+            groups.append("failed")
+        if int(getattr(observation, "pending_count", 0) or 0) > 0:
+            groups.append("pending")
+        run_id = str(getattr(observation, "run_id", "") or "current session")
+        return f"{'/'.join(groups)} verification command(s) from {run_id}"
+    return None
 
 
 def command_result_target_tokens(results: object) -> list[str]:

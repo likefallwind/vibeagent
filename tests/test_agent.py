@@ -1197,6 +1197,124 @@ class AgentTests(unittest.TestCase):
             ["run_commands python -m unittest (cwd: .), npm test (cwd: web): denied"],
         )
 
+    def test_denied_approval_resolution_matches_run_suggested_checks_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="run_suggested_checks",
+                target="up to 2 suggested check command(s)",
+                message="denied",
+            ),
+            RunSuggestedChecksObservation(
+                kind="run_suggested_checks",
+                ok=True,
+                results=[
+                    CommandResult(
+                        command="python -m unittest",
+                        exit_code=0,
+                        stdout="",
+                        stderr="",
+                        timed_out=False,
+                        signal=None,
+                        cwd=".",
+                    )
+                ],
+                suggested_checks=[
+                    SuggestedCheck(
+                        command="python -m unittest",
+                        cwd=".",
+                        source="tests",
+                        reason="unit tests",
+                    )
+                ],
+                total=1,
+                truncated=False,
+                max_commands=2,
+                stopped_early=False,
+                skipped_unavailable=0,
+                message="Suggested checks passed.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_run_suggested_checks_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="run_suggested_checks",
+                target="up to 2 suggested check command(s)",
+                message="denied",
+            ),
+            RunSuggestedChecksObservation(
+                kind="run_suggested_checks",
+                ok=True,
+                results=[],
+                suggested_checks=[],
+                total=0,
+                truncated=False,
+                max_commands=1,
+                stopped_early=False,
+                skipped_unavailable=0,
+                message="No suggested checks found.",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["run_suggested_checks up to 2 suggested check command(s): denied"],
+        )
+
+    def test_denied_approval_resolution_matches_run_focused_test_commands_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="run_focused_test_commands",
+                target="up to 3 focused test command(s)",
+                message="denied",
+            ),
+            types_module.RunFocusedTestCommandsObservation(
+                kind="run_focused_test_commands",
+                ok=True,
+                results=[],
+                focused_commands=[],
+                target_paths=["src/app.py"],
+                total=0,
+                truncated=False,
+                max_commands=3,
+                related_tests_total=0,
+                stopped_early=False,
+                skipped_unavailable=0,
+                message="No focused tests found.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_matches_run_session_verification_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="run_session_verification",
+                target="failed/pending verification command(s) from run-1",
+                message="denied",
+            ),
+            types_module.RunSessionVerificationObservation(
+                kind="run_session_verification",
+                run_id="run-1",
+                ok=True,
+                selected_commands=[],
+                selected_count=0,
+                pending_count=1,
+                failed_count=1,
+                results=[],
+                stopped_early=False,
+                message="No pending or failed session verification command(s) selected.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
     def test_run_agent_continues_when_multistep_work_has_no_plan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)
