@@ -37,6 +37,11 @@ PROJECT_CHANGE_OBSERVATION_KINDS = {
     "git_unstage",
     "git_commit",
     "git_restore",
+    "git_pull",
+    "git_stash",
+    "git_stash_apply",
+    "git_stash_drop",
+    "git_switch",
     "checkpoint_restore",
 }
 

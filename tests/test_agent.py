@@ -7176,6 +7176,30 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(auto_events[0]["name"], "checkpoint_create")
         self.assertEqual(auto_events[0]["before_action_type"], "write_file")
 
+    def test_auto_checkpoint_covers_local_mutating_git_actions(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            init_git_repo_with_commit(root)
+            workspace = create_run_workspace(root)
+
+            mutating_git_actions = [
+                types_module.GitPullAction(type="git_pull"),
+                types_module.GitStashAction(type="git_stash"),
+                types_module.GitStashApplyAction(type="git_stash_apply", stash_ref="stash@{0}"),
+                types_module.GitStashDropAction(type="git_stash_drop", stash_ref="stash@{0}"),
+                types_module.GitSwitchAction(type="git_switch", branch="feature"),
+            ]
+
+            for action in mutating_git_actions:
+                with self.subTest(action=action.type):
+                    self.assertTrue(agent_module.should_auto_checkpoint_before_action(workspace, action))
+            self.assertFalse(
+                agent_module.should_auto_checkpoint_before_action(
+                    workspace,
+                    types_module.GitFetchAction(type="git_fetch"),
+                )
+            )
+
     def test_run_agent_auto_checkpoints_before_first_approved_finite_command(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)
