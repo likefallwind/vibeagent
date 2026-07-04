@@ -181,6 +181,28 @@ def _diagnostic_labels(values: object) -> list[str]:
     return labels
 
 
+def _context_labels(values: object) -> list[str]:
+    labels: list[str] = []
+    if not isinstance(values, list):
+        return labels
+    for value in values:
+        path = str(getattr(value, "path", "") or "").strip()
+        line = getattr(value, "line", None)
+        column = getattr(value, "column", None)
+        raw = str(getattr(value, "raw", "") or "").strip()
+        ok = getattr(value, "ok", True)
+        label = path
+        if path and isinstance(line, int):
+            label = f"{path}:{line}"
+            if isinstance(column, int):
+                label = f"{label}:{column}"
+        if not label:
+            label = raw
+        if label:
+            labels.append(label if ok else f"{label} (context unavailable)")
+    return labels
+
+
 def _final_review_next_action_instruction(base: str, latest: Observation) -> str:
     if getattr(latest, "ready", None) is not False:
         return f"{base} Use the final review report to decide whether to run verification, continue, or answer directly."
@@ -293,11 +315,22 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
             "available contexts to inspect the likely source, fix the issue, and rerun the failed command before finishing."
         )
 
+    if latest.kind == "output_contexts":
+        contexts = _context_labels(getattr(latest, "contexts", []))
+        if contexts:
+            return (
+                f"{base} Output contexts located source references. Inspect or edit the relevant code for: "
+                f"{_format_next_action_items(contexts)}. Then rerun the failed command before finishing."
+            )
+        return (
+            f"{base} Output contexts did not find source references. Use output_diagnostics or the command output "
+            "to identify the failure, then fix it and rerun the failed command before finishing."
+        )
+
     if latest.kind in {
         "read_file",
         "read_file_context",
         "read_file_contexts",
-        "output_contexts",
         "python_traceback",
         "tail_file",
         "read_files",

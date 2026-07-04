@@ -20,7 +20,7 @@ from vibeagent.final_review_actions import final_review_session_verification_iss
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
 from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ReadFileObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction
-from vibeagent.types import CommandResult, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckResult, RunCommandObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
+from vibeagent.types import CommandResult, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckResult, RunCommandObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
 
@@ -4575,6 +4575,55 @@ class AgentTests(unittest.TestCase):
 
         self.assertIn("did not find concrete file references", instruction)
         self.assertIn("Use the command output", instruction)
+        self.assertIn("rerun the failed command", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_output_contexts_to_edit_and_rerun(self) -> None:
+        observation = OutputContextsObservation(
+            kind="output_contexts",
+            contexts=[
+                OutputContextResult(
+                    path="tests/test_agent.py",
+                    line=42,
+                    column=8,
+                    raw="tests/test_agent.py:42:8",
+                    ok=True,
+                    content="41 | before\n42 | broken()\n43 | after",
+                    message="Read context.",
+                    context_lines=1,
+                    start_line=41,
+                    end_line=43,
+                    line_count=3,
+                    total_lines=100,
+                    target_line_exists=True,
+                )
+            ],
+            total_refs=1,
+            truncated=False,
+            message="Extracted contexts.",
+        )
+
+        instruction = get_next_action_instruction("fix the failing test", [observation])
+
+        self.assertIn("Output contexts located source references", instruction)
+        self.assertIn("tests/test_agent.py:42:8", instruction)
+        self.assertIn("Inspect or edit the relevant code", instruction)
+        self.assertIn("rerun the failed command", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_empty_output_contexts_to_diagnostics(self) -> None:
+        observation = OutputContextsObservation(
+            kind="output_contexts",
+            contexts=[],
+            total_refs=0,
+            truncated=False,
+            message="No contexts found.",
+        )
+
+        instruction = get_next_action_instruction("fix the failing test", [observation])
+
+        self.assertIn("did not find source references", instruction)
+        self.assertIn("Use output_diagnostics", instruction)
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("before finishing", instruction)
 
