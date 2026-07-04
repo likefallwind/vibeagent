@@ -6848,6 +6848,62 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(blockers, ["Suggested verification checks are still pending after the latest project change."])
         self.assertEqual(warnings, ["Pending suggested check(s): python -m unittest discover -s tests -p test_app.py."])
 
+    def test_final_review_session_verification_counts_run_session_verification_results(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            events_dir = root / ".vibeagent" / "sessions" / "run-1"
+            events_dir.mkdir(parents=True)
+            events = [
+                {
+                    "type": "tool_result",
+                    "iteration": 1,
+                    "name": "write_file",
+                    "result": {"kind": "write_file", "path": "src/app.py", "ok": True, "message": "Wrote src/app.py."},
+                },
+                {
+                    "type": "tool_result",
+                    "iteration": 2,
+                    "name": "run_session_verification",
+                    "result": {
+                        "kind": "run_session_verification",
+                        "run_id": "run-1",
+                        "ok": True,
+                        "results": [
+                            {
+                                "command": "python -m unittest discover -s tests",
+                                "cwd": ".",
+                                "exit_code": 0,
+                                "stdout": "",
+                                "stderr": "",
+                                "timed_out": False,
+                                "signal": None,
+                            }
+                        ],
+                        "message": "Ran session verification.",
+                    },
+                },
+            ]
+            events_dir.joinpath("events.jsonl").write_text(
+                "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n",
+                encoding="utf-8",
+            )
+            workspace = create_run_workspace(root, "run-1")
+
+            blockers, warnings = final_review_session_verification_issues(
+                workspace,
+                [
+                    SuggestedCheck(
+                        command="python -m unittest discover -s tests",
+                        cwd=".",
+                        source="tests",
+                        reason="unit tests",
+                    )
+                ],
+            )
+
+        self.assertEqual(blockers, [])
+        self.assertEqual(warnings, [])
+
     def test_completion_blocked_feedback_includes_final_review_blocking_issues(self) -> None:
         observations = [
             FinalReviewObservation(
