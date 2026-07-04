@@ -28,6 +28,7 @@ from .session import (
     summarize_session,
 )
 from .session_audit_formatting import format_session_handoff_report_text
+from .session_handoff_details import empty_session_handoff_details, extract_session_handoff_details
 from .session_verification_action_executor import (
     execute_run_session_verification_action,
     session_verification_group,
@@ -67,42 +68,6 @@ from .workspace import RunWorkspace, read_output_contexts_result, read_output_di
 
 def _select_session_run_id(action_run_id: str | None, workspace_run_id: str) -> str:
     return normalize_optional_run_id(action_run_id) or workspace_run_id
-
-
-def _handoff_verification_group(audit: dict[str, object], name: str) -> tuple[list[dict[str, object]], int]:
-    verification = audit.get("verification") if isinstance(audit.get("verification"), dict) else {}
-    group = verification.get(name) if isinstance(verification.get(name), dict) else {}
-    total = group.get("total")
-    raw_commands = group.get("commands")
-    commands: list[dict[str, object]] = []
-    if isinstance(raw_commands, list):
-        commands = [item for item in raw_commands if isinstance(item, dict)]
-    return commands, total if isinstance(total, int) else len(commands)
-
-
-def _handoff_file_references(audit: dict[str, object]) -> tuple[list[dict[str, object]], int, int, bool]:
-    files = audit.get("files") if isinstance(audit.get("files"), dict) else {}
-    total = files.get("total")
-    shown = files.get("shown")
-    truncated = files.get("truncated") is True
-    raw_items = files.get("items")
-    references: list[dict[str, object]] = []
-    if isinstance(raw_items, list):
-        for item in raw_items:
-            if not isinstance(item, dict):
-                continue
-            path = str(item.get("path") or "").strip()
-            if not path:
-                continue
-            uses = [
-                str(use).strip()
-                for use in item.get("uses", [])
-                if isinstance(use, str) and use.strip()
-            ]
-            references.append({"path": path, "uses": uses})
-    file_count = total if isinstance(total, int) else len(references)
-    shown_file_count = shown if isinstance(shown, int) else len(references)
-    return references, file_count, shown_file_count, truncated
 
 
 def execute_session_action(workspace: RunWorkspace, action: object, command_timeout_ms: int = 30_000) -> Observation | None:
@@ -548,96 +513,12 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             handoff = format_session_handoff_report_text(report)
             exists = report.get("exists") is True
             ok = exists
-            ready = report.get("ready") if isinstance(report.get("ready"), bool) else None
-            status = str(report.get("status") or "")
-            audit = report.get("audit") if isinstance(report.get("audit"), dict) else {}
-            blockers_section = audit.get("blockers") if isinstance(audit.get("blockers"), dict) else {}
-            blockers = [
-                str(blocker).strip()
-                for blocker in blockers_section.get("items", [])
-                if isinstance(blocker, str) and blocker.strip()
-            ]
-            background = audit.get("backgroundProcesses") if isinstance(audit.get("backgroundProcesses"), dict) else {}
-            started = background.get("started")
-            background_processes_started = started if isinstance(started, int) else 0
-            active_background_processes = []
-            processes = background.get("processes") if isinstance(background.get("processes"), list) else []
-            for process in processes:
-                if not isinstance(process, dict):
-                    continue
-                process_id = str(process.get("processId") or "").strip()
-                command = str(process.get("command") or "").strip()
-                if not process_id and not command:
-                    continue
-                pid = process.get("pid")
-                line_number = process.get("lineNumber")
-                active_background_processes.append(
-                    SessionAuditProcess(
-                        process_id=process_id,
-                        pid=pid if isinstance(pid, int) else None,
-                        command=command,
-                        cwd=str(process.get("cwd") or ".").strip() or ".",
-                        line_number=line_number if isinstance(line_number, int) else 0,
-                    )
-                )
-            verified_commands, verified_count = _handoff_verification_group(audit, "verified")
-            pending_commands, pending_count = _handoff_verification_group(audit, "pending")
-            failed_commands, failed_count = _handoff_verification_group(audit, "failed")
-            file_references, file_count, shown_file_count, files_truncated = _handoff_file_references(audit)
-            plan = audit.get("plan") if isinstance(audit.get("plan"), dict) else {}
-            plan_items = plan.get("items")
-            plan_items_count = plan_items if isinstance(plan_items, int) else 0
-            plan_in_progress = plan.get("inProgress") is True
-            pending_plan = plan.get("pending") if isinstance(plan.get("pending"), dict) else {}
-            pending_plan_total = pending_plan.get("total")
-            pending_plan_count = pending_plan_total if isinstance(pending_plan_total, int) else 0
-            pending_plan_items = []
-            raw_pending_plan_items = pending_plan.get("items") if isinstance(pending_plan.get("items"), list) else []
-            for item in raw_pending_plan_items:
-                if not isinstance(item, dict):
-                    continue
-                step = str(item.get("step") or "").strip()
-                status_value = str(item.get("status") or "").strip()
-                if step:
-                    pending_plan_items.append({"status": status_value, "step": step})
-            completion = audit.get("completion") if isinstance(audit.get("completion"), dict) else {}
-            completion_ready = completion.get("ready") if isinstance(completion.get("ready"), bool) else None
-            completion_blockers = [
-                str(blocker).strip()
-                for blocker in completion.get("blockers", [])
-                if isinstance(blocker, str) and blocker.strip()
-            ]
-            latest_completion_blockers = [
-                str(blocker).strip()
-                for blocker in completion.get("latestBlockers", [])
-                if isinstance(blocker, str) and blocker.strip()
-            ]
+            details = extract_session_handoff_details(report)
             message = f"Read session handoff for {run_id}." if ok else handoff
         except ValueError as error:
             handoff = ""
             ok = False
-            ready = False
-            status = "invalid"
-            blockers = []
-            background_processes_started = 0
-            active_background_processes = []
-            verified_commands = []
-            pending_commands = []
-            failed_commands = []
-            verified_count = 0
-            pending_count = 0
-            failed_count = 0
-            pending_plan_items = []
-            pending_plan_count = 0
-            plan_items_count = 0
-            plan_in_progress = False
-            file_references = []
-            file_count = 0
-            shown_file_count = 0
-            files_truncated = False
-            completion_ready = None
-            completion_blockers = []
-            latest_completion_blockers = []
+            details = empty_session_handoff_details(status="invalid", ready=False)
             message = str(error)
         return SessionHandoffObservation(
             kind="session_handoff",
@@ -645,28 +526,28 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             ok=ok,
             handoff=handoff,
             message=message,
-            ready=ready,
-            status=status,
-            blockers=blockers,
-            background_processes_started=background_processes_started,
-            active_background_processes=active_background_processes,
-            verified_commands=verified_commands,
-            pending_commands=pending_commands,
-            failed_commands=failed_commands,
-            verified_count=verified_count,
-            pending_count=pending_count,
-            failed_count=failed_count,
-            pending_plan_items=pending_plan_items,
-            pending_plan_count=pending_plan_count,
-            plan_items_count=plan_items_count,
-            plan_in_progress=plan_in_progress,
-            file_references=file_references,
-            file_count=file_count,
-            shown_file_count=shown_file_count,
-            files_truncated=files_truncated,
-            completion_ready=completion_ready,
-            completion_blockers=completion_blockers,
-            latest_completion_blockers=latest_completion_blockers,
+            ready=details.ready,
+            status=details.status,
+            blockers=details.blockers,
+            background_processes_started=details.background_processes_started,
+            active_background_processes=details.active_background_processes,
+            verified_commands=details.verified_commands,
+            pending_commands=details.pending_commands,
+            failed_commands=details.failed_commands,
+            verified_count=details.verified_count,
+            pending_count=details.pending_count,
+            failed_count=details.failed_count,
+            pending_plan_items=details.pending_plan_items,
+            pending_plan_count=details.pending_plan_count,
+            plan_items_count=details.plan_items_count,
+            plan_in_progress=details.plan_in_progress,
+            file_references=details.file_references,
+            file_count=details.file_count,
+            shown_file_count=details.shown_file_count,
+            files_truncated=details.files_truncated,
+            completion_ready=details.completion_ready,
+            completion_blockers=details.completion_blockers,
+            latest_completion_blockers=details.latest_completion_blockers,
         )
 
     return None
