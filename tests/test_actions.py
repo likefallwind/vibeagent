@@ -4549,6 +4549,59 @@ class ActionTests(unittest.TestCase):
             observation.blocking_issues,
         )
 
+    def test_execute_final_review_action_blocks_truncated_focused_test_suggestions(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            workspace = create_run_workspace(root, "test-run")
+            write_run_file(workspace, "src/app.py", "VALUE = 1\n")
+            with (
+                patch(
+                    "vibeagent.final_review_action_executor.suggest_project_checks",
+                    return_value={
+                        "ok": True,
+                        "checks": [],
+                        "total": 0,
+                        "truncated": False,
+                        "changed_files": ["src/app.py"],
+                        "message": "No suggested checks.",
+                    },
+                ),
+                patch(
+                    "vibeagent.final_review_action_executor.suggest_focused_test_commands",
+                    return_value={
+                        "ok": True,
+                        "commands": [
+                            {
+                                "command": "python -m unittest tests.test_app",
+                                "cwd": ".",
+                                "test_path": "tests/test_app.py",
+                                "source": "src/app.py",
+                                "reason": "related test",
+                                "available": True,
+                                "missing_tool": None,
+                            }
+                        ],
+                        "total": 2,
+                        "truncated": True,
+                        "related_tests_total": 2,
+                        "target_paths": ["src/app.py"],
+                        "message": "Focused test commands truncated.",
+                    },
+                ),
+            ):
+                observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=1))
+
+        self.assertEqual(observation.kind, "final_review")
+        self.assertTrue(observation.ok)
+        self.assertFalse(observation.ready)
+        self.assertTrue(observation.focused_test_commands_truncated)
+        self.assertIn(
+            "Focused test suggestions exceed the maximum readiness scan.",
+            observation.blocking_issues,
+        )
+        self.assertIn("Focused test suggestions truncated at 1/2.", observation.warnings)
+
     def test_execute_final_review_action_blocks_failed_suggested_check_after_session_change(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             root = Path(base)

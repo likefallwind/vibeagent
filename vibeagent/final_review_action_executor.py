@@ -366,6 +366,7 @@ def final_review_observation(workspace: RunWorkspace, action: FinalReviewAction)
     if suggested_checks_truncated:
         warnings.append(f"Suggested checks truncated at {len(suggested_checks)}/{suggested_checks_total}.")
     if focused_test_commands_truncated:
+        blocking_issues.append("Focused test suggestions exceed the maximum readiness scan.")
         warnings.append(f"Focused test suggestions truncated at {len(focused_test_commands)}/{focused_test_commands_total}.")
     if focused_test_warning:
         warnings.append(focused_test_warning)
