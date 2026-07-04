@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import shlex
 
-from .cli_parse_core import parse_interactive_nonnegative_option, parse_interactive_positive_option
+from .cli_parse_core import (
+    parse_interactive_nonnegative_option,
+    parse_interactive_positive_option,
+    parse_interactive_timeout_option,
+)
 from .session_input import normalize_optional_run_id
 
 
@@ -178,7 +182,9 @@ def parse_interactive_run_session_verification_argument(
 ) -> tuple[str | None, dict[str, int | bool], str | None]:
     usage = (
         "Usage: /run-session-verification [run-id] [--max-checks N] [--timeout-ms N] "
-        "[--max-output-chars N] [--no-failed] [--no-pending] [--continue-on-failure]"
+        "[--max-output-chars N] [--no-failed] [--no-pending] [--continue-on-failure] "
+        "[--output-contexts] [--output-diagnostics] [--context-lines N] "
+        "[--max-diagnostics N] [--max-contexts N] [--max-bytes N]"
     )
     if not argument:
         return None, {}, None
@@ -188,38 +194,51 @@ def parse_interactive_run_session_verification_argument(
         return None, {}, f"{usage}\n  error: {error}"
     run_id: str | None = None
     kwargs: dict[str, int | bool] = {}
+    value_options: dict[str, tuple[str, str]] = {
+        "--max-checks": ("max_checks", "positive"),
+        "--timeout-ms": ("timeout_ms", "timeout"),
+        "--max-output-chars": ("max_output_chars", "positive"),
+        "--context-lines": ("context_lines", "nonnegative"),
+        "--max-diagnostics": ("max_diagnostics", "positive"),
+        "--max-contexts": ("max_contexts", "positive"),
+        "--max-bytes": ("max_bytes_per_context", "positive"),
+    }
+    bool_options = {
+        "--no-failed": ("include_failed", False),
+        "--no-pending": ("include_pending", False),
+        "--continue-on-failure": ("stop_on_failure", False),
+        "--stop-on-failure": ("stop_on_failure", True),
+        "--output-contexts": ("extract_output_contexts", True),
+        "--output-diagnostics": ("extract_output_diagnostics", True),
+    }
     index = 0
     while index < len(parts):
         part = parts[index]
         flag = part.split("=", 1)[0] if part.startswith("--") else part
-        if flag in {"--max-checks", "--timeout-ms", "--max-output-chars"}:
-            keyword = {
-                "--max-checks": "max_checks",
-                "--timeout-ms": "timeout_ms",
-                "--max-output-chars": "max_output_chars",
-            }[flag]
+        if flag in bool_options:
+            if "=" in part:
+                return None, {}, f"{usage}\n  error: {flag} does not take a value."
+            keyword, value = bool_options[flag]
+            kwargs[keyword] = value
+            index += 1
+            continue
+        if flag in value_options:
+            keyword, value_type = value_options[flag]
             if "=" in part:
                 raw_value = part.split("=", 1)[1]
                 index += 1
             else:
                 raw_value = parts[index + 1] if index + 1 < len(parts) else None
                 index += 2
-            value, error = parse_interactive_positive_option(flag, raw_value)
+            if value_type == "timeout":
+                value, error = parse_interactive_timeout_option(flag, raw_value)
+            elif value_type == "nonnegative":
+                value, error = parse_interactive_nonnegative_option(flag, raw_value)
+            else:
+                value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
             kwargs[keyword] = int(value)
-            continue
-        if part == "--no-failed":
-            kwargs["include_failed"] = False
-            index += 1
-            continue
-        if part == "--no-pending":
-            kwargs["include_pending"] = False
-            index += 1
-            continue
-        if part == "--continue-on-failure":
-            kwargs["stop_on_failure"] = False
-            index += 1
             continue
         if part.startswith("--"):
             return None, {}, f"{usage}\n  error: Unknown option: {part}"

@@ -873,7 +873,7 @@ denied approval rows include the target and matching preview summary when one
 was recorded.
 `/session-verification [run-id] [--max-checks N]` shows the verified, pending,
 and failed suggested checks recorded for the newest or selected run.
-`/run-session-verification [run-id] [--max-checks N] [--timeout-ms N] [--max-output-chars N] [--no-failed] [--no-pending] [--continue-on-failure]`
+`/run-session-verification [run-id] [--max-checks N] [--timeout-ms N] [--max-output-chars N] [--no-failed] [--no-pending] [--continue-on-failure] [--output-contexts] [--output-diagnostics] [--context-lines N] [--max-diagnostics N] [--max-contexts N] [--max-bytes N]`
 reruns recorded failed and/or pending verification commands for the newest or
 selected run using the same command safety rules as local run commands.
 `/session-audit [run-id] [--max-failures N] [--max-files N] [--max-commands N] [--max-checks N] [--max-text N]`

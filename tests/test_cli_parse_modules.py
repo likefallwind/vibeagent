@@ -106,10 +106,15 @@ class CliParseModuleTests(unittest.TestCase):
 
     def test_run_session_verification_parser_accepts_options(self) -> None:
         run_id, kwargs, error = parse_interactive_run_session_verification_argument(
-            "--max-checks=2 --timeout-ms 1000 --max-output-chars 2000 --no-failed --continue-on-failure run-1"
+            "--max-checks=2 --timeout-ms 1000 --max-output-chars 2000 --no-failed "
+            "--continue-on-failure --output-contexts --output-diagnostics --context-lines 0 "
+            "--max-diagnostics 3 --max-contexts=4 --max-bytes 1000 run-1"
         )
         bad_run_id, bad_kwargs, bad_error = parse_interactive_run_session_verification_argument(
             "--no-failed --no-pending"
+        )
+        valued_flag_run_id, valued_flag_kwargs, valued_flag_error = parse_interactive_run_session_verification_argument(
+            "--output-contexts=true run-1"
         )
 
         self.assertEqual(run_id, "run-1")
@@ -121,12 +126,21 @@ class CliParseModuleTests(unittest.TestCase):
                 "max_output_chars": 2000,
                 "include_failed": False,
                 "stop_on_failure": False,
+                "extract_output_contexts": True,
+                "extract_output_diagnostics": True,
+                "context_lines": 0,
+                "max_diagnostics": 3,
+                "max_contexts": 4,
+                "max_bytes_per_context": 1000,
             },
         )
         self.assertIsNone(error)
         self.assertIsNone(bad_run_id)
         self.assertEqual(bad_kwargs, {})
         self.assertIn("cannot be used together", bad_error or "")
+        self.assertIsNone(valued_flag_run_id)
+        self.assertEqual(valued_flag_kwargs, {})
+        self.assertIn("--output-contexts does not take a value", valued_flag_error or "")
 
     def test_tool_search_parser_accepts_filters(self) -> None:
         query, kwargs, error = parse_interactive_tool_search_argument(
