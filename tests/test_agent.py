@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionVerificationObservation, StopAllProcessesAction, WaitProcessObservation
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, SessionFailuresObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionVerificationObservation, StopAllProcessesAction, WaitProcessObservation
 from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -4674,6 +4674,45 @@ class AgentTests(unittest.TestCase):
 
         self.assertIn("Session handoff reports the recovered session is ready", instruction)
         self.assertIn("plan and verification sections", instruction)
+        self.assertIn("answer directly", instruction)
+
+    def test_next_action_instruction_guides_session_failures_to_diagnostics_and_readiness(self) -> None:
+        observation = SessionFailuresObservation(
+            kind="session_failures",
+            run_id="run-1",
+            ok=True,
+            failures="Session failures:\n  failure: run_command npm test exit=1",
+            failure_count=1,
+            shown_failures=1,
+            message="Read session failures for run-1.",
+        )
+
+        instruction = get_next_action_instruction("resume and fix failed run", [observation])
+
+        self.assertIn("Session failures reports 1 failure event", instruction)
+        self.assertIn("session_output_diagnostics", instruction)
+        self.assertIn("session_output_contexts", instruction)
+        self.assertIn("fix the blocker", instruction)
+        self.assertIn("session_verification", instruction)
+        self.assertIn("session_audit", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_empty_session_failures_to_readiness_check(self) -> None:
+        observation = SessionFailuresObservation(
+            kind="session_failures",
+            run_id="run-1",
+            ok=True,
+            failures="Session failures:\n  none",
+            failure_count=0,
+            shown_failures=0,
+            message="Read session failures for run-1.",
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session failures reports no failure events", instruction)
+        self.assertIn("session_verification", instruction)
+        self.assertIn("session_audit", instruction)
         self.assertIn("answer directly", instruction)
 
     def test_next_action_instruction_guides_failed_command_diagnostics(self) -> None:

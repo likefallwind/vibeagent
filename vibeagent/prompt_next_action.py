@@ -391,6 +391,28 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
     )
 
 
+def _session_failures_next_action_instruction(base: str, latest: Observation) -> str:
+    failure_count = int(getattr(latest, "failure_count", 0) or 0)
+    if failure_count > 0:
+        return (
+            f"{base} Session failures reports {failure_count} failure event(s). "
+            "Inspect the failure summary, use session_output_diagnostics or session_output_contexts for command-output failures, "
+            "fix the blocker(s), then run session_verification or session_audit before finishing."
+        )
+
+    if getattr(latest, "ok", False):
+        return (
+            f"{base} Session failures reports no failure events. "
+            "Continue with session_verification or session_audit to confirm readiness, "
+            "or answer directly if the task is complete."
+        )
+
+    return (
+        f"{base} Session failures could not be read. Use session_handoff or session_audit to recover context, "
+        "then fix blockers before finishing."
+    )
+
+
 def _diagnostics_next_action_instruction(
     base: str,
     latest: Observation,
@@ -504,6 +526,9 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
 
     if latest.kind == "session_handoff":
         return _session_handoff_next_action_instruction(base, latest)
+
+    if latest.kind == "session_failures":
+        return _session_failures_next_action_instruction(base, latest)
 
     if latest.kind == "output_diagnostics":
         return _diagnostics_next_action_instruction(
