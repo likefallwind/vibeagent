@@ -98,6 +98,12 @@ class RunSessionVerificationAction:
     timeout_ms: int = 30_000
     max_output_chars: int = 12_000
     stop_on_failure: bool = True
+    extract_output_contexts: bool = False
+    extract_output_diagnostics: bool = False
+    context_lines: int = 5
+    max_diagnostics: int = 50
+    max_contexts: int = 20
+    max_bytes_per_context: int = 20_000
 
 
 @dataclass(frozen=True)

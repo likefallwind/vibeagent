@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from .action_parsing_helpers import ActionParseError, parse_nonnegative_int, parse_optional_positive_int
+from .action_parsing_helpers import (
+    ActionParseError,
+    parse_nonnegative_int,
+    parse_optional_nonnegative_int,
+    parse_optional_positive_int,
+)
 from .session_input import normalize_optional_run_id
 from .types import (
     SessionAuditAction,
@@ -202,9 +207,16 @@ def parse_session_action(action_type: object, value: dict[str, Any], raw: str) -
         max_output_chars = parse_optional_positive_int(value.get("max_output_chars", 12_000), "max_output_chars", raw, maximum=50_000) or 12_000
         if max_output_chars < 1_000:
             raise ActionParseError("max_output_chars must be at least 1000.", raw)
+        context_lines = parse_optional_nonnegative_int(value.get("context_lines", 5), "context_lines", raw, maximum=50)
+        context_lines = 5 if context_lines is None else context_lines
+        max_diagnostics = parse_optional_positive_int(value.get("max_diagnostics", 50), "max_diagnostics", raw, maximum=500) or 50
+        max_contexts = parse_optional_positive_int(value.get("max_contexts", 20), "max_contexts", raw, maximum=200) or 20
+        max_bytes_per_context = parse_optional_positive_int(value.get("max_bytes_per_context", 20_000), "max_bytes_per_context", raw, maximum=200_000) or 20_000
         include_pending = value.get("include_pending", True)
         include_failed = value.get("include_failed", True)
         stop_on_failure = value.get("stop_on_failure", True)
+        extract_output_contexts = value.get("extract_output_contexts", False)
+        extract_output_diagnostics = value.get("extract_output_diagnostics", False)
         if not isinstance(include_pending, bool):
             raise ActionParseError("run_session_verification action include_pending must be a boolean.", raw)
         if not isinstance(include_failed, bool):
@@ -213,6 +225,10 @@ def parse_session_action(action_type: object, value: dict[str, Any], raw: str) -
             raise ActionParseError("run_session_verification action must include pending or failed checks.", raw)
         if not isinstance(stop_on_failure, bool):
             raise ActionParseError("run_session_verification action stop_on_failure must be a boolean.", raw)
+        if not isinstance(extract_output_contexts, bool):
+            raise ActionParseError("run_session_verification action extract_output_contexts must be a boolean.", raw)
+        if not isinstance(extract_output_diagnostics, bool):
+            raise ActionParseError("run_session_verification action extract_output_diagnostics must be a boolean.", raw)
         return RunSessionVerificationAction(
             type="run_session_verification",
             run_id=run_id,
@@ -222,6 +238,12 @@ def parse_session_action(action_type: object, value: dict[str, Any], raw: str) -
             timeout_ms=timeout_ms,
             max_output_chars=max_output_chars,
             stop_on_failure=stop_on_failure,
+            extract_output_contexts=extract_output_contexts,
+            extract_output_diagnostics=extract_output_diagnostics,
+            context_lines=context_lines,
+            max_diagnostics=max_diagnostics,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
         )
 
     if action_type == "session_audit":

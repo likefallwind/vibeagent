@@ -3,9 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from .local_runtime_reports import (
+    format_structured_command_output_analysis_lines,
     indent_block,
     serialize_command_result,
     sum_command_result_duration_ms,
+    validate_run_output_context_options,
 )
 from .session import build_session_verification_report, get_last_session_id
 from .session_audit_reports import format_session_verification_report_text as _format_session_verification_report_text
@@ -72,6 +74,12 @@ def get_run_session_verification_text(
     timeout_ms: int = 30_000,
     max_output_chars: int = 12_000,
     stop_on_failure: bool = True,
+    extract_output_contexts: bool = False,
+    extract_output_diagnostics: bool = False,
+    context_lines: int = 5,
+    max_diagnostics: int = 50,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
 ) -> str:
     return format_run_session_verification_report_text(
         get_run_session_verification_report(
@@ -83,6 +91,12 @@ def get_run_session_verification_text(
             timeout_ms=timeout_ms,
             max_output_chars=max_output_chars,
             stop_on_failure=stop_on_failure,
+            extract_output_contexts=extract_output_contexts,
+            extract_output_diagnostics=extract_output_diagnostics,
+            context_lines=context_lines,
+            max_diagnostics=max_diagnostics,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
         )
     )
 
@@ -96,6 +110,12 @@ def get_run_session_verification_report(
     timeout_ms: int = 30_000,
     max_output_chars: int = 12_000,
     stop_on_failure: bool = True,
+    extract_output_contexts: bool = False,
+    extract_output_diagnostics: bool = False,
+    context_lines: int = 5,
+    max_diagnostics: int = 50,
+    max_contexts: int = 20,
+    max_bytes_per_context: int = 20_000,
 ) -> dict[str, object]:
     root = Path(project_root).resolve()
     selected = normalize_optional_run_id(run_id)
@@ -140,6 +160,15 @@ def get_run_session_verification_report(
             "Usage: /run-session-verification [run-id]\nError: include_failed and include_pending cannot both be false.",
             selected,
         )
+    output_context_error = validate_run_output_context_options(
+        context_lines=context_lines,
+        max_diagnostics=max_diagnostics,
+        max_contexts=max_contexts,
+        max_bytes_per_context=max_bytes_per_context,
+        usage="Usage: /run-session-verification [run-id]",
+    )
+    if output_context_error:
+        return failure(output_context_error, selected)
 
     workspace = RunWorkspace(
         root=root,
@@ -157,6 +186,12 @@ def get_run_session_verification_report(
             timeout_ms=timeout_ms,
             max_output_chars=max_output_chars,
             stop_on_failure=stop_on_failure,
+            extract_output_contexts=extract_output_contexts,
+            extract_output_diagnostics=extract_output_diagnostics,
+            context_lines=context_lines,
+            max_diagnostics=max_diagnostics,
+            max_contexts=max_contexts,
+            max_bytes_per_context=max_bytes_per_context,
         ),
         command_timeout_ms=timeout_ms,
     )
@@ -233,6 +268,7 @@ def format_run_session_verification_report_text(report: dict[str, object]) -> st
         lines.append("  results:")
         for position, result in enumerate(results, start=1):
             index = result.get("index", position)
+            analysis = result.get("analysis") if isinstance(result.get("analysis"), dict) else {}
             lines.extend(
                 [
                     f"    - index: {index}",
@@ -246,6 +282,7 @@ def format_run_session_verification_report_text(report: dict[str, object]) -> st
                     f"      stderrTruncated: {'yes' if bool(result.get('stderrTruncated')) else 'no'}",
                 ]
             )
+            lines.extend(format_structured_command_output_analysis_lines(analysis, spaces=6))
             stdout = str(result.get("stdout") or "")
             stderr = str(result.get("stderr") or "")
             if stdout:

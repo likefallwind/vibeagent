@@ -1150,7 +1150,8 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   `extract_output_diagnostics` to summarize successful noisy test/lint output into error,
   warning, failure, Python exception, and referenced-source sections, or `extract_output_contexts`
   to include current source context for file:line references found in stdout/stderr.
-  Local `--run-command`, `--run-commands`, `--run-focused-tests`, and `--run-suggested-checks` can use
+  Local `--run-command`, `--run-commands`, `--run-focused-tests`, `--run-suggested-checks`, and
+  `--run-session-verification` can use
   `--run-output-diagnostics` or `--run-output-contexts` with bounded
   `--run-output-context-lines`, `--run-output-diagnostic-max`, `--run-output-context-max`, and
   `--run-output-context-max-bytes` for the same extraction. `--run-output-diagnostic-max`

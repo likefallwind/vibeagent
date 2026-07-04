@@ -325,6 +325,38 @@ SESSION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "boolean",
                     "description": "Stop after the first failed command. Defaults to true.",
                 },
+                "extract_output_contexts": {
+                    "type": "boolean",
+                    "description": "Extract file:line source contexts from rerun command output. Defaults to false.",
+                },
+                "extract_output_diagnostics": {
+                    "type": "boolean",
+                    "description": "Summarize errors, warnings, and failures from rerun command output. Failed commands auto-extract diagnostics even when false.",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 50,
+                    "description": "Surrounding source lines for extracted output references. Defaults to 5.",
+                },
+                "max_diagnostics": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum diagnostic lines to extract. Defaults to 50.",
+                },
+                "max_contexts": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "description": "Maximum source contexts to extract. Defaults to 20.",
+                },
+                "max_bytes_per_context": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200000,
+                    "description": "Maximum bytes per extracted source context. Defaults to 20000.",
+                },
             },
             "additionalProperties": False,
         },

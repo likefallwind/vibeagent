@@ -88,6 +88,12 @@ def execute_run_session_verification_action(
             cwd=str(command.get("cwd") or "."),
             timeout_ms=action.timeout_ms,
             max_output_chars=action.max_output_chars,
+            extract_output_contexts=action.extract_output_contexts,
+            extract_output_diagnostics=action.extract_output_diagnostics,
+            context_lines=action.context_lines,
+            max_diagnostics=action.max_diagnostics,
+            max_contexts=action.max_contexts,
+            max_bytes_per_context=action.max_bytes_per_context,
         )
         result = execute_run_command_item(workspace, item, command_timeout_ms)
         results.append(result)

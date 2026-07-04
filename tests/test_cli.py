@@ -94,6 +94,12 @@ class CliTests(unittest.TestCase):
             run_session_no_failed=True,
             run_session_no_pending=False,
             run_continue_on_failure=True,
+            run_output_contexts=True,
+            run_output_diagnostics=True,
+            run_output_context_lines=2,
+            run_output_diagnostic_max=6,
+            run_output_context_max=5,
+            run_output_context_max_bytes=800,
         )
 
         self.assertEqual(cli_module.session_transcript_kwargs(args), {"max_events": 12, "max_text": 500})
@@ -132,6 +138,12 @@ class CliTests(unittest.TestCase):
                 "max_checks": 11,
                 "timeout_ms": 1500,
                 "max_output_chars": 2000,
+                "extract_output_contexts": True,
+                "extract_output_diagnostics": True,
+                "context_lines": 2,
+                "max_diagnostics": 6,
+                "max_contexts": 5,
+                "max_bytes_per_context": 800,
                 "include_failed": False,
                 "stop_on_failure": False,
             },
@@ -180,6 +192,12 @@ class CliTests(unittest.TestCase):
             run_session_no_failed=False,
             run_session_no_pending=False,
             run_continue_on_failure=False,
+            run_output_contexts=False,
+            run_output_diagnostics=False,
+            run_output_context_lines=5,
+            run_output_diagnostic_max=50,
+            run_output_context_max=20,
+            run_output_context_max_bytes=20000,
         )
 
         self.assertEqual(cli_module.session_transcript_kwargs(args), {})
@@ -188,7 +206,19 @@ class CliTests(unittest.TestCase):
         self.assertEqual(cli_module.session_files_kwargs(args), {})
         self.assertEqual(cli_module.session_failures_kwargs(args), {})
         self.assertEqual(cli_module.session_verification_kwargs(args), {})
-        self.assertEqual(cli_module.run_session_verification_kwargs(args), {"timeout_ms": 30000, "max_output_chars": 12000})
+        self.assertEqual(
+            cli_module.run_session_verification_kwargs(args),
+            {
+                "timeout_ms": 30000,
+                "max_output_chars": 12000,
+                "extract_output_contexts": False,
+                "extract_output_diagnostics": False,
+                "context_lines": 5,
+                "max_diagnostics": 50,
+                "max_contexts": 20,
+                "max_bytes_per_context": 20000,
+            },
+        )
         self.assertEqual(cli_module.session_audit_kwargs(args), {})
         self.assertEqual(cli_module.session_handoff_kwargs(args), {})
         self.assertEqual(
@@ -2746,6 +2776,16 @@ class CliTests(unittest.TestCase):
                         "1000",
                         "--run-max-chars",
                         "2000",
+                        "--run-output-contexts",
+                        "--run-output-diagnostics",
+                        "--run-output-context-lines",
+                        "0",
+                        "--run-output-diagnostic-max",
+                        "3",
+                        "--run-output-context-max",
+                        "4",
+                        "--run-output-context-max-bytes",
+                        "1000",
                         "--json",
                     ]
                 )
@@ -2761,6 +2801,12 @@ class CliTests(unittest.TestCase):
             max_checks=2,
             timeout_ms=1000,
             max_output_chars=2000,
+            extract_output_contexts=True,
+            extract_output_diagnostics=True,
+            context_lines=0,
+            max_diagnostics=3,
+            max_contexts=4,
+            max_bytes_per_context=1000,
             include_pending=False,
         )
         format_text.assert_called_once_with(report)
@@ -5471,12 +5517,12 @@ class CliTests(unittest.TestCase):
             (["--run-timeout-ms", "2000", "fix"], "--run-timeout-ms can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.\n"),
             (["--run-max-chars", "2000", "fix"], "--run-max-chars can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.\n"),
             (["--run-continue-on-failure", "fix"], "--run-continue-on-failure can only be used with --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.\n"),
-            (["--run-output-contexts", "fix"], "--run-output-contexts can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests.\n"),
-            (["--run-output-diagnostics", "fix"], "--run-output-diagnostics can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests.\n"),
-            (["--run-output-context-lines", "2", "fix"], "--run-output-context-lines can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests.\n"),
-            (["--run-output-context-max", "5", "fix"], "--run-output-context-max can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests.\n"),
-            (["--run-output-context-max-bytes", "1000", "fix"], "--run-output-context-max-bytes can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests.\n"),
-            (["--run-output-diagnostic-max", "5", "fix"], "--run-output-diagnostic-max can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests.\n"),
+            (["--run-output-contexts", "fix"], "--run-output-contexts can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.\n"),
+            (["--run-output-diagnostics", "fix"], "--run-output-diagnostics can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.\n"),
+            (["--run-output-context-lines", "2", "fix"], "--run-output-context-lines can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.\n"),
+            (["--run-output-context-max", "5", "fix"], "--run-output-context-max can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.\n"),
+            (["--run-output-context-max-bytes", "1000", "fix"], "--run-output-context-max-bytes can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.\n"),
+            (["--run-output-diagnostic-max", "5", "fix"], "--run-output-diagnostic-max can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.\n"),
         ]
         for argv, expected in cases:
             with self.subTest(argv=argv):

@@ -9958,6 +9958,48 @@ class CommandTests(unittest.TestCase):
         self.assertIn("selectedCommandsNotRun: 1", failed_rendered)
         self.assertIn("Session not found: missing", missing)
 
+    def test_get_run_session_verification_text_can_extract_output_contexts(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "src" / "app.py").write_text("one\nTwo\nthree\n", encoding="utf-8")
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "result",
+                        "success": False,
+                        "status": "blocked",
+                        "iterations": 1,
+                        "message": "Needs checks",
+                        "pending_verification_checks": ['python3 -c "print(\\"src/app.py:2:5: note\\")"'],
+                        "failed_verification_checks": [],
+                    }
+                ],
+            )
+
+            report = commands_module.get_run_session_verification_report(
+                root,
+                "run-1",
+                max_checks=1,
+                timeout_ms=10_000,
+                max_output_chars=2_000,
+                include_failed=False,
+                extract_output_contexts=True,
+                context_lines=0,
+                max_bytes_per_context=1000,
+            )
+            rendered = commands_module.format_run_session_verification_report_text(report)
+
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["results"][0]["analysis"]["contexts"]["shown"], 1)
+        self.assertEqual(report["results"][0]["analysis"]["contexts"]["items"][0]["path"], "src/app.py")
+        self.assertIn("Run session verification:", rendered)
+        self.assertIn("outputContexts: 1/1", rendered)
+        self.assertIn("src/app.py:2:5 [src/app.py:2:5]", rendered)
+        self.assertIn("2: Two", rendered)
+
     def test_get_session_audit_text_reports_newest_or_selected_readiness(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)

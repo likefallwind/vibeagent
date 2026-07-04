@@ -568,6 +568,12 @@ class ActionTests(unittest.TestCase):
                     "timeout_ms": 1000,
                     "max_output_chars": 2000,
                     "stop_on_failure": False,
+                    "extract_output_contexts": True,
+                    "extract_output_diagnostics": True,
+                    "context_lines": 0,
+                    "max_diagnostics": 4,
+                    "max_contexts": 5,
+                    "max_bytes_per_context": 1000,
                 },
                 "run_session_verification",
             ),
@@ -1563,6 +1569,12 @@ class ActionTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ActionParseError, "max_output_chars must be at least 1000"):
             parse_tool_action("run_session_verification", {"max_output_chars": 999})
+
+        with self.assertRaisesRegex(ActionParseError, "extract_output_contexts must be a boolean"):
+            parse_tool_action("run_session_verification", {"extract_output_contexts": "yes"})
+
+        with self.assertRaisesRegex(ActionParseError, "max_contexts must be at most 200"):
+            parse_tool_action("run_session_verification", {"max_contexts": 201})
 
         with self.assertRaisesRegex(ActionParseError, "session_audit action run_id must be a string"):
             parse_tool_action("session_audit", {"run_id": 1})

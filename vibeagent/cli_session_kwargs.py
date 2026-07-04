@@ -69,6 +69,16 @@ def run_session_verification_kwargs(args: argparse.Namespace) -> dict[str, Any]:
         ("timeout_ms", args.run_timeout_ms),
         ("max_output_chars", args.run_max_chars),
     )
+    kwargs.update(
+        {
+            "extract_output_contexts": args.run_output_contexts,
+            "extract_output_diagnostics": args.run_output_diagnostics,
+            "context_lines": args.run_output_context_lines,
+            "max_diagnostics": args.run_output_diagnostic_max,
+            "max_contexts": args.run_output_context_max,
+            "max_bytes_per_context": args.run_output_context_max_bytes,
+        }
+    )
     if args.run_session_no_failed:
         kwargs["include_failed"] = False
     if args.run_session_no_pending:

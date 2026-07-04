@@ -311,19 +311,20 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         or args.run_commands is not None
         or args.run_suggested_checks is not None
         or args.run_focused_tests is not None
+        or args.run_session_verification is not None
     )
     if args.run_output_contexts and not run_output_context_target:
-        return "--run-output-contexts can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests."
+        return "--run-output-contexts can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification."
     if args.run_output_diagnostics and not run_output_context_target:
-        return "--run-output-diagnostics can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests."
+        return "--run-output-diagnostics can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification."
     if args.run_output_context_lines != 5 and not run_output_context_target:
-        return "--run-output-context-lines can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests."
+        return "--run-output-context-lines can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification."
     if args.run_output_context_max != 20 and not run_output_context_target:
-        return "--run-output-context-max can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests."
+        return "--run-output-context-max can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification."
     if args.run_output_context_max_bytes != 20000 and not run_output_context_target:
-        return "--run-output-context-max-bytes can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests."
+        return "--run-output-context-max-bytes can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification."
     if args.run_output_diagnostic_max != 50 and not run_output_context_target:
-        return "--run-output-diagnostic-max can only be used with --run-command, --run, --run-commands, --run-suggested-checks, or --run-focused-tests."
+        return "--run-output-diagnostic-max can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification."
     if args.resume is not None and args.compact is not None:
         return "--resume and --compact cannot be used together."
     resume_limit_options = {
