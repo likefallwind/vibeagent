@@ -50,6 +50,21 @@ def _verification_command_labels(values: object) -> list[str]:
     return labels
 
 
+def _plan_item_labels(values: object) -> list[str]:
+    labels: list[str] = []
+    if not isinstance(values, list):
+        return labels
+    for value in values:
+        if not isinstance(value, dict):
+            continue
+        step = str(value.get("step") or "").strip()
+        if not step:
+            continue
+        status = str(value.get("status") or "").strip()
+        labels.append(f"{status}: {step}" if status else step)
+    return labels
+
+
 def _audit_section_items(audit: object, section_names: tuple[str, ...]) -> list[str]:
     if not isinstance(audit, str):
         return []
@@ -291,6 +306,7 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
     active_processes = _session_audit_process_labels(getattr(latest, "active_background_processes", []))
     failed = _verification_command_labels(getattr(latest, "failed_commands", []))
     pending = _verification_command_labels(getattr(latest, "pending_commands", []))
+    pending_plan_items = _plan_item_labels(getattr(latest, "pending_plan_items", []))
     if getattr(latest, "ready", None) is True:
         return (
             f"{base} Session handoff reports the recovered session is ready. "
@@ -312,6 +328,13 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
             f"Use run_session_verification to rerun recorded checks first: {_format_next_action_items(failed + pending)}. "
             "If failures remain, inspect them with session_output_diagnostics or session_output_contexts, "
             "fix the code, and rerun session_audit before finishing."
+        )
+
+    if pending_plan_items:
+        return (
+            f"{base} Session handoff reports unfinished plan item(s): {_format_next_action_items(pending_plan_items)}. "
+            "Continue the in-progress or next pending plan item, use session_plan if more detail is needed, "
+            "update_plan after progress, then run session_audit or session_verification before finishing."
         )
 
     if blockers and _has_completion_blocker_signal(blockers, latest):

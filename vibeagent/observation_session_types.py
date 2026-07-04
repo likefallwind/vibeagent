@@ -182,6 +182,10 @@ class SessionHandoffObservation:
     verified_count: int = 0
     pending_count: int = 0
     failed_count: int = 0
+    pending_plan_items: list[dict[str, str]] = field(default_factory=list)
+    pending_plan_count: int = 0
+    plan_items_count: int = 0
+    plan_in_progress: bool = False
     completion_ready: bool | None = None
     completion_blockers: list[str] = field(default_factory=list)
     latest_completion_blockers: list[str] = field(default_factory=list)

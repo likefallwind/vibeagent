@@ -558,6 +558,22 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             verified_commands, verified_count = _handoff_verification_group(audit, "verified")
             pending_commands, pending_count = _handoff_verification_group(audit, "pending")
             failed_commands, failed_count = _handoff_verification_group(audit, "failed")
+            plan = audit.get("plan") if isinstance(audit.get("plan"), dict) else {}
+            plan_items = plan.get("items")
+            plan_items_count = plan_items if isinstance(plan_items, int) else 0
+            plan_in_progress = plan.get("inProgress") is True
+            pending_plan = plan.get("pending") if isinstance(plan.get("pending"), dict) else {}
+            pending_plan_total = pending_plan.get("total")
+            pending_plan_count = pending_plan_total if isinstance(pending_plan_total, int) else 0
+            pending_plan_items = []
+            raw_pending_plan_items = pending_plan.get("items") if isinstance(pending_plan.get("items"), list) else []
+            for item in raw_pending_plan_items:
+                if not isinstance(item, dict):
+                    continue
+                step = str(item.get("step") or "").strip()
+                status_value = str(item.get("status") or "").strip()
+                if step:
+                    pending_plan_items.append({"status": status_value, "step": step})
             completion = audit.get("completion") if isinstance(audit.get("completion"), dict) else {}
             completion_ready = completion.get("ready") if isinstance(completion.get("ready"), bool) else None
             completion_blockers = [
@@ -585,6 +601,10 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             verified_count = 0
             pending_count = 0
             failed_count = 0
+            pending_plan_items = []
+            pending_plan_count = 0
+            plan_items_count = 0
+            plan_in_progress = False
             completion_ready = None
             completion_blockers = []
             latest_completion_blockers = []
@@ -606,6 +626,10 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             verified_count=verified_count,
             pending_count=pending_count,
             failed_count=failed_count,
+            pending_plan_items=pending_plan_items,
+            pending_plan_count=pending_plan_count,
+            plan_items_count=plan_items_count,
+            plan_in_progress=plan_in_progress,
             completion_ready=completion_ready,
             completion_blockers=completion_blockers,
             latest_completion_blockers=latest_completion_blockers,

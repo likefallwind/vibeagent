@@ -6025,6 +6025,10 @@ class ActionTests(unittest.TestCase):
         self.assertEqual([command["command"] for command in observation.pending_commands], ["npm test"])
         self.assertEqual([command["command"] for command in observation.failed_commands], ["ruff check"])
         self.assertEqual(observation.failed_commands[0]["failureReason"], "exit=1")
+        self.assertEqual(observation.plan_items_count, 2)
+        self.assertTrue(observation.plan_in_progress)
+        self.assertEqual(observation.pending_plan_count, 1)
+        self.assertEqual(observation.pending_plan_items, [{"status": "in_progress", "step": "Test"}])
         self.assertFalse(observation.completion_ready)
         self.assertEqual(observation.completion_blockers, ["Task plan still has unfinished item(s): 1 in_progress."])
         self.assertEqual(

@@ -205,6 +205,23 @@ def format_session_observation(index: int, observation: object) -> str | None:
         verification_lines.extend(format_verification_command_lines("verifiedCommands", verified_commands, verified_count))
         verification_lines.extend(format_verification_command_lines("pendingCommands", pending_commands, pending_count))
         verification_lines.extend(format_verification_command_lines("failedCommands", failed_commands, failed_count))
+        pending_plan_items = [
+            item
+            for item in getattr(observation, "pending_plan_items", [])
+            if isinstance(item, dict) and str(item.get("step") or "").strip()
+        ]
+        pending_plan_count = int(getattr(observation, "pending_plan_count", len(pending_plan_items)) or 0)
+        plan_items_count = int(getattr(observation, "plan_items_count", 0) or 0)
+        plan_lines: list[str] = []
+        if plan_items_count or pending_plan_count:
+            plan_lines.append(
+                "plan: "
+                f"items={plan_items_count} "
+                f"pending={len(pending_plan_items)}/{pending_plan_count} "
+                f"inProgress={str(bool(getattr(observation, 'plan_in_progress', False))).lower()}"
+            )
+            for item in pending_plan_items[:20]:
+                plan_lines.append(f"plan_item: {item.get('status') or ''}: {item.get('step') or ''}")
         completion_ready = getattr(observation, "completion_ready", None)
         if completion_ready is not None:
             readiness_lines.append(f"completionReady: {str(completion_ready).lower()}")
@@ -221,6 +238,7 @@ def format_session_observation(index: int, observation: object) -> str | None:
                 f"{index}. session_handoff {observation.run_id}: {observation.message}",
                 f"ok: {str(observation.ok).lower()}",
                 *readiness_lines,
+                *plan_lines,
                 "commands:",
                 *verification_lines,
                 *completion_lines,

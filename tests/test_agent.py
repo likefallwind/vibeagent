@@ -3029,6 +3029,10 @@ class AgentTests(unittest.TestCase):
                     verified_count=2,
                     pending_count=2,
                     failed_count=2,
+                    pending_plan_items=[{"status": "in_progress", "step": "Test the resumed workflow."}],
+                    pending_plan_count=1,
+                    plan_items_count=2,
+                    plan_in_progress=True,
                     completion_ready=False,
                     completion_blockers=["Task plan still has unfinished item(s): 1 in_progress."],
                     latest_completion_blockers=["1 suggested verification check(s) are still pending."],
@@ -3044,6 +3048,8 @@ class AgentTests(unittest.TestCase):
         self.assertIn("blocker: 1 failed verification check(s)", text)
         self.assertIn("backgroundProcesses: started=1 active=1", text)
         self.assertIn("active_process: bg-1 pid=1234 cwd=web command=npm run dev", text)
+        self.assertIn("plan: items=2 pending=1/1 inProgress=true", text)
+        self.assertIn("plan_item: in_progress: Test the resumed workflow.", text)
         self.assertIn("verifiedCommands: 1/2", text)
         self.assertIn("pendingCommands: 1/2", text)
         self.assertIn("failedCommands: 1/2", text)
@@ -5203,6 +5209,32 @@ class AgentTests(unittest.TestCase):
         self.assertIn("read_process", instruction)
         self.assertIn("stop_process", instruction)
         self.assertIn("bg-1: npm run dev (cwd=web)", instruction)
+        self.assertIn("session_audit", instruction)
+        self.assertIn("session_verification", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_session_handoff_pending_plan_items(self) -> None:
+        observation = SessionHandoffObservation(
+            kind="session_handoff",
+            run_id="run-1",
+            ok=True,
+            handoff="Session handoff:\n  session: run-1",
+            message="Session handoff has blocker(s).",
+            ready=False,
+            status="blocked",
+            blockers=["1 non-completed plan item(s)"],
+            pending_plan_items=[{"status": "in_progress", "step": "Test the resumed workflow."}],
+            pending_plan_count=1,
+            plan_items_count=2,
+            plan_in_progress=True,
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session handoff reports unfinished plan item(s)", instruction)
+        self.assertIn("in_progress: Test the resumed workflow.", instruction)
+        self.assertIn("session_plan", instruction)
+        self.assertIn("update_plan", instruction)
         self.assertIn("session_audit", instruction)
         self.assertIn("session_verification", instruction)
         self.assertIn("before finishing", instruction)
