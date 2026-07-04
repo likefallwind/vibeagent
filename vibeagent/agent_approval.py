@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+from .agent_approval_targets import (
+    command_batch_target,
+    command_target,
+    focused_test_commands_target,
+    session_verification_target,
+    suggested_checks_target,
+)
 from .agent_observation_utils import summarize
 from . import types as t
 
@@ -279,42 +286,37 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
     if isinstance(action, t.RunCommandAction):
         return t.ApprovalRequest(
             action_type="run_command",
-            target=f"{action.command} (cwd: {action.cwd or '.'})",
+            target=command_target(action.command, action.cwd),
             risk="This will run a shell command from the active project directory.",
         )
     if isinstance(action, t.RunCommandsAction):
         return t.ApprovalRequest(
             action_type="run_commands",
-            target=", ".join(f"{item.command} (cwd: {item.cwd or '.'})" for item in action.commands),
+            target=command_batch_target(action.commands),
             risk="This will run several shell commands sequentially from the active project directory.",
         )
     if isinstance(action, t.RunSuggestedChecksAction):
         return t.ApprovalRequest(
             action_type="run_suggested_checks",
-            target=f"up to {action.max_commands} suggested check command(s)",
+            target=suggested_checks_target(action.max_commands),
             risk="This will discover and run project test/build/lint check commands from the active project directory.",
         )
     if isinstance(action, t.RunFocusedTestCommandsAction):
         return t.ApprovalRequest(
             action_type="run_focused_test_commands",
-            target=f"up to {action.max_commands} focused test command(s)",
+            target=focused_test_commands_target(action.max_commands),
             risk="This will discover and run focused project test commands from the active project directory.",
         )
     if isinstance(action, t.RunSessionVerificationAction):
-        groups = []
-        if action.include_failed:
-            groups.append("failed")
-        if action.include_pending:
-            groups.append("pending")
         return t.ApprovalRequest(
             action_type="run_session_verification",
-            target=f"{'/'.join(groups)} verification command(s) from {action.run_id or 'current session'}",
+            target=session_verification_target(action.run_id, action.include_failed, action.include_pending),
             risk="This will rerun verification shell commands recorded in a local session from the active project directory.",
         )
     if isinstance(action, t.StartCommandAction):
         return t.ApprovalRequest(
             action_type="start_command",
-            target=f"{action.command} (cwd: {action.cwd or '.'})",
+            target=command_target(action.command, action.cwd),
             risk="This will start a background shell command from the active project directory.",
         )
     if isinstance(action, t.WriteProcessAction):

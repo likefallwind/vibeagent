@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+from .agent_approval_targets import (
+    command_batch_target,
+    command_target,
+    focused_test_commands_target,
+    session_verification_target,
+    suggested_checks_target,
+)
 from .agent_completion_kinds import PROJECT_CHANGE_OBSERVATION_KINDS
 from .agent_observation_utils import observation_failed
 from .types import Observation
@@ -127,17 +134,17 @@ def observation_target_tokens(observation: Observation) -> set[str]:
     command = str(getattr(observation, "command", "") or "").strip()
     if command:
         cwd = str(getattr(observation, "cwd", ".") or ".")
-        tokens.add(command_target_token(command, cwd))
+        tokens.add(command_target(command, cwd))
     result = getattr(observation, "result", None)
     if result is not None:
         command = str(getattr(result, "command", "") or "").strip()
         if command:
             cwd = str(getattr(result, "cwd", ".") or ".")
-            tokens.add(command_target_token(command, cwd))
+            tokens.add(command_target(command, cwd))
     result_tokens = command_result_target_tokens(getattr(observation, "results", []))
     tokens.update(result_tokens)
     if result_tokens:
-        tokens.add(", ".join(result_tokens))
+        tokens.add(command_batch_target(getattr(observation, "results", [])))
     for name in ("paths", "files"):
         values = getattr(observation, name, [])
         if not isinstance(values, list):
@@ -158,17 +165,14 @@ def observation_target_tokens(observation: Observation) -> set[str]:
 def observation_summary_target_token(observation: Observation) -> str | None:
     max_commands = getattr(observation, "max_commands", None)
     if observation.kind == "run_suggested_checks" and isinstance(max_commands, int):
-        return f"up to {max_commands} suggested check command(s)"
+        return suggested_checks_target(max_commands)
     if observation.kind == "run_focused_test_commands" and isinstance(max_commands, int):
-        return f"up to {max_commands} focused test command(s)"
+        return focused_test_commands_target(max_commands)
     if observation.kind == "run_session_verification":
-        groups = []
-        if int(getattr(observation, "failed_count", 0) or 0) > 0:
-            groups.append("failed")
-        if int(getattr(observation, "pending_count", 0) or 0) > 0:
-            groups.append("pending")
+        include_failed = int(getattr(observation, "failed_count", 0) or 0) > 0
+        include_pending = int(getattr(observation, "pending_count", 0) or 0) > 0
         run_id = str(getattr(observation, "run_id", "") or "current session")
-        return f"{'/'.join(groups)} verification command(s) from {run_id}"
+        return session_verification_target(run_id, include_failed, include_pending)
     return None
 
 
@@ -181,12 +185,8 @@ def command_result_target_tokens(results: object) -> list[str]:
         if not command:
             continue
         cwd = str(getattr(result, "cwd", ".") or ".")
-        tokens.append(command_target_token(command, cwd))
+        tokens.append(command_target(command, cwd))
     return tokens
-
-
-def command_target_token(command: str, cwd: str) -> str:
-    return f"{command} (cwd: {cwd or '.'})"
 
 
 def normalized_approval_target_tokens(value: object) -> set[str]:
