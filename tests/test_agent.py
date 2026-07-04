@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionVerificationObservation, StopAllProcessesAction, WaitProcessObservation
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionVerificationObservation, StopAllProcessesAction, WaitProcessObservation
 from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -4623,6 +4623,57 @@ class AgentTests(unittest.TestCase):
         instruction = get_next_action_instruction("resume and finish task", [observation])
 
         self.assertIn("Session audit is ready", instruction)
+        self.assertIn("answer directly", instruction)
+
+    def test_next_action_instruction_guides_blocked_session_handoff_to_structured_recovery(self) -> None:
+        observation = SessionHandoffObservation(
+            kind="session_handoff",
+            run_id="run-1",
+            ok=False,
+            handoff=(
+                "Session handoff:\n"
+                "  session: run-1\n"
+                "  readiness:\n"
+                "    Session readiness:\n"
+                "      ready: no\n"
+                "      status: blocked\n"
+                "      blockers:\n"
+                "        - 1 failed verification check(s)\n"
+            ),
+            message="Session handoff has blocker(s).",
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session handoff reports blockers", instruction)
+        self.assertIn("session_audit", instruction)
+        self.assertIn("session_verification", instruction)
+        self.assertIn("session_failures", instruction)
+        self.assertIn("session_output_diagnostics", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_ready_session_handoff_to_continue_or_finish(self) -> None:
+        observation = SessionHandoffObservation(
+            kind="session_handoff",
+            run_id="run-1",
+            ok=True,
+            handoff=(
+                "Session handoff:\n"
+                "  session: run-1\n"
+                "  readiness:\n"
+                "    Session readiness:\n"
+                "      ready: yes\n"
+                "      status: ready\n"
+                "      blockers:\n"
+                "        - none\n"
+            ),
+            message="Session handoff is ready.",
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session handoff reports the recovered session is ready", instruction)
+        self.assertIn("plan and verification sections", instruction)
         self.assertIn("answer directly", instruction)
 
     def test_next_action_instruction_guides_failed_command_diagnostics(self) -> None:

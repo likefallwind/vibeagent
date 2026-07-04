@@ -368,6 +368,29 @@ def _session_audit_next_action_instruction(base: str, latest: Observation) -> st
     )
 
 
+def _session_handoff_next_action_instruction(base: str, latest: Observation) -> str:
+    handoff = str(getattr(latest, "handoff", "") or "")
+    handoff_lower = handoff.lower()
+
+    if not getattr(latest, "ok", False):
+        return (
+            f"{base} Session handoff reports blockers. Use session_audit for a structured readiness check, "
+            "then use session_verification, session_failures, or session_output_diagnostics to resolve the blocker(s) before finishing."
+        )
+
+    if "ready: yes" in handoff_lower or "status: ready" in handoff_lower:
+        return (
+            f"{base} Session handoff reports the recovered session is ready. "
+            "Use its plan and verification sections to continue any remaining requested work, "
+            "or answer directly if the task is complete."
+        )
+
+    return (
+        f"{base} Use the session handoff sections to resume the task. "
+        "If readiness is unclear, run session_audit or session_verification before finishing."
+    )
+
+
 def _diagnostics_next_action_instruction(
     base: str,
     latest: Observation,
@@ -478,6 +501,9 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
 
     if latest.kind == "session_audit":
         return _session_audit_next_action_instruction(base, latest)
+
+    if latest.kind == "session_handoff":
+        return _session_handoff_next_action_instruction(base, latest)
 
     if latest.kind == "output_diagnostics":
         return _diagnostics_next_action_instruction(
