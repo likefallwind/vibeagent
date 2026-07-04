@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .prompt_next_action_checkpoint import CHECKPOINT_NEXT_ACTION_KINDS, checkpoint_next_action_instruction
+from .prompt_next_action_project import PROJECT_NEXT_ACTION_KINDS, project_next_action_instruction
 from .prompt_next_action_session import SESSION_NEXT_ACTION_KINDS, session_next_action_instruction
 from .types import Observation
 
@@ -365,6 +366,9 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
     if latest.kind in CHECKPOINT_NEXT_ACTION_KINDS:
         return checkpoint_next_action_instruction(base, latest)
 
+    if latest.kind in PROJECT_NEXT_ACTION_KINDS:
+        return project_next_action_instruction(base, latest)
+
     if latest.kind == "output_diagnostics":
         return _diagnostics_next_action_instruction(
             base,
@@ -502,7 +506,6 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "project_commands",
         "related_tests",
         "focused_test_commands",
-        "check_focused_test_commands",
         "git_branches",
         "check_git_fetch",
         "check_git_pull",
@@ -517,8 +520,6 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "check_git_switch",
         "command_check",
         "check_run_commands",
-        "check_suggested_checks",
-        "check_focused_test_commands",
         "check_start_command",
         "port_check",
         "http_check",
@@ -563,12 +564,7 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "git_switch",
         "git_changes",
         "review_changes",
-        "suggest_checks",
-        "check_suggested_checks",
         "tool_search",
-        "project_commands",
-        "related_tests",
-        "focused_test_commands",
         "project_manifests",
         "project_instructions",
         "command_check",
@@ -635,7 +631,6 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "check_git_stage",
         "check_git_unstage",
         "check_git_commit",
-        "check_run_commands",
     }:
         if latest.ok:
             return f"{base} The dry-run succeeded. Apply it if the diff or validation result matches the requested change, or continue with the next required step."

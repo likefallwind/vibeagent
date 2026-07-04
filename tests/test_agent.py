@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, WaitProcessObservation
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CommandCheckObservation, ContentBlock, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, WaitProcessObservation
 from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -5025,6 +5025,191 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Checkpoint prune preview would delete 3 checkpoint", instruction)
         self.assertIn("checkpoint_prune", instruction)
         self.assertIn("rollback points are no longer needed", instruction)
+
+    def test_next_action_instruction_guides_suggested_checks_to_runner(self) -> None:
+        observation = SuggestChecksObservation(
+            kind="suggest_checks",
+            ok=True,
+            checks=[
+                SuggestedCheck(
+                    command="python -m unittest discover -s tests",
+                    cwd=".",
+                    source="tests",
+                    reason="unit tests",
+                )
+            ],
+            total=1,
+            truncated=False,
+            changed_files=["vibeagent/agent.py"],
+            message="Suggested checks.",
+        )
+
+        instruction = get_next_action_instruction("verify changes", [observation])
+
+        self.assertIn("Suggested checks are available", instruction)
+        self.assertIn("run_suggested_checks", instruction)
+        self.assertIn("python -m unittest discover -s tests (cwd=.)", instruction)
+        self.assertIn("Fix failures before finishing", instruction)
+
+    def test_next_action_instruction_guides_checked_suggested_checks_to_runner(self) -> None:
+        suggested = SuggestedCheck(
+            command="npm test",
+            cwd=".",
+            source="package.json",
+            reason="unit tests",
+        )
+        observation = CheckSuggestedChecksObservation(
+            kind="check_suggested_checks",
+            ok=True,
+            checks=[
+                CommandCheckObservation(
+                    kind="command_check",
+                    ok=True,
+                    command="npm test",
+                    cwd=".",
+                    cwd_ok=True,
+                    blocked=False,
+                    block_reason=None,
+                    executable_available=True,
+                    missing_tool=None,
+                    message="Command can run.",
+                )
+            ],
+            suggested_checks=[suggested],
+            total=1,
+            truncated=False,
+            max_commands=5,
+            message="Suggested checks are runnable.",
+        )
+
+        instruction = get_next_action_instruction("verify changes", [observation])
+
+        self.assertIn("Suggested check dry-run passed", instruction)
+        self.assertIn("run_suggested_checks", instruction)
+        self.assertIn("npm test (cwd=.)", instruction)
+
+    def test_next_action_instruction_guides_project_commands_to_command_check_or_run(self) -> None:
+        observation = ProjectCommandsObservation(
+            kind="project_commands",
+            ok=True,
+            commands=[
+                ProjectCommand(
+                    file="package.json",
+                    cwd=".",
+                    source="scripts.test",
+                    command="npm test",
+                    detail="test script",
+                    available=True,
+                )
+            ],
+            total=1,
+            truncated=False,
+            total_files=1,
+            scanned_files=1,
+            message="Found project commands.",
+        )
+
+        instruction = get_next_action_instruction("find project checks", [observation])
+
+        self.assertIn("Project commands were found", instruction)
+        self.assertIn("command_check", instruction)
+        self.assertIn("run_command", instruction)
+        self.assertIn("npm test (cwd=.)", instruction)
+
+    def test_next_action_instruction_guides_related_tests_to_focused_commands(self) -> None:
+        observation = RelatedTestsObservation(
+            kind="related_tests",
+            ok=True,
+            target_paths=["vibeagent/agent.py"],
+            candidates=[
+                RelatedTestCandidate(
+                    source_path="vibeagent/agent.py",
+                    test_path="tests/test_agent.py",
+                    score=100,
+                    reason="name match",
+                )
+            ],
+            total=1,
+            truncated=False,
+            test_files_total=1,
+            message="Found related tests.",
+        )
+
+        instruction = get_next_action_instruction("verify agent change", [observation])
+
+        self.assertIn("Related tests were found", instruction)
+        self.assertIn("focused_test_commands", instruction)
+        self.assertIn("run the listed tests manually", instruction)
+
+    def test_next_action_instruction_guides_focused_test_commands_to_runner(self) -> None:
+        observation = FocusedTestCommandsObservation(
+            kind="focused_test_commands",
+            ok=True,
+            target_paths=["vibeagent/agent.py"],
+            commands=[
+                FocusedTestCommand(
+                    command="python -m unittest tests.test_agent",
+                    cwd=".",
+                    test_path="tests/test_agent.py",
+                    source="vibeagent/agent.py",
+                    reason="related test",
+                )
+            ],
+            total=1,
+            truncated=False,
+            related_tests_total=1,
+            message="Focused commands.",
+        )
+
+        instruction = get_next_action_instruction("verify agent change", [observation])
+
+        self.assertIn("Focused test commands are available", instruction)
+        self.assertIn("run_focused_test_commands", instruction)
+        self.assertIn("python -m unittest tests.test_agent (cwd=.)", instruction)
+        self.assertIn("broader checks", instruction)
+
+    def test_next_action_instruction_guides_blocked_focused_test_dry_run(self) -> None:
+        observation = CheckFocusedTestCommandsObservation(
+            kind="check_focused_test_commands",
+            ok=False,
+            checks=[
+                CommandCheckObservation(
+                    kind="command_check",
+                    ok=False,
+                    command="pytest tests/test_agent.py",
+                    cwd=".",
+                    cwd_ok=True,
+                    blocked=False,
+                    block_reason=None,
+                    executable_available=False,
+                    missing_tool="pytest",
+                    message="Missing pytest.",
+                )
+            ],
+            focused_commands=[
+                FocusedTestCommand(
+                    command="pytest tests/test_agent.py",
+                    cwd=".",
+                    test_path="tests/test_agent.py",
+                    source="vibeagent/agent.py",
+                    reason="related test",
+                    available=False,
+                    missing_tool="pytest",
+                )
+            ],
+            target_paths=["vibeagent/agent.py"],
+            total=1,
+            truncated=False,
+            max_commands=5,
+            related_tests_total=1,
+            message="Focused command blocked.",
+        )
+
+        instruction = get_next_action_instruction("verify agent change", [observation])
+
+        self.assertIn("Focused test dry-run found blocked command", instruction)
+        self.assertIn("pytest tests/test_agent.py: pytest", instruction)
+        self.assertIn("choose another focused check", instruction)
 
     def test_next_action_instruction_guides_failed_command_diagnostics(self) -> None:
         observation = RunCommandObservation(
