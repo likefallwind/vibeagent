@@ -41,6 +41,7 @@ EDIT_APPLY_NEXT_ACTION_KINDS = {
     "edit_file",
     "multi_edit_file",
     "replace_python_definition",
+    "code_rename",
     "python_rename",
     "regex_replace",
     "json_set",

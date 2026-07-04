@@ -20,6 +20,7 @@ from vibeagent.final_review_actions import final_review_session_verification_iss
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
 from vibeagent.types import ApprovalDecision, ApprovalDeniedObservation, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckGitStageObservation, CheckRunCommandsObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CodeReference, CodeReferencesObservation, CommandCheckObservation, ContentBlock, EnvironmentInfoObservation, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ProjectInstructionSource, ProjectInstructionsObservation, ProjectManifest, ProjectManifestItem, ProjectManifestsObservation, ProjectOverviewObservation, ProjectTodo, ProjectTodosObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, RuntimeToolInfo, SearchObservation, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, ToolErrorObservation, ToolSearchObservation, WaitProcessObservation
+from vibeagent.types import CheckGitPushObservation, GitInfoObservation, HttpCheckObservation, PortCheckObservation
 from vibeagent.types import CheckEditFileObservation, CheckJsonSetObservation, CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, GitChangesObservation, GitCommitObservation, GitDiffObservation, GitStageObservation, GitStatusObservation, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PatchFilesObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -5494,6 +5495,33 @@ class AgentTests(unittest.TestCase):
         self.assertIn("available tools", instruction)
         self.assertIn("project_commands", instruction)
 
+    def test_next_action_instruction_tool_catalog_has_explicit_routes(self) -> None:
+        from vibeagent.prompt_next_action_checkpoint import CHECKPOINT_NEXT_ACTION_KINDS
+        from vibeagent.prompt_next_action_completion import COMPLETION_NEXT_ACTION_KINDS
+        from vibeagent.prompt_next_action_edit import EDIT_NEXT_ACTION_KINDS
+        from vibeagent.prompt_next_action_error import ERROR_NEXT_ACTION_KINDS
+        from vibeagent.prompt_next_action_git import GIT_NEXT_ACTION_KINDS
+        from vibeagent.prompt_next_action_project import PROJECT_NEXT_ACTION_KINDS
+        from vibeagent.prompt_next_action_read import READ_NEXT_ACTION_KINDS
+        from vibeagent.prompt_next_action_runtime import RUNTIME_NEXT_ACTION_KINDS
+        from vibeagent.prompt_next_action_session import SESSION_NEXT_ACTION_KINDS
+
+        aliases = {"python_traceback": "output_diagnostics"}
+        routed_kinds = (
+            CHECKPOINT_NEXT_ACTION_KINDS
+            | COMPLETION_NEXT_ACTION_KINDS
+            | EDIT_NEXT_ACTION_KINDS
+            | ERROR_NEXT_ACTION_KINDS
+            | GIT_NEXT_ACTION_KINDS
+            | PROJECT_NEXT_ACTION_KINDS
+            | READ_NEXT_ACTION_KINDS
+            | RUNTIME_NEXT_ACTION_KINDS
+            | SESSION_NEXT_ACTION_KINDS
+        )
+        tool_kinds = {aliases.get(tool["name"], tool["name"]) for tool in AGENT_TOOL_DEFINITIONS}
+
+        self.assertEqual([], sorted(tool_kinds - routed_kinds))
+
     def test_next_action_instruction_guides_dirty_git_status_to_inspection(self) -> None:
         observation = GitStatusObservation(
             kind="git_status",
@@ -5606,6 +5634,91 @@ class AgentTests(unittest.TestCase):
         self.assertIn("git_status", instruction)
         self.assertIn("git_push if explicitly requested", instruction)
         self.assertIn("answer directly with the commit hash", instruction)
+
+    def test_next_action_instruction_guides_behind_git_info_to_sync_preflight(self) -> None:
+        observation = GitInfoObservation(
+            kind="git_info",
+            ok=True,
+            is_git_repo=True,
+            branch="main",
+            head="abc123",
+            upstream="origin/main",
+            ahead=0,
+            behind=2,
+            remotes=[],
+            status="",
+            message="Branch is behind.",
+        )
+
+        instruction = get_next_action_instruction("inspect git", [observation])
+
+        self.assertIn("behind by 2 commit", instruction)
+        self.assertIn("check_git_pull", instruction)
+        self.assertIn("check_git_fetch", instruction)
+
+    def test_next_action_instruction_guides_dirty_push_preflight_to_commit_or_clean(self) -> None:
+        observation = CheckGitPushObservation(
+            kind="check_git_push",
+            ok=False,
+            remote="origin",
+            branch="main",
+            current="main",
+            upstream="origin/main",
+            ahead=1,
+            behind=0,
+            worktree_clean=False,
+            status=" M vibeagent/agent.py",
+            message="Worktree is dirty.",
+        )
+
+        instruction = get_next_action_instruction("push", [observation])
+
+        self.assertIn("worktree is not clean", instruction)
+        self.assertIn("Commit or clean local changes", instruction)
+        self.assertIn("before pushing", instruction)
+
+    def test_next_action_instruction_guides_unreachable_http_check_to_server_diagnostics(self) -> None:
+        observation = HttpCheckObservation(
+            kind="http_check",
+            ok=False,
+            url="http://127.0.0.1:8787/health",
+            final_url=None,
+            status=None,
+            reason=None,
+            timeout_ms=1000,
+            reachable=False,
+            matched=False,
+            matched_pattern=None,
+            body="",
+            body_truncated=False,
+            max_body_chars=2000,
+            error="Connection refused",
+            message="HTTP check failed.",
+        )
+
+        instruction = get_next_action_instruction("verify server", [observation])
+
+        self.assertIn("could not reach http://127.0.0.1:8787/health", instruction)
+        self.assertIn("read_process", instruction)
+        self.assertIn("port_check", instruction)
+
+    def test_next_action_instruction_guides_reachable_port_to_http_check(self) -> None:
+        observation = PortCheckObservation(
+            kind="port_check",
+            ok=True,
+            host="127.0.0.1",
+            port=8787,
+            timeout_ms=1000,
+            reachable=True,
+            error=None,
+            message="Port is reachable.",
+        )
+
+        instruction = get_next_action_instruction("verify server", [observation])
+
+        self.assertIn("Port check reached 127.0.0.1:8787", instruction)
+        self.assertIn("http_check/http_fetch", instruction)
+        self.assertIn("readiness is proven", instruction)
 
     def test_next_action_instruction_guides_edit_dry_run_to_apply_after_diff_review(self) -> None:
         observation = CheckEditFileObservation(

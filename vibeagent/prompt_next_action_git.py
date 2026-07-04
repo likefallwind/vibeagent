@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from .prompt_next_action_git_extended import (
+    EXTENDED_GIT_NEXT_ACTION_KINDS,
+    extended_git_next_action_instruction,
+)
 from .types import Observation
 
 
-GIT_NEXT_ACTION_KINDS = {
+CORE_GIT_NEXT_ACTION_KINDS = {
     "git_status",
     "git_changes",
     "git_diff",
@@ -16,6 +20,8 @@ GIT_NEXT_ACTION_KINDS = {
     "check_git_commit",
     "git_commit",
 }
+
+GIT_NEXT_ACTION_KINDS = CORE_GIT_NEXT_ACTION_KINDS | EXTENDED_GIT_NEXT_ACTION_KINDS
 
 
 def _format_next_action_items(items: list[str], max_items: int = 3) -> str:
@@ -162,6 +168,8 @@ def _git_commit_next_action_instruction(base: str, latest: Observation) -> str:
 
 
 def git_next_action_instruction(base: str, latest: Observation) -> str:
+    if latest.kind in EXTENDED_GIT_NEXT_ACTION_KINDS:
+        return extended_git_next_action_instruction(base, latest)
     if latest.kind == "git_status":
         return _git_status_next_action_instruction(base, latest)
     if latest.kind == "git_changes":

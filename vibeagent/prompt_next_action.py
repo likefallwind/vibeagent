@@ -7,7 +7,7 @@ from .prompt_next_action_error import ERROR_NEXT_ACTION_KINDS, error_next_action
 from .prompt_next_action_git import GIT_NEXT_ACTION_KINDS, git_next_action_instruction
 from .prompt_next_action_project import PROJECT_NEXT_ACTION_KINDS, project_next_action_instruction
 from .prompt_next_action_read import READ_NEXT_ACTION_KINDS, read_next_action_instruction
-from .prompt_next_action_runtime import runtime_next_action_instruction
+from .prompt_next_action_runtime import RUNTIME_NEXT_ACTION_KINDS, runtime_next_action_instruction
 from .prompt_next_action_session import SESSION_NEXT_ACTION_KINDS, session_next_action_instruction
 from .types import Observation
 
@@ -46,74 +46,13 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
     if latest.kind in READ_NEXT_ACTION_KINDS:
         return read_next_action_instruction(base, latest)
 
-    if latest.kind in {
-        "python_traceback",
-        "project_commands",
-        "related_tests",
-        "focused_test_commands",
-        "git_branches",
-        "check_git_fetch",
-        "check_git_pull",
-        "check_git_push",
-        "check_git_restore",
-        "git_conflicts",
-        "git_stashes",
-        "check_git_stash_apply",
-        "check_git_stash_drop",
-        "check_git_switch",
-        "port_check",
-        "http_check",
-        "http_fetch",
-    }:
+    if latest.kind == "python_traceback":
         return (
             f"{base} Do not repeat inspection unless you need specific missing information. "
             "If you already created the requested files, run one appropriate check or answer directly if the task is complete."
         )
 
-    if latest.kind in {
-        "git_info",
-        "git_conflicts",
-        "git_branches",
-        "check_git_fetch",
-        "git_fetch",
-        "check_git_pull",
-        "git_pull",
-        "check_git_push",
-        "git_push",
-        "check_git_restore",
-        "git_restore",
-        "git_stashes",
-        "check_git_stash",
-        "git_stash",
-        "check_git_stash_apply",
-        "git_stash_apply",
-        "check_git_stash_drop",
-        "git_stash_drop",
-        "check_git_switch",
-        "git_switch",
-        "review_changes",
-        "port_check",
-        "http_check",
-        "http_fetch",
-        "git_log",
-        "git_show",
-        "git_blame",
-        "session_summary",
-        "session_plan",
-        "session_transcript",
-        "session_search",
-        "session_commands",
-        "session_output_contexts",
-        "session_files",
-        "session_failures",
-        "session_verification",
-        "run_session_verification",
-        "session_audit",
-        "session_handoff",
-    }:
+    if latest.kind in RUNTIME_NEXT_ACTION_KINDS:
         return f"{base} Use the repository or session information to decide whether to continue, run a check, or answer directly."
-
-    if latest.kind in {"git_fetch", "git_pull", "git_push", "git_restore", "git_stash", "git_stash_apply", "git_stash_drop", "git_switch"}:
-        return f"{base} Continue with the next required file, run one appropriate check, or answer directly if the task is complete."
 
     return f"{base} If the task is complete, answer directly or use finish."
