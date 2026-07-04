@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, WaitProcessObservation
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, WaitProcessObservation
 from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -4897,6 +4897,134 @@ class AgentTests(unittest.TestCase):
         self.assertIn("session_handoff", instruction)
         self.assertIn("session_audit", instruction)
         self.assertIn("answer directly", instruction)
+
+    def test_next_action_instruction_guides_checkpoint_list_to_inspection(self) -> None:
+        observation = CheckpointListObservation(
+            kind="checkpoint_list",
+            ok=True,
+            checkpoints=[
+                CheckpointInfo(
+                    checkpoint_id="ckpt-1",
+                    label="before edit",
+                    created_at="2026-07-04T10:00:00Z",
+                    head="abcdef1",
+                    changed_files=2,
+                    staged_files=0,
+                    unstaged_files=1,
+                    untracked_files=1,
+                )
+            ],
+            total=1,
+            message="Read checkpoints.",
+        )
+
+        instruction = get_next_action_instruction("recover rollback point", [observation])
+
+        self.assertIn("Checkpoint list found 1 saved checkpoint", instruction)
+        self.assertIn("checkpoint_show", instruction)
+        self.assertIn("checkpoint_diff", instruction)
+        self.assertIn("checkpoint_status", instruction)
+        self.assertIn("before restoring or deleting", instruction)
+
+    def test_next_action_instruction_guides_checkpoint_status_mismatch_to_diff_and_restore_check(self) -> None:
+        observation = CheckpointStatusObservation(
+            kind="checkpoint_status",
+            ok=True,
+            checkpoint_id="ckpt-1",
+            matches=False,
+            status_matches=False,
+            staged_patch_matches=True,
+            unstaged_patch_matches=False,
+            untracked_file_matches=True,
+            saved_changed_files=1,
+            saved_staged_files=0,
+            saved_unstaged_files=1,
+            saved_untracked_files=0,
+            current_changed_files=2,
+            current_staged_files=0,
+            current_unstaged_files=2,
+            current_untracked_files=0,
+            message="Checkpoint differs.",
+        )
+
+        instruction = get_next_action_instruction("recover rollback point", [observation])
+
+        self.assertIn("Current worktree differs from the checkpoint", instruction)
+        self.assertIn("checkpoint_diff", instruction)
+        self.assertIn("check_checkpoint_restore", instruction)
+        self.assertIn("before any restore decision", instruction)
+
+    def test_next_action_instruction_guides_safe_checkpoint_restore_preview(self) -> None:
+        observation = CheckCheckpointRestoreObservation(
+            kind="check_checkpoint_restore",
+            ok=True,
+            checkpoint_id="ckpt-1",
+            can_restore=True,
+            saved_head="abcdef1",
+            current_head="abcdef1",
+            saved_untracked_files=1,
+            current_untracked_files=0,
+            staged_patch_chars=0,
+            unstaged_patch_chars=120,
+            message="Checkpoint can be restored.",
+        )
+
+        instruction = get_next_action_instruction("restore rollback point", [observation])
+
+        self.assertIn("Checkpoint restore preview is safe", instruction)
+        self.assertIn("checkpoint_restore", instruction)
+        self.assertIn("rollback is intended", instruction)
+
+    def test_next_action_instruction_guides_completed_checkpoint_restore_to_verify(self) -> None:
+        observation = CheckpointRestoreObservation(
+            kind="checkpoint_restore",
+            ok=True,
+            checkpoint_id="ckpt-1",
+            restored=True,
+            matches=True,
+            saved_head="abcdef1",
+            current_head="abcdef1",
+            saved_untracked_files=1,
+            current_untracked_files=1,
+            staged_patch_chars=0,
+            unstaged_patch_chars=120,
+            message="Restored checkpoint.",
+        )
+
+        instruction = get_next_action_instruction("restore rollback point", [observation])
+
+        self.assertIn("Checkpoint restore completed", instruction)
+        self.assertIn("worktree matches the checkpoint", instruction)
+        self.assertIn("Run the relevant verification checks", instruction)
+
+    def test_next_action_instruction_guides_checkpoint_prune_preview(self) -> None:
+        observation = CheckCheckpointPruneObservation(
+            kind="check_checkpoint_prune",
+            ok=True,
+            keep_last=2,
+            total=5,
+            kept=2,
+            delete_count=3,
+            checkpoints=[
+                CheckpointInfo(
+                    checkpoint_id="ckpt-old",
+                    label="old",
+                    created_at="2026-07-04T09:00:00Z",
+                    head="abcdef1",
+                    changed_files=1,
+                    staged_files=0,
+                    unstaged_files=1,
+                    untracked_files=0,
+                )
+            ],
+            message="Would prune 3 checkpoints.",
+        )
+
+        instruction = get_next_action_instruction("clean rollback points", [observation])
+
+        self.assertIn("Checkpoint prune preview would delete 3 checkpoint", instruction)
+        self.assertIn("checkpoint_prune", instruction)
+        self.assertIn("rollback points are no longer needed", instruction)
 
     def test_next_action_instruction_guides_failed_command_diagnostics(self) -> None:
         observation = RunCommandObservation(

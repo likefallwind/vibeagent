@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .prompt_next_action_checkpoint import CHECKPOINT_NEXT_ACTION_KINDS, checkpoint_next_action_instruction
 from .prompt_next_action_session import SESSION_NEXT_ACTION_KINDS, session_next_action_instruction
 from .types import Observation
 
@@ -361,6 +362,9 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
     if latest.kind in SESSION_NEXT_ACTION_KINDS:
         return session_next_action_instruction(base, latest)
 
+    if latest.kind in CHECKPOINT_NEXT_ACTION_KINDS:
+        return checkpoint_next_action_instruction(base, latest)
+
     if latest.kind == "output_diagnostics":
         return _diagnostics_next_action_instruction(
             base,
@@ -595,13 +599,6 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "run_session_verification",
         "session_audit",
         "session_handoff",
-        "checkpoint_list",
-        "checkpoint_show",
-        "checkpoint_diff",
-        "checkpoint_status",
-        "check_checkpoint_restore",
-        "check_checkpoint_delete",
-        "check_checkpoint_prune",
     }:
         return f"{base} Use the repository or session information to decide whether to continue, run a check, or answer directly."
 
@@ -644,7 +641,7 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
             return f"{base} The dry-run succeeded. Apply it if the diff or validation result matches the requested change, or continue with the next required step."
         return f"{base} The dry-run failed, so fix the context or choose another edit tool before applying changes."
 
-    if latest.kind in {"project_overview", "write_file", "write_files", "edit_file", "multi_edit_file", "replace_python_definition", "python_rename", "regex_replace", "json_set", "json_remove", "json_patch", "replace_lines", "insert_lines", "append_file", "patch_file", "patch_files", "delete_file", "delete_files", "move_file", "move_files", "copy_file", "copy_files", "move_dir", "move_dirs", "copy_dir", "copy_dirs", "create_dir", "create_dirs", "delete_empty_dir", "delete_empty_dirs", "set_executable", "git_fetch", "git_pull", "git_push", "git_restore", "git_stash", "git_stash_apply", "git_stash_drop", "git_switch", "git_stage", "git_unstage", "git_commit", "checkpoint_create", "checkpoint_restore", "checkpoint_delete", "checkpoint_prune"}:
+    if latest.kind in {"project_overview", "write_file", "write_files", "edit_file", "multi_edit_file", "replace_python_definition", "python_rename", "regex_replace", "json_set", "json_remove", "json_patch", "replace_lines", "insert_lines", "append_file", "patch_file", "patch_files", "delete_file", "delete_files", "move_file", "move_files", "copy_file", "copy_files", "move_dir", "move_dirs", "copy_dir", "copy_dirs", "create_dir", "create_dirs", "delete_empty_dir", "delete_empty_dirs", "set_executable", "git_fetch", "git_pull", "git_push", "git_restore", "git_stash", "git_stash_apply", "git_stash_drop", "git_switch", "git_stage", "git_unstage", "git_commit"}:
         return f"{base} Continue with the next required file, run one appropriate check, or answer directly if the task is complete."
 
     if latest.kind == "update_plan":
