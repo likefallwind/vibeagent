@@ -11,6 +11,7 @@ import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 
+import vibeagent.agent_completion as completion_module
 import vibeagent.agent as agent_module
 import vibeagent.types as types_module
 from vibeagent.actions import AGENT_TOOL_DEFINITIONS, execute_action
@@ -4038,7 +4039,7 @@ class AgentTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            agent_module.auto_final_review_reason(True, [review, process]),
+            completion_module.auto_final_review_reason(True, [review, process]),
             "Background command started after final_review",
         )
 
@@ -4080,10 +4081,10 @@ class AgentTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            agent_module.auto_final_review_reason(True, [command]),
+            completion_module.auto_final_review_reason(True, [command]),
             "Command execution completed without final_review",
         )
-        self.assertIsNone(agent_module.auto_final_review_reason(True, [review, command]))
+        self.assertIsNone(completion_module.auto_final_review_reason(True, [review, command]))
 
     def test_auto_final_review_reason_detects_non_check_command_after_review(self) -> None:
         review = FinalReviewObservation(
@@ -4117,7 +4118,7 @@ class AgentTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            agent_module.auto_final_review_reason(True, [review, command]),
+            completion_module.auto_final_review_reason(True, [review, command]),
             "Command execution completed after final_review",
         )
 
@@ -4157,9 +4158,9 @@ class AgentTests(unittest.TestCase):
             message="Committed changes.",
         )
 
-        self.assertIsNone(agent_module.auto_final_review_reason(True, [review, stash_drop]))
+        self.assertIsNone(completion_module.auto_final_review_reason(True, [review, stash_drop]))
         self.assertEqual(
-            agent_module.auto_final_review_reason(True, [review, commit]),
+            completion_module.auto_final_review_reason(True, [review, commit]),
             "Project changes completed after final_review",
         )
 
@@ -4464,11 +4465,11 @@ class AgentTests(unittest.TestCase):
             ),
         ]
 
-        self.assertEqual(agent_module.build_verification_checks(True, observations), ["python -m unittest discover -s tests"])
-        self.assertEqual(agent_module.build_pending_verification_checks(True, observations), [])
-        self.assertEqual(agent_module.build_failed_verification_checks(True, observations), [])
+        self.assertEqual(completion_module.build_verification_checks(True, observations), ["python -m unittest discover -s tests"])
+        self.assertEqual(completion_module.build_pending_verification_checks(True, observations), [])
+        self.assertEqual(completion_module.build_failed_verification_checks(True, observations), [])
         plan = [agent_module.PlanItem(step="Run unit tests", status="completed")]
-        self.assertEqual(agent_module.build_completion_warnings(True, observations, plan), [])
+        self.assertEqual(completion_module.build_completion_warnings(True, observations, plan), [])
 
     def test_completion_verification_requires_checks_after_untracked_command_side_effects(self) -> None:
         check = SuggestedCheck(
@@ -4508,12 +4509,12 @@ class AgentTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            agent_module.build_pending_verification_checks(True, [review]),
+            completion_module.build_pending_verification_checks(True, [review]),
             ["python -m unittest discover -s tests"],
         )
-        self.assertEqual(agent_module.build_pending_verification_checks(True, [review, command]), [])
+        self.assertEqual(completion_module.build_pending_verification_checks(True, [review, command]), [])
         self.assertEqual(
-            agent_module.build_verification_checks(True, [review, command]),
+            completion_module.build_verification_checks(True, [review, command]),
             ["python -m unittest discover -s tests"],
         )
 
@@ -6787,12 +6788,12 @@ class AgentTests(unittest.TestCase):
             ),
         ]
 
-        self.assertEqual(agent_module.build_verification_checks(True, observations), [])
+        self.assertEqual(completion_module.build_verification_checks(True, observations), [])
         self.assertEqual(
-            agent_module.build_pending_verification_checks(True, observations),
+            completion_module.build_pending_verification_checks(True, observations),
             ["python -m unittest discover -s tests -p test_app.py"],
         )
-        self.assertEqual(agent_module.build_failed_verification_checks(True, observations), [])
+        self.assertEqual(completion_module.build_failed_verification_checks(True, observations), [])
 
     def test_completion_verification_clears_focused_test_after_focused_runner_success(self) -> None:
         focused_test = FocusedTestCommand(
@@ -6850,9 +6851,9 @@ class AgentTests(unittest.TestCase):
             ),
         ]
 
-        self.assertEqual(agent_module.build_verification_checks(True, observations), ["python -m unittest discover -s tests -p test_app.py"])
-        self.assertEqual(agent_module.build_pending_verification_checks(True, observations), [])
-        self.assertEqual(agent_module.build_failed_verification_checks(True, observations), [])
+        self.assertEqual(completion_module.build_verification_checks(True, observations), ["python -m unittest discover -s tests -p test_app.py"])
+        self.assertEqual(completion_module.build_pending_verification_checks(True, observations), [])
+        self.assertEqual(completion_module.build_failed_verification_checks(True, observations), [])
 
     def test_completion_verification_survives_stash_drop_metadata_change(self) -> None:
         suggested_check = SuggestedCheck(
@@ -6903,9 +6904,9 @@ class AgentTests(unittest.TestCase):
             ),
         ]
 
-        self.assertEqual(agent_module.build_verification_checks(True, observations), ["python -m unittest discover -s tests"])
-        self.assertEqual(agent_module.build_pending_verification_checks(True, observations), [])
-        self.assertEqual(agent_module.build_failed_verification_checks(True, observations), [])
+        self.assertEqual(completion_module.build_verification_checks(True, observations), ["python -m unittest discover -s tests"])
+        self.assertEqual(completion_module.build_pending_verification_checks(True, observations), [])
+        self.assertEqual(completion_module.build_failed_verification_checks(True, observations), [])
 
     def test_final_review_session_verification_uses_focused_tests_without_suggested_checks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
@@ -7073,8 +7074,8 @@ class AgentTests(unittest.TestCase):
             )
         ]
 
-        details = agent_module.build_completion_blocker_details(True, observations)
-        feedback = agent_module.format_completion_blocked_feedback(
+        details = completion_module.build_completion_blocker_details(True, observations)
+        feedback = completion_module.format_completion_blocked_feedback(
             ["Final review did not report ready."],
             details,
         )
@@ -7098,8 +7099,8 @@ class AgentTests(unittest.TestCase):
             )
         ]
 
-        details = agent_module.build_completion_blocker_details(True, observations)
-        feedback = agent_module.format_completion_blocked_feedback(
+        details = completion_module.build_completion_blocker_details(True, observations)
+        feedback = completion_module.format_completion_blocked_feedback(
             ["Checkpoint creation failed; restore point may be unavailable."],
             details,
         )
@@ -7117,8 +7118,8 @@ class AgentTests(unittest.TestCase):
             )
         ]
 
-        details = agent_module.build_completion_blocker_details(True, observations)
-        feedback = agent_module.format_completion_blocked_feedback(
+        details = completion_module.build_completion_blocker_details(True, observations)
+        feedback = completion_module.format_completion_blocked_feedback(
             ["1 tool error(s) occurred."],
             details,
         )
