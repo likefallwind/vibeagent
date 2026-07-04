@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from .prompt_observation_output import (
+    format_command_output_contexts,
+    format_command_output_diagnostics,
     format_session_output_contexts_observation,
     format_session_output_diagnostics_observation,
 )
@@ -204,6 +206,8 @@ def format_session_observation(index: int, observation: object) -> str | None:
                     f"cwd: {result.cwd}",
                     f"exitCode: {result.exit_code}",
                     f"timedOut: {str(result.timed_out).lower()}",
+                    format_command_output_diagnostics(result),
+                    format_command_output_contexts(result),
                     f"stdout:\n{truncate(result.stdout)}",
                     f"stderr:\n{truncate(result.stderr)}",
                 ]

@@ -2990,6 +2990,36 @@ class AgentTests(unittest.TestCase):
                             timed_out=False,
                             signal=None,
                             cwd=".",
+                            output_contexts=[
+                                OutputContextResult(
+                                    path="src/app.py",
+                                    line=2,
+                                    column=5,
+                                    raw="src/app.py:2:5: fail",
+                                    ok=True,
+                                    content="1: one\n2: bad\n",
+                                    message="Read src/app.py:2.",
+                                    context_lines=0,
+                                    start_line=2,
+                                    end_line=2,
+                                    line_count=1,
+                                    total_lines=3,
+                                    target_line_exists=True,
+                                    max_bytes=1000,
+                                )
+                            ],
+                            output_context_total_refs=1,
+                            output_diagnostics=[
+                                OutputDiagnostic(
+                                    severity="failure",
+                                    output_line=1,
+                                    text="failed",
+                                    path="src/app.py",
+                                    line=2,
+                                    column=5,
+                                )
+                            ],
+                            output_diagnostic_total=1,
                         )
                     ],
                     stopped_early=True,
@@ -3004,6 +3034,11 @@ class AgentTests(unittest.TestCase):
         self.assertIn("- npm run build (cwd: web) [notRun source=pending]", text)
         self.assertIn("selectedCommandsNotRun: 1", text)
         self.assertIn("command: npm test", text)
+        self.assertIn("outputDiagnostics: 1/1", text)
+        self.assertIn("diagnostic: severity=failure outputLine=1 location=src/app.py:2:5", text)
+        self.assertIn("outputContexts: 1/1", text)
+        self.assertIn("context: src/app.py:2:5", text)
+        self.assertIn("2: bad", text)
 
     def test_format_observations_renders_session_audit_blockers_and_processes(self) -> None:
         text = format_observations(
