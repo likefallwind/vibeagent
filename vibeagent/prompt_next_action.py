@@ -316,6 +316,34 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
             "to identify the failure, then fix it and rerun the failed command before finishing."
         )
 
+    if latest.kind == "process_output_diagnostics":
+        diagnostics = _diagnostic_labels(getattr(latest, "diagnostics", []))
+        if diagnostics:
+            return (
+                f"{base} Process output diagnostics found concrete issues. "
+                f"Inspect or edit the referenced source for: {_format_next_action_items(diagnostics)}. "
+                "Then rerun the relevant check before finishing."
+            )
+        return (
+            f"{base} Process output diagnostics did not find concrete file references. "
+            "Use the process output and any available contexts to inspect the likely source, fix the issue, "
+            "and rerun the relevant check before finishing."
+        )
+
+    if latest.kind == "process_output_contexts":
+        contexts = _context_labels(getattr(latest, "contexts", []))
+        if contexts:
+            return (
+                f"{base} Process output contexts located source references. "
+                f"Inspect or edit the relevant code for: {_format_next_action_items(contexts)}. "
+                "Then rerun the relevant check before finishing."
+            )
+        return (
+            f"{base} Process output contexts did not find source references. "
+            "Use process_output_diagnostics or the process output to identify the failure, "
+            "then fix it and rerun the relevant check before finishing."
+        )
+
     if latest.kind in SOURCE_CONTEXT_KINDS and _has_recovery_signal(observations[:-1]):
         contexts = _source_context_labels(latest)
         if contexts:

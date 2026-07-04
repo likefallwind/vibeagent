@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction, WaitProcessObservation
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction, WaitProcessObservation
 from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -4625,6 +4625,87 @@ class AgentTests(unittest.TestCase):
         self.assertIn("did not find source references", instruction)
         self.assertIn("Use output_diagnostics", instruction)
         self.assertIn("rerun the failed command", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_process_output_diagnostics_to_edit_and_rerun(self) -> None:
+        observation = ProcessOutputDiagnosticsObservation(
+            kind="process_output_diagnostics",
+            process_id="bg-1",
+            pid=1234,
+            ok=True,
+            running=False,
+            exit_code=1,
+            signal=None,
+            diagnostics=[
+                OutputDiagnostic(
+                    severity="failure",
+                    output_line=3,
+                    text="AssertionError: expected ready",
+                    path="tests/test_agent.py",
+                    line=42,
+                    column=None,
+                    raw="tests/test_agent.py:42: AssertionError: expected ready",
+                )
+            ],
+            contexts=[],
+            total_diagnostics=1,
+            total_refs=1,
+            diagnostics_truncated=False,
+            contexts_truncated=False,
+            stdout_chars=120,
+            stderr_chars=80,
+            max_output_chars=12000,
+            message="Extracted process diagnostics.",
+        )
+
+        instruction = get_next_action_instruction("fix background check", [observation])
+
+        self.assertIn("Process output diagnostics found concrete issues", instruction)
+        self.assertIn("tests/test_agent.py:42 failure: AssertionError: expected ready", instruction)
+        self.assertIn("Inspect or edit the referenced source", instruction)
+        self.assertIn("rerun the relevant check", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_process_output_contexts_to_edit_and_rerun(self) -> None:
+        observation = ProcessOutputContextsObservation(
+            kind="process_output_contexts",
+            process_id="bg-1",
+            pid=1234,
+            ok=True,
+            running=False,
+            exit_code=1,
+            signal=None,
+            contexts=[
+                OutputContextResult(
+                    path="tests/test_agent.py",
+                    line=42,
+                    column=8,
+                    raw="tests/test_agent.py:42:8",
+                    ok=True,
+                    content="41 | before\n42 | broken()\n43 | after",
+                    message="Read context.",
+                    context_lines=1,
+                    start_line=41,
+                    end_line=43,
+                    line_count=3,
+                    total_lines=100,
+                    target_line_exists=True,
+                )
+            ],
+            total_refs=1,
+            truncated=False,
+            stdout_chars=120,
+            stderr_chars=80,
+            max_output_chars=12000,
+            message="Extracted process contexts.",
+        )
+
+        instruction = get_next_action_instruction("fix background check", [observation])
+
+        self.assertIn("Process output contexts located source references", instruction)
+        self.assertIn("tests/test_agent.py:42:8", instruction)
+        self.assertIn("Inspect or edit the relevant code", instruction)
+        self.assertIn("rerun the relevant check", instruction)
         self.assertIn("before finishing", instruction)
 
     def test_next_action_instruction_guides_source_context_after_failed_command_to_edit_and_rerun(self) -> None:
