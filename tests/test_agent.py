@@ -19,8 +19,8 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CommandCheckObservation, ContentBlock, EnvironmentInfoObservation, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ProjectInstructionSource, ProjectInstructionsObservation, ProjectManifest, ProjectManifestItem, ProjectManifestsObservation, ProjectOverviewObservation, ProjectTodo, ProjectTodosObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, RuntimeToolInfo, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, ToolSearchObservation, WaitProcessObservation
-from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckGitStageObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CommandCheckObservation, ContentBlock, EnvironmentInfoObservation, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ProjectInstructionSource, ProjectInstructionsObservation, ProjectManifest, ProjectManifestItem, ProjectManifestsObservation, ProjectOverviewObservation, ProjectTodo, ProjectTodosObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, RuntimeToolInfo, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, ToolSearchObservation, WaitProcessObservation
+from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, GitChangesObservation, GitCommitObservation, GitDiffObservation, GitStageObservation, GitStatusObservation, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
 
@@ -5414,6 +5414,119 @@ class AgentTests(unittest.TestCase):
         self.assertIn("npm", instruction)
         self.assertIn("available tools", instruction)
         self.assertIn("project_commands", instruction)
+
+    def test_next_action_instruction_guides_dirty_git_status_to_inspection(self) -> None:
+        observation = GitStatusObservation(
+            kind="git_status",
+            ok=True,
+            status=" M vibeagent/agent.py\n?? tests/test_agent.py",
+            message="Read git status.",
+        )
+
+        instruction = get_next_action_instruction("inspect changes", [observation])
+
+        self.assertIn("Git status shows existing worktree changes", instruction)
+        self.assertIn("git_changes", instruction)
+        self.assertIn("git_diff", instruction)
+        self.assertIn("review_changes", instruction)
+        self.assertIn("before editing, staging, committing, or answering", instruction)
+
+    def test_next_action_instruction_guides_git_changes_to_diff_review(self) -> None:
+        observation = GitChangesObservation(
+            kind="git_changes",
+            ok=True,
+            files=[
+                GitChangeFile(
+                    path="vibeagent/agent.py",
+                    status="M",
+                    staged=False,
+                    unstaged=True,
+                    untracked=False,
+                    staged_insertions=0,
+                    staged_deletions=0,
+                    unstaged_insertions=12,
+                    unstaged_deletions=2,
+                    binary=False,
+                )
+            ],
+            status=" M vibeagent/agent.py",
+            message="Read git changes.",
+        )
+
+        instruction = get_next_action_instruction("inspect changes", [observation])
+
+        self.assertIn("Git changes lists changed file", instruction)
+        self.assertIn("vibeagent/agent.py (M)", instruction)
+        self.assertIn("git_diff", instruction)
+        self.assertIn("git_diff_contexts", instruction)
+        self.assertIn("before staging, committing, or finishing", instruction)
+
+    def test_next_action_instruction_guides_git_diff_to_verify_or_edit(self) -> None:
+        observation = GitDiffObservation(
+            kind="git_diff",
+            ok=True,
+            diff="diff --git a/app.py b/app.py\n+print('done')\n",
+            path=None,
+            staged=False,
+            truncated=False,
+            max_output_chars=12000,
+            message="Read git diff.",
+        )
+
+        instruction = get_next_action_instruction("inspect changes", [observation])
+
+        self.assertIn("Git diff shows concrete changes", instruction)
+        self.assertIn("Review whether they match the request", instruction)
+        self.assertIn("run relevant verification", instruction)
+
+    def test_next_action_instruction_guides_check_git_stage_to_apply_stage(self) -> None:
+        observation = CheckGitStageObservation(
+            kind="check_git_stage",
+            ok=True,
+            paths=["vibeagent/agent.py"],
+            status=" M vibeagent/agent.py",
+            message="Stage can be applied.",
+        )
+
+        instruction = get_next_action_instruction("stage changes", [observation])
+
+        self.assertIn("Git stage dry-run succeeded", instruction)
+        self.assertIn("vibeagent/agent.py", instruction)
+        self.assertIn("Apply git_stage only if staging is intended", instruction)
+        self.assertIn("check_git_commit", instruction)
+
+    def test_next_action_instruction_guides_git_stage_to_status_or_commit_check(self) -> None:
+        observation = GitStageObservation(
+            kind="git_stage",
+            ok=True,
+            paths=["vibeagent/agent.py"],
+            status="M  vibeagent/agent.py",
+            message="Staged files.",
+        )
+
+        instruction = get_next_action_instruction("stage changes", [observation])
+
+        self.assertIn("Git stage completed", instruction)
+        self.assertIn("git_status", instruction)
+        self.assertIn("check_git_commit", instruction)
+        self.assertIn("more work remains", instruction)
+
+    def test_next_action_instruction_guides_git_commit_to_status_push_or_answer(self) -> None:
+        observation = GitCommitObservation(
+            kind="git_commit",
+            ok=True,
+            head_before="abcdef1",
+            head_after="1234567",
+            status="",
+            message="Committed changes.",
+        )
+
+        instruction = get_next_action_instruction("commit changes", [observation])
+
+        self.assertIn("Git commit completed", instruction)
+        self.assertIn("git_status", instruction)
+        self.assertIn("git_push if explicitly requested", instruction)
+        self.assertIn("answer directly with the commit hash", instruction)
 
     def test_next_action_instruction_guides_failed_command_diagnostics(self) -> None:
         observation = RunCommandObservation(

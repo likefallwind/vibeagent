@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .prompt_next_action_checkpoint import CHECKPOINT_NEXT_ACTION_KINDS, checkpoint_next_action_instruction
+from .prompt_next_action_git import GIT_NEXT_ACTION_KINDS, git_next_action_instruction
 from .prompt_next_action_project import PROJECT_NEXT_ACTION_KINDS, project_next_action_instruction
 from .prompt_next_action_session import SESSION_NEXT_ACTION_KINDS, session_next_action_instruction
 from .types import Observation
@@ -369,6 +370,9 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
     if latest.kind in PROJECT_NEXT_ACTION_KINDS:
         return project_next_action_instruction(base, latest)
 
+    if latest.kind in GIT_NEXT_ACTION_KINDS:
+        return git_next_action_instruction(base, latest)
+
     if latest.kind == "output_diagnostics":
         return _diagnostics_next_action_instruction(
             base,
@@ -511,9 +515,7 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "check_git_push",
         "check_git_restore",
         "git_conflicts",
-        "git_diff_contexts",
         "git_stashes",
-        "check_git_stash",
         "check_git_stash_apply",
         "check_git_stash_drop",
         "check_git_switch",
@@ -540,7 +542,6 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
 
     if latest.kind in {
         "git_info",
-        "git_status",
         "git_conflicts",
         "git_branches",
         "check_git_fetch",
@@ -560,7 +561,6 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "git_stash_drop",
         "check_git_switch",
         "git_switch",
-        "git_changes",
         "review_changes",
         "command_check",
         "check_start_command",
@@ -571,9 +571,6 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "check_write_process",
         "check_stop_all_processes",
         "check_stop_process",
-        "git_diff",
-        "git_diff_hunks",
-        "git_diff_contexts",
         "git_log",
         "git_show",
         "git_blame",
@@ -622,15 +619,12 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "check_delete_empty_dir",
         "check_delete_empty_dirs",
         "check_set_executable",
-        "check_git_stage",
-        "check_git_unstage",
-        "check_git_commit",
     }:
         if latest.ok:
             return f"{base} The dry-run succeeded. Apply it if the diff or validation result matches the requested change, or continue with the next required step."
         return f"{base} The dry-run failed, so fix the context or choose another edit tool before applying changes."
 
-    if latest.kind in {"write_file", "write_files", "edit_file", "multi_edit_file", "replace_python_definition", "python_rename", "regex_replace", "json_set", "json_remove", "json_patch", "replace_lines", "insert_lines", "append_file", "patch_file", "patch_files", "delete_file", "delete_files", "move_file", "move_files", "copy_file", "copy_files", "move_dir", "move_dirs", "copy_dir", "copy_dirs", "create_dir", "create_dirs", "delete_empty_dir", "delete_empty_dirs", "set_executable", "git_fetch", "git_pull", "git_push", "git_restore", "git_stash", "git_stash_apply", "git_stash_drop", "git_switch", "git_stage", "git_unstage", "git_commit"}:
+    if latest.kind in {"write_file", "write_files", "edit_file", "multi_edit_file", "replace_python_definition", "python_rename", "regex_replace", "json_set", "json_remove", "json_patch", "replace_lines", "insert_lines", "append_file", "patch_file", "patch_files", "delete_file", "delete_files", "move_file", "move_files", "copy_file", "copy_files", "move_dir", "move_dirs", "copy_dir", "copy_dirs", "create_dir", "create_dirs", "delete_empty_dir", "delete_empty_dirs", "set_executable", "git_fetch", "git_pull", "git_push", "git_restore", "git_stash", "git_stash_apply", "git_stash_drop", "git_switch"}:
         return f"{base} Continue with the next required file, run one appropriate check, or answer directly if the task is complete."
 
     if latest.kind == "update_plan":
