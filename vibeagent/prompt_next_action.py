@@ -95,6 +95,31 @@ def _context_labels(values: object) -> list[str]:
     return labels
 
 
+def _check_failure_labels(values: object) -> list[str]:
+    labels: list[str] = []
+    if not isinstance(values, list):
+        return labels
+    for value in values:
+        if getattr(value, "ok", True):
+            continue
+        path = str(getattr(value, "path", "") or "").strip()
+        line = getattr(value, "line", None)
+        column = getattr(value, "column", None)
+        message = str(getattr(value, "message", "") or "").strip()
+        label = path
+        if path and isinstance(line, int):
+            label = f"{path}:{line}"
+            if isinstance(column, int):
+                label = f"{label}:{column}"
+        if label and message:
+            labels.append(f"{label}: {message}")
+        elif label:
+            labels.append(label)
+        elif message:
+            labels.append(message)
+    return labels
+
+
 def _source_context_labels(observation: Observation) -> list[str]:
     if observation.kind == "read_file_context":
         path = str(getattr(observation, "path", "") or "").strip()
@@ -258,6 +283,20 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
             "Use it to choose the edit, then rerun the failed command before finishing."
         )
 
+    if latest.kind in {"python_check", "config_check"}:
+        if getattr(latest, "ok", False):
+            return (
+                f"{base} The latest {latest.kind} passed. Continue with the next required check, "
+                "or answer directly if the requested work is complete."
+            )
+        failures = _check_failure_labels(getattr(latest, "files", []))
+        if failures:
+            return (
+                f"{base} The latest {latest.kind} failed. Fix the reported issue(s) before finishing: "
+                f"{_format_next_action_items(failures)}."
+            )
+        return f"{base} The latest {latest.kind} failed. Inspect its message, fix the issue, and rerun the check before finishing."
+
     if latest.kind in {
         "read_file",
         "read_file_context",
@@ -271,8 +310,6 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         "repo_map",
         "python_symbols",
         "code_outline",
-        "python_check",
-        "config_check",
         "check_json_set",
         "check_json_remove",
         "check_json_patch",

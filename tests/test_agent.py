@@ -20,7 +20,7 @@ from vibeagent.final_review_actions import final_review_session_verification_iss
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
 from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ReadFileContextObservation, ReadFileObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction
-from vibeagent.types import CommandResult, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckResult, RunCommandObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
+from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
 
@@ -4683,6 +4683,84 @@ class AgentTests(unittest.TestCase):
 
         self.assertIn("Do not repeat inspection", instruction)
         self.assertNotIn("rerun the failed command", instruction)
+
+    def test_next_action_instruction_guides_failed_python_check_to_fix_error(self) -> None:
+        observation = PythonCheckObservation(
+            kind="python_check",
+            path="vibeagent",
+            files=[
+                PythonCheckResult(
+                    path="vibeagent/app.py",
+                    ok=False,
+                    line=12,
+                    column=5,
+                    message="SyntaxError: invalid syntax",
+                )
+            ],
+            total=1,
+            truncated=False,
+            ok=False,
+            message="Python syntax check failed.",
+        )
+
+        instruction = get_next_action_instruction("fix syntax", [observation])
+
+        self.assertIn("python_check failed", instruction)
+        self.assertIn("vibeagent/app.py:12:5: SyntaxError: invalid syntax", instruction)
+        self.assertIn("Fix the reported issue", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_failed_config_check_to_fix_error(self) -> None:
+        observation = ConfigCheckObservation(
+            kind="config_check",
+            path=".",
+            files=[
+                ConfigCheckResult(
+                    path="package.json",
+                    ok=False,
+                    format="json",
+                    line=4,
+                    column=2,
+                    message="JSON parse error",
+                )
+            ],
+            total=1,
+            truncated=False,
+            ok=False,
+            message="Config check failed.",
+        )
+
+        instruction = get_next_action_instruction("fix config", [observation])
+
+        self.assertIn("config_check failed", instruction)
+        self.assertIn("package.json:4:2: JSON parse error", instruction)
+        self.assertIn("Fix the reported issue", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_successful_python_check_to_continue_or_finish(self) -> None:
+        observation = PythonCheckObservation(
+            kind="python_check",
+            path="vibeagent",
+            files=[
+                PythonCheckResult(
+                    path="vibeagent/app.py",
+                    ok=True,
+                    line=None,
+                    column=None,
+                    message="OK",
+                )
+            ],
+            total=1,
+            truncated=False,
+            ok=True,
+            message="Python syntax check passed.",
+        )
+
+        instruction = get_next_action_instruction("verify syntax", [observation])
+
+        self.assertIn("python_check passed", instruction)
+        self.assertIn("Continue with the next required check", instruction)
+        self.assertIn("answer directly", instruction)
 
     def test_next_action_instruction_guides_pending_final_review_focused_tests(self) -> None:
         observation = FinalReviewObservation(
