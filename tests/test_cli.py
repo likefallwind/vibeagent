@@ -2062,9 +2062,9 @@ class CliTests(unittest.TestCase):
                         "--cwd",
                         base,
                         "--session-search",
-                        "missing config",
+                        " missing config ",
                         "--session-search-run",
-                        "run-1",
+                        " run-1 ",
                         "--session-search-match-max",
                         "3",
                         "--session-search-case-sensitive",
@@ -12543,7 +12543,7 @@ class CliTests(unittest.TestCase):
                 patch("vibeagent.cli.get_session_text", return_value="Session: run-1") as get_session_text,
                 redirect_stdout(stdout),
             ):
-                exit_code = main(["--cwd", base, "--session", "run-1"])
+                exit_code = main(["--cwd", base, "--session", " run-1 "])
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Session: run-1", stdout.getvalue())
