@@ -148,6 +148,14 @@ def format_session_observation(index: int, observation: object) -> str | None:
             )
             for process in observation.active_background_processes[:20]
         ]
+        completion_ready = getattr(observation, "completion_ready", None)
+        completion_lines = []
+        if completion_ready is not None:
+            completion_lines.append(f"completionReady: {str(completion_ready).lower()}")
+        completion_lines.extend(f"completionBlocker: {blocker}" for blocker in observation.completion_blockers[:20])
+        completion_lines.extend(
+            f"latestCompletionBlocker: {blocker}" for blocker in observation.latest_completion_blockers[:20]
+        )
         return "\n".join(
             [
                 f"{index}. session_audit {observation.run_id}: {observation.message}",
@@ -156,6 +164,7 @@ def format_session_observation(index: int, observation: object) -> str | None:
                 f"blockers: {len(observation.blockers)}",
                 f"backgroundProcesses: started={observation.background_processes_started} active={len(observation.active_background_processes)}",
                 *[f"blocker: {blocker}" for blocker in observation.blockers[:20]],
+                *completion_lines,
                 *process_lines,
                 f"audit:\n{truncate(observation.audit)}",
             ]

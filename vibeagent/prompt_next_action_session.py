@@ -77,10 +77,26 @@ def _audit_section_items(audit: object, section_names: tuple[str, ...]) -> list[
 
 
 def _completion_blocker_labels(latest: Observation) -> list[str]:
+    labels = [
+        str(blocker).strip()
+        for blocker in getattr(latest, "completion_blockers", [])
+        if str(blocker).strip()
+    ]
+    labels.extend(
+        str(blocker).strip()
+        for blocker in getattr(latest, "latest_completion_blockers", [])
+        if str(blocker).strip()
+    )
+    if labels:
+        return labels
     return _audit_section_items(getattr(latest, "audit", ""), ("completionBlockers", "latestCompletionBlockers"))
 
 
 def _has_completion_blocker_signal(blockers: list[str], latest: Observation) -> bool:
+    if getattr(latest, "completion_ready", None) is False:
+        return True
+    if _completion_blocker_labels(latest):
+        return True
     if any("completion blocker" in blocker.lower() or "completion is not ready" in blocker.lower() for blocker in blockers):
         return True
     audit_lower = str(getattr(latest, "audit", "") or "").lower()

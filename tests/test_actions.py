@@ -5881,7 +5881,8 @@ class ActionTests(unittest.TestCase):
                 '{"type":"tool_call","iteration":1,"id":"1","name":"write_file","input":{"path":"src/app.py","content":"SECRET_CONTENT"}}\n'
                 '{"type":"tool_result","iteration":2,"name":"run_command","result":{"kind":"run_command","result":{"command":"python3 -m unittest","exit_code":1,"stdout":"","stderr":"AssertionError","timed_out":false,"signal":null,"cwd":"."}}}\n'
                 '{"type":"tool_result","iteration":2,"name":"start_command","result":{"kind":"start_command","ok":true,"process_id":"bg-1","pid":1234,"command":"npm run dev","cwd":"web"}}\n'
-                '{"type":"result","success":false,"status":"failed","iterations":2,"message":"Failed.","verification_checks":["pytest tests/test_one.py","pytest tests/test_two.py"],"pending_verification_checks":["npm test","npm run build"],"failed_verification_checks":["ruff check","mypy ."]}\n',
+                '{"type":"completion_blocked","blockers":["1 suggested verification check(s) are still pending after the latest project change."]}\n'
+                '{"type":"result","success":false,"status":"failed","iterations":2,"message":"Failed.","completion_ready":false,"completion_blockers":["Task plan still has unfinished item(s): 1 in_progress."],"verification_checks":["pytest tests/test_one.py","pytest tests/test_two.py"],"pending_verification_checks":["npm test","npm run build"],"failed_verification_checks":["ruff check","mypy ."]}\n',
                 encoding="utf-8",
             )
 
@@ -5913,6 +5914,12 @@ class ActionTests(unittest.TestCase):
         self.assertIn("failedChecksOmitted: 1", observation.audit)
         self.assertIn("active background process", "\n".join(observation.blockers))
         self.assertIn("2 failure event(s)", observation.blockers)
+        self.assertFalse(observation.completion_ready)
+        self.assertEqual(observation.completion_blockers, ["Task plan still has unfinished item(s): 1 in_progress."])
+        self.assertEqual(
+            observation.latest_completion_blockers,
+            ["1 suggested verification check(s) are still pending after the latest project change."],
+        )
         self.assertEqual(observation.background_processes_started, 1)
         self.assertEqual([process.process_id for process in observation.active_background_processes], ["bg-1"])
         self.assertEqual(observation.active_background_processes[0].command, "npm run dev")

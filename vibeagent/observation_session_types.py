@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from .observation_process_types import CommandResult
@@ -159,6 +159,9 @@ class SessionAuditObservation:
     background_processes_started: int
     active_background_processes: list[SessionAuditProcess]
     message: str
+    completion_ready: bool | None = None
+    completion_blockers: list[str] = field(default_factory=list)
+    latest_completion_blockers: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

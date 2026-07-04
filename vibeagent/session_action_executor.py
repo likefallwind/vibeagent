@@ -446,6 +446,9 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             blockers: list[str] = []
             background_processes_started = 0
             active_background_processes: list[SessionAuditProcess] = []
+            completion_ready: bool | None = None
+            completion_blockers: list[str] = []
+            latest_completion_blockers: list[str] = []
             if ok:
                 summary = summarize_session(workspace.root, run_id)
                 events = read_session_events(workspace.root, run_id)
@@ -453,6 +456,9 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
                 files = session_file_entries(events)
                 blockers = session_audit_blockers(summary, failures, files)
                 background_processes_started = summary.background_processes_started
+                completion_ready = summary.completion_ready
+                completion_blockers = list(summary.completion_blockers)
+                latest_completion_blockers = list(summary.latest_completion_blockers)
                 active_background_processes = [
                     SessionAuditProcess(
                         process_id=process.process_id,
@@ -470,6 +476,9 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             blockers = []
             background_processes_started = 0
             active_background_processes = []
+            completion_ready = None
+            completion_blockers = []
+            latest_completion_blockers = []
             message = str(error)
         return SessionAuditObservation(
             kind="session_audit",
@@ -481,6 +490,9 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             background_processes_started=background_processes_started,
             active_background_processes=active_background_processes,
             message=message,
+            completion_ready=completion_ready,
+            completion_blockers=completion_blockers,
+            latest_completion_blockers=latest_completion_blockers,
         )
 
     if isinstance(action, SessionHandoffAction):

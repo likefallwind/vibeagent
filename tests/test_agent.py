@@ -2963,6 +2963,9 @@ class AgentTests(unittest.TestCase):
                         )
                     ],
                     message="Read session audit for run-1.",
+                    completion_ready=False,
+                    completion_blockers=["Task plan still has unfinished item(s): 1 in_progress."],
+                    latest_completion_blockers=["1 suggested verification check(s) are still pending."],
                 )
             ]
         )
@@ -2971,6 +2974,9 @@ class AgentTests(unittest.TestCase):
         self.assertIn("blockers: 1", text)
         self.assertIn("blocker: 1 active background process(es)", text)
         self.assertIn("backgroundProcesses: started=1 active=1", text)
+        self.assertIn("completionReady: false", text)
+        self.assertIn("completionBlocker: Task plan still has unfinished item(s): 1 in_progress.", text)
+        self.assertIn("latestCompletionBlocker: 1 suggested verification check(s) are still pending.", text)
         self.assertIn("active_process: bg-1 pid=1234 cwd=web command=npm run dev", text)
 
     def test_format_observations_renders_output_diagnostics_with_contexts(self) -> None:
@@ -5031,15 +5037,17 @@ class AgentTests(unittest.TestCase):
                 "  blockers:\n"
                 "    - 2 completion blocker(s)\n"
                 "  completionReady: no\n"
-                "  completionBlockers:\n"
-                "    - Task plan still has unfinished item(s): 1 in_progress.\n"
-                "    - 1 suggested verification check(s) are still pending after the latest project change.\n"
             ),
             ready=False,
             blockers=["2 completion blocker(s)"],
             background_processes_started=0,
             active_background_processes=[],
             message="Session audit has blocker(s).",
+            completion_ready=False,
+            completion_blockers=["Task plan still has unfinished item(s): 1 in_progress."],
+            latest_completion_blockers=[
+                "1 suggested verification check(s) are still pending after the latest project change."
+            ],
         )
 
         instruction = get_next_action_instruction("resume and finish task", [observation])
