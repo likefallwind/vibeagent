@@ -2979,6 +2979,35 @@ class AgentTests(unittest.TestCase):
         self.assertIn("latestCompletionBlocker: 1 suggested verification check(s) are still pending.", text)
         self.assertIn("active_process: bg-1 pid=1234 cwd=web command=npm run dev", text)
 
+    def test_format_observations_renders_session_handoff_readiness(self) -> None:
+        text = format_observations(
+            [
+                SessionHandoffObservation(
+                    kind="session_handoff",
+                    run_id="run-1",
+                    ok=True,
+                    handoff="Session handoff:\n  session: run-1",
+                    message="Read session handoff for run-1.",
+                    ready=False,
+                    status="blocked",
+                    blockers=["2 completion blocker(s)", "1 failed verification check(s)"],
+                    completion_ready=False,
+                    completion_blockers=["Task plan still has unfinished item(s): 1 in_progress."],
+                    latest_completion_blockers=["1 suggested verification check(s) are still pending."],
+                )
+            ]
+        )
+
+        self.assertIn("session_handoff run-1", text)
+        self.assertIn("ready: false", text)
+        self.assertIn("status: blocked", text)
+        self.assertIn("blockers: 2", text)
+        self.assertIn("blocker: 2 completion blocker(s)", text)
+        self.assertIn("blocker: 1 failed verification check(s)", text)
+        self.assertIn("completionReady: false", text)
+        self.assertIn("completionBlocker: Task plan still has unfinished item(s): 1 in_progress.", text)
+        self.assertIn("latestCompletionBlocker: 1 suggested verification check(s) are still pending.", text)
+
     def test_format_observations_renders_output_diagnostics_with_contexts(self) -> None:
         text = format_observations(
             [
@@ -5082,18 +5111,12 @@ class AgentTests(unittest.TestCase):
         observation = SessionHandoffObservation(
             kind="session_handoff",
             run_id="run-1",
-            ok=False,
-            handoff=(
-                "Session handoff:\n"
-                "  session: run-1\n"
-                "  readiness:\n"
-                "    Session readiness:\n"
-                "      ready: no\n"
-                "      status: blocked\n"
-                "      blockers:\n"
-                "        - 1 failed verification check(s)\n"
-            ),
+            ok=True,
+            handoff="Session handoff:\n  session: run-1",
             message="Session handoff has blocker(s).",
+            ready=False,
+            status="blocked",
+            blockers=["1 failed verification check(s)"],
         )
 
         instruction = get_next_action_instruction("resume and finish task", [observation])
@@ -5105,22 +5128,42 @@ class AgentTests(unittest.TestCase):
         self.assertIn("session_output_diagnostics", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_guides_session_handoff_completion_blockers(self) -> None:
+        observation = SessionHandoffObservation(
+            kind="session_handoff",
+            run_id="run-1",
+            ok=True,
+            handoff="Session handoff:\n  session: run-1",
+            message="Session handoff has blocker(s).",
+            ready=False,
+            status="blocked",
+            blockers=["2 completion blocker(s)"],
+            completion_ready=False,
+            completion_blockers=["Task plan still has unfinished item(s): 1 in_progress."],
+            latest_completion_blockers=[
+                "1 suggested verification check(s) are still pending after the latest project change."
+            ],
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session handoff reports completion blocker(s)", instruction)
+        self.assertIn("Task plan still has unfinished item(s): 1 in_progress.", instruction)
+        self.assertIn("1 suggested verification check(s) are still pending", instruction)
+        self.assertIn("session_plan", instruction)
+        self.assertIn("run_session_verification", instruction)
+        self.assertIn("session_output_diagnostics", instruction)
+        self.assertIn("before finishing", instruction)
+
     def test_next_action_instruction_guides_ready_session_handoff_to_continue_or_finish(self) -> None:
         observation = SessionHandoffObservation(
             kind="session_handoff",
             run_id="run-1",
             ok=True,
-            handoff=(
-                "Session handoff:\n"
-                "  session: run-1\n"
-                "  readiness:\n"
-                "    Session readiness:\n"
-                "      ready: yes\n"
-                "      status: ready\n"
-                "      blockers:\n"
-                "        - none\n"
-            ),
+            handoff="Session handoff:\n  session: run-1",
             message="Session handoff is ready.",
+            ready=True,
+            status="ready",
         )
 
         instruction = get_next_action_instruction("resume and finish task", [observation])

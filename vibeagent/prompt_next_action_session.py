@@ -286,13 +286,39 @@ def _session_audit_next_action_instruction(base: str, latest: Observation) -> st
 
 
 def _session_handoff_next_action_instruction(base: str, latest: Observation) -> str:
+    blockers = [str(blocker).strip() for blocker in getattr(latest, "blockers", []) if str(blocker).strip()]
+    completion_blockers = _completion_blocker_labels(latest)
+    if getattr(latest, "ready", None) is True:
+        return (
+            f"{base} Session handoff reports the recovered session is ready. "
+            "Use its plan and verification sections to continue any remaining requested work, "
+            "or answer directly if the task is complete."
+        )
+
+    if blockers and _has_completion_blocker_signal(blockers, latest):
+        completion_details = completion_blockers or blockers
+        return (
+            f"{base} Session handoff reports completion blocker(s). "
+            f"Fix completion blocker(s): {_format_next_action_items(completion_details)}. "
+            "Use session_plan for unfinished task-plan blockers, "
+            "session_verification or run_session_verification for verification blockers, "
+            "and session_failures or session_output_diagnostics for failure blockers before finishing."
+        )
+
+    if blockers:
+        return (
+            f"{base} Session handoff reports blockers: {_format_next_action_items(blockers)}. "
+            "Use session_audit for a structured readiness check, "
+            "then use session_verification, session_failures, or session_output_diagnostics to resolve the blocker(s) before finishing."
+        )
+
     handoff = str(getattr(latest, "handoff", "") or "")
     handoff_lower = handoff.lower()
 
     if not getattr(latest, "ok", False):
         return (
-            f"{base} Session handoff reports blockers. Use session_audit for a structured readiness check, "
-            "then use session_verification, session_failures, or session_output_diagnostics to resolve the blocker(s) before finishing."
+            f"{base} Session handoff could not be read. Use session_summary or session_audit to recover context, "
+            "then continue the next useful action before finishing."
         )
 
     if "ready: yes" in handoff_lower or "status: ready" in handoff_lower:

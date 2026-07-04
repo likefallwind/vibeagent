@@ -5967,7 +5967,8 @@ class ActionTests(unittest.TestCase):
                 '{"type":"tool_result","iteration":1,"name":"update_plan","result":{"kind":"update_plan","plan":[{"step":"Inspect","status":"completed"},{"step":"Test","status":"in_progress"}],"message":"Plan updated."}}\n'
                 '{"type":"tool_call","iteration":2,"id":"1","name":"write_file","input":{"path":"src/app.py","content":"SECRET_CONTENT"}}\n'
                 '{"type":"tool_result","iteration":3,"name":"run_command","result":{"kind":"run_command","result":{"command":"python3 -m unittest","exit_code":1,"stdout":"failure line","stderr":"AssertionError","timed_out":false,"signal":null,"cwd":"."}}}\n'
-                '{"type":"result","success":false,"status":"blocked","iterations":3,"message":"Needs verification.","verification_checks":["pytest tests/test_one.py","pytest tests/test_two.py"],"pending_verification_checks":["npm test","npm run build"],"failed_verification_checks":["ruff check (exit=1)","mypy . (exit=1)"]}\n',
+                '{"type":"completion_blocked","blockers":["1 suggested verification check(s) are still pending after the latest project change."]}\n'
+                '{"type":"result","success":false,"status":"blocked","iterations":3,"message":"Needs verification.","completion_ready":false,"completion_blockers":["Task plan still has unfinished item(s): 1 in_progress."],"verification_checks":["pytest tests/test_one.py","pytest tests/test_two.py"],"pending_verification_checks":["npm test","npm run build"],"failed_verification_checks":["ruff check (exit=1)","mypy . (exit=1)"]}\n',
                 encoding="utf-8",
             )
 
@@ -6001,10 +6002,21 @@ class ActionTests(unittest.TestCase):
 
         self.assertEqual(observation.kind, "session_handoff")
         self.assertTrue(observation.ok)
+        self.assertFalse(observation.ready)
+        self.assertEqual(observation.status, "blocked")
         self.assertEqual(observation.run_id, "run-1")
         self.assertEqual(spaced.kind, "session_handoff")
         self.assertTrue(spaced.ok)
+        self.assertFalse(spaced.ready)
         self.assertEqual(spaced.run_id, "run-1")
+        self.assertIn("1 completion blocker(s)", observation.blockers)
+        self.assertIn("changed files exist but final_review has not run", observation.blockers)
+        self.assertFalse(observation.completion_ready)
+        self.assertEqual(observation.completion_blockers, ["Task plan still has unfinished item(s): 1 in_progress."])
+        self.assertEqual(
+            observation.latest_completion_blockers,
+            ["1 suggested verification check(s) are still pending after the latest project change."],
+        )
         self.assertIn("Session handoff:", observation.handoff)
         self.assertIn("summary:", observation.handoff)
         self.assertIn("readiness:", observation.handoff)
@@ -6024,9 +6036,13 @@ class ActionTests(unittest.TestCase):
         self.assertNotIn("SECRET_CONTENT", observation.handoff)
         self.assertEqual(missing.kind, "session_handoff")
         self.assertFalse(missing.ok)
+        self.assertFalse(missing.ready)
+        self.assertEqual(missing.status, "missing")
         self.assertIn("Session not found: missing", missing.message)
         self.assertEqual(invalid.kind, "session_handoff")
         self.assertFalse(invalid.ok)
+        self.assertFalse(invalid.ready)
+        self.assertEqual(invalid.status, "invalid")
         self.assertIn("Invalid session id", invalid.message)
 
     def test_execute_checkpoint_actions_create_list_status_and_preview_restore(self) -> None:

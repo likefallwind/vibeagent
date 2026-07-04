@@ -9,12 +9,12 @@ from .action_results import (
 )
 from .output_conversion import output_context_results_from_dicts, output_diagnostics_from_dicts
 from .session import (
+    build_session_handoff_report,
     build_session_verification_report,
     format_session_audit,
     format_session_commands,
     format_session_failures,
     format_session_files,
-    format_session_handoff,
     format_session_plan,
     format_session_search,
     format_session_summary,
@@ -27,6 +27,7 @@ from .session import (
     session_file_entries,
     summarize_session,
 )
+from .session_audit_formatting import format_session_handoff_report_text
 from .session_verification_action_executor import (
     execute_run_session_verification_action,
     session_verification_group,
@@ -498,7 +499,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
     if isinstance(action, SessionHandoffAction):
         run_id = _select_session_run_id(action.run_id, workspace.run_id)
         try:
-            handoff = format_session_handoff(
+            report = build_session_handoff_report(
                 workspace.root,
                 run_id,
                 max_failures=action.max_failures,
@@ -508,11 +509,40 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
                 max_output_chars=action.max_output_chars,
                 max_text=action.max_text,
             )
-            ok = not handoff.startswith("Session not found:")
+            handoff = format_session_handoff_report_text(report)
+            exists = report.get("exists") is True
+            ok = exists
+            ready = report.get("ready") if isinstance(report.get("ready"), bool) else None
+            status = str(report.get("status") or "")
+            audit = report.get("audit") if isinstance(report.get("audit"), dict) else {}
+            blockers_section = audit.get("blockers") if isinstance(audit.get("blockers"), dict) else {}
+            blockers = [
+                str(blocker).strip()
+                for blocker in blockers_section.get("items", [])
+                if isinstance(blocker, str) and blocker.strip()
+            ]
+            completion = audit.get("completion") if isinstance(audit.get("completion"), dict) else {}
+            completion_ready = completion.get("ready") if isinstance(completion.get("ready"), bool) else None
+            completion_blockers = [
+                str(blocker).strip()
+                for blocker in completion.get("blockers", [])
+                if isinstance(blocker, str) and blocker.strip()
+            ]
+            latest_completion_blockers = [
+                str(blocker).strip()
+                for blocker in completion.get("latestBlockers", [])
+                if isinstance(blocker, str) and blocker.strip()
+            ]
             message = f"Read session handoff for {run_id}." if ok else handoff
         except ValueError as error:
             handoff = ""
             ok = False
+            ready = False
+            status = "invalid"
+            blockers = []
+            completion_ready = None
+            completion_blockers = []
+            latest_completion_blockers = []
             message = str(error)
         return SessionHandoffObservation(
             kind="session_handoff",
@@ -520,6 +550,12 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             ok=ok,
             handoff=handoff,
             message=message,
+            ready=ready,
+            status=status,
+            blockers=blockers,
+            completion_ready=completion_ready,
+            completion_blockers=completion_blockers,
+            latest_completion_blockers=latest_completion_blockers,
         )
 
     return None

@@ -171,3 +171,9 @@ class SessionHandoffObservation:
     ok: bool
     handoff: str
     message: str
+    ready: bool | None = None
+    status: str = ""
+    blockers: list[str] = field(default_factory=list)
+    completion_ready: bool | None = None
+    completion_blockers: list[str] = field(default_factory=list)
+    latest_completion_blockers: list[str] = field(default_factory=list)

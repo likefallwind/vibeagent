@@ -171,10 +171,34 @@ def format_session_observation(index: int, observation: object) -> str | None:
         )
 
     if observation.kind == "session_handoff":
+        ready = getattr(observation, "ready", None)
+        readiness_lines = []
+        if ready is not None:
+            readiness_lines.append(f"ready: {str(ready).lower()}")
+        status = str(getattr(observation, "status", "") or "").strip()
+        if status:
+            readiness_lines.append(f"status: {status}")
+        blockers = [str(blocker).strip() for blocker in getattr(observation, "blockers", []) if str(blocker).strip()]
+        if blockers:
+            readiness_lines.append(f"blockers: {len(blockers)}")
+            readiness_lines.extend(f"blocker: {blocker}" for blocker in blockers[:20])
+        completion_ready = getattr(observation, "completion_ready", None)
+        if completion_ready is not None:
+            readiness_lines.append(f"completionReady: {str(completion_ready).lower()}")
+        completion_lines = [
+            f"completionBlocker: {blocker}"
+            for blocker in getattr(observation, "completion_blockers", [])[:20]
+        ]
+        completion_lines.extend(
+            f"latestCompletionBlocker: {blocker}"
+            for blocker in getattr(observation, "latest_completion_blockers", [])[:20]
+        )
         return "\n".join(
             [
                 f"{index}. session_handoff {observation.run_id}: {observation.message}",
                 f"ok: {str(observation.ok).lower()}",
+                *readiness_lines,
+                *completion_lines,
                 f"handoff:\n{truncate(observation.handoff)}",
             ]
         )
