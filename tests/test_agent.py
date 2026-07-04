@@ -5020,6 +5020,38 @@ class AgentTests(unittest.TestCase):
         self.assertIn("session_verification", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_guides_session_audit_completion_blockers(self) -> None:
+        observation = SessionAuditObservation(
+            kind="session_audit",
+            run_id="run-1",
+            ok=False,
+            audit=(
+                "Session audit:\n"
+                "  ready: no\n"
+                "  blockers:\n"
+                "    - 2 completion blocker(s)\n"
+                "  completionReady: no\n"
+                "  completionBlockers:\n"
+                "    - Task plan still has unfinished item(s): 1 in_progress.\n"
+                "    - 1 suggested verification check(s) are still pending after the latest project change.\n"
+            ),
+            ready=False,
+            blockers=["2 completion blocker(s)"],
+            background_processes_started=0,
+            active_background_processes=[],
+            message="Session audit has blocker(s).",
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("completion blocker(s) remain", instruction)
+        self.assertIn("Task plan still has unfinished item(s): 1 in_progress.", instruction)
+        self.assertIn("1 suggested verification check(s) are still pending", instruction)
+        self.assertIn("session_plan", instruction)
+        self.assertIn("run_session_verification", instruction)
+        self.assertIn("session_output_diagnostics", instruction)
+        self.assertIn("rerun session_audit before finishing", instruction)
+
     def test_next_action_instruction_guides_ready_session_audit_to_finish(self) -> None:
         observation = SessionAuditObservation(
             kind="session_audit",

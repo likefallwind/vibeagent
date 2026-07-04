@@ -50,6 +50,43 @@ def _verification_command_labels(values: object) -> list[str]:
     return labels
 
 
+def _audit_section_items(audit: object, section_names: tuple[str, ...]) -> list[str]:
+    if not isinstance(audit, str):
+        return []
+
+    names = set(section_names)
+    items: list[str] = []
+    in_section = False
+    for line in audit.splitlines():
+        stripped = line.strip()
+        heading = stripped[:-1] if stripped.endswith(":") else stripped
+        if heading in names:
+            in_section = True
+            continue
+        if not in_section:
+            continue
+        if not stripped:
+            continue
+        if stripped.startswith("- "):
+            item = stripped[2:].strip()
+            if item and item.lower() != "none":
+                items.append(item)
+            continue
+        in_section = False
+    return items
+
+
+def _completion_blocker_labels(latest: Observation) -> list[str]:
+    return _audit_section_items(getattr(latest, "audit", ""), ("completionBlockers", "latestCompletionBlockers"))
+
+
+def _has_completion_blocker_signal(blockers: list[str], latest: Observation) -> bool:
+    if any("completion blocker" in blocker.lower() or "completion is not ready" in blocker.lower() for blocker in blockers):
+        return True
+    audit_lower = str(getattr(latest, "audit", "") or "").lower()
+    return "completionready: no" in audit_lower or "completionblockers:" in audit_lower
+
+
 def _session_summary_next_action_instruction(base: str, latest: Observation) -> str:
     summary = str(getattr(latest, "summary", "") or "")
     summary_lower = summary.lower()
@@ -201,6 +238,18 @@ def _session_audit_next_action_instruction(base: str, latest: Observation) -> st
         )
 
     blockers = [str(blocker).strip() for blocker in getattr(latest, "blockers", []) if str(blocker).strip()]
+    completion_blockers = _completion_blocker_labels(latest)
+    if blockers and _has_completion_blocker_signal(blockers, latest):
+        completion_details = completion_blockers or blockers
+        return (
+            f"{base} Session audit is not ready because completion blocker(s) remain. "
+            f"Fix completion blocker(s): {_format_next_action_items(completion_details)}. "
+            "Use session_plan for unfinished task-plan blockers, "
+            "session_verification or run_session_verification for verification blockers, "
+            "and session_failures or session_output_diagnostics for failure blockers; "
+            "then rerun session_audit before finishing."
+        )
+
     if blockers:
         return (
             f"{base} Session audit is not ready. Fix audit blocker(s): {_format_next_action_items(blockers)}. "
