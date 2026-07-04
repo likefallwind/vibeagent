@@ -415,6 +415,33 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
     )
 
 
+def _run_session_verification_next_action_instruction(base: str, latest: Observation) -> str:
+    selected_count = int(getattr(latest, "selected_count", 0) or 0)
+    failed_commands = _failed_command_labels(getattr(latest, "results", []))
+    if failed_commands:
+        stopped = " The run stopped early after the first failure." if getattr(latest, "stopped_early", False) else ""
+        return (
+            f"{base} run_session_verification reran recorded verification check(s) and found failed command(s)."
+            f"{stopped} Inspect stdout/stderr, use session_output_diagnostics or session_output_contexts for noisy output, "
+            f"fix the issue(s), then rerun run_session_verification or session_verification before finishing: "
+            f"{_format_next_action_items(failed_commands)}."
+        )
+    if selected_count > 0 and getattr(latest, "ok", False):
+        return (
+            f"{base} run_session_verification reran {selected_count} recorded verification check(s), and they passed. "
+            "Run session_audit or final_review to confirm readiness, or answer directly if the task is complete."
+        )
+    if selected_count == 0:
+        return (
+            f"{base} run_session_verification did not select any pending or failed check. "
+            "Use session_verification to inspect recorded verification state, or session_audit if readiness is unclear."
+        )
+    return (
+        f"{base} run_session_verification could not confirm the recorded checks passed. "
+        "Inspect its message and output, then use session_verification or session_audit before finishing."
+    )
+
+
 def runtime_next_action_instruction(base: str, observations: list[Observation]) -> str | None:
     latest = observations[-1]
 
@@ -529,6 +556,9 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
 
     if latest.kind in {"python_check", "config_check"}:
         return _python_or_config_check_next_action_instruction(base, latest)
+
+    if latest.kind == "run_session_verification":
+        return _run_session_verification_next_action_instruction(base, latest)
 
     if latest.kind in BATCH_COMMAND_RESULT_KINDS:
         return _batch_command_result_next_action_instruction(base, latest)

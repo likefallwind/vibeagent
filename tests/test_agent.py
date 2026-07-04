@@ -22,7 +22,7 @@ from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
 from vibeagent.types import ApprovalDecision, ApprovalDeniedObservation, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckGitStageObservation, CheckRunCommandsObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CodeReference, CodeReferencesObservation, CommandCheckObservation, ContentBlock, EnvironmentInfoObservation, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ProjectInstructionSource, ProjectInstructionsObservation, ProjectManifest, ProjectManifestItem, ProjectManifestsObservation, ProjectOverviewObservation, ProjectTodo, ProjectTodosObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, RuntimeToolInfo, SearchObservation, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, ToolErrorObservation, ToolSearchObservation, WaitProcessObservation
 from vibeagent.types import CheckGitPushObservation, GitInfoObservation, HttpCheckObservation, PortCheckObservation
-from vibeagent.types import CheckEditFileObservation, CheckJsonSetObservation, CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, GitChangesObservation, GitCommitObservation, GitDiffObservation, GitStageObservation, GitStatusObservation, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PatchFilesObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
+from vibeagent.types import CheckEditFileObservation, CheckJsonSetObservation, CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, GitChangesObservation, GitCommitObservation, GitDiffObservation, GitStageObservation, GitStatusObservation, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PatchFilesObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSessionVerificationObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
 
@@ -7150,6 +7150,93 @@ class AgentTests(unittest.TestCase):
         self.assertIn("run_commands completed without failed commands", instruction)
         self.assertIn("Continue with the next required check", instruction)
         self.assertIn("answer directly", instruction)
+
+    def test_next_action_instruction_guides_failed_run_session_verification_to_diagnostics(self) -> None:
+        observation = RunSessionVerificationObservation(
+            kind="run_session_verification",
+            run_id="run-1",
+            ok=False,
+            selected_commands=[{"command": "npm test", "cwd": ".", "status": "failed"}],
+            selected_count=1,
+            pending_count=0,
+            failed_count=1,
+            results=[
+                CommandResult(
+                    command="npm test",
+                    exit_code=1,
+                    stdout="FAIL tests/test_agent.py:42\n",
+                    stderr="AssertionError\n",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                )
+            ],
+            stopped_early=True,
+            message="Ran 1/1 session verification command(s); one or more failed.",
+        )
+
+        instruction = get_next_action_instruction("resume verification", [observation])
+
+        self.assertIn("run_session_verification reran recorded verification check", instruction)
+        self.assertIn("failed command", instruction)
+        self.assertIn("stopped early", instruction)
+        self.assertIn("session_output_diagnostics", instruction)
+        self.assertIn("session_output_contexts", instruction)
+        self.assertIn("npm test (cwd=., exit 1)", instruction)
+        self.assertIn("rerun run_session_verification", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_successful_run_session_verification_to_audit(self) -> None:
+        observation = RunSessionVerificationObservation(
+            kind="run_session_verification",
+            run_id="run-1",
+            ok=True,
+            selected_commands=[{"command": "npm test", "cwd": ".", "status": "pending"}],
+            selected_count=1,
+            pending_count=1,
+            failed_count=0,
+            results=[
+                CommandResult(
+                    command="npm test",
+                    exit_code=0,
+                    stdout="OK\n",
+                    stderr="",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                )
+            ],
+            stopped_early=False,
+            message="Ran 1/1 session verification command(s); all passed.",
+        )
+
+        instruction = get_next_action_instruction("resume verification", [observation])
+
+        self.assertIn("run_session_verification reran 1 recorded verification check", instruction)
+        self.assertIn("they passed", instruction)
+        self.assertIn("session_audit", instruction)
+        self.assertIn("final_review", instruction)
+        self.assertIn("answer directly", instruction)
+
+    def test_next_action_instruction_guides_empty_run_session_verification_to_inspect_state(self) -> None:
+        observation = RunSessionVerificationObservation(
+            kind="run_session_verification",
+            run_id="run-1",
+            ok=True,
+            selected_commands=[],
+            selected_count=0,
+            pending_count=0,
+            failed_count=0,
+            results=[],
+            stopped_early=False,
+            message="No pending or failed session verification command(s) selected.",
+        )
+
+        instruction = get_next_action_instruction("resume verification", [observation])
+
+        self.assertIn("did not select any pending or failed check", instruction)
+        self.assertIn("session_verification", instruction)
+        self.assertIn("session_audit", instruction)
 
     def test_next_action_instruction_guides_source_context_after_failed_suggested_checks(self) -> None:
         checks = RunSuggestedChecksObservation(
