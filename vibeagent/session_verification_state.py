@@ -5,7 +5,12 @@ from typing import Any
 from .agent_completion_kinds import PROJECT_CHANGE_OBSERVATION_KINDS, VCS_METADATA_OBSERVATION_KINDS
 from .session_failure_reports import command_result_failed
 from .session_types import SessionEvent
-from .verification_command_utils import command_keys_from_dicts, verification_commands_from_final_review_payload
+from .verification_command_utils import (
+    command_keys_from_dicts,
+    failed_verification_command_label,
+    verification_command_label,
+    verification_commands_from_final_review_payload,
+)
 
 
 SESSION_PROJECT_CHANGE_RESULT_KINDS = PROJECT_CHANGE_OBSERVATION_KINDS
@@ -89,7 +94,7 @@ def session_command_result_key(result: dict[str, Any]) -> tuple[str, str]:
 
 
 def session_suggested_check_label(command: str, cwd: str) -> str:
-    return command if cwd == "." else f"{command} (cwd: {cwd})"
+    return verification_command_label(command, cwd)
 
 
 def session_failed_suggested_check_label(result: dict[str, Any]) -> str:
@@ -99,4 +104,4 @@ def session_failed_suggested_check_label(result: dict[str, Any]) -> str:
     else:
         exit_code = result.get("exit_code")
         reason = f"exit={exit_code}" if isinstance(exit_code, int) else "no exit code"
-    return f"{session_suggested_check_label(command, cwd)} ({reason})"
+    return failed_verification_command_label(command, cwd, reason)

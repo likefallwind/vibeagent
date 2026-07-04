@@ -8,6 +8,7 @@ from vibeagent.agent_approval_targets import (
     session_verification_target,
     suggested_checks_target,
 )
+from vibeagent.verification_command_utils import verification_command_label
 
 
 @dataclass
@@ -31,6 +32,11 @@ class AgentApprovalTargetsTests(unittest.TestCase):
             ),
             "python -m unittest (cwd: .), npm test (cwd: web)",
         )
+
+    def test_verification_command_label_omits_root_cwd_only(self) -> None:
+        self.assertEqual(verification_command_label("npm test", "."), "npm test")
+        self.assertEqual(verification_command_label("npm test", ""), "npm test")
+        self.assertEqual(verification_command_label("npm test", "web"), "npm test (cwd: web)")
 
     def test_verification_runner_targets_match_approval_copy(self) -> None:
         self.assertEqual(suggested_checks_target(2), "up to 2 suggested check command(s)")

@@ -7,7 +7,12 @@ from .agent_completion_kinds import (
 )
 from .agent_observation_utils import observation_failed
 from .types import Observation
-from .verification_command_utils import command_keys_from_objects, verification_commands_from_final_review
+from .verification_command_utils import (
+    command_keys_from_objects,
+    failed_verification_command_label,
+    verification_command_label,
+    verification_commands_from_final_review,
+)
 
 
 def build_verification_checks(success: bool, observations: list[Observation]) -> list[str]:
@@ -210,13 +215,11 @@ def command_result_failed_suggested_check_result(
     else:
         exit_code = getattr(result, "exit_code", None)
         reason = f"exit={exit_code}" if exit_code is not None else "no exit code"
-    return command, cwd, f"{suggested_check_label(command, cwd)} ({reason})"
+    return command, cwd, failed_verification_command_label(command, cwd, reason)
 
 
 def suggested_check_label(command: str, cwd: str) -> str:
-    if cwd == ".":
-        return command
-    return f"{command} (cwd: {cwd})"
+    return verification_command_label(command, cwd)
 
 
 def command_result_matches_successful_suggested_check(

@@ -7313,6 +7313,32 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(blockers, ["Suggested verification checks are still pending after the latest project change."])
         self.assertEqual(warnings, ["Pending suggested check(s): python -m unittest discover -s tests -p test_app.py."])
 
+    def test_final_review_session_verification_labels_non_root_cwd(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            events_dir = root / ".vibeagent" / "sessions" / "run-1"
+            events_dir.mkdir(parents=True)
+            events_dir.joinpath("events.jsonl").write_text(
+                '{"type":"tool_result","iteration":1,"name":"write_file","result":{"kind":"write_file","path":"web/app.py","ok":true,"message":"Wrote web/app.py."}}\n',
+                encoding="utf-8",
+            )
+            workspace = create_run_workspace(root, "run-1")
+
+            blockers, warnings = final_review_session_verification_issues(
+                workspace,
+                [
+                    SuggestedCheck(
+                        command="npm test",
+                        cwd="web",
+                        source="package.json",
+                        reason="test script",
+                    )
+                ],
+            )
+
+        self.assertEqual(blockers, ["Suggested verification checks are still pending after the latest project change."])
+        self.assertEqual(warnings, ["Pending suggested check(s): npm test (cwd: web)."])
+
     def test_final_review_session_verification_counts_run_session_verification_results(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)

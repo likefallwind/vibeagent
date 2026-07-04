@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .agent_approval_targets import command_target
+
 CommandKey = tuple[str, str]
 
 
@@ -57,3 +59,11 @@ def verification_commands_from_final_review_payload(result: dict[str, Any]) -> s
     if suggested_commands:
         return suggested_commands
     return command_keys_from_dicts(result.get("focused_test_commands"))
+
+
+def verification_command_label(command: str, cwd: str) -> str:
+    return command if cwd in {"", "."} else command_target(command, cwd)
+
+
+def failed_verification_command_label(command: str, cwd: str, reason: str) -> str:
+    return f"{verification_command_label(command, cwd)} ({reason})"

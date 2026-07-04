@@ -14,7 +14,7 @@ from .session_verification_state import (
     session_iter_command_results,
 )
 from .types import FocusedTestCommand, SuggestedCheck
-from .verification_command_utils import verification_commands_from_objects
+from .verification_command_utils import verification_command_label, verification_commands_from_objects
 from .workspace_core import RunWorkspace
 from .workspace_git_utils import parse_git_short_status, run_readonly_git, should_ignore_git_path
 from .workspace import (
@@ -98,7 +98,7 @@ def latest_successful_project_change_event_index(events: list[Any]) -> int | Non
 
 
 def suggested_check_label(command: str, cwd: str) -> str:
-    return command if cwd in {"", "."} else f"{command} (cwd={cwd})"
+    return verification_command_label(command, cwd)
 
 
 def find_large_changed_files(
