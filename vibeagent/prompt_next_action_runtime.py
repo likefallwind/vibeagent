@@ -109,6 +109,13 @@ def _run_command_next_action_instruction(base: str, latest: Observation) -> str:
             f"{base} The latest command succeeded. If it checked the requested work, your next action must be "
             "a concise final answer. Do not run another check unless the output contains a concrete error."
         )
+    output_issues = _command_result_output_issue_labels([result])
+    if output_issues:
+        return (
+            f"{base} The latest command failed or timed out. Inline output analysis identified referenced "
+            f"source location(s): {format_next_action_items(output_issues)}. Inspect or edit the referenced "
+            "source, fix the issue, and rerun the failed command before finishing."
+        )
     return (
         f"{base} The latest command failed or timed out. Inspect its stdout/stderr for concrete errors; "
         "if the output names file:line locations or is noisy, use output_diagnostics, output_contexts, "
@@ -250,8 +257,17 @@ def _python_or_config_check_next_action_instruction(base: str, latest: Observati
 
 
 def _batch_command_result_next_action_instruction(base: str, latest: Observation) -> str:
-    failed_commands = failed_command_labels(getattr(latest, "results", []))
+    results = getattr(latest, "results", [])
+    failed_commands = failed_command_labels(results)
     if failed_commands:
+        output_issues = _command_result_output_issue_labels(results)
+        if output_issues:
+            return (
+                f"{base} The latest {latest.kind} had failed command(s). Inline output analysis identified "
+                f"referenced source location(s): {format_next_action_items(output_issues)}. Inspect or edit "
+                f"the referenced source, fix the issue(s), and rerun the failed command(s) before finishing: "
+                f"{format_next_action_items(failed_commands)}."
+            )
         return (
             f"{base} The latest {latest.kind} had failed command(s). Inspect stdout/stderr; "
             "use output_diagnostics, output_contexts, or python_traceback for noisy output with file references. "

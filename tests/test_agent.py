@@ -6670,6 +6670,41 @@ class AgentTests(unittest.TestCase):
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_uses_inline_run_command_output_analysis(self) -> None:
+        observation = RunCommandObservation(
+            kind="run_command",
+            result=CommandResult(
+                command="python -m unittest tests.test_agent",
+                exit_code=1,
+                stdout="FAIL: tests/test_agent.py:42\n",
+                stderr="AssertionError: expected ready\n",
+                timed_out=False,
+                signal=None,
+                cwd=".",
+                output_diagnostics=[
+                    OutputDiagnostic(
+                        severity="failure",
+                        output_line=8,
+                        text="AssertionError: expected ready",
+                        path="tests/test_agent.py",
+                        line=42,
+                        column=None,
+                    )
+                ],
+                output_diagnostic_total=1,
+            ),
+        )
+
+        instruction = get_next_action_instruction("fix the failing test", [observation])
+
+        self.assertIn("Inline output analysis identified referenced source location", instruction)
+        self.assertIn("tests/test_agent.py:42 failure: AssertionError: expected ready", instruction)
+        self.assertIn("Inspect or edit the referenced source", instruction)
+        self.assertNotIn("use output_diagnostics", instruction)
+        self.assertNotIn("output_contexts, or python_traceback", instruction)
+        self.assertIn("rerun the failed command", instruction)
+        self.assertIn("before finishing", instruction)
+
     def test_next_action_instruction_guides_blocked_command_check_to_safer_command(self) -> None:
         observation = CommandCheckObservation(
             kind="command_check",
@@ -7270,6 +7305,61 @@ class AgentTests(unittest.TestCase):
         self.assertIn("run_suggested_checks had failed command", instruction)
         self.assertIn("python -m unittest tests.test_agent (cwd=., exit 1)", instruction)
         self.assertIn("output_diagnostics", instruction)
+        self.assertIn("rerun the failed command", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_uses_inline_batch_output_analysis(self) -> None:
+        observation = RunSuggestedChecksObservation(
+            kind="run_suggested_checks",
+            ok=False,
+            results=[
+                CommandResult(
+                    command="python -m unittest tests.test_agent",
+                    exit_code=1,
+                    stdout="FAIL tests/test_agent.py:42\n",
+                    stderr="AssertionError: expected ready\n",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                    output_contexts=[
+                        OutputContextResult(
+                            path="tests/test_agent.py",
+                            line=42,
+                            column=8,
+                            raw="tests/test_agent.py:42:8",
+                            ok=True,
+                            content="42: self.assertTrue(False)\n",
+                            message="Read tests/test_agent.py:42.",
+                        )
+                    ],
+                    output_context_total_refs=1,
+                )
+            ],
+            suggested_checks=[
+                SuggestedCheck(
+                    command="python -m unittest tests.test_agent",
+                    cwd=".",
+                    source="tests",
+                    reason="unit tests",
+                )
+            ],
+            total=1,
+            truncated=False,
+            max_commands=1,
+            stopped_early=True,
+            skipped_unavailable=0,
+            message="Suggested checks failed.",
+        )
+
+        instruction = get_next_action_instruction("fix failing checks", [observation])
+
+        self.assertIn("run_suggested_checks had failed command", instruction)
+        self.assertIn("Inline output analysis identified referenced source location", instruction)
+        self.assertIn("tests/test_agent.py:42:8", instruction)
+        self.assertIn("Inspect or edit the referenced source", instruction)
+        self.assertNotIn("use output_diagnostics", instruction)
+        self.assertNotIn("python_traceback", instruction)
+        self.assertIn("python -m unittest tests.test_agent (cwd=., exit 1)", instruction)
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("before finishing", instruction)
 
