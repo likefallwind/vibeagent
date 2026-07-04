@@ -6904,6 +6904,20 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(blockers, [])
         self.assertEqual(warnings, [])
 
+    def test_final_review_and_session_verification_share_project_change_kinds(self) -> None:
+        import vibeagent.final_review_actions as final_review_actions_module
+        import vibeagent.session_verification_state as session_verification_state_module
+        from vibeagent.agent_completion_kinds import PROJECT_CHANGE_OBSERVATION_KINDS
+
+        self.assertIs(
+            session_verification_state_module.SESSION_PROJECT_CHANGE_RESULT_KINDS,
+            PROJECT_CHANGE_OBSERVATION_KINDS,
+        )
+        self.assertIs(
+            final_review_actions_module.PROJECT_CHANGE_RESULT_KINDS,
+            PROJECT_CHANGE_OBSERVATION_KINDS,
+        )
+
     def test_completion_blocked_feedback_includes_final_review_blocking_issues(self) -> None:
         observations = [
             FinalReviewObservation(

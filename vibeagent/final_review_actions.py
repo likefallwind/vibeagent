@@ -7,6 +7,12 @@ from pathlib import Path
 from typing import Any
 
 from .session import read_session_events
+from .session_failure_reports import command_result_failed
+from .session_verification_state import (
+    SESSION_PROJECT_CHANGE_RESULT_KINDS as PROJECT_CHANGE_RESULT_KINDS,
+    session_command_result_key,
+    session_iter_command_results,
+)
 from .types import FocusedTestCommand, SuggestedCheck
 from .verification_command_utils import verification_commands_from_objects
 from .workspace_core import RunWorkspace
@@ -16,46 +22,6 @@ from .workspace import (
     read_git_status,
     should_ignore_path,
 )
-
-
-PROJECT_CHANGE_RESULT_KINDS = {
-    "write_file",
-    "write_files",
-    "edit_file",
-    "multi_edit_file",
-    "replace_python_definition",
-    "code_rename",
-    "python_rename",
-    "replace_lines",
-    "insert_lines",
-    "append_file",
-    "regex_replace",
-    "json_set",
-    "json_remove",
-    "json_patch",
-    "patch_file",
-    "patch_files",
-    "delete_file",
-    "delete_files",
-    "move_file",
-    "move_files",
-    "copy_file",
-    "copy_files",
-    "move_dir",
-    "move_dirs",
-    "copy_dir",
-    "copy_dirs",
-    "create_dir",
-    "create_dirs",
-    "delete_empty_dir",
-    "delete_empty_dirs",
-    "set_executable",
-    "git_stage",
-    "git_unstage",
-    "git_commit",
-    "git_restore",
-    "checkpoint_restore",
-}
 
 
 FINAL_REVIEW_LARGE_FILE_BYTES = 100 * 1024 * 1024
@@ -94,11 +60,11 @@ def final_review_session_verification_issues(
         result = event.payload.get("result") if not event.malformed and event.type == "tool_result" else None
         if not isinstance(result, dict):
             continue
-        for command_result in iter_command_results(result):
-            key = command_result_key(command_result)
+        for command_result in session_iter_command_results(result):
+            key = session_command_result_key(command_result)
             if key not in verification_commands:
                 continue
-            statuses[key] = command_result_succeeded(command_result)
+            statuses[key] = not command_result_failed(command_result)
 
     verified_commands = {key for key, passed in statuses.items() if passed}
     failed_commands = {key for key, passed in statuses.items() if not passed}
@@ -129,28 +95,6 @@ def latest_successful_project_change_event_index(events: list[Any]) -> int | Non
         if result.get("kind") in PROJECT_CHANGE_RESULT_KINDS and result.get("ok") is not False:
             return index
     return None
-
-
-def iter_command_results(result: dict[str, Any]) -> list[dict[str, Any]]:
-    kind = result.get("kind")
-    if kind == "run_command":
-        command_result = result.get("result")
-        return [command_result] if isinstance(command_result, dict) else []
-    if kind in {"run_commands", "run_suggested_checks", "run_focused_test_commands", "run_session_verification"}:
-        command_results = result.get("results")
-        if isinstance(command_results, list):
-            return [item for item in command_results if isinstance(item, dict)]
-    return []
-
-
-def command_result_key(result: dict[str, Any]) -> tuple[str, str]:
-    command = result.get("command")
-    cwd = result.get("cwd")
-    return (command if isinstance(command, str) else "", cwd if isinstance(cwd, str) and cwd else ".")
-
-
-def command_result_succeeded(result: dict[str, Any]) -> bool:
-    return result.get("exit_code") == 0 and result.get("timed_out") is not True
 
 
 def suggested_check_label(command: str, cwd: str) -> str:

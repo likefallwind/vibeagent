@@ -2,50 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from .agent_completion_kinds import VCS_METADATA_OBSERVATION_KINDS
+from .agent_completion_kinds import PROJECT_CHANGE_OBSERVATION_KINDS, VCS_METADATA_OBSERVATION_KINDS
 from .session_failure_reports import command_result_failed
 from .session_types import SessionEvent
 from .verification_command_utils import command_keys_from_dicts, verification_commands_from_final_review_payload
 
 
-SESSION_PROJECT_CHANGE_RESULT_KINDS = {
-    "write_file",
-    "write_files",
-    "edit_file",
-    "multi_edit_file",
-    "replace_python_definition",
-    "code_rename",
-    "python_rename",
-    "replace_lines",
-    "insert_lines",
-    "append_file",
-    "regex_replace",
-    "json_set",
-    "json_remove",
-    "json_patch",
-    "patch_file",
-    "patch_files",
-    "delete_file",
-    "delete_files",
-    "move_file",
-    "move_files",
-    "copy_file",
-    "copy_files",
-    "move_dir",
-    "move_dirs",
-    "copy_dir",
-    "copy_dirs",
-    "create_dir",
-    "create_dirs",
-    "delete_empty_dir",
-    "delete_empty_dirs",
-    "set_executable",
-    "git_stage",
-    "git_unstage",
-    "git_commit",
-    "git_restore",
-    "checkpoint_restore",
-}
+SESSION_PROJECT_CHANGE_RESULT_KINDS = PROJECT_CHANGE_OBSERVATION_KINDS
 
 
 SESSION_VERIFICATION_INVALIDATING_RESULT_KINDS = SESSION_PROJECT_CHANGE_RESULT_KINDS - VCS_METADATA_OBSERVATION_KINDS
