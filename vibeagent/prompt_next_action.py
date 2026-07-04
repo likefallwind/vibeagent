@@ -170,6 +170,8 @@ def _has_recovery_signal(observations: list[Observation]) -> bool:
     for observation in reversed(observations):
         if observation.kind in RECOVERY_SIGNAL_KINDS:
             return True
+        if observation.kind in BATCH_COMMAND_RESULT_KINDS:
+            return bool(_failed_command_labels(getattr(observation, "results", [])))
         if observation.kind == "run_command":
             result = observation.result
             return result.exit_code != 0 or result.timed_out
