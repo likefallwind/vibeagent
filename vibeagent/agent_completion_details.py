@@ -92,12 +92,70 @@ def denied_approval_resolved(denied: Observation, later_observations: list[Obser
     action_type = str(getattr(denied, "action_type", "") or "")
     if not action_type:
         return False
-    if action_type in PROJECT_CHANGE_OBSERVATION_KINDS:
-        return any(
-            observation.kind in PROJECT_CHANGE_OBSERVATION_KINDS and not observation_failed(observation)
-            for observation in later_observations
-        )
-    return any(observation.kind == action_type and not observation_failed(observation) for observation in later_observations)
+    denied_target = str(getattr(denied, "target", "") or "")
+    for observation in later_observations:
+        if observation_failed(observation):
+            continue
+        if action_type not in PROJECT_CHANGE_OBSERVATION_KINDS:
+            if observation.kind == action_type:
+                return True
+            continue
+        if observation.kind not in PROJECT_CHANGE_OBSERVATION_KINDS:
+            continue
+        if denied_approval_target_matches_observation(denied_target, observation):
+            return True
+    return False
+
+
+def denied_approval_target_matches_observation(denied_target: str, observation: Observation) -> bool:
+    denied_targets = normalized_approval_target_tokens(denied_target)
+    if not denied_targets:
+        return False
+    observation_targets = observation_target_tokens(observation)
+    return bool(denied_targets & observation_targets)
+
+
+def observation_target_tokens(observation: Observation) -> set[str]:
+    tokens: set[str] = set()
+    for name in ("path", "definition_path", "source", "destination"):
+        tokens.update(normalized_approval_target_tokens(getattr(observation, name, "")))
+    for name in ("paths", "files"):
+        values = getattr(observation, name, [])
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            if isinstance(value, str):
+                tokens.update(normalized_approval_target_tokens(value))
+            else:
+                tokens.update(normalized_approval_target_tokens(getattr(value, "path", "")))
+    transfers = getattr(observation, "transfers", [])
+    if isinstance(transfers, list):
+        for transfer in transfers:
+            tokens.update(normalized_approval_target_tokens(getattr(transfer, "source", "")))
+            tokens.update(normalized_approval_target_tokens(getattr(transfer, "destination", "")))
+    return tokens
+
+
+def normalized_approval_target_tokens(value: object) -> set[str]:
+    text = str(value or "").strip()
+    if not text:
+        return set()
+    tokens: set[str] = set()
+    candidates = [text]
+    candidates.extend(part.strip() for part in text.split(","))
+    split_candidates = list(candidates)
+    for candidate in split_candidates:
+        if " -> " in candidate:
+            candidates.extend(part.strip() for part in candidate.split(" -> "))
+        if " " in candidate:
+            candidates.append(candidate.split(" ", 1)[0].strip())
+        if ":" in candidate:
+            candidates.append(candidate.split(":", 1)[0].strip())
+    for candidate in candidates:
+        normalized = candidate.strip()
+        if normalized:
+            tokens.add(normalized)
+    return tokens
 
 
 def denied_approval_detail(observation: Observation) -> str:

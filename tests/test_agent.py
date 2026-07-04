@@ -991,6 +991,49 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(len(blocked_events), 1)
         self.assertEqual(blocked_events[0]["details"]["deniedApprovals"], ["write_file note.txt: denied"])
 
+    def test_run_agent_keeps_denied_approval_blocker_after_unrelated_project_change(self) -> None:
+        def deny_note_write_only(request: ApprovalRequest) -> ApprovalDecision:
+            if request.action_type == "write_file" and request.target == "note.txt":
+                return ApprovalDecision(approved=False, message="denied")
+            return ApprovalDecision(approved=True, message="approved")
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            init_git_repo_with_commit(root)
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "write_file", "input": {"path": "note.txt", "content": "hello\n"}}],
+                    [{"type": "text", "text": "Done early."}],
+                    [{"type": "tool_call", "id": "2", "name": "write_file", "input": {"path": "other.txt", "content": "other\n"}}],
+                    [{"type": "text", "text": "Done now."}],
+                ]
+            )
+
+            result = run_agent(
+                "write note safely",
+                base_dir=root,
+                client=client,
+                max_iterations=4,
+                approval_handler=deny_note_write_only,
+            )
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+            other_content = (root / "other.txt").read_text(encoding="utf-8")
+
+        blocked_events = [event for event in events if event["type"] == "completion_blocked"]
+        self.assertTrue(result.success)
+        self.assertEqual(result.status, "blocked")
+        self.assertFalse(result.completion_ready)
+        self.assertEqual(result.completion_blockers, ["1 approval request(s) were denied."])
+        self.assertEqual(other_content, "other\n")
+        self.assertEqual(
+            [item.kind for item in result.observations],
+            ["approval_denied", "checkpoint_create", "write_file", "final_review"],
+        )
+        self.assertEqual(len(blocked_events), 1)
+        self.assertEqual(blocked_events[0]["details"]["deniedApprovals"], ["write_file note.txt: denied"])
+        self.assertEqual(result.latest_completion_denied_approvals, ["write_file note.txt: denied"])
+
     def test_run_agent_continues_when_multistep_work_has_no_plan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)
