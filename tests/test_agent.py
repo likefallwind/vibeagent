@@ -6812,6 +6812,59 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(agent_module.build_pending_verification_checks(True, observations), [])
         self.assertEqual(agent_module.build_failed_verification_checks(True, observations), [])
 
+    def test_completion_verification_survives_stash_drop_metadata_change(self) -> None:
+        suggested_check = SuggestedCheck(
+            command="python -m unittest discover -s tests",
+            cwd=".",
+            source="tests",
+            reason="unit tests",
+        )
+        observations = [
+            WriteFileObservation(kind="write_file", path="src/app.py", ok=True, message="Wrote src/app.py."),
+            FinalReviewObservation(
+                kind="final_review",
+                ok=True,
+                ready=True,
+                blocking_issues=[],
+                warnings=[],
+                running_processes=[],
+                files=[],
+                total_files=1,
+                suggested_checks=[suggested_check],
+                suggested_checks_total=1,
+                suggested_checks_truncated=False,
+                diff_check="",
+                staged_diff_check="",
+                status="",
+                message="Ready.",
+            ),
+            RunCommandObservation(
+                kind="run_command",
+                result=CommandResult(
+                    command="python -m unittest discover -s tests",
+                    exit_code=0,
+                    stdout="",
+                    stderr="",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                ),
+            ),
+            types_module.GitStashDropObservation(
+                kind="git_stash_drop",
+                ok=True,
+                stash_ref="stash@{0}",
+                patch="",
+                summary="stash@{0}: WIP",
+                remaining_total=0,
+                message="Dropped stash@{0}.",
+            ),
+        ]
+
+        self.assertEqual(agent_module.build_verification_checks(True, observations), ["python -m unittest discover -s tests"])
+        self.assertEqual(agent_module.build_pending_verification_checks(True, observations), [])
+        self.assertEqual(agent_module.build_failed_verification_checks(True, observations), [])
+
     def test_final_review_session_verification_uses_focused_tests_without_suggested_checks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)

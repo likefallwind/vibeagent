@@ -50,6 +50,7 @@ VCS_METADATA_OBSERVATION_KINDS = {
     "git_stage",
     "git_unstage",
     "git_commit",
+    "git_stash_drop",
 }
 
 
