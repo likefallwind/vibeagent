@@ -69,6 +69,17 @@ def _select_session_run_id(action_run_id: str | None, workspace_run_id: str) -> 
     return normalize_optional_run_id(action_run_id) or workspace_run_id
 
 
+def _handoff_verification_group(audit: dict[str, object], name: str) -> tuple[list[dict[str, object]], int]:
+    verification = audit.get("verification") if isinstance(audit.get("verification"), dict) else {}
+    group = verification.get(name) if isinstance(verification.get(name), dict) else {}
+    total = group.get("total")
+    raw_commands = group.get("commands")
+    commands: list[dict[str, object]] = []
+    if isinstance(raw_commands, list):
+        commands = [item for item in raw_commands if isinstance(item, dict)]
+    return commands, total if isinstance(total, int) else len(commands)
+
+
 def execute_session_action(workspace: RunWorkspace, action: object, command_timeout_ms: int = 30_000) -> Observation | None:
     if isinstance(action, SessionSummaryAction):
         run_id = _select_session_run_id(action.run_id, workspace.run_id)
@@ -544,6 +555,9 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
                         line_number=line_number if isinstance(line_number, int) else 0,
                     )
                 )
+            verified_commands, verified_count = _handoff_verification_group(audit, "verified")
+            pending_commands, pending_count = _handoff_verification_group(audit, "pending")
+            failed_commands, failed_count = _handoff_verification_group(audit, "failed")
             completion = audit.get("completion") if isinstance(audit.get("completion"), dict) else {}
             completion_ready = completion.get("ready") if isinstance(completion.get("ready"), bool) else None
             completion_blockers = [
@@ -565,6 +579,12 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             blockers = []
             background_processes_started = 0
             active_background_processes = []
+            verified_commands = []
+            pending_commands = []
+            failed_commands = []
+            verified_count = 0
+            pending_count = 0
+            failed_count = 0
             completion_ready = None
             completion_blockers = []
             latest_completion_blockers = []
@@ -580,6 +600,12 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             blockers=blockers,
             background_processes_started=background_processes_started,
             active_background_processes=active_background_processes,
+            verified_commands=verified_commands,
+            pending_commands=pending_commands,
+            failed_commands=failed_commands,
+            verified_count=verified_count,
+            pending_count=pending_count,
+            failed_count=failed_count,
             completion_ready=completion_ready,
             completion_blockers=completion_blockers,
             latest_completion_blockers=latest_completion_blockers,

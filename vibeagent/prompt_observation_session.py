@@ -195,6 +195,16 @@ def format_session_observation(index: int, observation: object) -> str | None:
                 )
                 for process in active_processes[:20]
             )
+        verified_commands = getattr(observation, "verified_commands", [])
+        pending_commands = getattr(observation, "pending_commands", [])
+        failed_commands = getattr(observation, "failed_commands", [])
+        verified_count = int(getattr(observation, "verified_count", len(verified_commands)) or 0)
+        pending_count = int(getattr(observation, "pending_count", len(pending_commands)) or 0)
+        failed_count = int(getattr(observation, "failed_count", len(failed_commands)) or 0)
+        verification_lines: list[str] = []
+        verification_lines.extend(format_verification_command_lines("verifiedCommands", verified_commands, verified_count))
+        verification_lines.extend(format_verification_command_lines("pendingCommands", pending_commands, pending_count))
+        verification_lines.extend(format_verification_command_lines("failedCommands", failed_commands, failed_count))
         completion_ready = getattr(observation, "completion_ready", None)
         if completion_ready is not None:
             readiness_lines.append(f"completionReady: {str(completion_ready).lower()}")
@@ -211,6 +221,8 @@ def format_session_observation(index: int, observation: object) -> str | None:
                 f"{index}. session_handoff {observation.run_id}: {observation.message}",
                 f"ok: {str(observation.ok).lower()}",
                 *readiness_lines,
+                "commands:",
+                *verification_lines,
                 *completion_lines,
                 f"handoff:\n{truncate(observation.handoff)}",
             ]

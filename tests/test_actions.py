@@ -6018,6 +6018,13 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(observation.active_background_processes[0].pid, 1234)
         self.assertEqual(observation.active_background_processes[0].cwd, "web")
         self.assertEqual(observation.active_background_processes[0].command, "npm run dev")
+        self.assertEqual(observation.verified_count, 2)
+        self.assertEqual(observation.pending_count, 2)
+        self.assertEqual(observation.failed_count, 2)
+        self.assertEqual([command["command"] for command in observation.verified_commands], ["pytest tests/test_one.py"])
+        self.assertEqual([command["command"] for command in observation.pending_commands], ["npm test"])
+        self.assertEqual([command["command"] for command in observation.failed_commands], ["ruff check"])
+        self.assertEqual(observation.failed_commands[0]["failureReason"], "exit=1")
         self.assertFalse(observation.completion_ready)
         self.assertEqual(observation.completion_blockers, ["Task plan still has unfinished item(s): 1 in_progress."])
         self.assertEqual(

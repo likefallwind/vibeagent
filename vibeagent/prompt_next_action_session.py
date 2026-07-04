@@ -289,6 +289,8 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
     blockers = [str(blocker).strip() for blocker in getattr(latest, "blockers", []) if str(blocker).strip()]
     completion_blockers = _completion_blocker_labels(latest)
     active_processes = _session_audit_process_labels(getattr(latest, "active_background_processes", []))
+    failed = _verification_command_labels(getattr(latest, "failed_commands", []))
+    pending = _verification_command_labels(getattr(latest, "pending_commands", []))
     if getattr(latest, "ready", None) is True:
         return (
             f"{base} Session handoff reports the recovered session is ready. "
@@ -302,6 +304,14 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
             "Use list_processes and read_process to inspect them, or stop_process if they are no longer needed: "
             f"{_format_next_action_items(active_processes)}. "
             "Then run session_audit or session_verification before finishing."
+        )
+
+    if failed or pending:
+        return (
+            f"{base} Session handoff reports pending or failed verification checks. "
+            f"Use run_session_verification to rerun recorded checks first: {_format_next_action_items(failed + pending)}. "
+            "If failures remain, inspect them with session_output_diagnostics or session_output_contexts, "
+            "fix the code, and rerun session_audit before finishing."
         )
 
     if blockers and _has_completion_blocker_signal(blockers, latest):

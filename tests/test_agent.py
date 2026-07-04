@@ -3001,6 +3001,34 @@ class AgentTests(unittest.TestCase):
                             line_number=8,
                         )
                     ],
+                    verified_commands=[
+                        {
+                            "command": "pytest tests/test_one.py",
+                            "cwd": ".",
+                            "label": "pytest tests/test_one.py",
+                            "status": "verified",
+                        }
+                    ],
+                    pending_commands=[
+                        {
+                            "command": "npm test",
+                            "cwd": ".",
+                            "label": "npm test",
+                            "status": "pending",
+                        }
+                    ],
+                    failed_commands=[
+                        {
+                            "command": "ruff check",
+                            "cwd": ".",
+                            "label": "ruff check (exit=1)",
+                            "failureReason": "exit=1",
+                            "status": "failed",
+                        }
+                    ],
+                    verified_count=2,
+                    pending_count=2,
+                    failed_count=2,
                     completion_ready=False,
                     completion_blockers=["Task plan still has unfinished item(s): 1 in_progress."],
                     latest_completion_blockers=["1 suggested verification check(s) are still pending."],
@@ -3016,6 +3044,12 @@ class AgentTests(unittest.TestCase):
         self.assertIn("blocker: 1 failed verification check(s)", text)
         self.assertIn("backgroundProcesses: started=1 active=1", text)
         self.assertIn("active_process: bg-1 pid=1234 cwd=web command=npm run dev", text)
+        self.assertIn("verifiedCommands: 1/2", text)
+        self.assertIn("pendingCommands: 1/2", text)
+        self.assertIn("failedCommands: 1/2", text)
+        self.assertIn("- pytest tests/test_one.py", text)
+        self.assertIn("- npm test", text)
+        self.assertIn("- ruff check (exit=1)", text)
         self.assertIn("completionReady: false", text)
         self.assertIn("completionBlocker: Task plan still has unfinished item(s): 1 in_progress.", text)
         self.assertIn("latestCompletionBlocker: 1 suggested verification check(s) are still pending.", text)
@@ -5172,6 +5206,47 @@ class AgentTests(unittest.TestCase):
         self.assertIn("session_audit", instruction)
         self.assertIn("session_verification", instruction)
         self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_session_handoff_verification_checks(self) -> None:
+        observation = SessionHandoffObservation(
+            kind="session_handoff",
+            run_id="run-1",
+            ok=True,
+            handoff="Session handoff:\n  session: run-1",
+            message="Session handoff has blocker(s).",
+            ready=False,
+            status="blocked",
+            blockers=["1 failed verification check(s)", "1 pending verification check(s)"],
+            pending_commands=[
+                {
+                    "command": "npm test",
+                    "cwd": ".",
+                    "label": "npm test",
+                    "status": "pending",
+                }
+            ],
+            failed_commands=[
+                {
+                    "command": "ruff check",
+                    "cwd": ".",
+                    "label": "ruff check (exit=1)",
+                    "failureReason": "exit=1",
+                    "status": "failed",
+                }
+            ],
+            pending_count=1,
+            failed_count=1,
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session handoff reports pending or failed verification checks", instruction)
+        self.assertIn("run_session_verification", instruction)
+        self.assertIn("ruff check (cwd=.): exit=1", instruction)
+        self.assertIn("npm test (cwd=.)", instruction)
+        self.assertIn("session_output_diagnostics", instruction)
+        self.assertIn("session_output_contexts", instruction)
+        self.assertIn("rerun session_audit before finishing", instruction)
 
     def test_next_action_instruction_guides_session_handoff_completion_blockers(self) -> None:
         observation = SessionHandoffObservation(

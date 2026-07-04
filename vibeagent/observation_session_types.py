@@ -176,6 +176,12 @@ class SessionHandoffObservation:
     blockers: list[str] = field(default_factory=list)
     background_processes_started: int = 0
     active_background_processes: list[SessionAuditProcess] = field(default_factory=list)
+    verified_commands: list[dict[str, Any]] = field(default_factory=list)
+    pending_commands: list[dict[str, Any]] = field(default_factory=list)
+    failed_commands: list[dict[str, Any]] = field(default_factory=list)
+    verified_count: int = 0
+    pending_count: int = 0
+    failed_count: int = 0
     completion_ready: bool | None = None
     completion_blockers: list[str] = field(default_factory=list)
     latest_completion_blockers: list[str] = field(default_factory=list)
