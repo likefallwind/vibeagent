@@ -139,9 +139,35 @@ def _observation_commands(values: object) -> list[str]:
     return commands
 
 
+def _running_process_labels(values: object) -> list[str]:
+    labels: list[str] = []
+    if not isinstance(values, list):
+        return labels
+    for value in values:
+        if not getattr(value, "running", False):
+            continue
+        process_id = str(getattr(value, "process_id", "") or "").strip()
+        command = str(getattr(value, "command", "") or "").strip()
+        if process_id and command:
+            labels.append(f"{process_id}: {command}")
+        elif process_id:
+            labels.append(process_id)
+        elif command:
+            labels.append(command)
+    return labels
+
+
 def _final_review_next_action_instruction(base: str, latest: Observation) -> str:
     if getattr(latest, "ready", None) is not False:
         return f"{base} Use the final review report to decide whether to run verification, continue, or answer directly."
+
+    running_processes = _running_process_labels(getattr(latest, "running_processes", []))
+    if running_processes:
+        return (
+            f"{base} Final review is not ready because background processes are still running. "
+            f"Inspect with list_processes or read_process if needed, then stop_process or stop_all_processes for: "
+            f"{_format_next_action_items(running_processes)}. Rerun final_review before finishing."
+        )
 
     suggested_commands = _observation_commands(getattr(latest, "suggested_checks", []))
     if suggested_commands:

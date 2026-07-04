@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ReadFileObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ReadFileObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction
 from vibeagent.types import CommandResult, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckResult, RunCommandObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -4566,6 +4566,45 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Fix final review blocking issue", instruction)
         self.assertIn("Changed Python files have syntax errors.", instruction)
         self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_running_background_processes(self) -> None:
+        observation = FinalReviewObservation(
+            kind="final_review",
+            ok=True,
+            ready=False,
+            blocking_issues=["Background processes are still running."],
+            warnings=["1 background process(es) still running; stop them before finishing if no longer needed."],
+            running_processes=[
+                ProcessInfo(
+                    process_id="bg-1",
+                    pid=12345,
+                    command="python3 -m http.server",
+                    cwd=".",
+                    running=True,
+                    exit_code=None,
+                    signal=None,
+                )
+            ],
+            files=[],
+            total_files=0,
+            suggested_checks=[],
+            suggested_checks_total=0,
+            suggested_checks_truncated=False,
+            diff_check="",
+            staged_diff_check="",
+            status="blocked",
+            message="Not ready.",
+        )
+
+        instruction = get_next_action_instruction("clean up server", [observation])
+
+        self.assertIn("background processes are still running", instruction)
+        self.assertIn("list_processes", instruction)
+        self.assertIn("read_process", instruction)
+        self.assertIn("stop_process", instruction)
+        self.assertIn("stop_all_processes", instruction)
+        self.assertIn("bg-1: python3 -m http.server", instruction)
+        self.assertIn("Rerun final_review before finishing", instruction)
 
     def test_completion_verification_tracks_pending_focused_tests(self) -> None:
         focused_test = FocusedTestCommand(
