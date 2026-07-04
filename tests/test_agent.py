@@ -5626,6 +5626,21 @@ class AgentTests(unittest.TestCase):
         self.assertIn("choose an alternate tool", instruction)
         self.assertIn("verify before finishing", instruction)
 
+    def test_next_action_instruction_guides_blocked_finish_to_resolve_blockers(self) -> None:
+        observation = types_module.FinishObservation(
+            kind="finish",
+            message="Done early.",
+        )
+
+        instruction = get_next_action_instruction("finish only when ready", [observation])
+
+        self.assertIn("Finish was attempted", instruction)
+        self.assertIn("Last finish message: Done early.", instruction)
+        self.assertIn("completion feedback reports blockers", instruction)
+        self.assertIn("do not finish again unchanged", instruction)
+        self.assertIn("rerun final_review or verification", instruction)
+        self.assertIn("finish only after completion is ready", instruction)
+
     def test_next_action_instruction_guides_failed_command_diagnostics(self) -> None:
         observation = RunCommandObservation(
             kind="run_command",
