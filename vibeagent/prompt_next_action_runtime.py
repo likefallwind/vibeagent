@@ -263,6 +263,27 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
     )
 
 
+def _command_result_output_issue_labels(results: object) -> list[str]:
+    if not isinstance(results, list):
+        return []
+    diagnostics: list[str] = []
+    contexts: list[str] = []
+    seen_diagnostics: set[str] = set()
+    seen_contexts: set[str] = set()
+    for result in results:
+        if not failed_command_labels([result]):
+            continue
+        for label in diagnostic_labels(getattr(result, "output_diagnostics", [])):
+            if label and label not in seen_diagnostics:
+                seen_diagnostics.add(label)
+                diagnostics.append(label)
+        for label in context_labels(getattr(result, "output_contexts", [])):
+            if label and label not in seen_contexts:
+                seen_contexts.add(label)
+                contexts.append(label)
+    return diagnostics or contexts
+
+
 def _run_session_verification_next_action_instruction(base: str, latest: Observation) -> str:
     selected_count = int(getattr(latest, "selected_count", 0) or 0)
     results = getattr(latest, "results", [])
@@ -275,6 +296,15 @@ def _run_session_verification_next_action_instruction(base: str, latest: Observa
             if not_run
             else ""
         )
+        output_issues = _command_result_output_issue_labels(results)
+        if output_issues:
+            return (
+                f"{base} run_session_verification reran recorded verification check(s) and found failed command(s)."
+                f"{stopped} Inline output analysis identified referenced source location(s): "
+                f"{format_next_action_items(output_issues)}. Inspect or edit the referenced source, fix the issue(s), "
+                f"then rerun run_session_verification or session_verification before finishing: "
+                f"{format_next_action_items(failed_commands)}.{not_run_detail}"
+            )
         return (
             f"{base} run_session_verification reran recorded verification check(s) and found failed command(s)."
             f"{stopped} Inspect stdout/stderr, use session_output_diagnostics or session_output_contexts for noisy output, "

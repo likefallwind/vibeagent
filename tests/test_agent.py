@@ -7338,6 +7338,63 @@ class AgentTests(unittest.TestCase):
         self.assertIn("rerun run_session_verification", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_uses_inline_run_session_verification_output_analysis(self) -> None:
+        observation = RunSessionVerificationObservation(
+            kind="run_session_verification",
+            run_id="run-1",
+            ok=False,
+            selected_commands=[{"command": "npm test", "cwd": ".", "status": "failed"}],
+            selected_count=1,
+            pending_count=0,
+            failed_count=1,
+            results=[
+                CommandResult(
+                    command="npm test",
+                    exit_code=1,
+                    stdout="FAIL tests/test_agent.py:42\n",
+                    stderr="AssertionError\n",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                    output_diagnostics=[
+                        OutputDiagnostic(
+                            severity="failure",
+                            output_line=8,
+                            text="AssertionError: expected ready",
+                            path="tests/test_agent.py",
+                            line=42,
+                            column=None,
+                        )
+                    ],
+                    output_diagnostic_total=1,
+                    output_contexts=[
+                        OutputContextResult(
+                            path="tests/test_agent.py",
+                            line=42,
+                            column=None,
+                            raw="tests/test_agent.py:42: AssertionError",
+                            ok=True,
+                            content="42: self.assertTrue(False)\n",
+                            message="Read tests/test_agent.py:42.",
+                        )
+                    ],
+                    output_context_total_refs=1,
+                )
+            ],
+            stopped_early=False,
+            message="Ran 1/1 session verification command(s); one or more failed.",
+        )
+
+        instruction = get_next_action_instruction("resume verification", [observation])
+
+        self.assertIn("Inline output analysis identified referenced source location", instruction)
+        self.assertIn("tests/test_agent.py:42 failure: AssertionError: expected ready", instruction)
+        self.assertIn("Inspect or edit the referenced source", instruction)
+        self.assertNotIn("use session_output_diagnostics", instruction)
+        self.assertNotIn("session_output_contexts for noisy output", instruction)
+        self.assertIn("rerun run_session_verification", instruction)
+        self.assertIn("before finishing", instruction)
+
     def test_next_action_instruction_guides_successful_run_session_verification_to_audit(self) -> None:
         observation = RunSessionVerificationObservation(
             kind="run_session_verification",
