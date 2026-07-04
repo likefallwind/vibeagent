@@ -115,6 +115,11 @@ def session_audit_blockers(
         blockers.append("session status is blocked")
     elif not summary.completed:
         blockers.append("session status is incomplete")
+    if summary.completion_ready is False:
+        if summary.completion_blockers:
+            blockers.append(f"{len(summary.completion_blockers)} completion blocker(s)")
+        else:
+            blockers.append("completion is not ready")
     if summary.malformed_count:
         blockers.append(f"{summary.malformed_count} malformed session row(s)")
     denied_approval_blocker_count = session_audit_denied_approval_blocker_count(summary)

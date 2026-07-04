@@ -759,6 +759,7 @@ class SessionTests(unittest.TestCase):
 
             text = format_session_failures(root, "run-1", max_failures=5, max_text=160)
             audit = format_session_audit(root, "run-1", max_failures=5, max_text=160)
+            report = build_session_audit_report(root, "run-1", max_failures=5, max_text=160)
             handoff = format_session_handoff(root, "run-1", max_failures=5, max_text=160)
 
         self.assertIn("failures: 1", text)
@@ -766,7 +767,10 @@ class SessionTests(unittest.TestCase):
         self.assertIn("Done early.", text)
         self.assertIn("completionBlockers=Task plan still has unfinished item(s): 1 in_progress.", text)
         self.assertIn("session status is blocked", audit)
+        self.assertIn("2 completion blocker(s)", audit)
+        self.assertIn("2 completion blocker(s)", report["blockers"]["items"])
         self.assertIn("#2 result: blocked", handoff)
+        self.assertIn("2 completion blocker(s)", handoff)
 
     def test_format_session_failures_reports_failed_result_event(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
