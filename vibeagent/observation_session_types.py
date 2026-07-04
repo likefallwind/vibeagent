@@ -159,6 +159,10 @@ class SessionAuditObservation:
     background_processes_started: int
     active_background_processes: list[SessionAuditProcess]
     message: str
+    file_references: list[dict[str, Any]] = field(default_factory=list)
+    file_count: int = 0
+    shown_file_count: int = 0
+    files_truncated: bool = False
     completion_ready: bool | None = None
     completion_blockers: list[str] = field(default_factory=list)
     latest_completion_blockers: list[str] = field(default_factory=list)

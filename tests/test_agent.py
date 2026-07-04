@@ -2963,6 +2963,10 @@ class AgentTests(unittest.TestCase):
                         )
                     ],
                     message="Read session audit for run-1.",
+                    file_references=[{"path": "src/app.py", "uses": ["write"]}],
+                    file_count=1,
+                    shown_file_count=1,
+                    files_truncated=False,
                     completion_ready=False,
                     completion_blockers=["Task plan still has unfinished item(s): 1 in_progress."],
                     latest_completion_blockers=["1 suggested verification check(s) are still pending."],
@@ -2974,6 +2978,8 @@ class AgentTests(unittest.TestCase):
         self.assertIn("blockers: 1", text)
         self.assertIn("blocker: 1 active background process(es)", text)
         self.assertIn("backgroundProcesses: started=1 active=1", text)
+        self.assertIn("files: 1/1 truncated=false", text)
+        self.assertIn("file: src/app.py uses=write", text)
         self.assertIn("completionReady: false", text)
         self.assertIn("completionBlocker: Task plan still has unfinished item(s): 1 in_progress.", text)
         self.assertIn("latestCompletionBlocker: 1 suggested verification check(s) are still pending.", text)
@@ -5146,6 +5152,32 @@ class AgentTests(unittest.TestCase):
         self.assertIn("run_session_verification", instruction)
         self.assertIn("session_output_diagnostics", instruction)
         self.assertIn("rerun session_audit before finishing", instruction)
+
+    def test_next_action_instruction_guides_session_audit_changed_files(self) -> None:
+        observation = SessionAuditObservation(
+            kind="session_audit",
+            run_id="run-1",
+            ok=True,
+            audit="Session audit:\n  ready: no",
+            ready=False,
+            blockers=["changed files exist but final_review has not run"],
+            background_processes_started=0,
+            active_background_processes=[],
+            message="Session audit has blocker(s).",
+            file_references=[{"path": "src/app.py", "uses": ["write"]}],
+            file_count=1,
+            shown_file_count=1,
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session audit reports changed file(s)", instruction)
+        self.assertIn("src/app.py (uses: write)", instruction)
+        self.assertIn("read_file", instruction)
+        self.assertIn("read_file_context", instruction)
+        self.assertIn("final_review", instruction)
+        self.assertIn("session_audit", instruction)
+        self.assertIn("before finishing", instruction)
 
     def test_next_action_instruction_guides_ready_session_audit_to_finish(self) -> None:
         observation = SessionAuditObservation(

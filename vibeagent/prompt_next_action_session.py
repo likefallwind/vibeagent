@@ -289,6 +289,7 @@ def _session_audit_next_action_instruction(base: str, latest: Observation) -> st
 
     blockers = [str(blocker).strip() for blocker in getattr(latest, "blockers", []) if str(blocker).strip()]
     completion_blockers = _completion_blocker_labels(latest)
+    file_references = _file_reference_labels(getattr(latest, "file_references", []))
     if blockers and _has_completion_blocker_signal(blockers, latest):
         completion_details = completion_blockers or blockers
         return (
@@ -298,6 +299,16 @@ def _session_audit_next_action_instruction(base: str, latest: Observation) -> st
             "session_verification or run_session_verification for verification blockers, "
             "and session_failures or session_output_diagnostics for failure blockers; "
             "then rerun session_audit before finishing."
+        )
+
+    changed_file_blocker = any(
+        "changed files exist" in blocker.lower() or "final_review" in blocker.lower() for blocker in blockers
+    )
+    if blockers and file_references and changed_file_blocker:
+        return (
+            f"{base} Session audit reports changed file(s): {_format_next_action_items(file_references)}. "
+            "Inspect the relevant file(s) with read_file or read_file_context, finish or review the edits, "
+            "then run final_review or session_audit before finishing."
         )
 
     if blockers:

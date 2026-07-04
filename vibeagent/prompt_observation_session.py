@@ -20,6 +20,32 @@ def format_verification_command_lines(label: str, commands: list[dict[str, objec
     return lines
 
 
+def format_file_reference_lines(
+    references: object,
+    file_count: int,
+    shown_file_count: int,
+    files_truncated: bool,
+) -> list[str]:
+    file_references = [
+        item
+        for item in references
+        if isinstance(item, dict) and str(item.get("path") or "").strip()
+    ] if isinstance(references, list) else []
+    file_lines: list[str] = []
+    if file_count or file_references:
+        file_lines.append(f"files: {shown_file_count}/{file_count} truncated={str(files_truncated).lower()}")
+        for item in file_references[:20]:
+            path = str(item.get("path") or "").strip()
+            uses = [
+                str(use).strip()
+                for use in item.get("uses", [])
+                if isinstance(use, str) and str(use).strip()
+            ]
+            suffix = f" uses={','.join(uses)}" if uses else ""
+            file_lines.append(f"file: {path}{suffix}")
+    return file_lines
+
+
 def format_session_observation(index: int, observation: object) -> str | None:
     if observation.kind == "session_summary":
         return "\n".join(
@@ -156,6 +182,12 @@ def format_session_observation(index: int, observation: object) -> str | None:
         completion_lines.extend(
             f"latestCompletionBlocker: {blocker}" for blocker in observation.latest_completion_blockers[:20]
         )
+        file_lines = format_file_reference_lines(
+            getattr(observation, "file_references", []),
+            int(getattr(observation, "file_count", 0) or 0),
+            int(getattr(observation, "shown_file_count", 0) or 0),
+            bool(getattr(observation, "files_truncated", False)),
+        )
         return "\n".join(
             [
                 f"{index}. session_audit {observation.run_id}: {observation.message}",
@@ -164,6 +196,7 @@ def format_session_observation(index: int, observation: object) -> str | None:
                 f"blockers: {len(observation.blockers)}",
                 f"backgroundProcesses: started={observation.background_processes_started} active={len(observation.active_background_processes)}",
                 *[f"blocker: {blocker}" for blocker in observation.blockers[:20]],
+                *file_lines,
                 *completion_lines,
                 *process_lines,
                 f"audit:\n{truncate(observation.audit)}",
@@ -222,29 +255,12 @@ def format_session_observation(index: int, observation: object) -> str | None:
             )
             for item in pending_plan_items[:20]:
                 plan_lines.append(f"plan_item: {item.get('status') or ''}: {item.get('step') or ''}")
-        file_references = [
-            item
-            for item in getattr(observation, "file_references", [])
-            if isinstance(item, dict) and str(item.get("path") or "").strip()
-        ]
-        file_count = int(getattr(observation, "file_count", len(file_references)) or 0)
-        shown_file_count = int(getattr(observation, "shown_file_count", len(file_references)) or 0)
-        file_lines: list[str] = []
-        if file_count or file_references:
-            file_lines.append(
-                "files: "
-                f"{shown_file_count}/{file_count} "
-                f"truncated={str(bool(getattr(observation, 'files_truncated', False))).lower()}"
-            )
-            for item in file_references[:20]:
-                path = str(item.get("path") or "").strip()
-                uses = [
-                    str(use).strip()
-                    for use in item.get("uses", [])
-                    if isinstance(use, str) and str(use).strip()
-                ]
-                suffix = f" uses={','.join(uses)}" if uses else ""
-                file_lines.append(f"file: {path}{suffix}")
+        file_lines = format_file_reference_lines(
+            getattr(observation, "file_references", []),
+            int(getattr(observation, "file_count", 0) or 0),
+            int(getattr(observation, "shown_file_count", 0) or 0),
+            bool(getattr(observation, "files_truncated", False)),
+        )
         completion_ready = getattr(observation, "completion_ready", None)
         if completion_ready is not None:
             readiness_lines.append(f"completionReady: {str(completion_ready).lower()}")

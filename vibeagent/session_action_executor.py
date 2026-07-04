@@ -70,6 +70,24 @@ def _select_session_run_id(action_run_id: str | None, workspace_run_id: str) -> 
     return normalize_optional_run_id(action_run_id) or workspace_run_id
 
 
+def _session_file_references(
+    files: list[dict[str, object]], max_files: int
+) -> tuple[list[dict[str, object]], int, int, bool]:
+    shown_files = files[:max_files]
+    references: list[dict[str, object]] = []
+    for file_entry in shown_files:
+        path = str(file_entry.get("path") or "").strip()
+        if not path:
+            continue
+        uses = [
+            str(use).strip()
+            for use in file_entry.get("uses", [])
+            if isinstance(use, str) and use.strip()
+        ]
+        references.append({"path": path, "uses": uses})
+    return references, len(files), len(shown_files), len(files) > len(shown_files)
+
+
 def execute_session_action(workspace: RunWorkspace, action: object, command_timeout_ms: int = 30_000) -> Observation | None:
     if isinstance(action, SessionSummaryAction):
         run_id = _select_session_run_id(action.run_id, workspace.run_id)
@@ -448,6 +466,10 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             blockers: list[str] = []
             background_processes_started = 0
             active_background_processes: list[SessionAuditProcess] = []
+            file_references: list[dict[str, object]] = []
+            file_count = 0
+            shown_file_count = 0
+            files_truncated = False
             completion_ready: bool | None = None
             completion_blockers: list[str] = []
             latest_completion_blockers: list[str] = []
@@ -457,6 +479,9 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
                 failures = session_failure_entries(events, max_text=action.max_text)
                 files = session_file_entries(events)
                 blockers = session_audit_blockers(summary, failures, files)
+                file_references, file_count, shown_file_count, files_truncated = _session_file_references(
+                    files, action.max_files
+                )
                 background_processes_started = summary.background_processes_started
                 completion_ready = summary.completion_ready
                 completion_blockers = list(summary.completion_blockers)
@@ -478,6 +503,10 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             blockers = []
             background_processes_started = 0
             active_background_processes = []
+            file_references = []
+            file_count = 0
+            shown_file_count = 0
+            files_truncated = False
             completion_ready = None
             completion_blockers = []
             latest_completion_blockers = []
@@ -492,6 +521,10 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             background_processes_started=background_processes_started,
             active_background_processes=active_background_processes,
             message=message,
+            file_references=file_references,
+            file_count=file_count,
+            shown_file_count=shown_file_count,
+            files_truncated=files_truncated,
             completion_ready=completion_ready,
             completion_blockers=completion_blockers,
             latest_completion_blockers=latest_completion_blockers,
