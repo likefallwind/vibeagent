@@ -9924,6 +9924,7 @@ class CommandTests(unittest.TestCase):
                 "run-1",
                 include_failed=False,
             )
+            failed_rendered = commands_module.format_run_session_verification_report_text(failed_first)
             rendered = commands_module.format_run_session_verification_report_text(pending_only)
             missing = commands_module.get_run_session_verification_text(root, "missing")
 
@@ -9940,7 +9941,21 @@ class CommandTests(unittest.TestCase):
         self.assertIn("pending-ok", pending_only["results"][0]["stdout"])
         self.assertIn("Run session verification:", rendered)
         self.assertIn("ok: yes", rendered)
+        self.assertIn("selectedCommands:", rendered)
+        self.assertIn('command: python3 -c "print(\\"pending-ok\\")"', rendered)
+        self.assertIn("runStatus: ran", rendered)
+        self.assertIn("sourceStatus: pending", rendered)
         self.assertIn("pending-ok", rendered)
+        self.assertIn("Run session verification:", failed_rendered)
+        self.assertIn("ok: no", failed_rendered)
+        self.assertIn("selectedCommands:", failed_rendered)
+        self.assertIn('command: python3 -c "import sys; print(\\"failed\\"); sys.exit(3)"', failed_rendered)
+        self.assertIn('command: python3 -c "print(\\"pending-ok\\")"', failed_rendered)
+        self.assertIn("runStatus: ran", failed_rendered)
+        self.assertIn("runStatus: notRun", failed_rendered)
+        self.assertIn("sourceStatus: failed", failed_rendered)
+        self.assertIn("sourceStatus: pending", failed_rendered)
+        self.assertIn("selectedCommandsNotRun: 1", failed_rendered)
         self.assertIn("Session not found: missing", missing)
 
     def test_get_session_audit_text_reports_newest_or_selected_readiness(self) -> None:

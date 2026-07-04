@@ -186,6 +186,11 @@ def format_run_session_verification_report_text(report: dict[str, object]) -> st
     if message.startswith("Usage:"):
         return message
     results = [item for item in report.get("results", []) if isinstance(item, dict)] if isinstance(report.get("results"), list) else []
+    selected_commands = [
+        item
+        for item in report.get("selectedCommands", [])
+        if isinstance(item, dict)
+    ] if isinstance(report.get("selectedCommands"), list) else []
     commands = report.get("commands") if isinstance(report.get("commands"), dict) else {}
     lines = [
         "Run session verification:",
@@ -203,6 +208,27 @@ def format_run_session_verification_report_text(report: dict[str, object]) -> st
         f"  durationMs: {report.get('durationMs', 0)}",
         f"  message: {message}",
     ]
+    if selected_commands:
+        lines.append("  selectedCommands:")
+        for index, command in enumerate(selected_commands):
+            status = str(command.get("status") or "").strip()
+            failure_reason = str(command.get("failureReason") or "").strip()
+            run_status = "ran" if index < len(results) else "notRun"
+            lines.extend(
+                [
+                    f"    - command: {command.get('command') or ''}",
+                    f"      cwd: {command.get('cwd') or '.'}",
+                    f"      runStatus: {run_status}",
+                    f"      sourceStatus: {status or 'none'}",
+                ]
+            )
+            if failure_reason:
+                lines.append(f"      failureReason: {failure_reason}")
+        not_run_count = len(selected_commands) - len(results)
+        if bool(report.get("stoppedEarly")) and not_run_count > 0:
+            lines.append(f"  selectedCommandsNotRun: {not_run_count}")
+    else:
+        lines.append("  selectedCommands: none")
     if results:
         lines.append("  results:")
         for position, result in enumerate(results, start=1):
