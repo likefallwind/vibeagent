@@ -28,6 +28,7 @@ from vibeagent.cli_parse_run import (
     parse_interactive_run_sequence_argument,
 )
 from vibeagent.cli_parse_session import (
+    parse_interactive_session_detail_argument,
     parse_interactive_run_session_verification_argument,
     parse_interactive_session_search_argument,
     parse_interactive_transcript_argument,
@@ -43,6 +44,7 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertIs(cli_parsing.parse_interactive_diff_argument, parse_interactive_diff_argument)
         self.assertIs(cli_parsing.parse_interactive_transcript_argument, parse_interactive_transcript_argument)
         self.assertIs(cli_parsing.parse_interactive_run_session_verification_argument, parse_interactive_run_session_verification_argument)
+        self.assertIs(cli_parsing.parse_interactive_session_detail_argument, parse_interactive_session_detail_argument)
         self.assertIs(cli_parsing.parse_interactive_session_search_argument, parse_interactive_session_search_argument)
         self.assertIs(cli_parsing.parse_interactive_http_argument, parse_interactive_http_argument)
         self.assertIs(cli_parsing.parse_interactive_port_argument, parse_interactive_port_argument)
@@ -76,10 +78,31 @@ class CliParseModuleTests(unittest.TestCase):
         query, run_id, kwargs, search_error = parse_interactive_session_search_argument(
             "--run run-1 --max-matches 2 --case-sensitive failure"
         )
+        spaced_query, spaced_run_id, spaced_kwargs, spaced_error = parse_interactive_session_search_argument(
+            '--run " run-2 " needle'
+        )
 
         self.assertEqual(build_diff_argument("src/app.py", True, ["extra.py"]), "--staged src/app.py extra.py")
         self.assertEqual((diff_arg, max_chars, error), ("--staged src/app.py", 5, None))
         self.assertEqual((query, run_id, kwargs, search_error), ("failure", "run-1", {"max_matches": 2, "case_sensitive": True}, None))
+        self.assertEqual((spaced_query, spaced_run_id, spaced_kwargs, spaced_error), ("needle", "run-2", {}, None))
+
+    def test_session_run_id_parsers_normalize_optional_run_ids(self) -> None:
+        transcript_run_id, transcript_kwargs, transcript_error = parse_interactive_transcript_argument('" run-1 "')
+        blank_transcript_run_id, blank_transcript_kwargs, blank_transcript_error = parse_interactive_transcript_argument('"   "')
+        detail_run_id, detail_kwargs, detail_error = parse_interactive_session_detail_argument(
+            '" run-2 " --max-commands 3',
+            "Usage: /session-commands [run-id] [--max-commands N]",
+            {"--max-commands": ("max_commands", False)},
+        )
+        verify_run_id, verify_kwargs, verify_error = parse_interactive_run_session_verification_argument(
+            '" run-3 " --max-checks 2'
+        )
+
+        self.assertEqual((transcript_run_id, transcript_kwargs, transcript_error), ("run-1", {}, None))
+        self.assertEqual((blank_transcript_run_id, blank_transcript_kwargs, blank_transcript_error), (None, {}, None))
+        self.assertEqual((detail_run_id, detail_kwargs, detail_error), ("run-2", {"max_commands": 3}, None))
+        self.assertEqual((verify_run_id, verify_kwargs, verify_error), ("run-3", {"max_checks": 2}, None))
 
     def test_run_session_verification_parser_accepts_options(self) -> None:
         run_id, kwargs, error = parse_interactive_run_session_verification_argument(
