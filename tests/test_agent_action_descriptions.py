@@ -8,6 +8,7 @@ from vibeagent.agent_action_descriptions import (
     build_step_label as compat_build_step_label,
     log_action as compat_log_action,
 )
+from vibeagent.agent_approval import build_approval_request
 from vibeagent.agent_action_labels import build_step_label
 from vibeagent.agent_action_logging import log_action
 from vibeagent.agent_action_targets import build_action_target
@@ -38,6 +39,38 @@ class AgentActionDescriptionTests(unittest.TestCase):
             build_action_target(action),
             "python -m unittest (cwd: .), npm test (cwd: web)",
         )
+
+    def test_command_check_target_reuses_command_target_format(self) -> None:
+        action = t.CommandCheckAction(type="command_check", command="npm test", cwd="")
+
+        self.assertEqual(build_action_target(action), "npm test (cwd: .)")
+
+    def test_approval_required_action_targets_match_approval_request_targets(self) -> None:
+        actions = [
+            t.RunCommandAction(type="run_command", command="python -m unittest", cwd="."),
+            t.RunCommandsAction(
+                type="run_commands",
+                commands=[
+                    t.RunCommandItem(command="python -m unittest", cwd="."),
+                    t.RunCommandItem(command="npm test", cwd="web"),
+                ],
+            ),
+            t.RunSuggestedChecksAction(type="run_suggested_checks", max_commands=2),
+            t.RunFocusedTestCommandsAction(type="run_focused_test_commands", max_commands=3),
+            t.RunSessionVerificationAction(
+                type="run_session_verification",
+                run_id="run-1",
+                include_failed=True,
+                include_pending=False,
+            ),
+            t.StartCommandAction(type="start_command", command="npm run dev", cwd="web"),
+        ]
+
+        for action in actions:
+            with self.subTest(action=action.type):
+                request = build_approval_request(action)
+                self.assertIsNotNone(request)
+                self.assertEqual(build_action_target(action), request.target)
 
     def test_action_targets_reuse_verification_runner_target_format(self) -> None:
         self.assertEqual(

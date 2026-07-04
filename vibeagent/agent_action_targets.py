@@ -203,7 +203,7 @@ def build_action_target(action: object) -> str:
     if isinstance(action, t.CodeRenameAction):
         return f"{action.symbol} -> {action.new_name} in {action.path or '.'}"
     if isinstance(action, t.CommandCheckAction):
-        return f"{action.command} (cwd: {action.cwd or '.'})"
+        return command_target(action.command, action.cwd)
     if isinstance(action, t.PortCheckAction):
         return f"{action.host}:{action.port}"
     if isinstance(action, t.HttpCheckAction):
