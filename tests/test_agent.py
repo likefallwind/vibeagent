@@ -1034,6 +1034,48 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(blocked_events[0]["details"]["deniedApprovals"], ["write_file note.txt: denied"])
         self.assertEqual(result.latest_completion_denied_approvals, ["write_file note.txt: denied"])
 
+    def test_denied_approval_resolution_matches_non_project_targets(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="stop_process",
+                target="proc-1",
+                message="denied",
+            ),
+            types_module.StopProcessObservation(
+                kind="stop_process",
+                process_id="proc-1",
+                pid=123,
+                ok=True,
+                exit_code=0,
+                signal=None,
+                message="Stopped proc-1.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_non_project_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="stop_process",
+                target="proc-1",
+                message="denied",
+            ),
+            types_module.StopProcessObservation(
+                kind="stop_process",
+                process_id="proc-2",
+                pid=456,
+                ok=True,
+                exit_code=0,
+                signal=None,
+                message="Stopped proc-2.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), ["stop_process proc-1: denied"])
+
     def test_run_agent_continues_when_multistep_work_has_no_plan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)

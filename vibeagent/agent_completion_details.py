@@ -97,7 +97,9 @@ def denied_approval_resolved(denied: Observation, later_observations: list[Obser
         if observation_failed(observation):
             continue
         if action_type not in PROJECT_CHANGE_OBSERVATION_KINDS:
-            if observation.kind == action_type:
+            if observation.kind != action_type:
+                continue
+            if not denied_target or denied_approval_target_matches_observation(denied_target, observation):
                 return True
             continue
         if observation.kind not in PROJECT_CHANGE_OBSERVATION_KINDS:
@@ -117,7 +119,7 @@ def denied_approval_target_matches_observation(denied_target: str, observation: 
 
 def observation_target_tokens(observation: Observation) -> set[str]:
     tokens: set[str] = set()
-    for name in ("path", "definition_path", "source", "destination"):
+    for name in ("path", "definition_path", "source", "destination", "process_id"):
         tokens.update(normalized_approval_target_tokens(getattr(observation, name, "")))
     for name in ("paths", "files"):
         values = getattr(observation, name, [])
