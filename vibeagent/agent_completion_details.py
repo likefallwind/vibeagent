@@ -121,6 +121,16 @@ def observation_target_tokens(observation: Observation) -> set[str]:
     tokens: set[str] = set()
     for name in ("path", "definition_path", "source", "destination", "process_id"):
         tokens.update(normalized_approval_target_tokens(getattr(observation, name, "")))
+    command = str(getattr(observation, "command", "") or "").strip()
+    if command:
+        cwd = str(getattr(observation, "cwd", ".") or ".")
+        tokens.add(command_target_token(command, cwd))
+    result = getattr(observation, "result", None)
+    if result is not None:
+        command = str(getattr(result, "command", "") or "").strip()
+        if command:
+            cwd = str(getattr(result, "cwd", ".") or ".")
+            tokens.add(command_target_token(command, cwd))
     for name in ("paths", "files"):
         values = getattr(observation, name, [])
         if not isinstance(values, list):
@@ -138,10 +148,16 @@ def observation_target_tokens(observation: Observation) -> set[str]:
     return tokens
 
 
+def command_target_token(command: str, cwd: str) -> str:
+    return f"{command} (cwd: {cwd or '.'})"
+
+
 def normalized_approval_target_tokens(value: object) -> set[str]:
     text = str(value or "").strip()
     if not text:
         return set()
+    if "(cwd:" in text:
+        return {text}
     tokens: set[str] = set()
     candidates = [text]
     candidates.extend(part.strip() for part in text.split(","))

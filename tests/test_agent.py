@@ -1076,6 +1076,57 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(completion_module.build_denied_approval_details(observations), ["stop_process proc-1: denied"])
 
+    def test_denied_approval_resolution_matches_run_command_targets(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="run_command",
+                target="python -m unittest (cwd: .)",
+                message="denied",
+            ),
+            RunCommandObservation(
+                kind="run_command",
+                result=CommandResult(
+                    command="python -m unittest",
+                    exit_code=0,
+                    stdout="",
+                    stderr="",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                ),
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_run_command_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="run_command",
+                target="python -m unittest (cwd: .)",
+                message="denied",
+            ),
+            RunCommandObservation(
+                kind="run_command",
+                result=CommandResult(
+                    command="npm test",
+                    exit_code=0,
+                    stdout="",
+                    stderr="",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                ),
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["run_command python -m unittest (cwd: .): denied"],
+        )
+
     def test_run_agent_continues_when_multistep_work_has_no_plan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)
