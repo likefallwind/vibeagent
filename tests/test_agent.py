@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckGitStageObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CommandCheckObservation, ContentBlock, EnvironmentInfoObservation, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ProjectInstructionSource, ProjectInstructionsObservation, ProjectManifest, ProjectManifestItem, ProjectManifestsObservation, ProjectOverviewObservation, ProjectTodo, ProjectTodosObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, RuntimeToolInfo, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, ToolSearchObservation, WaitProcessObservation
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckGitStageObservation, CheckRunCommandsObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CommandCheckObservation, ContentBlock, EnvironmentInfoObservation, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ProjectInstructionSource, ProjectInstructionsObservation, ProjectManifest, ProjectManifestItem, ProjectManifestsObservation, ProjectOverviewObservation, ProjectTodo, ProjectTodosObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, RuntimeToolInfo, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, ToolSearchObservation, WaitProcessObservation
 from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, GitChangesObservation, GitCommitObservation, GitDiffObservation, GitStageObservation, GitStatusObservation, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -5551,6 +5551,55 @@ class AgentTests(unittest.TestCase):
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_guides_blocked_command_check_to_safer_command(self) -> None:
+        observation = CommandCheckObservation(
+            kind="command_check",
+            ok=False,
+            command="xdg-open .",
+            cwd=".",
+            cwd_ok=True,
+            blocked=True,
+            block_reason="GUI file opener commands are not allowed in project mode",
+            executable_available=True,
+            missing_tool=None,
+            message="Command is blocked.",
+        )
+
+        instruction = get_next_action_instruction("check command safety", [observation])
+
+        self.assertIn("Command preflight was blocked", instruction)
+        self.assertIn("Choose a safer command", instruction)
+        self.assertIn("block reason", instruction)
+        self.assertIn("before requesting execution", instruction)
+
+    def test_next_action_instruction_guides_check_run_commands_missing_tool_to_environment(self) -> None:
+        observation = CheckRunCommandsObservation(
+            kind="check_run_commands",
+            ok=False,
+            checks=[
+                CommandCheckObservation(
+                    kind="command_check",
+                    ok=False,
+                    command="missing-tool --version",
+                    cwd=".",
+                    cwd_ok=True,
+                    blocked=False,
+                    block_reason=None,
+                    executable_available=False,
+                    missing_tool="missing-tool",
+                    message="Executable is unavailable.",
+                )
+            ],
+            message="Preflight failed.",
+        )
+
+        instruction = get_next_action_instruction("check verification commands", [observation])
+
+        self.assertIn("Command preflight found unavailable executable", instruction)
+        self.assertIn("missing-tool", instruction)
+        self.assertIn("environment_info", instruction)
+        self.assertIn("before requesting execution", instruction)
+
     def test_next_action_instruction_guides_output_diagnostics_to_edit_and_rerun(self) -> None:
         observation = OutputDiagnosticsObservation(
             kind="output_diagnostics",
@@ -6157,6 +6206,59 @@ class AgentTests(unittest.TestCase):
         self.assertIn("process_id=bg-1", instruction)
         self.assertIn("rerun the relevant check", instruction)
         self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_matched_wait_process_to_dependent_check(self) -> None:
+        observation = WaitProcessObservation(
+            kind="wait_process",
+            process_id="bg-1",
+            pid=1234,
+            ok=True,
+            running=True,
+            timed_out=False,
+            matched=True,
+            matched_stream="stdout",
+            matched_pattern="ready",
+            timeout_ms=1000,
+            exit_code=None,
+            signal=None,
+            stdout="ready\n",
+            stderr="",
+            max_output_chars=12000,
+            message="Readiness matched.",
+        )
+
+        instruction = get_next_action_instruction("verify dev server readiness", [observation])
+
+        self.assertIn("matched readiness output on stdout", instruction)
+        self.assertIn("dependent check", instruction)
+        self.assertIn("answer directly", instruction)
+
+    def test_next_action_instruction_guides_running_wait_process_to_read_or_stop(self) -> None:
+        observation = WaitProcessObservation(
+            kind="wait_process",
+            process_id="bg-1",
+            pid=1234,
+            ok=True,
+            running=True,
+            timed_out=True,
+            matched=False,
+            matched_stream=None,
+            matched_pattern=None,
+            timeout_ms=1000,
+            exit_code=None,
+            signal=None,
+            stdout="still booting\n",
+            stderr="",
+            max_output_chars=12000,
+            message="Process still running.",
+        )
+
+        instruction = get_next_action_instruction("wait for dev server", [observation])
+
+        self.assertIn("background command is still running", instruction)
+        self.assertIn("read_process", instruction)
+        self.assertIn("wait_process again", instruction)
+        self.assertIn("stop_process", instruction)
 
     def test_next_action_instruction_guides_pending_final_review_focused_tests(self) -> None:
         observation = FinalReviewObservation(
