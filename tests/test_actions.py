@@ -5967,6 +5967,7 @@ class ActionTests(unittest.TestCase):
                 '{"type":"tool_result","iteration":1,"name":"update_plan","result":{"kind":"update_plan","plan":[{"step":"Inspect","status":"completed"},{"step":"Test","status":"in_progress"}],"message":"Plan updated."}}\n'
                 '{"type":"tool_call","iteration":2,"id":"1","name":"write_file","input":{"path":"src/app.py","content":"SECRET_CONTENT"}}\n'
                 '{"type":"tool_result","iteration":3,"name":"run_command","result":{"kind":"run_command","result":{"command":"python3 -m unittest","exit_code":1,"stdout":"failure line","stderr":"AssertionError","timed_out":false,"signal":null,"cwd":"."}}}\n'
+                '{"type":"tool_result","iteration":3,"name":"start_command","result":{"kind":"start_command","ok":true,"process_id":"bg-1","pid":1234,"command":"npm run dev","cwd":"web"}}\n'
                 '{"type":"completion_blocked","blockers":["1 suggested verification check(s) are still pending after the latest project change."]}\n'
                 '{"type":"result","success":false,"status":"blocked","iterations":3,"message":"Needs verification.","completion_ready":false,"completion_blockers":["Task plan still has unfinished item(s): 1 in_progress."],"verification_checks":["pytest tests/test_one.py","pytest tests/test_two.py"],"pending_verification_checks":["npm test","npm run build"],"failed_verification_checks":["ruff check (exit=1)","mypy . (exit=1)"]}\n',
                 encoding="utf-8",
@@ -6011,6 +6012,12 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(spaced.run_id, "run-1")
         self.assertIn("1 completion blocker(s)", observation.blockers)
         self.assertIn("changed files exist but final_review has not run", observation.blockers)
+        self.assertIn("1 active background process(es)", observation.blockers)
+        self.assertEqual(observation.background_processes_started, 1)
+        self.assertEqual([process.process_id for process in observation.active_background_processes], ["bg-1"])
+        self.assertEqual(observation.active_background_processes[0].pid, 1234)
+        self.assertEqual(observation.active_background_processes[0].cwd, "web")
+        self.assertEqual(observation.active_background_processes[0].command, "npm run dev")
         self.assertFalse(observation.completion_ready)
         self.assertEqual(observation.completion_blockers, ["Task plan still has unfinished item(s): 1 in_progress."])
         self.assertEqual(

@@ -2991,6 +2991,16 @@ class AgentTests(unittest.TestCase):
                     ready=False,
                     status="blocked",
                     blockers=["2 completion blocker(s)", "1 failed verification check(s)"],
+                    background_processes_started=1,
+                    active_background_processes=[
+                        SessionAuditProcess(
+                            process_id="bg-1",
+                            pid=1234,
+                            command="npm run dev",
+                            cwd="web",
+                            line_number=8,
+                        )
+                    ],
                     completion_ready=False,
                     completion_blockers=["Task plan still has unfinished item(s): 1 in_progress."],
                     latest_completion_blockers=["1 suggested verification check(s) are still pending."],
@@ -3004,6 +3014,8 @@ class AgentTests(unittest.TestCase):
         self.assertIn("blockers: 2", text)
         self.assertIn("blocker: 2 completion blocker(s)", text)
         self.assertIn("blocker: 1 failed verification check(s)", text)
+        self.assertIn("backgroundProcesses: started=1 active=1", text)
+        self.assertIn("active_process: bg-1 pid=1234 cwd=web command=npm run dev", text)
         self.assertIn("completionReady: false", text)
         self.assertIn("completionBlocker: Task plan still has unfinished item(s): 1 in_progress.", text)
         self.assertIn("latestCompletionBlocker: 1 suggested verification check(s) are still pending.", text)
@@ -5126,6 +5138,39 @@ class AgentTests(unittest.TestCase):
         self.assertIn("session_verification", instruction)
         self.assertIn("session_failures", instruction)
         self.assertIn("session_output_diagnostics", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_session_handoff_active_processes(self) -> None:
+        observation = SessionHandoffObservation(
+            kind="session_handoff",
+            run_id="run-1",
+            ok=True,
+            handoff="Session handoff:\n  session: run-1",
+            message="Session handoff has blocker(s).",
+            ready=False,
+            status="blocked",
+            blockers=["1 active background process(es)"],
+            background_processes_started=1,
+            active_background_processes=[
+                SessionAuditProcess(
+                    process_id="bg-1",
+                    pid=1234,
+                    command="npm run dev",
+                    cwd="web",
+                    line_number=3,
+                )
+            ],
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session handoff reports active background process(es)", instruction)
+        self.assertIn("list_processes", instruction)
+        self.assertIn("read_process", instruction)
+        self.assertIn("stop_process", instruction)
+        self.assertIn("bg-1: npm run dev (cwd=web)", instruction)
+        self.assertIn("session_audit", instruction)
+        self.assertIn("session_verification", instruction)
         self.assertIn("before finishing", instruction)
 
     def test_next_action_instruction_guides_session_handoff_completion_blockers(self) -> None:

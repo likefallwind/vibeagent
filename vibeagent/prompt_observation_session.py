@@ -182,6 +182,19 @@ def format_session_observation(index: int, observation: object) -> str | None:
         if blockers:
             readiness_lines.append(f"blockers: {len(blockers)}")
             readiness_lines.extend(f"blocker: {blocker}" for blocker in blockers[:20])
+        active_processes = getattr(observation, "active_background_processes", [])
+        background_processes_started = int(getattr(observation, "background_processes_started", 0) or 0)
+        if background_processes_started or active_processes:
+            readiness_lines.append(
+                f"backgroundProcesses: started={background_processes_started} active={len(active_processes)}"
+            )
+            readiness_lines.extend(
+                (
+                    f"active_process: {process.process_id} pid={process.pid} "
+                    f"cwd={process.cwd} command={process.command}"
+                )
+                for process in active_processes[:20]
+            )
         completion_ready = getattr(observation, "completion_ready", None)
         if completion_ready is not None:
             readiness_lines.append(f"completionReady: {str(completion_ready).lower()}")

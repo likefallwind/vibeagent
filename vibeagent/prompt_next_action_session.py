@@ -288,11 +288,20 @@ def _session_audit_next_action_instruction(base: str, latest: Observation) -> st
 def _session_handoff_next_action_instruction(base: str, latest: Observation) -> str:
     blockers = [str(blocker).strip() for blocker in getattr(latest, "blockers", []) if str(blocker).strip()]
     completion_blockers = _completion_blocker_labels(latest)
+    active_processes = _session_audit_process_labels(getattr(latest, "active_background_processes", []))
     if getattr(latest, "ready", None) is True:
         return (
             f"{base} Session handoff reports the recovered session is ready. "
             "Use its plan and verification sections to continue any remaining requested work, "
             "or answer directly if the task is complete."
+        )
+
+    if active_processes:
+        return (
+            f"{base} Session handoff reports active background process(es). "
+            "Use list_processes and read_process to inspect them, or stop_process if they are no longer needed: "
+            f"{_format_next_action_items(active_processes)}. "
+            "Then run session_audit or session_verification before finishing."
         )
 
     if blockers and _has_completion_blocker_signal(blockers, latest):

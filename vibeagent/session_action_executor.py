@@ -521,6 +521,29 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
                 for blocker in blockers_section.get("items", [])
                 if isinstance(blocker, str) and blocker.strip()
             ]
+            background = audit.get("backgroundProcesses") if isinstance(audit.get("backgroundProcesses"), dict) else {}
+            started = background.get("started")
+            background_processes_started = started if isinstance(started, int) else 0
+            active_background_processes = []
+            processes = background.get("processes") if isinstance(background.get("processes"), list) else []
+            for process in processes:
+                if not isinstance(process, dict):
+                    continue
+                process_id = str(process.get("processId") or "").strip()
+                command = str(process.get("command") or "").strip()
+                if not process_id and not command:
+                    continue
+                pid = process.get("pid")
+                line_number = process.get("lineNumber")
+                active_background_processes.append(
+                    SessionAuditProcess(
+                        process_id=process_id,
+                        pid=pid if isinstance(pid, int) else None,
+                        command=command,
+                        cwd=str(process.get("cwd") or ".").strip() or ".",
+                        line_number=line_number if isinstance(line_number, int) else 0,
+                    )
+                )
             completion = audit.get("completion") if isinstance(audit.get("completion"), dict) else {}
             completion_ready = completion.get("ready") if isinstance(completion.get("ready"), bool) else None
             completion_blockers = [
@@ -540,6 +563,8 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             ready = False
             status = "invalid"
             blockers = []
+            background_processes_started = 0
+            active_background_processes = []
             completion_ready = None
             completion_blockers = []
             latest_completion_blockers = []
@@ -553,6 +578,8 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             ready=ready,
             status=status,
             blockers=blockers,
+            background_processes_started=background_processes_started,
+            active_background_processes=active_background_processes,
             completion_ready=completion_ready,
             completion_blockers=completion_blockers,
             latest_completion_blockers=latest_completion_blockers,

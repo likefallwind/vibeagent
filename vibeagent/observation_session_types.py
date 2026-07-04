@@ -174,6 +174,8 @@ class SessionHandoffObservation:
     ready: bool | None = None
     status: str = ""
     blockers: list[str] = field(default_factory=list)
+    background_processes_started: int = 0
+    active_background_processes: list[SessionAuditProcess] = field(default_factory=list)
     completion_ready: bool | None = None
     completion_blockers: list[str] = field(default_factory=list)
     latest_completion_blockers: list[str] = field(default_factory=list)
