@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .action_parsing_helpers import ActionParseError, parse_nonnegative_int, parse_optional_positive_int
+from .session_input import normalize_optional_run_id
 from .types import (
     SessionAuditAction,
     SessionCommandsAction,
@@ -40,9 +41,7 @@ SESSION_ACTION_TYPES = {
 def _parse_run_id(value: Any, raw: str, action_type: str) -> str | None:
     if value is not None and not isinstance(value, str):
         raise ActionParseError(f"{action_type} action run_id must be a string when provided.", raw)
-    if not isinstance(value, str):
-        return None
-    return value.strip() or None
+    return normalize_optional_run_id(value)
 
 
 def _parse_min_text(value: Any, raw: str, default: int) -> int:

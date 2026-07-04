@@ -3,12 +3,7 @@ from __future__ import annotations
 import shlex
 
 from .cli_parse_core import parse_interactive_nonnegative_option, parse_interactive_positive_option
-
-
-def _normalize_run_id(value: str | None) -> str | None:
-    if value is None:
-        return None
-    return value.strip() or None
+from .session_input import normalize_optional_run_id
 
 
 def parse_interactive_transcript_argument(
@@ -60,7 +55,7 @@ def parse_interactive_transcript_argument(
             return None, {}, f"{usage}\n  error: Unknown option: {part}"
         if run_id is not None:
             return None, {}, usage
-        run_id = _normalize_run_id(part)
+        run_id = normalize_optional_run_id(part)
         index += 1
     return run_id, kwargs, None
 
@@ -87,11 +82,11 @@ def parse_interactive_session_search_argument(
         if part == "--run":
             if index + 1 >= len(parts):
                 return None, None, {}, f"{usage}\n  error: --run requires a value."
-            run_id = _normalize_run_id(parts[index + 1])
+            run_id = normalize_optional_run_id(parts[index + 1])
             index += 2
             continue
         if part.startswith("--run="):
-            run_id = _normalize_run_id(part.split("=", 1)[1])
+            run_id = normalize_optional_run_id(part.split("=", 1)[1])
             index += 1
             continue
         if part == "--max-matches":
@@ -173,7 +168,7 @@ def parse_interactive_session_detail_argument(
             return None, {}, f"{usage}\n  error: Unknown option: {part}"
         if run_id is not None:
             return None, {}, usage
-        run_id = _normalize_run_id(part)
+        run_id = normalize_optional_run_id(part)
         index += 1
     return run_id, kwargs, None
 
@@ -230,7 +225,7 @@ def parse_interactive_run_session_verification_argument(
             return None, {}, f"{usage}\n  error: Unknown option: {part}"
         if run_id is not None:
             return None, {}, usage
-        run_id = _normalize_run_id(part)
+        run_id = normalize_optional_run_id(part)
         index += 1
     if kwargs.get("include_failed") is False and kwargs.get("include_pending") is False:
         return None, {}, f"{usage}\n  error: --no-failed and --no-pending cannot be used together."

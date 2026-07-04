@@ -5,12 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .cli_local_result import local_text_or_report
-
-
-def _normalize_run_id(value: str | None) -> str | None:
-    if value is None:
-        return None
-    return value.strip() or None
+from .session_input import normalize_optional_run_id
 
 
 def _normalize_session_search_query(value: str) -> str:
@@ -115,7 +110,7 @@ def run_session_local_flag(
             lambda: commands["get_last_session_text"](root),
         )
     if args.session is not None:
-        run_id = _normalize_run_id(args.session)
+        run_id = normalize_optional_run_id(args.session)
         return local_text_or_report(
             args,
             "sessionSummary",
@@ -124,7 +119,7 @@ def run_session_local_flag(
             lambda: commands["get_session_text"](run_id, root),
         )
     if args.plan is not None:
-        run_id = _normalize_run_id(args.plan)
+        run_id = normalize_optional_run_id(args.plan)
         return local_text_or_report(
             args,
             "sessionPlan",
@@ -134,7 +129,7 @@ def run_session_local_flag(
         )
     if args.transcript is not None:
         session_kwargs = commands["session_transcript_kwargs"](args)
-        run_id = _normalize_run_id(args.transcript)
+        run_id = normalize_optional_run_id(args.transcript)
         return local_text_or_report(
             args,
             "sessionTranscript",
@@ -145,7 +140,7 @@ def run_session_local_flag(
     if args.session_search is not None:
         session_kwargs = commands["session_search_kwargs"](args)
         query = _normalize_session_search_query(args.session_search)
-        run_id = _normalize_run_id(args.session_search_run)
+        run_id = normalize_optional_run_id(args.session_search_run)
         return local_text_or_report(
             args,
             "sessionSearch",
@@ -155,7 +150,7 @@ def run_session_local_flag(
         )
     if args.session_commands is not None:
         session_kwargs = commands["session_commands_kwargs"](args)
-        run_id = _normalize_run_id(args.session_commands)
+        run_id = normalize_optional_run_id(args.session_commands)
         return local_text_or_report(
             args,
             "sessionCommands",
@@ -165,7 +160,7 @@ def run_session_local_flag(
         )
     if args.session_output_contexts is not None:
         session_kwargs = commands["session_output_contexts_kwargs"](args)
-        run_id = _normalize_run_id(args.session_output_contexts)
+        run_id = normalize_optional_run_id(args.session_output_contexts)
         return local_text_or_report(
             args,
             "sessionOutputContexts",
@@ -175,7 +170,7 @@ def run_session_local_flag(
         )
     if args.session_output_diagnostics is not None:
         session_kwargs = commands["session_output_diagnostics_kwargs"](args)
-        run_id = _normalize_run_id(args.session_output_diagnostics)
+        run_id = normalize_optional_run_id(args.session_output_diagnostics)
         return local_text_or_report(
             args,
             "sessionOutputDiagnostics",
@@ -185,7 +180,7 @@ def run_session_local_flag(
         )
     if args.session_files is not None:
         session_kwargs = commands["session_files_kwargs"](args)
-        run_id = _normalize_run_id(args.session_files)
+        run_id = normalize_optional_run_id(args.session_files)
         return local_text_or_report(
             args,
             "sessionFiles",
@@ -195,7 +190,7 @@ def run_session_local_flag(
         )
     if args.session_failures is not None:
         session_kwargs = commands["session_failures_kwargs"](args)
-        run_id = _normalize_run_id(args.session_failures)
+        run_id = normalize_optional_run_id(args.session_failures)
         return local_text_or_report(
             args,
             "sessionFailures",
@@ -205,7 +200,7 @@ def run_session_local_flag(
         )
     if args.session_verification is not None:
         session_kwargs = commands["session_verification_kwargs"](args)
-        run_id = _normalize_run_id(args.session_verification)
+        run_id = normalize_optional_run_id(args.session_verification)
         return local_text_or_report(
             args,
             "sessionVerification",
@@ -215,7 +210,7 @@ def run_session_local_flag(
         )
     if args.run_session_verification is not None:
         session_kwargs = commands["run_session_verification_kwargs"](args)
-        run_id = _normalize_run_id(args.run_session_verification)
+        run_id = normalize_optional_run_id(args.run_session_verification)
         return local_text_or_report(
             args,
             "runSessionVerification",
@@ -225,7 +220,7 @@ def run_session_local_flag(
         )
     if args.session_audit is not None:
         session_kwargs = commands["session_audit_kwargs"](args)
-        run_id = _normalize_run_id(args.session_audit)
+        run_id = normalize_optional_run_id(args.session_audit)
         return local_text_or_report(
             args,
             "sessionAudit",
@@ -235,7 +230,7 @@ def run_session_local_flag(
         )
     if args.session_handoff is not None:
         session_kwargs = commands["session_handoff_kwargs"](args)
-        run_id = _normalize_run_id(args.session_handoff)
+        run_id = normalize_optional_run_id(args.session_handoff)
         return local_text_or_report(
             args,
             "sessionHandoff",
