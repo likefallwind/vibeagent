@@ -300,10 +300,22 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
 
 
 def _inline_output_issue_labels(value: object) -> list[str]:
-    diagnostics = diagnostic_labels(getattr(value, "output_diagnostics", []))
+    diagnostics = _diagnostic_source_labels(getattr(value, "output_diagnostics", []))
     if diagnostics:
         return diagnostics
     return context_labels(getattr(value, "output_contexts", []))
+
+
+def _diagnostic_source_labels(values: object) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    labels: list[str] = []
+    for value in values:
+        path = str(getattr(value, "path", "") or "").strip()
+        if not path:
+            continue
+        labels.extend(diagnostic_labels([value]))
+    return labels
 
 
 def _inline_output_issue_instruction(

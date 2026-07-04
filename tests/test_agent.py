@@ -6705,6 +6705,77 @@ class AgentTests(unittest.TestCase):
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_prefers_inline_context_when_diagnostic_has_no_source(self) -> None:
+        observation = RunCommandObservation(
+            kind="run_command",
+            result=CommandResult(
+                command="python -m unittest tests.test_agent",
+                exit_code=1,
+                stdout="FAIL: tests/test_agent.py:42\n",
+                stderr="AssertionError: expected ready\n",
+                timed_out=False,
+                signal=None,
+                cwd=".",
+                output_diagnostics=[
+                    OutputDiagnostic(
+                        severity="failure",
+                        output_line=8,
+                        text="AssertionError: expected ready",
+                    )
+                ],
+                output_diagnostic_total=1,
+                output_contexts=[
+                    OutputContextResult(
+                        path="tests/test_agent.py",
+                        line=42,
+                        column=8,
+                        raw="tests/test_agent.py:42:8",
+                        ok=True,
+                        content="42: self.assertTrue(False)\n",
+                        message="Read tests/test_agent.py:42.",
+                    )
+                ],
+                output_context_total_refs=1,
+            ),
+        )
+
+        instruction = get_next_action_instruction("fix the failing test", [observation])
+
+        self.assertIn("Inline output analysis identified referenced source location", instruction)
+        self.assertIn("tests/test_agent.py:42:8", instruction)
+        self.assertNotIn("failure: AssertionError: expected ready", instruction)
+        self.assertNotIn("use output_diagnostics", instruction)
+        self.assertIn("rerun the failed command", instruction)
+
+    def test_next_action_instruction_ignores_inline_text_only_diagnostic_as_source_location(self) -> None:
+        observation = RunCommandObservation(
+            kind="run_command",
+            result=CommandResult(
+                command="python -m unittest tests.test_agent",
+                exit_code=1,
+                stdout="FAIL\n",
+                stderr="AssertionError: expected ready\n",
+                timed_out=False,
+                signal=None,
+                cwd=".",
+                output_diagnostics=[
+                    OutputDiagnostic(
+                        severity="failure",
+                        output_line=8,
+                        text="AssertionError: expected ready",
+                    )
+                ],
+                output_diagnostic_total=1,
+            ),
+        )
+
+        instruction = get_next_action_instruction("fix the failing test", [observation])
+
+        self.assertIn("stdout/stderr", instruction)
+        self.assertIn("output_diagnostics", instruction)
+        self.assertNotIn("Inline output analysis identified referenced source location", instruction)
+        self.assertIn("rerun the failed command", instruction)
+
     def test_next_action_instruction_guides_blocked_command_check_to_safer_command(self) -> None:
         observation = CommandCheckObservation(
             kind="command_check",
