@@ -232,6 +232,51 @@ def _final_review_next_action_instruction(base: str, latest: Observation) -> str
     return f"{base} Final review is not ready. Inspect its warnings and changed files, fix blockers, then rerun final_review before finishing."
 
 
+def _diagnostics_next_action_instruction(
+    base: str,
+    latest: Observation,
+    *,
+    label: str,
+    output_source: str,
+    rerun_target: str,
+) -> str:
+    diagnostics = _diagnostic_labels(getattr(latest, "diagnostics", []))
+    if diagnostics:
+        return (
+            f"{base} {label} diagnostics found concrete issues. "
+            f"Inspect or edit the referenced source for: {_format_next_action_items(diagnostics)}. "
+            f"Then rerun the {rerun_target} before finishing."
+        )
+    return (
+        f"{base} {label} diagnostics did not find concrete file references. "
+        f"Use the {output_source} and any available contexts to inspect the likely source, fix the issue, "
+        f"and rerun the {rerun_target} before finishing."
+    )
+
+
+def _contexts_next_action_instruction(
+    base: str,
+    latest: Observation,
+    *,
+    label: str,
+    fallback_tool: str,
+    output_source: str,
+    rerun_target: str,
+) -> str:
+    contexts = _context_labels(getattr(latest, "contexts", []))
+    if contexts:
+        return (
+            f"{base} {label} contexts located source references. "
+            f"Inspect or edit the relevant code for: {_format_next_action_items(contexts)}. "
+            f"Then rerun the {rerun_target} before finishing."
+        )
+    return (
+        f"{base} {label} contexts did not find source references. "
+        f"Use {fallback_tool} or the {output_source} to identify the failure, "
+        f"then fix it and rerun the {rerun_target} before finishing."
+    )
+
+
 def get_next_action_instruction(task: str, observations: list[Observation]) -> str:
     base = "Choose the next response: call a tool if needed, or answer directly if the task is complete."
     if not observations:
@@ -293,55 +338,41 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         return _final_review_next_action_instruction(base, latest)
 
     if latest.kind == "output_diagnostics":
-        diagnostics = _diagnostic_labels(getattr(latest, "diagnostics", []))
-        if diagnostics:
-            return (
-                f"{base} Output diagnostics found concrete issues. Inspect or edit the referenced source for: "
-                f"{_format_next_action_items(diagnostics)}. Then rerun the failed command before finishing."
-            )
-        return (
-            f"{base} Output diagnostics did not find concrete file references. Use the command output and any "
-            "available contexts to inspect the likely source, fix the issue, and rerun the failed command before finishing."
+        return _diagnostics_next_action_instruction(
+            base,
+            latest,
+            label="Output",
+            output_source="command output",
+            rerun_target="failed command",
         )
 
     if latest.kind == "output_contexts":
-        contexts = _context_labels(getattr(latest, "contexts", []))
-        if contexts:
-            return (
-                f"{base} Output contexts located source references. Inspect or edit the relevant code for: "
-                f"{_format_next_action_items(contexts)}. Then rerun the failed command before finishing."
-            )
-        return (
-            f"{base} Output contexts did not find source references. Use output_diagnostics or the command output "
-            "to identify the failure, then fix it and rerun the failed command before finishing."
+        return _contexts_next_action_instruction(
+            base,
+            latest,
+            label="Output",
+            fallback_tool="output_diagnostics",
+            output_source="command output",
+            rerun_target="failed command",
         )
 
     if latest.kind == "process_output_diagnostics":
-        diagnostics = _diagnostic_labels(getattr(latest, "diagnostics", []))
-        if diagnostics:
-            return (
-                f"{base} Process output diagnostics found concrete issues. "
-                f"Inspect or edit the referenced source for: {_format_next_action_items(diagnostics)}. "
-                "Then rerun the relevant check before finishing."
-            )
-        return (
-            f"{base} Process output diagnostics did not find concrete file references. "
-            "Use the process output and any available contexts to inspect the likely source, fix the issue, "
-            "and rerun the relevant check before finishing."
+        return _diagnostics_next_action_instruction(
+            base,
+            latest,
+            label="Process output",
+            output_source="process output",
+            rerun_target="relevant check",
         )
 
     if latest.kind == "process_output_contexts":
-        contexts = _context_labels(getattr(latest, "contexts", []))
-        if contexts:
-            return (
-                f"{base} Process output contexts located source references. "
-                f"Inspect or edit the relevant code for: {_format_next_action_items(contexts)}. "
-                "Then rerun the relevant check before finishing."
-            )
-        return (
-            f"{base} Process output contexts did not find source references. "
-            "Use process_output_diagnostics or the process output to identify the failure, "
-            "then fix it and rerun the relevant check before finishing."
+        return _contexts_next_action_instruction(
+            base,
+            latest,
+            label="Process output",
+            fallback_tool="process_output_diagnostics",
+            output_source="process output",
+            rerun_target="relevant check",
         )
 
     if latest.kind in SOURCE_CONTEXT_KINDS and _has_recovery_signal(observations[:-1]):
