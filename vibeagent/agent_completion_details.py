@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .agent_completion_kinds import PROJECT_CHANGE_OBSERVATION_KINDS
 from .agent_observation_utils import observation_failed
 from .types import Observation
 
@@ -78,19 +79,37 @@ def build_checkpoint_failure_details(observations: list[Observation]) -> list[st
 
 def build_denied_approval_details(observations: list[Observation]) -> list[str]:
     details: list[str] = []
-    for observation in observations:
+    for index, observation in enumerate(observations):
         if observation.kind != "approval_denied":
             continue
-        action_type = str(getattr(observation, "action_type", "unknown") or "unknown")
-        target = str(getattr(observation, "target", "") or "")
-        message = str(getattr(observation, "message", "") or "")
-        detail = action_type
-        if target:
-            detail += f" {target}"
-        if message:
-            detail += f": {message}"
-        details.append(detail)
+        if denied_approval_resolved(observation, observations[index + 1 :]):
+            continue
+        details.append(denied_approval_detail(observation))
     return details
+
+
+def denied_approval_resolved(denied: Observation, later_observations: list[Observation]) -> bool:
+    action_type = str(getattr(denied, "action_type", "") or "")
+    if not action_type:
+        return False
+    if action_type in PROJECT_CHANGE_OBSERVATION_KINDS:
+        return any(
+            observation.kind in PROJECT_CHANGE_OBSERVATION_KINDS and not observation_failed(observation)
+            for observation in later_observations
+        )
+    return any(observation.kind == action_type and not observation_failed(observation) for observation in later_observations)
+
+
+def denied_approval_detail(observation: Observation) -> str:
+    action_type = str(getattr(observation, "action_type", "unknown") or "unknown")
+    target = str(getattr(observation, "target", "") or "")
+    message = str(getattr(observation, "message", "") or "")
+    detail = action_type
+    if target:
+        detail += f" {target}"
+    if message:
+        detail += f": {message}"
+    return detail
 
 
 def latest_final_review(observations: list[Observation]) -> Observation | None:

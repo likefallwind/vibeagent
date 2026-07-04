@@ -229,9 +229,9 @@ def build_completion_blockers(success: bool, observations: list[Observation], pl
     tool_error_count = sum(1 for observation in observations if observation.kind == "tool_error")
     if tool_error_count:
         blockers.append(f"{tool_error_count} tool error(s) occurred.")
-    denied_approvals = sum(1 for observation in observations if observation.kind == "approval_denied")
+    denied_approvals = build_denied_approval_details(observations)
     if denied_approvals:
-        blockers.append(f"{denied_approvals} approval request(s) were denied.")
+        blockers.append(f"{len(denied_approvals)} approval request(s) were denied.")
     if any(observation.kind == "checkpoint_create" and observation_failed(observation) for observation in observations):
         blockers.append("Checkpoint creation failed; restore point may be unavailable.")
     running_process_count = final_review_running_process_count(final_review)
