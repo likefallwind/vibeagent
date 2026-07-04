@@ -173,6 +173,25 @@ def _failed_command_labels(results: object) -> list[str]:
     return labels
 
 
+def _not_run_selected_command_labels(values: object, ran_count: int) -> list[str]:
+    labels: list[str] = []
+    if not isinstance(values, list):
+        return labels
+    for index, value in enumerate(values):
+        if index < ran_count or not isinstance(value, dict):
+            continue
+        command = str(value.get("command") or "").strip()
+        cwd = str(value.get("cwd") or ".").strip() or "."
+        status = str(value.get("status") or "").strip()
+        if not command:
+            continue
+        label = f"{command} (cwd={cwd})"
+        if status:
+            label = f"{label}: {status}"
+        labels.append(label)
+    return labels
+
+
 def _source_context_labels(observation: Observation) -> list[str]:
     if observation.kind == "read_file_context":
         path = str(getattr(observation, "path", "") or "").strip()
@@ -417,14 +436,21 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
 
 def _run_session_verification_next_action_instruction(base: str, latest: Observation) -> str:
     selected_count = int(getattr(latest, "selected_count", 0) or 0)
-    failed_commands = _failed_command_labels(getattr(latest, "results", []))
+    results = getattr(latest, "results", [])
+    failed_commands = _failed_command_labels(results)
     if failed_commands:
         stopped = " The run stopped early after the first failure." if getattr(latest, "stopped_early", False) else ""
+        not_run = _not_run_selected_command_labels(getattr(latest, "selected_commands", []), len(results or []))
+        not_run_detail = (
+            f" Not-yet-run selected check(s): {_format_next_action_items(not_run)}."
+            if not_run
+            else ""
+        )
         return (
             f"{base} run_session_verification reran recorded verification check(s) and found failed command(s)."
             f"{stopped} Inspect stdout/stderr, use session_output_diagnostics or session_output_contexts for noisy output, "
             f"fix the issue(s), then rerun run_session_verification or session_verification before finishing: "
-            f"{_format_next_action_items(failed_commands)}."
+            f"{_format_next_action_items(failed_commands)}.{not_run_detail}"
         )
     if selected_count > 0 and getattr(latest, "ok", False):
         return (

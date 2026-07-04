@@ -7194,9 +7194,12 @@ class AgentTests(unittest.TestCase):
             kind="run_session_verification",
             run_id="run-1",
             ok=False,
-            selected_commands=[{"command": "npm test", "cwd": ".", "status": "failed"}],
-            selected_count=1,
-            pending_count=0,
+            selected_commands=[
+                {"command": "npm test", "cwd": ".", "status": "failed"},
+                {"command": "npm run build", "cwd": "web", "status": "pending"},
+            ],
+            selected_count=2,
+            pending_count=1,
             failed_count=1,
             results=[
                 CommandResult(
@@ -7221,6 +7224,8 @@ class AgentTests(unittest.TestCase):
         self.assertIn("session_output_diagnostics", instruction)
         self.assertIn("session_output_contexts", instruction)
         self.assertIn("npm test (cwd=., exit 1)", instruction)
+        self.assertIn("Not-yet-run selected check", instruction)
+        self.assertIn("npm run build (cwd=web): pending", instruction)
         self.assertIn("rerun run_session_verification", instruction)
         self.assertIn("before finishing", instruction)
 
