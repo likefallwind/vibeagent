@@ -68,6 +68,28 @@ def _running_process_labels(values: object) -> list[str]:
     return labels
 
 
+def _session_audit_process_labels(values: object) -> list[str]:
+    labels: list[str] = []
+    if not isinstance(values, list):
+        return labels
+    for value in values:
+        process_id = str(getattr(value, "process_id", "") or "").strip()
+        command = str(getattr(value, "command", "") or "").strip()
+        cwd = str(getattr(value, "cwd", "") or "").strip()
+        if process_id and command:
+            label = f"{process_id}: {command}"
+        elif process_id:
+            label = process_id
+        elif command:
+            label = command
+        else:
+            continue
+        if cwd and cwd != ".":
+            label = f"{label} (cwd={cwd})"
+        labels.append(label)
+    return labels
+
+
 def _diagnostic_labels(values: object) -> list[str]:
     labels: list[str] = []
     if not isinstance(values, list):
@@ -310,6 +332,42 @@ def _session_verification_next_action_instruction(base: str, latest: Observation
     )
 
 
+def _session_audit_next_action_instruction(base: str, latest: Observation) -> str:
+    if getattr(latest, "ready", False):
+        return (
+            f"{base} Session audit is ready. Continue with any remaining requested work, "
+            "or answer directly if the task is complete."
+        )
+
+    active_processes = _session_audit_process_labels(getattr(latest, "active_background_processes", []))
+    if active_processes:
+        return (
+            f"{base} Session audit is not ready because background processes are still active. "
+            "Use list_processes and read_process to inspect them, or stop_process if they are no longer needed: "
+            f"{_format_next_action_items(active_processes)}. "
+            "Then run session_verification or final_review before finishing."
+        )
+
+    blockers = [str(blocker).strip() for blocker in getattr(latest, "blockers", []) if str(blocker).strip()]
+    if blockers:
+        return (
+            f"{base} Session audit is not ready. Fix audit blocker(s): {_format_next_action_items(blockers)}. "
+            "Use session_verification or run_session_verification for verification blockers, "
+            "session_failures or session_output_diagnostics for failure blockers, then rerun session_audit before finishing."
+        )
+
+    if not getattr(latest, "ok", False):
+        return (
+            f"{base} Session audit could not confirm readiness. Inspect session_handoff, session_failures, "
+            "or session_verification, then fix blockers before finishing."
+        )
+
+    return (
+        f"{base} Session audit is not ready. Inspect the audit details, continue the incomplete work, "
+        "and rerun session_audit or final_review before finishing."
+    )
+
+
 def _diagnostics_next_action_instruction(
     base: str,
     latest: Observation,
@@ -417,6 +475,9 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
 
     if latest.kind == "session_verification":
         return _session_verification_next_action_instruction(base, latest)
+
+    if latest.kind == "session_audit":
+        return _session_audit_next_action_instruction(base, latest)
 
     if latest.kind == "output_diagnostics":
         return _diagnostics_next_action_instruction(

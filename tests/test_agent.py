@@ -4575,6 +4575,56 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Session verification is complete", instruction)
         self.assertIn("answer directly", instruction)
 
+    def test_next_action_instruction_guides_session_audit_active_processes(self) -> None:
+        observation = SessionAuditObservation(
+            kind="session_audit",
+            run_id="run-1",
+            ok=True,
+            audit="Session audit:\n  ready: no",
+            ready=False,
+            blockers=["1 active background process(es)", "1 pending verification check(s)"],
+            background_processes_started=1,
+            active_background_processes=[
+                SessionAuditProcess(
+                    process_id="bg-1",
+                    pid=1234,
+                    command="npm run dev",
+                    cwd="web",
+                    line_number=3,
+                )
+            ],
+            message="Read session audit for run-1.",
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session audit is not ready", instruction)
+        self.assertIn("background processes are still active", instruction)
+        self.assertIn("list_processes", instruction)
+        self.assertIn("read_process", instruction)
+        self.assertIn("stop_process", instruction)
+        self.assertIn("bg-1: npm run dev (cwd=web)", instruction)
+        self.assertIn("session_verification", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_ready_session_audit_to_finish(self) -> None:
+        observation = SessionAuditObservation(
+            kind="session_audit",
+            run_id="run-1",
+            ok=True,
+            audit="Session audit:\n  ready: yes",
+            ready=True,
+            blockers=[],
+            background_processes_started=0,
+            active_background_processes=[],
+            message="Read session audit for run-1.",
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session audit is ready", instruction)
+        self.assertIn("answer directly", instruction)
+
     def test_next_action_instruction_guides_failed_command_diagnostics(self) -> None:
         observation = RunCommandObservation(
             kind="run_command",
