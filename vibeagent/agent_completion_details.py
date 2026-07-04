@@ -131,6 +131,10 @@ def observation_target_tokens(observation: Observation) -> set[str]:
         if command:
             cwd = str(getattr(result, "cwd", ".") or ".")
             tokens.add(command_target_token(command, cwd))
+    result_tokens = command_result_target_tokens(getattr(observation, "results", []))
+    tokens.update(result_tokens)
+    if result_tokens:
+        tokens.add(", ".join(result_tokens))
     for name in ("paths", "files"):
         values = getattr(observation, name, [])
         if not isinstance(values, list):
@@ -145,6 +149,19 @@ def observation_target_tokens(observation: Observation) -> set[str]:
         for transfer in transfers:
             tokens.update(normalized_approval_target_tokens(getattr(transfer, "source", "")))
             tokens.update(normalized_approval_target_tokens(getattr(transfer, "destination", "")))
+    return tokens
+
+
+def command_result_target_tokens(results: object) -> list[str]:
+    if not isinstance(results, list):
+        return []
+    tokens: list[str] = []
+    for result in results:
+        command = str(getattr(result, "command", "") or "").strip()
+        if not command:
+            continue
+        cwd = str(getattr(result, "cwd", ".") or ".")
+        tokens.append(command_target_token(command, cwd))
     return tokens
 
 

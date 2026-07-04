@@ -1127,6 +1127,76 @@ class AgentTests(unittest.TestCase):
             ["run_command python -m unittest (cwd: .): denied"],
         )
 
+    def test_denied_approval_resolution_matches_run_commands_batch_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="run_commands",
+                target="python -m unittest (cwd: .), npm test (cwd: web)",
+                message="denied",
+            ),
+            RunCommandsObservation(
+                kind="run_commands",
+                results=[
+                    CommandResult(
+                        command="python -m unittest",
+                        exit_code=0,
+                        stdout="",
+                        stderr="",
+                        timed_out=False,
+                        signal=None,
+                        cwd=".",
+                    ),
+                    CommandResult(
+                        command="npm test",
+                        exit_code=0,
+                        stdout="",
+                        stderr="",
+                        timed_out=False,
+                        signal=None,
+                        cwd="web",
+                    ),
+                ],
+                ok=True,
+                stopped_early=False,
+                message="Ran 2 commands.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_partial_run_commands_batch_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="run_commands",
+                target="python -m unittest (cwd: .), npm test (cwd: web)",
+                message="denied",
+            ),
+            RunCommandsObservation(
+                kind="run_commands",
+                results=[
+                    CommandResult(
+                        command="python -m unittest",
+                        exit_code=0,
+                        stdout="",
+                        stderr="",
+                        timed_out=False,
+                        signal=None,
+                        cwd=".",
+                    ),
+                ],
+                ok=True,
+                stopped_early=False,
+                message="Ran 1 command.",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["run_commands python -m unittest (cwd: .), npm test (cwd: web): denied"],
+        )
+
     def test_run_agent_continues_when_multistep_work_has_no_plan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)
