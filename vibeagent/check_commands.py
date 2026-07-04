@@ -334,6 +334,11 @@ def format_run_suggested_checks_report_text(report: dict[str, object]) -> str:
     if message.startswith("Usage:"):
         return message
     suggested = report.get("suggestedChecks") if isinstance(report.get("suggestedChecks"), dict) else {}
+    suggested_items = (
+        [item for item in suggested.get("commands", []) if isinstance(item, dict)]
+        if isinstance(suggested.get("commands"), list)
+        else []
+    )
     results = [item for item in report.get("results", []) if isinstance(item, dict)] if isinstance(report.get("results"), list) else []
     lines = [
         "Run suggested checks:",
@@ -348,6 +353,21 @@ def format_run_suggested_checks_report_text(report: dict[str, object]) -> str:
         f"  durationMs: {report.get('durationMs', 0)}",
         f"  message: {message}",
     ]
+    if suggested_items:
+        lines.append("  suggestedChecks:")
+        for check in suggested_items:
+            lines.extend(
+                [
+                    f"    - command: {check.get('command') or ''}",
+                    f"      cwd: {check.get('cwd') or '.'}",
+                    f"      source: {check.get('source') or ''}",
+                    f"      available: {'yes' if bool(check.get('available')) else 'no'}",
+                    f"      missingTool: {check.get('missingTool') or 'none'}",
+                    f"      reason: {check.get('reason') or ''}",
+                ]
+            )
+    else:
+        lines.append("  suggestedChecks: none")
     if results:
         lines.append("  results:")
         for position, result in enumerate(results, start=1):
