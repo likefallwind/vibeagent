@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ReadFileContextObservation, ReadFileObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction, WaitProcessObservation
 from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -4877,6 +4877,59 @@ class AgentTests(unittest.TestCase):
         self.assertIn("tests/test_agent.py:42", instruction)
         self.assertIn("edit the relevant code", instruction)
         self.assertIn("rerun the failed command", instruction)
+
+    def test_next_action_instruction_guides_failed_read_process_to_process_diagnostics(self) -> None:
+        observation = ReadProcessObservation(
+            kind="read_process",
+            process_id="bg-1",
+            pid=1234,
+            ok=True,
+            running=False,
+            exit_code=1,
+            signal=None,
+            stdout="FAIL tests/test_agent.py:42\n",
+            stderr="AssertionError: expected ready\n",
+            max_output_chars=12000,
+            message="Process exited.",
+        )
+
+        instruction = get_next_action_instruction("fix background check", [observation])
+
+        self.assertIn("background command exited with a failure", instruction)
+        self.assertIn("process_output_diagnostics", instruction)
+        self.assertIn("process_output_contexts", instruction)
+        self.assertIn("process_id=bg-1", instruction)
+        self.assertIn("rerun the relevant check", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_failed_wait_process_to_process_diagnostics(self) -> None:
+        observation = WaitProcessObservation(
+            kind="wait_process",
+            process_id="bg-1",
+            pid=1234,
+            ok=True,
+            running=False,
+            timed_out=False,
+            matched=False,
+            matched_stream=None,
+            matched_pattern=None,
+            timeout_ms=1000,
+            exit_code=2,
+            signal=None,
+            stdout="",
+            stderr="failed\n",
+            max_output_chars=12000,
+            message="Process exited.",
+        )
+
+        instruction = get_next_action_instruction("fix background check", [observation])
+
+        self.assertIn("waited background command exited with a failure", instruction)
+        self.assertIn("process_output_diagnostics", instruction)
+        self.assertIn("process_output_contexts", instruction)
+        self.assertIn("process_id=bg-1", instruction)
+        self.assertIn("rerun the relevant check", instruction)
+        self.assertIn("before finishing", instruction)
 
     def test_next_action_instruction_guides_pending_final_review_focused_tests(self) -> None:
         observation = FinalReviewObservation(

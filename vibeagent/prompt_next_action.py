@@ -131,6 +131,14 @@ def _command_result_failed(result: object) -> bool:
     return bool(getattr(result, "timed_out", False)) or getattr(result, "exit_code", 0) != 0
 
 
+def _process_exited_with_failure(observation: Observation) -> bool:
+    if not getattr(observation, "ok", False) or getattr(observation, "running", False):
+        return False
+    exit_code = getattr(observation, "exit_code", 0)
+    signal = getattr(observation, "signal", None)
+    return bool(signal) or (exit_code is not None and exit_code != 0)
+
+
 def _failed_command_labels(results: object) -> list[str]:
     labels: list[str] = []
     if not isinstance(results, list):
@@ -252,6 +260,12 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
     if latest.kind == "read_process":
         if latest.ok and latest.running:
             return f"{base} Use the process output to continue, write_process if the process is waiting for input, or stop_process if it is no longer needed."
+        if _process_exited_with_failure(latest):
+            return (
+                f"{base} The background command exited with a failure. Inspect stdout/stderr; use "
+                f"process_output_diagnostics or process_output_contexts with process_id={latest.process_id} "
+                "when the output is noisy or names file:line references. Fix the issue and rerun the relevant check before finishing."
+            )
         if latest.ok:
             return f"{base} The background command exited. Use its output to decide whether to fix issues or answer directly."
         return f"{base} The process could not be read, so use a valid process id or choose another useful action."
@@ -328,6 +342,13 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
                 f"{_format_next_action_items(failures)}."
             )
         return f"{base} The latest {latest.kind} failed. Inspect its message, fix the issue, and rerun the check before finishing."
+
+    if latest.kind == "wait_process" and _process_exited_with_failure(latest):
+        return (
+            f"{base} The waited background command exited with a failure. Inspect stdout/stderr; use "
+            f"process_output_diagnostics or process_output_contexts with process_id={latest.process_id} "
+            "when the output is noisy or names file:line references. Fix the issue and rerun the relevant check before finishing."
+        )
 
     if latest.kind in BATCH_COMMAND_RESULT_KINDS:
         failed_commands = _failed_command_labels(getattr(latest, "results", []))
