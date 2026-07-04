@@ -157,6 +157,30 @@ def _running_process_labels(values: object) -> list[str]:
     return labels
 
 
+def _diagnostic_labels(values: object) -> list[str]:
+    labels: list[str] = []
+    if not isinstance(values, list):
+        return labels
+    for value in values:
+        path = str(getattr(value, "path", "") or "").strip()
+        line = getattr(value, "line", None)
+        column = getattr(value, "column", None)
+        text = str(getattr(value, "text", "") or "").strip()
+        severity = str(getattr(value, "severity", "") or "").strip()
+        location = path
+        if path and isinstance(line, int):
+            location = f"{path}:{line}"
+            if isinstance(column, int):
+                location = f"{location}:{column}"
+        if location and text:
+            labels.append(f"{location} {severity}: {text}" if severity else f"{location}: {text}")
+        elif location:
+            labels.append(location)
+        elif text:
+            labels.append(f"{severity}: {text}" if severity else text)
+    return labels
+
+
 def _final_review_next_action_instruction(base: str, latest: Observation) -> str:
     if getattr(latest, "ready", None) is not False:
         return f"{base} Use the final review report to decide whether to run verification, continue, or answer directly."
@@ -257,12 +281,23 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
     if latest.kind == "final_review":
         return _final_review_next_action_instruction(base, latest)
 
+    if latest.kind == "output_diagnostics":
+        diagnostics = _diagnostic_labels(getattr(latest, "diagnostics", []))
+        if diagnostics:
+            return (
+                f"{base} Output diagnostics found concrete issues. Inspect or edit the referenced source for: "
+                f"{_format_next_action_items(diagnostics)}. Then rerun the failed command before finishing."
+            )
+        return (
+            f"{base} Output diagnostics did not find concrete file references. Use the command output and any "
+            "available contexts to inspect the likely source, fix the issue, and rerun the failed command before finishing."
+        )
+
     if latest.kind in {
         "read_file",
         "read_file_context",
         "read_file_contexts",
         "output_contexts",
-        "output_diagnostics",
         "python_traceback",
         "tail_file",
         "read_files",

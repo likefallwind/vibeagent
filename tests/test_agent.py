@@ -4529,6 +4529,55 @@ class AgentTests(unittest.TestCase):
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_guides_output_diagnostics_to_edit_and_rerun(self) -> None:
+        observation = OutputDiagnosticsObservation(
+            kind="output_diagnostics",
+            diagnostics=[
+                OutputDiagnostic(
+                    severity="failure",
+                    output_line=8,
+                    text="AssertionError: expected ready",
+                    path="tests/test_agent.py",
+                    line=42,
+                    column=None,
+                    raw="tests/test_agent.py:42: AssertionError: expected ready",
+                )
+            ],
+            contexts=[],
+            total_diagnostics=1,
+            total_refs=1,
+            diagnostics_truncated=False,
+            contexts_truncated=False,
+            message="Extracted diagnostics.",
+        )
+
+        instruction = get_next_action_instruction("fix the failing test", [observation])
+
+        self.assertIn("Output diagnostics found concrete issues", instruction)
+        self.assertIn("tests/test_agent.py:42 failure: AssertionError: expected ready", instruction)
+        self.assertIn("Inspect or edit the referenced source", instruction)
+        self.assertIn("rerun the failed command", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_empty_output_diagnostics_to_command_output(self) -> None:
+        observation = OutputDiagnosticsObservation(
+            kind="output_diagnostics",
+            diagnostics=[],
+            contexts=[],
+            total_diagnostics=0,
+            total_refs=0,
+            diagnostics_truncated=False,
+            contexts_truncated=False,
+            message="No diagnostics found.",
+        )
+
+        instruction = get_next_action_instruction("fix the failing test", [observation])
+
+        self.assertIn("did not find concrete file references", instruction)
+        self.assertIn("Use the command output", instruction)
+        self.assertIn("rerun the failed command", instruction)
+        self.assertIn("before finishing", instruction)
+
     def test_next_action_instruction_guides_pending_final_review_focused_tests(self) -> None:
         observation = FinalReviewObservation(
             kind="final_review",
