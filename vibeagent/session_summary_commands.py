@@ -11,6 +11,7 @@ from .session import (
     get_last_session_id,
     summarize_session,
 )
+from .session_input import normalize_optional_run_id
 
 
 def _clip(value: str, max_length: int) -> str:
@@ -27,7 +28,8 @@ def get_session_text(run_id: str | None, project_root: str | Path = ".") -> str:
 
 
 def get_session_report(run_id: str | None, project_root: str | Path = ".") -> dict[str, object]:
-    if not run_id:
+    selected = normalize_optional_run_id(run_id)
+    if not selected:
         return {
             "session": None,
             "exists": False,
@@ -36,10 +38,10 @@ def get_session_report(run_id: str | None, project_root: str | Path = ".") -> di
             "message": "Usage: /session <run-id>",
         }
     try:
-        return build_session_summary_report(summarize_session(project_root, run_id))
+        return build_session_summary_report(summarize_session(project_root, selected))
     except ValueError as error:
         return {
-            "session": run_id,
+            "session": selected,
             "exists": False,
             "ok": False,
             "status": "invalid",
@@ -252,7 +254,7 @@ def get_plan_text(project_root: str | Path = ".", run_id: str | None = None) -> 
 
 
 def get_plan_report(project_root: str | Path = ".", run_id: str | None = None) -> dict[str, object]:
-    selected = run_id or get_last_session_id(project_root)
+    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
     if not selected:
         return {
             "session": None,
@@ -310,7 +312,7 @@ def get_transcript_report(
     max_events: int = 80,
     max_text: int = 500,
 ) -> dict[str, object]:
-    selected = run_id or get_last_session_id(project_root)
+    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
     if not selected:
         return {
             "session": None,
@@ -390,17 +392,17 @@ def get_session_search_report(
     max_text: int = 500,
     case_sensitive: bool = False,
 ) -> dict[str, object]:
+    selected = normalize_optional_run_id(run_id)
     if not argument or not argument.strip():
         return {
-            "session": run_id,
+            "session": selected,
             "exists": False,
             "ok": False,
             "status": "invalid",
             "message": "Usage: /session-search [--run run-id] <query>",
         }
-    selected = run_id
     query = argument.strip()
-    if run_id is None:
+    if selected is None:
         try:
             parts = shlex.split(argument)
         except ValueError as error:
@@ -412,7 +414,7 @@ def get_session_search_report(
                 "message": str(error),
             }
         if len(parts) >= 3 and parts[0] == "--run":
-            selected = parts[1]
+            selected = normalize_optional_run_id(parts[1])
             query = " ".join(parts[2:]).strip()
         else:
             query = argument.strip()
