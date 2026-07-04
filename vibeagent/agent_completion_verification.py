@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from .agent_completion_kinds import PROJECT_CHANGE_OBSERVATION_KINDS, VERIFICATION_INVALIDATING_OBSERVATION_KINDS
+from .agent_completion_kinds import (
+    AUTO_FINAL_REVIEW_OBSERVATION_KINDS,
+    PROJECT_CHANGE_OBSERVATION_KINDS,
+    VERIFICATION_INVALIDATING_OBSERVATION_KINDS,
+)
 from .agent_observation_utils import observation_failed
 from .types import Observation
 from .verification_command_utils import command_keys_from_objects, verification_commands_from_final_review
@@ -93,6 +97,14 @@ def latest_successful_project_change_index(observations: list[Observation]) -> i
     for index in range(len(observations) - 1, -1, -1):
         observation = observations[index]
         if observation.kind in PROJECT_CHANGE_OBSERVATION_KINDS and not observation_failed(observation):
+            return index
+    return None
+
+
+def latest_successful_auto_final_review_change_index(observations: list[Observation]) -> int | None:
+    for index in range(len(observations) - 1, -1, -1):
+        observation = observations[index]
+        if observation.kind in AUTO_FINAL_REVIEW_OBSERVATION_KINDS and not observation_failed(observation):
             return index
     return None
 

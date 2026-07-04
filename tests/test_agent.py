@@ -4121,6 +4121,48 @@ class AgentTests(unittest.TestCase):
             "Command execution completed after final_review",
         )
 
+    def test_auto_final_review_reason_ignores_stash_drop_after_review(self) -> None:
+        review = FinalReviewObservation(
+            kind="final_review",
+            ok=True,
+            ready=True,
+            blocking_issues=[],
+            warnings=[],
+            running_processes=[],
+            files=[],
+            total_files=0,
+            suggested_checks=[],
+            suggested_checks_total=0,
+            suggested_checks_truncated=False,
+            diff_check="",
+            staged_diff_check="",
+            status="",
+            message="Ready.",
+        )
+        stash_drop = types_module.GitStashDropObservation(
+            kind="git_stash_drop",
+            ok=True,
+            stash_ref="stash@{0}",
+            patch="",
+            summary="stash@{0}: WIP",
+            remaining_total=0,
+            message="Dropped stash@{0}.",
+        )
+        commit = GitCommitObservation(
+            kind="git_commit",
+            ok=True,
+            head_before="abc123",
+            head_after="def456",
+            status="",
+            message="Committed changes.",
+        )
+
+        self.assertIsNone(agent_module.auto_final_review_reason(True, [review, stash_drop]))
+        self.assertEqual(
+            agent_module.auto_final_review_reason(True, [review, commit]),
+            "Project changes completed after final_review",
+        )
+
     def test_run_agent_blocks_when_final_review_reports_running_background_process(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)

@@ -28,6 +28,7 @@ from .agent_completion_verification import (
     final_review_focused_test_commands,
     final_review_suggested_commands,
     final_review_verification_commands,
+    latest_successful_auto_final_review_change_index,
     latest_successful_project_change_index,
     observation_runs_suggested_check_successfully,
     successful_suggested_check_commands,
@@ -42,7 +43,7 @@ def auto_final_review_reason(success: bool, observations: list[Observation]) -> 
     if not success:
         return None
     final_review_index = latest_observation_index(observations, {"final_review"})
-    project_change_index = latest_successful_project_change_index(observations)
+    project_change_index = latest_successful_auto_final_review_change_index(observations)
     if project_change_index is not None:
         if final_review_index is None:
             return "Project changes completed without final_review"
