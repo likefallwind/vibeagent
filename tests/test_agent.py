@@ -7013,6 +7013,32 @@ class AgentTests(unittest.TestCase):
             PROJECT_CHANGE_OBSERVATION_KINDS,
         )
 
+    def test_auto_final_review_exclusions_are_metadata_project_changes(self) -> None:
+        from vibeagent.agent_completion_kinds import (
+            AUTO_FINAL_REVIEW_EXCLUDED_OBSERVATION_KINDS,
+            AUTO_FINAL_REVIEW_OBSERVATION_KINDS,
+            PROJECT_CHANGE_OBSERVATION_KINDS,
+            VCS_METADATA_OBSERVATION_KINDS,
+            VERIFICATION_INVALIDATING_OBSERVATION_KINDS,
+        )
+
+        self.assertLessEqual(
+            AUTO_FINAL_REVIEW_EXCLUDED_OBSERVATION_KINDS,
+            PROJECT_CHANGE_OBSERVATION_KINDS,
+        )
+        self.assertLessEqual(
+            AUTO_FINAL_REVIEW_EXCLUDED_OBSERVATION_KINDS,
+            VCS_METADATA_OBSERVATION_KINDS,
+        )
+        self.assertTrue(
+            AUTO_FINAL_REVIEW_EXCLUDED_OBSERVATION_KINDS.isdisjoint(AUTO_FINAL_REVIEW_OBSERVATION_KINDS)
+        )
+        self.assertTrue(
+            AUTO_FINAL_REVIEW_EXCLUDED_OBSERVATION_KINDS.isdisjoint(VERIFICATION_INVALIDATING_OBSERVATION_KINDS)
+        )
+        self.assertIn("git_stash_drop", PROJECT_CHANGE_OBSERVATION_KINDS)
+        self.assertNotIn("git_stash_drop", AUTO_FINAL_REVIEW_OBSERVATION_KINDS)
+
     def test_completion_blocked_feedback_includes_final_review_blocking_issues(self) -> None:
         observations = [
             FinalReviewObservation(
