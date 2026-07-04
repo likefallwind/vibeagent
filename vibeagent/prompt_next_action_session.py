@@ -481,10 +481,18 @@ def _session_failures_next_action_instruction(base: str, latest: Observation) ->
 
 def _session_files_next_action_instruction(base: str, latest: Observation) -> str:
     file_count = int(getattr(latest, "file_count", 0) or 0)
+    file_references = _file_reference_labels(getattr(latest, "file_references", []))
     if file_count > 0:
+        file_detail = (
+            f" Inspect these file(s) first: {_format_next_action_items(file_references)}."
+            if file_references
+            else ""
+        )
         return (
             f"{base} Session files reports {file_count} file reference(s) from the recovered run. "
-            "Inspect the listed files with read_file or read_file_context before editing, continue the relevant work, "
+            "Inspect the listed files with read_file or read_file_context before editing."
+            f"{file_detail} "
+            "Then continue the relevant work, "
             "then run session_verification or session_audit before finishing."
         )
 

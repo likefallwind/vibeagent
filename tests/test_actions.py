@@ -5719,12 +5719,21 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(observation.run_id, "run-1")
         self.assertEqual(observation.file_count, 2)
         self.assertEqual(observation.shown_files, 2)
+        self.assertFalse(observation.files_truncated)
+        self.assertEqual(
+            observation.file_references,
+            [
+                {"path": "src/app.py", "uses": ["read", "write"]},
+                {"path": "tests/test_app.py", "uses": ["write"]},
+            ],
+        )
         self.assertIn("Session files:", observation.files)
         self.assertIn("src/app.py", observation.files)
         self.assertIn("tests/test_app.py", observation.files)
         self.assertNotIn("SECRET_CONTENT", observation.files)
         self.assertEqual(invalid.kind, "session_files")
         self.assertFalse(invalid.ok)
+        self.assertEqual(invalid.file_references, [])
         self.assertIn("Invalid session id", invalid.message)
 
     def test_execute_session_failures_action_reads_failed_results_and_denials(self) -> None:

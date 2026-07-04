@@ -96,6 +96,8 @@ class SessionFilesObservation:
     file_count: int
     shown_files: int
     message: str
+    file_references: list[dict[str, Any]] = field(default_factory=list)
+    files_truncated: bool = False
 
 
 @dataclass(frozen=True)

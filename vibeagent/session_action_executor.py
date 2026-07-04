@@ -362,12 +362,21 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             ok = not files.startswith("Session not found:")
             message = f"Read session file references for {run_id}." if ok else files
             file_count, shown_files = parse_session_files_counts(files)
+            file_references: list[dict[str, object]] = []
+            files_truncated = False
+            if ok:
+                file_entries = session_file_entries(read_session_events(workspace.root, run_id))
+                file_references, file_count, shown_files, files_truncated = _session_file_references(
+                    file_entries, action.max_files
+                )
         except ValueError as error:
             files = ""
             ok = False
             message = str(error)
             file_count = 0
             shown_files = 0
+            file_references = []
+            files_truncated = False
         return SessionFilesObservation(
             kind="session_files",
             run_id=run_id,
@@ -376,6 +385,8 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             file_count=file_count,
             shown_files=shown_files,
             message=message,
+            file_references=file_references,
+            files_truncated=files_truncated,
         )
 
     if isinstance(action, SessionFailuresAction):

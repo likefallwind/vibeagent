@@ -103,11 +103,19 @@ def format_session_observation(index: int, observation: object) -> str | None:
         return format_session_output_diagnostics_observation(index, observation)
 
     if observation.kind == "session_files":
+        file_lines = format_file_reference_lines(
+            getattr(observation, "file_references", []),
+            int(getattr(observation, "file_count", 0) or 0),
+            int(getattr(observation, "shown_files", 0) or 0),
+            bool(getattr(observation, "files_truncated", False)),
+        )
+        if not file_lines:
+            file_lines = [f"files: {observation.shown_files}/{observation.file_count}"]
         return "\n".join(
             [
                 f"{index}. session_files {observation.run_id}: {observation.message}",
                 f"ok: {str(observation.ok).lower()}",
-                f"files: {observation.shown_files}/{observation.file_count}",
+                *file_lines,
                 f"entries:\n{truncate(observation.files)}",
             ]
         )

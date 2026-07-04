@@ -2891,6 +2891,31 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Session files:", result.observations[0].files)
         self.assertEqual(result.steps[0].status, "completed")
 
+    def test_format_observations_renders_session_files_references(self) -> None:
+        text = format_observations(
+            [
+                SessionFilesObservation(
+                    kind="session_files",
+                    run_id="run-1",
+                    ok=True,
+                    files="Session files:\n  total: 2\n  shown: 2",
+                    file_count=2,
+                    shown_files=2,
+                    message="Read session file references for run-1.",
+                    file_references=[
+                        {"path": "src/app.py", "uses": ["read", "write"]},
+                        {"path": "tests/test_app.py", "uses": ["write"]},
+                    ],
+                    files_truncated=False,
+                )
+            ]
+        )
+
+        self.assertIn("session_files run-1", text)
+        self.assertIn("files: 2/2 truncated=false", text)
+        self.assertIn("file: src/app.py uses=read,write", text)
+        self.assertIn("file: tests/test_app.py uses=write", text)
+
     def test_run_agent_allows_session_failures_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             client = MockClient(
@@ -5579,11 +5604,17 @@ class AgentTests(unittest.TestCase):
             file_count=2,
             shown_files=2,
             message="Read session files for run-1.",
+            file_references=[
+                {"path": "vibeagent/agent.py", "uses": ["read"]},
+                {"path": "tests/test_agent.py", "uses": ["write"]},
+            ],
         )
 
         instruction = get_next_action_instruction("resume and continue edits", [observation])
 
         self.assertIn("Session files reports 2 file reference", instruction)
+        self.assertIn("vibeagent/agent.py (uses: read)", instruction)
+        self.assertIn("tests/test_agent.py (uses: write)", instruction)
         self.assertIn("read_file", instruction)
         self.assertIn("read_file_context", instruction)
         self.assertIn("continue the relevant work", instruction)
