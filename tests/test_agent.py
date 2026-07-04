@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ReadFileObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ReadFileContextObservation, ReadFileObservation, SessionAuditObservation, SessionAuditProcess, StopAllProcessesAction
 from vibeagent.types import CommandResult, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckResult, RunCommandObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -4626,6 +4626,63 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Use output_diagnostics", instruction)
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_source_context_after_failed_command_to_edit_and_rerun(self) -> None:
+        command = RunCommandObservation(
+            kind="run_command",
+            result=CommandResult(
+                command="python -m unittest tests.test_agent",
+                exit_code=1,
+                stdout="FAIL: tests/test_agent.py:42\n",
+                stderr="AssertionError: expected ready\n",
+                timed_out=False,
+                signal=None,
+                cwd=".",
+            ),
+        )
+        context = ReadFileContextObservation(
+            kind="read_file_context",
+            path="tests/test_agent.py",
+            ok=True,
+            content="41 | before\n42 | broken()\n43 | after",
+            message="Read context.",
+            line=42,
+            context_lines=1,
+            start_line=41,
+            end_line=43,
+            line_count=3,
+            total_lines=100,
+            target_line_exists=True,
+        )
+
+        instruction = get_next_action_instruction("fix the failing test", [command, context])
+
+        self.assertIn("Source context was inspected after a failed command or diagnostic lookup", instruction)
+        self.assertIn("tests/test_agent.py:42", instruction)
+        self.assertIn("edit the relevant code", instruction)
+        self.assertIn("rerun the failed command", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_keeps_plain_source_context_generic_without_recovery_signal(self) -> None:
+        context = ReadFileContextObservation(
+            kind="read_file_context",
+            path="tests/test_agent.py",
+            ok=True,
+            content="41 | before\n42 | current()\n43 | after",
+            message="Read context.",
+            line=42,
+            context_lines=1,
+            start_line=41,
+            end_line=43,
+            line_count=3,
+            total_lines=100,
+            target_line_exists=True,
+        )
+
+        instruction = get_next_action_instruction("inspect the code", [context])
+
+        self.assertIn("Do not repeat inspection", instruction)
+        self.assertNotIn("rerun the failed command", instruction)
 
     def test_next_action_instruction_guides_pending_final_review_focused_tests(self) -> None:
         observation = FinalReviewObservation(

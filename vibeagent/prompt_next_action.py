@@ -3,6 +3,17 @@ from __future__ import annotations
 from .types import Observation
 
 
+RECOVERY_SIGNAL_KINDS = {
+    "output_diagnostics",
+    "output_contexts",
+}
+
+SOURCE_CONTEXT_KINDS = {
+    "read_file_context",
+    "read_file_contexts",
+}
+
+
 def _format_next_action_items(items: list[str], max_items: int = 3) -> str:
     shown = items[:max_items]
     suffix = "" if len(items) <= max_items else f"; +{len(items) - max_items} more"
@@ -82,6 +93,32 @@ def _context_labels(values: object) -> list[str]:
         if label:
             labels.append(label if ok else f"{label} (context unavailable)")
     return labels
+
+
+def _source_context_labels(observation: Observation) -> list[str]:
+    if observation.kind == "read_file_context":
+        path = str(getattr(observation, "path", "") or "").strip()
+        line = getattr(observation, "line", None)
+        if path and isinstance(line, int):
+            label = f"{path}:{line}"
+        else:
+            label = path
+        if label and not getattr(observation, "ok", True):
+            return [f"{label} (context unavailable)"]
+        return [label] if label else []
+    if observation.kind == "read_file_contexts":
+        return _context_labels(getattr(observation, "contexts", []))
+    return []
+
+
+def _has_recovery_signal(observations: list[Observation]) -> bool:
+    for observation in reversed(observations):
+        if observation.kind in RECOVERY_SIGNAL_KINDS:
+            return True
+        if observation.kind == "run_command":
+            result = observation.result
+            return result.exit_code != 0 or result.timed_out
+    return False
 
 
 def _final_review_next_action_instruction(base: str, latest: Observation) -> str:
@@ -206,6 +243,19 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
         return (
             f"{base} Output contexts did not find source references. Use output_diagnostics or the command output "
             "to identify the failure, then fix it and rerun the failed command before finishing."
+        )
+
+    if latest.kind in SOURCE_CONTEXT_KINDS and _has_recovery_signal(observations[:-1]):
+        contexts = _source_context_labels(latest)
+        if contexts:
+            return (
+                f"{base} Source context was inspected after a failed command or diagnostic lookup. "
+                f"Use it to edit the relevant code for: {_format_next_action_items(contexts)}. "
+                "Then rerun the failed command before finishing."
+            )
+        return (
+            f"{base} Source context was inspected after a failed command or diagnostic lookup. "
+            "Use it to choose the edit, then rerun the failed command before finishing."
         )
 
     if latest.kind in {
