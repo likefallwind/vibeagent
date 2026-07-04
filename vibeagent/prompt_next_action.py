@@ -6,6 +6,13 @@ from .types import Observation
 RECOVERY_SIGNAL_KINDS = {
     "output_diagnostics",
     "output_contexts",
+    "process_output_diagnostics",
+    "process_output_contexts",
+}
+
+PROCESS_RECOVERY_SIGNAL_KINDS = {
+    "process_output_diagnostics",
+    "process_output_contexts",
 }
 
 SOURCE_CONTEXT_KINDS = {
@@ -174,16 +181,22 @@ def _source_context_labels(observation: Observation) -> list[str]:
     return []
 
 
-def _has_recovery_signal(observations: list[Observation]) -> bool:
+def _recovery_rerun_target(observations: list[Observation]) -> str | None:
     for observation in reversed(observations):
+        if observation.kind in PROCESS_RECOVERY_SIGNAL_KINDS:
+            return "relevant check"
         if observation.kind in RECOVERY_SIGNAL_KINDS:
-            return True
+            return "failed command"
+        if observation.kind in {"read_process", "wait_process"} and _process_exited_with_failure(observation):
+            return "relevant check"
         if observation.kind in BATCH_COMMAND_RESULT_KINDS:
-            return bool(_failed_command_labels(getattr(observation, "results", [])))
+            if _failed_command_labels(getattr(observation, "results", [])):
+                return "failed command"
         if observation.kind == "run_command":
             result = observation.result
-            return result.exit_code != 0 or result.timed_out
-    return False
+            if result.exit_code != 0 or result.timed_out:
+                return "failed command"
+    return None
 
 
 def _final_review_next_action_instruction(base: str, latest: Observation) -> str:
@@ -375,17 +388,18 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
             rerun_target="relevant check",
         )
 
-    if latest.kind in SOURCE_CONTEXT_KINDS and _has_recovery_signal(observations[:-1]):
+    rerun_target = _recovery_rerun_target(observations[:-1]) if latest.kind in SOURCE_CONTEXT_KINDS else None
+    if latest.kind in SOURCE_CONTEXT_KINDS and rerun_target:
         contexts = _source_context_labels(latest)
         if contexts:
             return (
                 f"{base} Source context was inspected after a failed command or diagnostic lookup. "
                 f"Use it to edit the relevant code for: {_format_next_action_items(contexts)}. "
-                "Then rerun the failed command before finishing."
+                f"Then rerun the {rerun_target} before finishing."
             )
         return (
             f"{base} Source context was inspected after a failed command or diagnostic lookup. "
-            "Use it to choose the edit, then rerun the failed command before finishing."
+            f"Use it to choose the edit, then rerun the {rerun_target} before finishing."
         )
 
     if latest.kind in {"python_check", "config_check"}:

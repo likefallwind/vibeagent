@@ -4744,6 +4744,59 @@ class AgentTests(unittest.TestCase):
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_guides_source_context_after_process_output_diagnostics(self) -> None:
+        diagnostics = ProcessOutputDiagnosticsObservation(
+            kind="process_output_diagnostics",
+            process_id="bg-1",
+            pid=1234,
+            ok=True,
+            running=False,
+            exit_code=1,
+            signal=None,
+            diagnostics=[
+                OutputDiagnostic(
+                    severity="failure",
+                    output_line=3,
+                    text="AssertionError: expected ready",
+                    path="tests/test_agent.py",
+                    line=42,
+                    column=None,
+                    raw="tests/test_agent.py:42: AssertionError: expected ready",
+                )
+            ],
+            contexts=[],
+            total_diagnostics=1,
+            total_refs=1,
+            diagnostics_truncated=False,
+            contexts_truncated=False,
+            stdout_chars=120,
+            stderr_chars=80,
+            max_output_chars=12000,
+            message="Extracted process diagnostics.",
+        )
+        context = ReadFileContextObservation(
+            kind="read_file_context",
+            path="tests/test_agent.py",
+            ok=True,
+            content="41 | before\n42 | broken()\n43 | after",
+            message="Read context.",
+            line=42,
+            context_lines=1,
+            start_line=41,
+            end_line=43,
+            line_count=3,
+            total_lines=100,
+            target_line_exists=True,
+        )
+
+        instruction = get_next_action_instruction("fix background check", [diagnostics, context])
+
+        self.assertIn("Source context was inspected after a failed command or diagnostic lookup", instruction)
+        self.assertIn("tests/test_agent.py:42", instruction)
+        self.assertIn("edit the relevant code", instruction)
+        self.assertIn("rerun the relevant check", instruction)
+        self.assertIn("before finishing", instruction)
+
     def test_next_action_instruction_keeps_plain_source_context_generic_without_recovery_signal(self) -> None:
         context = ReadFileContextObservation(
             kind="read_file_context",
