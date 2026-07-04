@@ -20,6 +20,29 @@ def format_verification_command_lines(label: str, commands: list[dict[str, objec
     return lines
 
 
+def format_selected_session_verification_command_lines(
+    commands: list[dict[str, object]],
+    total: int,
+    ran_count: int,
+    stopped_early: bool,
+) -> list[str]:
+    if not commands:
+        return ["selectedCommands: none"]
+    lines = [f"selectedCommands: {len(commands)}/{total}"]
+    for index, command in enumerate(commands):
+        cwd = str(command.get("cwd") or ".")
+        cwd_suffix = "" if cwd == "." else f" (cwd: {cwd})"
+        run_status = "ran" if index < ran_count else "notRun"
+        reason = command.get("failureReason")
+        reason_suffix = f" ({reason})" if isinstance(reason, str) and reason else ""
+        status = str(command.get("status") or "").strip()
+        status_suffix = f" source={status}" if status else ""
+        lines.append(f"- {command.get('command') or ''}{cwd_suffix} [{run_status}{status_suffix}]{reason_suffix}")
+    if stopped_early and len(commands) > ran_count:
+        lines.append(f"selectedCommandsNotRun: {len(commands) - ran_count}")
+    return lines
+
+
 def format_file_reference_lines(
     references: object,
     file_count: int,
@@ -153,6 +176,17 @@ def format_session_observation(index: int, observation: object) -> str | None:
         )
 
     if observation.kind == "run_session_verification":
+        selected_commands = [
+            command
+            for command in getattr(observation, "selected_commands", [])
+            if isinstance(command, dict)
+        ]
+        selected_lines = format_selected_session_verification_command_lines(
+            selected_commands,
+            int(getattr(observation, "selected_count", len(selected_commands)) or 0),
+            len(getattr(observation, "results", []) or []),
+            bool(getattr(observation, "stopped_early", False)),
+        )
         lines = [
             f"{index}. run_session_verification {observation.run_id}: {observation.message}",
             f"ok: {str(observation.ok).lower()}",
@@ -160,6 +194,8 @@ def format_session_observation(index: int, observation: object) -> str | None:
             f"pendingTotal: {observation.pending_count}",
             f"failedTotal: {observation.failed_count}",
             f"stoppedEarly: {str(observation.stopped_early).lower()}",
+            "commands:",
+            truncate("\n".join(selected_lines)),
         ]
         for result in observation.results:
             lines.extend(

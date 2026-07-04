@@ -2967,6 +2967,44 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Session audit:", result.observations[0].audit)
         self.assertEqual(result.steps[0].status, "completed")
 
+    def test_format_observations_renders_run_session_verification_selected_commands(self) -> None:
+        text = format_observations(
+            [
+                RunSessionVerificationObservation(
+                    kind="run_session_verification",
+                    run_id="run-1",
+                    ok=False,
+                    selected_commands=[
+                        {"command": "npm test", "cwd": ".", "status": "failed", "failureReason": "exit=1"},
+                        {"command": "npm run build", "cwd": "web", "status": "pending"},
+                    ],
+                    selected_count=2,
+                    pending_count=1,
+                    failed_count=1,
+                    results=[
+                        CommandResult(
+                            command="npm test",
+                            exit_code=1,
+                            stdout="FAIL\n",
+                            stderr="AssertionError\n",
+                            timed_out=False,
+                            signal=None,
+                            cwd=".",
+                        )
+                    ],
+                    stopped_early=True,
+                    message="Ran 1/2 session verification command(s); one or more failed.",
+                )
+            ]
+        )
+
+        self.assertIn("run_session_verification run-1", text)
+        self.assertIn("selectedCommands: 2/2", text)
+        self.assertIn("- npm test [ran source=failed] (exit=1)", text)
+        self.assertIn("- npm run build (cwd: web) [notRun source=pending]", text)
+        self.assertIn("selectedCommandsNotRun: 1", text)
+        self.assertIn("command: npm test", text)
+
     def test_format_observations_renders_session_audit_blockers_and_processes(self) -> None:
         text = format_observations(
             [
