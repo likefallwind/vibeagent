@@ -11312,6 +11312,9 @@ class CommandTests(unittest.TestCase):
             with patch("vibeagent.final_review_action_executor.list_background_processes", return_value=observation):
                 text = get_review_text(root)
 
+        self.assertIn("ready: no", text)
+        self.assertIn("blockingIssues:", text)
+        self.assertIn("Background processes are still running.", text)
         self.assertIn("warnings:", text)
         self.assertIn("1 background process(es) still running", text)
         self.assertIn("runningProcesses:", text)

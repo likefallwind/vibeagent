@@ -263,6 +263,8 @@ def final_review_observation(workspace: RunWorkspace, action: FinalReviewAction)
         blocking_issues.append("Git operation is still in progress.")
     elif not bool(git_operation.get("ok")):
         blocking_issues.append("Could not inspect git operation state.")
+    if running_processes:
+        blocking_issues.append("Background processes are still running.")
     conflict_warnings: list[str] = []
     if bool(conflict_scan.get("ok")):
         if int(conflict_scan.get("unmerged_total", 0) or 0) > 0:

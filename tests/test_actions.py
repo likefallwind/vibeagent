@@ -4657,6 +4657,8 @@ class ActionTests(unittest.TestCase):
                 observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=1))
 
                 self.assertEqual(observation.kind, "final_review")
+                self.assertFalse(observation.ready)
+                self.assertIn("Background processes are still running.", observation.blocking_issues)
                 self.assertEqual([process.process_id for process in observation.running_processes], [start.process_id])
                 self.assertEqual(observation.running_processes[0].pid, start.pid)
                 self.assertTrue(any("background process" in warning for warning in observation.warnings))
