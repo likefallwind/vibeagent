@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, SessionFailuresObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionVerificationObservation, StopAllProcessesAction, WaitProcessObservation
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionVerificationObservation, StopAllProcessesAction, WaitProcessObservation
 from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -4712,6 +4712,45 @@ class AgentTests(unittest.TestCase):
 
         self.assertIn("Session failures reports no failure events", instruction)
         self.assertIn("session_verification", instruction)
+        self.assertIn("session_audit", instruction)
+        self.assertIn("answer directly", instruction)
+
+    def test_next_action_instruction_guides_session_files_to_inspect_and_verify(self) -> None:
+        observation = SessionFilesObservation(
+            kind="session_files",
+            run_id="run-1",
+            ok=True,
+            files="Session files:\n  - vibeagent/agent.py\n  - tests/test_agent.py",
+            file_count=2,
+            shown_files=2,
+            message="Read session files for run-1.",
+        )
+
+        instruction = get_next_action_instruction("resume and continue edits", [observation])
+
+        self.assertIn("Session files reports 2 file reference", instruction)
+        self.assertIn("read_file", instruction)
+        self.assertIn("read_file_context", instruction)
+        self.assertIn("continue the relevant work", instruction)
+        self.assertIn("session_verification", instruction)
+        self.assertIn("session_audit", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_empty_session_files_to_handoff_or_audit(self) -> None:
+        observation = SessionFilesObservation(
+            kind="session_files",
+            run_id="run-1",
+            ok=True,
+            files="Session files:\n  none",
+            file_count=0,
+            shown_files=0,
+            message="Read session files for run-1.",
+        )
+
+        instruction = get_next_action_instruction("resume and continue edits", [observation])
+
+        self.assertIn("Session files found no file references", instruction)
+        self.assertIn("session_handoff", instruction)
         self.assertIn("session_audit", instruction)
         self.assertIn("answer directly", instruction)
 

@@ -413,6 +413,28 @@ def _session_failures_next_action_instruction(base: str, latest: Observation) ->
     )
 
 
+def _session_files_next_action_instruction(base: str, latest: Observation) -> str:
+    file_count = int(getattr(latest, "file_count", 0) or 0)
+    if file_count > 0:
+        return (
+            f"{base} Session files reports {file_count} file reference(s) from the recovered run. "
+            "Inspect the listed files with read_file or read_file_context before editing, continue the relevant work, "
+            "then run session_verification or session_audit before finishing."
+        )
+
+    if getattr(latest, "ok", False):
+        return (
+            f"{base} Session files found no file references. "
+            "Use session_handoff or session_audit to recover the next task state, "
+            "or answer directly if the task is complete."
+        )
+
+    return (
+        f"{base} Session files could not be read. Use session_handoff or session_summary to recover context, "
+        "then continue with the next useful action."
+    )
+
+
 def _diagnostics_next_action_instruction(
     base: str,
     latest: Observation,
@@ -529,6 +551,9 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
 
     if latest.kind == "session_failures":
         return _session_failures_next_action_instruction(base, latest)
+
+    if latest.kind == "session_files":
+        return _session_files_next_action_instruction(base, latest)
 
     if latest.kind == "output_diagnostics":
         return _diagnostics_next_action_instruction(
