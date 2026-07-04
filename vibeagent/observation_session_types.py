@@ -186,6 +186,10 @@ class SessionHandoffObservation:
     pending_plan_count: int = 0
     plan_items_count: int = 0
     plan_in_progress: bool = False
+    file_references: list[dict[str, Any]] = field(default_factory=list)
+    file_count: int = 0
+    shown_file_count: int = 0
+    files_truncated: bool = False
     completion_ready: bool | None = None
     completion_blockers: list[str] = field(default_factory=list)
     latest_completion_blockers: list[str] = field(default_factory=list)

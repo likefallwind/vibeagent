@@ -3033,6 +3033,10 @@ class AgentTests(unittest.TestCase):
                     pending_plan_count=1,
                     plan_items_count=2,
                     plan_in_progress=True,
+                    file_references=[{"path": "src/app.py", "uses": ["write_file"]}],
+                    file_count=1,
+                    shown_file_count=1,
+                    files_truncated=False,
                     completion_ready=False,
                     completion_blockers=["Task plan still has unfinished item(s): 1 in_progress."],
                     latest_completion_blockers=["1 suggested verification check(s) are still pending."],
@@ -3050,6 +3054,8 @@ class AgentTests(unittest.TestCase):
         self.assertIn("active_process: bg-1 pid=1234 cwd=web command=npm run dev", text)
         self.assertIn("plan: items=2 pending=1/1 inProgress=true", text)
         self.assertIn("plan_item: in_progress: Test the resumed workflow.", text)
+        self.assertIn("files: 1/1 truncated=false", text)
+        self.assertIn("file: src/app.py uses=write_file", text)
         self.assertIn("verifiedCommands: 1/2", text)
         self.assertIn("pendingCommands: 1/2", text)
         self.assertIn("failedCommands: 1/2", text)
@@ -5305,6 +5311,31 @@ class AgentTests(unittest.TestCase):
         self.assertIn("session_plan", instruction)
         self.assertIn("run_session_verification", instruction)
         self.assertIn("session_output_diagnostics", instruction)
+        self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_session_handoff_changed_files(self) -> None:
+        observation = SessionHandoffObservation(
+            kind="session_handoff",
+            run_id="run-1",
+            ok=True,
+            handoff="Session handoff:\n  session: run-1",
+            message="Session handoff has blocker(s).",
+            ready=False,
+            status="blocked",
+            blockers=["changed files exist but final_review has not run"],
+            file_references=[{"path": "src/app.py", "uses": ["write_file"]}],
+            file_count=1,
+            shown_file_count=1,
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session handoff reports changed file(s)", instruction)
+        self.assertIn("src/app.py (uses: write_file)", instruction)
+        self.assertIn("read_file", instruction)
+        self.assertIn("read_file_context", instruction)
+        self.assertIn("final_review", instruction)
+        self.assertIn("session_audit", instruction)
         self.assertIn("before finishing", instruction)
 
     def test_next_action_instruction_guides_ready_session_handoff_to_continue_or_finish(self) -> None:

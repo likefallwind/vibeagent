@@ -6029,6 +6029,10 @@ class ActionTests(unittest.TestCase):
         self.assertTrue(observation.plan_in_progress)
         self.assertEqual(observation.pending_plan_count, 1)
         self.assertEqual(observation.pending_plan_items, [{"status": "in_progress", "step": "Test"}])
+        self.assertEqual(observation.file_count, 1)
+        self.assertEqual(observation.shown_file_count, 1)
+        self.assertFalse(observation.files_truncated)
+        self.assertEqual(observation.file_references, [{"path": "src/app.py", "uses": ["write"]}])
         self.assertFalse(observation.completion_ready)
         self.assertEqual(observation.completion_blockers, ["Task plan still has unfinished item(s): 1 in_progress."])
         self.assertEqual(

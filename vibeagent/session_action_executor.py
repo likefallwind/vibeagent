@@ -80,6 +80,31 @@ def _handoff_verification_group(audit: dict[str, object], name: str) -> tuple[li
     return commands, total if isinstance(total, int) else len(commands)
 
 
+def _handoff_file_references(audit: dict[str, object]) -> tuple[list[dict[str, object]], int, int, bool]:
+    files = audit.get("files") if isinstance(audit.get("files"), dict) else {}
+    total = files.get("total")
+    shown = files.get("shown")
+    truncated = files.get("truncated") is True
+    raw_items = files.get("items")
+    references: list[dict[str, object]] = []
+    if isinstance(raw_items, list):
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+            path = str(item.get("path") or "").strip()
+            if not path:
+                continue
+            uses = [
+                str(use).strip()
+                for use in item.get("uses", [])
+                if isinstance(use, str) and use.strip()
+            ]
+            references.append({"path": path, "uses": uses})
+    file_count = total if isinstance(total, int) else len(references)
+    shown_file_count = shown if isinstance(shown, int) else len(references)
+    return references, file_count, shown_file_count, truncated
+
+
 def execute_session_action(workspace: RunWorkspace, action: object, command_timeout_ms: int = 30_000) -> Observation | None:
     if isinstance(action, SessionSummaryAction):
         run_id = _select_session_run_id(action.run_id, workspace.run_id)
@@ -558,6 +583,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             verified_commands, verified_count = _handoff_verification_group(audit, "verified")
             pending_commands, pending_count = _handoff_verification_group(audit, "pending")
             failed_commands, failed_count = _handoff_verification_group(audit, "failed")
+            file_references, file_count, shown_file_count, files_truncated = _handoff_file_references(audit)
             plan = audit.get("plan") if isinstance(audit.get("plan"), dict) else {}
             plan_items = plan.get("items")
             plan_items_count = plan_items if isinstance(plan_items, int) else 0
@@ -605,6 +631,10 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             pending_plan_count = 0
             plan_items_count = 0
             plan_in_progress = False
+            file_references = []
+            file_count = 0
+            shown_file_count = 0
+            files_truncated = False
             completion_ready = None
             completion_blockers = []
             latest_completion_blockers = []
@@ -630,6 +660,10 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             pending_plan_count=pending_plan_count,
             plan_items_count=plan_items_count,
             plan_in_progress=plan_in_progress,
+            file_references=file_references,
+            file_count=file_count,
+            shown_file_count=shown_file_count,
+            files_truncated=files_truncated,
             completion_ready=completion_ready,
             completion_blockers=completion_blockers,
             latest_completion_blockers=latest_completion_blockers,

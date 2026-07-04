@@ -222,6 +222,29 @@ def format_session_observation(index: int, observation: object) -> str | None:
             )
             for item in pending_plan_items[:20]:
                 plan_lines.append(f"plan_item: {item.get('status') or ''}: {item.get('step') or ''}")
+        file_references = [
+            item
+            for item in getattr(observation, "file_references", [])
+            if isinstance(item, dict) and str(item.get("path") or "").strip()
+        ]
+        file_count = int(getattr(observation, "file_count", len(file_references)) or 0)
+        shown_file_count = int(getattr(observation, "shown_file_count", len(file_references)) or 0)
+        file_lines: list[str] = []
+        if file_count or file_references:
+            file_lines.append(
+                "files: "
+                f"{shown_file_count}/{file_count} "
+                f"truncated={str(bool(getattr(observation, 'files_truncated', False))).lower()}"
+            )
+            for item in file_references[:20]:
+                path = str(item.get("path") or "").strip()
+                uses = [
+                    str(use).strip()
+                    for use in item.get("uses", [])
+                    if isinstance(use, str) and str(use).strip()
+                ]
+                suffix = f" uses={','.join(uses)}" if uses else ""
+                file_lines.append(f"file: {path}{suffix}")
         completion_ready = getattr(observation, "completion_ready", None)
         if completion_ready is not None:
             readiness_lines.append(f"completionReady: {str(completion_ready).lower()}")
@@ -239,6 +262,7 @@ def format_session_observation(index: int, observation: object) -> str | None:
                 f"ok: {str(observation.ok).lower()}",
                 *readiness_lines,
                 *plan_lines,
+                *file_lines,
                 "commands:",
                 *verification_lines,
                 *completion_lines,

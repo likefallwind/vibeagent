@@ -65,6 +65,25 @@ def _plan_item_labels(values: object) -> list[str]:
     return labels
 
 
+def _file_reference_labels(values: object) -> list[str]:
+    labels: list[str] = []
+    if not isinstance(values, list):
+        return labels
+    for value in values:
+        if not isinstance(value, dict):
+            continue
+        path = str(value.get("path") or "").strip()
+        if not path:
+            continue
+        uses = [
+            str(use).strip()
+            for use in value.get("uses", [])
+            if isinstance(use, str) and use.strip()
+        ]
+        labels.append(f"{path} (uses: {', '.join(uses)})" if uses else path)
+    return labels
+
+
 def _audit_section_items(audit: object, section_names: tuple[str, ...]) -> list[str]:
     if not isinstance(audit, str):
         return []
@@ -307,6 +326,7 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
     failed = _verification_command_labels(getattr(latest, "failed_commands", []))
     pending = _verification_command_labels(getattr(latest, "pending_commands", []))
     pending_plan_items = _plan_item_labels(getattr(latest, "pending_plan_items", []))
+    file_references = _file_reference_labels(getattr(latest, "file_references", []))
     if getattr(latest, "ready", None) is True:
         return (
             f"{base} Session handoff reports the recovered session is ready. "
@@ -345,6 +365,16 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
             "Use session_plan for unfinished task-plan blockers, "
             "session_verification or run_session_verification for verification blockers, "
             "and session_failures or session_output_diagnostics for failure blockers before finishing."
+        )
+
+    changed_file_blocker = any(
+        "changed files exist" in blocker.lower() or "final_review" in blocker.lower() for blocker in blockers
+    )
+    if blockers and file_references and changed_file_blocker:
+        return (
+            f"{base} Session handoff reports changed file(s): {_format_next_action_items(file_references)}. "
+            "Inspect the relevant file(s) with read_file or read_file_context, finish or review the edits, "
+            "then run final_review or session_audit before finishing."
         )
 
     if blockers:
