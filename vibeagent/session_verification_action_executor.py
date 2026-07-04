@@ -4,6 +4,7 @@ from typing import Any
 
 from .process_runtime import execute_run_command_item
 from .session import build_session_verification_report
+from .session_input import normalize_optional_run_id
 from .types import RunCommandItem, RunSessionVerificationAction, RunSessionVerificationObservation
 from .workspace import RunWorkspace
 
@@ -44,7 +45,7 @@ def execute_run_session_verification_action(
     action: RunSessionVerificationAction,
     command_timeout_ms: int = 30_000,
 ) -> RunSessionVerificationObservation:
-    run_id = action.run_id or workspace.run_id
+    run_id = normalize_optional_run_id(action.run_id) or workspace.run_id
     try:
         report = build_session_verification_report(workspace.root, run_id, max_checks=action.max_checks)
         if report.get("exists") is False:

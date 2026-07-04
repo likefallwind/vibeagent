@@ -5443,11 +5443,15 @@ class ActionTests(unittest.TestCase):
             )
 
             observation = execute_action(workspace, SessionSummaryAction(type="session_summary", recent_limit=2))
+            spaced = execute_action(workspace, SessionSummaryAction(type="session_summary", run_id=" run-1 ", recent_limit=2))
             invalid = execute_action(workspace, SessionSummaryAction(type="session_summary", run_id="../bad"))
 
         self.assertEqual(observation.kind, "session_summary")
         self.assertTrue(observation.ok)
         self.assertEqual(observation.run_id, "run-1")
+        self.assertEqual(spaced.kind, "session_summary")
+        self.assertTrue(spaced.ok)
+        self.assertEqual(spaced.run_id, "run-1")
         self.assertIn("Session: run-1", observation.summary)
         self.assertIn("status: completed", observation.summary)
         self.assertIn("Recent sessions:", "\n".join(observation.recent_sessions))
@@ -5776,6 +5780,18 @@ class ActionTests(unittest.TestCase):
                     max_output_chars=2_000,
                 ),
             )
+            spaced_pending_only = execute_action(
+                workspace,
+                RunSessionVerificationAction(
+                    type="run_session_verification",
+                    run_id=" run-1 ",
+                    include_failed=False,
+                    include_pending=True,
+                    max_checks=2,
+                    timeout_ms=10_000,
+                    max_output_chars=2_000,
+                ),
+            )
             missing = execute_action(
                 workspace,
                 RunSessionVerificationAction(type="run_session_verification", run_id="missing"),
@@ -5794,6 +5810,10 @@ class ActionTests(unittest.TestCase):
         self.assertTrue(pending_only.ok)
         self.assertEqual(pending_only.selected_count, 1)
         self.assertEqual(pending_only.results[0].stdout, "pending\n")
+        self.assertEqual(spaced_pending_only.kind, "run_session_verification")
+        self.assertTrue(spaced_pending_only.ok)
+        self.assertEqual(spaced_pending_only.run_id, "run-1")
+        self.assertEqual(spaced_pending_only.selected_count, 1)
         self.assertEqual(missing.kind, "run_session_verification")
         self.assertFalse(missing.ok)
         self.assertIn("Session not found", missing.message)
@@ -5901,12 +5921,28 @@ class ActionTests(unittest.TestCase):
                     max_text=120,
                 ),
             )
+            spaced = execute_action(
+                workspace,
+                SessionHandoffAction(
+                    type="session_handoff",
+                    run_id=" run-1 ",
+                    max_failures=5,
+                    max_files=5,
+                    max_commands=5,
+                    max_checks=1,
+                    max_output_chars=16,
+                    max_text=120,
+                ),
+            )
             missing = execute_action(workspace, SessionHandoffAction(type="session_handoff", run_id="missing"))
             invalid = execute_action(workspace, SessionHandoffAction(type="session_handoff", run_id="../bad"))
 
         self.assertEqual(observation.kind, "session_handoff")
         self.assertTrue(observation.ok)
         self.assertEqual(observation.run_id, "run-1")
+        self.assertEqual(spaced.kind, "session_handoff")
+        self.assertTrue(spaced.ok)
+        self.assertEqual(spaced.run_id, "run-1")
         self.assertIn("Session handoff:", observation.handoff)
         self.assertIn("summary:", observation.handoff)
         self.assertIn("readiness:", observation.handoff)

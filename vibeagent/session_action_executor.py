@@ -31,6 +31,7 @@ from .session_verification_action_executor import (
     execute_run_session_verification_action,
     session_verification_group,
 )
+from .session_input import normalize_optional_run_id
 from .types import (
     Observation,
     SessionAuditAction,
@@ -63,9 +64,13 @@ from .types import (
 from .workspace import RunWorkspace, read_output_contexts_result, read_output_diagnostics_result
 
 
+def _select_session_run_id(action_run_id: str | None, workspace_run_id: str) -> str:
+    return normalize_optional_run_id(action_run_id) or workspace_run_id
+
+
 def execute_session_action(workspace: RunWorkspace, action: object, command_timeout_ms: int = 30_000) -> Observation | None:
     if isinstance(action, SessionSummaryAction):
-        run_id = action.run_id or workspace.run_id
+        run_id = _select_session_run_id(action.run_id, workspace.run_id)
         try:
             summary_text = format_session_summary(summarize_session(workspace.root, run_id))
             ok = not summary_text.startswith("Session not found:")
@@ -85,7 +90,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionPlanAction):
-        run_id = action.run_id or workspace.run_id
+        run_id = _select_session_run_id(action.run_id, workspace.run_id)
         try:
             plan_text = format_session_plan(summarize_session(workspace.root, run_id))
             ok = not plan_text.startswith("Session not found:")
@@ -103,7 +108,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionTranscriptAction):
-        run_id = action.run_id or workspace.run_id
+        run_id = _select_session_run_id(action.run_id, workspace.run_id)
         try:
             transcript = format_session_transcript(
                 workspace.root,
@@ -126,7 +131,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionSearchAction):
-        run_id = action.run_id or workspace.run_id
+        run_id = _select_session_run_id(action.run_id, workspace.run_id)
         try:
             matches = format_session_search(
                 workspace.root,
@@ -157,7 +162,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionCommandsAction):
-        run_id = action.run_id or workspace.run_id
+        run_id = _select_session_run_id(action.run_id, workspace.run_id)
         try:
             commands = format_session_commands(
                 workspace.root,
@@ -185,7 +190,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionOutputContextsAction):
-        run_id = action.run_id or workspace.run_id
+        run_id = _select_session_run_id(action.run_id, workspace.run_id)
         try:
             ok, command_count, shown_commands, output_text, scan_message = build_session_command_output_scan_text(
                 workspace,
@@ -251,7 +256,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             )
 
     if isinstance(action, SessionOutputDiagnosticsAction):
-        run_id = action.run_id or workspace.run_id
+        run_id = _select_session_run_id(action.run_id, workspace.run_id)
         try:
             ok, command_count, shown_commands, output_text, scan_message = build_session_command_output_scan_text(
                 workspace,
@@ -331,7 +336,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             )
 
     if isinstance(action, SessionFilesAction):
-        run_id = action.run_id or workspace.run_id
+        run_id = _select_session_run_id(action.run_id, workspace.run_id)
         try:
             files = format_session_files(workspace.root, run_id, max_files=action.max_files)
             ok = not files.startswith("Session not found:")
@@ -354,7 +359,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionFailuresAction):
-        run_id = action.run_id or workspace.run_id
+        run_id = _select_session_run_id(action.run_id, workspace.run_id)
         try:
             failures = format_session_failures(
                 workspace.root,
@@ -382,7 +387,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionVerificationAction):
-        run_id = action.run_id or workspace.run_id
+        run_id = _select_session_run_id(action.run_id, workspace.run_id)
         verified_commands: list[dict[str, object]] = []
         pending_commands: list[dict[str, object]] = []
         failed_commands: list[dict[str, object]] = []
@@ -424,7 +429,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         return execute_run_session_verification_action(workspace, action, command_timeout_ms)
 
     if isinstance(action, SessionAuditAction):
-        run_id = action.run_id or workspace.run_id
+        run_id = _select_session_run_id(action.run_id, workspace.run_id)
         try:
             audit = format_session_audit(
                 workspace.root,
@@ -479,7 +484,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionHandoffAction):
-        run_id = action.run_id or workspace.run_id
+        run_id = _select_session_run_id(action.run_id, workspace.run_id)
         try:
             handoff = format_session_handoff(
                 workspace.root,
