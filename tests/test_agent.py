@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, StopAllProcessesAction, WaitProcessObservation
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckGitCommitObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointPruneAction, CheckpointRestoreAction, ContentBlock, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, SessionAuditObservation, SessionAuditProcess, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionVerificationObservation, StopAllProcessesAction, WaitProcessObservation
 from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -4505,6 +4505,75 @@ class AgentTests(unittest.TestCase):
         self.assertIn("run_suggested_checks", instruction)
         self.assertIn("python -m unittest discover -s tests", instruction)
         self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_failed_session_verification_to_rerun_and_diagnose(self) -> None:
+        observation = SessionVerificationObservation(
+            kind="session_verification",
+            run_id="run-1",
+            ok=False,
+            verification="Session verification:\n  failedChecks: 1/1\n  pendingChecks: 1/1",
+            verified_commands=[],
+            pending_commands=[
+                {
+                    "command": "python -m unittest tests.test_agent",
+                    "cwd": ".",
+                    "label": "python -m unittest tests.test_agent",
+                    "status": "pending",
+                }
+            ],
+            failed_commands=[
+                {
+                    "command": "npm test",
+                    "cwd": ".",
+                    "label": "npm test (exit=1)",
+                    "failureReason": "exit=1",
+                    "status": "failed",
+                }
+            ],
+            verified_count=0,
+            pending_count=1,
+            failed_count=1,
+            verification_truncated=False,
+            message="Verification checks are pending or failed.",
+        )
+
+        instruction = get_next_action_instruction("resume and finish verification", [observation])
+
+        self.assertIn("Session verification reports failed and pending checks", instruction)
+        self.assertIn("run_session_verification", instruction)
+        self.assertIn("npm test (cwd=.): exit=1", instruction)
+        self.assertIn("python -m unittest tests.test_agent (cwd=.)", instruction)
+        self.assertIn("session_output_diagnostics", instruction)
+        self.assertIn("session_output_contexts", instruction)
+        self.assertIn("rerun verification before finishing", instruction)
+
+    def test_next_action_instruction_guides_ready_session_verification_to_finish(self) -> None:
+        observation = SessionVerificationObservation(
+            kind="session_verification",
+            run_id="run-1",
+            ok=True,
+            verification="Session verification:\n  verified: 1/1\n  pendingChecks: none\n  failedChecks: none",
+            verified_commands=[
+                {
+                    "command": "npm test",
+                    "cwd": ".",
+                    "label": "npm test",
+                    "status": "verified",
+                }
+            ],
+            pending_commands=[],
+            failed_commands=[],
+            verified_count=1,
+            pending_count=0,
+            failed_count=0,
+            verification_truncated=False,
+            message="All verification checks are complete.",
+        )
+
+        instruction = get_next_action_instruction("resume and finish verification", [observation])
+
+        self.assertIn("Session verification is complete", instruction)
+        self.assertIn("answer directly", instruction)
 
     def test_next_action_instruction_guides_failed_command_diagnostics(self) -> None:
         observation = RunCommandObservation(

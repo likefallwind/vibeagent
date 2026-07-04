@@ -170,6 +170,25 @@ def _failed_command_labels(results: object) -> list[str]:
     return labels
 
 
+def _verification_command_labels(values: object) -> list[str]:
+    labels: list[str] = []
+    if not isinstance(values, list):
+        return labels
+    for value in values:
+        if not isinstance(value, dict):
+            continue
+        command = str(value.get("command") or "").strip()
+        cwd = str(value.get("cwd") or ".").strip() or "."
+        reason = str(value.get("failureReason") or "").strip()
+        if not command:
+            continue
+        label = f"{command} (cwd={cwd})"
+        if reason:
+            label = f"{label}: {reason}"
+        labels.append(label)
+    return labels
+
+
 def _source_context_labels(observation: Observation) -> list[str]:
     if observation.kind == "read_file_context":
         path = str(getattr(observation, "path", "") or "").strip()
@@ -250,6 +269,45 @@ def _final_review_next_action_instruction(base: str, latest: Observation) -> str
         )
 
     return f"{base} Final review is not ready. Inspect its warnings and changed files, fix blockers, then rerun final_review before finishing."
+
+
+def _session_verification_next_action_instruction(base: str, latest: Observation) -> str:
+    failed = _verification_command_labels(getattr(latest, "failed_commands", []))
+    pending = _verification_command_labels(getattr(latest, "pending_commands", []))
+
+    if failed and pending:
+        return (
+            f"{base} Session verification reports failed and pending checks. "
+            f"Use run_session_verification to rerun recorded verification checks first: "
+            f"{_format_next_action_items(failed + pending)}. "
+            "If failures remain, inspect them with session_output_diagnostics or session_output_contexts, "
+            "fix the code, and rerun verification before finishing."
+        )
+
+    if failed:
+        return (
+            f"{base} Session verification reports failed checks. "
+            f"Use run_session_verification to rerun them first: {_format_next_action_items(failed)}. "
+            "If failures remain, inspect them with session_output_diagnostics or session_output_contexts, "
+            "fix the code, and rerun verification before finishing."
+        )
+
+    if pending:
+        return (
+            f"{base} Session verification reports pending checks. "
+            f"Use run_session_verification to run them before finishing: {_format_next_action_items(pending)}."
+        )
+
+    if getattr(latest, "ok", False):
+        return (
+            f"{base} Session verification is complete. Continue with any remaining requested work, "
+            "or answer directly if the task is complete."
+        )
+
+    return (
+        f"{base} Session verification is not ready. Inspect session_failures or session_output_diagnostics, "
+        "fix blockers, and rerun verification before finishing."
+    )
 
 
 def _diagnostics_next_action_instruction(
@@ -356,6 +414,9 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
 
     if latest.kind == "final_review":
         return _final_review_next_action_instruction(base, latest)
+
+    if latest.kind == "session_verification":
+        return _session_verification_next_action_instruction(base, latest)
 
     if latest.kind == "output_diagnostics":
         return _diagnostics_next_action_instruction(
