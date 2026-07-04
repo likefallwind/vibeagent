@@ -15,6 +15,11 @@ PROCESS_RECOVERY_SIGNAL_KINDS = {
     "process_output_contexts",
 }
 
+SESSION_RECOVERY_SIGNAL_KINDS = {
+    "session_output_diagnostics",
+    "session_output_contexts",
+}
+
 SOURCE_CONTEXT_KINDS = {
     "read_file_context",
     "read_file_contexts",
@@ -183,6 +188,8 @@ def _source_context_labels(observation: Observation) -> list[str]:
 
 def _recovery_rerun_target(observations: list[Observation]) -> str | None:
     for observation in reversed(observations):
+        if observation.kind in SESSION_RECOVERY_SIGNAL_KINDS:
+            return "relevant check"
         if observation.kind in PROCESS_RECOVERY_SIGNAL_KINDS:
             return "relevant check"
         if observation.kind in RECOVERY_SIGNAL_KINDS:
@@ -385,6 +392,25 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
             label="Process output",
             fallback_tool="process_output_diagnostics",
             output_source="process output",
+            rerun_target="relevant check",
+        )
+
+    if latest.kind == "session_output_diagnostics":
+        return _diagnostics_next_action_instruction(
+            base,
+            latest,
+            label="Session output",
+            output_source="session command output",
+            rerun_target="relevant check",
+        )
+
+    if latest.kind == "session_output_contexts":
+        return _contexts_next_action_instruction(
+            base,
+            latest,
+            label="Session output",
+            fallback_tool="session_output_diagnostics",
+            output_source="session command output",
             rerun_target="relevant check",
         )
 
