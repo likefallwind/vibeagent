@@ -4,7 +4,6 @@ from .final_review_actions import (
     FINAL_REVIEW_LARGE_FILE_BYTES,
     FINAL_REVIEW_SECRET_SCAN_BYTES,
     final_review_scan_file_items,
-    final_review_session_verification_issues,
     find_changed_gitlinks,
     find_hidden_tracked_git_changes,
     find_large_changed_files,
@@ -14,6 +13,7 @@ from .final_review_actions import (
     find_unsafe_changed_symlinks,
     read_git_operation_state,
 )
+from .final_review_readiness import FinalReviewReadinessInputs, build_final_review_readiness
 from .process_runtime import list_background_processes
 from .types import (
     AgentAction,
@@ -211,173 +211,51 @@ def final_review_observation(workspace: RunWorkspace, action: FinalReviewAction)
         list(review["files"]),
     )
     git_operation = read_git_operation_state(workspace)
-    blocking_issues: list[str] = []
-    if not bool(review["changes_ok"]):
-        blocking_issues.append("Could not read git changes.")
-    if not bool(review["diff_check_ok"]):
-        blocking_issues.append("Unstaged diff whitespace check failed.")
-    if not bool(review["staged_diff_check_ok"]):
-        blocking_issues.append("Staged diff whitespace check failed.")
-    if not bool(review["python_ok"]):
-        blocking_issues.append("Changed Python files have syntax errors.")
-    if not bool(review["config_ok"]):
-        blocking_issues.append("Changed config files have syntax errors.")
-    if all_suggested_checks_truncated:
-        blocking_issues.append("Suggested verification checks exceed the maximum readiness scan.")
-    unavailable = [item for item in all_suggested_checks if not item.available]
-    if unavailable:
-        blocking_issues.append("Suggested verification checks have missing executables.")
-    if int(review["total_files"]) > len(files):
-        blocking_issues.append("Changed file review was incomplete.")
-    if bool(review["python_truncated"]):
-        blocking_issues.append("Python syntax check was incomplete.")
-    if bool(review["config_truncated"]):
-        blocking_issues.append("Config syntax check was incomplete.")
-    if large_files_total:
-        blocking_issues.append("Changed files include large artifacts.")
-    if secret_findings_total or secret_diff_findings_total:
-        blocking_issues.append("Changed files include secret-like values.")
-    if secret_diff_warnings:
-        blocking_issues.append("Secret-like diff scan was incomplete.")
-    if nested_git_repo_total:
-        blocking_issues.append("Project contains nested git repositories.")
-    if changed_gitlink_total:
-        blocking_issues.append("Changed files include git submodule links.")
-    if changed_gitlink_warnings:
-        blocking_issues.append("Git submodule link scan was incomplete.")
-    if hidden_git_change_total:
-        blocking_issues.append("Tracked changes are hidden by project safety filters.")
-    if hidden_git_change_warnings:
-        blocking_issues.append("Hidden tracked change scan was incomplete.")
-    if unsafe_symlink_total:
-        if "points outside project" in unsafe_symlink_reasons:
-            blocking_issues.append("Changed symlinks point outside the project.")
-        if "points into protected project path" in unsafe_symlink_reasons:
-            blocking_issues.append("Changed symlinks point into protected project paths.")
-        if "points into ignored project path" in unsafe_symlink_reasons:
-            blocking_issues.append("Changed symlinks point into ignored project paths.")
-    if unsafe_symlink_warnings:
-        blocking_issues.append("Changed symlink scan was incomplete.")
-    git_operations = list(git_operation.get("operations", [])) if bool(git_operation.get("ok")) else []
-    if git_operations:
-        blocking_issues.append("Git operation is still in progress.")
-    elif not bool(git_operation.get("ok")):
-        blocking_issues.append("Could not inspect git operation state.")
-    if running_processes:
-        blocking_issues.append("Background processes are still running.")
-    conflict_warnings: list[str] = []
-    if bool(conflict_scan.get("ok")):
-        if int(conflict_scan.get("unmerged_total", 0) or 0) > 0:
-            blocking_issues.append("Unmerged git files are present.")
-        if int(conflict_scan.get("markers_total", 0) or 0) > 0:
-            blocking_issues.append("Unresolved merge conflict markers are present.")
-        marker_items = list(conflict_scan.get("markers", []))
-        if marker_items:
-            marker_preview = ", ".join(
-                f"{item['path']}:{item['line']} {item['marker']}" for item in marker_items[:5]
-            )
-            conflict_warnings.append(f"Conflict markers: {marker_preview}.")
-        if bool(conflict_scan.get("truncated")):
-            blocking_issues.append("Conflict marker scan was incomplete.")
-            conflict_warnings.append("Conflict marker scan was truncated.")
-    else:
-        blocking_issues.append("Could not scan merge conflicts.")
-        conflict_warnings.append(
-            f"Could not scan merge conflicts: {conflict_scan.get('message') or 'unknown error'}."
-        )
-    verification_blockers, verification_warnings = final_review_session_verification_issues(
-        workspace,
-        all_suggested_checks,
-        focused_test_commands,
-    )
-    blocking_issues.extend(verification_blockers)
-
-    warnings: list[str] = []
-    warnings.extend(conflict_warnings)
-    if large_files:
-        large_preview = ", ".join(
-            f"{item['path']} ({int(item['size_bytes'])} bytes)" for item in large_files[:5]
-        )
-        warnings.append(f"Large changed file(s) over {FINAL_REVIEW_LARGE_FILE_BYTES} bytes: {large_preview}.")
-    if large_files_total > len(large_files):
-        warnings.append(f"Large changed file list truncated at {len(large_files)}/{large_files_total}.")
-    if secret_findings:
-        secret_preview = ", ".join(
-            f"{item['path']}:{item['line']} {item['label']}" for item in secret_findings[:5]
-        )
-        warnings.append(f"Secret-like changed file value(s): {secret_preview}.")
-    if secret_findings_total > len(secret_findings):
-        warnings.append(f"Secret-like finding list truncated at {len(secret_findings)}/{secret_findings_total}.")
-    if secret_scan_truncated:
-        warnings.append(f"Secret scan inspected the first {FINAL_REVIEW_SECRET_SCAN_BYTES} bytes of some file(s).")
-    if secret_diff_findings:
-        secret_diff_preview = ", ".join(
-            f"{item['path']}:{item['line']} {item['label']} ({item['source']})" for item in secret_diff_findings[:5]
-        )
-        warnings.append(f"Secret-like added diff value(s): {secret_diff_preview}.")
-    if secret_diff_findings_total > len(secret_diff_findings):
-        warnings.append(f"Secret-like diff finding list truncated at {len(secret_diff_findings)}/{secret_diff_findings_total}.")
-    if secret_diff_truncated:
-        warnings.append(f"Secret diff scan inspected the first {FINAL_REVIEW_SECRET_SCAN_BYTES} bytes of some diff output.")
-    for warning in secret_diff_warnings[:2]:
-        warnings.append(f"Could not inspect secret-like diff values: {warning}.")
-    if nested_git_repos:
-        warnings.append(f"Nested git repos: {', '.join(nested_git_repos[:5])}.")
-    if nested_git_repo_total > len(nested_git_repos):
-        warnings.append(f"Nested git repo list truncated at {len(nested_git_repos)}/{nested_git_repo_total}.")
-    if changed_gitlinks:
-        warnings.append(f"Git submodule links: {', '.join(changed_gitlinks[:5])}.")
-    if changed_gitlink_total > len(changed_gitlinks):
-        warnings.append(f"Git submodule link list truncated at {len(changed_gitlinks)}/{changed_gitlink_total}.")
-    for warning in changed_gitlink_warnings[:2]:
-        warnings.append(f"Could not inspect git submodule links: {warning}.")
-    if hidden_git_changes:
-        hidden_preview = ", ".join(
-            f"{item['status']} {item['path']}" for item in hidden_git_changes[:5]
-        )
-        warnings.append(f"Hidden tracked change(s): {hidden_preview}.")
-    if hidden_git_change_total > len(hidden_git_changes):
-        warnings.append(f"Hidden tracked change list truncated at {len(hidden_git_changes)}/{hidden_git_change_total}.")
-    for warning in hidden_git_change_warnings[:2]:
-        warnings.append(f"Could not inspect hidden tracked changes: {warning}.")
-    if unsafe_symlinks:
-        symlink_preview = ", ".join(
-            f"{item['path']} -> {item['target']} ({item['reason']})" for item in unsafe_symlinks[:5]
-        )
-        warnings.append(f"Unsafe changed symlink(s): {symlink_preview}.")
-    if unsafe_symlink_total > len(unsafe_symlinks):
-        warnings.append(f"Unsafe symlink list truncated at {len(unsafe_symlinks)}/{unsafe_symlink_total}.")
-    for warning in unsafe_symlink_warnings[:2]:
-        warnings.append(f"Could not inspect changed symlinks: {warning}.")
-    if git_operations:
-        operations_preview = ", ".join(str(item.get("operation", "unknown")) for item in git_operations[:5] if isinstance(item, dict))
-        warnings.append(f"Git operation in progress: {operations_preview}.")
-    elif not bool(git_operation.get("ok")):
-        warnings.append(f"Could not inspect git operation state: {git_operation.get('message') or 'unknown error'}.")
     total_files = int(review["total_files"])
-    if total_files == 0:
-        warnings.append("No changed files detected.")
-    if total_files > len(files):
-        warnings.append(f"Changed file list truncated at {len(files)}/{total_files}.")
-    if bool(review["python_truncated"]):
-        warnings.append(f"Python syntax checks truncated at {len(review['python'])}/{int(review['python_total'])}.")
-    if bool(review["config_truncated"]):
-        warnings.append(f"Config syntax checks truncated at {len(review['config'])}/{int(review['config_total'])}.")
-    if suggested_checks_truncated:
-        warnings.append(f"Suggested checks truncated at {len(suggested_checks)}/{suggested_checks_total}.")
-    if focused_test_commands_truncated:
-        blocking_issues.append("Focused test suggestions exceed the maximum readiness scan.")
-        warnings.append(f"Focused test suggestions truncated at {len(focused_test_commands)}/{focused_test_commands_total}.")
-    if focused_test_warning:
-        warnings.append(focused_test_warning)
-    if unavailable:
-        missing = ", ".join(sorted({item.missing_tool or item.command.split()[0] for item in unavailable})[:5])
-        warnings.append(f"Some suggested checks have missing executables: {missing}.")
-    if running_processes:
-        warnings.append(
-            f"{len(running_processes)} background process(es) still running; stop them before finishing if no longer needed."
-        )
-    warnings.extend(verification_warnings)
+    readiness = build_final_review_readiness(
+        workspace,
+        FinalReviewReadinessInputs(
+            review=review,
+            large_file_bytes=FINAL_REVIEW_LARGE_FILE_BYTES,
+            secret_scan_bytes=FINAL_REVIEW_SECRET_SCAN_BYTES,
+            files_shown=len(files),
+            all_suggested_checks=all_suggested_checks,
+            suggested_checks=suggested_checks,
+            suggested_checks_total=suggested_checks_total,
+            all_suggested_checks_truncated=all_suggested_checks_truncated,
+            suggested_checks_truncated=suggested_checks_truncated,
+            focused_test_commands=focused_test_commands,
+            focused_test_commands_total=focused_test_commands_total,
+            focused_test_commands_truncated=focused_test_commands_truncated,
+            focused_test_warning=focused_test_warning,
+            running_processes=running_processes,
+            conflict_scan=conflict_scan,
+            large_files=large_files,
+            large_files_total=large_files_total,
+            secret_findings=secret_findings,
+            secret_findings_total=secret_findings_total,
+            secret_scan_truncated=secret_scan_truncated,
+            secret_diff_findings=secret_diff_findings,
+            secret_diff_findings_total=secret_diff_findings_total,
+            secret_diff_truncated=secret_diff_truncated,
+            secret_diff_warnings=secret_diff_warnings,
+            nested_git_repos=nested_git_repos,
+            nested_git_repo_total=nested_git_repo_total,
+            changed_gitlinks=changed_gitlinks,
+            changed_gitlink_total=changed_gitlink_total,
+            changed_gitlink_warnings=changed_gitlink_warnings,
+            hidden_git_changes=hidden_git_changes,
+            hidden_git_change_total=hidden_git_change_total,
+            hidden_git_change_warnings=hidden_git_change_warnings,
+            unsafe_symlinks=unsafe_symlinks,
+            unsafe_symlink_total=unsafe_symlink_total,
+            unsafe_symlink_warnings=unsafe_symlink_warnings,
+            unsafe_symlink_reasons=unsafe_symlink_reasons,
+            git_operation=git_operation,
+        ),
+    )
+    blocking_issues = readiness.blocking_issues
+    warnings = readiness.warnings
 
     ready = bool(review["ok"]) and not blocking_issues
     if ready:
