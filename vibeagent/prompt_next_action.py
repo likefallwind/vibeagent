@@ -391,6 +391,46 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
     )
 
 
+def _session_plan_next_action_instruction(base: str, latest: Observation) -> str:
+    plan = str(getattr(latest, "plan", "") or "")
+    plan_lower = plan.lower()
+
+    if not getattr(latest, "ok", False):
+        return (
+            f"{base} Session plan could not be read. Use session_handoff or session_audit to recover context, "
+            "then continue with the next useful action before finishing."
+        )
+
+    unfinished_markers = (
+        "in_progress",
+        "in progress",
+        "pending",
+        "todo",
+        "not started",
+        "blocked",
+    )
+    if any(marker in plan_lower for marker in unfinished_markers):
+        return (
+            f"{base} Session plan shows unfinished work. "
+            "Continue the in-progress or next pending plan item, update_plan if the plan changed, "
+            "then run session_verification or session_audit before finishing."
+        )
+
+    complete_markers = ("completed", "complete", "done")
+    if any(marker in plan_lower for marker in complete_markers):
+        return (
+            f"{base} Session plan appears complete. "
+            "Confirm readiness with session_verification or session_audit, "
+            "or answer directly if the requested work is complete."
+        )
+
+    return (
+        f"{base} Use the session plan to resume the task. "
+        "Continue the next useful plan item, update_plan if needed, "
+        "and run session_verification or session_audit before finishing."
+    )
+
+
 def _session_failures_next_action_instruction(base: str, latest: Observation) -> str:
     failure_count = int(getattr(latest, "failure_count", 0) or 0)
     if failure_count > 0:
@@ -548,6 +588,9 @@ def get_next_action_instruction(task: str, observations: list[Observation]) -> s
 
     if latest.kind == "session_handoff":
         return _session_handoff_next_action_instruction(base, latest)
+
+    if latest.kind == "session_plan":
+        return _session_plan_next_action_instruction(base, latest)
 
     if latest.kind == "session_failures":
         return _session_failures_next_action_instruction(base, latest)
