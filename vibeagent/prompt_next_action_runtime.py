@@ -137,6 +137,13 @@ def _read_process_next_action_instruction(base: str, latest: Observation) -> str
     if latest.ok and latest.running:
         return f"{base} Use the process output to continue, write_process if the process is waiting for input, or stop_process if it is no longer needed."
     if process_exited_with_failure(latest):
+        output_issues = _inline_output_issue_labels(latest)
+        if output_issues:
+            return (
+                f"{base} The background command exited with a failure. Inline output analysis identified "
+                f"referenced source location(s): {format_next_action_items(output_issues)}. Inspect or edit "
+                "the referenced source, fix the issue, and rerun the relevant check before finishing."
+            )
         return (
             f"{base} The background command exited with a failure. Inspect stdout/stderr; use "
             f"process_output_diagnostics or process_output_contexts with process_id={latest.process_id} "
@@ -149,6 +156,13 @@ def _read_process_next_action_instruction(base: str, latest: Observation) -> str
 
 def _wait_process_next_action_instruction(base: str, latest: Observation) -> str:
     if process_exited_with_failure(latest):
+        output_issues = _inline_output_issue_labels(latest)
+        if output_issues:
+            return (
+                f"{base} The waited background command exited with a failure. Inline output analysis identified "
+                f"referenced source location(s): {format_next_action_items(output_issues)}. Inspect or edit "
+                "the referenced source, fix the issue, and rerun the relevant check before finishing."
+            )
         return (
             f"{base} The waited background command exited with a failure. Inspect stdout/stderr; use "
             f"process_output_diagnostics or process_output_contexts with process_id={latest.process_id} "
@@ -279,25 +293,26 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
     )
 
 
+def _inline_output_issue_labels(value: object) -> list[str]:
+    diagnostics = diagnostic_labels(getattr(value, "output_diagnostics", []))
+    if diagnostics:
+        return diagnostics
+    return context_labels(getattr(value, "output_contexts", []))
+
+
 def _command_result_output_issue_labels(results: object) -> list[str]:
     if not isinstance(results, list):
         return []
-    diagnostics: list[str] = []
-    contexts: list[str] = []
-    seen_diagnostics: set[str] = set()
-    seen_contexts: set[str] = set()
+    labels: list[str] = []
+    seen: set[str] = set()
     for result in results:
         if not failed_command_labels([result]):
             continue
-        for label in diagnostic_labels(getattr(result, "output_diagnostics", [])):
-            if label and label not in seen_diagnostics:
-                seen_diagnostics.add(label)
-                diagnostics.append(label)
-        for label in context_labels(getattr(result, "output_contexts", [])):
-            if label and label not in seen_contexts:
-                seen_contexts.add(label)
-                contexts.append(label)
-    return diagnostics or contexts
+        for label in _inline_output_issue_labels(result):
+            if label and label not in seen:
+                seen.add(label)
+                labels.append(label)
+    return labels
 
 
 def _run_session_verification_next_action_instruction(base: str, latest: Observation) -> str:
