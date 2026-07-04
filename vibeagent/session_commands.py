@@ -55,6 +55,7 @@ from .session_verification_commands import (
     get_session_verification_report,
     get_session_verification_text,
 )
+from .session_input import normalize_optional_run_id
 
 
 def get_sessions_text(project_root: str | Path = ".") -> str:
@@ -204,7 +205,7 @@ def get_session_audit_report(
     max_checks: int = 50,
     max_text: int = 300,
 ) -> dict[str, object]:
-    selected = run_id or get_last_session_id(project_root)
+    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
     if not selected:
         return {
             "session": None,
@@ -295,7 +296,7 @@ def get_session_handoff_report(
     max_output_chars: int = 1_000,
     max_text: int = 500,
 ) -> dict[str, object]:
-    selected = run_id or get_last_session_id(project_root)
+    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
     if not selected:
         return {
             "session": None,
@@ -391,7 +392,7 @@ def _load_session_context(
     max_output_chars: int,
     max_text: int,
 ) -> tuple[str | None, str | None, str]:
-    selected = run_id or get_last_session_id(project_root)
+    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
     if not selected:
         return None, None, "No sessions found."
     try:

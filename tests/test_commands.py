@@ -10079,11 +10079,22 @@ class CommandTests(unittest.TestCase):
                 max_checks=1,
                 max_text=80,
             )
+            spaced = get_session_audit_report(
+                root,
+                " run-1 ",
+                max_failures=1,
+                max_files=1,
+                max_commands=1,
+                max_checks=1,
+                max_text=80,
+            )
             missing = get_session_audit_report(root, "missing")
             rendered = format_session_audit_report_text(report)
             missing_text = format_session_audit_report_text(missing)
 
         self.assertEqual(report["session"], "run-1")
+        self.assertEqual(spaced["session"], "run-1")
+        self.assertEqual(spaced["verification"]["verified"]["total"], 2)
         self.assertTrue(report["exists"])
         self.assertFalse(report["ok"])
         self.assertFalse(report["ready"])
@@ -10237,11 +10248,23 @@ class CommandTests(unittest.TestCase):
                 max_output_chars=16,
                 max_text=80,
             )
+            spaced = get_session_handoff_report(
+                root,
+                " run-1 ",
+                max_failures=2,
+                max_files=2,
+                max_commands=2,
+                max_checks=1,
+                max_output_chars=16,
+                max_text=80,
+            )
             missing = get_session_handoff_report(root, "missing")
             rendered = format_session_handoff_report_text(report)
             missing_text = format_session_handoff_report_text(missing)
 
         self.assertEqual(report["session"], "run-1")
+        self.assertEqual(spaced["session"], "run-1")
+        self.assertEqual(spaced["audit"]["verification"]["verified"]["total"], 2)
         self.assertTrue(report["exists"])
         self.assertFalse(report["ok"])
         self.assertEqual(report["status"], "blocked")
@@ -11968,7 +11991,9 @@ class CommandTests(unittest.TestCase):
             last_report = get_last_session_report(root)
             last_report_text = format_session_summary_report_text(last_report)
             selected, context, resume_text = get_resume_context(None, root)
+            spaced_selected, spaced_context, spaced_resume_text = get_resume_context(" run-1 ", root)
             compact_selected, compact_context, compact_text = get_compact_context(None, root)
+            spaced_compact_selected, spaced_compact_context, spaced_compact_text = get_compact_context(" run-1 ", root)
             limited_selected, limited_context, limited_text = get_compact_context("run-1", root, max_checks=1)
 
         self.assertIn("run-1", sessions_text)
@@ -12010,9 +12035,15 @@ class CommandTests(unittest.TestCase):
         self.assertIn("task: Build a CLI.", context or "")
         self.assertIn("final: Done.", context or "")
         self.assertEqual(resume_text, "Resume context loaded from session run-1.")
+        self.assertEqual(spaced_selected, "run-1")
+        self.assertEqual(spaced_context, context)
+        self.assertEqual(spaced_resume_text, "Resume context loaded from session run-1.")
         self.assertEqual(compact_selected, "run-1")
         self.assertEqual(compact_context, context)
         self.assertEqual(compact_text, "Compacted context loaded from session run-1.")
+        self.assertEqual(spaced_compact_selected, "run-1")
+        self.assertEqual(spaced_compact_context, context)
+        self.assertEqual(spaced_compact_text, "Compacted context loaded from session run-1.")
         self.assertEqual(limited_selected, "run-1")
         self.assertEqual(limited_text, "Compacted context loaded from session run-1.")
         limited_verification = (limited_context or "").split("  failures:", 1)[0].split("  verification:", 1)[1]
