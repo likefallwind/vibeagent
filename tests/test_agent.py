@@ -19,7 +19,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CommandCheckObservation, ContentBlock, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, WaitProcessObservation
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CommandCheckObservation, ContentBlock, EnvironmentInfoObservation, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ProjectInstructionSource, ProjectInstructionsObservation, ProjectManifest, ProjectManifestItem, ProjectManifestsObservation, ProjectOverviewObservation, ProjectTodo, ProjectTodosObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, RuntimeToolInfo, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, ToolSearchObservation, WaitProcessObservation
 from vibeagent.types import CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
 
@@ -5210,6 +5210,210 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Focused test dry-run found blocked command", instruction)
         self.assertIn("pytest tests/test_agent.py: pytest", instruction)
         self.assertIn("choose another focused check", instruction)
+
+    def test_next_action_instruction_guides_tool_search_matches_to_specific_tool(self) -> None:
+        observation = ToolSearchObservation(
+            kind="tool_search",
+            ok=True,
+            query="verification",
+            matches=[
+                {
+                    "name": "run_suggested_checks",
+                    "category": "verification",
+                    "score": 42,
+                    "matchedFields": ["name"],
+                    "description": "Run suggested checks.",
+                }
+            ],
+            total=1,
+            shown=1,
+            truncated=False,
+            category="verification",
+            approval_required=True,
+            suggestions=[],
+            message="Found tools.",
+        )
+
+        instruction = get_next_action_instruction("find a verification tool", [observation])
+
+        self.assertIn("Tool search found matching tool", instruction)
+        self.assertIn("run_suggested_checks", instruction)
+        self.assertIn("Use the most specific matching tool", instruction)
+
+    def test_next_action_instruction_guides_project_manifests_to_commands_or_checks(self) -> None:
+        observation = ProjectManifestsObservation(
+            kind="project_manifests",
+            ok=True,
+            manifests=[
+                ProjectManifest(
+                    path="pyproject.toml",
+                    kind="python",
+                    ok=True,
+                    name="vibeagent",
+                    version="0.1.0",
+                    items=[
+                        ProjectManifestItem(
+                            group="tool",
+                            name="python",
+                            value=">=3.11",
+                        )
+                    ],
+                    item_count=1,
+                    truncated=False,
+                    message="Read manifest.",
+                )
+            ],
+            total_files=1,
+            scanned_files=1,
+            total_items=1,
+            truncated=False,
+            message="Found manifests.",
+        )
+
+        instruction = get_next_action_instruction("inspect project", [observation])
+
+        self.assertIn("Project manifests were found", instruction)
+        self.assertIn("pyproject.toml", instruction)
+        self.assertIn("project_commands", instruction)
+        self.assertIn("suggest_checks", instruction)
+
+    def test_next_action_instruction_guides_project_instructions_to_follow_them(self) -> None:
+        observation = ProjectInstructionsObservation(
+            kind="project_instructions",
+            ok=True,
+            files=[
+                ProjectInstructionSource(
+                    path="AGENTS.md",
+                    scope="repo",
+                    bytes=120,
+                    chars=120,
+                    empty=False,
+                    included=True,
+                    message="Included.",
+                )
+            ],
+            total_files=1,
+            scanned_files=1,
+            omitted_files=0,
+            truncated=False,
+            text="Use unittest and commit after validation.",
+            message="Read project instructions.",
+        )
+
+        instruction = get_next_action_instruction("continue coding", [observation])
+
+        self.assertIn("Project instructions were read from", instruction)
+        self.assertIn("AGENTS.md", instruction)
+        self.assertIn("Follow those instructions", instruction)
+        self.assertIn("next concrete task step", instruction)
+
+    def test_next_action_instruction_guides_project_todos_to_inspect_files(self) -> None:
+        observation = ProjectTodosObservation(
+            kind="project_todos",
+            ok=True,
+            todos=[
+                ProjectTodo(
+                    path="vibeagent/agent.py",
+                    line=42,
+                    marker="TODO",
+                    text="handle retry budget",
+                )
+            ],
+            total=1,
+            truncated=False,
+            total_files=10,
+            scanned_files=10,
+            path=".",
+            markers=["TODO"],
+            message="Found TODOs.",
+        )
+
+        instruction = get_next_action_instruction("inspect todos", [observation])
+
+        self.assertIn("Project TODOs were found", instruction)
+        self.assertIn("vibeagent/agent.py:42", instruction)
+        self.assertIn("Inspect the relevant files before editing", instruction)
+
+    def test_next_action_instruction_guides_project_overview_to_runnable_context(self) -> None:
+        observation = ProjectOverviewObservation(
+            kind="project_overview",
+            ok=True,
+            project_root="/repo",
+            is_git_repo=True,
+            git_branch="main",
+            git_head="abcdef1",
+            git_upstream="origin/main",
+            git_ahead=0,
+            git_behind=0,
+            git_status="",
+            tree=["vibeagent/", "tests/"],
+            files=["vibeagent/agent.py"],
+            total_tree_entries=2,
+            total_files=1,
+            repo_truncated=False,
+            commands=[
+                ProjectCommand(
+                    file="package.json",
+                    cwd=".",
+                    source="scripts.test",
+                    command="npm test",
+                    detail="test script",
+                    available=True,
+                )
+            ],
+            commands_total=1,
+            commands_truncated=False,
+            manifests=[],
+            manifest_files_total=0,
+            manifests_truncated=False,
+            suggested_checks=[
+                SuggestedCheck(
+                    command="python -m unittest discover -s tests",
+                    cwd=".",
+                    source="tests",
+                    reason="unit tests",
+                )
+            ],
+            suggested_checks_total=1,
+            suggested_checks_truncated=False,
+            tools=[],
+            message="Project overview.",
+        )
+
+        instruction = get_next_action_instruction("inspect project", [observation])
+
+        self.assertIn("Project overview found runnable project context", instruction)
+        self.assertIn("project_commands", instruction)
+        self.assertIn("suggest_checks", instruction)
+        self.assertIn("npm test (cwd=.)", instruction)
+
+    def test_next_action_instruction_guides_environment_info_to_available_tools(self) -> None:
+        observation = EnvironmentInfoObservation(
+            kind="environment_info",
+            ok=True,
+            project_root="/repo",
+            python_version="3.11",
+            python_executable="/usr/bin/python3",
+            platform="linux",
+            is_git_repo=True,
+            tools=[
+                RuntimeToolInfo(
+                    name="npm",
+                    available=False,
+                    path=None,
+                    version=None,
+                    message="missing",
+                )
+            ],
+            message="Read environment.",
+        )
+
+        instruction = get_next_action_instruction("choose checks", [observation])
+
+        self.assertIn("Environment info reports unavailable tool", instruction)
+        self.assertIn("npm", instruction)
+        self.assertIn("available tools", instruction)
+        self.assertIn("project_commands", instruction)
 
     def test_next_action_instruction_guides_failed_command_diagnostics(self) -> None:
         observation = RunCommandObservation(
