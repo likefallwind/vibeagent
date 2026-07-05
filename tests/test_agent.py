@@ -7906,7 +7906,79 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Source context was inspected after a failed command or diagnostic lookup", instruction)
         self.assertIn("tests/test_agent.py:42", instruction)
         self.assertIn("edit the relevant code", instruction)
-        self.assertIn("rerun the failed command", instruction)
+        self.assertIn("rerun the run_suggested_checks", instruction)
+
+    def test_next_action_instruction_preserves_batch_rerun_after_output_diagnostics_context(self) -> None:
+        checks = RunSuggestedChecksObservation(
+            kind="run_suggested_checks",
+            ok=False,
+            results=[
+                CommandResult(
+                    command="python -m unittest tests.test_agent",
+                    exit_code=1,
+                    stdout="FAIL tests/test_agent.py:42\n",
+                    stderr="AssertionError: expected ready\n",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                )
+            ],
+            suggested_checks=[
+                SuggestedCheck(
+                    command="python -m unittest tests.test_agent",
+                    cwd=".",
+                    source="tests",
+                    reason="unit tests",
+                )
+            ],
+            total=1,
+            truncated=False,
+            max_commands=1,
+            stopped_early=True,
+            skipped_unavailable=0,
+            message="Suggested checks failed.",
+        )
+        diagnostics = OutputDiagnosticsObservation(
+            kind="output_diagnostics",
+            diagnostics=[
+                OutputDiagnostic(
+                    severity="failure",
+                    output_line=1,
+                    text="AssertionError: expected ready",
+                    path="tests/test_agent.py",
+                    line=42,
+                    column=None,
+                )
+            ],
+            contexts=[],
+            total_diagnostics=1,
+            total_refs=1,
+            diagnostics_truncated=False,
+            contexts_truncated=False,
+            message="Extracted diagnostics.",
+        )
+        context = ReadFileContextObservation(
+            kind="read_file_context",
+            path="tests/test_agent.py",
+            ok=True,
+            content="41 | before\n42 | broken()\n43 | after",
+            message="Read context.",
+            line=42,
+            context_lines=1,
+            start_line=41,
+            end_line=43,
+            line_count=3,
+            total_lines=100,
+            target_line_exists=True,
+        )
+
+        instruction = get_next_action_instruction("fix failing checks", [checks, diagnostics, context])
+
+        self.assertIn("Source context was inspected after a failed command or diagnostic lookup", instruction)
+        self.assertIn("tests/test_agent.py:42", instruction)
+        self.assertIn("edit the relevant code", instruction)
+        self.assertIn("rerun the run_suggested_checks", instruction)
+        self.assertNotIn("rerun the failed command", instruction)
 
     def test_next_action_instruction_guides_failed_read_process_to_process_diagnostics(self) -> None:
         observation = ReadProcessObservation(

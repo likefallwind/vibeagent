@@ -64,6 +64,18 @@ def _session_recovery_rerun_target(observations: list[Observation]) -> str:
     return "relevant check"
 
 
+def _command_recovery_rerun_target(observations: list[Observation], batch_command_kinds: set[str]) -> str:
+    for observation in reversed(observations):
+        if observation.kind in batch_command_kinds:
+            if failed_command_labels(getattr(observation, "results", [])):
+                return str(observation.kind)
+        if observation.kind == "run_command":
+            result = observation.result
+            if result.exit_code != 0 or result.timed_out:
+                return "failed command"
+    return "failed command"
+
+
 def recovery_rerun_target(observations: list[Observation], batch_command_kinds: set[str]) -> str | None:
     for index in range(len(observations) - 1, -1, -1):
         observation = observations[index]
@@ -72,7 +84,7 @@ def recovery_rerun_target(observations: list[Observation], batch_command_kinds: 
         if observation.kind in PROCESS_RECOVERY_SIGNAL_KINDS:
             return "relevant check"
         if observation.kind in RECOVERY_SIGNAL_KINDS:
-            return "failed command"
+            return _command_recovery_rerun_target(observations[:index], batch_command_kinds)
         if observation.kind in {"read_process", "wait_process"} and process_exited_with_failure(observation):
             return "relevant check"
         if observation.kind == "run_session_verification":
@@ -80,7 +92,7 @@ def recovery_rerun_target(observations: list[Observation], batch_command_kinds: 
                 return "run_session_verification"
         if observation.kind in batch_command_kinds:
             if failed_command_labels(getattr(observation, "results", [])):
-                return "failed command"
+                return str(observation.kind)
         if observation.kind == "run_command":
             result = observation.result
             if result.exit_code != 0 or result.timed_out:
