@@ -11,6 +11,11 @@ from .local_runtime_commands import (
     sum_command_result_duration_ms,
     validate_run_output_context_options,
 )
+from .runner_report_helpers import (
+    format_selected_not_run_command_lines,
+    selected_not_run_command_items,
+    serialize_not_run_commands,
+)
 from .types import CheckSuggestedChecksAction, RunSuggestedChecksAction
 from .workspace_core import RunWorkspace
 from .workspace import suggest_project_checks
@@ -88,15 +93,13 @@ def serialize_not_run_suggested_checks(
     ran_count: int,
     stopped_early: bool,
 ) -> dict[str, object]:
-    commands = (
-        [
-            serialize_suggested_check(check, index=index)
-            for index, check in enumerate(checks[ran_count:], start=ran_count + 1)
-        ]
-        if stopped_early
-        else []
+    return serialize_not_run_commands(
+        checks,
+        ran_count=ran_count,
+        stopped_early=stopped_early,
+        item_key="commands",
+        serialize_item=serialize_suggested_check,
     )
-    return {"count": len(commands), "commands": commands}
 
 
 def serialize_focused_test_command(command: object, index: int | None = None) -> dict[str, object]:
@@ -119,15 +122,13 @@ def serialize_not_run_focused_test_commands(
     ran_count: int,
     stopped_early: bool,
 ) -> dict[str, object]:
-    items = (
-        [
-            serialize_focused_test_command(command, index=index)
-            for index, command in enumerate(commands[ran_count:], start=ran_count + 1)
-        ]
-        if stopped_early
-        else []
+    return serialize_not_run_commands(
+        commands,
+        ran_count=ran_count,
+        stopped_early=stopped_early,
+        item_key="items",
+        serialize_item=serialize_focused_test_command,
     )
-    return {"count": len(items), "items": items}
 
 
 def format_structured_command_checks(checks: list[dict[str, object]], spaces: int = 2) -> list[str]:
@@ -412,16 +413,16 @@ def format_run_suggested_checks_report_text(report: dict[str, object]) -> str:
             )
     else:
         lines.append("  suggestedChecks: none")
-    selected_not_run = report.get("selectedCommandsNotRun") if isinstance(report.get("selectedCommandsNotRun"), dict) else {}
-    if isinstance(selected_not_run.get("commands"), list):
-        not_run = [item for item in selected_not_run.get("commands", []) if isinstance(item, dict)]
-    else:
-        not_run = suggested_items[len(results) :] if bool(report.get("stoppedEarly")) else []
-    if not_run:
-        lines.append(f"  selectedCommandsNotRun: {len(not_run)}")
-        for check in not_run:
-            lines.append(f"    - command: {check.get('command') or ''}")
-            lines.append(f"      cwd: {check.get('cwd') or '.'}")
+    lines.extend(
+        format_selected_not_run_command_lines(
+            selected_not_run_command_items(
+                report,
+                item_key="commands",
+                fallback_items=suggested_items,
+                results=results,
+            )
+        )
+    )
     if results:
         lines.append("  results:")
         for position, result in enumerate(results, start=1):

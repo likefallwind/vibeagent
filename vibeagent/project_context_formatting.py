@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .check_commands import format_structured_command_checks
 from .process_report_helpers import format_structured_command_output_analysis_lines
+from .runner_report_helpers import format_selected_not_run_command_lines, selected_not_run_command_items
 from .types import ProjectCommand
 
 
@@ -187,16 +188,16 @@ def format_run_focused_test_commands_report_text(report: dict[str, object]) -> s
             )
     else:
         lines.append("  focusedCommands: none")
-    selected_not_run = report.get("selectedCommandsNotRun") if isinstance(report.get("selectedCommandsNotRun"), dict) else {}
-    if isinstance(selected_not_run.get("items"), list):
-        not_run = [item for item in selected_not_run.get("items", []) if isinstance(item, dict)]
-    else:
-        not_run = focused_items[len(results) :] if bool(report.get("stoppedEarly")) else []
-    if not_run:
-        lines.append(f"  selectedCommandsNotRun: {len(not_run)}")
-        for command in not_run:
-            lines.append(f"    - command: {command.get('command') or ''}")
-            lines.append(f"      cwd: {command.get('cwd') or '.'}")
+    lines.extend(
+        format_selected_not_run_command_lines(
+            selected_not_run_command_items(
+                report,
+                item_key="items",
+                fallback_items=focused_items,
+                results=results,
+            )
+        )
+    )
     if results:
         lines.append("  results:")
         for position, result in enumerate(results, start=1):
