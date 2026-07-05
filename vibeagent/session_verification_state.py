@@ -34,7 +34,7 @@ def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[s
         if kind in SESSION_VERIFICATION_INVALIDATING_RESULT_KINDS and result.get("ok") is not False:
             last_change_index = index
 
-    if not verification_commands or last_change_index is None:
+    if last_change_index is None:
         return [], [], []
 
     statuses: dict[tuple[str, str], tuple[bool, str]] = {}
@@ -44,6 +44,7 @@ def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[s
         result = event.payload.get("result")
         if not isinstance(result, dict):
             continue
+        verification_commands.update(session_run_verification_selected_command_keys(result))
         for command_result in session_iter_command_results(result):
             key = session_command_result_key(command_result)
             if key not in verification_commands:
@@ -52,6 +53,9 @@ def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[s
                 statuses[key] = (False, session_failed_suggested_check_label(command_result))
             else:
                 statuses[key] = (True, session_suggested_check_label(*key))
+
+    if not verification_commands:
+        return [], [], []
 
     verified = [label for _, (passed, label) in sorted(statuses.items()) if passed]
     failed_checks = [label for _, (passed, label) in sorted(statuses.items()) if not passed]
@@ -73,6 +77,15 @@ def session_final_review_suggested_commands(result: dict[str, Any]) -> set[tuple
 
 def session_final_review_focused_test_commands(result: dict[str, Any]) -> set[tuple[str, str]]:
     return command_keys_from_dicts(result.get("focused_test_commands"))
+
+
+def session_run_verification_selected_command_keys(result: dict[str, Any]) -> set[tuple[str, str]]:
+    if result.get("kind") != "run_session_verification":
+        return set()
+    selected = result.get("selected_commands")
+    if not isinstance(selected, list):
+        selected = result.get("selectedCommands")
+    return command_keys_from_dicts(selected)
 
 
 def session_iter_command_results(result: dict[str, Any]) -> list[dict[str, Any]]:

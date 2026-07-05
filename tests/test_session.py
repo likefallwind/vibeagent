@@ -1872,6 +1872,63 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(summary.pending_verification_checks, [])
         self.assertEqual(summary.failed_verification_checks, [])
 
+    def test_summarize_session_recovers_stopped_session_verification_without_final_review(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "write_file",
+                        "result": {"kind": "write_file", "path": "src/app.py", "ok": True, "message": "Wrote src/app.py."},
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 2,
+                        "name": "run_session_verification",
+                        "result": {
+                            "kind": "run_session_verification",
+                            "run_id": "run-1",
+                            "ok": False,
+                            "selectedCommands": [
+                                {"command": "python -m unittest discover -s tests", "cwd": ".", "status": "failed"},
+                                {"command": "npm test", "cwd": "web", "status": "pending"},
+                            ],
+                            "selected_count": 2,
+                            "pending_count": 1,
+                            "failed_count": 1,
+                            "stopped_early": True,
+                            "results": [
+                                {
+                                    "command": "python -m unittest discover -s tests",
+                                    "cwd": ".",
+                                    "exit_code": 1,
+                                    "stdout": "",
+                                    "stderr": "FAIL\n",
+                                    "timed_out": False,
+                                    "signal": None,
+                                }
+                            ],
+                            "message": "Ran 1/2 session verification command(s); one or more failed.",
+                        },
+                    },
+                ],
+            )
+
+            summary = summarize_session(root, "run-1")
+            verification = format_session_verification(summary)
+
+        self.assertEqual(summary.verification_checks, [])
+        self.assertEqual(summary.pending_verification_checks, ["npm test (cwd: web)"])
+        self.assertEqual(summary.failed_verification_checks, ["python -m unittest discover -s tests (exit=1)"])
+        self.assertIn("pendingChecks:", verification)
+        self.assertIn("npm test (cwd: web)", verification)
+        self.assertIn("failedChecks:", verification)
+        self.assertIn("python -m unittest discover -s tests (exit=1)", verification)
+
     def test_summarize_session_treats_successful_verification_with_output_diagnostics_as_failed(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
             root = Path(base)
