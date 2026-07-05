@@ -7218,6 +7218,110 @@ class AgentTests(unittest.TestCase):
         self.assertIn("rerun the relevant check", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_preserves_background_rerun_for_process_diagnostics(self) -> None:
+        read = ReadProcessObservation(
+            kind="read_process",
+            process_id="bg-1",
+            pid=1234,
+            ok=True,
+            running=False,
+            exit_code=1,
+            signal=None,
+            stdout="FAIL tests/test_agent.py:42\n",
+            stderr="AssertionError: expected ready\n",
+            max_output_chars=12000,
+            message="Process exited.",
+        )
+        diagnostics = ProcessOutputDiagnosticsObservation(
+            kind="process_output_diagnostics",
+            process_id="bg-1",
+            pid=1234,
+            ok=True,
+            running=False,
+            exit_code=1,
+            signal=None,
+            diagnostics=[
+                OutputDiagnostic(
+                    severity="failure",
+                    output_line=3,
+                    text="AssertionError: expected ready",
+                    path="tests/test_agent.py",
+                    line=42,
+                    column=None,
+                )
+            ],
+            contexts=[],
+            total_diagnostics=1,
+            total_refs=1,
+            diagnostics_truncated=False,
+            contexts_truncated=False,
+            stdout_chars=120,
+            stderr_chars=80,
+            max_output_chars=12000,
+            message="Extracted process diagnostics.",
+        )
+
+        instruction = get_next_action_instruction("fix background check", [read, diagnostics])
+
+        self.assertIn("Process output diagnostics found concrete issues", instruction)
+        self.assertIn("tests/test_agent.py:42 failure: AssertionError: expected ready", instruction)
+        self.assertIn("rerun the background command or relevant check", instruction)
+        self.assertNotIn("rerun the relevant check", instruction)
+
+    def test_next_action_instruction_preserves_background_rerun_for_process_contexts(self) -> None:
+        read = ReadProcessObservation(
+            kind="read_process",
+            process_id="bg-1",
+            pid=1234,
+            ok=True,
+            running=False,
+            exit_code=1,
+            signal=None,
+            stdout="FAIL tests/test_agent.py:42\n",
+            stderr="AssertionError: expected ready\n",
+            max_output_chars=12000,
+            message="Process exited.",
+        )
+        contexts = ProcessOutputContextsObservation(
+            kind="process_output_contexts",
+            process_id="bg-1",
+            pid=1234,
+            ok=True,
+            running=False,
+            exit_code=1,
+            signal=None,
+            contexts=[
+                OutputContextResult(
+                    path="tests/test_agent.py",
+                    line=42,
+                    column=8,
+                    raw="tests/test_agent.py:42:8",
+                    ok=True,
+                    content="41 | before\n42 | broken()\n43 | after",
+                    message="Read context.",
+                    context_lines=1,
+                    start_line=41,
+                    end_line=43,
+                    line_count=3,
+                    total_lines=100,
+                    target_line_exists=True,
+                )
+            ],
+            total_refs=1,
+            truncated=False,
+            stdout_chars=120,
+            stderr_chars=80,
+            max_output_chars=12000,
+            message="Extracted process contexts.",
+        )
+
+        instruction = get_next_action_instruction("fix background check", [read, contexts])
+
+        self.assertIn("Process output contexts located source references", instruction)
+        self.assertIn("tests/test_agent.py:42:8", instruction)
+        self.assertIn("rerun the background command or relevant check", instruction)
+        self.assertNotIn("rerun the relevant check", instruction)
+
     def test_next_action_instruction_guides_session_output_diagnostics_to_edit_and_rerun(self) -> None:
         observation = SessionOutputDiagnosticsObservation(
             kind="session_output_diagnostics",

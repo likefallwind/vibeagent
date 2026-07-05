@@ -113,6 +113,13 @@ def _session_output_rerun_target(observations: list[Observation]) -> str:
     return recovery_rerun_target(observations, BATCH_COMMAND_RESULT_KINDS) or "relevant check"
 
 
+def _process_output_rerun_target(observations: list[Observation]) -> str:
+    for observation in reversed(observations):
+        if observation.kind in {"read_process", "wait_process"} and process_exited_with_failure(observation):
+            return "background command or relevant check"
+    return "relevant check"
+
+
 def _run_command_next_action_instruction(base: str, latest: Observation) -> str:
     result = latest.result
     if result.exit_code == 0 and not result.timed_out:
@@ -513,7 +520,7 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
             latest,
             label="Process output",
             output_source="process output",
-            rerun_target="relevant check",
+            rerun_target=_process_output_rerun_target(observations[:-1]),
         )
     if latest.kind == "process_output_contexts":
         return _contexts_next_action_instruction(
@@ -522,7 +529,7 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
             label="Process output",
             fallback_tool="process_output_diagnostics",
             output_source="process output",
-            rerun_target="relevant check",
+            rerun_target=_process_output_rerun_target(observations[:-1]),
         )
     if latest.kind == "session_output_diagnostics":
         return _diagnostics_next_action_instruction(
