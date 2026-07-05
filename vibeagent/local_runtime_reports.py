@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .prompt_next_action_runtime_formatting import inline_output_issue_labels
 from .process_report_helpers import (
     format_structured_command_output_analysis_lines,
     serialize_command_output_analysis,
@@ -34,10 +35,13 @@ def sum_command_result_duration_ms(results: list[object]) -> int:
 def serialize_command_result(result: object, index: int | None = None) -> dict[str, object]:
     exit_code = getattr(result, "exit_code", None)
     timed_out = bool(getattr(result, "timed_out", False))
+    ok = exit_code == 0 and not timed_out
+    clean = ok and not inline_output_issue_labels(result)
     item: dict[str, object] = {
         "command": str(getattr(result, "command", "") or ""),
         "cwd": str(getattr(result, "cwd", ".") or "."),
-        "ok": exit_code == 0 and not timed_out,
+        "ok": ok,
+        "clean": clean,
         "exitCode": exit_code,
         "timedOut": timed_out,
         "signal": getattr(result, "signal", None),
@@ -105,6 +109,7 @@ def format_run_report_text(report: dict[str, object]) -> str:
         f"  command: {report.get('command') or ''}",
         f"  cwd: {report.get('cwd') or '.'}",
         f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  clean: {'yes' if bool(report.get('clean')) else 'no'}",
         f"  exitCode: {report.get('exitCode') if report.get('exitCode') is not None else '.'}",
         f"  timedOut: {'yes' if bool(report.get('timedOut')) else 'no'}",
         f"  signal: {report.get('signal') or '.'}",
@@ -157,6 +162,7 @@ def format_run_sequence_report_text(report: dict[str, object]) -> str:
                     f"      command: {result.get('command') or ''}",
                     f"      cwd: {result.get('cwd') or '.'}",
                     f"      ok: {'yes' if bool(result.get('ok')) else 'no'}",
+                    f"      clean: {'yes' if bool(result.get('clean')) else 'no'}",
                     f"      exitCode: {result.get('exitCode') if result.get('exitCode') is not None else '.'}",
                     f"      timedOut: {'yes' if bool(result.get('timedOut')) else 'no'}",
                     f"      signal: {result.get('signal') or '.'}",

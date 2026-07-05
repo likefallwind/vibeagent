@@ -2,7 +2,7 @@ import unittest
 
 from vibeagent import local_runtime_commands
 from vibeagent import local_runtime_reports
-from vibeagent.types import CommandResult
+from vibeagent.types import CommandResult, OutputContextResult
 
 
 class LocalRuntimeReportsTests(unittest.TestCase):
@@ -58,6 +58,35 @@ class LocalRuntimeReportsTests(unittest.TestCase):
         payload = local_runtime_reports.serialize_command_result(result)
 
         self.assertEqual(payload["durationMs"], 42)
+        self.assertTrue(payload["ok"])
+        self.assertTrue(payload["clean"])
+
+    def test_serialize_command_result_marks_source_output_contexts_not_clean(self) -> None:
+        result = CommandResult(
+            command="python3 -m unittest",
+            exit_code=0,
+            stdout="tests/test_app.py:3: warning\n",
+            stderr="",
+            timed_out=False,
+            signal=None,
+            output_contexts=[
+                OutputContextResult(
+                    path="tests/test_app.py",
+                    line=3,
+                    column=None,
+                    raw="tests/test_app.py:3",
+                    ok=True,
+                    content="3: self.assertTrue(True)\n",
+                    message="Read tests/test_app.py:3.",
+                )
+            ],
+            output_context_total_refs=1,
+        )
+
+        payload = local_runtime_reports.serialize_command_result(result)
+
+        self.assertTrue(payload["ok"])
+        self.assertFalse(payload["clean"])
 
 
 if __name__ == "__main__":

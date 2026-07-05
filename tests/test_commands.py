@@ -1657,6 +1657,7 @@ class CommandTests(unittest.TestCase):
 
         self.assertIn("Run suggested checks:", text)
         self.assertIn("outputContexts: 1/1", text)
+        self.assertIn("clean: no", text)
         self.assertIn("src/app.py:2:5 [src/app.py:2:5]", text)
         self.assertIn("2: Two", text)
 
@@ -1855,6 +1856,7 @@ class CommandTests(unittest.TestCase):
         self.assertIn("source: pkg/actions.py", text)
         self.assertIn("reason:", text)
         self.assertIn("exitCode: 0", text)
+        self.assertIn("clean: yes", text)
         self.assertIn("Usage: /run-focused-tests [path...]", invalid)
         self.assertIn("options are not supported", invalid)
 
@@ -8196,6 +8198,7 @@ class CommandTests(unittest.TestCase):
 
         self.assertIn("Run sequence:", text)
         self.assertIn("outputContexts: 1/1", text)
+        self.assertIn("clean: no", text)
         self.assertIn("src/app.py:2:5 [src/app.py:2:5]", text)
         self.assertIn("2: Two", text)
 
@@ -9997,6 +10000,7 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(report["results"][0]["analysis"]["contexts"]["items"][0]["path"], "src/app.py")
         self.assertIn("Run session verification:", rendered)
         self.assertIn("ok: no", rendered)
+        self.assertIn("clean: no", rendered)
         self.assertIn("source-linked output diagnostics", rendered)
         self.assertIn("outputContexts: 1/1", rendered)
         self.assertIn("src/app.py:2:5 [src/app.py:2:5]", rendered)

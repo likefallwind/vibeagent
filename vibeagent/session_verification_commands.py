@@ -275,6 +275,7 @@ def format_run_session_verification_report_text(report: dict[str, object]) -> st
                     f"      command: {result.get('command') or ''}",
                     f"      cwd: {result.get('cwd') or '.'}",
                     f"      ok: {'yes' if bool(result.get('ok')) else 'no'}",
+                    f"      clean: {'yes' if bool(result.get('clean')) else 'no'}",
                     f"      exitCode: {result.get('exitCode') if result.get('exitCode') is not None else '.'}",
                     f"      timedOut: {'yes' if bool(result.get('timedOut')) else 'no'}",
                     f"      durationMs: {result.get('durationMs', 0)}",

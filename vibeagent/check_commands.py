@@ -379,6 +379,7 @@ def format_run_suggested_checks_report_text(report: dict[str, object]) -> str:
                     f"      command: {result.get('command') or ''}",
                     f"      cwd: {result.get('cwd') or '.'}",
                     f"      ok: {'yes' if bool(result.get('ok')) else 'no'}",
+                    f"      clean: {'yes' if bool(result.get('clean')) else 'no'}",
                     f"      exitCode: {result.get('exitCode') if result.get('exitCode') is not None else '.'}",
                     f"      timedOut: {'yes' if bool(result.get('timedOut')) else 'no'}",
                     f"      signal: {result.get('signal') or '.'}",
