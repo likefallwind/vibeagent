@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping
 
-from .final_review_actions import final_review_session_verification_issues
+from .final_review_session_verification import final_review_session_verification_issues
 from .types import FocusedTestCommand, SuggestedCheck
 from .workspace_core import RunWorkspace
 
