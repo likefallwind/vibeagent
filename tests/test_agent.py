@@ -6970,6 +6970,63 @@ class AgentTests(unittest.TestCase):
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_preserves_batch_rerun_for_output_diagnostics(self) -> None:
+        checks = RunSuggestedChecksObservation(
+            kind="run_suggested_checks",
+            ok=False,
+            results=[
+                CommandResult(
+                    command="python -m unittest tests.test_agent",
+                    exit_code=1,
+                    stdout="FAIL tests/test_agent.py:42\n",
+                    stderr="AssertionError: expected ready\n",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                )
+            ],
+            suggested_checks=[
+                SuggestedCheck(
+                    command="python -m unittest tests.test_agent",
+                    cwd=".",
+                    source="tests",
+                    reason="unit tests",
+                )
+            ],
+            total=1,
+            truncated=False,
+            max_commands=1,
+            stopped_early=True,
+            skipped_unavailable=0,
+            message="Suggested checks failed.",
+        )
+        diagnostics = OutputDiagnosticsObservation(
+            kind="output_diagnostics",
+            diagnostics=[
+                OutputDiagnostic(
+                    severity="failure",
+                    output_line=8,
+                    text="AssertionError: expected ready",
+                    path="tests/test_agent.py",
+                    line=42,
+                    column=None,
+                )
+            ],
+            contexts=[],
+            total_diagnostics=1,
+            total_refs=1,
+            diagnostics_truncated=False,
+            contexts_truncated=False,
+            message="Extracted diagnostics.",
+        )
+
+        instruction = get_next_action_instruction("fix failing checks", [checks, diagnostics])
+
+        self.assertIn("Output diagnostics found concrete issues", instruction)
+        self.assertIn("tests/test_agent.py:42 failure: AssertionError: expected ready", instruction)
+        self.assertIn("rerun the run_suggested_checks", instruction)
+        self.assertNotIn("rerun the failed command", instruction)
+
     def test_next_action_instruction_guides_output_contexts_to_edit_and_rerun(self) -> None:
         observation = OutputContextsObservation(
             kind="output_contexts",
@@ -7002,6 +7059,67 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Inspect or edit the relevant code", instruction)
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_preserves_batch_rerun_for_output_contexts(self) -> None:
+        checks = RunSuggestedChecksObservation(
+            kind="run_suggested_checks",
+            ok=False,
+            results=[
+                CommandResult(
+                    command="python -m unittest tests.test_agent",
+                    exit_code=1,
+                    stdout="FAIL tests/test_agent.py:42\n",
+                    stderr="AssertionError: expected ready\n",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                )
+            ],
+            suggested_checks=[
+                SuggestedCheck(
+                    command="python -m unittest tests.test_agent",
+                    cwd=".",
+                    source="tests",
+                    reason="unit tests",
+                )
+            ],
+            total=1,
+            truncated=False,
+            max_commands=1,
+            stopped_early=True,
+            skipped_unavailable=0,
+            message="Suggested checks failed.",
+        )
+        contexts = OutputContextsObservation(
+            kind="output_contexts",
+            contexts=[
+                OutputContextResult(
+                    path="tests/test_agent.py",
+                    line=42,
+                    column=8,
+                    raw="tests/test_agent.py:42:8",
+                    ok=True,
+                    content="41 | before\n42 | broken()\n43 | after",
+                    message="Read context.",
+                    context_lines=1,
+                    start_line=41,
+                    end_line=43,
+                    line_count=3,
+                    total_lines=100,
+                    target_line_exists=True,
+                )
+            ],
+            total_refs=1,
+            truncated=False,
+            message="Extracted contexts.",
+        )
+
+        instruction = get_next_action_instruction("fix failing checks", [checks, contexts])
+
+        self.assertIn("Output contexts located source references", instruction)
+        self.assertIn("tests/test_agent.py:42:8", instruction)
+        self.assertIn("rerun the run_suggested_checks", instruction)
+        self.assertNotIn("rerun the failed command", instruction)
 
     def test_next_action_instruction_guides_empty_output_contexts_to_diagnostics(self) -> None:
         observation = OutputContextsObservation(
