@@ -58,10 +58,16 @@ def final_review_session_verification_issues(
         return [], []
 
     statuses: dict[tuple[str, str], tuple[bool, str]] = {}
+    stopped_not_run_labels: list[str] = []
     for event in events[last_change_index + 1 :]:
         result = event.payload.get("result") if not event.malformed and event.type == "tool_result" else None
         if not isinstance(result, dict):
             continue
+        if result.get("kind") == "run_session_verification":
+            stopped_not_run_labels = final_review_stopped_session_verification_labels(
+                result,
+                verification_commands,
+            )
         for command_result in session_iter_command_results(result):
             key = session_command_result_key(command_result)
             if key not in verification_commands:
@@ -88,7 +94,46 @@ def final_review_session_verification_issues(
     if pending_labels:
         blockers.append("Suggested verification checks are still pending after the latest project change.")
         warnings.append("Pending suggested check(s): " + ", ".join(pending_labels[:5]) + ".")
+    if stopped_not_run_labels:
+        warnings.append(
+            "Session verification stopped before running selected check(s): "
+            + ", ".join(stopped_not_run_labels[:5])
+            + "."
+        )
     return blockers, warnings
+
+
+def final_review_stopped_session_verification_labels(
+    result: dict[str, Any],
+    verification_commands: set[tuple[str, str]],
+) -> list[str]:
+    if not bool(result.get("stopped_early") or result.get("stoppedEarly")):
+        return []
+    selected = result.get("selected_commands")
+    if not isinstance(selected, list):
+        selected = result.get("selectedCommands")
+    results = result.get("results")
+    if not isinstance(selected, list) or not isinstance(results, list):
+        return []
+
+    labels: list[str] = []
+    ran_count = len([item for item in results if isinstance(item, dict)])
+    for item in selected[ran_count:]:
+        if not isinstance(item, dict):
+            continue
+        command = item.get("command")
+        cwd = item.get("cwd") or "."
+        if not isinstance(command, str) or not command.strip():
+            continue
+        command = command.strip()
+        cwd = cwd.strip() if isinstance(cwd, str) and cwd.strip() else "."
+        key = (command, cwd)
+        if key not in verification_commands:
+            continue
+        status = str(item.get("status") or item.get("sourceStatus") or "").strip()
+        label = suggested_check_label(command, cwd)
+        labels.append(f"{label}: {status}" if status else label)
+    return labels
 
 
 def latest_successful_project_change_event_index(events: list[Any]) -> int | None:

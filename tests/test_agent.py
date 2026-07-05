@@ -9217,6 +9217,85 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(blockers, [])
         self.assertEqual(warnings, [])
 
+    def test_final_review_session_verification_warns_when_stopped_early(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            events_dir = root / ".vibeagent" / "sessions" / "run-1"
+            events_dir.mkdir(parents=True)
+            events = [
+                {
+                    "type": "tool_result",
+                    "iteration": 1,
+                    "name": "write_file",
+                    "result": {"kind": "write_file", "path": "src/app.py", "ok": True, "message": "Wrote src/app.py."},
+                },
+                {
+                    "type": "tool_result",
+                    "iteration": 2,
+                    "name": "run_session_verification",
+                    "result": {
+                        "kind": "run_session_verification",
+                        "run_id": "run-1",
+                        "ok": False,
+                        "selected_commands": [
+                            {"command": "python -m unittest discover -s tests", "cwd": ".", "status": "failed"},
+                            {"command": "npm test", "cwd": "web", "status": "pending"},
+                        ],
+                        "selected_count": 2,
+                        "stopped_early": True,
+                        "results": [
+                            {
+                                "command": "python -m unittest discover -s tests",
+                                "cwd": ".",
+                                "exit_code": 1,
+                                "stdout": "",
+                                "stderr": "FAIL\n",
+                                "timed_out": False,
+                                "signal": None,
+                            }
+                        ],
+                        "message": "Ran 1/2 session verification command(s); one or more failed.",
+                    },
+                },
+            ]
+            events_dir.joinpath("events.jsonl").write_text(
+                "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n",
+                encoding="utf-8",
+            )
+            workspace = create_run_workspace(root, "run-1")
+
+            blockers, warnings = final_review_session_verification_issues(
+                workspace,
+                [
+                    SuggestedCheck(
+                        command="python -m unittest discover -s tests",
+                        cwd=".",
+                        source="tests",
+                        reason="unit tests",
+                    ),
+                    SuggestedCheck(
+                        command="npm test",
+                        cwd="web",
+                        source="package.json",
+                        reason="test script",
+                    ),
+                ],
+            )
+
+        self.assertEqual(
+            blockers,
+            [
+                "Suggested verification checks failed after the latest project change.",
+                "Suggested verification checks are still pending after the latest project change.",
+            ],
+        )
+        self.assertIn("Failed suggested check(s): python -m unittest discover -s tests (exit=1).", warnings)
+        self.assertIn("Pending suggested check(s): npm test (cwd: web).", warnings)
+        self.assertIn(
+            "Session verification stopped before running selected check(s): npm test (cwd: web): pending.",
+            warnings,
+        )
+
     def test_final_review_session_verification_blocks_successful_check_with_output_diagnostics(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)
