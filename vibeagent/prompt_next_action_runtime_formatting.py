@@ -118,3 +118,49 @@ def not_run_selected_command_labels(values: object, ran_count: int) -> list[str]
             label = f"{label}: {status}"
         labels.append(label)
     return labels
+
+
+def diagnostic_source_labels(values: object) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    labels: list[str] = []
+    for value in values:
+        path = str(getattr(value, "path", "") or "").strip()
+        if not path:
+            continue
+        labels.extend(diagnostic_labels([value]))
+    return labels
+
+
+def inline_output_issue_labels(value: object) -> list[str]:
+    diagnostics = diagnostic_source_labels(getattr(value, "output_diagnostics", []))
+    if diagnostics:
+        return diagnostics
+    return context_labels(getattr(value, "output_contexts", []))
+
+
+def inline_output_issue_instruction(
+    base: str,
+    intro: str,
+    output_issues: list[str],
+    resolution: str,
+) -> str:
+    return (
+        f"{base} {intro} Inline output analysis identified referenced source location(s): "
+        f"{format_next_action_items(output_issues)}. Inspect or edit the referenced source, {resolution}"
+    )
+
+
+def command_result_output_issue_labels(results: object, *, failed_only: bool) -> list[str]:
+    if not isinstance(results, list):
+        return []
+    labels: list[str] = []
+    seen: set[str] = set()
+    for result in results:
+        if failed_only and not failed_command_labels([result]):
+            continue
+        for label in inline_output_issue_labels(result):
+            if label and label not in seen:
+                seen.add(label)
+                labels.append(label)
+    return labels

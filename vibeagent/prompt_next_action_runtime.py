@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from .prompt_next_action_runtime_formatting import (
     check_failure_labels,
+    command_result_output_issue_labels,
     context_labels,
     diagnostic_labels,
     failed_command_labels,
     format_next_action_items,
+    inline_output_issue_instruction,
+    inline_output_issue_labels,
     not_run_selected_command_labels,
 )
 from .prompt_next_action_runtime_recovery import (
@@ -105,9 +108,9 @@ def _contexts_next_action_instruction(
 def _run_command_next_action_instruction(base: str, latest: Observation) -> str:
     result = latest.result
     if result.exit_code == 0 and not result.timed_out:
-        output_issues = _command_result_output_issue_labels([result], failed_only=False)
+        output_issues = command_result_output_issue_labels([result], failed_only=False)
         if output_issues:
-            return _inline_output_issue_instruction(
+            return inline_output_issue_instruction(
                 base,
                 "The latest command succeeded, but its inline output analysis found source-linked issue(s).",
                 output_issues,
@@ -117,9 +120,9 @@ def _run_command_next_action_instruction(base: str, latest: Observation) -> str:
             f"{base} The latest command succeeded. If it checked the requested work, your next action must be "
             "a concise final answer. Do not run another check unless the output contains a concrete error."
         )
-    output_issues = _command_result_output_issue_labels([result], failed_only=True)
+    output_issues = command_result_output_issue_labels([result], failed_only=True)
     if output_issues:
-        return _inline_output_issue_instruction(
+        return inline_output_issue_instruction(
             base,
             "The latest command failed or timed out.",
             output_issues,
@@ -143,10 +146,10 @@ def _start_command_next_action_instruction(base: str, latest: Observation) -> st
 
 
 def _read_process_next_action_instruction(base: str, latest: Observation) -> str:
-    output_issues = _inline_output_issue_labels(latest)
+    output_issues = inline_output_issue_labels(latest)
     if latest.ok and latest.running:
         if output_issues:
-            return _inline_output_issue_instruction(
+            return inline_output_issue_instruction(
                 base,
                 "The background command is still running, but inline output analysis found source-linked issue(s).",
                 output_issues,
@@ -155,7 +158,7 @@ def _read_process_next_action_instruction(base: str, latest: Observation) -> str
         return f"{base} Use the process output to continue, write_process if the process is waiting for input, or stop_process if it is no longer needed."
     if process_exited_with_failure(latest):
         if output_issues:
-            return _inline_output_issue_instruction(
+            return inline_output_issue_instruction(
                 base,
                 "The background command exited with a failure.",
                 output_issues,
@@ -168,7 +171,7 @@ def _read_process_next_action_instruction(base: str, latest: Observation) -> str
         )
     if latest.ok:
         if output_issues:
-            return _inline_output_issue_instruction(
+            return inline_output_issue_instruction(
                 base,
                 "The background command exited successfully, but inline output analysis found source-linked issue(s).",
                 output_issues,
@@ -180,9 +183,9 @@ def _read_process_next_action_instruction(base: str, latest: Observation) -> str
 
 def _wait_process_next_action_instruction(base: str, latest: Observation) -> str:
     if process_exited_with_failure(latest):
-        output_issues = _inline_output_issue_labels(latest)
+        output_issues = inline_output_issue_labels(latest)
         if output_issues:
-            return _inline_output_issue_instruction(
+            return inline_output_issue_instruction(
                 base,
                 "The waited background command exited with a failure.",
                 output_issues,
@@ -193,10 +196,10 @@ def _wait_process_next_action_instruction(base: str, latest: Observation) -> str
             f"process_output_diagnostics or process_output_contexts with process_id={latest.process_id} "
             "when the output is noisy or names file:line references. Fix the issue and rerun the relevant check before finishing."
         )
-    output_issues = _inline_output_issue_labels(latest)
+    output_issues = inline_output_issue_labels(latest)
     if getattr(latest, "matched", False):
         if output_issues:
-            return _inline_output_issue_instruction(
+            return inline_output_issue_instruction(
                 base,
                 "The waited background command matched readiness output, but inline output analysis found source-linked issue(s).",
                 output_issues,
@@ -209,7 +212,7 @@ def _wait_process_next_action_instruction(base: str, latest: Observation) -> str
         )
     if getattr(latest, "running", False) or getattr(latest, "timed_out", False):
         if output_issues:
-            return _inline_output_issue_instruction(
+            return inline_output_issue_instruction(
                 base,
                 "The background command is still running, but inline output analysis found source-linked issue(s).",
                 output_issues,
@@ -221,7 +224,7 @@ def _wait_process_next_action_instruction(base: str, latest: Observation) -> str
         )
     if getattr(latest, "ok", False):
         if output_issues:
-            return _inline_output_issue_instruction(
+            return inline_output_issue_instruction(
                 base,
                 "The waited background command exited successfully, but inline output analysis found source-linked issue(s).",
                 output_issues,
@@ -321,9 +324,9 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
     results = getattr(latest, "results", [])
     failed_commands = failed_command_labels(results)
     if failed_commands:
-        output_issues = _command_result_output_issue_labels(results, failed_only=True)
+        output_issues = command_result_output_issue_labels(results, failed_only=True)
         if output_issues:
-            return _inline_output_issue_instruction(
+            return inline_output_issue_instruction(
                 base,
                 f"The latest {latest.kind} had failed command(s).",
                 output_issues,
@@ -337,9 +340,9 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
             "use output_diagnostics, output_contexts, or python_traceback for noisy output with file references. "
             f"Fix the issue(s) and rerun the failed command(s) before finishing: {format_next_action_items(failed_commands)}."
         )
-    output_issues = _command_result_output_issue_labels(results, failed_only=False)
+    output_issues = command_result_output_issue_labels(results, failed_only=False)
     if output_issues:
-        return _inline_output_issue_instruction(
+        return inline_output_issue_instruction(
             base,
             f"The latest {latest.kind} completed without failed commands, but inline output analysis found source-linked issue(s).",
             output_issues,
@@ -349,52 +352,6 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
         f"{base} The latest {latest.kind} completed without failed commands. "
         "Continue with the next required check, or answer directly if the requested work is complete."
     )
-
-
-def _inline_output_issue_labels(value: object) -> list[str]:
-    diagnostics = _diagnostic_source_labels(getattr(value, "output_diagnostics", []))
-    if diagnostics:
-        return diagnostics
-    return context_labels(getattr(value, "output_contexts", []))
-
-
-def _diagnostic_source_labels(values: object) -> list[str]:
-    if not isinstance(values, list):
-        return []
-    labels: list[str] = []
-    for value in values:
-        path = str(getattr(value, "path", "") or "").strip()
-        if not path:
-            continue
-        labels.extend(diagnostic_labels([value]))
-    return labels
-
-
-def _inline_output_issue_instruction(
-    base: str,
-    intro: str,
-    output_issues: list[str],
-    resolution: str,
-) -> str:
-    return (
-        f"{base} {intro} Inline output analysis identified referenced source location(s): "
-        f"{format_next_action_items(output_issues)}. Inspect or edit the referenced source, {resolution}"
-    )
-
-
-def _command_result_output_issue_labels(results: object, *, failed_only: bool) -> list[str]:
-    if not isinstance(results, list):
-        return []
-    labels: list[str] = []
-    seen: set[str] = set()
-    for result in results:
-        if failed_only and not failed_command_labels([result]):
-            continue
-        for label in _inline_output_issue_labels(result):
-            if label and label not in seen:
-                seen.add(label)
-                labels.append(label)
-    return labels
 
 
 def _run_session_verification_next_action_instruction(base: str, latest: Observation) -> str:
@@ -409,9 +366,9 @@ def _run_session_verification_next_action_instruction(base: str, latest: Observa
             if not_run
             else ""
         )
-        output_issues = _command_result_output_issue_labels(results, failed_only=True)
+        output_issues = command_result_output_issue_labels(results, failed_only=True)
         if output_issues:
-            return _inline_output_issue_instruction(
+            return inline_output_issue_instruction(
                 base,
                 f"run_session_verification reran recorded verification check(s) and found failed command(s).{stopped}",
                 output_issues,
@@ -427,9 +384,9 @@ def _run_session_verification_next_action_instruction(base: str, latest: Observa
             f"{format_next_action_items(failed_commands)}.{not_run_detail}"
         )
     if selected_count > 0 and getattr(latest, "ok", False):
-        output_issues = _command_result_output_issue_labels(results, failed_only=False)
+        output_issues = command_result_output_issue_labels(results, failed_only=False)
         if output_issues:
-            return _inline_output_issue_instruction(
+            return inline_output_issue_instruction(
                 base,
                 f"run_session_verification reran {selected_count} recorded verification check(s), and they passed, but inline output analysis found source-linked issue(s).",
                 output_issues,
