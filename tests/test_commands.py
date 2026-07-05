@@ -1633,6 +1633,69 @@ class CommandTests(unittest.TestCase):
         self.assertIn("truncated: yes", rendered)
         self.assertIn("incomplete", rendered)
 
+    def test_run_suggested_checks_rendered_report_lists_not_run_commands(self) -> None:
+        rendered = format_run_suggested_checks_report_text(
+            {
+                "projectRoot": "/repo",
+                "ok": False,
+                "clean": False,
+                "suggestedChecks": {
+                    "shown": 2,
+                    "total": 2,
+                    "commands": [
+                        {
+                            "command": "python -m unittest tests.test_agent",
+                            "cwd": ".",
+                            "source": "tests",
+                            "available": True,
+                            "missingTool": None,
+                            "reason": "unit tests",
+                        },
+                        {
+                            "command": "npm test",
+                            "cwd": "web",
+                            "source": "package.json",
+                            "available": True,
+                            "missingTool": None,
+                            "reason": "project test script",
+                        },
+                    ],
+                },
+                "ran": 1,
+                "skippedUnavailable": 0,
+                "truncated": False,
+                "stopOnFailure": True,
+                "stoppedEarly": True,
+                "durationMs": 10,
+                "results": [
+                    {
+                        "index": 1,
+                        "command": "python -m unittest tests.test_agent",
+                        "cwd": ".",
+                        "ok": False,
+                        "clean": False,
+                        "exitCode": 1,
+                        "timedOut": False,
+                        "signal": None,
+                        "timeoutMs": 1000,
+                        "durationMs": 10,
+                        "maxOutputChars": 2000,
+                        "stdoutTruncated": False,
+                        "stderrTruncated": False,
+                        "stdout": "",
+                        "stderr": "AssertionError\n",
+                        "analysis": {},
+                    }
+                ],
+                "message": "Suggested checks failed.",
+            }
+        )
+
+        self.assertIn("stoppedEarly: yes", rendered)
+        self.assertIn("selectedCommandsNotRun: 1", rendered)
+        self.assertIn("command: npm test", rendered)
+        self.assertIn("cwd: web", rendered)
+
     def test_get_run_suggested_checks_text_can_extract_output_contexts(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -1889,6 +1952,72 @@ class CommandTests(unittest.TestCase):
         self.assertIn("test: tests/test_actions.py", rendered)
         self.assertIn("source: pkg/actions.py", rendered)
         self.assertIn("durationMs:", rendered)
+
+    def test_run_focused_test_commands_rendered_report_lists_not_run_commands(self) -> None:
+        rendered = format_run_focused_test_commands_report_text(
+            {
+                "projectRoot": "/repo",
+                "ok": False,
+                "clean": False,
+                "targetPaths": ["vibeagent/agent.py"],
+                "focusedCommands": {
+                    "shown": 2,
+                    "total": 2,
+                    "items": [
+                        {
+                            "command": "python -m unittest tests.test_agent",
+                            "cwd": ".",
+                            "test": "tests/test_agent.py",
+                            "source": "tests/test_agent.py",
+                            "available": True,
+                            "missingTool": None,
+                            "reason": "direct test file",
+                        },
+                        {
+                            "command": "python -m unittest tests.test_actions",
+                            "cwd": ".",
+                            "test": "tests/test_actions.py",
+                            "source": "tests/test_actions.py",
+                            "available": True,
+                            "missingTool": None,
+                            "reason": "related test file",
+                        },
+                    ],
+                },
+                "ran": 1,
+                "skippedUnavailable": 0,
+                "truncated": False,
+                "stopOnFailure": True,
+                "stoppedEarly": True,
+                "durationMs": 10,
+                "results": [
+                    {
+                        "index": 1,
+                        "command": "python -m unittest tests.test_agent",
+                        "cwd": ".",
+                        "ok": False,
+                        "clean": False,
+                        "exitCode": 1,
+                        "timedOut": False,
+                        "signal": None,
+                        "timeoutMs": 1000,
+                        "durationMs": 10,
+                        "maxOutputChars": 2000,
+                        "stdoutTruncated": False,
+                        "stderrTruncated": False,
+                        "stdout": "",
+                        "stderr": "AssertionError\n",
+                        "analysis": {},
+                    }
+                ],
+                "message": "Focused checks failed.",
+            }
+        )
+
+        self.assertIn("stoppedEarly: yes", rendered)
+        self.assertIn("selectedCommandsNotRun: 1", rendered)
+        self.assertIn("command: python -m unittest tests.test_actions", rendered)
+        self.assertIn("cwd: .", rendered)
 
     def test_get_repo_map_text_reports_tree_files_and_symbols(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:

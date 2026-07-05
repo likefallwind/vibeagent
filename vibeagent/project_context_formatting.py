@@ -187,6 +187,12 @@ def format_run_focused_test_commands_report_text(report: dict[str, object]) -> s
             )
     else:
         lines.append("  focusedCommands: none")
+    not_run = focused_items[len(results) :] if bool(report.get("stoppedEarly")) else []
+    if not_run:
+        lines.append(f"  selectedCommandsNotRun: {len(not_run)}")
+        for command in not_run:
+            lines.append(f"    - command: {command.get('command') or ''}")
+            lines.append(f"      cwd: {command.get('cwd') or '.'}")
     if results:
         lines.append("  results:")
         for position, result in enumerate(results, start=1):

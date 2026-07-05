@@ -371,6 +371,12 @@ def format_run_suggested_checks_report_text(report: dict[str, object]) -> str:
             )
     else:
         lines.append("  suggestedChecks: none")
+    not_run = suggested_items[len(results) :] if bool(report.get("stoppedEarly")) else []
+    if not_run:
+        lines.append(f"  selectedCommandsNotRun: {len(not_run)}")
+        for check in not_run:
+            lines.append(f"    - command: {check.get('command') or ''}")
+            lines.append(f"      cwd: {check.get('cwd') or '.'}")
     if results:
         lines.append("  results:")
         for position, result in enumerate(results, start=1):
