@@ -7591,8 +7591,45 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Source context was inspected after a failed command or diagnostic lookup", instruction)
         self.assertIn("tests/test_agent.py:42", instruction)
         self.assertIn("edit the relevant code", instruction)
-        self.assertIn("rerun the relevant check", instruction)
+        self.assertIn("rerun the background command or relevant check", instruction)
         self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_guides_source_context_after_failed_read_process(self) -> None:
+        read = ReadProcessObservation(
+            kind="read_process",
+            process_id="bg-1",
+            pid=1234,
+            ok=True,
+            running=False,
+            exit_code=1,
+            signal=None,
+            stdout="FAIL tests/test_agent.py:42\n",
+            stderr="AssertionError: expected ready\n",
+            max_output_chars=12000,
+            message="Process exited.",
+        )
+        context = ReadFileContextObservation(
+            kind="read_file_context",
+            path="tests/test_agent.py",
+            ok=True,
+            content="41 | before\n42 | broken()\n43 | after",
+            message="Read context.",
+            line=42,
+            context_lines=1,
+            start_line=41,
+            end_line=43,
+            line_count=3,
+            total_lines=100,
+            target_line_exists=True,
+        )
+
+        instruction = get_next_action_instruction("fix background check", [read, context])
+
+        self.assertIn("Source context was inspected after a failed command or diagnostic lookup", instruction)
+        self.assertIn("tests/test_agent.py:42", instruction)
+        self.assertIn("edit the relevant code", instruction)
+        self.assertIn("rerun the background command or relevant check", instruction)
+        self.assertNotIn("rerun the relevant check", instruction)
 
     def test_next_action_instruction_reruns_session_verification_after_session_diagnostics_context(self) -> None:
         verification = RunSessionVerificationObservation(

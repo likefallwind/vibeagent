@@ -76,17 +76,21 @@ def _command_recovery_rerun_target(observations: list[Observation], batch_comman
     return "failed command"
 
 
+def _process_recovery_rerun_target() -> str:
+    return "background command or relevant check"
+
+
 def recovery_rerun_target(observations: list[Observation], batch_command_kinds: set[str]) -> str | None:
     for index in range(len(observations) - 1, -1, -1):
         observation = observations[index]
         if observation.kind in SESSION_RECOVERY_SIGNAL_KINDS:
             return _session_recovery_rerun_target(observations[:index])
         if observation.kind in PROCESS_RECOVERY_SIGNAL_KINDS:
-            return "relevant check"
+            return _process_recovery_rerun_target()
         if observation.kind in RECOVERY_SIGNAL_KINDS:
             return _command_recovery_rerun_target(observations[:index], batch_command_kinds)
         if observation.kind in {"read_process", "wait_process"} and process_exited_with_failure(observation):
-            return "relevant check"
+            return _process_recovery_rerun_target()
         if observation.kind == "run_session_verification":
             if failed_command_labels(getattr(observation, "results", [])):
                 return "run_session_verification"
