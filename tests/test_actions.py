@@ -5894,6 +5894,41 @@ class ActionTests(unittest.TestCase):
         self.assertFalse(missing.ok)
         self.assertIn("Session not found", missing.message)
 
+    def test_execute_run_session_verification_marks_output_contexts_as_not_clean(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
+            workspace = create_run_workspace(base, "run-1")
+            (workspace.root / "src").mkdir()
+            (workspace.root / "src" / "app.py").write_text("one\nTwo\nthree\n", encoding="utf-8")
+            (workspace.session_dir / "events.jsonl").write_text(
+                '{"type":"result","success":false,"status":"blocked","iterations":1,"message":"Needs checks.",'
+                '"pending_verification_checks":["python3 -c \\"print(\\\\\\"src/app.py:2:5: note\\\\\\")\\""],'
+                '"failed_verification_checks":[]}\n',
+                encoding="utf-8",
+            )
+
+            observation = execute_action(
+                workspace,
+                RunSessionVerificationAction(
+                    type="run_session_verification",
+                    include_failed=False,
+                    include_pending=True,
+                    max_checks=1,
+                    timeout_ms=10_000,
+                    max_output_chars=2_000,
+                    extract_output_contexts=True,
+                    context_lines=0,
+                    max_bytes_per_context=1000,
+                ),
+            )
+
+        self.assertEqual(observation.kind, "run_session_verification")
+        self.assertFalse(observation.ok)
+        self.assertEqual(observation.selected_count, 1)
+        self.assertEqual(len(observation.results), 1)
+        self.assertEqual(observation.results[0].exit_code, 0)
+        self.assertEqual(len(observation.results[0].output_contexts), 1)
+        self.assertIn("source-linked output diagnostics", observation.message)
+
     def test_execute_session_audit_action_reads_finish_readiness(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             workspace = create_run_workspace(base, "run-1")

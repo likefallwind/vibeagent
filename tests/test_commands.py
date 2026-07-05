@@ -9992,10 +9992,12 @@ class CommandTests(unittest.TestCase):
             )
             rendered = commands_module.format_run_session_verification_report_text(report)
 
-        self.assertTrue(report["ok"])
+        self.assertFalse(report["ok"])
         self.assertEqual(report["results"][0]["analysis"]["contexts"]["shown"], 1)
         self.assertEqual(report["results"][0]["analysis"]["contexts"]["items"][0]["path"], "src/app.py")
         self.assertIn("Run session verification:", rendered)
+        self.assertIn("ok: no", rendered)
+        self.assertIn("source-linked output diagnostics", rendered)
         self.assertIn("outputContexts: 1/1", rendered)
         self.assertIn("src/app.py:2:5 [src/app.py:2:5]", rendered)
         self.assertIn("2: Two", rendered)

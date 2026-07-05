@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .prompt_next_action_runtime_formatting import inline_output_issue_labels
 from .process_runtime import execute_run_command_item
 from .session import build_session_verification_report
 from .session_input import normalize_optional_run_id
@@ -97,15 +98,15 @@ def execute_run_session_verification_action(
         )
         result = execute_run_command_item(workspace, item, command_timeout_ms)
         results.append(result)
-        failed = result.exit_code != 0 or result.timed_out or result.exit_code is None
+        failed = run_session_verification_result_failed(result)
         if failed and action.stop_on_failure:
             stopped_early = len(results) < len(selected)
             break
-    ok = len(results) == len(selected) and all(result.exit_code == 0 and not result.timed_out for result in results)
+    ok = len(results) == len(selected) and all(not run_session_verification_result_failed(result) for result in results)
     if selected:
         message = (
             f"Ran {len(results)}/{len(selected)} session verification command(s); "
-            f"{'all passed' if ok else 'one or more failed'}."
+            f"{'all passed' if ok else 'one or more failed or produced source-linked output diagnostics'}."
         )
     else:
         message = "No pending or failed session verification command(s) selected."
@@ -120,4 +121,12 @@ def execute_run_session_verification_action(
         results=results,
         stopped_early=stopped_early,
         message=message,
+    )
+
+
+def run_session_verification_result_failed(result: object) -> bool:
+    return (
+        getattr(result, "exit_code", None) != 0
+        or bool(getattr(result, "timed_out", False))
+        or bool(inline_output_issue_labels(result))
     )
