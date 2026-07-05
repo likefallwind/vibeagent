@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+from vibeagent import tool_catalog, tool_catalog_core, tool_catalog_search
 from vibeagent.tool_catalog import (
     format_tool_search_report_text,
     get_tool_search_report,
@@ -11,6 +12,17 @@ from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
 
 
 class ToolCatalogTests(unittest.TestCase):
+    def test_tool_catalog_reexports_split_helpers(self) -> None:
+        self.assertIs(tool_catalog.APPROVAL_REQUIRED_TOOL_NAMES, tool_catalog_core.APPROVAL_REQUIRED_TOOL_NAMES)
+        self.assertIs(tool_catalog.TOOL_CATEGORIES, tool_catalog_core.TOOL_CATEGORIES)
+        self.assertIs(tool_catalog.categorize_tools, tool_catalog_core.categorize_tools)
+        self.assertIs(tool_catalog.suggest_tool_names, tool_catalog_core.suggest_tool_names)
+        self.assertIs(tool_catalog.tool_category, tool_catalog_core.tool_category)
+        self.assertIs(tool_catalog.tool_requires_approval, tool_catalog_core.tool_requires_approval)
+        self.assertIs(tool_catalog.get_tool_search_report, tool_catalog_search.get_tool_search_report)
+        self.assertIs(tool_catalog.get_tool_search_text, tool_catalog_search.get_tool_search_text)
+        self.assertIs(tool_catalog.format_tool_search_report_text, tool_catalog_search.format_tool_search_report_text)
+
     def test_tool_search_matches_names_descriptions_and_properties(self) -> None:
         report = get_tool_search_report("verification", max_matches=10)
         names = [str(match["name"]) for match in report["matches"]]
