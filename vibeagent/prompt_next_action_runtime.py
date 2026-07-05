@@ -369,16 +369,28 @@ def _not_run_batch_command_label(value: object, *, command: str, cwd: str) -> st
     )
 
 
+def _not_run_session_verification_labels(observation: Observation) -> list[str]:
+    return not_run_selected_command_labels(
+        getattr(observation, "selected_commands", []),
+        len(getattr(observation, "results", []) or []),
+    )
+
+
+def _not_run_detail(labels: list[str]) -> str:
+    return (
+        f" Not-yet-run selected check(s): {format_next_action_items(labels)}."
+        if labels
+        else ""
+    )
+
+
 def _batch_command_result_next_action_instruction(base: str, latest: Observation) -> str:
     results = getattr(latest, "results", [])
     failed_commands = failed_command_labels(results)
     if failed_commands:
         stopped = " The batch stopped early after the first failure; remaining selected checks may still be unverified." if getattr(latest, "stopped_early", False) else ""
-        not_run = _not_run_batch_command_labels(latest, len(results or []))
-        not_run_detail = (
-            f" Not-yet-run selected check(s): {format_next_action_items(not_run)}."
-            if not_run
-            else ""
+        not_run_detail = _not_run_detail(
+            _not_run_batch_command_labels(latest, len(results or []))
         )
         output_issues = command_result_output_issue_labels(results, failed_only=True)
         if output_issues:
@@ -416,26 +428,15 @@ def _recovery_not_run_detail(observations: list[Observation]) -> str:
         if observation.kind == "run_session_verification":
             if not getattr(observation, "stopped_early", False):
                 return ""
-            not_run = not_run_selected_command_labels(
-                getattr(observation, "selected_commands", []),
-                len(getattr(observation, "results", []) or []),
-            )
-            return (
-                f" Not-yet-run selected check(s): {format_next_action_items(not_run)}."
-                if not_run
-                else ""
-            )
+            return _not_run_detail(_not_run_session_verification_labels(observation))
         if observation.kind in {"run_suggested_checks", "run_focused_test_commands"}:
             if not getattr(observation, "stopped_early", False):
                 return ""
-            not_run = _not_run_batch_command_labels(
-                observation,
-                len(getattr(observation, "results", []) or []),
-            )
-            return (
-                f" Not-yet-run selected check(s): {format_next_action_items(not_run)}."
-                if not_run
-                else ""
+            return _not_run_detail(
+                _not_run_batch_command_labels(
+                    observation,
+                    len(getattr(observation, "results", []) or []),
+                )
             )
     return ""
 
@@ -446,12 +447,7 @@ def _run_session_verification_next_action_instruction(base: str, latest: Observa
     failed_commands = failed_command_labels(results)
     if failed_commands:
         stopped = " The run stopped early after the first failure." if getattr(latest, "stopped_early", False) else ""
-        not_run = not_run_selected_command_labels(getattr(latest, "selected_commands", []), len(results or []))
-        not_run_detail = (
-            f" Not-yet-run selected check(s): {format_next_action_items(not_run)}."
-            if not_run
-            else ""
-        )
+        not_run_detail = _not_run_detail(_not_run_session_verification_labels(latest))
         output_issues = command_result_output_issue_labels(results, failed_only=True)
         if output_issues:
             return inline_output_issue_instruction(

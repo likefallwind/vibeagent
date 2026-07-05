@@ -7780,9 +7780,12 @@ class AgentTests(unittest.TestCase):
             kind="run_session_verification",
             run_id="run-1",
             ok=False,
-            selected_commands=[{"command": "npm test", "cwd": ".", "status": "failed"}],
-            selected_count=1,
-            pending_count=0,
+            selected_commands=[
+                {"command": "npm test", "cwd": ".", "status": "failed"},
+                {"command": "npm run build", "cwd": "web", "status": "pending"},
+            ],
+            selected_count=2,
+            pending_count=1,
             failed_count=1,
             results=[
                 CommandResult(
@@ -7795,8 +7798,8 @@ class AgentTests(unittest.TestCase):
                     cwd=".",
                 )
             ],
-            stopped_early=False,
-            message="Ran 1/1 session verification command(s); one or more failed.",
+            stopped_early=True,
+            message="Ran 1/2 session verification command(s); one or more failed.",
         )
         diagnostics = SessionOutputDiagnosticsObservation(
             kind="session_output_diagnostics",
@@ -7814,8 +7817,8 @@ class AgentTests(unittest.TestCase):
                 )
             ],
             contexts=[],
-            command_count=1,
-            shown_commands=1,
+            command_count=2,
+            shown_commands=2,
             total_diagnostics=1,
             total_refs=1,
             diagnostics_truncated=False,
@@ -7846,6 +7849,8 @@ class AgentTests(unittest.TestCase):
         self.assertIn("tests/test_agent.py:42", instruction)
         self.assertIn("edit the relevant code", instruction)
         self.assertIn("rerun the run_session_verification", instruction)
+        self.assertIn("Not-yet-run selected check", instruction)
+        self.assertIn("npm run build (cwd=web): pending", instruction)
         self.assertIn("before finishing", instruction)
         self.assertNotIn("rerun the relevant check", instruction)
 
