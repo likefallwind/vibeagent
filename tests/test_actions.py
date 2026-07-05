@@ -810,19 +810,23 @@ class ActionTests(unittest.TestCase):
         schemas = {
             str(tool["name"]): tool["input_schema"]
             for tool in AGENT_TOOL_DEFINITIONS
-            if tool["name"] in {"check_run_commands", "run_commands"}
+            if tool["name"] in {"run_command", "check_run_commands", "run_commands"}
         }
         output_extraction_schemas: dict[str, dict[str, object]] = {}
 
         for tool_name, schema in schemas.items():
             with self.subTest(tool=tool_name):
-                commands = schema["properties"]["commands"]
-                items = commands["items"]
-                properties = items["properties"]
+                if tool_name == "run_command":
+                    properties = schema["properties"]
+                else:
+                    commands = schema["properties"]["commands"]
+                    items = commands["items"]
+                    properties = items["properties"]
                 self.assertTrue(expected.issubset(properties))
                 output_extraction_schemas[tool_name] = {name: properties[name] for name in expected}
 
-        self.assertEqual(set(output_extraction_schemas), {"check_run_commands", "run_commands"})
+        self.assertEqual(set(output_extraction_schemas), {"run_command", "check_run_commands", "run_commands"})
+        self.assertEqual(output_extraction_schemas["run_command"], output_extraction_schemas["check_run_commands"])
         self.assertEqual(output_extraction_schemas["check_run_commands"], output_extraction_schemas["run_commands"])
 
     def test_parse_tool_action_rejects_unsupported_action(self) -> None:

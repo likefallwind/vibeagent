@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .tool_definition_output_schema import COMMAND_OUTPUT_EXTRACTION_PROPERTIES
+
 
 PROCESS_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
 {
@@ -27,38 +29,7 @@ PROCESS_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "maximum": 50000,
                     "description": "Optional maximum characters to keep for each output stream. Defaults to 12000.",
                 },
-                "extract_output_contexts": {
-                    "type": "boolean",
-                    "description": "When true, extract project file:line references from stdout/stderr and include surrounding source contexts. Defaults to false.",
-                },
-                "extract_output_diagnostics": {
-                    "type": "boolean",
-                    "description": "When true, summarize error/warning/failure diagnostic lines from stdout/stderr and include referenced source contexts. Defaults to false.",
-                },
-                "context_lines": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 500,
-                    "description": "Lines before and after each extracted reference when extract_output_contexts or extract_output_diagnostics is true. Defaults to 5.",
-                },
-                "max_diagnostics": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 200,
-                    "description": "Maximum diagnostic lines to include when extract_output_diagnostics is true. Defaults to 50.",
-                },
-                "max_contexts": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 100,
-                    "description": "Maximum extracted contexts to include when extract_output_contexts or extract_output_diagnostics is true. Defaults to 20.",
-                },
-                "max_bytes_per_context": {
-                    "type": "integer",
-                    "minimum": 1000,
-                    "maximum": 200000,
-                    "description": "Maximum characters returned per extracted context. Defaults to 20000.",
-                },
+                **COMMAND_OUTPUT_EXTRACTION_PROPERTIES,
             },
             "required": ["command"],
             "additionalProperties": False,
