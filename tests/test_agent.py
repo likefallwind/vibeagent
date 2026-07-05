@@ -6705,6 +6705,39 @@ class AgentTests(unittest.TestCase):
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_uses_inline_successful_run_command_output_analysis(self) -> None:
+        observation = RunCommandObservation(
+            kind="run_command",
+            result=CommandResult(
+                command="python -m mypy vibeagent",
+                exit_code=0,
+                stdout="vibeagent/agent.py:42: note: consider narrowing type\n",
+                stderr="",
+                timed_out=False,
+                signal=None,
+                cwd=".",
+                output_diagnostics=[
+                    OutputDiagnostic(
+                        severity="note",
+                        output_line=1,
+                        text="consider narrowing type",
+                        path="vibeagent/agent.py",
+                        line=42,
+                        column=None,
+                    )
+                ],
+                output_diagnostic_total=1,
+            ),
+        )
+
+        instruction = get_next_action_instruction("review successful check output", [observation])
+
+        self.assertIn("latest command succeeded", instruction)
+        self.assertIn("inline output analysis found source-linked issue", instruction)
+        self.assertIn("vibeagent/agent.py:42 note: consider narrowing type", instruction)
+        self.assertIn("confirming they are non-blocking", instruction)
+        self.assertNotIn("your next action must be a concise final answer", instruction)
+
     def test_next_action_instruction_prefers_inline_context_when_diagnostic_has_no_source(self) -> None:
         observation = RunCommandObservation(
             kind="run_command",
@@ -7459,6 +7492,45 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Continue with the next required check", instruction)
         self.assertIn("answer directly", instruction)
 
+    def test_next_action_instruction_uses_inline_successful_batch_output_analysis(self) -> None:
+        observation = RunCommandsObservation(
+            kind="run_commands",
+            results=[
+                CommandResult(
+                    command="python -m ruff check vibeagent",
+                    exit_code=0,
+                    stdout="vibeagent/agent.py:42:8: W001 deprecated helper\n",
+                    stderr="",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                    output_contexts=[
+                        OutputContextResult(
+                            path="vibeagent/agent.py",
+                            line=42,
+                            column=8,
+                            raw="vibeagent/agent.py:42:8",
+                            ok=True,
+                            content="42: old_helper()\n",
+                            message="Read vibeagent/agent.py:42.",
+                        )
+                    ],
+                    output_context_total_refs=1,
+                )
+            ],
+            ok=True,
+            stopped_early=False,
+            message="All commands passed.",
+        )
+
+        instruction = get_next_action_instruction("verify successful check output", [observation])
+
+        self.assertIn("run_commands completed without failed commands", instruction)
+        self.assertIn("inline output analysis found source-linked issue", instruction)
+        self.assertIn("vibeagent/agent.py:42:8", instruction)
+        self.assertIn("confirming they are non-blocking", instruction)
+        self.assertNotIn("answer directly if the requested work is complete", instruction)
+
     def test_next_action_instruction_guides_failed_run_session_verification_to_diagnostics(self) -> None:
         observation = RunSessionVerificationObservation(
             kind="run_session_verification",
@@ -7587,6 +7659,49 @@ class AgentTests(unittest.TestCase):
         self.assertIn("session_audit", instruction)
         self.assertIn("final_review", instruction)
         self.assertIn("answer directly", instruction)
+
+    def test_next_action_instruction_uses_inline_successful_session_verification_output_analysis(self) -> None:
+        observation = RunSessionVerificationObservation(
+            kind="run_session_verification",
+            run_id="run-1",
+            ok=True,
+            selected_commands=[{"command": "npm test", "cwd": ".", "status": "pending"}],
+            selected_count=1,
+            pending_count=1,
+            failed_count=0,
+            results=[
+                CommandResult(
+                    command="npm test",
+                    exit_code=0,
+                    stdout="tests/test_agent.py:42: warning: slow test\n",
+                    stderr="",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                    output_diagnostics=[
+                        OutputDiagnostic(
+                            severity="warning",
+                            output_line=1,
+                            text="slow test",
+                            path="tests/test_agent.py",
+                            line=42,
+                            column=None,
+                        )
+                    ],
+                    output_diagnostic_total=1,
+                )
+            ],
+            stopped_early=False,
+            message="Ran 1/1 session verification command(s); all passed.",
+        )
+
+        instruction = get_next_action_instruction("resume verification", [observation])
+
+        self.assertIn("run_session_verification reran 1 recorded verification check", instruction)
+        self.assertIn("inline output analysis found source-linked issue", instruction)
+        self.assertIn("tests/test_agent.py:42 warning: slow test", instruction)
+        self.assertIn("confirming they are non-blocking", instruction)
+        self.assertNotIn("Run session_audit or final_review to confirm readiness", instruction)
 
     def test_next_action_instruction_guides_empty_run_session_verification_to_inspect_state(self) -> None:
         observation = RunSessionVerificationObservation(

@@ -105,11 +105,19 @@ def _contexts_next_action_instruction(
 def _run_command_next_action_instruction(base: str, latest: Observation) -> str:
     result = latest.result
     if result.exit_code == 0 and not result.timed_out:
+        output_issues = _command_result_output_issue_labels([result], failed_only=False)
+        if output_issues:
+            return _inline_output_issue_instruction(
+                base,
+                "The latest command succeeded, but its inline output analysis found source-linked issue(s).",
+                output_issues,
+                "decide whether they are relevant, edit or fix if needed, and rerun or continue only after confirming they are non-blocking.",
+            )
         return (
             f"{base} The latest command succeeded. If it checked the requested work, your next action must be "
             "a concise final answer. Do not run another check unless the output contains a concrete error."
         )
-    output_issues = _command_result_output_issue_labels([result])
+    output_issues = _command_result_output_issue_labels([result], failed_only=True)
     if output_issues:
         return _inline_output_issue_instruction(
             base,
@@ -277,7 +285,7 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
     results = getattr(latest, "results", [])
     failed_commands = failed_command_labels(results)
     if failed_commands:
-        output_issues = _command_result_output_issue_labels(results)
+        output_issues = _command_result_output_issue_labels(results, failed_only=True)
         if output_issues:
             return _inline_output_issue_instruction(
                 base,
@@ -292,6 +300,14 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
             f"{base} The latest {latest.kind} had failed command(s). Inspect stdout/stderr; "
             "use output_diagnostics, output_contexts, or python_traceback for noisy output with file references. "
             f"Fix the issue(s) and rerun the failed command(s) before finishing: {format_next_action_items(failed_commands)}."
+        )
+    output_issues = _command_result_output_issue_labels(results, failed_only=False)
+    if output_issues:
+        return _inline_output_issue_instruction(
+            base,
+            f"The latest {latest.kind} completed without failed commands, but inline output analysis found source-linked issue(s).",
+            output_issues,
+            "decide whether they are relevant, edit or fix if needed, and rerun the relevant command(s) or continue only after confirming they are non-blocking.",
         )
     return (
         f"{base} The latest {latest.kind} completed without failed commands. "
@@ -330,13 +346,13 @@ def _inline_output_issue_instruction(
     )
 
 
-def _command_result_output_issue_labels(results: object) -> list[str]:
+def _command_result_output_issue_labels(results: object, *, failed_only: bool) -> list[str]:
     if not isinstance(results, list):
         return []
     labels: list[str] = []
     seen: set[str] = set()
     for result in results:
-        if not failed_command_labels([result]):
+        if failed_only and not failed_command_labels([result]):
             continue
         for label in _inline_output_issue_labels(result):
             if label and label not in seen:
@@ -357,7 +373,7 @@ def _run_session_verification_next_action_instruction(base: str, latest: Observa
             if not_run
             else ""
         )
-        output_issues = _command_result_output_issue_labels(results)
+        output_issues = _command_result_output_issue_labels(results, failed_only=True)
         if output_issues:
             return _inline_output_issue_instruction(
                 base,
@@ -375,6 +391,14 @@ def _run_session_verification_next_action_instruction(base: str, latest: Observa
             f"{format_next_action_items(failed_commands)}.{not_run_detail}"
         )
     if selected_count > 0 and getattr(latest, "ok", False):
+        output_issues = _command_result_output_issue_labels(results, failed_only=False)
+        if output_issues:
+            return _inline_output_issue_instruction(
+                base,
+                f"run_session_verification reran {selected_count} recorded verification check(s), and they passed, but inline output analysis found source-linked issue(s).",
+                output_issues,
+                "decide whether they are relevant, edit or fix if needed, and rerun run_session_verification or session_audit before finishing only after confirming they are non-blocking.",
+            )
         return (
             f"{base} run_session_verification reran {selected_count} recorded verification check(s), and they passed. "
             "Run session_audit or final_review to confirm readiness, or answer directly if the task is complete."
