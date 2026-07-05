@@ -799,6 +799,13 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(failures, [])
 
     def test_run_commands_schema_exposes_output_extraction_options(self) -> None:
+        shared_tools = {
+            "run_command",
+            "check_run_commands",
+            "run_commands",
+            "run_suggested_checks",
+            "run_focused_test_commands",
+        }
         expected = {
             "extract_output_contexts",
             "extract_output_diagnostics",
@@ -810,24 +817,26 @@ class ActionTests(unittest.TestCase):
         schemas = {
             str(tool["name"]): tool["input_schema"]
             for tool in AGENT_TOOL_DEFINITIONS
-            if tool["name"] in {"run_command", "check_run_commands", "run_commands"}
+            if tool["name"] in shared_tools
         }
         output_extraction_schemas: dict[str, dict[str, object]] = {}
 
         for tool_name, schema in schemas.items():
             with self.subTest(tool=tool_name):
-                if tool_name == "run_command":
-                    properties = schema["properties"]
-                else:
+                if tool_name in {"check_run_commands", "run_commands"}:
                     commands = schema["properties"]["commands"]
                     items = commands["items"]
                     properties = items["properties"]
+                else:
+                    properties = schema["properties"]
                 self.assertTrue(expected.issubset(properties))
                 output_extraction_schemas[tool_name] = {name: properties[name] for name in expected}
 
-        self.assertEqual(set(output_extraction_schemas), {"run_command", "check_run_commands", "run_commands"})
-        self.assertEqual(output_extraction_schemas["run_command"], output_extraction_schemas["check_run_commands"])
-        self.assertEqual(output_extraction_schemas["check_run_commands"], output_extraction_schemas["run_commands"])
+        self.assertEqual(set(output_extraction_schemas), shared_tools)
+        first_tool = "run_command"
+        for tool_name in shared_tools - {first_tool}:
+            with self.subTest(shared_schema=tool_name):
+                self.assertEqual(output_extraction_schemas[first_tool], output_extraction_schemas[tool_name])
 
     def test_parse_tool_action_rejects_unsupported_action(self) -> None:
         with self.assertRaisesRegex(ActionParseError, "Unsupported action type"):

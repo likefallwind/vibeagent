@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .tool_definition_output_schema import COMMAND_OUTPUT_EXTRACTION_PROPERTIES
+
 
 GIT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
 {
@@ -496,38 +498,7 @@ GIT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "boolean",
                     "description": "Stop after the first failing command. Defaults to true.",
                 },
-                "extract_output_contexts": {
-                    "type": "boolean",
-                    "description": "When true, extract file:line references from stdout/stderr and include source context for each reference. Defaults to false.",
-                },
-                "extract_output_diagnostics": {
-                    "type": "boolean",
-                    "description": "When true, summarize error/warning/failure diagnostic lines from stdout/stderr and include source contexts for referenced project files. Defaults to false.",
-                },
-                "context_lines": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 500,
-                    "description": "Lines before and after each extracted reference when extract_output_contexts or extract_output_diagnostics is true. Defaults to 5.",
-                },
-                "max_diagnostics": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 200,
-                    "description": "Maximum diagnostic lines to include when extract_output_diagnostics is true. Defaults to 50.",
-                },
-                "max_contexts": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 100,
-                    "description": "Maximum extracted contexts to include when extract_output_contexts or extract_output_diagnostics is true. Defaults to 20.",
-                },
-                "max_bytes_per_context": {
-                    "type": "integer",
-                    "minimum": 1000,
-                    "maximum": 200000,
-                    "description": "Maximum bytes per extracted file context when extract_output_contexts or extract_output_diagnostics is true. Defaults to 20000.",
-                },
+                **COMMAND_OUTPUT_EXTRACTION_PROPERTIES,
             },
             "additionalProperties": False,
         },
