@@ -324,21 +324,23 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
     results = getattr(latest, "results", [])
     failed_commands = failed_command_labels(results)
     if failed_commands:
+        stopped = " The batch stopped early after the first failure; remaining selected checks may still be unverified." if getattr(latest, "stopped_early", False) else ""
         output_issues = command_result_output_issue_labels(results, failed_only=True)
         if output_issues:
             return inline_output_issue_instruction(
                 base,
-                f"The latest {latest.kind} had failed command(s).",
+                f"The latest {latest.kind} had failed command(s).{stopped}",
                 output_issues,
                 (
-                    "fix the issue(s), and rerun the failed command(s) before finishing: "
+                    "fix the issue(s), and rerun the failed command(s) or the full batch before finishing: "
                     f"{format_next_action_items(failed_commands)}."
                 ),
             )
         return (
             f"{base} The latest {latest.kind} had failed command(s). Inspect stdout/stderr; "
             "use output_diagnostics, output_contexts, or python_traceback for noisy output with file references. "
-            f"Fix the issue(s) and rerun the failed command(s) before finishing: {format_next_action_items(failed_commands)}."
+            f"{stopped} Fix the issue(s) and rerun the failed command(s) or the full batch before finishing: "
+            f"{format_next_action_items(failed_commands)}."
         )
     output_issues = command_result_output_issue_labels(results, failed_only=False)
     if output_issues:

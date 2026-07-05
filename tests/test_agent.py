@@ -7472,7 +7472,10 @@ class AgentTests(unittest.TestCase):
         self.assertIn("run_suggested_checks had failed command", instruction)
         self.assertIn("python -m unittest tests.test_agent (cwd=., exit 1)", instruction)
         self.assertIn("output_diagnostics", instruction)
+        self.assertIn("batch stopped early", instruction)
+        self.assertIn("remaining selected checks may still be unverified", instruction)
         self.assertIn("rerun the failed command", instruction)
+        self.assertIn("full batch before finishing", instruction)
         self.assertIn("before finishing", instruction)
 
     def test_next_action_instruction_uses_inline_batch_output_analysis(self) -> None:
@@ -7527,7 +7530,9 @@ class AgentTests(unittest.TestCase):
         self.assertNotIn("use output_diagnostics", instruction)
         self.assertNotIn("python_traceback", instruction)
         self.assertIn("python -m unittest tests.test_agent (cwd=., exit 1)", instruction)
+        self.assertIn("batch stopped early", instruction)
         self.assertIn("rerun the failed command", instruction)
+        self.assertIn("full batch before finishing", instruction)
         self.assertIn("before finishing", instruction)
 
     def test_next_action_instruction_guides_successful_run_commands_to_continue_or_finish(self) -> None:
