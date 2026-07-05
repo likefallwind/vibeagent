@@ -812,6 +812,7 @@ class ActionTests(unittest.TestCase):
             for tool in AGENT_TOOL_DEFINITIONS
             if tool["name"] in {"check_run_commands", "run_commands"}
         }
+        output_extraction_schemas: dict[str, dict[str, object]] = {}
 
         for tool_name, schema in schemas.items():
             with self.subTest(tool=tool_name):
@@ -819,6 +820,10 @@ class ActionTests(unittest.TestCase):
                 items = commands["items"]
                 properties = items["properties"]
                 self.assertTrue(expected.issubset(properties))
+                output_extraction_schemas[tool_name] = {name: properties[name] for name in expected}
+
+        self.assertEqual(set(output_extraction_schemas), {"check_run_commands", "run_commands"})
+        self.assertEqual(output_extraction_schemas["check_run_commands"], output_extraction_schemas["run_commands"])
 
     def test_parse_tool_action_rejects_unsupported_action(self) -> None:
         with self.assertRaisesRegex(ActionParseError, "Unsupported action type"):
