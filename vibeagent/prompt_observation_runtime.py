@@ -329,6 +329,26 @@ def format_runtime_observation(index: int, observation: object) -> str | None:
     return None
 
 
+def _not_run_multi_command_labels(observation: object) -> list[str]:
+    if observation.kind == "run_suggested_checks":
+        commands = getattr(observation, "suggested_checks", [])
+    elif observation.kind == "run_focused_test_commands":
+        commands = getattr(observation, "focused_commands", [])
+    else:
+        return []
+    results = getattr(observation, "results", [])
+    if not getattr(observation, "stopped_early", False) or not isinstance(commands, list) or not isinstance(results, list):
+        return []
+
+    labels: list[str] = []
+    for command in commands[len(results) :]:
+        value = str(getattr(command, "command", "") or "").strip()
+        cwd = str(getattr(command, "cwd", ".") or ".").strip() or "."
+        if value:
+            labels.append(f"{value} (cwd: {cwd})")
+    return labels
+
+
 def _format_multi_command_observation(index: int, observation: object) -> str:
     parts = [
         f"{index}. {observation.kind}: {observation.message}",
@@ -353,6 +373,10 @@ def _format_multi_command_observation(index: int, observation: object) -> str:
         if observation.target_paths:
             parts.append("target_paths:\n" + "\n".join(observation.target_paths[:120]))
     parts.append(f"stoppedEarly: {str(observation.stopped_early).lower()}")
+    not_run = _not_run_multi_command_labels(observation)
+    if not_run:
+        parts.append(f"selectedCommandsNotRun: {len(not_run)}")
+        parts.extend(f"notRun: {label}" for label in not_run[:20])
     for result in observation.results:
         parts.extend(
             [

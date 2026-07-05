@@ -3040,6 +3040,104 @@ class AgentTests(unittest.TestCase):
         self.assertIn("context: src/app.py:2:5", text)
         self.assertIn("2: bad", text)
 
+    def test_format_observations_renders_not_run_suggested_checks_after_stopped_batch(self) -> None:
+        text = format_observations(
+            [
+                RunSuggestedChecksObservation(
+                    kind="run_suggested_checks",
+                    ok=False,
+                    results=[
+                        CommandResult(
+                            command="python -m unittest tests.test_agent",
+                            exit_code=1,
+                            stdout="FAIL\n",
+                            stderr="AssertionError\n",
+                            timed_out=False,
+                            signal=None,
+                            cwd=".",
+                        )
+                    ],
+                    suggested_checks=[
+                        SuggestedCheck(
+                            command="python -m unittest tests.test_agent",
+                            cwd=".",
+                            source="tests",
+                            reason="unit tests",
+                        ),
+                        SuggestedCheck(
+                            command="npm test",
+                            cwd="web",
+                            source="package.json",
+                            reason="project test script",
+                        ),
+                    ],
+                    total=2,
+                    truncated=False,
+                    max_commands=2,
+                    stopped_early=True,
+                    skipped_unavailable=0,
+                    message="Suggested checks failed.",
+                )
+            ]
+        )
+
+        self.assertIn("run_suggested_checks: Suggested checks failed.", text)
+        self.assertIn("stoppedEarly: true", text)
+        self.assertIn("selectedCommandsNotRun: 1", text)
+        self.assertIn("notRun: npm test (cwd: web)", text)
+        self.assertIn("command: python -m unittest tests.test_agent", text)
+
+    def test_format_observations_renders_not_run_focused_checks_after_stopped_batch(self) -> None:
+        text = format_observations(
+            [
+                types_module.RunFocusedTestCommandsObservation(
+                    kind="run_focused_test_commands",
+                    ok=False,
+                    results=[
+                        CommandResult(
+                            command="python -m unittest tests.test_agent",
+                            exit_code=1,
+                            stdout="FAIL\n",
+                            stderr="AssertionError\n",
+                            timed_out=False,
+                            signal=None,
+                            cwd=".",
+                        )
+                    ],
+                    focused_commands=[
+                        FocusedTestCommand(
+                            command="python -m unittest tests.test_agent",
+                            cwd=".",
+                            test_path="tests/test_agent.py",
+                            source="tests/test_agent.py",
+                            reason="direct test file",
+                        ),
+                        FocusedTestCommand(
+                            command="python -m unittest tests/test_actions.py",
+                            cwd=".",
+                            test_path="tests/test_actions.py",
+                            source="tests/test_actions.py",
+                            reason="related test file",
+                        ),
+                    ],
+                    target_paths=["vibeagent/prompt_observation_runtime.py"],
+                    total=2,
+                    truncated=False,
+                    max_commands=2,
+                    related_tests_total=2,
+                    stopped_early=True,
+                    skipped_unavailable=0,
+                    message="Focused checks failed.",
+                )
+            ]
+        )
+
+        self.assertIn("run_focused_test_commands: Focused checks failed.", text)
+        self.assertIn("stoppedEarly: true", text)
+        self.assertIn("selectedCommandsNotRun: 1", text)
+        self.assertIn("notRun: python -m unittest tests/test_actions.py (cwd: .)", text)
+        self.assertIn("target_paths:", text)
+
     def test_format_observations_renders_session_audit_blockers_and_processes(self) -> None:
         text = format_observations(
             [
