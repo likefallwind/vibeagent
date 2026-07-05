@@ -32,6 +32,15 @@ def sum_command_result_duration_ms(results: list[object]) -> int:
     return total
 
 
+def command_results_clean(results: list[object]) -> bool:
+    return bool(results) and all(
+        getattr(result, "exit_code", None) == 0
+        and not bool(getattr(result, "timed_out", False))
+        and not inline_output_issue_labels(result)
+        for result in results
+    )
+
+
 def serialize_command_result(result: object, index: int | None = None) -> dict[str, object]:
     exit_code = getattr(result, "exit_code", None)
     timed_out = bool(getattr(result, "timed_out", False))
@@ -145,6 +154,7 @@ def format_run_sequence_report_text(report: dict[str, object]) -> str:
         "Run sequence:",
         f"  projectRoot: {report.get('projectRoot') or '.'}",
         f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  clean: {'yes' if bool(report.get('clean')) else 'no'}",
         f"  commands: {int(commands.get('shown', len(results)) or 0)}/{int(commands.get('total', len(results)) or 0)}",
         f"  stopOnFailure: {'yes' if bool(report.get('stopOnFailure')) else 'no'}",
         f"  stoppedEarly: {'yes' if bool(report.get('stoppedEarly')) else 'no'}",

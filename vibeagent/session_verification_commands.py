@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .local_runtime_reports import (
+    command_results_clean,
     format_structured_command_output_analysis_lines,
     indent_block,
     serialize_command_result,
@@ -201,6 +202,7 @@ def get_run_session_verification_report(
         "session": observation.run_id,
         "exists": observation.message != f"Session not found: {selected}",
         "ok": observation.ok,
+        "clean": observation.ok and command_results_clean(list(observation.results)),
         "selectedCommands": observation.selected_commands,
         "selectedCount": observation.selected_count,
         "pendingCount": observation.pending_count,
@@ -232,6 +234,7 @@ def format_run_session_verification_report_text(report: dict[str, object]) -> st
         f"  projectRoot: {report.get('projectRoot') or '.'}",
         f"  session: {report.get('session') or '.'}",
         f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  clean: {'yes' if bool(report.get('clean')) else 'no'}",
         f"  selected: {int(report.get('selectedCount', 0) or 0)}",
         f"  commands: {int(commands.get('shown', len(results)) or 0)}/{int(commands.get('total', len(results)) or 0)}",
         f"  pendingTotal: {int(report.get('pendingCount', 0) or 0)}",

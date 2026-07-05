@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .actions import execute_action
 from .local_runtime_commands import (
+    command_results_clean,
     format_structured_command_output_analysis_lines,
     serialize_command_check,
     serialize_command_result,
@@ -312,6 +313,7 @@ def get_run_suggested_checks_report(
     return {
         "projectRoot": str(root),
         "ok": observation.ok,
+        "clean": observation.ok and command_results_clean(list(observation.results)),
         "suggestedChecks": {
             "shown": len(observation.suggested_checks),
             "total": observation.total,
@@ -344,6 +346,7 @@ def format_run_suggested_checks_report_text(report: dict[str, object]) -> str:
         "Run suggested checks:",
         f"  projectRoot: {report.get('projectRoot') or '.'}",
         f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  clean: {'yes' if bool(report.get('clean')) else 'no'}",
         f"  suggestedChecks: {int(suggested.get('shown', 0) or 0)}/{int(suggested.get('total', 0) or 0)}",
         f"  ran: {int(report.get('ran', len(results)) or 0)}",
         f"  skippedUnavailable: {int(report.get('skippedUnavailable', 0) or 0)}",

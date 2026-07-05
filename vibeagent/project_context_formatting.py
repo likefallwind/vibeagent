@@ -155,6 +155,7 @@ def format_run_focused_test_commands_report_text(report: dict[str, object]) -> s
         "Run focused test commands:",
         f"  projectRoot: {report.get('projectRoot') or '.'}",
         f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  clean: {'yes' if bool(report.get('clean')) else 'no'}",
         f"  targetPaths: {len(target_paths)}",
         f"  focusedCommands: {int(focused.get('shown', 0) or 0)}/{int(focused.get('total', 0) or 0)}",
         f"  ran: {int(report.get('ran', len(results)) or 0)}",

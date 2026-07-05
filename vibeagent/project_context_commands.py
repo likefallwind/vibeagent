@@ -6,6 +6,7 @@ import shlex
 from .actions import execute_action
 from .check_commands import serialize_focused_test_command
 from .local_runtime_commands import (
+    command_results_clean,
     serialize_command_check,
     serialize_command_result,
     sum_command_result_duration_ms,
@@ -364,6 +365,7 @@ def get_run_focused_test_commands_report(
         return {
             "projectRoot": str(root),
             "ok": False,
+            "clean": False,
             "targetPaths": [],
             "relatedTests": {"total": 0},
             "focusedCommands": {"shown": 0, "total": 0, "max": max_commands, "items": []},
@@ -425,6 +427,7 @@ def get_run_focused_test_commands_report(
     return {
         "projectRoot": str(root),
         "ok": observation.ok,
+        "clean": observation.ok and command_results_clean(list(observation.results)),
         "targetPaths": list(observation.target_paths),
         "relatedTests": {"total": observation.related_tests_total},
         "focusedCommands": {

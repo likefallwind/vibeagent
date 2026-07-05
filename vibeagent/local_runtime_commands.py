@@ -32,6 +32,7 @@ from .local_runtime_reports import (
     format_start_report_text,
     format_structured_command_output_analysis_lines,
     indent_block as _indent_block,
+    command_results_clean,
     serialize_command_check,
     serialize_command_output_analysis,
     serialize_command_result,
@@ -252,6 +253,7 @@ def get_run_sequence_report(
         return {
             "projectRoot": str(root),
             "ok": False,
+            "clean": False,
             "commands": {"shown": 0, "total": len(selected), "requested": selected},
             "stopOnFailure": stop_on_failure,
             "stoppedEarly": False,
@@ -311,6 +313,7 @@ def get_run_sequence_report(
     return {
         "projectRoot": str(root),
         "ok": observation.ok,
+        "clean": observation.ok and command_results_clean(list(observation.results)),
         "commands": {
             "shown": len(observation.results),
             "total": len(selected_commands),
