@@ -413,19 +413,30 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
 
 def _recovery_not_run_detail(observations: list[Observation]) -> str:
     for observation in reversed(observations):
-        if observation.kind not in {"run_suggested_checks", "run_focused_test_commands"}:
-            continue
-        if not getattr(observation, "stopped_early", False):
-            return ""
-        not_run = _not_run_batch_command_labels(
-            observation,
-            len(getattr(observation, "results", []) or []),
-        )
-        return (
-            f" Not-yet-run selected check(s): {format_next_action_items(not_run)}."
-            if not_run
-            else ""
-        )
+        if observation.kind == "run_session_verification":
+            if not getattr(observation, "stopped_early", False):
+                return ""
+            not_run = not_run_selected_command_labels(
+                getattr(observation, "selected_commands", []),
+                len(getattr(observation, "results", []) or []),
+            )
+            return (
+                f" Not-yet-run selected check(s): {format_next_action_items(not_run)}."
+                if not_run
+                else ""
+            )
+        if observation.kind in {"run_suggested_checks", "run_focused_test_commands"}:
+            if not getattr(observation, "stopped_early", False):
+                return ""
+            not_run = _not_run_batch_command_labels(
+                observation,
+                len(getattr(observation, "results", []) or []),
+            )
+            return (
+                f" Not-yet-run selected check(s): {format_next_action_items(not_run)}."
+                if not_run
+                else ""
+            )
     return ""
 
 
@@ -567,21 +578,25 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
             rerun_target=_process_output_rerun_target(observations[:-1]),
         )
     if latest.kind == "session_output_diagnostics":
+        previous_observations = observations[:-1]
         return _diagnostics_next_action_instruction(
             base,
             latest,
             label="Session output",
             output_source="session command output",
-            rerun_target=_session_output_rerun_target(observations[:-1]),
+            rerun_target=_session_output_rerun_target(previous_observations),
+            recovery_detail=_recovery_not_run_detail(previous_observations),
         )
     if latest.kind == "session_output_contexts":
+        previous_observations = observations[:-1]
         return _contexts_next_action_instruction(
             base,
             latest,
             label="Session output",
             fallback_tool="session_output_diagnostics",
             output_source="session command output",
-            rerun_target=_session_output_rerun_target(observations[:-1]),
+            rerun_target=_session_output_rerun_target(previous_observations),
+            recovery_detail=_recovery_not_run_detail(previous_observations),
         )
 
     previous_observations = observations[:-1]
