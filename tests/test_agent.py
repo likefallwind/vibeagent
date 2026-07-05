@@ -8372,11 +8372,19 @@ class AgentTests(unittest.TestCase):
                     cwd=".",
                     source="tests",
                     reason="unit tests",
-                )
+                ),
+                SuggestedCheck(
+                    command="npm test",
+                    cwd="web",
+                    source="package.json",
+                    reason="project test script",
+                    available=False,
+                    missing_tool="npm",
+                ),
             ],
-            total=1,
+            total=2,
             truncated=False,
-            max_commands=1,
+            max_commands=2,
             stopped_early=True,
             skipped_unavailable=0,
             message="Suggested checks failed.",
@@ -8402,6 +8410,12 @@ class AgentTests(unittest.TestCase):
         self.assertIn("tests/test_agent.py:42", instruction)
         self.assertIn("edit the relevant code", instruction)
         self.assertIn("rerun the run_suggested_checks", instruction)
+        self.assertIn("Not-yet-run selected check", instruction)
+        self.assertIn(
+            "npm test (cwd=web, source=package.json, available=false, "
+            "missingTool=npm, reason=project test script)",
+            instruction,
+        )
 
     def test_next_action_instruction_preserves_batch_rerun_after_output_diagnostics_context(self) -> None:
         checks = RunSuggestedChecksObservation(
@@ -8424,11 +8438,17 @@ class AgentTests(unittest.TestCase):
                     cwd=".",
                     source="tests",
                     reason="unit tests",
-                )
+                ),
+                SuggestedCheck(
+                    command="npm test",
+                    cwd="web",
+                    source="package.json",
+                    reason="project test script",
+                ),
             ],
-            total=1,
+            total=2,
             truncated=False,
-            max_commands=1,
+            max_commands=2,
             stopped_early=True,
             skipped_unavailable=0,
             message="Suggested checks failed.",
@@ -8473,6 +8493,12 @@ class AgentTests(unittest.TestCase):
         self.assertIn("tests/test_agent.py:42", instruction)
         self.assertIn("edit the relevant code", instruction)
         self.assertIn("rerun the run_suggested_checks", instruction)
+        self.assertIn("Not-yet-run selected check", instruction)
+        self.assertIn(
+            "npm test (cwd=web, source=package.json, available=true, "
+            "missingTool=none, reason=project test script)",
+            instruction,
+        )
         self.assertNotIn("rerun the failed command", instruction)
 
     def test_next_action_instruction_guides_failed_read_process_to_process_diagnostics(self) -> None:

@@ -409,6 +409,24 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
     )
 
 
+def _recovery_not_run_detail(observations: list[Observation]) -> str:
+    for observation in reversed(observations):
+        if observation.kind not in {"run_suggested_checks", "run_focused_test_commands"}:
+            continue
+        if not getattr(observation, "stopped_early", False):
+            return ""
+        not_run = _not_run_batch_command_labels(
+            observation,
+            len(getattr(observation, "results", []) or []),
+        )
+        return (
+            f" Not-yet-run selected check(s): {format_next_action_items(not_run)}."
+            if not_run
+            else ""
+        )
+    return ""
+
+
 def _run_session_verification_next_action_instruction(base: str, latest: Observation) -> str:
     selected_count = int(getattr(latest, "selected_count", 0) or 0)
     results = getattr(latest, "results", [])
@@ -560,18 +578,24 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
             rerun_target=_session_output_rerun_target(observations[:-1]),
         )
 
-    rerun_target = recovery_rerun_target(observations[:-1], BATCH_COMMAND_RESULT_KINDS) if latest.kind in SOURCE_CONTEXT_KINDS else None
+    previous_observations = observations[:-1]
+    rerun_target = (
+        recovery_rerun_target(previous_observations, BATCH_COMMAND_RESULT_KINDS)
+        if latest.kind in SOURCE_CONTEXT_KINDS
+        else None
+    )
     if latest.kind in SOURCE_CONTEXT_KINDS and rerun_target:
         contexts = source_context_labels(latest)
+        not_run_detail = _recovery_not_run_detail(previous_observations)
         if contexts:
             return (
                 f"{base} Source context was inspected after a failed command or diagnostic lookup. "
                 f"Use it to edit the relevant code for: {format_next_action_items(contexts)}. "
-                f"Then rerun the {rerun_target} before finishing."
+                f"Then rerun the {rerun_target} before finishing.{not_run_detail}"
             )
         return (
             f"{base} Source context was inspected after a failed command or diagnostic lookup. "
-            f"Use it to choose the edit, then rerun the {rerun_target} before finishing."
+            f"Use it to choose the edit, then rerun the {rerun_target} before finishing.{not_run_detail}"
         )
 
     if latest.kind in {"python_check", "config_check"}:
