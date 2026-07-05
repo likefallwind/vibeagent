@@ -7942,6 +7942,8 @@ class AgentTests(unittest.TestCase):
                     cwd="web",
                     source="package.json",
                     reason="project test script",
+                    available=False,
+                    missing_tool="npm",
                 ),
             ],
             total=2,
@@ -7960,7 +7962,11 @@ class AgentTests(unittest.TestCase):
         self.assertIn("batch stopped early", instruction)
         self.assertIn("remaining selected checks may still be unverified", instruction)
         self.assertIn("Not-yet-run selected check", instruction)
-        self.assertIn("npm test (cwd=web)", instruction)
+        self.assertIn(
+            "npm test (cwd=web, source=package.json, available=false, "
+            "missingTool=npm, reason=project test script)",
+            instruction,
+        )
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("full batch before finishing", instruction)
         self.assertIn("before finishing", instruction)
@@ -8004,6 +8010,8 @@ class AgentTests(unittest.TestCase):
                     cwd="web",
                     source="package.json",
                     reason="project test script",
+                    available=True,
+                    missing_tool=None,
                 ),
             ],
             total=2,
@@ -8025,7 +8033,11 @@ class AgentTests(unittest.TestCase):
         self.assertIn("python -m unittest tests.test_agent (cwd=., exit 1)", instruction)
         self.assertIn("batch stopped early", instruction)
         self.assertIn("Not-yet-run selected check", instruction)
-        self.assertIn("npm test (cwd=web)", instruction)
+        self.assertIn(
+            "npm test (cwd=web, source=package.json, available=true, "
+            "missingTool=none, reason=project test script)",
+            instruction,
+        )
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("full batch before finishing", instruction)
         self.assertIn("before finishing", instruction)
@@ -8076,7 +8088,11 @@ class AgentTests(unittest.TestCase):
         self.assertIn("run_focused_test_commands had failed command", instruction)
         self.assertIn("batch stopped early", instruction)
         self.assertIn("Not-yet-run selected check", instruction)
-        self.assertIn("python -m unittest tests.test_actions (cwd=.)", instruction)
+        self.assertIn(
+            "python -m unittest tests.test_actions (cwd=., source=tests/test_actions.py, "
+            "available=true, missingTool=none, reason=related test file)",
+            instruction,
+        )
         self.assertIn("full batch before finishing", instruction)
 
     def test_next_action_instruction_guides_successful_run_commands_to_continue_or_finish(self) -> None:

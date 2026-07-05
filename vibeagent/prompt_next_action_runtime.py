@@ -352,8 +352,19 @@ def _not_run_batch_command_labels(latest: Observation, ran_count: int) -> list[s
         command = str(getattr(value, "command", "") or "").strip()
         cwd = str(getattr(value, "cwd", ".") or ".").strip() or "."
         if command:
-            labels.append(f"{command} (cwd={cwd})")
+            labels.append(_not_run_batch_command_label(value, command=command, cwd=cwd))
     return labels
+
+
+def _not_run_batch_command_label(value: object, *, command: str, cwd: str) -> str:
+    source = str(getattr(value, "source", "") or "").strip() or "."
+    reason = str(getattr(value, "reason", "") or "").strip() or "."
+    available = str(bool(getattr(value, "available", True))).lower()
+    missing_tool = str(getattr(value, "missing_tool", "") or "none").strip() or "none"
+    return (
+        f"{command} (cwd={cwd}, source={source}, available={available}, "
+        f"missingTool={missing_tool}, reason={reason})"
+    )
 
 
 def _batch_command_result_next_action_instruction(base: str, latest: Observation) -> str:
