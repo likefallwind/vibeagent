@@ -5084,6 +5084,69 @@ class AgentTests(unittest.TestCase):
             ["python -m unittest discover -s tests"],
         )
 
+    def test_completion_verification_treats_successful_check_with_output_diagnostics_as_failed(self) -> None:
+        check = SuggestedCheck(
+            command="python -m unittest discover -s tests",
+            cwd=".",
+            source="tests",
+            reason="unit tests",
+        )
+        observations = [
+            WriteFileObservation(kind="write_file", path="src/app.py", ok=True, message="Wrote src/app.py."),
+            RunCommandObservation(
+                kind="run_command",
+                result=CommandResult(
+                    command="python -m unittest discover -s tests",
+                    exit_code=0,
+                    stdout="tests/test_app.py:3: warning: fragile assertion\n",
+                    stderr="",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                    output_diagnostics=[
+                        OutputDiagnostic(
+                            severity="warning",
+                            output_line=1,
+                            text="fragile assertion",
+                            path="tests/test_app.py",
+                            line=3,
+                            column=None,
+                        )
+                    ],
+                    output_diagnostic_total=1,
+                ),
+            ),
+            FinalReviewObservation(
+                kind="final_review",
+                ok=True,
+                ready=True,
+                blocking_issues=[],
+                warnings=[],
+                running_processes=[],
+                files=[],
+                total_files=1,
+                suggested_checks=[check],
+                suggested_checks_total=1,
+                suggested_checks_truncated=False,
+                diff_check="",
+                staged_diff_check="",
+                status="",
+                message="Ready.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_verification_checks(True, observations), [])
+        self.assertEqual(completion_module.build_pending_verification_checks(True, observations), [])
+        self.assertEqual(
+            completion_module.build_failed_verification_checks(True, observations),
+            ["python -m unittest discover -s tests (output diagnostics)"],
+        )
+        plan = [agent_module.PlanItem(step="Run unit tests", status="completed")]
+        self.assertIn(
+            "Suggested verification checks failed after the latest project change.",
+            completion_module.build_completion_warnings(True, observations, plan),
+        )
+
     def test_next_action_instruction_guides_pending_final_review_suggested_checks(self) -> None:
         observation = FinalReviewObservation(
             kind="final_review",
@@ -8449,6 +8512,71 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(blockers, [])
         self.assertEqual(warnings, [])
+
+    def test_final_review_session_verification_blocks_successful_check_with_output_diagnostics(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            events_dir = root / ".vibeagent" / "sessions" / "run-1"
+            events_dir.mkdir(parents=True)
+            events = [
+                {
+                    "type": "tool_result",
+                    "iteration": 1,
+                    "name": "write_file",
+                    "result": {"kind": "write_file", "path": "src/app.py", "ok": True, "message": "Wrote src/app.py."},
+                },
+                {
+                    "type": "tool_result",
+                    "iteration": 2,
+                    "name": "run_session_verification",
+                    "result": {
+                        "kind": "run_session_verification",
+                        "run_id": "run-1",
+                        "ok": True,
+                        "results": [
+                            {
+                                "command": "python -m unittest discover -s tests",
+                                "cwd": ".",
+                                "exit_code": 0,
+                                "stdout": "tests/test_app.py:3: warning: fragile assertion\n",
+                                "stderr": "",
+                                "timed_out": False,
+                                "signal": None,
+                                "output_diagnostics": [
+                                    {
+                                        "severity": "warning",
+                                        "output_line": 1,
+                                        "text": "fragile assertion",
+                                        "path": "tests/test_app.py",
+                                        "line": 3,
+                                    }
+                                ],
+                            }
+                        ],
+                        "message": "Ran session verification.",
+                    },
+                },
+            ]
+            events_dir.joinpath("events.jsonl").write_text(
+                "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n",
+                encoding="utf-8",
+            )
+            workspace = create_run_workspace(root, "run-1")
+
+            blockers, warnings = final_review_session_verification_issues(
+                workspace,
+                [
+                    SuggestedCheck(
+                        command="python -m unittest discover -s tests",
+                        cwd=".",
+                        source="tests",
+                        reason="unit tests",
+                    )
+                ],
+            )
+
+        self.assertEqual(blockers, ["Suggested verification checks failed after the latest project change."])
+        self.assertEqual(warnings, ["Failed suggested check(s): python -m unittest discover -s tests."])
 
     def test_final_review_and_session_verification_share_project_change_kinds(self) -> None:
         import vibeagent.final_review_actions as final_review_actions_module

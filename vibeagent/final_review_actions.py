@@ -10,6 +10,7 @@ from .session import read_session_events
 from .session_failure_reports import command_result_failed
 from .session_verification_state import (
     SESSION_PROJECT_CHANGE_RESULT_KINDS as PROJECT_CHANGE_RESULT_KINDS,
+    command_result_has_source_output_issues,
     session_command_result_key,
     session_iter_command_results,
 )
@@ -64,7 +65,10 @@ def final_review_session_verification_issues(
             key = session_command_result_key(command_result)
             if key not in verification_commands:
                 continue
-            statuses[key] = not command_result_failed(command_result)
+            statuses[key] = (
+                not command_result_failed(command_result)
+                and not command_result_has_source_output_issues(command_result)
+            )
 
     verified_commands = {key for key, passed in statuses.items() if passed}
     failed_commands = {key for key, passed in statuses.items() if not passed}

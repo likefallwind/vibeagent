@@ -48,7 +48,7 @@ def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[s
             key = session_command_result_key(command_result)
             if key not in verification_commands:
                 continue
-            if command_result_failed(command_result):
+            if command_result_failed(command_result) or command_result_has_source_output_issues(command_result):
                 statuses[key] = (False, session_failed_suggested_check_label(command_result))
             else:
                 statuses[key] = (True, session_suggested_check_label(*key))
@@ -101,7 +101,25 @@ def session_failed_suggested_check_label(result: dict[str, Any]) -> str:
     command, cwd = session_command_result_key(result)
     if result.get("timed_out") is True:
         reason = "timed out"
-    else:
+    elif result.get("exit_code") != 0:
         exit_code = result.get("exit_code")
         reason = f"exit={exit_code}" if isinstance(exit_code, int) else "no exit code"
+    elif command_result_has_source_output_issues(result):
+        reason = "output diagnostics"
+    else:
+        reason = "no exit code"
     return failed_verification_command_label(command, cwd, reason)
+
+
+def command_result_has_source_output_issues(result: dict[str, Any]) -> bool:
+    diagnostics = result.get("output_diagnostics")
+    if isinstance(diagnostics, list):
+        for diagnostic in diagnostics:
+            if isinstance(diagnostic, dict) and isinstance(diagnostic.get("path"), str) and diagnostic["path"].strip():
+                return True
+    contexts = result.get("output_contexts")
+    if isinstance(contexts, list):
+        for context in contexts:
+            if isinstance(context, dict) and isinstance(context.get("path"), str) and context["path"].strip():
+                return True
+    return False

@@ -1872,6 +1872,90 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(summary.pending_verification_checks, [])
         self.assertEqual(summary.failed_verification_checks, [])
 
+    def test_summarize_session_treats_successful_verification_with_output_diagnostics_as_failed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "write_file",
+                        "result": {"kind": "write_file", "path": "src/app.py", "ok": True, "message": "Wrote src/app.py."},
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 2,
+                        "name": "final_review",
+                        "result": {
+                            "kind": "final_review",
+                            "ok": False,
+                            "ready": False,
+                            "blocking_issues": ["Suggested verification checks are still pending after the latest project change."],
+                            "warnings": [],
+                            "files": [],
+                            "total_files": 1,
+                            "suggested_checks": [
+                                {
+                                    "command": "python -m unittest discover -s tests",
+                                    "cwd": ".",
+                                    "source": "tests",
+                                    "reason": "unit tests",
+                                }
+                            ],
+                            "suggested_checks_total": 1,
+                            "message": "Needs verification.",
+                        },
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 3,
+                        "name": "run_session_verification",
+                        "result": {
+                            "kind": "run_session_verification",
+                            "run_id": "previous-run",
+                            "ok": True,
+                            "selected_count": 1,
+                            "pending_count": 1,
+                            "failed_count": 0,
+                            "stopped_early": False,
+                            "results": [
+                                {
+                                    "command": "python -m unittest discover -s tests",
+                                    "exit_code": 0,
+                                    "stdout": "tests/test_app.py:3: warning: fragile assertion\n",
+                                    "stderr": "",
+                                    "timed_out": False,
+                                    "signal": None,
+                                    "cwd": ".",
+                                    "output_diagnostics": [
+                                        {
+                                            "severity": "warning",
+                                            "output_line": 1,
+                                            "text": "fragile assertion",
+                                            "path": "tests/test_app.py",
+                                            "line": 3,
+                                        }
+                                    ],
+                                }
+                            ],
+                            "message": "Ran 1/1 session verification command(s); all passed.",
+                        },
+                    },
+                ],
+            )
+
+            summary = summarize_session(root, "run-1")
+            verification = format_session_verification(summary)
+
+        self.assertEqual(summary.verification_checks, [])
+        self.assertEqual(summary.pending_verification_checks, [])
+        self.assertEqual(summary.failed_verification_checks, ["python -m unittest discover -s tests (output diagnostics)"])
+        self.assertIn("failedChecks:", verification)
+        self.assertIn("python -m unittest discover -s tests (output diagnostics)", verification)
+
     def test_summarize_session_keeps_verification_after_git_metadata_changes(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
             root = Path(base)

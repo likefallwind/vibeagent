@@ -6,6 +6,7 @@ from .agent_completion_kinds import (
     VERIFICATION_INVALIDATING_OBSERVATION_KINDS,
 )
 from .agent_observation_utils import observation_failed
+from .prompt_next_action_runtime_formatting import inline_output_issue_labels
 from .types import Observation
 from .verification_command_utils import (
     command_keys_from_objects,
@@ -208,13 +209,18 @@ def command_result_failed_suggested_check_result(
     cwd = str(getattr(result, "cwd", ".") or ".")
     if (command, cwd) not in suggested_commands:
         return None
-    if getattr(result, "exit_code", None) == 0 and not getattr(result, "timed_out", False):
+    has_output_issues = command_result_has_source_output_issues(result)
+    if getattr(result, "exit_code", None) == 0 and not getattr(result, "timed_out", False) and not has_output_issues:
         return None
     if getattr(result, "timed_out", False):
         reason = "timed out"
-    else:
+    elif getattr(result, "exit_code", None) != 0:
         exit_code = getattr(result, "exit_code", None)
         reason = f"exit={exit_code}" if exit_code is not None else "no exit code"
+    elif has_output_issues:
+        reason = "output diagnostics"
+    else:
+        reason = "no exit code"
     return command, cwd, failed_verification_command_label(command, cwd, reason)
 
 
@@ -228,6 +234,12 @@ def command_result_matches_successful_suggested_check(
 ) -> bool:
     if getattr(result, "exit_code", None) != 0 or getattr(result, "timed_out", False):
         return False
+    if command_result_has_source_output_issues(result):
+        return False
     command = str(getattr(result, "command", ""))
     cwd = str(getattr(result, "cwd", ".") or ".")
     return (command, cwd) in suggested_commands
+
+
+def command_result_has_source_output_issues(result: object) -> bool:
+    return bool(inline_output_issue_labels(result))
