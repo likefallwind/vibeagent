@@ -4644,7 +4644,7 @@ class ActionTests(unittest.TestCase):
             "Suggested verification checks are still pending after the latest project change.",
             observation.blocking_issues,
         )
-        self.assertTrue(any("Failed suggested check(s): python -m unittest discover -s tests." in warning for warning in observation.warnings))
+        self.assertTrue(any("Failed suggested check(s): python -m unittest discover -s tests (exit=1)." in warning for warning in observation.warnings))
 
     def test_execute_final_review_action_clears_failed_suggested_check_after_later_success(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
@@ -4701,7 +4701,7 @@ class ActionTests(unittest.TestCase):
             "Suggested verification checks failed after the latest project change.",
             observation.blocking_issues,
         )
-        self.assertTrue(any("Failed suggested check(s): python -m unittest discover -s tests." in warning for warning in observation.warnings))
+        self.assertTrue(any("Failed suggested check(s): python -m unittest discover -s tests (exit=1)." in warning for warning in observation.warnings))
 
     def test_execute_final_review_action_reports_running_background_processes(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:

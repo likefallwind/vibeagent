@@ -8576,7 +8576,7 @@ class AgentTests(unittest.TestCase):
             )
 
         self.assertEqual(blockers, ["Suggested verification checks failed after the latest project change."])
-        self.assertEqual(warnings, ["Failed suggested check(s): python -m unittest discover -s tests."])
+        self.assertEqual(warnings, ["Failed suggested check(s): python -m unittest discover -s tests (output diagnostics)."])
 
     def test_final_review_and_session_verification_share_project_change_kinds(self) -> None:
         import vibeagent.final_review_actions as final_review_actions_module

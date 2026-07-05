@@ -12,6 +12,7 @@ from .session_verification_state import (
     SESSION_PROJECT_CHANGE_RESULT_KINDS as PROJECT_CHANGE_RESULT_KINDS,
     command_result_has_source_output_issues,
     session_command_result_key,
+    session_failed_suggested_check_label,
     session_iter_command_results,
 )
 from .types import FocusedTestCommand, SuggestedCheck
@@ -56,7 +57,7 @@ def final_review_session_verification_issues(
     if last_change_index is None:
         return [], []
 
-    statuses: dict[tuple[str, str], bool] = {}
+    statuses: dict[tuple[str, str], tuple[bool, str]] = {}
     for event in events[last_change_index + 1 :]:
         result = event.payload.get("result") if not event.malformed and event.type == "tool_result" else None
         if not isinstance(result, dict):
@@ -65,14 +66,16 @@ def final_review_session_verification_issues(
             key = session_command_result_key(command_result)
             if key not in verification_commands:
                 continue
-            statuses[key] = (
+            passed = (
                 not command_result_failed(command_result)
                 and not command_result_has_source_output_issues(command_result)
             )
+            label = suggested_check_label(*key) if passed else session_failed_suggested_check_label(command_result)
+            statuses[key] = (passed, label)
 
-    verified_commands = {key for key, passed in statuses.items() if passed}
-    failed_commands = {key for key, passed in statuses.items() if not passed}
-    failed_labels = [suggested_check_label(command, cwd) for command, cwd in sorted(failed_commands)]
+    verified_commands = {key for key, (passed, _) in statuses.items() if passed}
+    failed_labels = [label for _, (passed, label) in sorted(statuses.items()) if not passed]
+    failed_commands = {key for key, (passed, _) in statuses.items() if not passed}
     pending_labels = [
         suggested_check_label(command, cwd)
         for command, cwd in sorted(verification_commands - verified_commands - failed_commands)
