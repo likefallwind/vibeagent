@@ -7836,6 +7836,40 @@ class AgentTests(unittest.TestCase):
         self.assertIn("rerun the relevant check", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_uses_inline_successful_read_process_output_analysis(self) -> None:
+        observation = ReadProcessObservation(
+            kind="read_process",
+            process_id="bg-1",
+            pid=1234,
+            ok=True,
+            running=False,
+            exit_code=0,
+            signal=None,
+            stdout="vibeagent/agent.py:42: warning: deprecated helper\n",
+            stderr="",
+            max_output_chars=12000,
+            message="Process exited.",
+            output_diagnostics=[
+                OutputDiagnostic(
+                    severity="warning",
+                    output_line=1,
+                    text="deprecated helper",
+                    path="vibeagent/agent.py",
+                    line=42,
+                    column=None,
+                )
+            ],
+            output_diagnostic_total=1,
+        )
+
+        instruction = get_next_action_instruction("review background check output", [observation])
+
+        self.assertIn("background command exited successfully", instruction)
+        self.assertIn("inline output analysis found source-linked issue", instruction)
+        self.assertIn("vibeagent/agent.py:42 warning: deprecated helper", instruction)
+        self.assertIn("confirming they are non-blocking", instruction)
+        self.assertNotIn("Use its output to decide whether to fix issues or answer directly", instruction)
+
     def test_next_action_instruction_guides_failed_wait_process_to_process_diagnostics(self) -> None:
         observation = WaitProcessObservation(
             kind="wait_process",
@@ -7933,6 +7967,46 @@ class AgentTests(unittest.TestCase):
         self.assertIn("matched readiness output on stdout", instruction)
         self.assertIn("dependent check", instruction)
         self.assertIn("answer directly", instruction)
+
+    def test_next_action_instruction_uses_inline_matched_wait_process_output_analysis(self) -> None:
+        observation = WaitProcessObservation(
+            kind="wait_process",
+            process_id="bg-1",
+            pid=1234,
+            ok=True,
+            running=True,
+            timed_out=False,
+            matched=True,
+            matched_stream="stdout",
+            matched_pattern="ready",
+            timeout_ms=1000,
+            exit_code=None,
+            signal=None,
+            stdout="ready\nvibeagent/server.py:12:5: warning: bad route\n",
+            stderr="",
+            max_output_chars=12000,
+            message="Readiness matched.",
+            output_contexts=[
+                OutputContextResult(
+                    path="vibeagent/server.py",
+                    line=12,
+                    column=5,
+                    raw="vibeagent/server.py:12:5",
+                    ok=True,
+                    content="12: app.add_route(route)\n",
+                    message="Read vibeagent/server.py:12.",
+                )
+            ],
+            output_context_total_refs=1,
+        )
+
+        instruction = get_next_action_instruction("verify dev server readiness", [observation])
+
+        self.assertIn("matched readiness output", instruction)
+        self.assertIn("inline output analysis found source-linked issue", instruction)
+        self.assertIn("vibeagent/server.py:12:5", instruction)
+        self.assertIn("confirming they are non-blocking", instruction)
+        self.assertNotIn("Continue with the dependent check or answer directly", instruction)
 
     def test_next_action_instruction_guides_running_wait_process_to_read_or_stop(self) -> None:
         observation = WaitProcessObservation(

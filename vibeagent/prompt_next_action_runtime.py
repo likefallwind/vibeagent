@@ -143,10 +143,17 @@ def _start_command_next_action_instruction(base: str, latest: Observation) -> st
 
 
 def _read_process_next_action_instruction(base: str, latest: Observation) -> str:
+    output_issues = _inline_output_issue_labels(latest)
     if latest.ok and latest.running:
+        if output_issues:
+            return _inline_output_issue_instruction(
+                base,
+                "The background command is still running, but inline output analysis found source-linked issue(s).",
+                output_issues,
+                "decide whether they are relevant, edit or fix if needed, and rerun or continue only after confirming they are non-blocking.",
+            )
         return f"{base} Use the process output to continue, write_process if the process is waiting for input, or stop_process if it is no longer needed."
     if process_exited_with_failure(latest):
-        output_issues = _inline_output_issue_labels(latest)
         if output_issues:
             return _inline_output_issue_instruction(
                 base,
@@ -160,6 +167,13 @@ def _read_process_next_action_instruction(base: str, latest: Observation) -> str
             "when the output is noisy or names file:line references. Fix the issue and rerun the relevant check before finishing."
         )
     if latest.ok:
+        if output_issues:
+            return _inline_output_issue_instruction(
+                base,
+                "The background command exited successfully, but inline output analysis found source-linked issue(s).",
+                output_issues,
+                "decide whether they are relevant, edit or fix if needed, and rerun or continue only after confirming they are non-blocking.",
+            )
         return f"{base} The background command exited. Use its output to decide whether to fix issues or answer directly."
     return f"{base} The process could not be read, so use a valid process id or choose another useful action."
 
@@ -179,18 +193,40 @@ def _wait_process_next_action_instruction(base: str, latest: Observation) -> str
             f"process_output_diagnostics or process_output_contexts with process_id={latest.process_id} "
             "when the output is noisy or names file:line references. Fix the issue and rerun the relevant check before finishing."
         )
+    output_issues = _inline_output_issue_labels(latest)
     if getattr(latest, "matched", False):
+        if output_issues:
+            return _inline_output_issue_instruction(
+                base,
+                "The waited background command matched readiness output, but inline output analysis found source-linked issue(s).",
+                output_issues,
+                "decide whether they are relevant, edit or fix if needed, and rerun or continue only after confirming they are non-blocking.",
+            )
         stream = str(getattr(latest, "matched_stream", "") or "process output")
         return (
             f"{base} The waited background command matched readiness output on {stream}. "
             "Continue with the dependent check or answer directly if the task is complete."
         )
     if getattr(latest, "running", False) or getattr(latest, "timed_out", False):
+        if output_issues:
+            return _inline_output_issue_instruction(
+                base,
+                "The background command is still running, but inline output analysis found source-linked issue(s).",
+                output_issues,
+                "decide whether they are relevant, edit or fix if needed, and rerun or continue only after confirming they are non-blocking.",
+            )
         return (
             f"{base} The background command is still running. Use read_process for current output, "
             "wait_process again for a specific readiness signal, or stop_process if it is no longer needed."
         )
     if getattr(latest, "ok", False):
+        if output_issues:
+            return _inline_output_issue_instruction(
+                base,
+                "The waited background command exited successfully, but inline output analysis found source-linked issue(s).",
+                output_issues,
+                "decide whether they are relevant, edit or fix if needed, and rerun or continue only after confirming they are non-blocking.",
+            )
         return f"{base} The waited background command exited. Use its output to decide whether to continue or answer directly."
     return f"{base} The wait_process check failed. Use a valid process id or inspect list_processes before continuing."
 
