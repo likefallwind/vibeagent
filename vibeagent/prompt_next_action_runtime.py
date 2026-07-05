@@ -67,18 +67,19 @@ def _diagnostics_next_action_instruction(
     label: str,
     output_source: str,
     rerun_target: str,
+    recovery_detail: str = "",
 ) -> str:
     diagnostics = diagnostic_labels(getattr(latest, "diagnostics", []))
     if diagnostics:
         return (
             f"{base} {label} diagnostics found concrete issues. "
             f"Inspect or edit the referenced source for: {format_next_action_items(diagnostics)}. "
-            f"Then rerun the {rerun_target} before finishing."
+            f"Then rerun the {rerun_target} before finishing.{recovery_detail}"
         )
     return (
         f"{base} {label} diagnostics did not find concrete file references. "
         f"Use the {output_source} and any available contexts to inspect the likely source, fix the issue, "
-        f"and rerun the {rerun_target} before finishing."
+        f"and rerun the {rerun_target} before finishing.{recovery_detail}"
     )
 
 
@@ -90,18 +91,19 @@ def _contexts_next_action_instruction(
     fallback_tool: str,
     output_source: str,
     rerun_target: str,
+    recovery_detail: str = "",
 ) -> str:
     contexts = context_labels(getattr(latest, "contexts", []))
     if contexts:
         return (
             f"{base} {label} contexts located source references. "
             f"Inspect or edit the relevant code for: {format_next_action_items(contexts)}. "
-            f"Then rerun the {rerun_target} before finishing."
+            f"Then rerun the {rerun_target} before finishing.{recovery_detail}"
         )
     return (
         f"{base} {label} contexts did not find source references. "
         f"Use {fallback_tool} or the {output_source} to identify the failure, "
-        f"then fix it and rerun the {rerun_target} before finishing."
+        f"then fix it and rerun the {rerun_target} before finishing.{recovery_detail}"
     )
 
 
@@ -527,21 +529,25 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
         return f"{base} Stop preflight failed. Inspect list_processes or choose a valid process id before stopping."
 
     if latest.kind == "output_diagnostics":
+        previous_observations = observations[:-1]
         return _diagnostics_next_action_instruction(
             base,
             latest,
             label="Output",
             output_source="command output",
-            rerun_target=_command_output_rerun_target(observations[:-1]),
+            rerun_target=_command_output_rerun_target(previous_observations),
+            recovery_detail=_recovery_not_run_detail(previous_observations),
         )
     if latest.kind == "output_contexts":
+        previous_observations = observations[:-1]
         return _contexts_next_action_instruction(
             base,
             latest,
             label="Output",
             fallback_tool="output_diagnostics",
             output_source="command output",
-            rerun_target=_command_output_rerun_target(observations[:-1]),
+            rerun_target=_command_output_rerun_target(previous_observations),
+            recovery_detail=_recovery_not_run_detail(previous_observations),
         )
     if latest.kind == "process_output_diagnostics":
         return _diagnostics_next_action_instruction(
