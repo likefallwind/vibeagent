@@ -109,6 +109,10 @@ def _command_output_rerun_target(observations: list[Observation]) -> str:
     return recovery_rerun_target(observations, BATCH_COMMAND_RESULT_KINDS) or "failed command"
 
 
+def _session_output_rerun_target(observations: list[Observation]) -> str:
+    return recovery_rerun_target(observations, BATCH_COMMAND_RESULT_KINDS) or "relevant check"
+
+
 def _run_command_next_action_instruction(base: str, latest: Observation) -> str:
     result = latest.result
     if result.exit_code == 0 and not result.timed_out:
@@ -526,7 +530,7 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
             latest,
             label="Session output",
             output_source="session command output",
-            rerun_target="relevant check",
+            rerun_target=_session_output_rerun_target(observations[:-1]),
         )
     if latest.kind == "session_output_contexts":
         return _contexts_next_action_instruction(
@@ -535,7 +539,7 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
             label="Session output",
             fallback_tool="session_output_diagnostics",
             output_source="session command output",
-            rerun_target="relevant check",
+            rerun_target=_session_output_rerun_target(observations[:-1]),
         )
 
     rerun_target = recovery_rerun_target(observations[:-1], BATCH_COMMAND_RESULT_KINDS) if latest.kind in SOURCE_CONTEXT_KINDS else None

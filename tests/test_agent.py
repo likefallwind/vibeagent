@@ -7289,6 +7289,118 @@ class AgentTests(unittest.TestCase):
         self.assertIn("rerun the relevant check", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_preserves_session_verification_rerun_for_session_diagnostics(self) -> None:
+        verification = RunSessionVerificationObservation(
+            kind="run_session_verification",
+            run_id="run-1",
+            ok=False,
+            selected_commands=[{"command": "npm test", "cwd": ".", "status": "failed"}],
+            selected_count=1,
+            pending_count=0,
+            failed_count=1,
+            results=[
+                CommandResult(
+                    command="npm test",
+                    exit_code=1,
+                    stdout="FAIL tests/test_agent.py:42\n",
+                    stderr="AssertionError\n",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                )
+            ],
+            stopped_early=False,
+            message="Ran 1/1 session verification command(s); one or more failed.",
+        )
+        diagnostics = SessionOutputDiagnosticsObservation(
+            kind="session_output_diagnostics",
+            run_id="run-1",
+            ok=True,
+            diagnostics=[
+                OutputDiagnostic(
+                    severity="failure",
+                    output_line=3,
+                    text="AssertionError: expected ready",
+                    path="tests/test_agent.py",
+                    line=42,
+                    column=None,
+                )
+            ],
+            contexts=[],
+            command_count=1,
+            shown_commands=1,
+            total_diagnostics=1,
+            total_refs=1,
+            diagnostics_truncated=False,
+            contexts_truncated=False,
+            message="Extracted session output diagnostics.",
+        )
+
+        instruction = get_next_action_instruction("resume verification", [verification, diagnostics])
+
+        self.assertIn("Session output diagnostics found concrete issues", instruction)
+        self.assertIn("tests/test_agent.py:42 failure: AssertionError: expected ready", instruction)
+        self.assertIn("rerun the run_session_verification", instruction)
+        self.assertNotIn("rerun the relevant check", instruction)
+
+    def test_next_action_instruction_preserves_session_verification_rerun_for_session_contexts(self) -> None:
+        verification = RunSessionVerificationObservation(
+            kind="run_session_verification",
+            run_id="run-1",
+            ok=False,
+            selected_commands=[{"command": "npm test", "cwd": ".", "status": "failed"}],
+            selected_count=1,
+            pending_count=0,
+            failed_count=1,
+            results=[
+                CommandResult(
+                    command="npm test",
+                    exit_code=1,
+                    stdout="FAIL tests/test_agent.py:42\n",
+                    stderr="AssertionError\n",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                )
+            ],
+            stopped_early=False,
+            message="Ran 1/1 session verification command(s); one or more failed.",
+        )
+        contexts = SessionOutputContextsObservation(
+            kind="session_output_contexts",
+            run_id="run-1",
+            ok=True,
+            contexts=[
+                OutputContextResult(
+                    path="tests/test_agent.py",
+                    line=42,
+                    column=8,
+                    raw="tests/test_agent.py:42:8",
+                    ok=True,
+                    content="41 | before\n42 | broken()\n43 | after",
+                    message="Read context.",
+                    context_lines=1,
+                    start_line=41,
+                    end_line=43,
+                    line_count=3,
+                    total_lines=100,
+                    target_line_exists=True,
+                )
+            ],
+            command_count=1,
+            shown_commands=1,
+            total_refs=1,
+            truncated=False,
+            message="Extracted session output contexts.",
+        )
+
+        instruction = get_next_action_instruction("resume verification", [verification, contexts])
+
+        self.assertIn("Session output contexts located source references", instruction)
+        self.assertIn("tests/test_agent.py:42:8", instruction)
+        self.assertIn("rerun the run_session_verification", instruction)
+        self.assertNotIn("rerun the relevant check", instruction)
+
     def test_next_action_instruction_guides_source_context_after_failed_command_to_edit_and_rerun(self) -> None:
         command = RunCommandObservation(
             kind="run_command",
