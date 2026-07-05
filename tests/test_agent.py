@@ -7457,11 +7457,17 @@ class AgentTests(unittest.TestCase):
                     cwd=".",
                     source="tests",
                     reason="unit tests",
-                )
+                ),
+                SuggestedCheck(
+                    command="npm test",
+                    cwd="web",
+                    source="package.json",
+                    reason="project test script",
+                ),
             ],
-            total=1,
+            total=2,
             truncated=False,
-            max_commands=1,
+            max_commands=2,
             stopped_early=True,
             skipped_unavailable=0,
             message="Suggested checks failed.",
@@ -7474,6 +7480,8 @@ class AgentTests(unittest.TestCase):
         self.assertIn("output_diagnostics", instruction)
         self.assertIn("batch stopped early", instruction)
         self.assertIn("remaining selected checks may still be unverified", instruction)
+        self.assertIn("Not-yet-run selected check", instruction)
+        self.assertIn("npm test (cwd=web)", instruction)
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("full batch before finishing", instruction)
         self.assertIn("before finishing", instruction)
@@ -7511,11 +7519,17 @@ class AgentTests(unittest.TestCase):
                     cwd=".",
                     source="tests",
                     reason="unit tests",
-                )
+                ),
+                SuggestedCheck(
+                    command="npm test",
+                    cwd="web",
+                    source="package.json",
+                    reason="project test script",
+                ),
             ],
-            total=1,
+            total=2,
             truncated=False,
-            max_commands=1,
+            max_commands=2,
             stopped_early=True,
             skipped_unavailable=0,
             message="Suggested checks failed.",
@@ -7531,9 +7545,60 @@ class AgentTests(unittest.TestCase):
         self.assertNotIn("python_traceback", instruction)
         self.assertIn("python -m unittest tests.test_agent (cwd=., exit 1)", instruction)
         self.assertIn("batch stopped early", instruction)
+        self.assertIn("Not-yet-run selected check", instruction)
+        self.assertIn("npm test (cwd=web)", instruction)
         self.assertIn("rerun the failed command", instruction)
         self.assertIn("full batch before finishing", instruction)
         self.assertIn("before finishing", instruction)
+
+    def test_next_action_instruction_lists_not_run_focused_checks_after_stopped_batch(self) -> None:
+        observation = types_module.RunFocusedTestCommandsObservation(
+            kind="run_focused_test_commands",
+            ok=False,
+            results=[
+                CommandResult(
+                    command="python -m unittest tests.test_agent",
+                    exit_code=1,
+                    stdout="FAIL tests/test_agent.py:42\n",
+                    stderr="AssertionError: expected ready\n",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                )
+            ],
+            focused_commands=[
+                FocusedTestCommand(
+                    command="python -m unittest tests.test_agent",
+                    cwd=".",
+                    test_path="tests/test_agent.py",
+                    source="tests/test_agent.py",
+                    reason="direct test file",
+                ),
+                FocusedTestCommand(
+                    command="python -m unittest tests.test_actions",
+                    cwd=".",
+                    test_path="tests/test_actions.py",
+                    source="tests/test_actions.py",
+                    reason="related test file",
+                ),
+            ],
+            target_paths=["vibeagent/prompt_next_action_runtime.py"],
+            total=2,
+            truncated=False,
+            max_commands=2,
+            related_tests_total=2,
+            stopped_early=True,
+            skipped_unavailable=0,
+            message="Focused checks failed.",
+        )
+
+        instruction = get_next_action_instruction("fix focused checks", [observation])
+
+        self.assertIn("run_focused_test_commands had failed command", instruction)
+        self.assertIn("batch stopped early", instruction)
+        self.assertIn("Not-yet-run selected check", instruction)
+        self.assertIn("python -m unittest tests.test_actions (cwd=.)", instruction)
+        self.assertIn("full batch before finishing", instruction)
 
     def test_next_action_instruction_guides_successful_run_commands_to_continue_or_finish(self) -> None:
         observation = RunCommandsObservation(

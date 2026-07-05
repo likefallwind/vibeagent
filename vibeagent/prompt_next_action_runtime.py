@@ -320,11 +320,38 @@ def _python_or_config_check_next_action_instruction(base: str, latest: Observati
     return f"{base} The latest {latest.kind} failed. Inspect its message, fix the issue, and rerun the check before finishing."
 
 
+def _not_run_batch_command_labels(latest: Observation, ran_count: int) -> list[str]:
+    if latest.kind == "run_suggested_checks":
+        values = getattr(latest, "suggested_checks", [])
+    elif latest.kind == "run_focused_test_commands":
+        values = getattr(latest, "focused_commands", [])
+    else:
+        return []
+    if not isinstance(values, list):
+        return []
+
+    labels: list[str] = []
+    for index, value in enumerate(values):
+        if index < ran_count:
+            continue
+        command = str(getattr(value, "command", "") or "").strip()
+        cwd = str(getattr(value, "cwd", ".") or ".").strip() or "."
+        if command:
+            labels.append(f"{command} (cwd={cwd})")
+    return labels
+
+
 def _batch_command_result_next_action_instruction(base: str, latest: Observation) -> str:
     results = getattr(latest, "results", [])
     failed_commands = failed_command_labels(results)
     if failed_commands:
         stopped = " The batch stopped early after the first failure; remaining selected checks may still be unverified." if getattr(latest, "stopped_early", False) else ""
+        not_run = _not_run_batch_command_labels(latest, len(results or []))
+        not_run_detail = (
+            f" Not-yet-run selected check(s): {format_next_action_items(not_run)}."
+            if not_run
+            else ""
+        )
         output_issues = command_result_output_issue_labels(results, failed_only=True)
         if output_issues:
             return inline_output_issue_instruction(
@@ -333,14 +360,14 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
                 output_issues,
                 (
                     "fix the issue(s), and rerun the failed command(s) or the full batch before finishing: "
-                    f"{format_next_action_items(failed_commands)}."
+                    f"{format_next_action_items(failed_commands)}.{not_run_detail}"
                 ),
             )
         return (
             f"{base} The latest {latest.kind} had failed command(s). Inspect stdout/stderr; "
             "use output_diagnostics, output_contexts, or python_traceback for noisy output with file references. "
             f"{stopped} Fix the issue(s) and rerun the failed command(s) or the full batch before finishing: "
-            f"{format_next_action_items(failed_commands)}."
+            f"{format_next_action_items(failed_commands)}.{not_run_detail}"
         )
     output_issues = command_result_output_issue_labels(results, failed_only=False)
     if output_issues:
