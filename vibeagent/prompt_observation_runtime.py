@@ -345,8 +345,19 @@ def _not_run_multi_command_labels(observation: object) -> list[str]:
         value = str(getattr(command, "command", "") or "").strip()
         cwd = str(getattr(command, "cwd", ".") or ".").strip() or "."
         if value:
-            labels.append(f"{value} (cwd: {cwd})")
+            labels.append(_format_not_run_command_label(command, value=value, cwd=cwd))
     return labels
+
+
+def _format_not_run_command_label(command: object, *, value: str, cwd: str) -> str:
+    source = str(getattr(command, "source", "") or "").strip() or "."
+    reason = str(getattr(command, "reason", "") or "").strip() or "."
+    available = str(bool(getattr(command, "available", True))).lower()
+    missing_tool = str(getattr(command, "missing_tool", "") or "none").strip() or "none"
+    return (
+        f"{value} (cwd: {cwd}) "
+        f"source={source} available={available} missingTool={missing_tool} reason={reason}"
+    )
 
 
 def _format_multi_command_observation(index: int, observation: object) -> str:

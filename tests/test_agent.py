@@ -3069,6 +3069,8 @@ class AgentTests(unittest.TestCase):
                             cwd="web",
                             source="package.json",
                             reason="project test script",
+                            available=False,
+                            missing_tool="npm",
                         ),
                     ],
                     total=2,
@@ -3085,6 +3087,10 @@ class AgentTests(unittest.TestCase):
         self.assertIn("stoppedEarly: true", text)
         self.assertIn("selectedCommandsNotRun: 1", text)
         self.assertIn("notRun: npm test (cwd: web)", text)
+        self.assertIn("source=package.json", text)
+        self.assertIn("available=false", text)
+        self.assertIn("missingTool=npm", text)
+        self.assertIn("reason=project test script", text)
         self.assertIn("command: python -m unittest tests.test_agent", text)
 
     def test_format_observations_renders_not_run_focused_checks_after_stopped_batch(self) -> None:
@@ -3136,6 +3142,10 @@ class AgentTests(unittest.TestCase):
         self.assertIn("stoppedEarly: true", text)
         self.assertIn("selectedCommandsNotRun: 1", text)
         self.assertIn("notRun: python -m unittest tests/test_actions.py (cwd: .)", text)
+        self.assertIn("source=tests/test_actions.py", text)
+        self.assertIn("available=true", text)
+        self.assertIn("missingTool=none", text)
+        self.assertIn("reason=related test file", text)
         self.assertIn("target_paths:", text)
 
     def test_format_observations_renders_session_audit_blockers_and_processes(self) -> None:
