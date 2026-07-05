@@ -83,6 +83,22 @@ def serialize_suggested_check(check: object, index: int | None = None) -> dict[s
     return item
 
 
+def serialize_not_run_suggested_checks(
+    checks: list[object],
+    ran_count: int,
+    stopped_early: bool,
+) -> dict[str, object]:
+    commands = (
+        [
+            serialize_suggested_check(check, index=index)
+            for index, check in enumerate(checks[ran_count:], start=ran_count + 1)
+        ]
+        if stopped_early
+        else []
+    )
+    return {"count": len(commands), "commands": commands}
+
+
 def serialize_focused_test_command(command: object, index: int | None = None) -> dict[str, object]:
     item: dict[str, object] = {
         "command": str(getattr(command, "command", "") or ""),
@@ -96,6 +112,22 @@ def serialize_focused_test_command(command: object, index: int | None = None) ->
     if index is not None:
         item["index"] = index
     return item
+
+
+def serialize_not_run_focused_test_commands(
+    commands: list[object],
+    ran_count: int,
+    stopped_early: bool,
+) -> dict[str, object]:
+    items = (
+        [
+            serialize_focused_test_command(command, index=index)
+            for index, command in enumerate(commands[ran_count:], start=ran_count + 1)
+        ]
+        if stopped_early
+        else []
+    )
+    return {"count": len(items), "items": items}
 
 
 def format_structured_command_checks(checks: list[dict[str, object]], spaces: int = 2) -> list[str]:
@@ -263,6 +295,7 @@ def get_run_suggested_checks_report(
             "truncated": False,
             "stopOnFailure": stop_on_failure,
             "stoppedEarly": False,
+            "selectedCommandsNotRun": {"count": 0, "commands": []},
             "results": [],
             "message": message,
         }
@@ -310,23 +343,31 @@ def get_run_suggested_checks_report(
     if observation.kind != "run_suggested_checks":
         return failure(f"Unexpected observation: {observation.kind}", selected_max)
 
+    suggested_checks = list(observation.suggested_checks)
+    results = list(observation.results)
+
     return {
         "projectRoot": str(root),
         "ok": observation.ok,
-        "clean": observation.ok and command_results_clean(list(observation.results)),
+        "clean": observation.ok and command_results_clean(results),
         "suggestedChecks": {
-            "shown": len(observation.suggested_checks),
+            "shown": len(suggested_checks),
             "total": observation.total,
-            "commands": [serialize_suggested_check(check, index=index) for index, check in enumerate(observation.suggested_checks, start=1)],
+            "commands": [serialize_suggested_check(check, index=index) for index, check in enumerate(suggested_checks, start=1)],
         },
-        "commands": {"shown": len(observation.suggested_checks), "total": observation.total, "max": observation.max_commands},
-        "ran": len(observation.results),
+        "commands": {"shown": len(suggested_checks), "total": observation.total, "max": observation.max_commands},
+        "ran": len(results),
         "skippedUnavailable": observation.skipped_unavailable,
         "truncated": observation.truncated,
         "stopOnFailure": stop_on_failure,
         "stoppedEarly": observation.stopped_early,
-        "durationMs": sum_command_result_duration_ms(list(observation.results)),
-        "results": [serialize_command_result(result, index=index) for index, result in enumerate(observation.results, start=1)],
+        "selectedCommandsNotRun": serialize_not_run_suggested_checks(
+            suggested_checks,
+            ran_count=len(results),
+            stopped_early=observation.stopped_early,
+        ),
+        "durationMs": sum_command_result_duration_ms(results),
+        "results": [serialize_command_result(result, index=index) for index, result in enumerate(results, start=1)],
         "message": observation.message,
     }
 
@@ -371,7 +412,11 @@ def format_run_suggested_checks_report_text(report: dict[str, object]) -> str:
             )
     else:
         lines.append("  suggestedChecks: none")
-    not_run = suggested_items[len(results) :] if bool(report.get("stoppedEarly")) else []
+    selected_not_run = report.get("selectedCommandsNotRun") if isinstance(report.get("selectedCommandsNotRun"), dict) else {}
+    if isinstance(selected_not_run.get("commands"), list):
+        not_run = [item for item in selected_not_run.get("commands", []) if isinstance(item, dict)]
+    else:
+        not_run = suggested_items[len(results) :] if bool(report.get("stoppedEarly")) else []
     if not_run:
         lines.append(f"  selectedCommandsNotRun: {len(not_run)}")
         for check in not_run:

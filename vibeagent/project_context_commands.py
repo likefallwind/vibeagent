@@ -4,7 +4,7 @@ from pathlib import Path
 import shlex
 
 from .actions import execute_action
-from .check_commands import serialize_focused_test_command
+from .check_commands import serialize_focused_test_command, serialize_not_run_focused_test_commands
 from .local_runtime_commands import (
     command_results_clean,
     serialize_command_check,
@@ -374,6 +374,7 @@ def get_run_focused_test_commands_report(
             "truncated": False,
             "stopOnFailure": stop_on_failure,
             "stoppedEarly": False,
+            "selectedCommandsNotRun": {"count": 0, "items": []},
             "results": [],
             "message": message,
         }
@@ -424,25 +425,33 @@ def get_run_focused_test_commands_report(
     if observation.kind != "run_focused_test_commands":
         return failure(f"Unexpected observation: {observation.kind}")
 
+    focused_commands = list(observation.focused_commands)
+    results = list(observation.results)
+
     return {
         "projectRoot": str(root),
         "ok": observation.ok,
-        "clean": observation.ok and command_results_clean(list(observation.results)),
+        "clean": observation.ok and command_results_clean(results),
         "targetPaths": list(observation.target_paths),
         "relatedTests": {"total": observation.related_tests_total},
         "focusedCommands": {
-            "shown": len(observation.focused_commands),
+            "shown": len(focused_commands),
             "total": observation.total,
             "max": observation.max_commands,
-            "items": [serialize_focused_test_command(command, index=index) for index, command in enumerate(observation.focused_commands, start=1)],
+            "items": [serialize_focused_test_command(command, index=index) for index, command in enumerate(focused_commands, start=1)],
         },
-        "ran": len(observation.results),
+        "ran": len(results),
         "skippedUnavailable": observation.skipped_unavailable,
         "truncated": observation.truncated,
         "stopOnFailure": stop_on_failure,
         "stoppedEarly": observation.stopped_early,
-        "durationMs": sum_command_result_duration_ms(list(observation.results)),
-        "results": [serialize_command_result(result, index=index) for index, result in enumerate(observation.results, start=1)],
+        "selectedCommandsNotRun": serialize_not_run_focused_test_commands(
+            focused_commands,
+            ran_count=len(results),
+            stopped_early=observation.stopped_early,
+        ),
+        "durationMs": sum_command_result_duration_ms(results),
+        "results": [serialize_command_result(result, index=index) for index, result in enumerate(results, start=1)],
         "message": observation.message,
     }
 

@@ -1596,6 +1596,7 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(report["suggestedChecks"]["shown"], 1)
         self.assertEqual(report["ran"], 1)
         self.assertFalse(report["stoppedEarly"])
+        self.assertEqual(report["selectedCommandsNotRun"], {"count": 0, "commands": []})
         self.assertIsInstance(report["durationMs"], int)
         self.assertGreaterEqual(report["durationMs"], report["results"][0]["durationMs"])
         self.assertEqual(report["results"][0]["command"], "python -m unittest discover -s tests")
@@ -1650,7 +1651,12 @@ class CommandTests(unittest.TestCase):
                             "available": True,
                             "missingTool": None,
                             "reason": "unit tests",
-                        },
+                        }
+                    ],
+                },
+                "selectedCommandsNotRun": {
+                    "count": 1,
+                    "commands": [
                         {
                             "command": "npm test",
                             "cwd": "web",
@@ -1941,6 +1947,7 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(report["targetPaths"], ["pkg/actions.py"])
         self.assertEqual(report["focusedCommands"]["shown"], 1)
         self.assertEqual(report["ran"], 1)
+        self.assertEqual(report["selectedCommandsNotRun"], {"count": 0, "items": []})
         self.assertIsInstance(report["durationMs"], int)
         self.assertGreaterEqual(report["durationMs"], report["results"][0]["durationMs"])
         self.assertEqual(report["results"][0]["command"], "python -m unittest discover -s tests -p test_actions.py")
@@ -1972,7 +1979,12 @@ class CommandTests(unittest.TestCase):
                             "available": True,
                             "missingTool": None,
                             "reason": "direct test file",
-                        },
+                        }
+                    ],
+                },
+                "selectedCommandsNotRun": {
+                    "count": 1,
+                    "items": [
                         {
                             "command": "python -m unittest tests.test_actions",
                             "cwd": ".",
