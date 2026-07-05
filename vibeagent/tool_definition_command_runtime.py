@@ -113,6 +113,38 @@ COMMAND_RUNTIME_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                                 "maximum": 50000,
                                 "description": "Optional stdout/stderr character cap per command. Defaults to 12000.",
                             },
+                            "extract_output_contexts": {
+                                "type": "boolean",
+                                "description": "When true, extract project file:line references from this command's stdout/stderr and include source contexts. Defaults to false.",
+                            },
+                            "extract_output_diagnostics": {
+                                "type": "boolean",
+                                "description": "When true, summarize error/warning/failure diagnostic lines from this command's stdout/stderr and include referenced source contexts. Defaults to false.",
+                            },
+                            "context_lines": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 500,
+                                "description": "Lines before and after each extracted reference when extract_output_contexts or extract_output_diagnostics is true. Defaults to 5.",
+                            },
+                            "max_diagnostics": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 200,
+                                "description": "Maximum diagnostic lines to include when extract_output_diagnostics is true. Defaults to 50.",
+                            },
+                            "max_contexts": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "description": "Maximum extracted contexts for this command. Defaults to 20.",
+                            },
+                            "max_bytes_per_context": {
+                                "type": "integer",
+                                "minimum": 1000,
+                                "maximum": 200000,
+                                "description": "Maximum characters returned per extracted context. Defaults to 20000.",
+                            },
                         },
                         "required": ["command"],
                         "additionalProperties": False,
