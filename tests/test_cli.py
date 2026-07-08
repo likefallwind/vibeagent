@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import Mock, call, patch
 
 from vibeagent import cli as cli_module
+from vibeagent import cli_command_namespace, commands as commands_module
 from vibeagent.agent import AgentResult
 from vibeagent.cli import build_approval_handler, format_error, handle_approval_command, main, print_agent_result, prompt_approval
 from vibeagent.cli_local_dispatch import LOCAL_FLAG_HANDLER_NAMES, dispatch_local_flag
@@ -25,6 +26,18 @@ class Http401Error(Exception):
 
 
 class CliTests(unittest.TestCase):
+    def test_cli_reexports_command_namespace_helpers(self) -> None:
+        missing_or_changed = [
+            name
+            for name in cli_command_namespace.__all__
+            if getattr(cli_module, name, None) is not getattr(commands_module, name, None)
+        ]
+
+        self.assertEqual([], missing_or_changed)
+        self.assertIn("get_read_text", cli_command_namespace.__all__)
+        self.assertIn("format_review_report_text", cli_command_namespace.__all__)
+        self.assertIn("parse_local_command", cli_command_namespace.__all__)
+
     def test_dispatch_local_flag_preserves_order_and_handler_signatures(self) -> None:
         args = argparse.Namespace()
         project_root = Path("/tmp/project")
