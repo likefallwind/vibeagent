@@ -3,6 +3,7 @@ from __future__ import annotations
 import shlex
 
 from .command_checkpoint_parsing import parse_checkpoint_local_command
+from .command_code_intel_parsing import parse_code_intel_local_command
 from .command_git_parsing import parse_git_local_command
 from .command_inspection_parsing import parse_inspection_local_command
 from .command_process_parsing import parse_process_local_command
@@ -29,28 +30,9 @@ def parse_local_command(value: str) -> LocalCommand | None:
     inspection_command = parse_inspection_local_command(trimmed)
     if inspection_command is not None:
         return inspection_command
-    if trimmed == "/python-check" or trimmed.startswith("/python-check "):
-        return LocalCommand(type="python_check", argument=trimmed[14:].strip() or None)
-    if trimmed == "/python-deps" or trimmed.startswith("/python-deps "):
-        return LocalCommand(type="python_deps", argument=trimmed[13:].strip() or None)
-    if trimmed == "/python-defs" or trimmed.startswith("/python-defs "):
-        return LocalCommand(type="python_defs", argument=trimmed[13:].strip() or None)
-    if trimmed == "/python-refs" or trimmed.startswith("/python-refs "):
-        return LocalCommand(type="python_refs", argument=trimmed[13:].strip() or None)
-    if trimmed == "/python-ref-contexts" or trimmed.startswith("/python-ref-contexts "):
-        return LocalCommand(type="python_ref_contexts", argument=trimmed[21:].strip() or None)
-    if trimmed == "/python-calls" or trimmed.startswith("/python-calls "):
-        return LocalCommand(type="python_calls", argument=trimmed[14:].strip() or None)
-    if trimmed == "/python-call-graph" or trimmed.startswith("/python-call-graph "):
-        return LocalCommand(type="python_call_graph", argument=trimmed[19:].strip() or None)
-    if trimmed == "/python-rename-preview" or trimmed.startswith("/python-rename-preview "):
-        return LocalCommand(type="python_rename_preview", argument=trimmed[23:].strip() or None)
-    if trimmed == "/python-rename" or trimmed.startswith("/python-rename "):
-        return LocalCommand(type="python_rename", argument=trimmed[15:].strip() or None)
-    if trimmed == "/check-replace-python-def" or trimmed.startswith("/check-replace-python-def "):
-        return LocalCommand(type="check_replace_python_definition", argument=trimmed[26:].strip() or None)
-    if trimmed == "/replace-python-def" or trimmed.startswith("/replace-python-def "):
-        return LocalCommand(type="replace_python_definition", argument=trimmed[20:].strip() or None)
+    code_intel_command = parse_code_intel_local_command(trimmed)
+    if code_intel_command is not None:
+        return code_intel_command
     if trimmed == "/config-check" or trimmed.startswith("/config-check "):
         return LocalCommand(type="config_check", argument=trimmed[14:].strip() or None)
     if trimmed == "/check-json-set" or trimmed.startswith("/check-json-set "):
@@ -165,18 +147,6 @@ def parse_local_command(value: str) -> LocalCommand | None:
         return LocalCommand(type="check_regex_replace", argument=trimmed[21:].strip() or None)
     if trimmed == "/regex-replace" or trimmed.startswith("/regex-replace "):
         return LocalCommand(type="regex_replace", argument=trimmed[15:].strip() or None)
-    if trimmed == "/code-deps" or trimmed.startswith("/code-deps "):
-        return LocalCommand(type="code_deps", argument=trimmed[11:].strip() or None)
-    if trimmed == "/code-refs" or trimmed.startswith("/code-refs "):
-        return LocalCommand(type="code_refs", argument=trimmed[11:].strip() or None)
-    if trimmed == "/code-ref-contexts" or trimmed.startswith("/code-ref-contexts "):
-        return LocalCommand(type="code_ref_contexts", argument=trimmed[19:].strip() or None)
-    if trimmed == "/code-defs" or trimmed.startswith("/code-defs "):
-        return LocalCommand(type="code_defs", argument=trimmed[11:].strip() or None)
-    if trimmed == "/code-rename-preview" or trimmed.startswith("/code-rename-preview "):
-        return LocalCommand(type="code_rename_preview", argument=trimmed[21:].strip() or None)
-    if trimmed == "/code-rename" or trimmed.startswith("/code-rename "):
-        return LocalCommand(type="code_rename", argument=trimmed[13:].strip() or None)
     git_command = parse_git_local_command(trimmed)
     if git_command is not None:
         return git_command
