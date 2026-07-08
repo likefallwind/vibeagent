@@ -206,12 +206,12 @@ def python_pathlib_call_path(
 
 
 def is_dangerous_recursive_delete_target(path: str) -> bool:
-    from .command_safety_shell import is_dangerous_recursive_delete_target as shell_is_dangerous_recursive_delete_target
+    from .command_safety_filesystem import is_dangerous_recursive_delete_target as shell_is_dangerous_recursive_delete_target
 
     return shell_is_dangerous_recursive_delete_target(path)
 
 
 def is_raw_device_write_target(path: str) -> bool:
-    from .command_safety_shell import is_raw_device_write_target as shell_is_raw_device_write_target
+    from .command_safety_filesystem import is_raw_device_write_target as shell_is_raw_device_write_target
 
     return shell_is_raw_device_write_target(path)

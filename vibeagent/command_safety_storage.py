@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .command_safety_args import command_operands
-from .command_safety_shell import is_raw_device_write_target
+from .command_safety_filesystem import is_raw_device_write_target
 
 
 def storage_invocation_changes_device_state(executable: str, args: list[str]) -> bool:
