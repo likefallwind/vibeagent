@@ -1,140 +1,15 @@
 from __future__ import annotations
 
+from .prompt_next_action_session_formatting import (
+    completion_blocker_labels,
+    file_reference_labels,
+    format_next_action_items,
+    has_completion_blocker_signal,
+    plan_item_labels,
+    session_audit_process_labels,
+    verification_command_labels,
+)
 from .types import Observation
-
-
-def _format_next_action_items(items: list[str], max_items: int = 3) -> str:
-    shown = items[:max_items]
-    suffix = "" if len(items) <= max_items else f"; +{len(items) - max_items} more"
-    return "; ".join(shown) + suffix
-
-
-def _session_audit_process_labels(values: object) -> list[str]:
-    labels: list[str] = []
-    if not isinstance(values, list):
-        return labels
-    for value in values:
-        process_id = str(getattr(value, "process_id", "") or "").strip()
-        command = str(getattr(value, "command", "") or "").strip()
-        cwd = str(getattr(value, "cwd", "") or "").strip()
-        if process_id and command:
-            label = f"{process_id}: {command}"
-        elif process_id:
-            label = process_id
-        elif command:
-            label = command
-        else:
-            continue
-        if cwd and cwd != ".":
-            label = f"{label} (cwd={cwd})"
-        labels.append(label)
-    return labels
-
-
-def _verification_command_labels(values: object) -> list[str]:
-    labels: list[str] = []
-    if not isinstance(values, list):
-        return labels
-    for value in values:
-        if not isinstance(value, dict):
-            continue
-        command = str(value.get("command") or "").strip()
-        cwd = str(value.get("cwd") or ".").strip() or "."
-        reason = str(value.get("failureReason") or "").strip()
-        if not command:
-            continue
-        label = f"{command} (cwd={cwd})"
-        if reason:
-            label = f"{label}: {reason}"
-        labels.append(label)
-    return labels
-
-
-def _plan_item_labels(values: object) -> list[str]:
-    labels: list[str] = []
-    if not isinstance(values, list):
-        return labels
-    for value in values:
-        if not isinstance(value, dict):
-            continue
-        step = str(value.get("step") or "").strip()
-        if not step:
-            continue
-        status = str(value.get("status") or "").strip()
-        labels.append(f"{status}: {step}" if status else step)
-    return labels
-
-
-def _file_reference_labels(values: object) -> list[str]:
-    labels: list[str] = []
-    if not isinstance(values, list):
-        return labels
-    for value in values:
-        if not isinstance(value, dict):
-            continue
-        path = str(value.get("path") or "").strip()
-        if not path:
-            continue
-        uses = [
-            str(use).strip()
-            for use in value.get("uses", [])
-            if isinstance(use, str) and use.strip()
-        ]
-        labels.append(f"{path} (uses: {', '.join(uses)})" if uses else path)
-    return labels
-
-
-def _audit_section_items(audit: object, section_names: tuple[str, ...]) -> list[str]:
-    if not isinstance(audit, str):
-        return []
-
-    names = set(section_names)
-    items: list[str] = []
-    in_section = False
-    for line in audit.splitlines():
-        stripped = line.strip()
-        heading = stripped[:-1] if stripped.endswith(":") else stripped
-        if heading in names:
-            in_section = True
-            continue
-        if not in_section:
-            continue
-        if not stripped:
-            continue
-        if stripped.startswith("- "):
-            item = stripped[2:].strip()
-            if item and item.lower() != "none":
-                items.append(item)
-            continue
-        in_section = False
-    return items
-
-
-def _completion_blocker_labels(latest: Observation) -> list[str]:
-    labels = [
-        str(blocker).strip()
-        for blocker in getattr(latest, "completion_blockers", [])
-        if str(blocker).strip()
-    ]
-    labels.extend(
-        str(blocker).strip()
-        for blocker in getattr(latest, "latest_completion_blockers", [])
-        if str(blocker).strip()
-    )
-    if labels:
-        return labels
-    return _audit_section_items(getattr(latest, "audit", ""), ("completionBlockers", "latestCompletionBlockers"))
-
-
-def _has_completion_blocker_signal(blockers: list[str], latest: Observation) -> bool:
-    if getattr(latest, "completion_ready", None) is False:
-        return True
-    if _completion_blocker_labels(latest):
-        return True
-    if any("completion blocker" in blocker.lower() or "completion is not ready" in blocker.lower() for blocker in blockers):
-        return True
-    audit_lower = str(getattr(latest, "audit", "") or "").lower()
-    return "completionready: no" in audit_lower or "completionblockers:" in audit_lower
 
 
 def _session_summary_next_action_instruction(base: str, latest: Observation) -> str:
@@ -233,14 +108,14 @@ def _session_commands_next_action_instruction(base: str, latest: Observation) ->
 
 
 def _session_verification_next_action_instruction(base: str, latest: Observation) -> str:
-    failed = _verification_command_labels(getattr(latest, "failed_commands", []))
-    pending = _verification_command_labels(getattr(latest, "pending_commands", []))
+    failed = verification_command_labels(getattr(latest, "failed_commands", []))
+    pending = verification_command_labels(getattr(latest, "pending_commands", []))
 
     if failed and pending:
         return (
             f"{base} Session verification reports failed and pending checks. "
             f"Use run_session_verification to rerun recorded verification checks first: "
-            f"{_format_next_action_items(failed + pending)}. "
+            f"{format_next_action_items(failed + pending)}. "
             "If failures remain, inspect them with session_output_diagnostics or session_output_contexts, "
             "fix the code, and rerun verification before finishing."
         )
@@ -248,7 +123,7 @@ def _session_verification_next_action_instruction(base: str, latest: Observation
     if failed:
         return (
             f"{base} Session verification reports failed checks. "
-            f"Use run_session_verification to rerun them first: {_format_next_action_items(failed)}. "
+            f"Use run_session_verification to rerun them first: {format_next_action_items(failed)}. "
             "If failures remain, inspect them with session_output_diagnostics or session_output_contexts, "
             "fix the code, and rerun verification before finishing."
         )
@@ -256,7 +131,7 @@ def _session_verification_next_action_instruction(base: str, latest: Observation
     if pending:
         return (
             f"{base} Session verification reports pending checks. "
-            f"Use run_session_verification to run them before finishing: {_format_next_action_items(pending)}."
+            f"Use run_session_verification to run them before finishing: {format_next_action_items(pending)}."
         )
 
     if getattr(latest, "ok", False):
@@ -278,23 +153,23 @@ def _session_audit_next_action_instruction(base: str, latest: Observation) -> st
             "or answer directly if the task is complete."
         )
 
-    active_processes = _session_audit_process_labels(getattr(latest, "active_background_processes", []))
+    active_processes = session_audit_process_labels(getattr(latest, "active_background_processes", []))
     if active_processes:
         return (
             f"{base} Session audit is not ready because background processes are still active. "
             "Use list_processes and read_process to inspect them, or stop_process if they are no longer needed: "
-            f"{_format_next_action_items(active_processes)}. "
+            f"{format_next_action_items(active_processes)}. "
             "Then run session_verification or final_review before finishing."
         )
 
     blockers = [str(blocker).strip() for blocker in getattr(latest, "blockers", []) if str(blocker).strip()]
-    completion_blockers = _completion_blocker_labels(latest)
-    file_references = _file_reference_labels(getattr(latest, "file_references", []))
-    if blockers and _has_completion_blocker_signal(blockers, latest):
+    completion_blockers = completion_blocker_labels(latest)
+    file_references = file_reference_labels(getattr(latest, "file_references", []))
+    if blockers and has_completion_blocker_signal(blockers, latest):
         completion_details = completion_blockers or blockers
         return (
             f"{base} Session audit is not ready because completion blocker(s) remain. "
-            f"Fix completion blocker(s): {_format_next_action_items(completion_details)}. "
+            f"Fix completion blocker(s): {format_next_action_items(completion_details)}. "
             "Use session_plan for unfinished task-plan blockers, "
             "session_verification or run_session_verification for verification blockers, "
             "and session_failures or session_output_diagnostics for failure blockers; "
@@ -306,14 +181,14 @@ def _session_audit_next_action_instruction(base: str, latest: Observation) -> st
     )
     if blockers and file_references and changed_file_blocker:
         return (
-            f"{base} Session audit reports changed file(s): {_format_next_action_items(file_references)}. "
+            f"{base} Session audit reports changed file(s): {format_next_action_items(file_references)}. "
             "Inspect the relevant file(s) with read_file or read_file_context, finish or review the edits, "
             "then run final_review or session_audit before finishing."
         )
 
     if blockers:
         return (
-            f"{base} Session audit is not ready. Fix audit blocker(s): {_format_next_action_items(blockers)}. "
+            f"{base} Session audit is not ready. Fix audit blocker(s): {format_next_action_items(blockers)}. "
             "Use session_verification or run_session_verification for verification blockers, "
             "session_failures or session_output_diagnostics for failure blockers, then rerun session_audit before finishing."
         )
@@ -332,12 +207,12 @@ def _session_audit_next_action_instruction(base: str, latest: Observation) -> st
 
 def _session_handoff_next_action_instruction(base: str, latest: Observation) -> str:
     blockers = [str(blocker).strip() for blocker in getattr(latest, "blockers", []) if str(blocker).strip()]
-    completion_blockers = _completion_blocker_labels(latest)
-    active_processes = _session_audit_process_labels(getattr(latest, "active_background_processes", []))
-    failed = _verification_command_labels(getattr(latest, "failed_commands", []))
-    pending = _verification_command_labels(getattr(latest, "pending_commands", []))
-    pending_plan_items = _plan_item_labels(getattr(latest, "pending_plan_items", []))
-    file_references = _file_reference_labels(getattr(latest, "file_references", []))
+    completion_blockers = completion_blocker_labels(latest)
+    active_processes = session_audit_process_labels(getattr(latest, "active_background_processes", []))
+    failed = verification_command_labels(getattr(latest, "failed_commands", []))
+    pending = verification_command_labels(getattr(latest, "pending_commands", []))
+    pending_plan_items = plan_item_labels(getattr(latest, "pending_plan_items", []))
+    file_references = file_reference_labels(getattr(latest, "file_references", []))
     if getattr(latest, "ready", None) is True:
         return (
             f"{base} Session handoff reports the recovered session is ready. "
@@ -349,30 +224,30 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
         return (
             f"{base} Session handoff reports active background process(es). "
             "Use list_processes and read_process to inspect them, or stop_process if they are no longer needed: "
-            f"{_format_next_action_items(active_processes)}. "
+            f"{format_next_action_items(active_processes)}. "
             "Then run session_audit or session_verification before finishing."
         )
 
     if failed or pending:
         return (
             f"{base} Session handoff reports pending or failed verification checks. "
-            f"Use run_session_verification to rerun recorded checks first: {_format_next_action_items(failed + pending)}. "
+            f"Use run_session_verification to rerun recorded checks first: {format_next_action_items(failed + pending)}. "
             "If failures remain, inspect them with session_output_diagnostics or session_output_contexts, "
             "fix the code, and rerun session_audit before finishing."
         )
 
     if pending_plan_items:
         return (
-            f"{base} Session handoff reports unfinished plan item(s): {_format_next_action_items(pending_plan_items)}. "
+            f"{base} Session handoff reports unfinished plan item(s): {format_next_action_items(pending_plan_items)}. "
             "Continue the in-progress or next pending plan item, use session_plan if more detail is needed, "
             "update_plan after progress, then run session_audit or session_verification before finishing."
         )
 
-    if blockers and _has_completion_blocker_signal(blockers, latest):
+    if blockers and has_completion_blocker_signal(blockers, latest):
         completion_details = completion_blockers or blockers
         return (
             f"{base} Session handoff reports completion blocker(s). "
-            f"Fix completion blocker(s): {_format_next_action_items(completion_details)}. "
+            f"Fix completion blocker(s): {format_next_action_items(completion_details)}. "
             "Use session_plan for unfinished task-plan blockers, "
             "session_verification or run_session_verification for verification blockers, "
             "and session_failures or session_output_diagnostics for failure blockers before finishing."
@@ -383,14 +258,14 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
     )
     if blockers and file_references and changed_file_blocker:
         return (
-            f"{base} Session handoff reports changed file(s): {_format_next_action_items(file_references)}. "
+            f"{base} Session handoff reports changed file(s): {format_next_action_items(file_references)}. "
             "Inspect the relevant file(s) with read_file or read_file_context, finish or review the edits, "
             "then run final_review or session_audit before finishing."
         )
 
     if blockers:
         return (
-            f"{base} Session handoff reports blockers: {_format_next_action_items(blockers)}. "
+            f"{base} Session handoff reports blockers: {format_next_action_items(blockers)}. "
             "Use session_audit for a structured readiness check, "
             "then use session_verification, session_failures, or session_output_diagnostics to resolve the blocker(s) before finishing."
         )
@@ -481,10 +356,10 @@ def _session_failures_next_action_instruction(base: str, latest: Observation) ->
 
 def _session_files_next_action_instruction(base: str, latest: Observation) -> str:
     file_count = int(getattr(latest, "file_count", 0) or 0)
-    file_references = _file_reference_labels(getattr(latest, "file_references", []))
+    file_references = file_reference_labels(getattr(latest, "file_references", []))
     if file_count > 0:
         file_detail = (
-            f" Inspect these file(s) first: {_format_next_action_items(file_references)}."
+            f" Inspect these file(s) first: {format_next_action_items(file_references)}."
             if file_references
             else ""
         )
