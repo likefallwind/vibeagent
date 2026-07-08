@@ -3,6 +3,7 @@ from __future__ import annotations
 import shlex
 
 from .command_checkpoint_parsing import parse_checkpoint_local_command
+from .command_git_parsing import parse_git_local_command
 from .command_session_parsing import parse_session_local_command
 from .command_types import LocalCommand, make_local_command
 
@@ -258,66 +259,9 @@ def parse_local_command(value: str) -> LocalCommand | None:
         return LocalCommand(type="code_rename_preview", argument=trimmed[21:].strip() or None)
     if trimmed == "/code-rename" or trimmed.startswith("/code-rename "):
         return LocalCommand(type="code_rename", argument=trimmed[13:].strip() or None)
-    if trimmed == "/git-status":
-        return LocalCommand(type="git_status")
-    if trimmed == "/conflicts" or trimmed.startswith("/conflicts "):
-        return LocalCommand(type="git_conflicts", argument=trimmed[10:].strip() or None)
-    if trimmed == "/git-info":
-        return LocalCommand(type="git_info")
-    if trimmed == "/branches":
-        return LocalCommand(type="branches")
-    if trimmed == "/log" or trimmed.startswith("/log "):
-        return LocalCommand(type="log", argument=trimmed[5:].strip() or None)
-    if trimmed == "/show" or trimmed.startswith("/show "):
-        return LocalCommand(type="show", argument=trimmed[6:].strip() or None)
-    if trimmed == "/blame" or trimmed.startswith("/blame "):
-        return LocalCommand(type="blame", argument=trimmed[7:].strip() or None)
-    if trimmed == "/stashes" or trimmed.startswith("/stashes "):
-        return LocalCommand(type="stashes", argument=trimmed[9:].strip() or None)
-    if trimmed == "/check-fetch" or trimmed.startswith("/check-fetch "):
-        return LocalCommand(type="check_fetch", argument=trimmed[13:].strip() or None)
-    if trimmed == "/fetch" or trimmed.startswith("/fetch "):
-        return LocalCommand(type="fetch", argument=trimmed[7:].strip() or None)
-    if trimmed == "/check-pull":
-        return LocalCommand(type="check_pull")
-    if trimmed == "/pull":
-        return LocalCommand(type="pull")
-    if trimmed == "/check-push":
-        return LocalCommand(type="check_push")
-    if trimmed == "/push":
-        return LocalCommand(type="push")
-    if trimmed == "/check-stash" or trimmed.startswith("/check-stash "):
-        return LocalCommand(type="check_stash", argument=trimmed[13:].strip() or None)
-    if trimmed == "/stash" or trimmed.startswith("/stash "):
-        return LocalCommand(type="stash", argument=trimmed[7:].strip() or None)
-    if trimmed == "/check-stash-apply" or trimmed.startswith("/check-stash-apply "):
-        return LocalCommand(type="check_stash_apply", argument=trimmed[19:].strip() or None)
-    if trimmed == "/stash-apply" or trimmed.startswith("/stash-apply "):
-        return LocalCommand(type="stash_apply", argument=trimmed[13:].strip() or None)
-    if trimmed == "/check-stash-drop" or trimmed.startswith("/check-stash-drop "):
-        return LocalCommand(type="check_stash_drop", argument=trimmed[18:].strip() or None)
-    if trimmed == "/stash-drop" or trimmed.startswith("/stash-drop "):
-        return LocalCommand(type="stash_drop", argument=trimmed[12:].strip() or None)
-    if trimmed == "/check-stage" or trimmed.startswith("/check-stage "):
-        return LocalCommand(type="check_stage", argument=trimmed[13:].strip() or None)
-    if trimmed == "/stage" or trimmed.startswith("/stage "):
-        return LocalCommand(type="stage", argument=trimmed[7:].strip() or None)
-    if trimmed == "/check-unstage" or trimmed.startswith("/check-unstage "):
-        return LocalCommand(type="check_unstage", argument=trimmed[15:].strip() or None)
-    if trimmed == "/unstage" or trimmed.startswith("/unstage "):
-        return LocalCommand(type="unstage", argument=trimmed[9:].strip() or None)
-    if trimmed == "/check-commit" or trimmed.startswith("/check-commit "):
-        return LocalCommand(type="check_commit", argument=trimmed[14:].strip() or None)
-    if trimmed == "/commit" or trimmed.startswith("/commit "):
-        return LocalCommand(type="commit", argument=trimmed[8:].strip() or None)
-    if trimmed == "/check-restore" or trimmed.startswith("/check-restore "):
-        return LocalCommand(type="check_restore", argument=trimmed[15:].strip() or None)
-    if trimmed == "/restore" or trimmed.startswith("/restore "):
-        return LocalCommand(type="restore", argument=trimmed[9:].strip() or None)
-    if trimmed == "/check-switch" or trimmed.startswith("/check-switch "):
-        return LocalCommand(type="check_switch", argument=trimmed[14:].strip() or None)
-    if trimmed == "/switch" or trimmed.startswith("/switch "):
-        return LocalCommand(type="switch", argument=trimmed[8:].strip() or None)
+    git_command = parse_git_local_command(trimmed)
+    if git_command is not None:
+        return git_command
     if trimmed == "/env":
         return LocalCommand(type="env")
     if trimmed == "/processes":
