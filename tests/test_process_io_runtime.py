@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from vibeagent import process_io_runtime, process_runtime
+from vibeagent import process_io_runtime, process_runtime, process_wait_runtime
 
 
 class ProcessIORuntimeModuleTests(unittest.TestCase):
@@ -13,10 +13,14 @@ class ProcessIORuntimeModuleTests(unittest.TestCase):
         self.assertIs(process_runtime.wait_background_process, process_io_runtime.wait_background_process)
         self.assertIs(process_runtime.check_write_background_process, process_io_runtime.check_write_background_process)
         self.assertIs(process_runtime.write_background_process, process_io_runtime.write_background_process)
-        self.assertIs(process_runtime.wait_persistent_process, process_io_runtime.wait_persistent_process)
-        self.assertIs(process_runtime.wait_background_process_output, process_io_runtime.wait_background_process_output)
-        self.assertIs(process_runtime.match_process_output, process_io_runtime.match_process_output)
-        self.assertIs(process_runtime.read_text_tail, process_io_runtime.read_text_tail)
+        self.assertIs(process_runtime.wait_persistent_process, process_wait_runtime.wait_persistent_process)
+        self.assertIs(process_runtime.wait_background_process_output, process_wait_runtime.wait_background_process_output)
+        self.assertIs(process_runtime.match_process_output, process_wait_runtime.match_process_output)
+        self.assertIs(process_runtime.read_text_tail, process_wait_runtime.read_text_tail)
+        self.assertIs(process_io_runtime.wait_persistent_process, process_wait_runtime.wait_persistent_process)
+        self.assertIs(process_io_runtime.wait_background_process_output, process_wait_runtime.wait_background_process_output)
+        self.assertIs(process_io_runtime.match_process_output, process_wait_runtime.match_process_output)
+        self.assertIs(process_io_runtime.read_text_tail, process_wait_runtime.read_text_tail)
 
     def test_match_process_output_supports_plain_and_regex_patterns(self) -> None:
         self.assertEqual(
