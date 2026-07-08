@@ -78,14 +78,16 @@ from .session_summary_reports import (
 from .session_audit_reports import (
     build_session_audit_report_from_parts,
     build_session_handoff_report_from_sections,
-    failed_checkpoint_create_count,
     format_session_audit_from_parts,
     format_session_handoff_readiness,
     format_session_handoff_sections,
-    serialize_session_command_entry,
-    serialize_session_failure,
     session_audit_blockers,
     session_pending_plan_items,
+)
+from .session_audit_serialization import (
+    failed_checkpoint_create_count,
+    serialize_session_command_entry,
+    serialize_session_failure,
     validate_session_audit_limits,
     validate_session_handoff_limits,
 )

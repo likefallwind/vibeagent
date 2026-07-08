@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .session_audit_reports import serialize_session_failure
+from .session_audit_serialization import serialize_session_failure
 from .session_store import read_session_events
 from .session_types import SessionEvent
 from .session_utils import compact, is_failed_tool_result, session_dir
