@@ -10,18 +10,24 @@ from vibeagent.cli_parse_code_intel import (
     parse_interactive_python_symbol_argument,
     parse_interactive_test_paths_argument,
 )
+from vibeagent.cli_parse_cwd_command import (
+    parse_interactive_check_run_sequence_argument as parse_cwd_check_run_sequence_argument,
+    parse_interactive_cwd_command_argument,
+)
 from vibeagent.cli_parse_discovery import (
     parse_interactive_glob_argument,
     parse_interactive_overview_argument,
     parse_interactive_search_argument,
 )
 from vibeagent.cli_parse_diff_git import build_diff_argument, parse_interactive_diff_argument
+from vibeagent.cli_parse_process_run import parse_interactive_wait_process_argument
 from vibeagent.cli_parse_runtime_checks import parse_interactive_http_argument, parse_interactive_port_argument
 from vibeagent.cli_parse_read import (
     parse_interactive_read_argument,
     parse_interactive_read_files_argument,
     parse_interactive_tree_argument,
 )
+from vibeagent import cli_parse_run
 from vibeagent.cli_parse_run import (
     parse_interactive_check_run_sequence_argument,
     parse_interactive_run_argument,
@@ -59,7 +65,13 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertIs(cli_parsing.parse_interactive_test_paths_argument, parse_interactive_test_paths_argument)
         self.assertIs(cli_parsing.parse_interactive_run_argument, parse_interactive_run_argument)
         self.assertIs(cli_parsing.parse_interactive_run_sequence_argument, parse_interactive_run_sequence_argument)
-        self.assertIs(cli_parsing.parse_interactive_check_run_sequence_argument, parse_interactive_check_run_sequence_argument)
+        self.assertIs(cli_parsing.parse_interactive_wait_process_argument, parse_interactive_wait_process_argument)
+        self.assertIs(cli_parsing.parse_interactive_cwd_command_argument, parse_interactive_cwd_command_argument)
+        self.assertIs(cli_parsing.parse_interactive_check_run_sequence_argument, parse_cwd_check_run_sequence_argument)
+        self.assertIs(cli_parse_run.parse_interactive_wait_process_argument, parse_interactive_wait_process_argument)
+        self.assertIs(cli_parse_run.parse_interactive_cwd_command_argument, parse_interactive_cwd_command_argument)
+        self.assertIs(cli_parse_run.parse_interactive_check_run_sequence_argument, parse_cwd_check_run_sequence_argument)
+        self.assertIs(parse_interactive_check_run_sequence_argument, parse_cwd_check_run_sequence_argument)
         self.assertIs(cli_parsing.parse_interactive_tool_search_argument, parse_interactive_tool_search_argument)
 
     def test_core_helpers_keep_existing_behavior(self) -> None:
