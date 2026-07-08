@@ -5145,6 +5145,36 @@ class AgentTests(unittest.TestCase):
         plan = [agent_module.PlanItem(step="Run unit tests", status="completed")]
         self.assertEqual(completion_module.build_completion_warnings(True, observations, plan), [])
 
+    def test_completion_warnings_include_ready_final_review_warnings(self) -> None:
+        review = FinalReviewObservation(
+            kind="final_review",
+            ok=True,
+            ready=True,
+            blocking_issues=[],
+            warnings=[
+                "No changed files detected.",
+                "Branch main is ahead of origin/main by 2 commit(s).",
+            ],
+            running_processes=[],
+            files=[],
+            total_files=0,
+            suggested_checks=[],
+            suggested_checks_total=0,
+            suggested_checks_truncated=False,
+            diff_check="",
+            staged_diff_check="",
+            status="",
+            message="Ready.",
+        )
+        plan = [agent_module.PlanItem(step="Confirm clean final review", status="completed")]
+
+        warnings = completion_module.build_completion_warnings(True, [review], plan)
+
+        self.assertEqual(
+            warnings,
+            ["Final review warning: Branch main is ahead of origin/main by 2 commit(s)."],
+        )
+
     def test_completion_verification_requires_checks_after_untracked_command_side_effects(self) -> None:
         check = SuggestedCheck(
             command="python -m unittest discover -s tests",

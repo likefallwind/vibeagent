@@ -39,6 +39,10 @@ from .agent_completion_verification import (
 from .types import Observation, PlanItem
 
 
+IGNORED_COMPLETION_FINAL_REVIEW_WARNINGS = frozenset({"No changed files detected."})
+MAX_COMPLETION_FINAL_REVIEW_WARNINGS = 5
+
+
 def auto_final_review_reason(success: bool, observations: list[Observation]) -> str | None:
     if not success:
         return None
@@ -191,6 +195,7 @@ def build_completion_warnings(
     pending_verification_checks = build_pending_verification_checks(success, observations)
     if final_review_has_active_completion_blocker(final_review, failed_verification_checks, pending_verification_checks):
         warnings.append("Final review did not report ready.")
+    warnings.extend(build_final_review_completion_warnings(final_review))
     tool_error_count = sum(1 for observation in observations if observation.kind == "tool_error")
     if tool_error_count:
         warnings.append("Tool execution error(s) occurred.")
@@ -242,6 +247,26 @@ def build_completion_blockers(success: bool, observations: list[Observation], pl
     if pending_verification_checks:
         blockers.append(f"{len(pending_verification_checks)} suggested verification check(s) are still pending after the latest project change.")
     return blockers
+
+def build_final_review_completion_warnings(final_review: Observation | None) -> list[str]:
+    if final_review is None or getattr(final_review, "ready", None) is not True:
+        return []
+    raw_warnings = getattr(final_review, "warnings", None)
+    if not isinstance(raw_warnings, list):
+        return []
+    review_warnings = [
+        text
+        for warning in raw_warnings
+        if (text := str(warning).strip()) and text not in IGNORED_COMPLETION_FINAL_REVIEW_WARNINGS
+    ]
+    if not review_warnings:
+        return []
+    limited = review_warnings[:MAX_COMPLETION_FINAL_REVIEW_WARNINGS]
+    completion_warnings = [f"Final review warning: {warning}" for warning in limited]
+    omitted = len(review_warnings) - len(limited)
+    if omitted > 0:
+        completion_warnings.append(f"Final review warning: {omitted} additional warning(s) omitted.")
+    return completion_warnings
 
 def final_review_has_active_completion_blocker(
     final_review: Observation | None,
