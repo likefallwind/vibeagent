@@ -4,12 +4,14 @@ from .final_review_actions import (
     FINAL_REVIEW_LARGE_FILE_BYTES,
     FINAL_REVIEW_SECRET_SCAN_BYTES,
     final_review_scan_file_items,
-    find_changed_gitlinks,
-    find_hidden_tracked_git_changes,
     find_large_changed_files,
-    find_nested_git_repositories,
     find_secret_like_changed_files,
     find_secret_like_git_diff_additions,
+)
+from .final_review_git_safety import (
+    find_changed_gitlinks,
+    find_hidden_tracked_git_changes,
+    find_nested_git_repositories,
     find_unsafe_changed_symlinks,
     read_git_operation_state,
 )
