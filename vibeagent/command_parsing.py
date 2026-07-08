@@ -4,6 +4,7 @@ import shlex
 
 from .command_checkpoint_parsing import parse_checkpoint_local_command
 from .command_git_parsing import parse_git_local_command
+from .command_process_parsing import parse_process_local_command
 from .command_session_parsing import parse_session_local_command
 from .command_types import LocalCommand, make_local_command
 
@@ -262,31 +263,9 @@ def parse_local_command(value: str) -> LocalCommand | None:
     git_command = parse_git_local_command(trimmed)
     if git_command is not None:
         return git_command
-    if trimmed == "/env":
-        return LocalCommand(type="env")
-    if trimmed == "/processes":
-        return LocalCommand(type="processes")
-    if trimmed == "/process" or trimmed.startswith("/process "):
-        return LocalCommand(type="process", argument=trimmed[9:].strip() or None)
-    if trimmed == "/process-output-contexts" or trimmed.startswith("/process-output-contexts "):
-        return LocalCommand(type="process_output_contexts", argument=trimmed[24:].strip() or None)
-    process_diagnostics_prefix = "/process-output-diagnostics"
-    if trimmed == process_diagnostics_prefix or trimmed.startswith(process_diagnostics_prefix + " "):
-        return LocalCommand(type="process_output_diagnostics", argument=trimmed[len(process_diagnostics_prefix) :].strip() or None)
-    if trimmed == "/wait-process" or trimmed.startswith("/wait-process "):
-        return LocalCommand(type="wait_process", argument=trimmed[13:].strip() or None)
-    if trimmed == "/check-write-process" or trimmed.startswith("/check-write-process "):
-        return LocalCommand(type="check_write_process", argument=trimmed[21:].strip() or None)
-    if trimmed == "/write-process" or trimmed.startswith("/write-process "):
-        return LocalCommand(type="write_process", argument=trimmed[14:].strip() or None)
-    if trimmed == "/check-stop-process" or trimmed.startswith("/check-stop-process "):
-        return LocalCommand(type="check_stop_process", argument=trimmed[20:].strip() or None)
-    if trimmed == "/stop-process" or trimmed.startswith("/stop-process "):
-        return LocalCommand(type="stop_process", argument=trimmed[13:].strip() or None)
-    if trimmed == "/check-stop-processes" or trimmed == "/check-stop-all-processes":
-        return LocalCommand(type="check_stop_all_processes")
-    if trimmed == "/stop-processes" or trimmed == "/stop-all-processes":
-        return LocalCommand(type="stop_all_processes")
+    process_command = parse_process_local_command(trimmed)
+    if process_command is not None:
+        return process_command
     if trimmed == "/status":
         return LocalCommand(type="status")
     if trimmed == "/context":
