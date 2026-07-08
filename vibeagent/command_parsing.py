@@ -3,6 +3,7 @@ from __future__ import annotations
 import shlex
 
 from .command_checkpoint_parsing import parse_checkpoint_local_command
+from .command_session_parsing import parse_session_local_command
 from .command_types import LocalCommand, make_local_command
 
 
@@ -370,40 +371,12 @@ def parse_local_command(value: str) -> LocalCommand | None:
         return LocalCommand(type="cost")
     if trimmed == "/approval" or trimmed.startswith("/approval "):
         return LocalCommand(type="approval", argument=trimmed[9:].strip() or None)
-    if trimmed == "/sessions":
-        return LocalCommand(type="sessions")
-    if trimmed == "/last":
-        return LocalCommand(type="last")
-    if trimmed == "/plan" or trimmed.startswith("/plan "):
-        return LocalCommand(type="plan", argument=trimmed[6:].strip() or None)
-    if trimmed == "/transcript" or trimmed.startswith("/transcript "):
-        return LocalCommand(type="transcript", argument=trimmed[12:].strip() or None)
-    if trimmed == "/session-search" or trimmed.startswith("/session-search "):
-        return LocalCommand(type="session_search", argument=trimmed[15:].strip() or None)
-    if trimmed == "/session-commands" or trimmed.startswith("/session-commands "):
-        return LocalCommand(type="session_commands", argument=trimmed[17:].strip() or None)
-    if trimmed == "/session-output-contexts" or trimmed.startswith("/session-output-contexts "):
-        return LocalCommand(type="session_output_contexts", argument=trimmed[24:].strip() or None)
-    if trimmed == "/session-output-diagnostics" or trimmed.startswith("/session-output-diagnostics "):
-        return LocalCommand(type="session_output_diagnostics", argument=trimmed[28:].strip() or None)
-    if trimmed == "/session-files" or trimmed.startswith("/session-files "):
-        return LocalCommand(type="session_files", argument=trimmed[14:].strip() or None)
-    if trimmed == "/session-failures" or trimmed.startswith("/session-failures "):
-        return LocalCommand(type="session_failures", argument=trimmed[17:].strip() or None)
-    if trimmed == "/session-verification" or trimmed.startswith("/session-verification "):
-        return LocalCommand(type="session_verification", argument=trimmed[21:].strip() or None)
-    if trimmed == "/run-session-verification" or trimmed.startswith("/run-session-verification "):
-        prefix = "/run-session-verification"
-        return LocalCommand(type="run_session_verification", argument=trimmed[len(prefix) :].strip() or None)
-    if trimmed == "/session-audit" or trimmed.startswith("/session-audit "):
-        return LocalCommand(type="session_audit", argument=trimmed[15:].strip() or None)
-    if trimmed == "/session-handoff" or trimmed.startswith("/session-handoff "):
-        return LocalCommand(type="session_handoff", argument=trimmed[17:].strip() or None)
+    session_command = parse_session_local_command(trimmed)
+    if session_command is not None:
+        return session_command
     checkpoint_command = parse_checkpoint_local_command(trimmed)
     if checkpoint_command is not None:
         return checkpoint_command
-    if trimmed == "/session" or trimmed.startswith("/session "):
-        return LocalCommand(type="session", argument=trimmed[8:].strip() or None)
     if trimmed == "/resume" or trimmed.startswith("/resume "):
         return LocalCommand(type="resume", argument=trimmed[8:].strip() or None)
     if trimmed == "/compact" or trimmed.startswith("/compact "):
