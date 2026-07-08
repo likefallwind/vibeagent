@@ -7,6 +7,7 @@ from .command_code_intel_parsing import parse_code_intel_local_command
 from .command_file_edit_parsing import parse_file_edit_local_command
 from .command_git_parsing import parse_git_local_command
 from .command_inspection_parsing import parse_inspection_local_command
+from .command_json_parsing import parse_json_local_command
 from .command_process_parsing import parse_process_local_command
 from .command_review_parsing import parse_review_local_command
 from .command_runtime_parsing import parse_runtime_local_command
@@ -34,20 +35,9 @@ def parse_local_command(value: str) -> LocalCommand | None:
     code_intel_command = parse_code_intel_local_command(trimmed)
     if code_intel_command is not None:
         return code_intel_command
-    if trimmed == "/config-check" or trimmed.startswith("/config-check "):
-        return LocalCommand(type="config_check", argument=trimmed[14:].strip() or None)
-    if trimmed == "/check-json-set" or trimmed.startswith("/check-json-set "):
-        return LocalCommand(type="check_json_set", argument=trimmed[16:].strip() or None)
-    if trimmed == "/json-set" or trimmed.startswith("/json-set "):
-        return LocalCommand(type="json_set", argument=trimmed[10:].strip() or None)
-    if trimmed == "/check-json-remove" or trimmed.startswith("/check-json-remove "):
-        return LocalCommand(type="check_json_remove", argument=trimmed[19:].strip() or None)
-    if trimmed == "/json-remove" or trimmed.startswith("/json-remove "):
-        return LocalCommand(type="json_remove", argument=trimmed[13:].strip() or None)
-    if trimmed == "/check-json-patch" or trimmed.startswith("/check-json-patch "):
-        return LocalCommand(type="check_json_patch", argument=trimmed[18:].strip() or None)
-    if trimmed == "/json-patch" or trimmed.startswith("/json-patch "):
-        return LocalCommand(type="json_patch", argument=trimmed[12:].strip() or None)
+    json_command = parse_json_local_command(trimmed)
+    if json_command is not None:
+        return json_command
     file_edit_command = parse_file_edit_local_command(trimmed)
     if file_edit_command is not None:
         return file_edit_command
