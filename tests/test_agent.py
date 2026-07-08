@@ -1468,6 +1468,97 @@ class AgentTests(unittest.TestCase):
         self.assertTrue(any("Pending verification checks:\n- python -m unittest discover -s tests" in message for message in feedback_messages))
         self.assertTrue(any("Final review changed files:\n- ?? src/app.py\n- ?? tests/test_sample.py" in message for message in feedback_messages))
 
+    def test_run_agent_uses_existing_session_verification_on_resume(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            workspace = create_run_workspace(root, "run-1")
+            command = "python -m unittest discover -s tests"
+            check = {
+                "command": command,
+                "cwd": ".",
+                "source": "tests",
+                "reason": "unit tests",
+                "available": True,
+                "missing_tool": None,
+            }
+            events = [
+                {
+                    "type": "tool_result",
+                    "iteration": 1,
+                    "name": "write_file",
+                    "result": {"kind": "write_file", "path": "src/app.py", "ok": True, "message": "Wrote src/app.py."},
+                },
+                {
+                    "type": "tool_result",
+                    "iteration": 2,
+                    "name": "final_review",
+                    "result": {
+                        "kind": "final_review",
+                        "ok": True,
+                        "ready": False,
+                        "blocking_issues": ["Suggested verification checks are still pending after the latest project change."],
+                        "warnings": [],
+                        "running_processes": [],
+                        "files": [],
+                        "total_files": 1,
+                        "suggested_checks": [check],
+                        "suggested_checks_total": 1,
+                        "suggested_checks_truncated": False,
+                        "diff_check": "",
+                        "staged_diff_check": "",
+                        "status": "",
+                        "message": "Not ready.",
+                    },
+                },
+                {
+                    "type": "tool_result",
+                    "iteration": 3,
+                    "name": "run_session_verification",
+                    "result": {
+                        "kind": "run_session_verification",
+                        "run_id": "run-1",
+                        "ok": True,
+                        "selected_commands": [{"command": command, "cwd": ".", "status": "pending"}],
+                        "selected_count": 1,
+                        "pending_count": 1,
+                        "failed_count": 0,
+                        "results": [
+                            {
+                                "command": command,
+                                "cwd": ".",
+                                "exit_code": 0,
+                                "stdout": "",
+                                "stderr": "",
+                                "timed_out": False,
+                                "signal": None,
+                            }
+                        ],
+                        "stopped_early": False,
+                        "message": "Ran 1/1 session verification command(s); all passed.",
+                    },
+                },
+            ]
+            workspace.session_dir.joinpath("events.jsonl").write_text(
+                "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n",
+                encoding="utf-8",
+            )
+            client = MockClient([[{"type": "text", "text": "Done after resume."}]])
+
+            result = run_agent(
+                "finish resumed task",
+                workspace=workspace,
+                client=client,
+                max_iterations=1,
+                approval_handler=approve_all,
+            )
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.verification_checks, [command])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
+
     def test_run_agent_keeps_verification_after_stage_and_commit(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)

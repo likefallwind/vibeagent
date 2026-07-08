@@ -3,14 +3,13 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from .agent_completion import (
+    VerificationStatus,
     auto_final_review_reason,
     build_completion_blocker_details,
     build_completion_blockers,
     build_completion_warnings,
-    build_failed_verification_checks,
     build_final_review_changed_file_details,
-    build_pending_verification_checks,
-    build_verification_checks,
+    resolve_completion_verification_status,
     format_completion_blocked_feedback,
 )
 from .agent_observation_utils import summarize
@@ -18,7 +17,8 @@ from .agent_result import AgentResult
 from .agent_runtime_utils import append_session_event, to_jsonable
 from .agent_steps import observation_summary
 from .redaction import redact_jsonable_payload
-from .session import summarize_session
+from .session import read_session_events, summarize_session
+from .session_verification_state import session_verification_from_events
 from .types import AgentLogger, FinalReviewAction, Observation, PlanItem, TaskStep
 from .workspace_core import RunWorkspace
 
@@ -49,10 +49,11 @@ def completion_blocked_feedback_if_needed(
         logger,
         execute_action_safely_func,
     )
-    blockers = build_completion_blockers(success, observations, plan)
+    verification_status = session_completion_verification_status(workspace)
+    blockers = build_completion_blockers(success, observations, plan, verification_status)
     if not blockers:
         return None
-    details = build_completion_blocker_details(success, observations)
+    details = build_completion_blocker_details(success, observations, verification_status)
     append_session_event(
         workspace.session_dir,
         "completion_blocked",
@@ -89,13 +90,16 @@ def finish_agent_run(
         logger,
         execute_action_safely_func,
     )
-    completion_blockers = build_completion_blockers(success, observations, plan)
+    verification_status = session_completion_verification_status(workspace)
+    completion_blockers = build_completion_blockers(success, observations, plan, verification_status)
     completion_ready = success and not completion_blockers
     result_status = session_result_status(success, completion_ready)
-    completion_warnings = build_completion_warnings(success, observations, plan)
-    verification_checks = build_verification_checks(success, observations)
-    pending_verification_checks = build_pending_verification_checks(success, observations)
-    failed_verification_checks = build_failed_verification_checks(success, observations)
+    completion_warnings = build_completion_warnings(success, observations, plan, verification_status)
+    verification_checks, pending_verification_checks, failed_verification_checks = resolve_completion_verification_status(
+        success,
+        observations,
+        verification_status,
+    )
     final_review_changed_files = build_final_review_changed_file_details(observations)
     append_session_event(
         workspace.session_dir,
@@ -154,6 +158,11 @@ def session_result_status(success: bool, completion_ready: bool) -> str:
     if completion_ready:
         return "completed"
     return "blocked"
+
+
+def session_completion_verification_status(workspace: RunWorkspace) -> VerificationStatus | None:
+    status = session_verification_from_events(read_session_events(workspace.root, workspace.run_id))
+    return status if any(status) else None
 
 
 def auto_run_final_review_if_needed(

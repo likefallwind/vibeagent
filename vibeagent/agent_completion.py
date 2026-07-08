@@ -41,6 +41,7 @@ from .types import Observation, PlanItem
 
 IGNORED_COMPLETION_FINAL_REVIEW_WARNINGS = frozenset({"No changed files detected."})
 MAX_COMPLETION_FINAL_REVIEW_WARNINGS = 5
+VerificationStatus = tuple[list[str], list[str], list[str]]
 
 
 def auto_final_review_reason(success: bool, observations: list[Observation]) -> str | None:
@@ -103,12 +104,19 @@ def finite_command_matches_final_review_check(command_observation: Observation, 
         or failed_suggested_check_results(command_observation, check_commands)
     )
 
-def build_completion_blocker_details(success: bool, observations: list[Observation]) -> dict[str, list[str]]:
+def build_completion_blocker_details(
+    success: bool,
+    observations: list[Observation],
+    verification_status: VerificationStatus | None = None,
+) -> dict[str, list[str]]:
     details: dict[str, list[str]] = {}
-    failed_verification_checks = build_failed_verification_checks(success, observations)
+    _, pending_verification_checks, failed_verification_checks = resolve_completion_verification_status(
+        success,
+        observations,
+        verification_status,
+    )
     if failed_verification_checks:
         details["failedVerificationChecks"] = failed_verification_checks
-    pending_verification_checks = build_pending_verification_checks(success, observations)
     if pending_verification_checks:
         details["pendingVerificationChecks"] = pending_verification_checks
     final_review_blocking_issues = build_final_review_blocking_issue_details(observations)
@@ -177,6 +185,7 @@ def build_completion_warnings(
     success: bool,
     observations: list[Observation],
     plan: list[PlanItem] | None = None,
+    verification_status: VerificationStatus | None = None,
 ) -> list[str]:
     if not success:
         return []
@@ -191,8 +200,11 @@ def build_completion_warnings(
     if reason is not None:
         warnings.append(f"{reason} observation.")
     final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
-    failed_verification_checks = build_failed_verification_checks(success, observations)
-    pending_verification_checks = build_pending_verification_checks(success, observations)
+    _, pending_verification_checks, failed_verification_checks = resolve_completion_verification_status(
+        success,
+        observations,
+        verification_status,
+    )
     if final_review_has_active_completion_blocker(final_review, failed_verification_checks, pending_verification_checks):
         warnings.append("Final review did not report ready.")
     warnings.extend(build_final_review_completion_warnings(final_review))
@@ -213,7 +225,12 @@ def build_completion_warnings(
         warnings.append("Suggested verification checks are still pending after the latest project change.")
     return warnings
 
-def build_completion_blockers(success: bool, observations: list[Observation], plan: list[PlanItem]) -> list[str]:
+def build_completion_blockers(
+    success: bool,
+    observations: list[Observation],
+    plan: list[PlanItem],
+    verification_status: VerificationStatus | None = None,
+) -> list[str]:
     blockers: list[str] = []
     if not success:
         blockers.append("Run did not complete successfully.")
@@ -227,8 +244,11 @@ def build_completion_blockers(success: bool, observations: list[Observation], pl
     if reason is not None:
         blockers.append(f"{reason} observation.")
     final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
-    failed_verification_checks = build_failed_verification_checks(success, observations)
-    pending_verification_checks = build_pending_verification_checks(success, observations)
+    _, pending_verification_checks, failed_verification_checks = resolve_completion_verification_status(
+        success,
+        observations,
+        verification_status,
+    )
     if final_review_has_active_completion_blocker(final_review, failed_verification_checks, pending_verification_checks):
         blockers.append("Final review did not report ready.")
     tool_error_count = sum(1 for observation in observations if observation.kind == "tool_error")
@@ -247,6 +267,19 @@ def build_completion_blockers(success: bool, observations: list[Observation], pl
     if pending_verification_checks:
         blockers.append(f"{len(pending_verification_checks)} suggested verification check(s) are still pending after the latest project change.")
     return blockers
+
+def resolve_completion_verification_status(
+    success: bool,
+    observations: list[Observation],
+    verification_status: VerificationStatus | None = None,
+) -> VerificationStatus:
+    if verification_status is not None and any(verification_status):
+        return verification_status
+    return (
+        build_verification_checks(success, observations),
+        build_pending_verification_checks(success, observations),
+        build_failed_verification_checks(success, observations),
+    )
 
 def build_final_review_completion_warnings(final_review: Observation | None) -> list[str]:
     if final_review is None or getattr(final_review, "ready", None) is not True:
