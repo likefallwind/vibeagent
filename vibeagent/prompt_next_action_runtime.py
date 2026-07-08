@@ -3,13 +3,22 @@ from __future__ import annotations
 from .prompt_next_action_runtime_formatting import (
     check_failure_labels,
     command_result_output_issue_labels,
-    context_labels,
-    diagnostic_labels,
     failed_command_labels,
     format_next_action_items,
     inline_output_issue_instruction,
     inline_output_issue_labels,
-    not_run_selected_command_labels,
+)
+from .prompt_next_action_runtime_output import (
+    BATCH_COMMAND_RESULT_KINDS,
+    command_output_rerun_target,
+    contexts_next_action_instruction,
+    diagnostics_next_action_instruction,
+    not_run_batch_command_labels,
+    not_run_detail,
+    not_run_session_verification_labels,
+    process_output_rerun_target,
+    recovery_not_run_detail,
+    session_output_rerun_target,
 )
 from .prompt_next_action_runtime_recovery import (
     SOURCE_CONTEXT_KINDS,
@@ -19,13 +28,6 @@ from .prompt_next_action_runtime_recovery import (
 )
 from .types import Observation
 
-
-BATCH_COMMAND_RESULT_KINDS = {
-    "run_commands",
-    "run_suggested_checks",
-    "run_focused_test_commands",
-    "run_session_verification",
-}
 
 RUNTIME_NEXT_ACTION_KINDS = {
     "run_command",
@@ -58,68 +60,6 @@ RUNTIME_NEXT_ACTION_KINDS = {
     "http_check",
     "http_fetch",
 }
-
-
-def _diagnostics_next_action_instruction(
-    base: str,
-    latest: Observation,
-    *,
-    label: str,
-    output_source: str,
-    rerun_target: str,
-    recovery_detail: str = "",
-) -> str:
-    diagnostics = diagnostic_labels(getattr(latest, "diagnostics", []))
-    if diagnostics:
-        return (
-            f"{base} {label} diagnostics found concrete issues. "
-            f"Inspect or edit the referenced source for: {format_next_action_items(diagnostics)}. "
-            f"Then rerun the {rerun_target} before finishing.{recovery_detail}"
-        )
-    return (
-        f"{base} {label} diagnostics did not find concrete file references. "
-        f"Use the {output_source} and any available contexts to inspect the likely source, fix the issue, "
-        f"and rerun the {rerun_target} before finishing.{recovery_detail}"
-    )
-
-
-def _contexts_next_action_instruction(
-    base: str,
-    latest: Observation,
-    *,
-    label: str,
-    fallback_tool: str,
-    output_source: str,
-    rerun_target: str,
-    recovery_detail: str = "",
-) -> str:
-    contexts = context_labels(getattr(latest, "contexts", []))
-    if contexts:
-        return (
-            f"{base} {label} contexts located source references. "
-            f"Inspect or edit the relevant code for: {format_next_action_items(contexts)}. "
-            f"Then rerun the {rerun_target} before finishing.{recovery_detail}"
-        )
-    return (
-        f"{base} {label} contexts did not find source references. "
-        f"Use {fallback_tool} or the {output_source} to identify the failure, "
-        f"then fix it and rerun the {rerun_target} before finishing.{recovery_detail}"
-    )
-
-
-def _command_output_rerun_target(observations: list[Observation]) -> str:
-    return recovery_rerun_target(observations, BATCH_COMMAND_RESULT_KINDS) or "failed command"
-
-
-def _session_output_rerun_target(observations: list[Observation]) -> str:
-    return recovery_rerun_target(observations, BATCH_COMMAND_RESULT_KINDS) or "relevant check"
-
-
-def _process_output_rerun_target(observations: list[Observation]) -> str:
-    for observation in reversed(observations):
-        if observation.kind in {"read_process", "wait_process"} and process_exited_with_failure(observation):
-            return "background command or relevant check"
-    return "relevant check"
 
 
 def _run_command_next_action_instruction(base: str, latest: Observation) -> str:
@@ -337,60 +277,13 @@ def _python_or_config_check_next_action_instruction(base: str, latest: Observati
     return f"{base} The latest {latest.kind} failed. Inspect its message, fix the issue, and rerun the check before finishing."
 
 
-def _not_run_batch_command_labels(latest: Observation, ran_count: int) -> list[str]:
-    if latest.kind == "run_suggested_checks":
-        values = getattr(latest, "suggested_checks", [])
-    elif latest.kind == "run_focused_test_commands":
-        values = getattr(latest, "focused_commands", [])
-    else:
-        return []
-    if not isinstance(values, list):
-        return []
-
-    labels: list[str] = []
-    for index, value in enumerate(values):
-        if index < ran_count:
-            continue
-        command = str(getattr(value, "command", "") or "").strip()
-        cwd = str(getattr(value, "cwd", ".") or ".").strip() or "."
-        if command:
-            labels.append(_not_run_batch_command_label(value, command=command, cwd=cwd))
-    return labels
-
-
-def _not_run_batch_command_label(value: object, *, command: str, cwd: str) -> str:
-    source = str(getattr(value, "source", "") or "").strip() or "."
-    reason = str(getattr(value, "reason", "") or "").strip() or "."
-    available = str(bool(getattr(value, "available", True))).lower()
-    missing_tool = str(getattr(value, "missing_tool", "") or "none").strip() or "none"
-    return (
-        f"{command} (cwd={cwd}, source={source}, available={available}, "
-        f"missingTool={missing_tool}, reason={reason})"
-    )
-
-
-def _not_run_session_verification_labels(observation: Observation) -> list[str]:
-    return not_run_selected_command_labels(
-        getattr(observation, "selected_commands", []),
-        len(getattr(observation, "results", []) or []),
-    )
-
-
-def _not_run_detail(labels: list[str]) -> str:
-    return (
-        f" Not-yet-run selected check(s): {format_next_action_items(labels)}."
-        if labels
-        else ""
-    )
-
-
 def _batch_command_result_next_action_instruction(base: str, latest: Observation) -> str:
     results = getattr(latest, "results", [])
     failed_commands = failed_command_labels(results)
     if failed_commands:
         stopped = " The batch stopped early after the first failure; remaining selected checks may still be unverified." if getattr(latest, "stopped_early", False) else ""
-        not_run_detail = _not_run_detail(
-            _not_run_batch_command_labels(latest, len(results or []))
+        not_run_text = not_run_detail(
+            not_run_batch_command_labels(latest, len(results or []))
         )
         output_issues = command_result_output_issue_labels(results, failed_only=True)
         if output_issues:
@@ -400,14 +293,14 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
                 output_issues,
                 (
                     "fix the issue(s), and rerun the failed command(s) or the full batch before finishing: "
-                    f"{format_next_action_items(failed_commands)}.{not_run_detail}"
+                    f"{format_next_action_items(failed_commands)}.{not_run_text}"
                 ),
             )
         return (
             f"{base} The latest {latest.kind} had failed command(s). Inspect stdout/stderr; "
             "use output_diagnostics, output_contexts, or python_traceback for noisy output with file references. "
             f"{stopped} Fix the issue(s) and rerun the failed command(s) or the full batch before finishing: "
-            f"{format_next_action_items(failed_commands)}.{not_run_detail}"
+            f"{format_next_action_items(failed_commands)}.{not_run_text}"
         )
     output_issues = command_result_output_issue_labels(results, failed_only=False)
     if output_issues:
@@ -423,31 +316,13 @@ def _batch_command_result_next_action_instruction(base: str, latest: Observation
     )
 
 
-def _recovery_not_run_detail(observations: list[Observation]) -> str:
-    for observation in reversed(observations):
-        if observation.kind == "run_session_verification":
-            if not getattr(observation, "stopped_early", False):
-                return ""
-            return _not_run_detail(_not_run_session_verification_labels(observation))
-        if observation.kind in {"run_suggested_checks", "run_focused_test_commands"}:
-            if not getattr(observation, "stopped_early", False):
-                return ""
-            return _not_run_detail(
-                _not_run_batch_command_labels(
-                    observation,
-                    len(getattr(observation, "results", []) or []),
-                )
-            )
-    return ""
-
-
 def _run_session_verification_next_action_instruction(base: str, latest: Observation) -> str:
     selected_count = int(getattr(latest, "selected_count", 0) or 0)
     results = getattr(latest, "results", [])
     failed_commands = failed_command_labels(results)
     if failed_commands:
         stopped = " The run stopped early after the first failure." if getattr(latest, "stopped_early", False) else ""
-        not_run_detail = _not_run_detail(_not_run_session_verification_labels(latest))
+        not_run_text = not_run_detail(not_run_session_verification_labels(latest))
         output_issues = command_result_output_issue_labels(results, failed_only=True)
         if output_issues:
             return inline_output_issue_instruction(
@@ -456,14 +331,14 @@ def _run_session_verification_next_action_instruction(base: str, latest: Observa
                 output_issues,
                 (
                     "fix the issue(s), then rerun run_session_verification or session_verification before finishing: "
-                    f"{format_next_action_items(failed_commands)}.{not_run_detail}"
+                    f"{format_next_action_items(failed_commands)}.{not_run_text}"
                 ),
             )
         return (
             f"{base} run_session_verification reran recorded verification check(s) and found failed command(s)."
             f"{stopped} Inspect stdout/stderr, use session_output_diagnostics or session_output_contexts for noisy output, "
             f"fix the issue(s), then rerun run_session_verification or session_verification before finishing: "
-            f"{format_next_action_items(failed_commands)}.{not_run_detail}"
+            f"{format_next_action_items(failed_commands)}.{not_run_text}"
         )
     if selected_count > 0 and getattr(latest, "ok", False):
         output_issues = command_result_output_issue_labels(results, failed_only=False)
@@ -537,62 +412,62 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
 
     if latest.kind == "output_diagnostics":
         previous_observations = observations[:-1]
-        return _diagnostics_next_action_instruction(
+        return diagnostics_next_action_instruction(
             base,
             latest,
             label="Output",
             output_source="command output",
-            rerun_target=_command_output_rerun_target(previous_observations),
-            recovery_detail=_recovery_not_run_detail(previous_observations),
+            rerun_target=command_output_rerun_target(previous_observations),
+            recovery_detail=recovery_not_run_detail(previous_observations),
         )
     if latest.kind == "output_contexts":
         previous_observations = observations[:-1]
-        return _contexts_next_action_instruction(
+        return contexts_next_action_instruction(
             base,
             latest,
             label="Output",
             fallback_tool="output_diagnostics",
             output_source="command output",
-            rerun_target=_command_output_rerun_target(previous_observations),
-            recovery_detail=_recovery_not_run_detail(previous_observations),
+            rerun_target=command_output_rerun_target(previous_observations),
+            recovery_detail=recovery_not_run_detail(previous_observations),
         )
     if latest.kind == "process_output_diagnostics":
-        return _diagnostics_next_action_instruction(
+        return diagnostics_next_action_instruction(
             base,
             latest,
             label="Process output",
             output_source="process output",
-            rerun_target=_process_output_rerun_target(observations[:-1]),
+            rerun_target=process_output_rerun_target(observations[:-1]),
         )
     if latest.kind == "process_output_contexts":
-        return _contexts_next_action_instruction(
+        return contexts_next_action_instruction(
             base,
             latest,
             label="Process output",
             fallback_tool="process_output_diagnostics",
             output_source="process output",
-            rerun_target=_process_output_rerun_target(observations[:-1]),
+            rerun_target=process_output_rerun_target(observations[:-1]),
         )
     if latest.kind == "session_output_diagnostics":
         previous_observations = observations[:-1]
-        return _diagnostics_next_action_instruction(
+        return diagnostics_next_action_instruction(
             base,
             latest,
             label="Session output",
             output_source="session command output",
-            rerun_target=_session_output_rerun_target(previous_observations),
-            recovery_detail=_recovery_not_run_detail(previous_observations),
+            rerun_target=session_output_rerun_target(previous_observations),
+            recovery_detail=recovery_not_run_detail(previous_observations),
         )
     if latest.kind == "session_output_contexts":
         previous_observations = observations[:-1]
-        return _contexts_next_action_instruction(
+        return contexts_next_action_instruction(
             base,
             latest,
             label="Session output",
             fallback_tool="session_output_diagnostics",
             output_source="session command output",
-            rerun_target=_session_output_rerun_target(previous_observations),
-            recovery_detail=_recovery_not_run_detail(previous_observations),
+            rerun_target=session_output_rerun_target(previous_observations),
+            recovery_detail=recovery_not_run_detail(previous_observations),
         )
 
     previous_observations = observations[:-1]
@@ -603,16 +478,16 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
     )
     if latest.kind in SOURCE_CONTEXT_KINDS and rerun_target:
         contexts = source_context_labels(latest)
-        not_run_detail = _recovery_not_run_detail(previous_observations)
+        not_run_text = recovery_not_run_detail(previous_observations)
         if contexts:
             return (
                 f"{base} Source context was inspected after a failed command or diagnostic lookup. "
                 f"Use it to edit the relevant code for: {format_next_action_items(contexts)}. "
-                f"Then rerun the {rerun_target} before finishing.{not_run_detail}"
+                f"Then rerun the {rerun_target} before finishing.{not_run_text}"
             )
         return (
             f"{base} Source context was inspected after a failed command or diagnostic lookup. "
-            f"Use it to choose the edit, then rerun the {rerun_target} before finishing.{not_run_detail}"
+            f"Use it to choose the edit, then rerun the {rerun_target} before finishing.{not_run_text}"
         )
 
     if latest.kind in {"python_check", "config_check"}:
