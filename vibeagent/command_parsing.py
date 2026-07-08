@@ -5,6 +5,7 @@ import shlex
 from .command_checkpoint_parsing import parse_checkpoint_local_command
 from .command_git_parsing import parse_git_local_command
 from .command_process_parsing import parse_process_local_command
+from .command_review_parsing import parse_review_local_command
 from .command_session_parsing import parse_session_local_command
 from .command_types import LocalCommand, make_local_command
 
@@ -266,26 +267,9 @@ def parse_local_command(value: str) -> LocalCommand | None:
     process_command = parse_process_local_command(trimmed)
     if process_command is not None:
         return process_command
-    if trimmed == "/status":
-        return LocalCommand(type="status")
-    if trimmed == "/context":
-        return LocalCommand(type="context")
-    if trimmed == "/init" or trimmed.startswith("/init "):
-        return LocalCommand(type="init", argument=trimmed[6:].strip() or None)
-    if trimmed == "/doctor":
-        return LocalCommand(type="doctor")
-    if trimmed == "/review" or trimmed.startswith("/review "):
-        return LocalCommand(type="review", argument=trimmed[8:].strip() or None)
-    if trimmed == "/handoff" or trimmed.startswith("/handoff "):
-        return LocalCommand(type="handoff", argument=trimmed[9:].strip() or None)
-    if trimmed == "/changes" or trimmed.startswith("/changes "):
-        return LocalCommand(type="changes", argument=trimmed[9:].strip() or None)
-    if trimmed == "/diff" or trimmed.startswith("/diff "):
-        return LocalCommand(type="diff", argument=trimmed[6:].strip() or None)
-    if trimmed == "/diff-hunks" or trimmed.startswith("/diff-hunks "):
-        return LocalCommand(type="diff_hunks", argument=trimmed[12:].strip() or None)
-    if trimmed == "/diff-contexts" or trimmed.startswith("/diff-contexts "):
-        return LocalCommand(type="diff_contexts", argument=trimmed[14:].strip() or None)
+    review_command = parse_review_local_command(trimmed)
+    if review_command is not None:
+        return review_command
     if trimmed == "/clear":
         return LocalCommand(type="clear")
     if trimmed == "/usage":
