@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from .action_parsing import ActionParseError, parse_tool_action, summarize_plan_update
 from .command_safety import get_blocked_command_reason
-from .checkpoint_actions import (
+from .checkpoint_cleanup_actions import (
     check_checkpoint_delete_observation,
     check_checkpoint_prune_observation,
-    check_checkpoint_restore_observation,
     checkpoint_delete_observation,
-    checkpoint_diff_observation,
     checkpoint_prune_observation,
+)
+from .checkpoint_actions import (
+    check_checkpoint_restore_observation,
+    checkpoint_diff_observation,
     checkpoint_restore_observation,
     checkpoint_show_observation,
     checkpoint_status_observation,
