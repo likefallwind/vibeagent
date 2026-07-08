@@ -45,8 +45,39 @@ def _running_process_labels(values: object) -> list[str]:
     return labels
 
 
+def _warning_texts(values: object) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    return [str(value).strip() for value in values if str(value).strip()]
+
+
+def _final_review_ready_sync_instruction(base: str, latest: Observation) -> str | None:
+    warnings = _warning_texts(getattr(latest, "warnings", []))
+    has_ahead = any(" is ahead of " in warning or " has diverged from " in warning for warning in warnings)
+    has_behind = any(" is behind " in warning or " has diverged from " in warning for warning in warnings)
+    if has_ahead and has_behind:
+        return (
+            f"{base} Final review is ready, but cached upstream state says the branch has diverged. "
+            "Use check_git_fetch or check_git_pull before any push, or answer with the local-only state if publishing is not intended."
+        )
+    if has_behind:
+        return (
+            f"{base} Final review is ready, but cached upstream state says the branch is behind. "
+            "Use check_git_fetch or check_git_pull before finishing if remote sync matters."
+        )
+    if has_ahead:
+        return (
+            f"{base} Final review is ready, but cached upstream state says the branch has unpushed commit(s). "
+            "Use check_git_push if publishing is intended, or answer with the commit/local-only state."
+        )
+    return None
+
+
 def _final_review_next_action_instruction(base: str, latest: Observation) -> str:
     if getattr(latest, "ready", None) is not False:
+        sync_instruction = _final_review_ready_sync_instruction(base, latest)
+        if sync_instruction:
+            return sync_instruction
         return f"{base} Use the final review report to decide whether to run verification, continue, or answer directly."
 
     running_processes = _running_process_labels(getattr(latest, "running_processes", []))

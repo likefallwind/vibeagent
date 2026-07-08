@@ -8980,6 +8980,85 @@ class AgentTests(unittest.TestCase):
         self.assertIn("bg-1: python3 -m http.server", instruction)
         self.assertIn("Rerun final_review before finishing", instruction)
 
+    def test_next_action_instruction_guides_ready_final_review_ahead_warning(self) -> None:
+        observation = FinalReviewObservation(
+            kind="final_review",
+            ok=True,
+            ready=True,
+            blocking_issues=[],
+            warnings=["Branch main is ahead of origin/main by 2 commit(s)."],
+            running_processes=[],
+            files=[],
+            total_files=0,
+            suggested_checks=[],
+            suggested_checks_total=0,
+            suggested_checks_truncated=False,
+            diff_check="",
+            staged_diff_check="",
+            status="",
+            message="Ready.",
+        )
+
+        instruction = get_next_action_instruction("finish after commit", [observation])
+
+        self.assertIn("Final review is ready", instruction)
+        self.assertIn("unpushed commit", instruction)
+        self.assertIn("check_git_push", instruction)
+        self.assertIn("local-only", instruction)
+
+    def test_next_action_instruction_guides_ready_final_review_behind_warning(self) -> None:
+        observation = FinalReviewObservation(
+            kind="final_review",
+            ok=True,
+            ready=True,
+            blocking_issues=[],
+            warnings=["Branch main is behind origin/main by 1 commit(s) based on cached refs."],
+            running_processes=[],
+            files=[],
+            total_files=0,
+            suggested_checks=[],
+            suggested_checks_total=0,
+            suggested_checks_truncated=False,
+            diff_check="",
+            staged_diff_check="",
+            status="",
+            message="Ready.",
+        )
+
+        instruction = get_next_action_instruction("finish synced work", [observation])
+
+        self.assertIn("Final review is ready", instruction)
+        self.assertIn("branch is behind", instruction)
+        self.assertIn("check_git_fetch", instruction)
+        self.assertIn("check_git_pull", instruction)
+
+    def test_next_action_instruction_guides_ready_final_review_diverged_warning(self) -> None:
+        observation = FinalReviewObservation(
+            kind="final_review",
+            ok=True,
+            ready=True,
+            blocking_issues=[],
+            warnings=["Branch main has diverged from origin/main: ahead 2, behind 1 based on cached refs."],
+            running_processes=[],
+            files=[],
+            total_files=0,
+            suggested_checks=[],
+            suggested_checks_total=0,
+            suggested_checks_truncated=False,
+            diff_check="",
+            staged_diff_check="",
+            status="",
+            message="Ready.",
+        )
+
+        instruction = get_next_action_instruction("finish diverged work", [observation])
+
+        self.assertIn("Final review is ready", instruction)
+        self.assertIn("branch has diverged", instruction)
+        self.assertIn("check_git_fetch", instruction)
+        self.assertIn("check_git_pull", instruction)
+        self.assertIn("before any push", instruction)
+
     def test_completion_verification_tracks_pending_focused_tests(self) -> None:
         focused_test = FocusedTestCommand(
             command="python -m unittest discover -s tests -p test_app.py",
