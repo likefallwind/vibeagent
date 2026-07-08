@@ -136,7 +136,22 @@ def powershell_invocation_launches_gui(args: list[str]) -> bool:
     if "url.dll,fileprotocolhandler" in joined:
         return True
     launchers = {"start-process", "invoke-item", "ii", "explorer", "explorer.exe"}
-    return any(shell_token_basename(token) in launchers for token in args)
+    if any(shell_token_basename(token) in launchers for token in args):
+        return True
+    payload = powershell_command_payload(args)
+    if payload:
+        return command_launches_gui_application(payload)
+    return False
+
+
+def powershell_command_payload(args: list[str]) -> str:
+    command_options = {"-c", "-command", "/c", "/command"}
+    for index, token in enumerate(args):
+        if token in command_options:
+            return " ".join(args[index + 1 :]).strip()
+    if args and args[0] not in {"-file", "/file"} and not args[0].startswith("-"):
+        return " ".join(args).strip()
+    return ""
 
 
 def rundll32_invocation_launches_gui(args: list[str]) -> bool:
