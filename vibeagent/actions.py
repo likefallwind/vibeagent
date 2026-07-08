@@ -8,15 +8,17 @@ from .checkpoint_cleanup_actions import (
     checkpoint_delete_observation,
     checkpoint_prune_observation,
 )
-from .checkpoint_actions import (
-    check_checkpoint_restore_observation,
+from .checkpoint_query_actions import (
     checkpoint_diff_observation,
-    checkpoint_restore_observation,
     checkpoint_show_observation,
     checkpoint_status_observation,
+    list_checkpoints_observation,
+)
+from .checkpoint_actions import (
+    check_checkpoint_restore_observation,
+    checkpoint_restore_observation,
     checkpoint_untracked_files_match,
     create_checkpoint_observation,
-    list_checkpoints_observation,
     read_checkpoint_git_head,
     restore_checkpoint_untracked_files,
     save_checkpoint_untracked_files,
