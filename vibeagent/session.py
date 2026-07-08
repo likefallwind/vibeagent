@@ -78,11 +78,15 @@ from .session_summary_reports import (
 from .session_audit_reports import (
     build_session_audit_report_from_parts,
     build_session_handoff_report_from_sections,
+)
+from .session_audit_readiness import (
+    session_audit_blockers,
+    session_pending_plan_items,
+)
+from .session_audit_text import (
     format_session_audit_from_parts,
     format_session_handoff_readiness,
     format_session_handoff_sections,
-    session_audit_blockers,
-    session_pending_plan_items,
 )
 from .session_audit_serialization import (
     failed_checkpoint_create_count,

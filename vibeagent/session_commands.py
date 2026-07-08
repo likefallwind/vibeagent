@@ -22,7 +22,7 @@ from .session_activity_commands import (
     get_session_files_report,
     get_session_files_text,
 )
-from .session_audit_reports import (
+from .session_audit_formatting import (
     format_session_audit_report_text as _format_session_audit_report_text,
     format_session_handoff_report_text as _format_session_handoff_report_text,
     format_session_verification_report_text as _format_session_verification_report_text,

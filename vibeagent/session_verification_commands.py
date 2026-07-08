@@ -11,7 +11,7 @@ from .local_runtime_reports import (
     validate_run_output_context_options,
 )
 from .session import build_session_verification_report, get_last_session_id
-from .session_audit_reports import format_session_verification_report_text as _format_session_verification_report_text
+from .session_audit_formatting import format_session_verification_report_text as _format_session_verification_report_text
 from .session_input import normalize_optional_run_id
 from .session_verification_action_executor import execute_run_session_verification_action
 from .types import RunSessionVerificationAction
