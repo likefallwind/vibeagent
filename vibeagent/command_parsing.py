@@ -4,6 +4,7 @@ import shlex
 
 from .command_checkpoint_parsing import parse_checkpoint_local_command
 from .command_git_parsing import parse_git_local_command
+from .command_inspection_parsing import parse_inspection_local_command
 from .command_process_parsing import parse_process_local_command
 from .command_review_parsing import parse_review_local_command
 from .command_runtime_parsing import parse_runtime_local_command
@@ -25,44 +26,9 @@ def parse_local_command(value: str) -> LocalCommand | None:
     runtime_command = parse_runtime_local_command(trimmed)
     if runtime_command is not None:
         return runtime_command
-    if trimmed == "/overview" or trimmed.startswith("/overview "):
-        return LocalCommand(type="overview", argument=trimmed[10:].strip() or None)
-    if trimmed == "/repo-map" or trimmed.startswith("/repo-map "):
-        return LocalCommand(type="repo_map", argument=trimmed[9:].strip() or None)
-    if trimmed == "/search" or trimmed.startswith("/search "):
-        return LocalCommand(type="search", argument=trimmed[7:].strip() or None)
-    if trimmed == "/search-contexts" or trimmed.startswith("/search-contexts "):
-        return LocalCommand(type="search_contexts", argument=trimmed[16:].strip() or None)
-    if trimmed == "/find-files" or trimmed.startswith("/find-files "):
-        return LocalCommand(type="find_files", argument=trimmed[12:].strip() or None)
-    if trimmed == "/glob" or trimmed.startswith("/glob "):
-        return LocalCommand(type="glob", argument=trimmed[6:].strip() or None)
-    if trimmed == "/tree" or trimmed.startswith("/tree "):
-        return LocalCommand(type="tree", argument=trimmed[6:].strip() or None)
-    if trimmed == "/symbols" or trimmed.startswith("/symbols "):
-        return LocalCommand(type="symbols", argument=trimmed[9:].strip() or None)
-    if trimmed == "/file-info" or trimmed.startswith("/file-info "):
-        return LocalCommand(type="file_info", argument=trimmed[11:].strip() or None)
-    if trimmed == "/image-info" or trimmed.startswith("/image-info "):
-        return LocalCommand(type="image_info", argument=trimmed[12:].strip() or None)
-    if trimmed == "/read" or trimmed.startswith("/read "):
-        return LocalCommand(type="read", argument=trimmed[6:].strip() or None)
-    if trimmed == "/around" or trimmed.startswith("/around "):
-        return LocalCommand(type="around", argument=trimmed[8:].strip() or None)
-    if trimmed == "/around-many" or trimmed.startswith("/around-many "):
-        return LocalCommand(type="around_many", argument=trimmed[13:].strip() or None)
-    if trimmed == "/output-contexts" or trimmed.startswith("/output-contexts "):
-        return LocalCommand(type="output_contexts", argument=trimmed[16:].strip() or None)
-    if trimmed == "/output-diagnostics" or trimmed.startswith("/output-diagnostics "):
-        return LocalCommand(type="output_diagnostics", argument=trimmed[19:].strip() or None)
-    if trimmed == "/python-traceback" or trimmed.startswith("/python-traceback "):
-        return LocalCommand(type="python_traceback", argument=trimmed[17:].strip() or None)
-    if trimmed == "/tail" or trimmed.startswith("/tail "):
-        return LocalCommand(type="tail", argument=trimmed[6:].strip() or None)
-    if trimmed == "/read-files" or trimmed.startswith("/read-files "):
-        return LocalCommand(type="read_files", argument=trimmed[12:].strip() or None)
-    if trimmed == "/read-ranges" or trimmed.startswith("/read-ranges "):
-        return LocalCommand(type="read_ranges", argument=trimmed[13:].strip() or None)
+    inspection_command = parse_inspection_local_command(trimmed)
+    if inspection_command is not None:
+        return inspection_command
     if trimmed == "/python-check" or trimmed.startswith("/python-check "):
         return LocalCommand(type="python_check", argument=trimmed[14:].strip() or None)
     if trimmed == "/python-deps" or trimmed.startswith("/python-deps "):
