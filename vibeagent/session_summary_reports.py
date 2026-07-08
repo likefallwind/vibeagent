@@ -10,6 +10,20 @@ from .session_utils import compact, count_names
 CHECKPOINT_RESTORE_HINT = "/check-checkpoint-restore latest"
 
 
+def final_review_resolved_by_completion(summary: SessionSummary) -> bool:
+    return summary.final_review_ready is False and summary.completion_ready is True
+
+
+def final_review_ready_label(ready: bool | None) -> str:
+    return "yes" if ready is True else "no" if ready is False else "unknown"
+
+
+def final_review_resolution_suffix(summary: SessionSummary) -> str:
+    if final_review_resolved_by_completion(summary):
+        return ", resolvedByCompletion=yes"
+    return ""
+
+
 def build_session_summary_report(summary: SessionSummary, max_text: int = 500) -> dict[str, Any]:
     if not summary.exists:
         return {
@@ -59,6 +73,7 @@ def build_session_summary_report(summary: SessionSummary, max_text: int = 500) -
         "finalReview": {
             "seen": summary.final_review_seen,
             "ready": summary.final_review_ready,
+            "resolvedByCompletion": final_review_resolved_by_completion(summary),
             "blockingIssues": summary.final_review_blocking_issues,
             "warnings": summary.final_review_warnings,
             "files": summary.final_review_files,
@@ -219,13 +234,14 @@ def format_session_summary(summary: SessionSummary) -> str:
         lines.append("  plan:")
         lines.extend(f"    - {item.status}: {compact(item.step, 160)}" for item in summary.latest_plan)
     if summary.final_review_seen:
-        ready = "yes" if summary.final_review_ready is True else "no" if summary.final_review_ready is False else "unknown"
+        ready = final_review_ready_label(summary.final_review_ready)
         final_review = (
             f"  finalReview: ready={ready}, "
             f"blocking={summary.final_review_blocking_issues}, "
             f"warnings={summary.final_review_warnings}, "
             f"files={summary.final_review_files}, "
             f"suggestedChecks={summary.final_review_suggested_checks}"
+            f"{final_review_resolution_suffix(summary)}"
         )
         if summary.final_review_message:
             final_review += f", message={compact(summary.final_review_message, 160)}"

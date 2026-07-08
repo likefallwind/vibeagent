@@ -4,6 +4,9 @@ from typing import Any
 
 from .session_summary_reports import (
     CHECKPOINT_RESTORE_HINT,
+    final_review_ready_label,
+    final_review_resolution_suffix,
+    final_review_resolved_by_completion,
     format_final_review_failure_lines,
     format_latest_completion_detail_lines,
     session_summary_status,
@@ -39,12 +42,13 @@ def format_session_handoff_readiness(
         f"  status: {'ready' if not blockers else 'blocked'}",
     ]
     if summary.final_review_seen:
-        ready = "yes" if summary.final_review_ready is True else "no" if summary.final_review_ready is False else "unknown"
+        ready = final_review_ready_label(summary.final_review_ready)
         lines.append(
             "  finalReview: "
             f"ready={ready}, "
             f"blocking={summary.final_review_blocking_issues}, "
             f"warnings={summary.final_review_warnings}"
+            f"{final_review_resolution_suffix(summary)}"
         )
         if summary.final_review_changed_files:
             lines.append("  finalReviewChangedFiles:")
@@ -246,6 +250,7 @@ def build_session_audit_report_from_parts(
         "finalReview": {
             "seen": summary.final_review_seen,
             "ready": summary.final_review_ready,
+            "resolvedByCompletion": final_review_resolved_by_completion(summary),
             "blockingIssues": summary.final_review_blocking_issues,
             "warnings": summary.final_review_warnings,
             "files": summary.final_review_files,
@@ -486,7 +491,7 @@ def format_session_audit_from_parts(
         if summary.latest_checkpoint_id:
             lines.append(f"  restoreHint: {CHECKPOINT_RESTORE_HINT}")
     if summary.final_review_seen:
-        ready = "yes" if summary.final_review_ready is True else "no" if summary.final_review_ready is False else "unknown"
+        ready = final_review_ready_label(summary.final_review_ready)
         lines.append(
             "  finalReview: "
             f"ready={ready}, "
@@ -494,6 +499,7 @@ def format_session_audit_from_parts(
             f"warnings={summary.final_review_warnings}, "
             f"files={summary.final_review_files}, "
             f"suggestedChecks={summary.final_review_suggested_checks}"
+            f"{final_review_resolution_suffix(summary)}"
         )
         if summary.final_review_changed_files:
             lines.append("  finalReviewChangedFiles:")

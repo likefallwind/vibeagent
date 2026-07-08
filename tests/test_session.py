@@ -1310,6 +1310,8 @@ class SessionTests(unittest.TestCase):
             )
 
             summary = summarize_session(root, "run-recovered-review")
+            summary_text = format_session_summary(summary)
+            summary_report = build_session_summary_report(summary)
             audit = format_session_audit(root, "run-recovered-review")
             handoff = format_session_handoff(root, "run-recovered-review")
             report = build_session_audit_report(root, "run-recovered-review")
@@ -1320,8 +1322,13 @@ class SessionTests(unittest.TestCase):
         self.assertIn("ready: yes", audit)
         self.assertIn("status: ready", audit)
         self.assertIn("ready: yes", handoff)
+        self.assertIn("resolvedByCompletion=yes", summary_text)
+        self.assertIn("resolvedByCompletion=yes", audit)
+        self.assertIn("resolvedByCompletion=yes", handoff)
         self.assertNotIn("final review is not ready", audit)
         self.assertNotIn("final review is not ready", handoff)
+        self.assertTrue(summary_report["finalReview"]["resolvedByCompletion"])
+        self.assertTrue(report["finalReview"]["resolvedByCompletion"])
         self.assertEqual(report["blockers"]["items"], [])
 
     def test_session_readiness_blocks_incomplete_session_without_failures(self) -> None:

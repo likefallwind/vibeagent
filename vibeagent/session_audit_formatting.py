@@ -77,7 +77,7 @@ def format_session_audit_report_text(report: dict[str, object]) -> str:
     if final_review.get("seen"):
         final_ready = final_review.get("ready")
         ready = "yes" if final_ready is True else "no" if final_ready is False else "unknown"
-        lines.append(
+        final_review_line = (
             "  finalReview: "
             f"ready={ready}, "
             f"blocking={int(final_review.get('blockingIssues', 0) or 0)}, "
@@ -85,6 +85,9 @@ def format_session_audit_report_text(report: dict[str, object]) -> str:
             f"files={int(final_review.get('files', 0) or 0)}, "
             f"suggestedChecks={int(final_review.get('suggestedChecks', 0) or 0)}"
         )
+        if final_review.get("resolvedByCompletion") is True:
+            final_review_line += ", resolvedByCompletion=yes"
+        lines.append(final_review_line)
         lines.extend(_format_final_review_changed_file_report_lines(final_review, indent="  ", max_text=300))
     else:
         lines.append("  finalReview: not run")
