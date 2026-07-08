@@ -23,6 +23,7 @@ def format_overview_report_text(report: dict[str, object]) -> str:
     commands = report.get("commands") if isinstance(report.get("commands"), dict) else {}
     manifests = report.get("manifests") if isinstance(report.get("manifests"), dict) else {}
     instructions = report.get("instructions") if isinstance(report.get("instructions"), dict) else {}
+    todos = report.get("todos") if isinstance(report.get("todos"), dict) else {}
     suggested_checks = report.get("suggestedChecks") if isinstance(report.get("suggestedChecks"), dict) else {}
     tools = report.get("tools") if isinstance(report.get("tools"), dict) else {}
 
@@ -44,6 +45,7 @@ def format_overview_report_text(report: dict[str, object]) -> str:
             f"  commands: {commands.get('shown', 0)}/{commands.get('total', 0)}",
             f"  manifests: {manifests.get('shown', 0)}/{manifests.get('total', 0)}",
             f"  instructions: {instructions.get('shown', 0)}/{instructions.get('total', 0)}",
+            f"  todos: {todos.get('shown', 0)}/{todos.get('total', 0)}",
             f"  suggestedChecks: {suggested_checks.get('shown', 0)}/{suggested_checks.get('total', 0)}",
             f"  tools: {tools.get('available', 0)}/{tools.get('total', 0)} available",
         ]
@@ -72,6 +74,16 @@ def format_overview_report_text(report: dict[str, object]) -> str:
                     f"{source.get('path')} "
                     f"(scope={source.get('scope')}, included={'yes' if bool(source.get('included')) else 'no'}, "
                     f"empty={'yes' if bool(source.get('empty')) else 'no'})"
+                )
+    todo_items = todos.get("items") if isinstance(todos.get("items"), list) else []
+    if todo_items:
+        lines.append("  todoMarkers:")
+        for todo in todo_items[:10]:
+            if isinstance(todo, dict):
+                lines.append(
+                    "    - "
+                    f"{todo.get('path')}:{todo.get('line')} "
+                    f"[{todo.get('marker')}] {todo.get('text')}"
                 )
     tool_items = tools.get("items") if isinstance(tools.get("items"), list) else []
     if tool_items:

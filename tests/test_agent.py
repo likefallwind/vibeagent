@@ -6444,6 +6444,16 @@ class AgentTests(unittest.TestCase):
             ],
             instruction_files_total=1,
             instructions_truncated=False,
+            todos=[
+                ProjectTodo(
+                    path="vibeagent/agent.py",
+                    line=42,
+                    marker="TODO",
+                    text="# TODO: split loop",
+                )
+            ],
+            todos_total=1,
+            todos_truncated=False,
             suggested_checks=[
                 SuggestedCheck(
                     command="python -m unittest discover -s tests",
@@ -6466,10 +6476,14 @@ class AgentTests(unittest.TestCase):
         self.assertIn("npm test (cwd=.)", instruction)
         self.assertIn("Project instructions are present in AGENTS.md", instruction)
         self.assertIn("project_instructions", instruction)
+        self.assertIn("Project TODO markers are present", instruction)
+        self.assertIn("vibeagent/agent.py:42 [TODO] # TODO: split loop", instruction)
 
         formatted = format_observations([observation])
         self.assertIn("instructions shown=1/1", formatted)
         self.assertIn("instruction: AGENTS.md scope=.", formatted)
+        self.assertIn("todos shown=1/1", formatted)
+        self.assertIn("todo: vibeagent/agent.py:42 [TODO] # TODO: split loop", formatted)
 
     def test_next_action_instruction_guides_environment_info_to_available_tools(self) -> None:
         observation = EnvironmentInfoObservation(

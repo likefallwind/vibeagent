@@ -5116,6 +5116,7 @@ class ActionTests(unittest.TestCase):
             write_run_file(workspace, "pyproject.toml", "[project]\nname='pkg'\ndependencies=['requests>=2']\n")
             write_run_file(workspace, "AGENTS.md", "Use unittest.\n")
             write_run_file(workspace, "pkg/__init__.py", "")
+            write_run_file(workspace, "pkg/app.py", "# TODO: wire cache\n")
             write_run_file(workspace, "tests/test_pkg.py", "def test_ok():\n    assert True\n")
 
             observation = execute_action(
@@ -5147,6 +5148,10 @@ class ActionTests(unittest.TestCase):
         self.assertIn("AGENTS.md", instruction_paths)
         self.assertGreaterEqual(observation.instruction_files_total, len(observation.instruction_sources))
         self.assertIn("instruction file", observation.message)
+        todo_labels = {(todo.path, todo.line, todo.marker) for todo in observation.todos}
+        self.assertIn(("pkg/app.py", 1, "TODO"), todo_labels)
+        self.assertGreaterEqual(observation.todos_total, len(observation.todos))
+        self.assertIn("TODO marker", observation.message)
         check_commands = {check.command for check in observation.suggested_checks}
         self.assertIn("npm run test", check_commands)
         tool_names = {tool.name for tool in observation.tools}

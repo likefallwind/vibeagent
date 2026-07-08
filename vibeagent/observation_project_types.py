@@ -269,6 +269,9 @@ class ProjectOverviewObservation:
     instruction_sources: list[ProjectInstructionSource]
     instruction_files_total: int
     instructions_truncated: bool
+    todos: list[ProjectTodo]
+    todos_total: int
+    todos_truncated: bool
     suggested_checks: list[SuggestedCheck]
     suggested_checks_total: int
     suggested_checks_truncated: bool

@@ -568,6 +568,11 @@ def execute_project_context_action(
                 max_files=action.max_manifests,
                 max_bytes=1_000,
             )
+            todos_metadata = read_project_todos(
+                workspace,
+                max_items=20,
+                max_files=action.max_files,
+            )
             suggestions = suggest_project_checks(workspace, max_commands=action.max_checks)
             environment = read_environment_info(workspace)
             commands = [ProjectCommand(**item) for item in commands_metadata["commands"]]
@@ -586,6 +591,7 @@ def execute_project_context_action(
                 for item in manifests_metadata["manifests"]
             ]
             instruction_sources = [ProjectInstructionSource(**item) for item in instructions_metadata["files"]]
+            todos = [ProjectTodo(**item) for item in todos_metadata["todos"]]
             suggested_checks = [SuggestedCheck(**item) for item in suggestions["checks"]]
             tools = [RuntimeToolInfo(**item) for item in environment["tools"]]
             return ProjectOverviewObservation(
@@ -613,6 +619,9 @@ def execute_project_context_action(
                 instruction_sources=instruction_sources,
                 instruction_files_total=int(instructions_metadata["total_files"]),
                 instructions_truncated=bool(instructions_metadata["truncated"]),
+                todos=todos,
+                todos_total=int(todos_metadata["total"]),
+                todos_truncated=bool(todos_metadata["truncated"]),
                 suggested_checks=suggested_checks,
                 suggested_checks_total=int(suggestions["total"]),
                 suggested_checks_truncated=bool(suggestions["truncated"]),
@@ -621,7 +630,8 @@ def execute_project_context_action(
                     f"Project overview: {int(repo_map['total_files'])} file(s), "
                     f"{int(commands_metadata['total'])} command(s), "
                     f"{int(manifests_metadata['total_files'])} manifest file(s), "
-                    f"{int(instructions_metadata['total_files'])} instruction file(s)."
+                    f"{int(instructions_metadata['total_files'])} instruction file(s), "
+                    f"{int(todos_metadata['total'])} TODO marker(s)."
                 ),
             )
         except ValueError as error:
@@ -650,6 +660,9 @@ def execute_project_context_action(
                 instruction_sources=[],
                 instruction_files_total=0,
                 instructions_truncated=False,
+                todos=[],
+                todos_total=0,
+                todos_truncated=False,
                 suggested_checks=[],
                 suggested_checks_total=0,
                 suggested_checks_truncated=False,

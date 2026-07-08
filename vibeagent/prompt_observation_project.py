@@ -326,6 +326,15 @@ def _format_project_overview(index: int, observation: object) -> str:
                     f"bytes={source.bytes} chars={source.chars}"
                 )
             )
+    if observation.todos:
+        parts.append(
+            (
+                f"todos shown={len(observation.todos)}/{observation.todos_total} "
+                f"truncated={str(observation.todos_truncated).lower()}"
+            )
+        )
+        for todo in observation.todos[:20]:
+            parts.append(f"todo: {todo.path}:{todo.line} [{todo.marker}] {todo.text}")
     if observation.suggested_checks:
         parts.append(
             (

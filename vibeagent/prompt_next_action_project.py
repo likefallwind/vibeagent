@@ -330,9 +330,15 @@ def _project_overview_next_action_instruction(base: str, latest: Observation) ->
     commands = _available_command_labels(getattr(latest, "commands", []))
     checks = _available_command_labels(getattr(latest, "suggested_checks", []))
     instructions = _instruction_paths(getattr(latest, "instruction_sources", []))
+    todos = _todo_labels(getattr(latest, "todos", []))
     instruction_detail = (
         f" Project instructions are present in {_format_next_action_items(instructions)}; use project_instructions before editing if their content is needed."
         if instructions
+        else ""
+    )
+    todo_detail = (
+        f" Project TODO markers are present: {_format_next_action_items(todos)}; inspect them if they are relevant to the task."
+        if todos
         else ""
     )
     if commands or checks:
@@ -340,14 +346,16 @@ def _project_overview_next_action_instruction(base: str, latest: Observation) ->
             f"{base} Project overview found runnable project context. "
             f"Use project_commands or suggest_checks for: {_format_next_action_items(commands + checks)}."
             f"{instruction_detail}"
+            f"{todo_detail}"
         )
 
     if str(getattr(latest, "git_status", "") or "").strip():
         return (
             f"{base} Project overview shows existing git changes. Inspect git_diff or review_changes before editing, "
             f"then continue with the requested task.{instruction_detail}"
+            f"{todo_detail}"
         )
-    return f"{base} Project overview is available. Use the tree, manifests, files, and instruction sources to choose the next targeted inspection or edit.{instruction_detail}"
+    return f"{base} Project overview is available. Use the tree, manifests, files, instruction sources, and TODO markers to choose the next targeted inspection or edit.{instruction_detail}{todo_detail}"
 
 
 def _environment_info_next_action_instruction(base: str, latest: Observation) -> str:
