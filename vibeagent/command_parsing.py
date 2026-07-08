@@ -6,6 +6,7 @@ from .command_checkpoint_parsing import parse_checkpoint_local_command
 from .command_git_parsing import parse_git_local_command
 from .command_process_parsing import parse_process_local_command
 from .command_review_parsing import parse_review_local_command
+from .command_runtime_parsing import parse_runtime_local_command
 from .command_session_parsing import parse_session_local_command
 from .command_types import LocalCommand, make_local_command
 
@@ -21,60 +22,9 @@ def parse_local_command(value: str) -> LocalCommand | None:
         return LocalCommand(type="model")
     if trimmed == "/config":
         return LocalCommand(type="config")
-    if trimmed == "/tools":
-        return LocalCommand(type="tools")
-    if trimmed == "/tool" or trimmed.startswith("/tool "):
-        return LocalCommand(type="tool", argument=trimmed[5:].strip() or None)
-    if trimmed == "/tool-search" or trimmed.startswith("/tool-search "):
-        return LocalCommand(type="tool_search", argument=trimmed[13:].strip() or None)
-    if trimmed == "/permissions":
-        return LocalCommand(type="permissions")
-    if trimmed == "/checks" or trimmed.startswith("/checks "):
-        return LocalCommand(type="checks", argument=trimmed[8:].strip() or None)
-    if trimmed == "/check-suggested-checks" or trimmed.startswith("/check-suggested-checks "):
-        return LocalCommand(type="check_suggested_checks", argument=trimmed[23:].strip() or None)
-    if trimmed == "/run-suggested-checks" or trimmed.startswith("/run-suggested-checks "):
-        return LocalCommand(type="run_suggested_checks", argument=trimmed[21:].strip() or None)
-    if trimmed == "/commands" or trimmed.startswith("/commands "):
-        return LocalCommand(type="commands", argument=trimmed[10:].strip() or None)
-    if trimmed == "/related-tests" or trimmed.startswith("/related-tests "):
-        return LocalCommand(type="related_tests", argument=trimmed[14:].strip() or None)
-    if trimmed == "/focused-tests" or trimmed.startswith("/focused-tests "):
-        return LocalCommand(type="focused_test_commands", argument=trimmed[15:].strip() or None)
-    if trimmed == "/check-focused-tests" or trimmed.startswith("/check-focused-tests "):
-        return LocalCommand(type="check_focused_test_commands", argument=trimmed[20:].strip() or None)
-    if trimmed == "/run-focused-tests" or trimmed.startswith("/run-focused-tests "):
-        return LocalCommand(type="run_focused_test_commands", argument=trimmed[18:].strip() or None)
-    if trimmed == "/manifests" or trimmed.startswith("/manifests "):
-        return LocalCommand(type="manifests", argument=trimmed[11:].strip() or None)
-    if trimmed == "/instructions" or trimmed.startswith("/instructions "):
-        return LocalCommand(type="instructions", argument=trimmed[14:].strip() or None)
-    if trimmed == "/todos" or trimmed.startswith("/todos "):
-        return LocalCommand(type="todos", argument=trimmed[7:].strip() or None)
-    if trimmed == "/command" or trimmed.startswith("/command "):
-        return LocalCommand(type="command", argument=trimmed[8:].strip() or None)
-    if trimmed == "/run" or trimmed.startswith("/run "):
-        return LocalCommand(type="run", argument=trimmed[5:].strip() or None)
-    if trimmed == "/run-commands" or trimmed.startswith("/run-commands "):
-        prefix = "/run-commands"
-        return LocalCommand(type="run_sequence", argument=trimmed[len(prefix) :].strip() or None)
-    if trimmed == "/run-seq" or trimmed.startswith("/run-seq "):
-        return LocalCommand(type="run_sequence", argument=trimmed[9:].strip() or None)
-    if trimmed == "/check-run-commands" or trimmed.startswith("/check-run-commands "):
-        prefix = "/check-run-commands"
-        return LocalCommand(type="check_run_sequence", argument=trimmed[len(prefix) :].strip() or None)
-    if trimmed == "/check-run-seq" or trimmed.startswith("/check-run-seq "):
-        return LocalCommand(type="check_run_sequence", argument=trimmed[15:].strip() or None)
-    if trimmed == "/check-start" or trimmed.startswith("/check-start "):
-        return LocalCommand(type="check_start", argument=trimmed[13:].strip() or None)
-    if trimmed == "/start" or trimmed.startswith("/start "):
-        return LocalCommand(type="start", argument=trimmed[7:].strip() or None)
-    if trimmed == "/port" or trimmed.startswith("/port "):
-        return LocalCommand(type="port", argument=trimmed[6:].strip() or None)
-    if trimmed == "/http" or trimmed.startswith("/http "):
-        return LocalCommand(type="http", argument=trimmed[6:].strip() or None)
-    if trimmed == "/http-fetch" or trimmed.startswith("/http-fetch "):
-        return LocalCommand(type="http_fetch", argument=trimmed[12:].strip() or None)
+    runtime_command = parse_runtime_local_command(trimmed)
+    if runtime_command is not None:
+        return runtime_command
     if trimmed == "/overview" or trimmed.startswith("/overview "):
         return LocalCommand(type="overview", argument=trimmed[10:].strip() or None)
     if trimmed == "/repo-map" or trimmed.startswith("/repo-map "):
