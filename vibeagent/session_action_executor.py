@@ -9,9 +9,7 @@ from .action_results import (
 )
 from .output_conversion import output_context_results_from_dicts, output_diagnostics_from_dicts
 from .session import (
-    build_session_handoff_report,
     build_session_verification_report,
-    format_session_audit,
     format_session_commands,
     format_session_failures,
     format_session_files,
@@ -22,23 +20,18 @@ from .session import (
     format_session_verification,
     format_sessions,
     read_session_events,
-    session_audit_blockers,
-    session_failure_entries,
     session_file_entries,
     summarize_session,
 )
-from .session_audit_formatting import format_session_handoff_report_text
-from .session_handoff_details import empty_session_handoff_details, extract_session_handoff_details
+from .session_action_helpers import select_session_run_id, session_file_references
+from .session_audit_action_executor import execute_session_audit_action, execute_session_handoff_action
 from .session_verification_action_executor import (
     execute_run_session_verification_action,
     session_verification_group,
 )
-from .session_input import normalize_optional_run_id
 from .types import (
     Observation,
     SessionAuditAction,
-    SessionAuditObservation,
-    SessionAuditProcess,
     SessionCommandsAction,
     SessionCommandsObservation,
     SessionFailuresAction,
@@ -46,7 +39,6 @@ from .types import (
     SessionFilesAction,
     SessionFilesObservation,
     SessionHandoffAction,
-    SessionHandoffObservation,
     SessionOutputContextsAction,
     SessionOutputContextsObservation,
     SessionOutputDiagnosticsAction,
@@ -66,31 +58,9 @@ from .types import (
 from .workspace import RunWorkspace, read_output_contexts_result, read_output_diagnostics_result
 
 
-def _select_session_run_id(action_run_id: str | None, workspace_run_id: str) -> str:
-    return normalize_optional_run_id(action_run_id) or workspace_run_id
-
-
-def _session_file_references(
-    files: list[dict[str, object]], max_files: int
-) -> tuple[list[dict[str, object]], int, int, bool]:
-    shown_files = files[:max_files]
-    references: list[dict[str, object]] = []
-    for file_entry in shown_files:
-        path = str(file_entry.get("path") or "").strip()
-        if not path:
-            continue
-        uses = [
-            str(use).strip()
-            for use in file_entry.get("uses", [])
-            if isinstance(use, str) and use.strip()
-        ]
-        references.append({"path": path, "uses": uses})
-    return references, len(files), len(shown_files), len(files) > len(shown_files)
-
-
 def execute_session_action(workspace: RunWorkspace, action: object, command_timeout_ms: int = 30_000) -> Observation | None:
     if isinstance(action, SessionSummaryAction):
-        run_id = _select_session_run_id(action.run_id, workspace.run_id)
+        run_id = select_session_run_id(action.run_id, workspace.run_id)
         try:
             summary_text = format_session_summary(summarize_session(workspace.root, run_id))
             ok = not summary_text.startswith("Session not found:")
@@ -110,7 +80,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionPlanAction):
-        run_id = _select_session_run_id(action.run_id, workspace.run_id)
+        run_id = select_session_run_id(action.run_id, workspace.run_id)
         try:
             plan_text = format_session_plan(summarize_session(workspace.root, run_id))
             ok = not plan_text.startswith("Session not found:")
@@ -128,7 +98,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionTranscriptAction):
-        run_id = _select_session_run_id(action.run_id, workspace.run_id)
+        run_id = select_session_run_id(action.run_id, workspace.run_id)
         try:
             transcript = format_session_transcript(
                 workspace.root,
@@ -151,7 +121,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionSearchAction):
-        run_id = _select_session_run_id(action.run_id, workspace.run_id)
+        run_id = select_session_run_id(action.run_id, workspace.run_id)
         try:
             matches = format_session_search(
                 workspace.root,
@@ -182,7 +152,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionCommandsAction):
-        run_id = _select_session_run_id(action.run_id, workspace.run_id)
+        run_id = select_session_run_id(action.run_id, workspace.run_id)
         try:
             commands = format_session_commands(
                 workspace.root,
@@ -210,7 +180,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionOutputContextsAction):
-        run_id = _select_session_run_id(action.run_id, workspace.run_id)
+        run_id = select_session_run_id(action.run_id, workspace.run_id)
         try:
             ok, command_count, shown_commands, output_text, scan_message = build_session_command_output_scan_text(
                 workspace,
@@ -276,7 +246,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             )
 
     if isinstance(action, SessionOutputDiagnosticsAction):
-        run_id = _select_session_run_id(action.run_id, workspace.run_id)
+        run_id = select_session_run_id(action.run_id, workspace.run_id)
         try:
             ok, command_count, shown_commands, output_text, scan_message = build_session_command_output_scan_text(
                 workspace,
@@ -356,7 +326,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             )
 
     if isinstance(action, SessionFilesAction):
-        run_id = _select_session_run_id(action.run_id, workspace.run_id)
+        run_id = select_session_run_id(action.run_id, workspace.run_id)
         try:
             files = format_session_files(workspace.root, run_id, max_files=action.max_files)
             ok = not files.startswith("Session not found:")
@@ -366,7 +336,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
             files_truncated = False
             if ok:
                 file_entries = session_file_entries(read_session_events(workspace.root, run_id))
-                file_references, file_count, shown_files, files_truncated = _session_file_references(
+                file_references, file_count, shown_files, files_truncated = session_file_references(
                     file_entries, action.max_files
                 )
         except ValueError as error:
@@ -390,7 +360,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionFailuresAction):
-        run_id = _select_session_run_id(action.run_id, workspace.run_id)
+        run_id = select_session_run_id(action.run_id, workspace.run_id)
         try:
             failures = format_session_failures(
                 workspace.root,
@@ -418,7 +388,7 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         )
 
     if isinstance(action, SessionVerificationAction):
-        run_id = _select_session_run_id(action.run_id, workspace.run_id)
+        run_id = select_session_run_id(action.run_id, workspace.run_id)
         verified_commands: list[dict[str, object]] = []
         pending_commands: list[dict[str, object]] = []
         failed_commands: list[dict[str, object]] = []
@@ -460,138 +430,9 @@ def execute_session_action(workspace: RunWorkspace, action: object, command_time
         return execute_run_session_verification_action(workspace, action, command_timeout_ms)
 
     if isinstance(action, SessionAuditAction):
-        run_id = _select_session_run_id(action.run_id, workspace.run_id)
-        try:
-            audit = format_session_audit(
-                workspace.root,
-                run_id,
-                max_failures=action.max_failures,
-                max_files=action.max_files,
-                max_commands=action.max_commands,
-                max_checks=action.max_checks,
-                max_text=action.max_text,
-            )
-            ok = not audit.startswith("Session not found:")
-            ready = "\n  ready: yes\n" in f"\n{audit}\n"
-            message = f"Read session audit for {run_id}." if ok else audit
-            blockers: list[str] = []
-            background_processes_started = 0
-            active_background_processes: list[SessionAuditProcess] = []
-            file_references: list[dict[str, object]] = []
-            file_count = 0
-            shown_file_count = 0
-            files_truncated = False
-            completion_ready: bool | None = None
-            completion_blockers: list[str] = []
-            latest_completion_blockers: list[str] = []
-            if ok:
-                summary = summarize_session(workspace.root, run_id)
-                events = read_session_events(workspace.root, run_id)
-                failures = session_failure_entries(events, max_text=action.max_text)
-                files = session_file_entries(events)
-                blockers = session_audit_blockers(summary, failures, files)
-                file_references, file_count, shown_file_count, files_truncated = _session_file_references(
-                    files, action.max_files
-                )
-                background_processes_started = summary.background_processes_started
-                completion_ready = summary.completion_ready
-                completion_blockers = list(summary.completion_blockers)
-                latest_completion_blockers = list(summary.latest_completion_blockers)
-                active_background_processes = [
-                    SessionAuditProcess(
-                        process_id=process.process_id,
-                        pid=process.pid,
-                        command=process.command,
-                        cwd=process.cwd,
-                        line_number=process.line_number,
-                    )
-                    for process in summary.active_background_processes
-                ]
-        except ValueError as error:
-            audit = ""
-            ok = False
-            ready = False
-            blockers = []
-            background_processes_started = 0
-            active_background_processes = []
-            file_references = []
-            file_count = 0
-            shown_file_count = 0
-            files_truncated = False
-            completion_ready = None
-            completion_blockers = []
-            latest_completion_blockers = []
-            message = str(error)
-        return SessionAuditObservation(
-            kind="session_audit",
-            run_id=run_id,
-            ok=ok,
-            audit=audit,
-            ready=ready,
-            blockers=blockers,
-            background_processes_started=background_processes_started,
-            active_background_processes=active_background_processes,
-            message=message,
-            file_references=file_references,
-            file_count=file_count,
-            shown_file_count=shown_file_count,
-            files_truncated=files_truncated,
-            completion_ready=completion_ready,
-            completion_blockers=completion_blockers,
-            latest_completion_blockers=latest_completion_blockers,
-        )
+        return execute_session_audit_action(workspace, action)
 
     if isinstance(action, SessionHandoffAction):
-        run_id = _select_session_run_id(action.run_id, workspace.run_id)
-        try:
-            report = build_session_handoff_report(
-                workspace.root,
-                run_id,
-                max_failures=action.max_failures,
-                max_files=action.max_files,
-                max_commands=action.max_commands,
-                max_checks=action.max_checks,
-                max_output_chars=action.max_output_chars,
-                max_text=action.max_text,
-            )
-            handoff = format_session_handoff_report_text(report)
-            exists = report.get("exists") is True
-            ok = exists
-            details = extract_session_handoff_details(report)
-            message = f"Read session handoff for {run_id}." if ok else handoff
-        except ValueError as error:
-            handoff = ""
-            ok = False
-            details = empty_session_handoff_details(status="invalid", ready=False)
-            message = str(error)
-        return SessionHandoffObservation(
-            kind="session_handoff",
-            run_id=run_id,
-            ok=ok,
-            handoff=handoff,
-            message=message,
-            ready=details.ready,
-            status=details.status,
-            blockers=details.blockers,
-            background_processes_started=details.background_processes_started,
-            active_background_processes=details.active_background_processes,
-            verified_commands=details.verified_commands,
-            pending_commands=details.pending_commands,
-            failed_commands=details.failed_commands,
-            verified_count=details.verified_count,
-            pending_count=details.pending_count,
-            failed_count=details.failed_count,
-            pending_plan_items=details.pending_plan_items,
-            pending_plan_count=details.pending_plan_count,
-            plan_items_count=details.plan_items_count,
-            plan_in_progress=details.plan_in_progress,
-            file_references=details.file_references,
-            file_count=details.file_count,
-            shown_file_count=details.shown_file_count,
-            files_truncated=details.files_truncated,
-            completion_ready=details.completion_ready,
-            completion_blockers=details.completion_blockers,
-            latest_completion_blockers=details.latest_completion_blockers,
-        )
+        return execute_session_handoff_action(workspace, action)
 
     return None
