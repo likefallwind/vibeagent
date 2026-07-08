@@ -6,6 +6,7 @@ import shlex
 
 from .command_safety_args import args_after_operand, command_operands, first_command_operand
 from .command_safety_gui import command_launches_gui_application
+from .command_safety_high_risk import command_invokes_high_risk_executable
 from .command_safety_network import (
     firewall_invocation_changes_network_state,
     ip_invocation_changes_network_state,
@@ -161,68 +162,6 @@ RECURSIVE_DELETE_BLOCK_REASON = "recursive forced deletion of broad paths is not
 RECURSIVE_PERMISSION_BLOCK_REASON = (
     "recursive permission or ownership changes of broad paths are not allowed in project mode"
 )
-
-
-def command_invokes_high_risk_executable(command: str) -> bool:
-    for segment in shell_command_segments(command):
-        parts = unwrapped_shell_command_parts(segment)
-        if not parts:
-            continue
-        executable = Path(parts[0]).name.lower()
-        if executable in {"sudo", "sudoedit", "doas", "pkexec", "su", "shutdown", "reboot", "halt", "poweroff"}:
-            return True
-        if executable == "mkfs" or executable.startswith("mkfs."):
-            return True
-        if executable in {
-            "blkdiscard",
-            "cfdisk",
-            "fdisk",
-            "gdisk",
-            "losetup",
-            "parted",
-            "sfdisk",
-            "sgdisk",
-            "wipefs",
-        } and storage_invocation_changes_device_state(executable, parts[1:]):
-            return True
-        if executable in {"insmod", "modprobe", "rmmod", "kexec"}:
-            return True
-        if executable == "sysctl" and sysctl_invocation_changes_kernel_state(parts[1:]):
-            return True
-        if executable in {"mount", "umount", "swapon", "swapoff"} and len(parts) > 1:
-            return True
-        if executable in {"kill", "pkill", "killall", "fuser"} and process_termination_invocation_is_broad(
-            executable,
-            parts[1:],
-        ):
-            return True
-        if executable in {"docker", "docker-compose", "podman", "kubectl", "helm"} and (
-            container_orchestration_invocation_changes_external_state(executable, parts[1:])
-        ):
-            return True
-        if executable == "systemctl" and systemctl_invocation_changes_system_state(parts[1:]):
-            return True
-        if executable == "service" and service_invocation_changes_system_state(parts[1:]):
-            return True
-        if executable in {"iptables", "ip6tables", "ebtables", "arptables"} and (
-            iptables_invocation_changes_network_state(parts[1:])
-        ):
-            return True
-        if executable == "nft" and nft_invocation_changes_network_state(parts[1:]):
-            return True
-        if executable in {"ufw", "firewall-cmd", "pfctl"} and firewall_invocation_changes_network_state(
-            executable,
-            parts[1:],
-        ):
-            return True
-        if executable == "ip" and ip_invocation_changes_network_state(parts[1:]):
-            return True
-        if executable in {"route", "ifconfig"} and legacy_network_invocation_changes_state(
-            executable,
-            parts[1:],
-        ):
-            return True
-    return False
 
 
 def shell_wrapped_blocked_command_reason(command: str, depth: int) -> str | None:
