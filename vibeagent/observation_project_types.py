@@ -266,6 +266,9 @@ class ProjectOverviewObservation:
     manifests: list[ProjectManifest]
     manifest_files_total: int
     manifests_truncated: bool
+    instruction_sources: list[ProjectInstructionSource]
+    instruction_files_total: int
+    instructions_truncated: bool
     suggested_checks: list[SuggestedCheck]
     suggested_checks_total: int
     suggested_checks_truncated: bool

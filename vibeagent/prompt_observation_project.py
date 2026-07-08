@@ -311,6 +311,21 @@ def _format_project_overview(index: int, observation: object) -> str:
                     f"name={manifest.name or '.'} items={manifest.item_count}"
                 )
             )
+    if observation.instruction_sources:
+        parts.append(
+            (
+                f"instructions shown={len(observation.instruction_sources)}/{observation.instruction_files_total} "
+                f"truncated={str(observation.instructions_truncated).lower()}"
+            )
+        )
+        for source in observation.instruction_sources[:20]:
+            parts.append(
+                (
+                    f"instruction: {source.path} scope={source.scope or '.'} "
+                    f"included={str(source.included).lower()} empty={str(source.empty).lower()} "
+                    f"bytes={source.bytes} chars={source.chars}"
+                )
+            )
     if observation.suggested_checks:
         parts.append(
             (

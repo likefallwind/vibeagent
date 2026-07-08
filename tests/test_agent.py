@@ -6431,6 +6431,19 @@ class AgentTests(unittest.TestCase):
             manifests=[],
             manifest_files_total=0,
             manifests_truncated=False,
+            instruction_sources=[
+                ProjectInstructionSource(
+                    path="AGENTS.md",
+                    scope=".",
+                    bytes=17,
+                    chars=17,
+                    empty=False,
+                    included=True,
+                    message="Included AGENTS.md.",
+                )
+            ],
+            instruction_files_total=1,
+            instructions_truncated=False,
             suggested_checks=[
                 SuggestedCheck(
                     command="python -m unittest discover -s tests",
@@ -6451,6 +6464,12 @@ class AgentTests(unittest.TestCase):
         self.assertIn("project_commands", instruction)
         self.assertIn("suggest_checks", instruction)
         self.assertIn("npm test (cwd=.)", instruction)
+        self.assertIn("Project instructions are present in AGENTS.md", instruction)
+        self.assertIn("project_instructions", instruction)
+
+        formatted = format_observations([observation])
+        self.assertIn("instructions shown=1/1", formatted)
+        self.assertIn("instruction: AGENTS.md scope=.", formatted)
 
     def test_next_action_instruction_guides_environment_info_to_available_tools(self) -> None:
         observation = EnvironmentInfoObservation(

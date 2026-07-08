@@ -563,6 +563,11 @@ def execute_project_context_action(
                 max_files=action.max_manifests,
                 max_items=200,
             )
+            instructions_metadata = read_project_instruction_sources(
+                workspace,
+                max_files=action.max_manifests,
+                max_bytes=1_000,
+            )
             suggestions = suggest_project_checks(workspace, max_commands=action.max_checks)
             environment = read_environment_info(workspace)
             commands = [ProjectCommand(**item) for item in commands_metadata["commands"]]
@@ -580,6 +585,7 @@ def execute_project_context_action(
                 )
                 for item in manifests_metadata["manifests"]
             ]
+            instruction_sources = [ProjectInstructionSource(**item) for item in instructions_metadata["files"]]
             suggested_checks = [SuggestedCheck(**item) for item in suggestions["checks"]]
             tools = [RuntimeToolInfo(**item) for item in environment["tools"]]
             return ProjectOverviewObservation(
@@ -604,6 +610,9 @@ def execute_project_context_action(
                 manifests=manifests,
                 manifest_files_total=int(manifests_metadata["total_files"]),
                 manifests_truncated=bool(manifests_metadata["truncated"]),
+                instruction_sources=instruction_sources,
+                instruction_files_total=int(instructions_metadata["total_files"]),
+                instructions_truncated=bool(instructions_metadata["truncated"]),
                 suggested_checks=suggested_checks,
                 suggested_checks_total=int(suggestions["total"]),
                 suggested_checks_truncated=bool(suggestions["truncated"]),
@@ -611,7 +620,8 @@ def execute_project_context_action(
                 message=(
                     f"Project overview: {int(repo_map['total_files'])} file(s), "
                     f"{int(commands_metadata['total'])} command(s), "
-                    f"{int(manifests_metadata['total_files'])} manifest file(s)."
+                    f"{int(manifests_metadata['total_files'])} manifest file(s), "
+                    f"{int(instructions_metadata['total_files'])} instruction file(s)."
                 ),
             )
         except ValueError as error:
@@ -637,6 +647,9 @@ def execute_project_context_action(
                 manifests=[],
                 manifest_files_total=0,
                 manifests_truncated=False,
+                instruction_sources=[],
+                instruction_files_total=0,
+                instructions_truncated=False,
                 suggested_checks=[],
                 suggested_checks_total=0,
                 suggested_checks_truncated=False,

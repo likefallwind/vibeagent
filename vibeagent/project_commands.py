@@ -73,6 +73,7 @@ def get_overview_report(project_root: str | Path = ".", max_files: int = 80, max
             "tree": {"shown": 0, "total": 0, "truncated": False, "entries": []},
             "commands": {"shown": 0, "total": 0, "truncated": False, "items": []},
             "manifests": {"shown": 0, "total": 0, "truncated": False, "items": []},
+            "instructions": {"shown": 0, "total": 0, "truncated": False, "sources": []},
             "suggestedChecks": {"shown": 0, "total": 0, "truncated": False, "items": []},
             "tools": {"available": 0, "total": 0, "items": []},
             "message": f"Unexpected observation: {observation.kind}",
@@ -109,6 +110,12 @@ def get_overview_report(project_root: str | Path = ".", max_files: int = 80, max
             "total": observation.manifest_files_total,
             "truncated": observation.manifests_truncated,
             "items": [_plain_data(item) for item in observation.manifests],
+        },
+        "instructions": {
+            "shown": len(observation.instruction_sources),
+            "total": observation.instruction_files_total,
+            "truncated": observation.instructions_truncated,
+            "sources": [_plain_data(item) for item in observation.instruction_sources],
         },
         "suggestedChecks": {
             "shown": len(observation.suggested_checks),

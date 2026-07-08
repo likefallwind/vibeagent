@@ -8793,6 +8793,7 @@ class CommandTests(unittest.TestCase):
             root = Path(base)
             subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             (root / "package.json").write_text('{"scripts":{"test":"node test.js","build":"vite build"}}\n', encoding="utf-8")
+            (root / "AGENTS.md").write_text("Use unittest.\n", encoding="utf-8")
             (root / "pkg").mkdir()
             (root / "pkg" / "__init__.py").write_text("", encoding="utf-8")
             (root / "tests").mkdir()
@@ -8806,6 +8807,9 @@ class CommandTests(unittest.TestCase):
         self.assertIn("files:", text)
         self.assertIn("commands:", text)
         self.assertIn("manifests:", text)
+        self.assertIn("instructions:", text)
+        self.assertIn("instructionSources:", text)
+        self.assertIn("AGENTS.md", text)
         self.assertIn("suggestedChecks:", text)
         self.assertIn("tools:", text)
         self.assertIn("npm run test", text)
@@ -8817,6 +8821,7 @@ class CommandTests(unittest.TestCase):
             root = Path(base)
             subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             (root / "package.json").write_text('{"scripts":{"test":"node test.js"}}\n', encoding="utf-8")
+            (root / "AGENTS.md").write_text("Use unittest.\n", encoding="utf-8")
             (root / "tests").mkdir()
             (root / "tests" / "test_app.py").write_text("def test_ok():\n    assert True\n", encoding="utf-8")
 
@@ -8828,9 +8833,12 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(report["projectRoot"], str(root.resolve()))
         self.assertTrue(report["git"]["isRepo"])
         self.assertGreaterEqual(report["commands"]["shown"], 1)
+        self.assertGreaterEqual(report["instructions"]["shown"], 1)
+        self.assertIn("AGENTS.md", {source["path"] for source in report["instructions"]["sources"]})
         self.assertGreaterEqual(report["suggestedChecks"]["shown"], 1)
         self.assertIn("Overview:", rendered)
         self.assertIn("commandList:", rendered)
+        self.assertIn("instructionSources:", rendered)
 
     def test_get_status_text_reports_local_runtime_state(self) -> None:
         text = get_status_text("chat", "allow", "run-1", chat_turns=2)

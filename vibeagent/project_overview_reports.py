@@ -22,6 +22,7 @@ def format_overview_report_text(report: dict[str, object]) -> str:
     tree = report.get("tree") if isinstance(report.get("tree"), dict) else {}
     commands = report.get("commands") if isinstance(report.get("commands"), dict) else {}
     manifests = report.get("manifests") if isinstance(report.get("manifests"), dict) else {}
+    instructions = report.get("instructions") if isinstance(report.get("instructions"), dict) else {}
     suggested_checks = report.get("suggestedChecks") if isinstance(report.get("suggestedChecks"), dict) else {}
     tools = report.get("tools") if isinstance(report.get("tools"), dict) else {}
 
@@ -42,6 +43,7 @@ def format_overview_report_text(report: dict[str, object]) -> str:
             f"  repoTruncated: {'yes' if bool(tree.get('truncated')) else 'no'}",
             f"  commands: {commands.get('shown', 0)}/{commands.get('total', 0)}",
             f"  manifests: {manifests.get('shown', 0)}/{manifests.get('total', 0)}",
+            f"  instructions: {instructions.get('shown', 0)}/{instructions.get('total', 0)}",
             f"  suggestedChecks: {suggested_checks.get('shown', 0)}/{suggested_checks.get('total', 0)}",
             f"  tools: {tools.get('available', 0)}/{tools.get('total', 0)} available",
         ]
@@ -60,6 +62,17 @@ def format_overview_report_text(report: dict[str, object]) -> str:
         for manifest in manifest_items[:10]:
             if isinstance(manifest, dict):
                 lines.append(f"    - {manifest.get('path')} ({manifest.get('kind')}, items={manifest.get('item_count')}, ok={'yes' if bool(manifest.get('ok')) else 'no'})")
+    instruction_sources = instructions.get("sources") if isinstance(instructions.get("sources"), list) else []
+    if instruction_sources:
+        lines.append("  instructionSources:")
+        for source in instruction_sources[:10]:
+            if isinstance(source, dict):
+                lines.append(
+                    "    - "
+                    f"{source.get('path')} "
+                    f"(scope={source.get('scope')}, included={'yes' if bool(source.get('included')) else 'no'}, "
+                    f"empty={'yes' if bool(source.get('empty')) else 'no'})"
+                )
     tool_items = tools.get("items") if isinstance(tools.get("items"), list) else []
     if tool_items:
         lines.append("  toolAvailability:")

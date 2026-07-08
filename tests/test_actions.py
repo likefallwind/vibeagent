@@ -5114,6 +5114,7 @@ class ActionTests(unittest.TestCase):
             workspace = create_run_workspace(root, "test-run")
             write_run_file(workspace, "package.json", '{"name":"web","scripts":{"test":"node test.js"}}')
             write_run_file(workspace, "pyproject.toml", "[project]\nname='pkg'\ndependencies=['requests>=2']\n")
+            write_run_file(workspace, "AGENTS.md", "Use unittest.\n")
             write_run_file(workspace, "pkg/__init__.py", "")
             write_run_file(workspace, "tests/test_pkg.py", "def test_ok():\n    assert True\n")
 
@@ -5142,6 +5143,10 @@ class ActionTests(unittest.TestCase):
         manifest_paths = {manifest.path for manifest in observation.manifests}
         self.assertIn("package.json", manifest_paths)
         self.assertIn("pyproject.toml", manifest_paths)
+        instruction_paths = {source.path for source in observation.instruction_sources}
+        self.assertIn("AGENTS.md", instruction_paths)
+        self.assertGreaterEqual(observation.instruction_files_total, len(observation.instruction_sources))
+        self.assertIn("instruction file", observation.message)
         check_commands = {check.command for check in observation.suggested_checks}
         self.assertIn("npm run test", check_commands)
         tool_names = {tool.name for tool in observation.tools}
