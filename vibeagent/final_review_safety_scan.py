@@ -17,7 +17,7 @@ from .final_review_git_safety import (
     read_git_operation_state,
 )
 from .final_review_secret_scan import find_secret_like_changed_files, find_secret_like_git_diff_additions
-from .workspace import read_git_conflicts
+from .workspace import read_git_conflicts, read_git_info
 from .workspace_core import RunWorkspace
 
 
@@ -46,6 +46,7 @@ class FinalReviewSafetyScan:
     unsafe_symlink_warnings: list[str]
     unsafe_symlink_reasons: set[str]
     git_operation: Mapping[str, object]
+    git_info: Mapping[str, object]
 
 
 def collect_final_review_safety_scan(
@@ -84,6 +85,7 @@ def collect_final_review_safety_scan(
         review_files,
     )
     git_operation = read_git_operation_state(workspace)
+    git_info = read_git_info(workspace)
     return FinalReviewSafetyScan(
         conflict_scan=conflict_scan,
         large_files=large_files,
@@ -108,6 +110,7 @@ def collect_final_review_safety_scan(
         unsafe_symlink_warnings=unsafe_symlink_warnings,
         unsafe_symlink_reasons=unsafe_symlink_reasons,
         git_operation=git_operation,
+        git_info=git_info,
     )
 
 

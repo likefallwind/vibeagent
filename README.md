@@ -1090,7 +1090,9 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   paths, in-progress git operations such as merge, rebase, cherry-pick, or
   revert, and incomplete safety scans for secret-like diff additions, git
   submodule links, hidden tracked changes, changed symlinks, or git operation
-  state, and suggested verification checks whose executables are missing.
+  state, and suggested verification checks whose executables are missing. It
+  also reports cached upstream ahead/behind state as a warning without fetching
+  from the network.
 - `checkpoint_create` writes checkpoint metadata, patch snapshots, and ordinary
   saved untracked files under `.vibeagent/checkpoints/`; model tools can list
   checkpoints, inspect metadata and saved patch text, compare current status,

@@ -47,6 +47,7 @@ class FinalReviewReadinessInputs:
     unsafe_symlink_warnings: list[str]
     unsafe_symlink_reasons: set[str]
     git_operation: Mapping[str, object]
+    git_info: Mapping[str, object]
 
 
 @dataclass
@@ -285,6 +286,7 @@ def append_suggested_check_warnings(warnings: list[str], inputs: FinalReviewRead
 
 
 def append_runtime_warnings(warnings: list[str], inputs: FinalReviewReadinessInputs) -> None:
+    append_git_sync_warnings(warnings, inputs.git_info)
     git_operations = git_operation_items(inputs.git_operation)
     if git_operations:
         operations_preview = ", ".join(
@@ -297,6 +299,25 @@ def append_runtime_warnings(warnings: list[str], inputs: FinalReviewReadinessInp
         warnings.append(
             f"{len(inputs.running_processes)} background process(es) still running; stop them before finishing if no longer needed."
         )
+
+
+def append_git_sync_warnings(warnings: list[str], git_info: Mapping[str, object]) -> None:
+    if not bool(git_info.get("ok")):
+        return
+    upstream = str(git_info.get("upstream") or "")
+    if not upstream:
+        return
+    branch = str(git_info.get("branch") or "detached HEAD")
+    ahead = int(git_info.get("ahead", 0) or 0)
+    behind = int(git_info.get("behind", 0) or 0)
+    if ahead > 0 and behind > 0:
+        warnings.append(
+            f"Branch {branch} has diverged from {upstream}: ahead {ahead}, behind {behind} based on cached refs."
+        )
+    elif ahead > 0:
+        warnings.append(f"Branch {branch} is ahead of {upstream} by {ahead} commit(s).")
+    elif behind > 0:
+        warnings.append(f"Branch {branch} is behind {upstream} by {behind} commit(s) based on cached refs.")
 
 
 def git_operation_items(git_operation: Mapping[str, object]) -> list[object]:

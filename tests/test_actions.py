@@ -3887,6 +3887,38 @@ class ActionTests(unittest.TestCase):
         self.assertFalse(invalid.ready)
         self.assertIn("max_checks must be at least 1", invalid.message)
 
+    def test_execute_final_review_action_warns_on_unpushed_commits(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
+            root = Path(base, "project")
+            remote = Path(base, "remote.git")
+            root.mkdir()
+            subprocess.run(
+                ["git", "init", "--bare", "--initial-branch", "main", remote.as_posix()],
+                cwd=Path(base),
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            subprocess.run(["git", "init", "--initial-branch", "main"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "remote", "add", "origin", remote.as_posix()], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            workspace = create_run_workspace(root, "test-run")
+            write_run_file(workspace, "app.py", "print('initial')\n")
+            subprocess.run(["git", "add", "app.py"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "initial"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "push", "-u", "origin", "main"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            write_run_file(workspace, "app.py", "print('local')\n")
+            subprocess.run(["git", "commit", "-am", "local"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=5))
+
+        self.assertEqual(observation.kind, "final_review")
+        self.assertTrue(observation.ok)
+        self.assertTrue(observation.ready)
+        self.assertEqual(observation.total_files, 0)
+        self.assertIn("Branch main is ahead of origin/main by 1 commit(s).", observation.warnings)
+
     def test_execute_final_review_action_blocks_conflict_markers(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             root = Path(base)

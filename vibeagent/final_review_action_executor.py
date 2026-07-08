@@ -226,6 +226,7 @@ def final_review_observation(workspace: RunWorkspace, action: FinalReviewAction)
             unsafe_symlink_warnings=safety_scan.unsafe_symlink_warnings,
             unsafe_symlink_reasons=safety_scan.unsafe_symlink_reasons,
             git_operation=safety_scan.git_operation,
+            git_info=safety_scan.git_info,
         ),
     )
     blocking_issues = readiness.blocking_issues

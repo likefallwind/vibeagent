@@ -65,6 +65,10 @@ class FinalReviewSafetyScanTests(unittest.TestCase):
                     "vibeagent.final_review_safety_scan.read_git_operation_state",
                     return_value={"ok": False, "operations": [], "message": "git dir unavailable"},
                 ) as read_git_operation_state,
+                patch(
+                    "vibeagent.final_review_safety_scan.read_git_info",
+                    return_value={"ok": True, "branch": "main", "upstream": "origin/main", "ahead": 1, "behind": 0},
+                ) as read_git_info,
             ):
                 scan = collect_final_review_safety_scan(
                     workspace,
@@ -83,6 +87,7 @@ class FinalReviewSafetyScanTests(unittest.TestCase):
         find_hidden_tracked_git_changes.assert_called_once_with(workspace)
         find_unsafe_changed_symlinks.assert_called_once_with(workspace, review_files)
         read_git_operation_state.assert_called_once_with(workspace)
+        read_git_info.assert_called_once_with(workspace)
 
         self.assertEqual(scan.conflict_scan, {"ok": True, "markers": []})
         self.assertEqual(scan.large_files_total, 2)
@@ -97,6 +102,7 @@ class FinalReviewSafetyScanTests(unittest.TestCase):
         self.assertEqual(scan.unsafe_symlink_total, 8)
         self.assertEqual(scan.unsafe_symlink_reasons, {"points outside project"})
         self.assertEqual(scan.git_operation["message"], "git dir unavailable")
+        self.assertEqual(scan.git_info["ahead"], 1)
 
 
 if __name__ == "__main__":
