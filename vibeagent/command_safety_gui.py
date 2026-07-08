@@ -135,7 +135,7 @@ def powershell_invocation_launches_gui(args: list[str]) -> bool:
     joined = " ".join(args)
     if "url.dll,fileprotocolhandler" in joined:
         return True
-    launchers = {"start-process", "invoke-item", "ii", "explorer", "explorer.exe"}
+    launchers = {"start-process", "saps", "invoke-item", "ii", "explorer", "explorer.exe"}
     if any(shell_token_basename(token) in launchers for token in args):
         return True
     payload = powershell_command_payload(args)

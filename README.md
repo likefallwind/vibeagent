@@ -1209,7 +1209,7 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   `open -a Finder .`, or `explorer.exe .`, GUI app launchers like
   `code .`, `sensible-browser ...`, or `firefox ...`, and common indirect launch forms through `cmd.exe`,
   `cmd /s /c start ...`, `start`, `rundll32
-  url.dll,FileProtocolHandler`, PowerShell `start .`/`Start-Process`,
+  url.dll,FileProtocolHandler`, PowerShell `start .`/`Start-Process`/`saps`,
   `python -m webbrowser`,
   `webbrowser.open`, `webbrowser.get().open`, `os.startfile`, `os.system`,
   `os.popen`, `os.spawn*`, `os.exec*`, `os.posix_spawn*`,

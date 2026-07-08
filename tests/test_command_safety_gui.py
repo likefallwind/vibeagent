@@ -19,6 +19,15 @@ class CommandSafetyGuiTests(unittest.TestCase):
     def test_allows_non_gui_powershell_start_prefixed_commands(self) -> None:
         self.assertIsNone(get_blocked_command_reason("powershell -Command start-sleep 1"))
 
+    def test_blocks_powershell_start_process_alias_for_gui_targets(self) -> None:
+        commands = [
+            "powershell -Command saps .",
+            "pwsh -Command saps http://127.0.0.1:5173",
+        ]
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertIn("GUI application launch", get_blocked_command_reason(command) or "")
+
 
 if __name__ == "__main__":
     unittest.main()
