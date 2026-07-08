@@ -4,10 +4,6 @@ from vibeagent.command_checkpoint_parsing import parse_checkpoint_local_command
 from vibeagent.command_parsing import LocalCommand, parse_local_command
 
 
-def make_local_command(command_type: str, argument: str | None = None) -> LocalCommand:
-    return LocalCommand(type=command_type, argument=argument)  # type: ignore[arg-type]
-
-
 class CommandCheckpointParsingTests(unittest.TestCase):
     def test_checkpoint_parser_recognizes_checkpoint_commands(self) -> None:
         cases = {
@@ -27,12 +23,12 @@ class CommandCheckpointParsingTests(unittest.TestCase):
 
         for raw, expected in cases.items():
             with self.subTest(raw=raw):
-                self.assertEqual(parse_checkpoint_local_command(raw, make_local_command), expected)
+                self.assertEqual(parse_checkpoint_local_command(raw), expected)
                 self.assertEqual(parse_local_command(raw), expected)
 
     def test_checkpoint_parser_ignores_other_commands(self) -> None:
-        self.assertIsNone(parse_checkpoint_local_command("/session run-1", make_local_command))
-        self.assertIsNone(parse_checkpoint_local_command("checkpoint", make_local_command))
+        self.assertIsNone(parse_checkpoint_local_command("/session run-1"))
+        self.assertIsNone(parse_checkpoint_local_command("checkpoint"))
 
 
 if __name__ == "__main__":
