@@ -4,6 +4,7 @@ import shlex
 
 from .command_checkpoint_parsing import parse_checkpoint_local_command
 from .command_code_intel_parsing import parse_code_intel_local_command
+from .command_core_parsing import parse_core_local_command
 from .command_file_edit_parsing import parse_file_edit_local_command
 from .command_git_parsing import parse_git_local_command
 from .command_inspection_parsing import parse_inspection_local_command
@@ -18,14 +19,9 @@ from .command_types import LocalCommand, make_local_command
 def parse_local_command(value: str) -> LocalCommand | None:
     # Recognize slash commands before sending anything to the model.
     trimmed = value.strip()
-    if trimmed == "/exit":
-        return LocalCommand(type="exit")
-    if trimmed == "/help":
-        return LocalCommand(type="help")
-    if trimmed == "/model":
-        return LocalCommand(type="model")
-    if trimmed == "/config":
-        return LocalCommand(type="config")
+    core_command = parse_core_local_command(trimmed)
+    if core_command is not None:
+        return core_command
     runtime_command = parse_runtime_local_command(trimmed)
     if runtime_command is not None:
         return runtime_command
@@ -50,28 +46,12 @@ def parse_local_command(value: str) -> LocalCommand | None:
     review_command = parse_review_local_command(trimmed)
     if review_command is not None:
         return review_command
-    if trimmed == "/clear":
-        return LocalCommand(type="clear")
-    if trimmed == "/usage":
-        return LocalCommand(type="usage")
-    if trimmed == "/cost":
-        return LocalCommand(type="cost")
-    if trimmed == "/approval" or trimmed.startswith("/approval "):
-        return LocalCommand(type="approval", argument=trimmed[9:].strip() or None)
     session_command = parse_session_local_command(trimmed)
     if session_command is not None:
         return session_command
     checkpoint_command = parse_checkpoint_local_command(trimmed)
     if checkpoint_command is not None:
         return checkpoint_command
-    if trimmed == "/resume" or trimmed.startswith("/resume "):
-        return LocalCommand(type="resume", argument=trimmed[8:].strip() or None)
-    if trimmed == "/compact" or trimmed.startswith("/compact "):
-        return LocalCommand(type="compact", argument=trimmed[9:].strip() or None)
-    if trimmed == "/chat" or trimmed.startswith("/chat "):
-        return LocalCommand(type="chat", argument=trimmed[5:].strip() or None)
-    if trimmed == "/code" or trimmed.startswith("/code "):
-        return LocalCommand(type="code", argument=trimmed[5:].strip() or None)
     return None
 
 def parse_local_path_args(argument: str | list[str] | None, max_paths: int) -> list[str]:
