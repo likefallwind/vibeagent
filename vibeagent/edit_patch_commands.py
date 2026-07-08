@@ -4,9 +4,6 @@ from pathlib import Path
 import sys
 
 from .actions import execute_action as _default_execute_action
-from .edit_command_parsing import (
-    parse_regex_replace_argument,
-)
 from .edit_executable_commands import (
     format_executable_observation,
     format_executable_report_text,
@@ -17,15 +14,21 @@ from .edit_executable_commands import (
     serialize_executable_report,
 )
 from .edit_patch_report_helpers import get_patch_command_report, get_patches_command_report
+from .edit_regex_commands import (
+    format_regex_replace_observation,
+    format_regex_replace_report_text,
+    get_check_regex_replace_report,
+    get_check_regex_replace_text,
+    get_regex_replace_report,
+    get_regex_replace_text,
+    serialize_regex_replace_report,
+)
 from .types import (
     CheckPatchAction,
     CheckPatchesAction,
-    CheckRegexReplaceAction,
     PatchFileAction,
     PatchFilesAction,
-    RegexReplaceAction,
 )
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -257,7 +260,6 @@ def format_patch_report_text(title: str, report: dict[str, object]) -> str:
             lines.append(f"    {diff_line}")
     return "\n".join(lines)
 
-
 def format_patches_observation(title: str, root: Path, observation: object) -> str:
     return format_patches_report_text(title, serialize_patches_report(root, observation))
 
@@ -292,202 +294,6 @@ def format_patches_report_text(title: str, report: dict[str, object]) -> str:
         lines.append("  paths:")
         for file_path in files:
             lines.append(f"    - {file_path}")
-    diff_report = report.get("diff") if isinstance(report.get("diff"), dict) else {}
-    diff = str(diff_report.get("text") or "")
-    if diff:
-        lines.append("  diff:")
-        for diff_line in diff.splitlines():
-            lines.append(f"    {diff_line}")
-    return "\n".join(lines)
-
-
-def get_check_regex_replace_text(
-    project_root: str | Path = ".",
-    argument: str | None = None,
-    *,
-    path: str | None = None,
-    pattern: str | None = None,
-    replacement: str | None = None,
-    count: int = 0,
-    case_sensitive: bool = True,
-    multiline: bool = False,
-    max_replacements: int = 100,
-) -> str:
-    return format_regex_replace_report_text(
-        "Check regex replace:",
-        get_check_regex_replace_report(
-            project_root,
-            argument,
-            path=path,
-            pattern=pattern,
-            replacement=replacement,
-            count=count,
-            case_sensitive=case_sensitive,
-            multiline=multiline,
-            max_replacements=max_replacements,
-        ),
-    )
-
-
-def get_check_regex_replace_report(
-    project_root: str | Path = ".",
-    argument: str | None = None,
-    *,
-    path: str | None = None,
-    pattern: str | None = None,
-    replacement: str | None = None,
-    count: int = 0,
-    case_sensitive: bool = True,
-    multiline: bool = False,
-    max_replacements: int = 100,
-) -> dict[str, object]:
-    root = Path(project_root).resolve()
-    try:
-        parsed = parse_regex_replace_argument(
-            argument,
-            path=path,
-            pattern=pattern,
-            replacement=replacement,
-            count=count,
-            case_sensitive=case_sensitive,
-            multiline=multiline,
-            max_replacements=max_replacements,
-            usage="/check-regex-replace [opts] <path> <pattern> <replacement>",
-        )
-    except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_regex_replace",
-            "ok": False,
-            "path": path or "",
-            "pattern": pattern or "",
-            "replacement": replacement or "",
-            "count": count,
-            "caseSensitive": bool(case_sensitive),
-            "multiline": bool(multiline),
-            "maxReplacements": max_replacements,
-            "replacements": 0,
-            "message": f"Usage: /check-regex-replace [--ignore-case] [--multiline] [--count N] [--max-replacements N] <path> <pattern> <replacement>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
-    workspace = RunWorkspace(root=root, run_id="local-check-regex-replace", session_dir=root / ".vibeagent" / "sessions" / "local-check-regex-replace")
-    observation = _execute_action(workspace, CheckRegexReplaceAction(type="check_regex_replace", **parsed))
-    return serialize_regex_replace_report(root, observation, parsed)
-
-
-def get_regex_replace_text(
-    project_root: str | Path = ".",
-    argument: str | None = None,
-    *,
-    path: str | None = None,
-    pattern: str | None = None,
-    replacement: str | None = None,
-    count: int = 0,
-    case_sensitive: bool = True,
-    multiline: bool = False,
-    max_replacements: int = 100,
-) -> str:
-    get_report = _commands_attr("get_regex_replace_report", get_regex_replace_report)
-    formatter = _commands_attr("format_regex_replace_report_text", format_regex_replace_report_text)
-    return formatter(
-        "Regex replace:",
-        get_report(
-            project_root,
-            argument,
-            path=path,
-            pattern=pattern,
-            replacement=replacement,
-            count=count,
-            case_sensitive=case_sensitive,
-            multiline=multiline,
-            max_replacements=max_replacements,
-        ),
-    )
-
-def get_regex_replace_report(
-    project_root: str | Path = ".",
-    argument: str | None = None,
-    *,
-    path: str | None = None,
-    pattern: str | None = None,
-    replacement: str | None = None,
-    count: int = 0,
-    case_sensitive: bool = True,
-    multiline: bool = False,
-    max_replacements: int = 100,
-) -> dict[str, object]:
-    root = Path(project_root).resolve()
-    try:
-        parsed = parse_regex_replace_argument(
-            argument,
-            path=path,
-            pattern=pattern,
-            replacement=replacement,
-            count=count,
-            case_sensitive=case_sensitive,
-            multiline=multiline,
-            max_replacements=max_replacements,
-            usage="/regex-replace [opts] <path> <pattern> <replacement>",
-        )
-    except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "regex_replace",
-            "ok": False,
-            "path": path or "",
-            "pattern": pattern or "",
-            "replacement": replacement or "",
-            "count": count,
-            "caseSensitive": bool(case_sensitive),
-            "multiline": bool(multiline),
-            "maxReplacements": max_replacements,
-            "replacements": 0,
-            "message": f"Usage: /regex-replace [--ignore-case] [--multiline] [--count N] [--max-replacements N] <path> <pattern> <replacement>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
-    workspace = RunWorkspace(root=root, run_id="local-regex-replace", session_dir=root / ".vibeagent" / "sessions" / "local-regex-replace")
-    observation = _execute_action(workspace, RegexReplaceAction(type="regex_replace", **parsed))
-    return serialize_regex_replace_report(root, observation, parsed)
-
-
-def format_regex_replace_observation(title: str, root: Path, observation: object) -> str:
-    return format_regex_replace_report_text(title, serialize_regex_replace_report(root, observation))
-
-
-def serialize_regex_replace_report(root: Path, observation: object, parsed: dict[str, object] | None = None) -> dict[str, object]:
-    parsed = parsed or {}
-    diff = str(getattr(observation, "diff", "") or "")
-    return {
-        "projectRoot": str(root),
-        "kind": str(getattr(observation, "kind", "") or ""),
-        "ok": bool(getattr(observation, "ok", False)),
-        "path": str(getattr(observation, "path", "") or ""),
-        "pattern": str(getattr(observation, "pattern", "") or ""),
-        "replacement": str(parsed.get("replacement", "") or ""),
-        "count": int(getattr(observation, "count", 0) or 0),
-        "caseSensitive": bool(parsed.get("case_sensitive", True)),
-        "multiline": bool(parsed.get("multiline", False)),
-        "maxReplacements": int(parsed.get("max_replacements", 0) or 0),
-        "replacements": int(getattr(observation, "replacements", 0) or 0),
-        "message": str(getattr(observation, "message", "") or ""),
-        "diff": {"text": diff, "lines": diff.splitlines(), "lineCount": len(diff.splitlines())},
-    }
-
-
-def format_regex_replace_report_text(title: str, report: dict[str, object]) -> str:
-    message = str(report.get("message") or "")
-    if message.startswith("Usage:"):
-        return message
-    lines = [
-        title,
-        f"  projectRoot: {report.get('projectRoot') or '.'}",
-        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
-        f"  path: {report.get('path') or ''}",
-        f"  pattern: {report.get('pattern') or ''}",
-        f"  count: {report.get('count') or 0}",
-        f"  replacements: {report.get('replacements') or 0}",
-        f"  message: {message}",
-    ]
     diff_report = report.get("diff") if isinstance(report.get("diff"), dict) else {}
     diff = str(diff_report.get("text") or "")
     if diff:
