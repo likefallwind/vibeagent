@@ -3,19 +3,9 @@ from __future__ import annotations
 from .final_review_actions import (
     FINAL_REVIEW_LARGE_FILE_BYTES,
     FINAL_REVIEW_SECRET_SCAN_BYTES,
-    final_review_scan_file_items,
-    find_large_changed_files,
-    find_secret_like_changed_files,
-    find_secret_like_git_diff_additions,
-)
-from .final_review_git_safety import (
-    find_changed_gitlinks,
-    find_hidden_tracked_git_changes,
-    find_nested_git_repositories,
-    find_unsafe_changed_symlinks,
-    read_git_operation_state,
 )
 from .final_review_readiness import FinalReviewReadinessInputs, build_final_review_readiness
+from .final_review_safety_scan import collect_final_review_safety_scan
 from .process_runtime import list_background_processes
 from .types import (
     AgentAction,
@@ -32,7 +22,7 @@ from .types import (
     SuggestedCheck,
     UntrackedFilePreview,
 )
-from .workspace import RunWorkspace, read_git_conflicts, review_project_changes, suggest_focused_test_commands, suggest_project_checks
+from .workspace import RunWorkspace, review_project_changes, suggest_focused_test_commands, suggest_project_checks
 
 
 def execute_final_review_action(workspace: RunWorkspace, action: AgentAction) -> Observation | None:
@@ -189,30 +179,12 @@ def final_review_observation(workspace: RunWorkspace, action: FinalReviewAction)
     else:
         focused_test_warning = ""
     running_processes = [process for process in list_background_processes(workspace.root).processes if process.running]
-    conflict_scan = read_git_conflicts(workspace, max_markers=20, max_files=5000)
-    review_scan_files = final_review_scan_file_items(workspace, list(review["files"]))
-    large_files, large_files_total = find_large_changed_files(
-        workspace,
-        review_scan_files,
-        max_bytes=FINAL_REVIEW_LARGE_FILE_BYTES,
-    )
-    secret_findings, secret_findings_total, secret_scan_truncated = find_secret_like_changed_files(
-        workspace,
-        review_scan_files,
-        max_bytes=FINAL_REVIEW_SECRET_SCAN_BYTES,
-    )
-    secret_diff_findings, secret_diff_findings_total, secret_diff_truncated, secret_diff_warnings = find_secret_like_git_diff_additions(
-        workspace,
-        max_bytes=FINAL_REVIEW_SECRET_SCAN_BYTES,
-    )
-    nested_git_repos, nested_git_repo_total = find_nested_git_repositories(workspace)
-    changed_gitlinks, changed_gitlink_total, changed_gitlink_warnings = find_changed_gitlinks(workspace)
-    hidden_git_changes, hidden_git_change_total, hidden_git_change_warnings = find_hidden_tracked_git_changes(workspace)
-    unsafe_symlinks, unsafe_symlink_total, unsafe_symlink_warnings, unsafe_symlink_reasons = find_unsafe_changed_symlinks(
+    safety_scan = collect_final_review_safety_scan(
         workspace,
         list(review["files"]),
+        large_file_bytes=FINAL_REVIEW_LARGE_FILE_BYTES,
+        secret_scan_bytes=FINAL_REVIEW_SECRET_SCAN_BYTES,
     )
-    git_operation = read_git_operation_state(workspace)
     total_files = int(review["total_files"])
     readiness = build_final_review_readiness(
         workspace,
@@ -231,29 +203,29 @@ def final_review_observation(workspace: RunWorkspace, action: FinalReviewAction)
             focused_test_commands_truncated=focused_test_commands_truncated,
             focused_test_warning=focused_test_warning,
             running_processes=running_processes,
-            conflict_scan=conflict_scan,
-            large_files=large_files,
-            large_files_total=large_files_total,
-            secret_findings=secret_findings,
-            secret_findings_total=secret_findings_total,
-            secret_scan_truncated=secret_scan_truncated,
-            secret_diff_findings=secret_diff_findings,
-            secret_diff_findings_total=secret_diff_findings_total,
-            secret_diff_truncated=secret_diff_truncated,
-            secret_diff_warnings=secret_diff_warnings,
-            nested_git_repos=nested_git_repos,
-            nested_git_repo_total=nested_git_repo_total,
-            changed_gitlinks=changed_gitlinks,
-            changed_gitlink_total=changed_gitlink_total,
-            changed_gitlink_warnings=changed_gitlink_warnings,
-            hidden_git_changes=hidden_git_changes,
-            hidden_git_change_total=hidden_git_change_total,
-            hidden_git_change_warnings=hidden_git_change_warnings,
-            unsafe_symlinks=unsafe_symlinks,
-            unsafe_symlink_total=unsafe_symlink_total,
-            unsafe_symlink_warnings=unsafe_symlink_warnings,
-            unsafe_symlink_reasons=unsafe_symlink_reasons,
-            git_operation=git_operation,
+            conflict_scan=safety_scan.conflict_scan,
+            large_files=safety_scan.large_files,
+            large_files_total=safety_scan.large_files_total,
+            secret_findings=safety_scan.secret_findings,
+            secret_findings_total=safety_scan.secret_findings_total,
+            secret_scan_truncated=safety_scan.secret_scan_truncated,
+            secret_diff_findings=safety_scan.secret_diff_findings,
+            secret_diff_findings_total=safety_scan.secret_diff_findings_total,
+            secret_diff_truncated=safety_scan.secret_diff_truncated,
+            secret_diff_warnings=safety_scan.secret_diff_warnings,
+            nested_git_repos=safety_scan.nested_git_repos,
+            nested_git_repo_total=safety_scan.nested_git_repo_total,
+            changed_gitlinks=safety_scan.changed_gitlinks,
+            changed_gitlink_total=safety_scan.changed_gitlink_total,
+            changed_gitlink_warnings=safety_scan.changed_gitlink_warnings,
+            hidden_git_changes=safety_scan.hidden_git_changes,
+            hidden_git_change_total=safety_scan.hidden_git_change_total,
+            hidden_git_change_warnings=safety_scan.hidden_git_change_warnings,
+            unsafe_symlinks=safety_scan.unsafe_symlinks,
+            unsafe_symlink_total=safety_scan.unsafe_symlink_total,
+            unsafe_symlink_warnings=safety_scan.unsafe_symlink_warnings,
+            unsafe_symlink_reasons=safety_scan.unsafe_symlink_reasons,
+            git_operation=safety_scan.git_operation,
         ),
     )
     blocking_issues = readiness.blocking_issues

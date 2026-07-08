@@ -171,7 +171,7 @@ def secret_like_assignment_is_high_confidence(name: object, value: object) -> bo
         return True
     normalized_name = name.upper().replace("-", "_")
     normalized_value = value.lower()
-    if normalized_name.endswith(("_PATH", "_TRUNCATED", "_WARNINGS", "_TOKENS")):
+    if normalized_name.endswith(("_PATH", "_TRUNCATED", "_WARNINGS", "_TOKENS", "_FINDINGS", "_TOTAL")):
         return False
     if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
         return False

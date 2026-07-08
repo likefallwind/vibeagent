@@ -3936,7 +3936,7 @@ class ActionTests(unittest.TestCase):
             workspace = create_run_workspace(root, "test-run")
 
             with patch(
-                "vibeagent.final_review_action_executor.read_git_conflicts",
+                "vibeagent.final_review_safety_scan.read_git_conflicts",
                 return_value={
                     "ok": True,
                     "unmerged": [],
@@ -3962,7 +3962,7 @@ class ActionTests(unittest.TestCase):
             workspace = create_run_workspace(root, "test-run")
 
             with patch(
-                "vibeagent.final_review_action_executor.read_git_conflicts",
+                "vibeagent.final_review_safety_scan.read_git_conflicts",
                 return_value={
                     "ok": False,
                     "unmerged": [],
@@ -4187,7 +4187,7 @@ class ActionTests(unittest.TestCase):
             write_run_file(workspace, "app.py", "VALUE = 1\n")
 
             with patch(
-                "vibeagent.final_review_action_executor.find_secret_like_git_diff_additions",
+                "vibeagent.final_review_safety_scan.find_secret_like_git_diff_additions",
                 return_value=([], 0, False, ["git diff failed"]),
             ):
                 observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=5))
@@ -4267,7 +4267,7 @@ class ActionTests(unittest.TestCase):
             workspace = create_run_workspace(root, "test-run")
             write_run_file(workspace, "app.py", "VALUE = 1\n")
 
-            with patch("vibeagent.final_review_action_executor.find_changed_gitlinks", return_value=([], 0, ["git diff --raw failed"])):
+            with patch("vibeagent.final_review_safety_scan.find_changed_gitlinks", return_value=([], 0, ["git diff --raw failed"])):
                 observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=5))
 
         self.assertEqual(observation.kind, "final_review")
@@ -4363,7 +4363,7 @@ class ActionTests(unittest.TestCase):
             workspace = create_run_workspace(root, "test-run")
             write_run_file(workspace, "app.py", "VALUE = 1\n")
 
-            with patch("vibeagent.final_review_action_executor.find_hidden_tracked_git_changes", return_value=([], 0, ["git status failed"])):
+            with patch("vibeagent.final_review_safety_scan.find_hidden_tracked_git_changes", return_value=([], 0, ["git status failed"])):
                 observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=5))
 
         self.assertEqual(observation.kind, "final_review")
@@ -4380,7 +4380,7 @@ class ActionTests(unittest.TestCase):
             write_run_file(workspace, "app.py", "VALUE = 1\n")
 
             with patch(
-                "vibeagent.final_review_action_executor.find_unsafe_changed_symlinks",
+                "vibeagent.final_review_safety_scan.find_unsafe_changed_symlinks",
                 return_value=([], 0, ["git diff --raw failed"], set()),
             ):
                 observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=5))
@@ -4440,7 +4440,7 @@ class ActionTests(unittest.TestCase):
             write_run_file(workspace, "app.py", "VALUE = 1\n")
 
             with patch(
-                "vibeagent.final_review_action_executor.read_git_operation_state",
+                "vibeagent.final_review_safety_scan.read_git_operation_state",
                 return_value={"ok": False, "operations": [], "message": "git dir unavailable"},
             ):
                 observation = execute_action(workspace, FinalReviewAction(type="final_review", max_files=5, max_checks=5))
