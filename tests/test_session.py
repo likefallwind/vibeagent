@@ -1247,6 +1247,83 @@ class SessionTests(unittest.TestCase):
         self.assertNotIn("denied approval(s)", audit)
         self.assertEqual(report["blockers"]["items"], [])
 
+    def test_session_audit_treats_completion_ready_as_resolved_final_review(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(
+                root,
+                "run-recovered-review",
+                [
+                    {"type": "task", "task": "Resume and verify."},
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "write_file",
+                        "result": {
+                            "kind": "write_file",
+                            "path": "src/app.py",
+                            "ok": True,
+                            "message": "Wrote src/app.py.",
+                        },
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 2,
+                        "name": "final_review",
+                        "result": {
+                            "kind": "final_review",
+                            "ok": True,
+                            "ready": False,
+                            "blocking_issues": [
+                                "Suggested verification checks are still pending after the latest project change."
+                            ],
+                            "warnings": [],
+                            "files": [{"path": "src/app.py", "status": "M"}],
+                            "total_files": 1,
+                            "suggested_checks": [
+                                {
+                                    "command": "python -m unittest discover -s tests",
+                                    "cwd": ".",
+                                    "source": "tests",
+                                    "reason": "unit tests",
+                                    "available": True,
+                                    "missing_tool": None,
+                                }
+                            ],
+                            "suggested_checks_total": 1,
+                            "message": "Needs verification.",
+                        },
+                    },
+                    {
+                        "type": "result",
+                        "success": True,
+                        "status": "completed",
+                        "iterations": 3,
+                        "message": "Recovered.",
+                        "completion_ready": True,
+                        "completion_blockers": [],
+                        "verification_checks": ["python -m unittest discover -s tests"],
+                        "pending_verification_checks": [],
+                        "failed_verification_checks": [],
+                    },
+                ],
+            )
+
+            summary = summarize_session(root, "run-recovered-review")
+            audit = format_session_audit(root, "run-recovered-review")
+            handoff = format_session_handoff(root, "run-recovered-review")
+            report = build_session_audit_report(root, "run-recovered-review")
+
+        self.assertTrue(summary.completed)
+        self.assertTrue(summary.completion_ready)
+        self.assertFalse(summary.final_review_ready)
+        self.assertIn("ready: yes", audit)
+        self.assertIn("status: ready", audit)
+        self.assertIn("ready: yes", handoff)
+        self.assertNotIn("final review is not ready", audit)
+        self.assertNotIn("final review is not ready", handoff)
+        self.assertEqual(report["blockers"]["items"], [])
+
     def test_session_readiness_blocks_incomplete_session_without_failures(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
             root = Path(base)

@@ -129,7 +129,7 @@ def session_audit_blockers(
         blockers.append(f"{len(failures)} failure event(s)")
     if checkpoint_failures:
         blockers.append(f"{checkpoint_failures} checkpoint creation failure(s); restore point may be unavailable")
-    if summary.final_review_seen and summary.final_review_ready is False:
+    if summary.final_review_seen and summary.final_review_ready is False and summary.completion_ready is not True:
         blockers.append("final review is not ready")
     if not summary.final_review_seen and files:
         blockers.append("changed files exist but final_review has not run")
