@@ -5,7 +5,7 @@ import shlex
 
 from .actions import execute_action
 from .command_parsing import parse_local_path_args
-from .types import CheckGitCommitAction, CheckGitFetchAction, CheckGitPullAction, CheckGitPushAction, CheckGitRestoreAction, CheckGitSwitchAction, GitCommitAction, GitFetchAction, GitPullAction, GitPushAction, GitRestoreAction, GitSwitchAction
+from .types import CheckGitFetchAction, CheckGitPullAction, CheckGitPushAction, CheckGitRestoreAction, CheckGitSwitchAction, GitFetchAction, GitPullAction, GitPushAction, GitRestoreAction, GitSwitchAction
 from .workspace_core import RunWorkspace
 
 
@@ -71,6 +71,12 @@ from .git_index_commands import (
     get_unstage_report,
     get_unstage_text,
 )
+from .git_commit_commands import (
+    get_check_commit_report,
+    get_check_commit_text,
+    get_commit_report,
+    get_commit_text,
+)
 from .git_local_report_helpers import (
     format_check_switch_text,
     format_git_commit_report_text,
@@ -81,9 +87,6 @@ from .git_local_report_helpers import (
     format_git_restore_text,
     format_git_switch_report_text,
     format_switch_text,
-    git_commit_observation_report as _git_commit_observation_report,
-    git_commit_unexpected_report as _git_commit_unexpected_report,
-    git_commit_usage_report as _git_commit_usage_report,
     git_restore_observation_report as _git_restore_observation_report,
     git_restore_unexpected_report as _git_restore_unexpected_report,
     git_restore_usage_report as _git_restore_usage_report,
@@ -133,48 +136,6 @@ def get_check_push_text(project_root: str | Path = ".") -> str:
 
 def get_push_text(project_root: str | Path = ".") -> str:
     return format_git_push_report_text("Push", get_push_report(project_root))
-
-
-def get_check_commit_text(project_root: str | Path = ".", argument: str | None = None) -> str:
-    report = get_check_commit_report(project_root, argument)
-    return format_git_commit_report_text("Check commit", report)
-
-
-def get_check_commit_report(project_root: str | Path = ".", argument: str | None = None) -> dict[str, object]:
-    message = (argument or "").strip()
-    root = Path(project_root).resolve()
-    if not message:
-        return _git_commit_usage_report(root, "/check-commit <message>", "message is required.")
-
-    workspace = RunWorkspace(root=root, run_id="local-check-commit", session_dir=root / ".vibeagent" / "sessions" / "local-check-commit")
-    observation = execute_action(
-        workspace,
-        CheckGitCommitAction(type="check_git_commit", message=message),
-    )
-    if observation.kind != "check_git_commit":
-        return _git_commit_unexpected_report(root, f"Unexpected observation: {observation.kind}")
-    return _git_commit_observation_report(root, observation)
-
-
-def get_commit_text(project_root: str | Path = ".", argument: str | None = None) -> str:
-    report = get_commit_report(project_root, argument)
-    return format_git_commit_report_text("Commit", report)
-
-
-def get_commit_report(project_root: str | Path = ".", argument: str | None = None) -> dict[str, object]:
-    message = (argument or "").strip()
-    root = Path(project_root).resolve()
-    if not message:
-        return _git_commit_usage_report(root, "/commit <message>", "message is required.")
-
-    workspace = RunWorkspace(root=root, run_id="local-commit", session_dir=root / ".vibeagent" / "sessions" / "local-commit")
-    observation = execute_action(
-        workspace,
-        GitCommitAction(type="git_commit", message=message),
-    )
-    if observation.kind != "git_commit":
-        return _git_commit_unexpected_report(root, f"Unexpected observation: {observation.kind}")
-    return _git_commit_observation_report(root, observation)
 
 
 def get_check_restore_text(project_root: str | Path = ".", argument: str | list[str] | None = None, max_diff_chars: int = 12_000) -> str:
