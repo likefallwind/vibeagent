@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from vibeagent import smart_code_commands, smart_python_check_commands, smart_python_commands, smart_python_symbols
+from vibeagent import smart_code_commands, smart_python_check_commands, smart_python_commands, smart_python_edit_commands, smart_python_symbols
 
 
 class SmartPythonCommandsTests(unittest.TestCase):
@@ -62,6 +62,25 @@ class SmartPythonCommandsTests(unittest.TestCase):
         for name in names:
             with self.subTest(name=name):
                 self.assertIs(getattr(smart_python_commands, name), getattr(smart_python_check_commands, name))
+
+    def test_smart_python_commands_reexports_edit_commands(self) -> None:
+        names = [
+            "get_python_rename_preview_text",
+            "get_python_rename_preview_report",
+            "get_python_rename_text",
+            "get_python_rename_report",
+            "get_check_replace_python_definition_text",
+            "get_check_replace_python_definition_report",
+            "get_replace_python_definition_text",
+            "get_replace_python_definition_report",
+            "format_replace_python_definition_report_text",
+            "format_replace_python_definition_observation",
+            "format_python_rename_report_text",
+            "format_python_rename_observation",
+        ]
+        for name in names:
+            with self.subTest(name=name):
+                self.assertIs(getattr(smart_python_commands, name), getattr(smart_python_edit_commands, name))
 
     def test_smart_python_check_text_helpers_resolve_compatibility_patch_targets(self) -> None:
         check_report = {"message": "patched check"}
