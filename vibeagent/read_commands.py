@@ -3,8 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from .actions import execute_action
-from .command_parsing import parse_local_path_args
-from .read_command_parsing import parse_around_many_argument, parse_around_request, parse_read_ranges_argument, parse_read_request, parse_tail_request, serialize_context_result, serialize_read_range_result, serialize_read_result
+from .read_batch_commands import (
+    get_read_files_report,
+    get_read_files_text,
+    get_read_ranges_report,
+    get_read_ranges_text,
+)
+from .read_command_parsing import parse_around_many_argument, parse_around_request, parse_read_request, parse_tail_request, serialize_context_result
 from .read_report_helpers import (
     format_around_many_report_text,
     format_around_report_text,
@@ -14,7 +19,7 @@ from .read_report_helpers import (
     format_tail_report_text,
     indent_block as _indent_block,
 )
-from .types import ReadFileAction, ReadFileContextAction, ReadFileContextsAction, ReadFileRangesAction, ReadFilesAction, TailFileAction
+from .types import ReadFileAction, ReadFileContextAction, ReadFileContextsAction, TailFileAction
 from .workspace_core import RunWorkspace
 
 
@@ -353,173 +358,5 @@ def get_around_many_report(
         "ok": ok_count == len(items),
         "contexts": {"ok": ok_count, "total": len(items), "items": items},
         "maxBytesPerContext": max_bytes_per_context,
-        "message": observation.message,
-    }
-
-
-def get_read_files_text(
-    project_root: str | Path = ".",
-    argument: str | list[str] | None = None,
-    max_bytes_per_file: int = 20_000,
-    show_line_numbers: bool = False,
-) -> str:
-    return format_read_files_report_text(
-        get_read_files_report(
-            project_root,
-            argument,
-            max_bytes_per_file=max_bytes_per_file,
-            show_line_numbers=show_line_numbers,
-        )
-    )
-
-
-def get_read_files_report(
-    project_root: str | Path = ".",
-    argument: str | list[str] | None = None,
-    max_bytes_per_file: int = 20_000,
-    show_line_numbers: bool = False,
-) -> dict[str, object]:
-    root = Path(project_root).resolve()
-    if max_bytes_per_file < 1_000:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "files": {"ok": 0, "total": 0, "items": []},
-            "maxBytesPerFile": max_bytes_per_file,
-            "showLineNumbers": show_line_numbers,
-            "message": "Usage: /read-files <path...>\nError: max_bytes_per_file must be at least 1000.",
-        }
-    if max_bytes_per_file > 200_000:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "files": {"ok": 0, "total": 0, "items": []},
-            "maxBytesPerFile": max_bytes_per_file,
-            "showLineNumbers": show_line_numbers,
-            "message": "Usage: /read-files <path...>\nError: max_bytes_per_file must be at most 200000.",
-        }
-    try:
-        paths = parse_local_path_args(argument, max_paths=20)
-    except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "files": {"ok": 0, "total": 0, "items": []},
-            "maxBytesPerFile": max_bytes_per_file,
-            "showLineNumbers": show_line_numbers,
-            "message": f"Usage: /read-files <path...>\nError: {error}",
-        }
-    if not paths:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "files": {"ok": 0, "total": 0, "items": []},
-            "maxBytesPerFile": max_bytes_per_file,
-            "showLineNumbers": show_line_numbers,
-            "message": "Usage: /read-files <path...>",
-        }
-
-    workspace = RunWorkspace(root=root, run_id="local-read-files", session_dir=root / ".vibeagent" / "sessions" / "local-read-files")
-    observation = execute_action(
-        workspace,
-        ReadFilesAction(
-            type="read_files",
-            paths=paths,
-            max_bytes_per_file=max_bytes_per_file,
-            show_line_numbers=show_line_numbers,
-        ),
-    )
-    if observation.kind != "read_files":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "files": {"ok": 0, "total": len(paths), "items": []},
-            "maxBytesPerFile": max_bytes_per_file,
-            "showLineNumbers": show_line_numbers,
-            "message": f"Unexpected observation: {observation.kind}",
-        }
-    items = [serialize_read_result(item) for item in observation.files]
-    ok_count = sum(1 for item in items if bool(item["ok"]))
-    return {
-        "projectRoot": str(root),
-        "ok": ok_count == len(items),
-        "files": {"ok": ok_count, "total": len(items), "items": items},
-        "maxBytesPerFile": max_bytes_per_file,
-        "showLineNumbers": show_line_numbers,
-        "message": observation.message,
-    }
-
-
-def get_read_ranges_text(
-    project_root: str | Path = ".",
-    argument: str | list[str] | None = None,
-    max_bytes_per_range: int = 20_000,
-) -> str:
-    return format_read_ranges_report_text(
-        get_read_ranges_report(project_root, argument, max_bytes_per_range=max_bytes_per_range)
-    )
-
-
-def get_read_ranges_report(
-    project_root: str | Path = ".",
-    argument: str | list[str] | None = None,
-    max_bytes_per_range: int = 20_000,
-) -> dict[str, object]:
-    root = Path(project_root).resolve()
-    if max_bytes_per_range < 1_000:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "ranges": {"ok": 0, "total": 0, "items": []},
-            "maxBytesPerRange": max_bytes_per_range,
-            "message": "Usage: /read-ranges <path:start[:end]...>\nError: max_bytes_per_range must be at least 1000.",
-        }
-    if max_bytes_per_range > 200_000:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "ranges": {"ok": 0, "total": 0, "items": []},
-            "maxBytesPerRange": max_bytes_per_range,
-            "message": "Usage: /read-ranges <path:start[:end]...>\nError: max_bytes_per_range must be at most 200000.",
-        }
-    try:
-        ranges = parse_read_ranges_argument(argument)
-    except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "ranges": {"ok": 0, "total": 0, "items": []},
-            "maxBytesPerRange": max_bytes_per_range,
-            "message": f"Usage: /read-ranges <path:start[:end]...>\nError: {error}",
-        }
-    if not ranges:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "ranges": {"ok": 0, "total": 0, "items": []},
-            "maxBytesPerRange": max_bytes_per_range,
-            "message": "Usage: /read-ranges <path:start[:end]...>",
-        }
-
-    workspace = RunWorkspace(root=root, run_id="local-read-ranges", session_dir=root / ".vibeagent" / "sessions" / "local-read-ranges")
-    observation = execute_action(
-        workspace,
-        ReadFileRangesAction(type="read_file_ranges", ranges=ranges, max_bytes_per_range=max_bytes_per_range),
-    )
-    if observation.kind != "read_file_ranges":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "ranges": {"ok": 0, "total": len(ranges), "items": []},
-            "maxBytesPerRange": max_bytes_per_range,
-            "message": f"Unexpected observation: {observation.kind}",
-        }
-    items = [serialize_read_range_result(item) for item in observation.ranges]
-    ok_count = sum(1 for item in items if bool(item["ok"]))
-    return {
-        "projectRoot": str(root),
-        "ok": ok_count == len(items),
-        "ranges": {"ok": ok_count, "total": len(items), "items": items},
-        "maxBytesPerRange": max_bytes_per_range,
         "message": observation.message,
     }
