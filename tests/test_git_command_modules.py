@@ -17,8 +17,24 @@ from vibeagent.git_read_commands import (
     format_log_report_text,
     format_show_report_text,
     get_blame_report,
+    get_blame_text,
     get_git_status_report,
+    get_log_report,
+    get_log_text,
+    get_show_report,
+    get_show_text,
     parse_log_request,
+    parse_show_request,
+)
+from vibeagent.git_history_commands import (
+    get_blame_report as history_get_blame_report,
+    get_blame_text as history_get_blame_text,
+    get_log_report as history_get_log_report,
+    get_log_text as history_get_log_text,
+    get_show_report as history_get_show_report,
+    get_show_text as history_get_show_text,
+    parse_log_request as history_parse_log_request,
+    parse_show_request as history_parse_show_request,
 )
 from vibeagent.git_read_report_helpers import (
     clip,
@@ -94,6 +110,40 @@ class GitCommandModuleTests(unittest.TestCase):
         self.assertIs(git_commands.get_blame_report, get_blame_report)
         self.assertIs(git_commands.format_blame_report_text, format_blame_report_text)
         self.assertIs(git_commands.parse_log_request, parse_log_request)
+
+    def test_git_read_commands_reexports_history_helpers(self) -> None:
+        self.assertIs(get_log_report, history_get_log_report)
+        self.assertIs(get_log_text, history_get_log_text)
+        self.assertIs(get_show_report, history_get_show_report)
+        self.assertIs(get_show_text, history_get_show_text)
+        self.assertIs(get_blame_report, history_get_blame_report)
+        self.assertIs(get_blame_text, history_get_blame_text)
+        self.assertIs(parse_log_request, history_parse_log_request)
+        self.assertIs(parse_show_request, history_parse_show_request)
+
+    def test_git_history_text_helpers_resolve_compatibility_patch_targets(self) -> None:
+        root = Path(".").resolve()
+        log_report = {"ok": True, "message": "log"}
+        show_report = {"ok": True, "message": "show"}
+        blame_report = {"ok": True, "message": "blame"}
+        with (
+            patch("vibeagent.git_commands.get_log_report", return_value=log_report) as get_log,
+            patch("vibeagent.git_commands.format_log_report_text", return_value="log rendered") as format_log,
+            patch("vibeagent.git_commands.get_show_report", return_value=show_report) as get_show,
+            patch("vibeagent.git_commands.format_show_report_text", return_value="show rendered") as format_show,
+            patch("vibeagent.git_commands.get_blame_report", return_value=blame_report) as get_blame,
+            patch("vibeagent.git_commands.format_blame_report_text", return_value="blame rendered") as format_blame,
+        ):
+            self.assertEqual(history_get_log_text(root, "src/app.py", max_count=3), "log rendered")
+            self.assertEqual(history_get_show_text(root, "HEAD src/app.py", max_output_chars=2_000), "show rendered")
+            self.assertEqual(history_get_blame_text(root, "src/app.py", max_output_chars=3_000), "blame rendered")
+
+        get_log.assert_called_once_with(root, "src/app.py", max_count=3)
+        format_log.assert_called_once_with(log_report)
+        get_show.assert_called_once_with(root, "HEAD src/app.py", rev=None, path=None, max_output_chars=2_000)
+        format_show.assert_called_once_with(show_report)
+        get_blame.assert_called_once_with(root, "src/app.py", line_range=None, max_output_chars=3_000)
+        format_blame.assert_called_once_with(blame_report)
 
     def test_git_read_commands_reexports_report_helpers(self) -> None:
         self.assertIs(_clip, clip)
