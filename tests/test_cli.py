@@ -16,6 +16,7 @@ from vibeagent.agent import AgentResult
 from vibeagent.cli import build_approval_handler, format_error, handle_approval_command, main, print_agent_result, prompt_approval
 from vibeagent.cli_local_dispatch import LOCAL_FLAG_HANDLER_NAMES, dispatch_local_flag
 from vibeagent.cli_local_flag_detection import LOCAL_FLAG_ARG_NAMES
+from vibeagent.command_namespace_exports import command_export_names
 from vibeagent.tool_categories import valid_tool_categories
 from vibeagent.tool_search_options import tool_search_approval_choices
 from vibeagent.types import ApprovalRequest, PlanItem, TaskStep
@@ -37,6 +38,11 @@ class CliTests(unittest.TestCase):
         self.assertIn("get_read_text", cli_command_namespace.__all__)
         self.assertIn("format_review_report_text", cli_command_namespace.__all__)
         self.assertIn("parse_local_command", cli_command_namespace.__all__)
+
+    def test_cli_command_namespace_uses_public_command_exports_only(self) -> None:
+        self.assertEqual(command_export_names(commands_module), cli_command_namespace.__all__)
+        self.assertNotIn("format_tool_property", cli_command_namespace.__all__)
+        self.assertNotIn("get_blocked_command_reason", cli_command_namespace.__all__)
 
     def test_dispatch_local_flag_preserves_order_and_handler_signatures(self) -> None:
         args = argparse.Namespace()
