@@ -5,7 +5,7 @@ import shlex
 
 from .actions import execute_action
 from .command_parsing import parse_local_path_args
-from .types import CheckGitCommitAction, CheckGitFetchAction, CheckGitPullAction, CheckGitPushAction, CheckGitRestoreAction, CheckGitStageAction, CheckGitSwitchAction, CheckGitUnstageAction, GitCommitAction, GitFetchAction, GitPullAction, GitPushAction, GitRestoreAction, GitStageAction, GitSwitchAction, GitUnstageAction
+from .types import CheckGitCommitAction, CheckGitFetchAction, CheckGitPullAction, CheckGitPushAction, CheckGitRestoreAction, CheckGitSwitchAction, GitCommitAction, GitFetchAction, GitPullAction, GitPushAction, GitRestoreAction, GitSwitchAction
 from .workspace_core import RunWorkspace
 
 
@@ -61,6 +61,16 @@ from .git_read_commands import (
     parse_log_request,
     parse_show_request,
 )
+from .git_index_commands import (
+    get_check_stage_report,
+    get_check_stage_text,
+    get_check_unstage_report,
+    get_check_unstage_text,
+    get_stage_report,
+    get_stage_text,
+    get_unstage_report,
+    get_unstage_text,
+)
 from .git_local_report_helpers import (
     format_check_switch_text,
     format_git_commit_report_text,
@@ -74,9 +84,6 @@ from .git_local_report_helpers import (
     git_commit_observation_report as _git_commit_observation_report,
     git_commit_unexpected_report as _git_commit_unexpected_report,
     git_commit_usage_report as _git_commit_usage_report,
-    git_index_observation_report as _git_index_observation_report,
-    git_index_unexpected_report as _git_index_unexpected_report,
-    git_index_usage_report as _git_index_usage_report,
     git_restore_observation_report as _git_restore_observation_report,
     git_restore_unexpected_report as _git_restore_unexpected_report,
     git_restore_usage_report as _git_restore_usage_report,
@@ -126,106 +133,6 @@ def get_check_push_text(project_root: str | Path = ".") -> str:
 
 def get_push_text(project_root: str | Path = ".") -> str:
     return format_git_push_report_text("Push", get_push_report(project_root))
-
-
-def get_check_stage_text(project_root: str | Path = ".", argument: str | list[str] | None = None) -> str:
-    report = get_check_stage_report(project_root, argument)
-    return format_git_index_report_text("Check stage", report)
-
-
-def get_check_stage_report(project_root: str | Path = ".", argument: str | list[str] | None = None) -> dict[str, object]:
-    usage = "/check-stage <path...>"
-    root = Path(project_root).resolve()
-    try:
-        paths = parse_local_path_args(argument, max_paths=100)
-    except ValueError as error:
-        return _git_index_usage_report(root, usage, str(error))
-    if not paths:
-        return _git_index_usage_report(root, usage, "path is required.")
-
-    workspace = RunWorkspace(root=root, run_id="local-check-stage", session_dir=root / ".vibeagent" / "sessions" / "local-check-stage")
-    observation = execute_action(
-        workspace,
-        CheckGitStageAction(type="check_git_stage", paths=paths),
-    )
-    if observation.kind != "check_git_stage":
-        return _git_index_unexpected_report(root, paths, f"Unexpected observation: {observation.kind}")
-    return _git_index_observation_report(root, observation)
-
-
-def get_stage_text(project_root: str | Path = ".", argument: str | list[str] | None = None) -> str:
-    report = get_stage_report(project_root, argument)
-    return format_git_index_report_text("Stage", report)
-
-
-def get_stage_report(project_root: str | Path = ".", argument: str | list[str] | None = None) -> dict[str, object]:
-    usage = "/stage <path...>"
-    root = Path(project_root).resolve()
-    try:
-        paths = parse_local_path_args(argument, max_paths=100)
-    except ValueError as error:
-        return _git_index_usage_report(root, usage, str(error))
-    if not paths:
-        return _git_index_usage_report(root, usage, "path is required.")
-
-    workspace = RunWorkspace(root=root, run_id="local-stage", session_dir=root / ".vibeagent" / "sessions" / "local-stage")
-    observation = execute_action(
-        workspace,
-        GitStageAction(type="git_stage", paths=paths),
-    )
-    if observation.kind != "git_stage":
-        return _git_index_unexpected_report(root, paths, f"Unexpected observation: {observation.kind}")
-    return _git_index_observation_report(root, observation)
-
-
-def get_check_unstage_text(project_root: str | Path = ".", argument: str | list[str] | None = None) -> str:
-    report = get_check_unstage_report(project_root, argument)
-    return format_git_index_report_text("Check unstage", report)
-
-
-def get_check_unstage_report(project_root: str | Path = ".", argument: str | list[str] | None = None) -> dict[str, object]:
-    usage = "/check-unstage <path...>"
-    root = Path(project_root).resolve()
-    try:
-        paths = parse_local_path_args(argument, max_paths=100)
-    except ValueError as error:
-        return _git_index_usage_report(root, usage, str(error))
-    if not paths:
-        return _git_index_usage_report(root, usage, "path is required.")
-
-    workspace = RunWorkspace(root=root, run_id="local-check-unstage", session_dir=root / ".vibeagent" / "sessions" / "local-check-unstage")
-    observation = execute_action(
-        workspace,
-        CheckGitUnstageAction(type="check_git_unstage", paths=paths),
-    )
-    if observation.kind != "check_git_unstage":
-        return _git_index_unexpected_report(root, paths, f"Unexpected observation: {observation.kind}")
-    return _git_index_observation_report(root, observation)
-
-
-def get_unstage_text(project_root: str | Path = ".", argument: str | list[str] | None = None) -> str:
-    report = get_unstage_report(project_root, argument)
-    return format_git_index_report_text("Unstage", report)
-
-
-def get_unstage_report(project_root: str | Path = ".", argument: str | list[str] | None = None) -> dict[str, object]:
-    usage = "/unstage <path...>"
-    root = Path(project_root).resolve()
-    try:
-        paths = parse_local_path_args(argument, max_paths=100)
-    except ValueError as error:
-        return _git_index_usage_report(root, usage, str(error))
-    if not paths:
-        return _git_index_usage_report(root, usage, "path is required.")
-
-    workspace = RunWorkspace(root=root, run_id="local-unstage", session_dir=root / ".vibeagent" / "sessions" / "local-unstage")
-    observation = execute_action(
-        workspace,
-        GitUnstageAction(type="git_unstage", paths=paths),
-    )
-    if observation.kind != "git_unstage":
-        return _git_index_unexpected_report(root, paths, f"Unexpected observation: {observation.kind}")
-    return _git_index_observation_report(root, observation)
 
 
 def get_check_commit_text(project_root: str | Path = ".", argument: str | None = None) -> str:
