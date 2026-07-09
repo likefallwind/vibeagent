@@ -23,18 +23,19 @@ from .git_stash_apply_commands import (
     get_stash_apply_report,
     get_stash_apply_text,
 )
+from .git_stash_drop_commands import (
+    get_check_stash_drop_report,
+    get_check_stash_drop_text,
+    get_stash_drop_report,
+    get_stash_drop_text,
+)
 from .git_stashes_commands import (
     format_stashes_report_text,
     get_stashes_report,
     get_stashes_text,
     parse_stashes_request,
 )
-from .types import (
-    CheckGitStashAction,
-    CheckGitStashDropAction,
-    GitStashAction,
-    GitStashDropAction,
-)
+from .types import CheckGitStashAction, GitStashAction
 from .workspace_core import RunWorkspace
 
 
@@ -100,52 +101,6 @@ def get_stash_report(project_root: str | Path = ".", argument: str | None = None
     return _git_stash_observation_report(root, observation, observation.stash_ref, max_diff_chars)
 
 
-def get_check_stash_drop_text(project_root: str | Path = ".", argument: str | None = None, max_patch_chars: int = 12_000) -> str:
-    get_report = _git_command_function("get_check_stash_drop_report", get_check_stash_drop_report)
-    format_report = _git_command_function("format_git_stash_drop_report_text", format_git_stash_drop_report_text)
-    return format_report("Check stash drop", get_report(project_root, argument, max_patch_chars=max_patch_chars))
-
-
-def get_check_stash_drop_report(project_root: str | Path = ".", argument: str | None = None, max_patch_chars: int = 12_000) -> dict[str, object]:
-    _validate_git_stash_max_chars(max_patch_chars)
-    root = Path(project_root).resolve()
-    stash_ref = (argument or "").strip()
-    if not stash_ref:
-        return _git_stash_drop_usage_report(root, "/check-stash-drop <stash@{N}>", "stash ref is required.", max_patch_chars)
-
-    workspace = RunWorkspace(root=root, run_id="local-check-stash-drop", session_dir=root / ".vibeagent" / "sessions" / "local-check-stash-drop")
-    observation = _execute_action(
-        workspace,
-        CheckGitStashDropAction(type="check_git_stash_drop", stash_ref=stash_ref),
-    )
-    if observation.kind != "check_git_stash_drop":
-        return _git_stash_drop_unexpected_report(root, stash_ref, f"Unexpected observation: {observation.kind}", max_patch_chars)
-    return _git_stash_drop_observation_report(root, observation, max_patch_chars)
-
-
-def get_stash_drop_text(project_root: str | Path = ".", argument: str | None = None, max_patch_chars: int = 12_000) -> str:
-    get_report = _git_command_function("get_stash_drop_report", get_stash_drop_report)
-    format_report = _git_command_function("format_git_stash_drop_report_text", format_git_stash_drop_report_text)
-    return format_report("Stash drop", get_report(project_root, argument, max_patch_chars=max_patch_chars))
-
-
-def get_stash_drop_report(project_root: str | Path = ".", argument: str | None = None, max_patch_chars: int = 12_000) -> dict[str, object]:
-    _validate_git_stash_max_chars(max_patch_chars)
-    root = Path(project_root).resolve()
-    stash_ref = (argument or "").strip()
-    if not stash_ref:
-        return _git_stash_drop_usage_report(root, "/stash-drop <stash@{N}>", "stash ref is required.", max_patch_chars)
-
-    workspace = RunWorkspace(root=root, run_id="local-stash-drop", session_dir=root / ".vibeagent" / "sessions" / "local-stash-drop")
-    observation = _execute_action(
-        workspace,
-        GitStashDropAction(type="git_stash_drop", stash_ref=stash_ref),
-    )
-    if observation.kind != "git_stash_drop":
-        return _git_stash_drop_unexpected_report(root, stash_ref, f"Unexpected observation: {observation.kind}", max_patch_chars)
-    return _git_stash_drop_observation_report(root, observation, max_patch_chars)
-
-
 def parse_stash_argument(argument: str | None) -> tuple[str | None, bool]:
     if not argument or not argument.strip():
         return None, False
@@ -203,39 +158,3 @@ def _git_stash_observation_report(root: Path, observation: object, stash_ref: st
         "diff": _clip_report(str(getattr(observation, "diff")), max_diff_chars),
         "message": str(getattr(observation, "message")),
     }
-
-
-def _git_stash_drop_usage_report(root: Path, usage: str, error: str, max_patch_chars: int) -> dict[str, object]:
-    return {
-        "projectRoot": str(root),
-        "ok": False,
-        "stashRef": "",
-        "summary": "",
-        "patch": _empty_clip_report(max_patch_chars),
-        "message": f"Usage: {usage}\nError: {error}",
-    }
-
-
-def _git_stash_drop_unexpected_report(root: Path, stash_ref: str, message: str, max_patch_chars: int) -> dict[str, object]:
-    return {
-        "projectRoot": str(root),
-        "ok": False,
-        "stashRef": stash_ref,
-        "summary": "",
-        "patch": _empty_clip_report(max_patch_chars),
-        "message": message,
-    }
-
-
-def _git_stash_drop_observation_report(root: Path, observation: object, max_patch_chars: int) -> dict[str, object]:
-    report: dict[str, object] = {
-        "projectRoot": str(root),
-        "ok": bool(getattr(observation, "ok")),
-        "stashRef": str(getattr(observation, "stash_ref")),
-        "summary": str(getattr(observation, "summary")),
-        "patch": _clip_report(str(getattr(observation, "patch")), max_patch_chars),
-        "message": str(getattr(observation, "message")),
-    }
-    if hasattr(observation, "remaining_total"):
-        report["remainingTotal"] = int(getattr(observation, "remaining_total"))
-    return report
