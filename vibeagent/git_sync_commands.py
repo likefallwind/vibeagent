@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 import shlex
+import sys
 
-from .actions import execute_action
+from .actions import execute_action as _default_execute_action
 from .types import CheckGitFetchAction, CheckGitPullAction, CheckGitPushAction, GitFetchAction, GitPullAction, GitPushAction
 from .workspace_core import RunWorkspace
 
@@ -13,6 +15,26 @@ def _indent_block(value: str, spaces: int = 2) -> str:
     return "\n".join(f"{indent}{line}" if line else "" for line in value.splitlines())
 
 
+def _execute_action(*args: object, **kwargs: object) -> object:
+    commands_module = sys.modules.get("vibeagent.git_commands")
+    command_execute_action = getattr(commands_module, "execute_action", None) if commands_module is not None else None
+    if command_execute_action is not None:
+        return command_execute_action(*args, **kwargs)
+    return _default_execute_action(*args, **kwargs)
+
+
+def _git_command_function(name: str, default: Callable[..., object]) -> Callable[..., object]:
+    commands_module = sys.modules.get("vibeagent.git_commands")
+    candidate = getattr(commands_module, name, None) if commands_module is not None else None
+    return candidate if callable(candidate) else default
+
+
+def get_check_fetch_text(project_root: str | Path = ".", argument: str | None = None) -> str:
+    get_report = _git_command_function("get_check_fetch_report", get_check_fetch_report)
+    format_report = _git_command_function("format_git_fetch_report_text", format_git_fetch_report_text)
+    return format_report("Check fetch", get_report(project_root, argument))
+
+
 def get_check_fetch_report(project_root: str | Path = ".", argument: str | None = None) -> dict[str, object]:
     root = Path(project_root).resolve()
     try:
@@ -20,7 +42,7 @@ def get_check_fetch_report(project_root: str | Path = ".", argument: str | None 
     except ValueError as error:
         return _git_fetch_usage_report(root, "/check-fetch [remote]", str(error))
     workspace = RunWorkspace(root=root, run_id="local-check-fetch", session_dir=root / ".vibeagent" / "sessions" / "local-check-fetch")
-    observation = execute_action(workspace, CheckGitFetchAction(type="check_git_fetch", remote=remote))
+    observation = _execute_action(workspace, CheckGitFetchAction(type="check_git_fetch", remote=remote))
     if observation.kind != "check_git_fetch":
         return _git_fetch_unexpected_report(root, f"Unexpected observation: {observation.kind}")
     return {
@@ -36,6 +58,12 @@ def get_check_fetch_report(project_root: str | Path = ".", argument: str | None 
     }
 
 
+def get_fetch_text(project_root: str | Path = ".", argument: str | None = None) -> str:
+    get_report = _git_command_function("get_fetch_report", get_fetch_report)
+    format_report = _git_command_function("format_git_fetch_report_text", format_git_fetch_report_text)
+    return format_report("Fetch", get_report(project_root, argument))
+
+
 def get_fetch_report(project_root: str | Path = ".", argument: str | None = None) -> dict[str, object]:
     root = Path(project_root).resolve()
     try:
@@ -43,7 +71,7 @@ def get_fetch_report(project_root: str | Path = ".", argument: str | None = None
     except ValueError as error:
         return _git_fetch_usage_report(root, "/fetch [remote]", str(error))
     workspace = RunWorkspace(root=root, run_id="local-fetch", session_dir=root / ".vibeagent" / "sessions" / "local-fetch")
-    observation = execute_action(workspace, GitFetchAction(type="git_fetch", remote=remote))
+    observation = _execute_action(workspace, GitFetchAction(type="git_fetch", remote=remote))
     if observation.kind != "git_fetch":
         return _git_fetch_unexpected_report(root, f"Unexpected observation: {observation.kind}")
     return {
@@ -61,19 +89,31 @@ def get_fetch_report(project_root: str | Path = ".", argument: str | None = None
     }
 
 
+def get_check_pull_text(project_root: str | Path = ".") -> str:
+    get_report = _git_command_function("get_check_pull_report", get_check_pull_report)
+    format_report = _git_command_function("format_git_sync_preview_report_text", format_git_sync_preview_report_text)
+    return format_report("Check pull", get_report(project_root))
+
+
 def get_check_pull_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
     workspace = RunWorkspace(root=root, run_id="local-check-pull", session_dir=root / ".vibeagent" / "sessions" / "local-check-pull")
-    observation = execute_action(workspace, CheckGitPullAction(type="check_git_pull"))
+    observation = _execute_action(workspace, CheckGitPullAction(type="check_git_pull"))
     if observation.kind != "check_git_pull":
         return _git_sync_unexpected_report(root, f"Unexpected observation: {observation.kind}")
     return _git_sync_preview_observation_report(root, observation)
 
 
+def get_pull_text(project_root: str | Path = ".") -> str:
+    get_report = _git_command_function("get_pull_report", get_pull_report)
+    format_report = _git_command_function("format_git_pull_report_text", format_git_pull_report_text)
+    return format_report("Pull", get_report(project_root))
+
+
 def get_pull_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
     workspace = RunWorkspace(root=root, run_id="local-pull", session_dir=root / ".vibeagent" / "sessions" / "local-pull")
-    observation = execute_action(workspace, GitPullAction(type="git_pull"))
+    observation = _execute_action(workspace, GitPullAction(type="git_pull"))
     if observation.kind != "git_pull":
         return _git_sync_unexpected_report(root, f"Unexpected observation: {observation.kind}")
     return {
@@ -93,19 +133,31 @@ def get_pull_report(project_root: str | Path = ".") -> dict[str, object]:
     }
 
 
+def get_check_push_text(project_root: str | Path = ".") -> str:
+    get_report = _git_command_function("get_check_push_report", get_check_push_report)
+    format_report = _git_command_function("format_git_sync_preview_report_text", format_git_sync_preview_report_text)
+    return format_report("Check push", get_report(project_root))
+
+
 def get_check_push_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
     workspace = RunWorkspace(root=root, run_id="local-check-push", session_dir=root / ".vibeagent" / "sessions" / "local-check-push")
-    observation = execute_action(workspace, CheckGitPushAction(type="check_git_push"))
+    observation = _execute_action(workspace, CheckGitPushAction(type="check_git_push"))
     if observation.kind != "check_git_push":
         return _git_sync_unexpected_report(root, f"Unexpected observation: {observation.kind}")
     return _git_sync_preview_observation_report(root, observation)
 
 
+def get_push_text(project_root: str | Path = ".") -> str:
+    get_report = _git_command_function("get_push_report", get_push_report)
+    format_report = _git_command_function("format_git_push_report_text", format_git_push_report_text)
+    return format_report("Push", get_report(project_root))
+
+
 def get_push_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
     workspace = RunWorkspace(root=root, run_id="local-push", session_dir=root / ".vibeagent" / "sessions" / "local-push")
-    observation = execute_action(workspace, GitPushAction(type="git_push"))
+    observation = _execute_action(workspace, GitPushAction(type="git_push"))
     if observation.kind != "git_push":
         return _git_sync_unexpected_report(root, f"Unexpected observation: {observation.kind}")
     return {

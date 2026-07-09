@@ -110,34 +110,16 @@ from .git_sync_commands import (
     format_git_push_text,
     format_git_sync_preview_report_text,
     get_check_fetch_report,
+    get_check_fetch_text,
     get_check_pull_report,
+    get_check_pull_text,
     get_check_push_report,
+    get_check_push_text,
     get_fetch_report,
+    get_fetch_text,
     get_pull_report,
+    get_pull_text,
     get_push_report,
+    get_push_text,
     parse_optional_remote_argument,
 )
-
-
-def get_check_fetch_text(project_root: str | Path = ".", argument: str | None = None) -> str:
-    return format_git_fetch_report_text("Check fetch", get_check_fetch_report(project_root, argument))
-
-
-def get_fetch_text(project_root: str | Path = ".", argument: str | None = None) -> str:
-    return format_git_fetch_report_text("Fetch", get_fetch_report(project_root, argument))
-
-
-def get_check_pull_text(project_root: str | Path = ".") -> str:
-    return format_git_sync_preview_report_text("Check pull", get_check_pull_report(project_root))
-
-
-def get_pull_text(project_root: str | Path = ".") -> str:
-    return format_git_pull_report_text("Pull", get_pull_report(project_root))
-
-
-def get_check_push_text(project_root: str | Path = ".") -> str:
-    return format_git_sync_preview_report_text("Check push", get_check_push_report(project_root))
-
-
-def get_push_text(project_root: str | Path = ".") -> str:
-    return format_git_push_report_text("Push", get_push_report(project_root))

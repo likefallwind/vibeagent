@@ -38,11 +38,17 @@ from vibeagent.git_sync_commands import (
     format_git_push_report_text,
     format_git_sync_preview_report_text,
     get_check_fetch_report,
+    get_check_fetch_text,
     get_check_pull_report,
+    get_check_pull_text,
     get_check_push_report,
+    get_check_push_text,
     get_fetch_report,
+    get_fetch_text,
     get_pull_report,
+    get_pull_text,
     get_push_report,
+    get_push_text,
     parse_optional_remote_argument,
 )
 from vibeagent.git_stash_commands import (
@@ -97,11 +103,17 @@ class GitCommandModuleTests(unittest.TestCase):
 
     def test_git_commands_reexports_sync_helpers(self) -> None:
         self.assertIs(git_commands.get_check_fetch_report, get_check_fetch_report)
+        self.assertIs(git_commands.get_check_fetch_text, get_check_fetch_text)
         self.assertIs(git_commands.get_fetch_report, get_fetch_report)
+        self.assertIs(git_commands.get_fetch_text, get_fetch_text)
         self.assertIs(git_commands.get_check_pull_report, get_check_pull_report)
+        self.assertIs(git_commands.get_check_pull_text, get_check_pull_text)
         self.assertIs(git_commands.get_pull_report, get_pull_report)
+        self.assertIs(git_commands.get_pull_text, get_pull_text)
         self.assertIs(git_commands.get_check_push_report, get_check_push_report)
+        self.assertIs(git_commands.get_check_push_text, get_check_push_text)
         self.assertIs(git_commands.get_push_report, get_push_report)
+        self.assertIs(git_commands.get_push_text, get_push_text)
         self.assertIs(git_commands.format_git_fetch_report_text, format_git_fetch_report_text)
         self.assertIs(git_commands.format_git_sync_preview_report_text, format_git_sync_preview_report_text)
         self.assertIs(git_commands.format_git_pull_report_text, format_git_pull_report_text)
