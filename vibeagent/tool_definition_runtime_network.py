@@ -1,0 +1,82 @@
+from __future__ import annotations
+
+from typing import Any
+
+
+RUNTIME_NETWORK_TOOL_DEFINITIONS: list[dict[str, Any]] = [
+    {
+        "name": "port_check",
+        "description": "Check whether a TCP host:port is reachable without running a shell command.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+                "host": {"type": "string", "description": "Host to connect to. Defaults to 127.0.0.1."},
+                "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 10000,
+                    "description": "Optional connect timeout in milliseconds. Defaults to 1000.",
+                },
+            },
+            "required": ["port"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "http_check",
+        "description": "Check an HTTP(S) URL status, final URL, and an optional response-body match without running a shell command.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "HTTP or HTTPS URL to request."},
+                "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 10000,
+                    "description": "Optional request timeout in milliseconds. Defaults to 2000.",
+                },
+                "max_body_chars": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 50000,
+                    "description": "Maximum response body characters to return. Defaults to 2000; use 0 for status-only checks.",
+                },
+                "contains": {
+                    "type": "string",
+                    "description": "Optional literal text or regex pattern to search for in the response body.",
+                },
+                "regex": {
+                    "type": "boolean",
+                    "description": "Treat contains as a regular expression when true. Defaults to false.",
+                },
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "http_fetch",
+        "description": "Fetch an HTTP(S) URL and return bounded response metadata plus body text without running a shell command.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "HTTP or HTTPS URL to request."},
+                "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 10000,
+                    "description": "Optional request timeout in milliseconds. Defaults to 5000.",
+                },
+                "max_body_chars": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000,
+                    "description": "Maximum response body characters to return. Defaults to 12000.",
+                },
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    },
+]
