@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from vibeagent import smart_code_commands, smart_python_check_commands, smart_python_commands, smart_python_edit_commands, smart_python_symbols
+from vibeagent import smart_code_commands, smart_python_call_commands, smart_python_check_commands, smart_python_commands, smart_python_edit_commands, smart_python_symbols
 
 
 class SmartPythonCommandsTests(unittest.TestCase):
@@ -49,6 +49,19 @@ class SmartPythonCommandsTests(unittest.TestCase):
         for name in names:
             with self.subTest(name=name):
                 self.assertIs(getattr(smart_python_commands, name), getattr(smart_python_symbols, name))
+
+    def test_smart_python_symbols_reexports_call_commands(self) -> None:
+        names = [
+            "get_python_calls_report",
+            "format_python_calls_report_text",
+            "get_python_calls_text",
+            "get_python_call_graph_report",
+            "format_python_call_graph_report_text",
+            "get_python_call_graph_text",
+        ]
+        for name in names:
+            with self.subTest(name=name):
+                self.assertIs(getattr(smart_python_symbols, name), getattr(smart_python_call_commands, name))
 
     def test_smart_python_commands_reexports_check_commands(self) -> None:
         names = [
@@ -101,6 +114,23 @@ class SmartPythonCommandsTests(unittest.TestCase):
         format_check.assert_called_once_with(check_report)
         get_deps.assert_called_once_with(root, "pkg", max_files=11, max_imports=13)
         format_deps.assert_called_once_with(deps_report)
+
+    def test_smart_python_call_text_helpers_resolve_compatibility_patch_targets(self) -> None:
+        calls_report = {"message": "patched calls"}
+        graph_report = {"message": "patched graph"}
+        root = "/tmp/project"
+        with (
+            patch("vibeagent.commands.get_python_calls_report", return_value=calls_report) as get_calls,
+            patch("vibeagent.commands.format_python_calls_report_text", return_value="calls text") as format_calls,
+            patch("vibeagent.commands.get_python_call_graph_report", return_value=graph_report) as get_graph,
+            patch("vibeagent.commands.format_python_call_graph_report_text", return_value="graph text") as format_graph,
+        ):
+            self.assertEqual(smart_python_call_commands.get_python_calls_text(root, "run src", max_matches=7), "calls text")
+            self.assertEqual(smart_python_call_commands.get_python_call_graph_text(root, "src", max_files=11, max_edges=13), "graph text")
+        get_calls.assert_called_once_with(root, argument="run src", symbol=None, path=None, max_matches=7)
+        format_calls.assert_called_once_with(calls_report)
+        get_graph.assert_called_once_with(root, "src", max_files=11, max_edges=13)
+        format_graph.assert_called_once_with(graph_report)
 
 
 if __name__ == "__main__":
