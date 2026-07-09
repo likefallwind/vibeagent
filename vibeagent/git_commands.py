@@ -4,8 +4,7 @@ from pathlib import Path
 import shlex
 
 from .actions import execute_action
-from .command_parsing import parse_local_path_args
-from .types import CheckGitFetchAction, CheckGitPullAction, CheckGitPushAction, CheckGitRestoreAction, CheckGitSwitchAction, GitFetchAction, GitPullAction, GitPushAction, GitRestoreAction, GitSwitchAction
+from .types import CheckGitFetchAction, CheckGitPullAction, CheckGitPushAction, CheckGitSwitchAction, GitFetchAction, GitPullAction, GitPushAction, GitSwitchAction
 from .workspace_core import RunWorkspace
 
 
@@ -77,6 +76,12 @@ from .git_commit_commands import (
     get_commit_report,
     get_commit_text,
 )
+from .git_restore_commands import (
+    get_check_restore_report,
+    get_check_restore_text,
+    get_restore_report,
+    get_restore_text,
+)
 from .git_local_report_helpers import (
     format_check_switch_text,
     format_git_commit_report_text,
@@ -87,12 +92,8 @@ from .git_local_report_helpers import (
     format_git_restore_text,
     format_git_switch_report_text,
     format_switch_text,
-    git_restore_observation_report as _git_restore_observation_report,
-    git_restore_unexpected_report as _git_restore_unexpected_report,
-    git_restore_usage_report as _git_restore_usage_report,
     git_switch_unexpected_report as _git_switch_unexpected_report,
     git_switch_usage_report as _git_switch_usage_report,
-    validate_git_restore_max_diff_chars as _validate_git_restore_max_diff_chars,
 )
 from .git_sync_commands import (
     format_git_fetch_preview_text,
@@ -136,58 +137,6 @@ def get_check_push_text(project_root: str | Path = ".") -> str:
 
 def get_push_text(project_root: str | Path = ".") -> str:
     return format_git_push_report_text("Push", get_push_report(project_root))
-
-
-def get_check_restore_text(project_root: str | Path = ".", argument: str | list[str] | None = None, max_diff_chars: int = 12_000) -> str:
-    report = get_check_restore_report(project_root, argument, max_diff_chars=max_diff_chars)
-    return format_git_restore_report_text("Check restore", report)
-
-
-def get_check_restore_report(project_root: str | Path = ".", argument: str | list[str] | None = None, max_diff_chars: int = 12_000) -> dict[str, object]:
-    _validate_git_restore_max_diff_chars(max_diff_chars)
-    usage = "/check-restore <path...>"
-    root = Path(project_root).resolve()
-    try:
-        paths = parse_local_path_args(argument, max_paths=100)
-    except ValueError as error:
-        return _git_restore_usage_report(root, usage, str(error), max_diff_chars)
-    if not paths:
-        return _git_restore_usage_report(root, usage, "path is required.", max_diff_chars)
-
-    workspace = RunWorkspace(root=root, run_id="local-check-restore", session_dir=root / ".vibeagent" / "sessions" / "local-check-restore")
-    observation = execute_action(
-        workspace,
-        CheckGitRestoreAction(type="check_git_restore", paths=paths),
-    )
-    if observation.kind != "check_git_restore":
-        return _git_restore_unexpected_report(root, paths, f"Unexpected observation: {observation.kind}", max_diff_chars)
-    return _git_restore_observation_report(root, observation, max_diff_chars)
-
-
-def get_restore_text(project_root: str | Path = ".", argument: str | list[str] | None = None, max_diff_chars: int = 12_000) -> str:
-    report = get_restore_report(project_root, argument, max_diff_chars=max_diff_chars)
-    return format_git_restore_report_text("Restore", report)
-
-
-def get_restore_report(project_root: str | Path = ".", argument: str | list[str] | None = None, max_diff_chars: int = 12_000) -> dict[str, object]:
-    _validate_git_restore_max_diff_chars(max_diff_chars)
-    usage = "/restore <path...>"
-    root = Path(project_root).resolve()
-    try:
-        paths = parse_local_path_args(argument, max_paths=100)
-    except ValueError as error:
-        return _git_restore_usage_report(root, usage, str(error), max_diff_chars)
-    if not paths:
-        return _git_restore_usage_report(root, usage, "path is required.", max_diff_chars)
-
-    workspace = RunWorkspace(root=root, run_id="local-restore", session_dir=root / ".vibeagent" / "sessions" / "local-restore")
-    observation = execute_action(
-        workspace,
-        GitRestoreAction(type="git_restore", paths=paths),
-    )
-    if observation.kind != "git_restore":
-        return _git_restore_unexpected_report(root, paths, f"Unexpected observation: {observation.kind}", max_diff_chars)
-    return _git_restore_observation_report(root, observation, max_diff_chars)
 
 
 def get_check_switch_text(project_root: str | Path = ".", argument: str | None = None) -> str:
