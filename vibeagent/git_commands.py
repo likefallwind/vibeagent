@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-import shlex
 
 from .actions import execute_action
-from .types import CheckGitFetchAction, CheckGitPullAction, CheckGitPushAction, CheckGitSwitchAction, GitFetchAction, GitPullAction, GitPushAction, GitSwitchAction
+from .types import CheckGitFetchAction, CheckGitPullAction, CheckGitPushAction, GitFetchAction, GitPullAction, GitPushAction
 from .workspace_core import RunWorkspace
 
 
@@ -82,6 +81,13 @@ from .git_restore_commands import (
     get_restore_report,
     get_restore_text,
 )
+from .git_switch_commands import (
+    get_check_switch_report,
+    get_check_switch_text,
+    get_switch_report,
+    get_switch_text,
+    parse_switch_argument,
+)
 from .git_local_report_helpers import (
     format_check_switch_text,
     format_git_commit_report_text,
@@ -92,8 +98,6 @@ from .git_local_report_helpers import (
     format_git_restore_text,
     format_git_switch_report_text,
     format_switch_text,
-    git_switch_unexpected_report as _git_switch_unexpected_report,
-    git_switch_usage_report as _git_switch_usage_report,
 )
 from .git_sync_commands import (
     format_git_fetch_preview_text,
@@ -137,85 +141,3 @@ def get_check_push_text(project_root: str | Path = ".") -> str:
 
 def get_push_text(project_root: str | Path = ".") -> str:
     return format_git_push_report_text("Push", get_push_report(project_root))
-
-
-def get_check_switch_text(project_root: str | Path = ".", argument: str | None = None) -> str:
-    return format_git_switch_report_text("Check switch", get_check_switch_report(project_root, argument))
-
-
-def get_switch_text(project_root: str | Path = ".", argument: str | None = None) -> str:
-    return format_git_switch_report_text("Switch", get_switch_report(project_root, argument))
-
-
-def get_check_switch_report(project_root: str | Path = ".", argument: str | None = None) -> dict[str, object]:
-    root = Path(project_root).resolve()
-    try:
-        branch, create = parse_switch_argument(argument)
-    except ValueError as error:
-        return _git_switch_usage_report(root, "/check-switch [--create] <branch>", str(error))
-    workspace = RunWorkspace(root=root, run_id="local-check-switch", session_dir=root / ".vibeagent" / "sessions" / "local-check-switch")
-    observation = execute_action(
-        workspace,
-        CheckGitSwitchAction(type="check_git_switch", branch=branch, create=create),
-    )
-    if observation.kind != "check_git_switch":
-        return _git_switch_unexpected_report(root, branch, create, f"Unexpected observation: {observation.kind}")
-    return {
-        "projectRoot": str(root),
-        "ok": observation.ok,
-        "branch": observation.branch,
-        "create": observation.create,
-        "currentBefore": observation.current_before,
-        "branchExists": observation.branch_exists,
-        "worktreeClean": observation.worktree_clean,
-        "statusText": observation.status,
-        "message": observation.message,
-    }
-
-
-def get_switch_report(project_root: str | Path = ".", argument: str | None = None) -> dict[str, object]:
-    root = Path(project_root).resolve()
-    try:
-        branch, create = parse_switch_argument(argument)
-    except ValueError as error:
-        return _git_switch_usage_report(root, "/switch [--create] <branch>", str(error))
-    workspace = RunWorkspace(root=root, run_id="local-switch", session_dir=root / ".vibeagent" / "sessions" / "local-switch")
-    observation = execute_action(
-        workspace,
-        GitSwitchAction(type="git_switch", branch=branch, create=create),
-    )
-    if observation.kind != "git_switch":
-        return _git_switch_unexpected_report(root, branch, create, f"Unexpected observation: {observation.kind}")
-    return {
-        "projectRoot": str(root),
-        "ok": observation.ok,
-        "branch": observation.branch,
-        "create": observation.create,
-        "currentBefore": observation.current_before,
-        "currentAfter": observation.current_after,
-        "statusText": observation.status,
-        "message": observation.message,
-    }
-
-
-def parse_switch_argument(argument: str | None) -> tuple[str, bool]:
-    if not argument or not argument.strip():
-        raise ValueError("branch is required.")
-    try:
-        parts = shlex.split(argument)
-    except ValueError as error:
-        raise ValueError(str(error)) from error
-    create = False
-    branches: list[str] = []
-    for part in parts:
-        if part in {"--create", "-c"}:
-            create = True
-        elif part.startswith("-"):
-            raise ValueError(f"unsupported option: {part}")
-        else:
-            branches.append(part)
-    if not branches:
-        raise ValueError("branch is required.")
-    if len(branches) > 1:
-        raise ValueError("only one branch is allowed.")
-    return branches[0], create
