@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from vibeagent import smart_code_commands, smart_code_symbol_commands
+from vibeagent import smart_code_commands, smart_code_rename_commands, smart_code_symbol_commands
 from vibeagent.smart_code_formatting import (
     format_code_defs_report_text,
     format_code_deps_report_text,
@@ -43,6 +43,19 @@ class SmartCodeParsingTests(unittest.TestCase):
         for name in names:
             with self.subTest(name=name):
                 self.assertIs(getattr(smart_code_commands, name), getattr(smart_code_symbol_commands, name))
+
+    def test_smart_code_commands_reexports_rename_commands(self) -> None:
+        names = [
+            "get_code_rename_preview_text",
+            "get_code_rename_preview_report",
+            "get_code_rename_text",
+            "get_code_rename_report",
+            "format_code_rename_report_text",
+            "format_code_rename_observation",
+        ]
+        for name in names:
+            with self.subTest(name=name):
+                self.assertIs(getattr(smart_code_commands, name), getattr(smart_code_rename_commands, name))
 
     def test_smart_code_symbol_text_helpers_resolve_compatibility_patch_targets(self) -> None:
         deps_report = {"message": "patched deps"}
