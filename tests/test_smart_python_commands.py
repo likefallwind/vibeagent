@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from vibeagent import smart_code_commands, smart_python_call_commands, smart_python_check_commands, smart_python_commands, smart_python_edit_commands, smart_python_symbols
+from vibeagent import smart_code_commands, smart_python_call_commands, smart_python_check_commands, smart_python_commands, smart_python_edit_commands, smart_python_reference_commands, smart_python_symbols
 
 
 class SmartPythonCommandsTests(unittest.TestCase):
@@ -62,6 +62,22 @@ class SmartPythonCommandsTests(unittest.TestCase):
         for name in names:
             with self.subTest(name=name):
                 self.assertIs(getattr(smart_python_symbols, name), getattr(smart_python_call_commands, name))
+
+    def test_smart_python_symbols_reexports_reference_commands(self) -> None:
+        names = [
+            "get_python_defs_report",
+            "format_python_defs_report_text",
+            "get_python_defs_text",
+            "get_python_refs_report",
+            "format_python_refs_report_text",
+            "get_python_refs_text",
+            "get_python_ref_contexts_report",
+            "format_python_ref_contexts_report_text",
+            "get_python_ref_contexts_text",
+        ]
+        for name in names:
+            with self.subTest(name=name):
+                self.assertIs(getattr(smart_python_symbols, name), getattr(smart_python_reference_commands, name))
 
     def test_smart_python_commands_reexports_check_commands(self) -> None:
         names = [
@@ -131,6 +147,40 @@ class SmartPythonCommandsTests(unittest.TestCase):
         format_calls.assert_called_once_with(calls_report)
         get_graph.assert_called_once_with(root, "src", max_files=11, max_edges=13)
         format_graph.assert_called_once_with(graph_report)
+
+    def test_smart_python_reference_text_helpers_resolve_compatibility_patch_targets(self) -> None:
+        defs_report = {"message": "patched defs"}
+        refs_report = {"message": "patched refs"}
+        contexts_report = {"message": "patched contexts"}
+        root = "/tmp/project"
+        with (
+            patch("vibeagent.commands.get_python_defs_report", return_value=defs_report) as get_defs,
+            patch("vibeagent.commands.format_python_defs_report_text", return_value="defs text") as format_defs,
+            patch("vibeagent.commands.get_python_refs_report", return_value=refs_report) as get_refs,
+            patch("vibeagent.commands.format_python_refs_report_text", return_value="refs text") as format_refs,
+            patch("vibeagent.commands.get_python_ref_contexts_report", return_value=contexts_report) as get_contexts,
+            patch("vibeagent.commands.format_python_ref_contexts_report_text", return_value="contexts text") as format_contexts,
+        ):
+            self.assertEqual(smart_python_reference_commands.get_python_defs_text(root, "run src", max_matches=3, max_lines=5), "defs text")
+            self.assertEqual(smart_python_reference_commands.get_python_refs_text(root, "run src", max_matches=7), "refs text")
+            self.assertEqual(
+                smart_python_reference_commands.get_python_ref_contexts_text(root, "run src", max_matches=11, context_lines=2, max_bytes_per_context=13),
+                "contexts text",
+            )
+        get_defs.assert_called_once_with(root, argument="run src", symbol=None, path=None, max_matches=3, max_lines=5)
+        format_defs.assert_called_once_with(defs_report)
+        get_refs.assert_called_once_with(root, argument="run src", symbol=None, path=None, max_matches=7)
+        format_refs.assert_called_once_with(refs_report)
+        get_contexts.assert_called_once_with(
+            root,
+            argument="run src",
+            symbol=None,
+            path=None,
+            max_matches=11,
+            context_lines=2,
+            max_bytes_per_context=13,
+        )
+        format_contexts.assert_called_once_with(contexts_report)
 
 
 if __name__ == "__main__":
