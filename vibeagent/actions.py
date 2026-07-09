@@ -31,6 +31,7 @@ from .json_action_executor import execute_json_action
 from .project_context_action_executor import execute_project_context_action
 from .read_action_executor import execute_read_action
 from .runtime_action_executor import execute_runtime_action
+from .search_action_executor import execute_search_action
 from .session_action_executor import execute_session_action
 from .process_runtime import (
     BACKGROUND_PROCESSES,
@@ -52,27 +53,12 @@ from .types import (
     CheckpointRestoreAction,
     CheckpointShowAction,
     CheckpointStatusAction,
-    FindFilesAction,
-    FindFilesObservation,
     FinishObservation,
-    GlobAction,
-    GlobObservation,
     Observation,
-    SearchAction,
-    SearchContextResult,
-    SearchContextsAction,
-    SearchContextsObservation,
-    SearchObservation,
     UpdatePlanAction,
     UpdatePlanObservation,
 )
-from .workspace import (
-    RunWorkspace,
-    find_project_files_result,
-    glob_project_files,
-    search_project_contexts_result,
-    search_project_result,
-)
+from .workspace import RunWorkspace
 
 
 def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout_ms: int = 30_000) -> Observation:
@@ -89,151 +75,9 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
     if code_intel_observation is not None:
         return code_intel_observation
 
-    if isinstance(action, SearchAction):
-        try:
-            result = search_project_result(
-                workspace,
-                action.query,
-                max_matches=action.max_matches,
-                relative_path=action.path,
-                regex=action.regex,
-                case_sensitive=action.case_sensitive,
-                context_lines=action.context_lines,
-            )
-            matches = list(result["matches"])
-            total = int(result["total"])
-            truncated = bool(result["truncated"])
-            message = f"Found {total} match(es)."
-            if truncated:
-                message += f" Showing {len(matches)}."
-            ok = True
-        except ValueError as error:
-            matches = []
-            total = 0
-            truncated = False
-            message = str(error)
-            ok = False
-        return SearchObservation(
-            kind="search",
-            ok=ok,
-            query=action.query,
-            matches=matches,
-            total=total,
-            truncated=truncated,
-            message=message,
-            path=action.path,
-            regex=action.regex,
-            case_sensitive=action.case_sensitive,
-            context_lines=action.context_lines,
-        )
-
-    if isinstance(action, SearchContextsAction):
-        try:
-            result = search_project_contexts_result(
-                workspace,
-                action.query,
-                max_matches=action.max_matches,
-                relative_path=action.path,
-                regex=action.regex,
-                case_sensitive=action.case_sensitive,
-                context_lines=action.context_lines,
-                max_bytes_per_context=action.max_bytes_per_context,
-            )
-            contexts = [SearchContextResult(**item) for item in result["contexts"]]
-            total = int(result["total"])
-            truncated = bool(result["truncated"])
-            message = f"Found {total} match context(s)."
-            if truncated:
-                message += f" Showing {len(contexts)}."
-            ok = True
-        except ValueError as error:
-            contexts = []
-            total = 0
-            truncated = False
-            message = str(error)
-            ok = False
-        return SearchContextsObservation(
-            kind="search_contexts",
-            ok=ok,
-            query=action.query,
-            contexts=contexts,
-            total=total,
-            truncated=truncated,
-            message=message,
-            path=action.path,
-            regex=action.regex,
-            case_sensitive=action.case_sensitive,
-            context_lines=action.context_lines,
-            max_bytes_per_context=action.max_bytes_per_context,
-        )
-
-    if isinstance(action, FindFilesAction):
-        try:
-            result = find_project_files_result(
-                workspace,
-                action.query,
-                max_matches=action.max_matches,
-                relative_path=action.path,
-                regex=action.regex,
-                case_sensitive=action.case_sensitive,
-                include_dirs=action.include_dirs,
-            )
-            matches = list(result["matches"])
-            total = int(result["total"])
-            truncated = bool(result["truncated"])
-            message = f"Found {total} path match(es)."
-            if truncated:
-                message += f" Showing {len(matches)}."
-            ok = True
-        except ValueError as error:
-            matches = []
-            total = 0
-            truncated = False
-            message = str(error)
-            ok = False
-        return FindFilesObservation(
-            kind="find_files",
-            ok=ok,
-            query=action.query,
-            matches=matches,
-            total=total,
-            truncated=truncated,
-            message=message,
-            path=action.path,
-            regex=action.regex,
-            case_sensitive=action.case_sensitive,
-            include_dirs=action.include_dirs,
-        )
-
-    if isinstance(action, GlobAction):
-        try:
-            matches, total = glob_project_files(
-                workspace,
-                action.pattern,
-                max_matches=action.max_matches,
-                include_dirs=action.include_dirs,
-            )
-            truncated = len(matches) < total
-            noun = "file(s) or directories" if action.include_dirs else "file(s)"
-            message = f"Found {total} {noun}."
-            if truncated:
-                message += f" Showing first {len(matches)}."
-            ok = True
-        except ValueError as error:
-            matches = []
-            total = 0
-            truncated = False
-            message = str(error)
-            ok = False
-        return GlobObservation(
-            kind="glob",
-            pattern=action.pattern,
-            matches=matches,
-            total=total,
-            truncated=truncated,
-            ok=ok,
-            message=message,
-        )
+    search_observation = execute_search_action(workspace, action)
+    if search_observation is not None:
+        return search_observation
 
     git_observation = execute_git_action(workspace, action)
     if git_observation is not None:
