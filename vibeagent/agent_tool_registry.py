@@ -60,8 +60,14 @@ def initial_agent_tool_names() -> set[str]:
     return set(CORE_AGENT_TOOL_NAMES)
 
 
-def tool_available_for_policy(name: str, approval_policy: ApprovalPolicy) -> bool:
-    return approval_policy != "plan" or name not in APPROVAL_REQUIRED_TOOL_NAMES
+def tool_available_for_policy(
+    name: str,
+    approval_policy: ApprovalPolicy,
+    excluded_names: frozenset[str] = frozenset(),
+) -> bool:
+    return name not in excluded_names and (
+        approval_policy != "plan" or name not in APPROVAL_REQUIRED_TOOL_NAMES
+    )
 
 
 def prepare_action_for_policy(action: object, approval_policy: ApprovalPolicy) -> object:
@@ -70,10 +76,14 @@ def prepare_action_for_policy(action: object, approval_policy: ApprovalPolicy) -
     return action
 
 
-def initialize_agent_tools(workspace: RunWorkspace, approval_policy: ApprovalPolicy = "ask") -> set[str]:
+def initialize_agent_tools(
+    workspace: RunWorkspace,
+    approval_policy: ApprovalPolicy = "ask",
+    excluded_names: frozenset[str] = frozenset(),
+) -> set[str]:
     active_names = {
         name for name in initial_agent_tool_names()
-        if tool_available_for_policy(name, approval_policy)
+        if tool_available_for_policy(name, approval_policy, excluded_names)
     }
     append_session_event(
         workspace.session_dir,
@@ -91,12 +101,13 @@ def initialize_agent_tools(workspace: RunWorkspace, approval_policy: ApprovalPol
 def agent_tool_definitions(
     active_names: set[str],
     approval_policy: ApprovalPolicy = "ask",
+    excluded_names: frozenset[str] = frozenset(),
 ) -> list[dict[str, Any]]:
     return [
         tool
         for tool in AGENT_TOOL_DEFINITIONS
         if str(tool["name"]) in active_names
-        and tool_available_for_policy(str(tool["name"]), approval_policy)
+        and tool_available_for_policy(str(tool["name"]), approval_policy, excluded_names)
     ]
 
 
@@ -104,13 +115,14 @@ def activate_agent_tool_names(
     active_names: set[str],
     requested_names: Iterable[str],
     approval_policy: ApprovalPolicy = "ask",
+    excluded_names: frozenset[str] = frozenset(),
 ) -> list[str]:
     newly_active: list[str] = []
     for name in requested_names:
         if (
             name in active_names
             or name not in TOOL_DEFINITION_BY_NAME
-            or not tool_available_for_policy(name, approval_policy)
+            or not tool_available_for_policy(name, approval_policy, excluded_names)
         ):
             continue
         active_names.add(name)

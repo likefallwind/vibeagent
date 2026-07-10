@@ -12,9 +12,10 @@ from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .agent_action_logging import log_action
 from .agent_delegate import execute_delegate_task_action
-from .agent_auto_checkpoint import (
-    create_auto_checkpoint_before_action as _create_auto_checkpoint_before_action,
-    should_auto_checkpoint_before_action as _should_auto_checkpoint_before_action,
+from .agent_execution_support import (
+    create_auto_checkpoint_before_action as _shared_create_auto_checkpoint_before_action,
+    execute_action_safely as _shared_execute_action_safely,
+    should_auto_checkpoint_before_action as _shared_should_auto_checkpoint_before_action,
 )
 from .agent_approval import (
     build_approval_request,
@@ -73,7 +74,6 @@ from .types import (
     PlanItem,
     RunCommandObservation,
     TaskStep,
-    ToolErrorObservation,
     UserInputHandler,
 )
 from .workspace_core import RunWorkspace, create_run_workspace
@@ -285,6 +285,10 @@ def run_agent(
                         model_timeout_ms=model_timeout_ms,
                         command_timeout_ms=command_timeout_ms,
                         logger=logger,
+                        approval_handler=approval_handler,
+                        approval_policy=approval_policy,
+                        parent_observations=observations,
+                        parent_steps=steps,
                     )
                     complete_task_step(current_workspace, step, observation, iteration, logger)
                 else:
@@ -471,18 +475,17 @@ def execute_action_safely(
     command_timeout_ms: int,
     tool_name: str,
 ) -> Observation:
-    try:
-        return execute_action(workspace, action, command_timeout_ms)
-    except Exception as error:
-        return ToolErrorObservation(
-            kind="tool_error",
-            tool=tool_name or str(getattr(action, "type", "unknown")) or "unknown",
-            message=f"Tool execution failed: {error}",
-        )
+    return _shared_execute_action_safely(
+        workspace,
+        action,
+        command_timeout_ms,
+        tool_name,
+        execute_action,
+    )
 
 
 def should_auto_checkpoint_before_action(workspace: RunWorkspace, action: object) -> bool:
-    return _should_auto_checkpoint_before_action(workspace, action)
+    return _shared_should_auto_checkpoint_before_action(workspace, action)
 
 
 def create_auto_checkpoint_before_action(
@@ -493,7 +496,7 @@ def create_auto_checkpoint_before_action(
     command_timeout_ms: int,
     logger: AgentLogger | None,
 ) -> Observation | None:
-    return _create_auto_checkpoint_before_action(
+    return _shared_create_auto_checkpoint_before_action(
         workspace,
         action,
         steps,

@@ -10,7 +10,7 @@ from vibeagent.agent_delegate import DELEGATE_TOOL_DEFINITIONS, execute_delegate
 from vibeagent.session_timeline_reports import format_session_event_timeline_item
 from vibeagent.session import summarize_session
 from vibeagent.session_types import SessionEvent
-from vibeagent.types import AssistantResponse, ChatMessage, ContentBlock, ModelUsage
+from vibeagent.types import ApprovalDecision, AssistantResponse, ChatMessage, ContentBlock, ModelUsage
 from vibeagent.workspace import create_run_workspace
 
 
@@ -44,6 +44,10 @@ class DelegationTests(unittest.TestCase):
         self.assertEqual(action.task, "Find the auth flow")
         self.assertEqual(action.context, "Focus on middleware")
         self.assertEqual(action.max_iterations, 6)
+        self.assertEqual(action.mode, "explore")
+
+        code_action = parse_tool_action("delegate_task", {"task": "Implement auth", "mode": "code"})
+        self.assertEqual(code_action.mode, "code")
 
     def test_parse_delegate_task_rejects_invalid_inputs(self) -> None:
         invalid_inputs = [
@@ -53,6 +57,7 @@ class DelegationTests(unittest.TestCase):
             {"task": "inspect", "max_iterations": True},
             {"task": "inspect", "max_iterations": 0},
             {"task": "inspect", "max_iterations": 9},
+            {"task": "inspect", "mode": "write"},
         ]
 
         for tool_input in invalid_inputs:
@@ -171,6 +176,211 @@ class DelegationTests(unittest.TestCase):
         self.assertTrue(observation.ok)
         self.assertEqual(write_result["kind"], "tool_error")
         self.assertIn("not allowed", write_result["message"])
+
+    def test_code_subagent_writes_after_parent_approval_without_recursive_tools(self) -> None:
+        client = DelegationClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "write-1",
+                        "name": "write_file",
+                        "input": {"path": "feature.py", "content": "enabled = True\n"},
+                    }
+                ],
+                [{"type": "text", "text": "Implemented `feature.py` and reported the change."}],
+            ]
+        )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root)
+            action = parse_tool_action(
+                "delegate_task",
+                {"task": "Implement the feature flag", "mode": "code", "max_iterations": 2},
+            )
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=lambda request: ApprovalDecision(approved=True, message="approved"),
+                approval_policy="ask",
+            )
+
+            self.assertEqual(root.joinpath("feature.py").read_text(encoding="utf-8"), "enabled = True\n")
+
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.mode, "code")
+        self.assertIn("write_file", client.tool_names[0])
+        self.assertNotIn("delegate_task", client.tool_names[0])
+        self.assertNotIn("ask_user", client.tool_names[0])
+        self.assertNotIn("update_plan", client.tool_names[0])
+        write_result = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertEqual(write_result["kind"], "write_file")
+
+    def test_code_subagent_respects_parent_denial(self) -> None:
+        client = DelegationClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "write-1",
+                        "name": "write_file",
+                        "input": {"path": "denied.py", "content": "changed = True\n"},
+                    }
+                ],
+                [{"type": "text", "text": "The requested change was denied."}],
+            ]
+        )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root)
+            action = parse_tool_action("delegate_task", {"task": "Make a denied change", "mode": "code"})
+            execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=lambda request: ApprovalDecision(approved=False, message="parent denied"),
+            )
+
+            self.assertFalse(root.joinpath("denied.py").exists())
+
+        denied_result = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertEqual(denied_result["kind"], "approval_denied")
+        self.assertEqual(denied_result["message"], "parent denied")
+
+    def test_plan_mode_rejects_code_subagent_before_model_request(self) -> None:
+        client = DelegationClient([])
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            workspace = create_run_workspace(Path(base))
+            action = parse_tool_action("delegate_task", {"task": "Change code", "mode": "code"})
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_policy="plan",
+            )
+
+        self.assertFalse(observation.ok)
+        self.assertEqual(observation.iterations, 0)
+        self.assertIn("Plan mode", observation.message)
+        self.assertEqual(client.messages, [])
+
+    def test_code_subagent_rejects_hidden_recursive_delegation(self) -> None:
+        client = DelegationClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "nested-1",
+                        "name": "delegate_task",
+                        "input": {"task": "Start another agent", "mode": "code"},
+                    }
+                ],
+                [{"type": "text", "text": "Recursive delegation is unavailable."}],
+            ]
+        )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            workspace = create_run_workspace(Path(base))
+            action = parse_tool_action("delegate_task", {"task": "Do focused work", "mode": "code"})
+            execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+            events = [
+                json.loads(line)
+                for line in workspace.session_dir.joinpath("events.jsonl").read_text(encoding="utf-8").splitlines()
+            ]
+
+        nested_result = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertEqual(nested_result["kind"], "tool_error")
+        self.assertIn("cannot ask the user", nested_result["message"])
+        self.assertEqual(sum(event["type"] == "subagent_started" for event in events), 1)
+
+    def test_parent_agent_audits_code_subagent_changes_and_uses_parent_approval(self) -> None:
+        approvals: list[str] = []
+
+        def approve(request):
+            approvals.append(request.action_type)
+            return ApprovalDecision(approved=True, message="parent approved")
+
+        client = DelegationClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "delegate-1",
+                        "name": "delegate_task",
+                        "input": {"task": "Create delegated.py", "mode": "code", "max_iterations": 2},
+                    }
+                ],
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "write-1",
+                        "name": "write_file",
+                        "input": {"path": "delegated.py", "content": "value = 1\n"},
+                    }
+                ],
+                [{"type": "text", "text": "Created `delegated.py`."}],
+                [{"type": "text", "text": "The delegated implementation is ready for final review."}],
+            ]
+        )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            root = Path(base)
+            result = run_agent(
+                "Delegate the implementation",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_handler=approve,
+            )
+
+            self.assertEqual(root.joinpath("delegated.py").read_text(encoding="utf-8"), "value = 1\n")
+
+        self.assertTrue(result.success)
+        self.assertEqual(approvals, ["write_file"])
+        self.assertIn("write_file", [observation.kind for observation in result.observations])
+        delegated = next(observation for observation in result.observations if observation.kind == "delegate_task")
+        self.assertEqual(delegated.mode, "code")
+        self.assertIn("final_review", [observation.kind for observation in result.observations])
 
     def test_parent_agent_receives_subagent_summary_as_tool_result(self) -> None:
         client = DelegationClient(

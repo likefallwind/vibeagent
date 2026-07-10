@@ -38,6 +38,7 @@ class DelegateTaskObservation:
     iterations: int
     tool_calls: list[str]
     message: str
+    mode: Literal["explore", "code"] = "explore"
 
 
 @dataclass(frozen=True)

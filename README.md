@@ -986,12 +986,14 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   directly called compatible tools are activated for later model turns and
   recorded as session events. Local `/tools`, `/tool`, and `/tool-search`
   commands continue to inspect the complete catalog.
-- `vibeagent/agent_delegate.py`: runs bounded read-only repository investigations
-  for `delegate_task` in an isolated message history. It exposes only the
-  established parallel-safe inspection tools plus `finish`, rejects mutation,
-  command, user-input, and recursive delegation calls, and records the child
-  model/tool lifecycle in the parent session before returning a structured
-  summary to the main agent.
+- `vibeagent/agent_delegate.py`: runs bounded repository investigations or
+  approval-gated implementation tasks for `delegate_task` in an isolated
+  message history. Explore mode exposes only the established parallel-safe
+  inspection tools plus `finish`. Code mode reuses progressive tool loading,
+  parent approvals, workspace safety, and automatic checkpoints while excluding
+  user input, parent-plan updates, and recursive delegation. Code-mode steps and
+  observations feed the parent completion audit, and both modes record the child
+  model/tool lifecycle before returning a structured summary.
 - `vibeagent/mcp_config.py`, `vibeagent/mcp_stdio.py`, and
   `vibeagent/mcp_action_executor.py`: validate project MCP configuration, run
   newline-delimited JSON-RPC stdio sessions, and expose approved tool discovery

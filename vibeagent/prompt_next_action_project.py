@@ -395,8 +395,13 @@ def project_next_action_instruction(base: str, latest: Observation) -> str:
     if latest.kind == "delegate_task":
         if not getattr(latest, "ok", False):
             return (
-                f"{base} The delegated investigation failed. Continue the necessary inspection in the main agent context "
+                f"{base} The delegated task failed. Continue the necessary work in the main agent context "
                 "or retry once with a narrower task; do not repeat the same delegation unchanged."
+            )
+        if getattr(latest, "mode", "explore") == "code":
+            return (
+                f"{base} Inspect the delegated changes, run any remaining verification, and continue the parent task. "
+                "Do not assume the coding subagent's summary alone proves completion."
             )
         return (
             f"{base} Use the delegated findings as evidence, verify critical details with focused reads when needed, "

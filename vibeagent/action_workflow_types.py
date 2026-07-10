@@ -34,6 +34,7 @@ class DelegateTaskAction:
     task: str
     context: str | None = None
     max_iterations: int = 4
+    mode: Literal["explore", "code"] = "explore"
 
 
 @dataclass(frozen=True)

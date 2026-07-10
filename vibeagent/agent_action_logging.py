@@ -393,4 +393,4 @@ def log_action(logger: t.AgentLogger | None, action: object) -> None:
     elif action_type == "ask_user":
         logger("asking user", build_action_target(action))
     elif action_type == "delegate_task":
-        logger("delegating task", build_action_target(action))
+        logger(f"delegating {getattr(action, 'mode', 'explore')} task", build_action_target(action))

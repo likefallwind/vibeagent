@@ -2,48 +2,49 @@ from __future__ import annotations
 
 import json
 
-from .actions import ActionParseError, execute_action, parse_tool_action
+from .agent_delegate_tools import (
+    DELEGATE_TOOL_DEFINITIONS,
+    code_delegate_initial_tool_names,
+    delegate_tool_definitions,
+    execute_delegate_tool_call,
+)
 from .agent_model import complete_with_retries
 from .agent_observation_utils import observation_failed
-from .agent_parallel_safety import PARALLEL_SAFE_TOOL_NAMES, is_parallel_safe_action
 from .agent_runtime_utils import (
     append_session_event,
     content_blocks_to_text,
     normalize_assistant_content,
     to_jsonable,
-    tool_error_observation,
 )
-from .tool_definitions import AGENT_TOOL_DEFINITIONS
+from .redaction import redact_jsonable_payload
 from .types import (
     AgentLogger,
+    ApprovalHandler,
+    ApprovalPolicy,
     ChatClient,
     ChatMessage,
     ContentBlock,
     DelegateTaskAction,
     DelegateTaskObservation,
-    FinishAction,
-    ToolErrorObservation,
+    Observation,
+    TaskStep,
 )
 from .workspace import format_project_skill_catalog, read_project_instructions, read_workspace_snapshot
 from .workspace_core import RunWorkspace
 
-
-DELEGATE_TOOL_NAMES = {
-    name
-    for name in PARALLEL_SAFE_TOOL_NAMES
-    if not name.startswith("check_") and name not in {"final_review"}
-}
-DELEGATE_TOOL_DEFINITIONS = [
-    tool
-    for tool in AGENT_TOOL_DEFINITIONS
-    if tool["name"] in DELEGATE_TOOL_NAMES or tool["name"] == "finish"
-]
 
 DELEGATE_SYSTEM_PROMPT = """You are a read-only repository exploration subagent.
 Investigate only the delegated task. Use the available tools to gather concrete evidence from the project.
 You cannot edit files, run shell commands, ask the user, or delegate another task.
 Return a concise report with relevant paths, symbols, line numbers, risks, and uncertainties. Do not claim changes were made.
 Answer directly when the investigation is complete, or call finish with the report."""
+
+CODE_DELEGATE_SYSTEM_PROMPT = """You are a focused coding subagent working in the user's active project.
+Complete only the delegated implementation task and obey all project instructions. Inspect relevant code before editing.
+You may use coding tools, but every side effect remains subject to the parent agent's approval policy and workspace safety rules.
+You cannot ask the user, update the parent plan, or delegate another task. Do not broaden scope beyond the delegated task.
+Verify your changes with focused checks when possible, then return a concise report of changed files, checks, and remaining risks.
+Answer directly when complete, or call finish with the report."""
 
 
 def execute_delegate_task_action(
@@ -59,9 +60,17 @@ def execute_delegate_task_action(
     model_timeout_ms: int,
     command_timeout_ms: int,
     logger: AgentLogger | None,
+    approval_handler: ApprovalHandler | None = None,
+    approval_policy: ApprovalPolicy = "ask",
+    parent_observations: list[Observation] | None = None,
+    parent_steps: list[TaskStep] | None = None,
 ) -> DelegateTaskObservation:
     messages = build_delegate_messages(workspace, action)
     tool_calls_used: list[str] = []
+    observations = parent_observations if action.mode == "code" and parent_observations is not None else []
+    steps = parent_steps if action.mode == "code" and parent_steps is not None else []
+    auto_checkpoint_attempted = False
+    active_tool_names = code_delegate_initial_tool_names(approval_policy) if action.mode == "code" else set()
     append_session_event(
         workspace.session_dir,
         "subagent_started",
@@ -71,16 +80,31 @@ def execute_delegate_task_action(
             "task": action.task,
             "context": action.context,
             "max_iterations": action.max_iterations,
+            "mode": action.mode,
+            "approval_policy": approval_policy,
         },
     )
     if logger:
-        logger("subagent started", action.task)
+        logger(f"{action.mode} subagent started", action.task)
+
+    if action.mode == "code" and approval_policy == "plan":
+        return finish_delegate_task(
+            workspace,
+            action,
+            subagent_id,
+            ok=False,
+            summary="",
+            iterations=0,
+            tool_calls=tool_calls_used,
+            message="Code delegation is unavailable while Plan mode is active.",
+            logger=logger,
+        )
 
     for child_iteration in range(1, action.max_iterations + 1):
         response, error_message = complete_with_retries(
             client,
             messages,
-            tools=DELEGATE_TOOL_DEFINITIONS,
+            tools=delegate_tool_definitions(action.mode, active_tool_names, approval_policy),
             max_output_tokens=max_output_tokens,
             model_retries=model_retries,
             model_retry_delay_ms=model_retry_delay_ms,
@@ -129,7 +153,7 @@ def execute_delegate_task_action(
                     summary=clip_delegate_summary(summary),
                     iterations=child_iteration,
                     tool_calls=tool_calls_used,
-                    message="Subagent completed the investigation.",
+                    message=delegate_completion_message(action),
                     logger=logger,
                 )
             return finish_delegate_task(
@@ -162,49 +186,49 @@ def execute_delegate_task_action(
                     "input": tool_input,
                 },
             )
-            try:
-                parsed = parse_tool_action(tool_name, tool_input)
-                if isinstance(parsed, FinishAction):
-                    summary = clip_delegate_summary(parsed.message)
-                    return finish_delegate_task(
-                        workspace,
-                        action,
-                        subagent_id,
-                        ok=bool(summary),
-                        summary=summary,
-                        iterations=child_iteration,
-                        tool_calls=tool_calls_used,
-                        message=(
-                            "Subagent completed the investigation."
-                            if summary
-                            else "Subagent finish call did not include a report."
-                        ),
-                        logger=logger,
-                        tool_event={
-                            "parent_iteration": parent_iteration,
-                            "iteration": child_iteration,
-                            "id": tool_id,
-                            "name": tool_name,
-                        },
-                    )
-                if tool_name not in DELEGATE_TOOL_NAMES or not is_parallel_safe_action(parsed):
-                    observation = ToolErrorObservation(
-                        kind="tool_error",
-                        tool=tool_name or "unknown",
-                        message="Subagent tool is not allowed in read-only delegation mode.",
-                    )
-                else:
-                    observation = execute_action(workspace, parsed, command_timeout_ms)
-            except ActionParseError as error:
-                observation = tool_error_observation(tool_name, error)
-            except Exception as error:
-                observation = ToolErrorObservation(
-                    kind="tool_error",
-                    tool=tool_name or "unknown",
-                    message=f"Subagent tool execution failed: {error}",
+            execution = execute_delegate_tool_call(
+                workspace,
+                mode=action.mode,
+                tool_name=tool_name,
+                tool_input=tool_input,
+                active_tool_names=active_tool_names,
+                observations=observations,
+                steps=steps,
+                iteration=child_iteration,
+                command_timeout_ms=command_timeout_ms,
+                logger=logger,
+                approval_handler=approval_handler,
+                approval_policy=approval_policy,
+                auto_checkpoint_attempted=auto_checkpoint_attempted,
+            )
+            auto_checkpoint_attempted = execution.auto_checkpoint_attempted
+            if execution.finish_action is not None:
+                summary = clip_delegate_summary(execution.finish_action.message)
+                return finish_delegate_task(
+                    workspace,
+                    action,
+                    subagent_id,
+                    ok=bool(summary),
+                    summary=summary,
+                    iterations=child_iteration,
+                    tool_calls=tool_calls_used,
+                    message=(
+                        delegate_completion_message(action)
+                        if summary
+                        else "Subagent finish call did not include a report."
+                    ),
+                    logger=logger,
+                    tool_event={
+                        "parent_iteration": parent_iteration,
+                        "iteration": child_iteration,
+                        "id": tool_id,
+                        "name": tool_name,
+                    },
                 )
-
-            result_payload = to_jsonable(observation)
+            observation = execution.observation
+            if observation is None:
+                continue
+            result_payload = redact_jsonable_payload(to_jsonable(observation))
             append_session_event(
                 workspace.session_dir,
                 "subagent_tool_result",
@@ -235,7 +259,7 @@ def execute_delegate_task_action(
         summary="",
         iterations=action.max_iterations,
         tool_calls=tool_calls_used,
-        message=f"Subagent reached iteration limit ({action.max_iterations}) before reporting findings.",
+        message=f"Subagent reached iteration limit ({action.max_iterations}) before completing the delegated task.",
         logger=logger,
     )
 
@@ -253,7 +277,10 @@ def build_delegate_messages(workspace: RunWorkspace, action: DelegateTaskAction)
         parts.append(skill_catalog)
     parts.append(f"Workspace snapshot:\n{snapshot}")
     return [
-        ChatMessage(role="system", content=DELEGATE_SYSTEM_PROMPT),
+        ChatMessage(
+            role="system",
+            content=CODE_DELEGATE_SYSTEM_PROMPT if action.mode == "code" else DELEGATE_SYSTEM_PROMPT,
+        ),
         ChatMessage(role="user", content="\n\n".join(parts)),
     ]
 
@@ -263,6 +290,12 @@ def clip_delegate_summary(value: str, max_chars: int = 12_000) -> str:
     if len(value) <= max_chars:
         return value
     return f"{value[:max_chars]}\n[delegate summary truncated]"
+
+
+def delegate_completion_message(action: DelegateTaskAction) -> str:
+    if action.mode == "code":
+        return "Subagent completed the coding task."
+    return "Subagent completed the investigation."
 
 
 def finish_delegate_task(
@@ -286,6 +319,7 @@ def finish_delegate_task(
         iterations=iterations,
         tool_calls=list(tool_calls),
         message=message,
+        mode=action.mode,
     )
     if tool_event is not None:
         append_session_event(

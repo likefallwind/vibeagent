@@ -30,9 +30,14 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
     if max_iterations < 1 or max_iterations > 8:
         raise ActionParseError("delegate_task action max_iterations must be between 1 and 8.", raw)
 
+    mode = value.get("mode", "explore")
+    if mode not in {"explore", "code"}:
+        raise ActionParseError("delegate_task action mode must be explore or code.", raw)
+
     return DelegateTaskAction(
         type="delegate_task",
         task=task,
         context=context,
         max_iterations=max_iterations,
+        mode=mode,
     )

@@ -6,7 +6,7 @@ from typing import Any
 DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "delegate_task",
-        "description": "Delegate one bounded read-only repository investigation to an isolated subagent context. Use it for independent codebase research or impact analysis that benefits from separate context. The subagent cannot edit files, run commands, ask the user, or delegate again.",
+        "description": "Delegate one bounded task to an isolated subagent context. Use explore for read-only research and code for a focused implementation whose side effects remain subject to the parent approval policy. Subagents cannot ask the user or delegate again.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -21,6 +21,11 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "minimum": 1,
                     "maximum": 8,
                     "description": "Maximum subagent model turns. Defaults to 4.",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["explore", "code"],
+                    "description": "Use explore for read-only investigation or code for implementation. Defaults to explore.",
                 },
             },
             "required": ["task"],
