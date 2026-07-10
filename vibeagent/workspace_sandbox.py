@@ -29,6 +29,7 @@ GLOB_CHARACTERS = re.compile(r"[*?[]")
 class SandboxConfig:
     enabled: bool = False
     fail_if_unavailable: bool = False
+    auto_allow_bash_if_sandboxed: bool = True
     network_disabled: bool = False
     allow_write: tuple[Path, ...] = ()
     deny_write: tuple[Path, ...] = ()
@@ -67,7 +68,7 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
             if not isinstance(sandbox, dict):
                 raise ValueError(f"{relative_path} sandbox must be an object.")
             sources.append(relative_path)
-            for key in ("enabled", "failIfUnavailable"):
+            for key in ("enabled", "failIfUnavailable", "autoAllowBashIfSandboxed"):
                 if key in sandbox:
                     merged[key] = sandbox[key]
             excluded = sandbox.get("excludedCommands")
@@ -101,6 +102,10 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
 
         enabled = _boolean(merged.get("enabled", False), "sandbox.enabled")
         fail_if_unavailable = _boolean(merged.get("failIfUnavailable", False), "sandbox.failIfUnavailable")
+        auto_allow_bash_if_sandboxed = _boolean(
+            merged.get("autoAllowBashIfSandboxed", True),
+            "sandbox.autoAllowBashIfSandboxed",
+        )
         network_disabled = _boolean(merged.get("networkDisabled", False), "sandbox network mode")
         allow_write = _resolve_paths(workspace, array_values["allowWrite"], "allowWrite", external_requires_trust=True)
         deny_write = _resolve_paths(workspace, array_values["denyWrite"], "denyWrite")
@@ -118,6 +123,7 @@ def read_workspace_sandbox(workspace: RunWorkspace) -> SandboxConfig:
         return SandboxConfig(
             enabled=enabled,
             fail_if_unavailable=fail_if_unavailable,
+            auto_allow_bash_if_sandboxed=auto_allow_bash_if_sandboxed,
             network_disabled=network_disabled,
             allow_write=allow_write,
             deny_write=deny_write,
@@ -142,7 +148,8 @@ def format_workspace_sandbox_for_prompt(workspace: RunWorkspace) -> str:
     availability = "Bubblewrap available" if config.available else "Bubblewrap unavailable"
     return (
         f"Command sandbox enabled ({availability}; {network}; "
-        f"failIfUnavailable={'true' if config.fail_if_unavailable else 'false'}). "
+        f"failIfUnavailable={'true' if config.fail_if_unavailable else 'false'}; "
+        f"autoAllowBashIfSandboxed={'true' if config.auto_allow_bash_if_sandboxed else 'false'}). "
         "Sandboxed commands can write the project and isolated /tmp only, plus trusted allowWrite paths."
     )
 

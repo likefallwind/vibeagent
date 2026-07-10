@@ -236,6 +236,7 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         active = payload.get("active")
         available = payload.get("available")
         network_disabled = payload.get("network_disabled")
+        auto_allow = payload.get("auto_allow_bash_if_sandboxed")
         sources = payload.get("sources")
         error = payload.get("error")
         names = [str(source) for source in sources] if isinstance(sources, list) else []
@@ -248,9 +249,19 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
             suffix.append(f"available={'yes' if available else 'no'}")
         if isinstance(network_disabled, bool):
             suffix.append(f"networkDisabled={'yes' if network_disabled else 'no'}")
+        if isinstance(auto_allow, bool):
+            suffix.append(f"autoAllow={'yes' if auto_allow else 'no'}")
         if isinstance(error, str) and error:
             suffix.append(f"error={compact(error, max_text)}")
         return f"{prefix} {', '.join(names) or '(no sources)'}{format_detail_suffix(suffix)}"
+    if event.type == "sandbox_auto_approved":
+        tool = payload.get("tool")
+        request = payload.get("request")
+        target = request.get("target") if isinstance(request, dict) else None
+        suffix = []
+        if isinstance(target, str):
+            suffix.append(f"target={compact(target, max_text)}")
+        return f"{prefix} {tool if isinstance(tool, str) else 'unknown'}{format_detail_suffix(suffix)}"
     if event.type == "permission_rule_evaluated":
         tool = payload.get("tool")
         effect = payload.get("effect")

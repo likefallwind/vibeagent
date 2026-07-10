@@ -163,6 +163,7 @@ def run_agent(
                 "network_disabled": sandbox_config.network_disabled,
                 "network_available": sandbox_config.network_available,
                 "fail_if_unavailable": sandbox_config.fail_if_unavailable,
+                "auto_allow_bash_if_sandboxed": sandbox_config.auto_allow_bash_if_sandboxed,
                 "sources": list(sandbox_config.sources),
                 "error": sandbox_config.error,
             },

@@ -9,6 +9,7 @@ from .agent_approval import (
     summarize_approval_request,
 )
 from .agent_runtime_utils import append_session_event
+from .command_sandbox import sandbox_auto_approval_reason
 from .types import (
     AgentLogger,
     ApprovalDecision,
@@ -90,6 +91,28 @@ def authorize_tool_action(
             target=build_action_target(action),
             risk="A project permission rule requires confirmation for this tool call.",
         )
+    auto_approval_reason = sandbox_auto_approval_reason(workspace, action) if request is not None else None
+    if (
+        request is not None
+        and auto_approval_reason is not None
+        and approval_policy not in {"deny", "plan"}
+        and (rule_match is None or rule_match.effect != "ask")
+    ):
+        decision = ApprovalDecision(approved=True, message=auto_approval_reason)
+        append_session_event(
+            workspace.session_dir,
+            "sandbox_auto_approved",
+            {
+                "iteration": iteration,
+                "step": step,
+                "tool": tool_name,
+                "request": request,
+                "decision": decision,
+            },
+        )
+        if logger:
+            logger("sandbox auto-approved", summarize_approval_decision(request, decision))
+        return ToolAuthorization(True, rule_match=rule_match, decision=decision)
     if request is None:
         return ToolAuthorization(True, rule_match=rule_match)
 

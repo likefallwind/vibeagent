@@ -60,7 +60,11 @@ class SandboxConfigTests(unittest.TestCase):
         self.assertTrue(parse_args(["--sandbox-status"]).sandbox_status)
         self.assertEqual(parse_local_command("/sandbox").type, "sandbox")
         self.assertTrue(report["enabled"])
+        self.assertTrue(report["autoAllowBashIfSandboxed"])
+        self.assertFalse(report["autoApprovalReady"])
         self.assertIn("Command sandbox:", text)
+        self.assertIn("autoAllowBashIfSandboxed: yes", text)
+        self.assertIn("autoApprovalReady: no", text)
         self.assertIn("Command sandbox enabled", prompt)
 
         event = SessionEvent(
@@ -71,6 +75,7 @@ class SandboxConfigTests(unittest.TestCase):
                 "active": True,
                 "available": True,
                 "network_disabled": False,
+                "auto_allow_bash_if_sandboxed": True,
                 "sources": [".vibeagent/sandbox.json"],
                 "error": None,
             },
@@ -78,6 +83,7 @@ class SandboxConfigTests(unittest.TestCase):
         summary = format_session_event_timeline_item(event)
         self.assertIn("enabled=yes", summary)
         self.assertIn("active=yes", summary)
+        self.assertIn("autoAllow=yes", summary)
 
     def test_merges_sources_with_specific_scalar_precedence(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-sandbox-") as base:
@@ -105,6 +111,7 @@ class SandboxConfigTests(unittest.TestCase):
 
         self.assertTrue(config.enabled)
         self.assertTrue(config.fail_if_unavailable)
+        self.assertTrue(config.auto_allow_bash_if_sandboxed)
         self.assertTrue(config.network_disabled)
         self.assertEqual([path.name for path in config.allow_write], ["cache"])
         self.assertEqual([path.name for path in config.deny_read], ["secret.txt"])
@@ -137,6 +144,7 @@ class SandboxConfigTests(unittest.TestCase):
     def test_invalid_or_partially_supported_security_settings_fail_closed(self) -> None:
         cases = [
             ({"enabled": "yes"}, "must be a boolean"),
+            ({"enabled": True, "autoAllowBashIfSandboxed": "yes"}, "must be a boolean"),
             ({"enabled": True, "network": {"allowedDomains": ["example.com"]}}, "domain proxy"),
             ({"enabled": True, "filesystem": {"allowRead": ["."]}}, "allowRead is not supported"),
             ({"enabled": True, "filesystem": {"denyRead": ["**/.env"]}}, "does not support glob"),

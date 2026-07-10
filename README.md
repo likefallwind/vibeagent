@@ -956,6 +956,7 @@ the `sandbox` object in `.claude/settings.json` and
   "sandbox": {
     "enabled": true,
     "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": true,
     "filesystem": {
       "allowWrite": ["./build-cache"],
       "denyWrite": ["./fixtures"],
@@ -982,9 +983,20 @@ claiming partial enforcement. Domain allowlists require a proxy and are not yet
 implemented. If Bubblewrap or network namespaces are unavailable,
 `failIfUnavailable: true` blocks execution; otherwise VibeAgent records a
 warning and falls back to unsandboxed execution or filesystem-only isolation.
-Normal approvals, permission deny rules, and command hard blocks still apply.
+Permission deny/ask rules and command hard blocks still apply; commands that do
+not meet strict auto-approval qualification use the normal approval flow.
 Use `/sandbox` or `--sandbox-status --json` to inspect effective configuration
 and runtime capability.
+
+`autoAllowBashIfSandboxed` defaults to `true`, but VibeAgent auto-approves a
+Bash action only after preflighting every concrete command and confirming both
+filesystem isolation and a disabled network namespace will actually apply.
+Explicit permission `deny` or `ask` rules, Plan/deny session policies,
+excluded commands, unavailable-network fallbacks, dynamic discovered command
+batches, and sandbox launch warnings continue through normal approval. An
+auto-approved action records a `sandbox_auto_approved` session event. The
+sandbox report exposes `autoApprovalReady` so automation can distinguish an
+enabled sandbox from one currently strong enough to reduce prompts.
 
 ## Project permissions
 
@@ -1150,7 +1162,7 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   `vibeagent/sandbox_commands.py`: load bounded sandbox settings, validate
   trusted expansion paths, diagnose Bubblewrap/network namespace support, and
   build one filesystem/network-isolated launcher for finite and background
-  shell commands.
+  shell commands, including strict per-command auto-approval qualification.
 - `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
   model out of the coding-agent JSON action protocol.
 - `vibeagent/providers.py`: selects the configured model provider. MiniMax is

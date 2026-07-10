@@ -3,8 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .command_safety import get_blocked_command_reason
+from .types import RunCommandAction, RunCommandsAction, StartCommandAction
 from .workspace_core import RunWorkspace
 from .workspace_permissions import wildcard_matches
+from .workspace_resolve import resolve_command_cwd
 from .workspace_sandbox import SandboxConfig, read_workspace_sandbox
 
 
@@ -15,6 +18,36 @@ class CommandLaunch:
     config: SandboxConfig
     warning: str | None = None
     error: str | None = None
+
+
+def sandbox_auto_approval_reason(workspace: RunWorkspace, action: object) -> str | None:
+    config = read_workspace_sandbox(workspace)
+    if not (
+        config.active
+        and config.auto_allow_bash_if_sandboxed
+        and config.network_disabled
+        and config.network_available
+    ):
+        return None
+    if isinstance(action, (RunCommandAction, StartCommandAction)):
+        commands = ((action.command, action.cwd),)
+    elif isinstance(action, RunCommandsAction):
+        commands = tuple((item.command, item.cwd) for item in action.commands)
+    else:
+        return None
+    if not commands:
+        return None
+    for command, cwd in commands:
+        if get_blocked_command_reason(command) is not None:
+            return None
+        try:
+            command_cwd = resolve_command_cwd(workspace, cwd)
+        except ValueError:
+            return None
+        launch = prepare_command_launch(workspace, command, command_cwd)
+        if not launch.sandboxed or launch.warning is not None or launch.error is not None:
+            return None
+    return "Approved automatically because every command will run with filesystem and network sandbox isolation."
 
 
 def prepare_command_launch(

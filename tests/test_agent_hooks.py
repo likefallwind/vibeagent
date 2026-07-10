@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from vibeagent.agent import run_agent
 from vibeagent.session_timeline_reports import format_session_event_timeline_item
@@ -80,6 +81,40 @@ class ProjectHookConfigTests(unittest.TestCase):
 
 
 class AgentHookExecutionTests(unittest.TestCase):
+    def test_sandboxed_hook_command_is_auto_approved(self) -> None:
+        client = HookClient(
+            [
+                [{"type": "tool_call", "id": "write-1", "name": "write_file", "input": {"path": "app.py", "content": "x = 1\n"}}],
+                [{"type": "text", "text": "Created app.py."}],
+            ]
+        )
+        approvals: list[str] = []
+
+        def approve(request):
+            approvals.append(request.target)
+            return ApprovalDecision(approved=True, message="approved")
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-hooks-") as base:
+            root = Path(base)
+            _write_hooks(root, {"PreToolUse": [_command_hook("python3 -V", "write_file")]})
+            with patch(
+                "vibeagent.agent_permissions.sandbox_auto_approval_reason",
+                side_effect=lambda _workspace, action: "sandboxed" if action.type == "run_command" else None,
+            ):
+                result = run_agent(
+                    "Create app.py",
+                    base_dir=root,
+                    client=client,
+                    max_iterations=2,
+                    approval_handler=approve,
+                )
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+
+        self.assertTrue(result.success)
+        self.assertEqual(approvals, ["app.py"])
+        self.assertEqual(sum(event["type"] == "sandbox_auto_approved" for event in events), 1)
+
     def test_pre_and_post_hooks_run_with_context_around_approved_write(self) -> None:
         hook_command = (
             "python3 -c \"import os,pathlib; "

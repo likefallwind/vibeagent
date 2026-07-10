@@ -24,6 +24,13 @@ def get_sandbox_report(root: str | Path = ".") -> dict[str, object]:
         "networkDisabled": config.network_disabled,
         "networkIsolationAvailable": config.network_available,
         "failIfUnavailable": config.fail_if_unavailable,
+        "autoAllowBashIfSandboxed": config.auto_allow_bash_if_sandboxed,
+        "autoApprovalReady": (
+            config.active
+            and config.auto_allow_bash_if_sandboxed
+            and config.network_disabled
+            and config.network_available
+        ),
         "bwrapPath": config.bwrap_path,
         "sources": list(config.sources),
         "filesystem": {
@@ -48,6 +55,8 @@ def format_sandbox_report_text(report: dict[str, object]) -> str:
         f"  active: {'yes' if report.get('active') else 'no'}",
         f"  bubblewrap: {report.get('bwrapPath') or '(unavailable)'}",
         f"  failIfUnavailable: {'yes' if report.get('failIfUnavailable') else 'no'}",
+        f"  autoAllowBashIfSandboxed: {'yes' if report.get('autoAllowBashIfSandboxed') else 'no'}",
+        f"  autoApprovalReady: {'yes' if report.get('autoApprovalReady') else 'no'}",
         f"  networkDisabled: {'yes' if report.get('networkDisabled') else 'no'}",
         f"  networkIsolationAvailable: {'yes' if report.get('networkIsolationAvailable') else 'no'}",
         f"  sources: {', '.join(str(item) for item in report.get('sources', [])) or '(none)'}",
