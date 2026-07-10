@@ -123,6 +123,7 @@ class ApprovalRequest:
         "run_commands",
         "run_suggested_checks",
         "start_command",
+        "web_fetch",
     ]
     target: str
     risk: str

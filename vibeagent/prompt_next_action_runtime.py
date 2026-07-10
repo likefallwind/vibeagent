@@ -59,6 +59,7 @@ RUNTIME_NEXT_ACTION_KINDS = {
     "port_check",
     "http_check",
     "http_fetch",
+    "web_fetch",
 }
 
 
@@ -241,6 +242,13 @@ def _http_fetch_next_action_instruction(base: str, latest: Observation) -> str:
     return f"{base} HTTP fetch succeeded. Use the response to decide the next fix, dependent check, or final answer."
 
 
+def _web_fetch_next_action_instruction(base: str, latest: Observation) -> str:
+    url = str(getattr(latest, "url", "") or "the URL")
+    if getattr(latest, "ok", False):
+        return f"{base} Public document fetch succeeded for {url}. Use the returned text to continue or answer directly."
+    return f"{base} Public document fetch failed for {url}. Inspect the safety or network error and use another public source if needed."
+
+
 def _check_run_commands_next_action_instruction(base: str, latest: Observation) -> str:
     checks = getattr(latest, "checks", [])
     blocked = [check for check in checks if getattr(check, "blocked", False)]
@@ -395,6 +403,8 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
         return _http_check_next_action_instruction(base, latest)
     if latest.kind == "http_fetch":
         return _http_fetch_next_action_instruction(base, latest)
+    if latest.kind == "web_fetch":
+        return _web_fetch_next_action_instruction(base, latest)
     if latest.kind in {"command_check", "check_start_command"}:
         if getattr(latest, "blocked", False):
             return f"{base} Command preflight was blocked. Choose a safer command or inspect the block reason before requesting execution."

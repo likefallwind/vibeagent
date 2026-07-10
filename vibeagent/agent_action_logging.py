@@ -354,6 +354,8 @@ def log_action(logger: t.AgentLogger | None, action: object) -> None:
         logger("checking http", build_action_target(action))
     elif action_type == "http_fetch":
         logger("fetching http", build_action_target(action))
+    elif action_type == "web_fetch":
+        logger("fetching public document", build_action_target(action))
     elif action_type == "start_command":
         logger("starting command", build_action_target(action))
     elif action_type == "read_process":

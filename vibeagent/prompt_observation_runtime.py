@@ -87,6 +87,22 @@ def format_runtime_observation(index: int, observation: object) -> str | None:
             parts.append(f"body:\n{observation.body}")
         return "\n".join(parts)
 
+    if observation.kind == "web_fetch":
+        parts = [
+            f"{index}. web_fetch {observation.url}: {observation.message}",
+            f"ok: {str(observation.ok).lower()}",
+            f"status: {observation.status if observation.status is not None else 'none'}",
+            f"contentType: {observation.content_type or 'none'}",
+            f"title: {observation.title or 'none'}",
+            f"finalUrl: {observation.final_url or 'none'}",
+            f"textTruncated: {str(observation.text_truncated).lower()}",
+            f"maxTextChars: {observation.max_text_chars}",
+            f"error: {observation.error or 'none'}",
+        ]
+        if observation.text:
+            parts.append(f"text:\n{observation.text}")
+        return "\n".join(parts)
+
     if observation.kind == "environment_info":
         parts = [
             (

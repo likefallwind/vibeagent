@@ -5472,7 +5472,7 @@ class ActionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             workspace = create_run_workspace(base, "test-run")
             with patch(
-                "vibeagent.runtime_checks.urllib.request.urlopen",
+                "vibeagent.runtime_checks.open_scoped_url",
                 return_value=FakeHTTPResponse(b'{"status":"ok","ready":true}', url="http://127.0.0.1:8000/health"),
             ):
                 observation = execute_action(
@@ -5499,7 +5499,7 @@ class ActionTests(unittest.TestCase):
     def test_execute_http_check_reports_unreachable_without_failing_tool(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             workspace = create_run_workspace(base, "test-run")
-            with patch("vibeagent.runtime_checks.urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
+            with patch("vibeagent.runtime_checks.open_scoped_url", side_effect=urllib.error.URLError("refused")):
                 observation = execute_action(
                     workspace,
                     HttpCheckAction(type="http_check", url="http://127.0.0.1:8000", timeout_ms=1000),
@@ -5515,7 +5515,7 @@ class ActionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             workspace = create_run_workspace(base, "test-run")
             with patch(
-                "vibeagent.runtime_checks.urllib.request.urlopen",
+                "vibeagent.runtime_checks.open_scoped_url",
                 return_value=FakeHTTPResponse(b"ready"),
             ):
                 observation = execute_action(
@@ -5543,7 +5543,7 @@ class ActionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             workspace = create_run_workspace(base, "test-run")
             with patch(
-                "vibeagent.runtime_checks.urllib.request.urlopen",
+                "vibeagent.runtime_checks.open_scoped_url",
                 return_value=TypedHTTPResponse(b'{"status":"ok","ready":true}', url="http://127.0.0.1:8000/api"),
             ):
                 observation = execute_action(
@@ -5569,7 +5569,7 @@ class ActionTests(unittest.TestCase):
     def test_execute_http_fetch_reports_unreachable_without_failing_tool(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             workspace = create_run_workspace(base, "test-run")
-            with patch("vibeagent.runtime_checks.urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
+            with patch("vibeagent.runtime_checks.open_scoped_url", side_effect=urllib.error.URLError("refused")):
                 observation = execute_action(
                     workspace,
                     HttpFetchAction(type="http_fetch", url="http://127.0.0.1:8000", timeout_ms=1000),

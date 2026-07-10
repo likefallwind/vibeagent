@@ -64,6 +64,10 @@ PREVIEW_KIND_BY_ACTION_TYPE = {
     "stop_all_processes": "check_stop_all_processes",
 }
 
+# External requests cannot be meaningfully previewed without performing the
+# disclosure that approval is intended to guard.
+APPROVAL_WITHOUT_PREVIEW_ACTION_TYPES = {"web_fetch"}
+
 
 def attach_approval_preview(
     request: ApprovalRequest,

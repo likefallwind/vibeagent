@@ -337,6 +337,12 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             target="background processes",
             risk="This will stop all background processes started from the active project.",
         )
+    if isinstance(action, t.WebFetchAction):
+        return t.ApprovalRequest(
+            action_type="web_fetch",
+            target=action.url,
+            risk="This will send a request to an external public server and return bounded document text.",
+        )
     return None
 
 

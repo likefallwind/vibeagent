@@ -269,6 +269,7 @@ def is_failed_tool_result(result: dict[str, Any]) -> bool:
         "port_check",
         "http_check",
         "http_fetch",
+        "web_fetch",
         "check_write_process",
         "write_process",
         "check_stop_all_processes",
@@ -347,4 +348,3 @@ def compact(value: str, max_length: int) -> str:
     if len(collapsed) <= max_length:
         return collapsed
     return f"{collapsed[:max_length]}..."
-

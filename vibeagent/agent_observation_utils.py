@@ -146,6 +146,8 @@ def observation_failed(observation: Observation) -> bool:
         return not observation.ok
     if observation.kind == "http_fetch":
         return not observation.ok
+    if observation.kind == "web_fetch":
+        return not observation.ok
     if observation.kind in {
         "start_command",
         "read_process",

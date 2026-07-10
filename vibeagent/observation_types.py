@@ -201,6 +201,7 @@ from .observation_runtime_types import (
     EnvironmentInfoObservation,
     HttpCheckObservation,
     HttpFetchObservation,
+    WebFetchObservation,
     PortCheckObservation,
     RuntimeToolInfo,
 )

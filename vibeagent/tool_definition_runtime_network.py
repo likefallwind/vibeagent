@@ -25,11 +25,11 @@ RUNTIME_NETWORK_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "http_check",
-        "description": "Check an HTTP(S) URL status, final URL, and an optional response-body match without running a shell command.",
+        "description": "Check a local or private HTTP(S) development URL status, final URL, and optional body match.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "url": {"type": "string", "description": "HTTP or HTTPS URL to request."},
+                "url": {"type": "string", "description": "Local or private HTTP or HTTPS URL to request."},
                 "timeout_ms": {
                     "type": "integer",
                     "minimum": 100,
@@ -57,11 +57,11 @@ RUNTIME_NETWORK_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "http_fetch",
-        "description": "Fetch an HTTP(S) URL and return bounded response metadata plus body text without running a shell command.",
+        "description": "Fetch a local or private HTTP(S) development URL and return bounded response metadata plus body text.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "url": {"type": "string", "description": "HTTP or HTTPS URL to request."},
+                "url": {"type": "string", "description": "Local or private HTTP or HTTPS URL to request."},
                 "timeout_ms": {
                     "type": "integer",
                     "minimum": 100,
@@ -73,6 +73,30 @@ RUNTIME_NETWORK_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "minimum": 1,
                     "maximum": 100000,
                     "description": "Maximum response body characters to return. Defaults to 12000.",
+                },
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "web_fetch",
+        "description": "Fetch readable text from a public HTTP(S) technical document. Requires approval and rejects local/private targets and unsafe redirects.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Public HTTP or HTTPS document URL."},
+                "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 10000,
+                    "description": "Optional request timeout in milliseconds. Defaults to 10000.",
+                },
+                "max_text_chars": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000,
+                    "description": "Maximum readable text characters to return. Defaults to 20000.",
                 },
             },
             "required": ["url"],

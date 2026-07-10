@@ -141,6 +141,7 @@ from .action_process_types import (
     EnvironmentInfoAction,
     HttpCheckAction,
     HttpFetchAction,
+    WebFetchAction,
     ListProcessesAction,
     PortCheckAction,
     ProcessOutputContextsAction,

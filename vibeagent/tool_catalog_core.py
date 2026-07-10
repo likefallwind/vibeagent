@@ -59,6 +59,7 @@ APPROVAL_REQUIRED_TOOL_NAMES = {
     "write_file",
     "write_files",
     "write_process",
+    "web_fetch",
 }
 
 
@@ -71,7 +72,7 @@ def categorize_tools() -> dict[str, list[str]]:
 
 
 def tool_category(name: str) -> str:
-    if name == "delegate_task":
+    if name in {"delegate_task", "web_fetch"}:
         return "project"
     if name in {
         "ask_user",

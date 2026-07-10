@@ -23,6 +23,7 @@ from .runtime_checks import (
     check_tcp_port,
     fetch_http_url,
 )
+from .web_fetch import fetch_public_document
 from .types import (
     AgentAction,
     CheckRunCommandsAction,
@@ -38,6 +39,7 @@ from .types import (
     EnvironmentInfoObservation,
     HttpCheckAction,
     HttpFetchAction,
+    WebFetchAction,
     ListProcessesAction,
     Observation,
     PortCheckAction,
@@ -112,6 +114,11 @@ def execute_runtime_action(
         timeout_ms = action.timeout_ms if action.timeout_ms is not None else 5_000
         max_body_chars = action.max_body_chars if action.max_body_chars is not None else 12_000
         return fetch_http_url(action.url, timeout_ms=timeout_ms, max_body_chars=max_body_chars)
+
+    if isinstance(action, WebFetchAction):
+        timeout_ms = action.timeout_ms if action.timeout_ms is not None else 10_000
+        max_text_chars = action.max_text_chars if action.max_text_chars is not None else 20_000
+        return fetch_public_document(action.url, timeout_ms=timeout_ms, max_text_chars=max_text_chars)
 
     if isinstance(action, EnvironmentInfoAction):
         try:

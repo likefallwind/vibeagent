@@ -68,6 +68,22 @@ class HttpFetchObservation:
 
 
 @dataclass(frozen=True)
+class WebFetchObservation:
+    kind: Literal["web_fetch"]
+    ok: bool
+    url: str
+    final_url: str | None
+    status: int | None
+    content_type: str | None
+    title: str | None
+    text: str
+    text_truncated: bool
+    max_text_chars: int
+    error: str | None
+    message: str
+
+
+@dataclass(frozen=True)
 class RuntimeToolInfo:
     name: str
     available: bool

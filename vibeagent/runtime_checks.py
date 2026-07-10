@@ -7,6 +7,7 @@ import urllib.request
 from typing import Any
 
 from .command_safety import get_blocked_command_reason
+from .network_url_safety import UrlSafetyError, open_scoped_url
 from .types import (
     CommandCheckObservation,
     HttpCheckObservation,
@@ -127,7 +128,7 @@ def check_http_url(
 ) -> HttpCheckObservation:
     request = urllib.request.Request(url, headers={"User-Agent": "vibeagent-http-check/0.1"})
     try:
-        with urllib.request.urlopen(request, timeout=timeout_ms / 1000) as response:
+        with open_scoped_url(request, timeout=timeout_ms / 1000, scope="local") as response:
             status = int(response.getcode())
             final_url = str(response.geturl())
             reason = str(getattr(response, "reason", "") or "") or None
@@ -156,7 +157,7 @@ def check_http_url(
             body_reader=error.read,
             error=None,
         )
-    except (urllib.error.URLError, TimeoutError, socket.timeout) as error:
+    except (UrlSafetyError, urllib.error.URLError, TimeoutError, socket.timeout) as error:
         return HttpCheckObservation(
             kind="http_check",
             ok=True,
@@ -261,7 +262,7 @@ def build_http_check_observation(
 def fetch_http_url(url: str, timeout_ms: int = 5_000, max_body_chars: int = 12_000) -> HttpFetchObservation:
     request = urllib.request.Request(url, headers={"User-Agent": "vibeagent-http-fetch/0.1"})
     try:
-        with urllib.request.urlopen(request, timeout=timeout_ms / 1000) as response:
+        with open_scoped_url(request, timeout=timeout_ms / 1000, scope="local") as response:
             return build_http_fetch_observation(
                 url=url,
                 final_url=str(response.geturl()),
@@ -285,7 +286,7 @@ def fetch_http_url(url: str, timeout_ms: int = 5_000, max_body_chars: int = 12_0
             body_reader=error.read,
             error=None,
         )
-    except (urllib.error.URLError, TimeoutError, socket.timeout) as error:
+    except (UrlSafetyError, urllib.error.URLError, TimeoutError, socket.timeout) as error:
         return HttpFetchObservation(
             kind="http_fetch",
             ok=True,

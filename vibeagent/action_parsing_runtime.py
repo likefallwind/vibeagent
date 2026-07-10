@@ -15,6 +15,7 @@ from .types import (
     EnvironmentInfoAction,
     HttpCheckAction,
     HttpFetchAction,
+    WebFetchAction,
     PortCheckAction,
 )
 
@@ -25,6 +26,7 @@ RUNTIME_ACTION_TYPES = {
     "port_check",
     "http_check",
     "http_fetch",
+    "web_fetch",
     "environment_info",
 }
 
@@ -107,6 +109,18 @@ def parse_runtime_action(action_type: object, value: dict[str, Any], raw: str) -
             url=url,
             timeout_ms=_parse_timeout_ms(value.get("timeout_ms"), raw),
             max_body_chars=max_body_chars,
+        )
+
+    if action_type == "web_fetch":
+        url = _parse_http_url(value.get("url"), raw, "web_fetch")
+        max_text_chars = parse_optional_positive_int(
+            value.get("max_text_chars"), "max_text_chars", raw, maximum=100_000
+        )
+        return WebFetchAction(
+            type="web_fetch",
+            url=url,
+            timeout_ms=_parse_timeout_ms(value.get("timeout_ms"), raw),
+            max_text_chars=max_text_chars,
         )
 
     if action_type == "environment_info":

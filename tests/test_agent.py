@@ -10337,7 +10337,11 @@ class AgentTests(unittest.TestCase):
 
     def test_approval_preview_mapping_covers_approval_required_tools(self) -> None:
         tool_names = {tool["name"] for tool in AGENT_TOOL_DEFINITIONS}
-        missing = sorted(APPROVAL_REQUIRED_TOOL_NAMES - set(agent_module.PREVIEW_KIND_BY_ACTION_TYPE))
+        missing = sorted(
+            APPROVAL_REQUIRED_TOOL_NAMES
+            - set(agent_module.PREVIEW_KIND_BY_ACTION_TYPE)
+            - agent_module.APPROVAL_WITHOUT_PREVIEW_ACTION_TYPES
+        )
         invalid = sorted(
             (action_name, preview_name)
             for action_name, preview_name in agent_module.PREVIEW_KIND_BY_ACTION_TYPE.items()
