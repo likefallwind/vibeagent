@@ -15,8 +15,10 @@ from .agent_runtime_utils import append_session_event, build_repeated_list_obser
 from .agent_steps import complete_task_step, start_task_step
 from .types import (
     AgentLogger,
+    ApprovalDecision,
     ApprovalDeniedObservation,
     ApprovalHandler,
+    ApprovalPolicy,
     Observation,
     TaskStep,
 )
@@ -49,6 +51,7 @@ def execute_parsed_tool_action(
     execute_action_safely_func: ExecuteActionSafely,
     should_auto_checkpoint_before_action_func: ShouldAutoCheckpoint,
     create_auto_checkpoint_before_action_func: CreateAutoCheckpoint,
+    approval_policy: ApprovalPolicy = "ask",
 ) -> ToolActionExecutionResult:
     step = start_task_step(workspace, steps, iteration, action, logger)
     log_action(logger, action)
@@ -72,6 +75,7 @@ def execute_parsed_tool_action(
             execute_action_safely_func,
             should_auto_checkpoint_before_action_func,
             create_auto_checkpoint_before_action_func,
+            approval_policy,
         )
 
     complete_task_step(workspace, step, observation, iteration, logger)
@@ -104,6 +108,7 @@ def _execute_non_repeated_action(
     execute_action_safely_func: ExecuteActionSafely,
     should_auto_checkpoint_before_action_func: ShouldAutoCheckpoint,
     create_auto_checkpoint_before_action_func: CreateAutoCheckpoint,
+    approval_policy: ApprovalPolicy,
 ) -> tuple[Observation, Observation | None, bool]:
     approval_request = build_approval_request(action)
     if approval_request:
@@ -115,7 +120,13 @@ def _execute_non_repeated_action(
         )
         if logger:
             logger("approval required", summarize_approval_request(approval_request))
-        decision = request_approval(approval_handler, approval_request)
+        if approval_policy == "plan":
+            decision = ApprovalDecision(
+                approved=False,
+                message=f"Denied because Plan mode is read-only: {approval_request.action_type}.",
+            )
+        else:
+            decision = request_approval(approval_handler, approval_request)
         append_session_event(
             workspace.session_dir,
             "approval_decision",

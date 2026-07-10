@@ -16,8 +16,9 @@ from .agent_runtime_utils import (
     to_jsonable,
 )
 from .agent_steps import complete_task_step, start_task_step
+from .agent_tool_registry import prepare_action_for_policy
 from .redaction import redact_jsonable_payload
-from .types import AgentLogger, ContentBlock, ListFilesObservation, Observation, TaskStep, ToolErrorObservation
+from .types import ApprovalPolicy, AgentLogger, ContentBlock, ListFilesObservation, Observation, TaskStep, ToolErrorObservation
 from .workspace_core import RunWorkspace
 
 
@@ -46,6 +47,7 @@ def execute_parallel_tool_call_batch(
     command_timeout_ms: int,
     logger: AgentLogger | None,
     execute: Callable[[RunWorkspace, object, int], Observation] = execute_action,
+    approval_policy: ApprovalPolicy = "ask",
 ) -> ParallelToolCallBatchResult | None:
     if len(tool_calls) < 2:
         return None
@@ -56,7 +58,7 @@ def execute_parallel_tool_call_batch(
         tool_name = str(block.get("name") or "")
         tool_input = block.get("input") or {}
         try:
-            action = parse_tool_action(tool_name, tool_input)
+            action = prepare_action_for_policy(parse_tool_action(tool_name, tool_input), approval_policy)
         except ActionParseError:
             break
         if not is_parallel_safe_action(action):

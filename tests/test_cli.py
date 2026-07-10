@@ -310,6 +310,9 @@ class CliTests(unittest.TestCase):
         self.assertEqual(kwargs["command_timeout_ms"], 1234)
         self.assertIs(kwargs["provider_args"], args)
 
+        plan_args = cli_module.parse_args(["--approval", "plan", "inspect", "repo"])
+        self.assertEqual(plan_args.approval, "plan")
+
     def test_parse_args_accepts_explicit_aliases_but_rejects_implicit_abbreviations(self) -> None:
         command_args = cli_module.parse_args(["--command", "python3 --version"])
         run_args = cli_module.parse_args(["--run", "python3 --version"])
@@ -424,7 +427,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(handle_approval_command(None, "ask"), ("ask", "Approval policy: ask"))
         self.assertEqual(handle_approval_command("allow", "ask"), ("allow", "Approval policy: allow"))
         self.assertEqual(handle_approval_command("deny", "allow"), ("deny", "Approval policy: deny"))
-        self.assertEqual(handle_approval_command("bad", "deny"), ("deny", "Usage: /approval [ask|allow|deny]"))
+        self.assertEqual(handle_approval_command("plan", "deny"), ("plan", "Approval policy: plan"))
+        self.assertEqual(handle_approval_command("bad", "deny"), ("deny", "Usage: /approval [ask|allow|deny|plan]"))
 
     def test_build_approval_handler_uses_policy_without_prompting(self) -> None:
         request = ApprovalRequest(
@@ -437,6 +441,9 @@ class CliTests(unittest.TestCase):
         denied = build_approval_handler("deny")(request)
         self.assertFalse(denied.approved)
         self.assertIn("Denied by policy", denied.message)
+        plan_denied = build_approval_handler("plan")(request)
+        self.assertFalse(plan_denied.approved)
+        self.assertIn("Plan mode is read-only", plan_denied.message)
 
     def test_main_prints_only_final_agent_message_for_code_tasks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
@@ -592,6 +599,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(run_agent.call_args.kwargs["model_retry_delay_ms"], 25)
         self.assertEqual(run_agent.call_args.kwargs["model_timeout_ms"], 45000)
         self.assertIsNone(run_agent.call_args.kwargs["prior_context"])
+        self.assertEqual(run_agent.call_args.kwargs["approval_policy"], "allow")
         handler = run_agent.call_args.kwargs["approval_handler"]
         self.assertTrue(handler(ApprovalRequest(action_type="write_file", target="note.txt", risk="write")).approved)
 
@@ -16720,6 +16728,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("Approval policy: deny", output)
         first_handler = run_agent.call_args_list[0].kwargs["approval_handler"]
         second_handler = run_agent.call_args_list[1].kwargs["approval_handler"]
+        self.assertEqual(run_agent.call_args_list[0].kwargs["approval_policy"], "allow")
+        self.assertEqual(run_agent.call_args_list[1].kwargs["approval_policy"], "deny")
         request = ApprovalRequest(action_type="write_file", target="note.txt", risk="write")
         self.assertTrue(first_handler(request).approved)
         self.assertFalse(second_handler(request).approved)

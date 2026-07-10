@@ -39,6 +39,7 @@ from .agent_tool_registry import (
     activate_tools_for_run,
     activate_tools_from_observations,
     initialize_agent_tools,
+    prepare_action_for_policy,
 )
 from .agent_user_input import execute_user_input_action
 from .agent_run_completion import (
@@ -62,6 +63,7 @@ from .session import summarize_session
 from .types import (
     AgentLogger,
     ApprovalHandler,
+    ApprovalPolicy,
     AskUserAction,
     ChatClient,
     ChatMessage,
@@ -92,21 +94,31 @@ def run_agent(
     approval_handler: ApprovalHandler | None = None,
     user_input_handler: UserInputHandler | None = None,
     prior_context: str | None = None,
+    approval_policy: ApprovalPolicy = "ask",
 ) -> AgentResult:
     # Start with an isolated run workspace for one task execution.
     current_workspace = workspace or create_run_workspace(base_dir)
     observations: list[Observation] = []
     steps: list[TaskStep] = []
     plan: list[PlanItem] = []
-    messages = build_messages(task, current_workspace, prior_context=prior_context)
+    messages = build_messages(
+        task,
+        current_workspace,
+        prior_context=prior_context,
+        approval_policy=approval_policy,
+    )
     original_prior_context = prior_context
     auto_checkpoint_attempted = False
     append_session_event(
         current_workspace.session_dir,
         "task",
-        {"task": task, "prior_context": compact_session_context(prior_context) if prior_context else None},
+        {
+            "task": task,
+            "approval_policy": approval_policy,
+            "prior_context": compact_session_context(prior_context) if prior_context else None,
+        },
     )
-    active_tool_names = initialize_agent_tools(current_workspace)
+    active_tool_names = initialize_agent_tools(current_workspace, approval_policy)
 
     for iteration in range(1, max_iterations + 1):
         # Tool loop: provider-neutral tool_call blocks -> local execution -> tool_result blocks.
@@ -116,7 +128,7 @@ def run_agent(
         response, model_error_message = complete_with_retries(
             client,
             messages,
-            tools=agent_tool_definitions(active_tool_names),
+            tools=agent_tool_definitions(active_tool_names, approval_policy),
             max_output_tokens=max_output_tokens,
             model_retries=model_retries,
             model_retry_delay_ms=model_retry_delay_ms,
@@ -196,6 +208,7 @@ def run_agent(
             [str(block.get("name") or "") for block in tool_calls],
             iteration,
             source="model_call",
+            approval_policy=approval_policy,
         )
         observation_start = len(observations)
         parallel_batch_result = execute_parallel_tool_call_batch(
@@ -207,6 +220,7 @@ def run_agent(
             command_timeout_ms,
             logger,
             execute=execute_action,
+            approval_policy=approval_policy,
         )
         tool_results: list[ContentBlock] = []
         handled_tool_calls = 0
@@ -218,6 +232,7 @@ def run_agent(
                 active_tool_names,
                 observations[observation_start:],
                 iteration,
+                approval_policy,
             )
         if handled_tool_calls == len(tool_calls):
             messages.append(ChatMessage(role="user", content=tool_results))
@@ -229,6 +244,7 @@ def run_agent(
                 plan,
                 original_prior_context,
                 iteration,
+                approval_policy=approval_policy,
             )
             continue
 
@@ -244,7 +260,7 @@ def run_agent(
             )
 
             try:
-                action = parse_tool_action(tool_name, tool_input)
+                action = prepare_action_for_policy(parse_tool_action(tool_name, tool_input), approval_policy)
                 if isinstance(action, AskUserAction):
                     observation = execute_user_input_action(
                         current_workspace,
@@ -286,6 +302,7 @@ def run_agent(
                         execute_action_safely,
                         should_auto_checkpoint_before_action,
                         create_auto_checkpoint_before_action,
+                        approval_policy,
                     )
                     observation = execution.observation
                     auto_checkpoint_attempted = execution.auto_checkpoint_attempted
@@ -302,6 +319,7 @@ def run_agent(
                 active_tool_names,
                 [observation],
                 iteration,
+                approval_policy,
             )
             result_payload = redact_jsonable_payload(to_jsonable(observation))
             append_session_event(
@@ -357,6 +375,7 @@ def run_agent(
             plan,
             original_prior_context,
             iteration,
+            approval_policy=approval_policy,
         )
 
     # Return failure only after exhausting max iterations without an explicit finish action.

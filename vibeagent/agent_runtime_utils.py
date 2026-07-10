@@ -11,7 +11,7 @@ from .prompt_observations import format_observations
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .session_event_sanitization import sanitize_session_event_payload
-from .types import ChatMessage, ContentBlock, ListFilesObservation, Observation, PlanItem, ToolErrorObservation
+from .types import ApprovalPolicy, ChatMessage, ContentBlock, ListFilesObservation, Observation, PlanItem, ToolErrorObservation
 from .workspace_core import RunWorkspace
 
 
@@ -47,6 +47,7 @@ def compact_agent_message_history(
     threshold: int = AGENT_MESSAGE_COMPACT_THRESHOLD,
     observation_limit: int = AGENT_COMPACT_OBSERVATION_LIMIT,
     max_context_length: int = AGENT_COMPACT_CONTEXT_MAX_LENGTH,
+    approval_policy: ApprovalPolicy = "ask",
 ) -> list[ChatMessage]:
     if len(messages) <= threshold:
         return messages
@@ -58,7 +59,13 @@ def compact_agent_message_history(
         observation_limit=observation_limit,
         max_context_length=max_context_length,
     )
-    compacted_messages = build_messages(task, workspace, observations, prior_context=prior_context)
+    compacted_messages = build_messages(
+        task,
+        workspace,
+        observations,
+        prior_context=prior_context,
+        approval_policy=approval_policy,
+    )
     append_session_event(
         workspace.session_dir,
         "context_compacted",

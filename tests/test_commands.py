@@ -961,7 +961,7 @@ class CommandTests(unittest.TestCase):
     def test_help_text_lists_approval_command(self) -> None:
         from vibeagent.commands import get_help_text
 
-        self.assertIn("/approval [ask|allow|deny]", get_help_text())
+        self.assertIn("/approval [ask|allow|deny|plan]", get_help_text())
         self.assertIn("/config", get_help_text())
         self.assertIn("/resume [run-id|off] [--max-failures N] [--max-files N] [--max-commands N] [--max-checks N]", get_help_text())
         self.assertIn("previous session handoff", get_help_text())

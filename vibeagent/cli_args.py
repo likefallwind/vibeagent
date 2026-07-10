@@ -384,9 +384,9 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     local.add_argument("--save-config", action="store_true", help="Save non-secret provider defaults to .vibeagent/config.json and exit.")
     parser.add_argument(
         "--approval",
-        choices=("ask", "allow", "deny"),
+        choices=("ask", "allow", "deny", "plan"),
         default="ask",
-        help="Approval policy for one-shot coding tasks.",
+        help="Approval policy for one-shot coding tasks; plan exposes read-only tools only.",
     )
     parser.add_argument(
         "--resume",

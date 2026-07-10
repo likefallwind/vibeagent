@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import replace
 from typing import Any
 
 from .agent_runtime_utils import append_session_event
+from .tool_catalog_core import APPROVAL_REQUIRED_TOOL_NAMES
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
-from .types import Observation
+from .types import ApprovalPolicy, Observation, ToolSearchAction
 from .workspace_core import RunWorkspace
 
 
@@ -58,32 +60,58 @@ def initial_agent_tool_names() -> set[str]:
     return set(CORE_AGENT_TOOL_NAMES)
 
 
-def initialize_agent_tools(workspace: RunWorkspace) -> set[str]:
-    active_names = initial_agent_tool_names()
+def tool_available_for_policy(name: str, approval_policy: ApprovalPolicy) -> bool:
+    return approval_policy != "plan" or name not in APPROVAL_REQUIRED_TOOL_NAMES
+
+
+def prepare_action_for_policy(action: object, approval_policy: ApprovalPolicy) -> object:
+    if approval_policy == "plan" and isinstance(action, ToolSearchAction):
+        return replace(action, approval_required=False)
+    return action
+
+
+def initialize_agent_tools(workspace: RunWorkspace, approval_policy: ApprovalPolicy = "ask") -> set[str]:
+    active_names = {
+        name for name in initial_agent_tool_names()
+        if tool_available_for_policy(name, approval_policy)
+    }
     append_session_event(
         workspace.session_dir,
         "tool_catalog_initialized",
         {
             "active": len(active_names),
             "total": len(AGENT_TOOL_DEFINITIONS),
+            "approval_policy": approval_policy,
             "tools": sorted(active_names),
         },
     )
     return active_names
 
 
-def agent_tool_definitions(active_names: set[str]) -> list[dict[str, Any]]:
+def agent_tool_definitions(
+    active_names: set[str],
+    approval_policy: ApprovalPolicy = "ask",
+) -> list[dict[str, Any]]:
     return [
         tool
         for tool in AGENT_TOOL_DEFINITIONS
         if str(tool["name"]) in active_names
+        and tool_available_for_policy(str(tool["name"]), approval_policy)
     ]
 
 
-def activate_agent_tool_names(active_names: set[str], requested_names: Iterable[str]) -> list[str]:
+def activate_agent_tool_names(
+    active_names: set[str],
+    requested_names: Iterable[str],
+    approval_policy: ApprovalPolicy = "ask",
+) -> list[str]:
     newly_active: list[str] = []
     for name in requested_names:
-        if name in active_names or name not in TOOL_DEFINITION_BY_NAME:
+        if (
+            name in active_names
+            or name not in TOOL_DEFINITION_BY_NAME
+            or not tool_available_for_policy(name, approval_policy)
+        ):
             continue
         active_names.add(name)
         newly_active.append(name)
@@ -113,8 +141,9 @@ def activate_tools_for_run(
     iteration: int,
     *,
     source: str,
+    approval_policy: ApprovalPolicy = "ask",
 ) -> list[str]:
-    activated = activate_agent_tool_names(active_names, requested_names)
+    activated = activate_agent_tool_names(active_names, requested_names, approval_policy)
     if activated:
         append_session_event(
             workspace.session_dir,
@@ -135,6 +164,7 @@ def activate_tools_from_observations(
     active_names: set[str],
     observations: list[Observation],
     iteration: int,
+    approval_policy: ApprovalPolicy = "ask",
 ) -> list[str]:
     requested_names: list[str] = []
     for observation in observations:
@@ -145,6 +175,7 @@ def activate_tools_from_observations(
         requested_names,
         iteration,
         source="tool_search",
+        approval_policy=approval_policy,
     )
 
 

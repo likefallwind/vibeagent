@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .prompt_next_action import get_next_action_instruction
 from .prompt_observations import format_observations
-from .types import ChatMessage, Observation
+from .types import ApprovalPolicy, ChatMessage, Observation
 from .workspace_core import RunWorkspace
 from .workspace import (
     format_project_skill_catalog,
@@ -82,6 +82,7 @@ def build_messages(
     workspace: RunWorkspace,
     observations: list[Observation] | None = None,
     prior_context: str | None = None,
+    approval_policy: ApprovalPolicy = "ask",
 ) -> list[ChatMessage]:
     # Assemble initial context for the model: goal and current workspace state.
     snapshot = read_workspace_snapshot(workspace)
@@ -89,6 +90,16 @@ def build_messages(
     command_hints = read_project_command_hints(workspace)
     skill_catalog = format_project_skill_catalog(workspace)
     chunks = [f"User task:\n{task}"]
+    if approval_policy == "plan":
+        chunks.append(
+            "\n".join(
+                [
+                    "Plan mode is active.",
+                    "Inspect the project with read-only tools only. Do not attempt file writes, edits, commands, process control, network fetches, MCP process calls, or git mutations.",
+                    "Return a concrete implementation plan grounded in the files you inspected. Include the affected files, ordered changes, verification steps, and material risks. Do not claim that you changed the workspace.",
+                ]
+            )
+        )
     if prior_context:
         chunks.append(
             "\n".join(

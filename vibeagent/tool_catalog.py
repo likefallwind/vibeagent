@@ -203,6 +203,7 @@ def get_permissions_report(approval_policy: str = "ask") -> dict[str, object]:
         categories[category if category in categories else "other"].append(name)
     return {
         "approvalPolicy": approval_policy,
+        "planMode": approval_policy == "plan",
         "approvalRequiredTools": {
             "count": len(approval_required),
             "tools": approval_required,
@@ -227,6 +228,7 @@ def format_permissions_report_text(report: dict[str, object]) -> str:
     lines = [
         "Permissions:",
         f"  approvalPolicy: {report.get('approvalPolicy') or 'ask'}",
+        f"  planMode: {'read-only tools only' if report.get('planMode') else 'off'}",
         f"  approvalRequiredTools: {int(approval_required.get('count', 0) or 0)}",
         f"  readOnlyTools: {int(read_only.get('count', 0) or 0)}",
         "  approvalRequiredByCategory:",

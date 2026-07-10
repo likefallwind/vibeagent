@@ -140,8 +140,8 @@ def handle_approval_command(argument: str | None, current: ApprovalPolicy) -> tu
     if not argument:
         return current, f"Approval policy: {current}"
     requested = argument.strip().lower()
-    if requested not in {"ask", "allow", "deny"}:
-        return current, "Usage: /approval [ask|allow|deny]"
+    if requested not in {"ask", "allow", "deny", "plan"}:
+        return current, "Usage: /approval [ask|allow|deny|plan]"
     policy = requested
     return policy, f"Approval policy: {policy}"
 
@@ -151,6 +151,11 @@ def build_approval_handler(policy: ApprovalPolicy) -> ApprovalHandler:
         return lambda request: ApprovalDecision(approved=True, message=f"Approved by policy for {request.action_type}.")
     if policy == "deny":
         return lambda request: ApprovalDecision(approved=False, message=f"Denied by policy for {request.action_type}.")
+    if policy == "plan":
+        return lambda request: ApprovalDecision(
+            approved=False,
+            message=f"Denied because Plan mode is read-only: {request.action_type}.",
+        )
     return prompt_approval
 
 

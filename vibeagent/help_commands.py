@@ -182,7 +182,7 @@ def get_help_text() -> str:
             "  /clear  Clear chat history and loaded resume context.",
             "  /usage  Show local session usage from recorded events.",
             "  /cost   Show token usage and configured cost estimate.",
-            "  /approval [ask|allow|deny]  Show or set the session approval policy.",
+            "  /approval [ask|allow|deny|plan]  Show or set the session approval policy.",
             "  /sessions  List recent local sessions.",
             "  /session <run-id>  Show a compact session summary.",
             "  /last   Show a compact summary of the newest session.",

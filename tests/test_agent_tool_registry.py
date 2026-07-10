@@ -15,6 +15,7 @@ from vibeagent.agent_tool_registry import (
 from vibeagent.session_timeline_reports import format_session_event_timeline_item
 from vibeagent.session_types import SessionEvent
 from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
+from vibeagent.tool_catalog_core import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.types import AssistantResponse, ChatMessage, ContentBlock, ToolSearchObservation
 
 
@@ -54,6 +55,20 @@ class AgentToolRegistryTests(unittest.TestCase):
         self.assertEqual(second, [])
         self.assertIn("python_dependencies", active)
         self.assertNotIn("missing_tool", active)
+
+    def test_plan_policy_exposes_and_activates_read_only_tools_only(self) -> None:
+        active = initial_agent_tool_names()
+        definitions = agent_tool_definitions(active, "plan")
+        names = {str(tool["name"]) for tool in definitions}
+
+        self.assertIn("read_file", names)
+        self.assertIn("update_plan", names)
+        self.assertTrue(names.isdisjoint(APPROVAL_REQUIRED_TOOL_NAMES))
+        self.assertEqual(
+            activate_agent_tool_names(active, ["web_fetch", "python_dependencies"], "plan"),
+            ["python_dependencies"],
+        )
+        self.assertNotIn("web_fetch", active)
 
     def test_tool_search_activation_uses_only_returned_matches(self) -> None:
         observation = ToolSearchObservation(

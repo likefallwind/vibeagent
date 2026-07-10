@@ -752,7 +752,7 @@ and the latest plan, `/changes [--max-files N]` to inspect a structured changed-
 `/diff [--staged] [--max-chars N] [path]` to inspect the current patch,
 `/diff-hunks [--staged] [--max-hunks N] [--max-lines N] [path]` to inspect structured git diff hunks,
 `/diff-contexts [--staged] [--context-lines N] [--max-hunks N] [--max-bytes N] [path]` to inspect source context around git diff hunks,
-`/approval [ask|allow|deny]` to control
+`/approval [ask|allow|deny|plan]` to control
 the session approval policy, `/resume [run-id|off]` to carry a previous coding
 session handoff into the next task or clear it, `/compact [run-id]` to explicitly
 compact the newest or selected session into context, `/plan [run-id]` to inspect
@@ -1233,7 +1233,9 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   starts/runs require approval in the CLI before execution. Library callers that
   do not provide an approval handler deny those actions by default.
 - CLI approval defaults to `ask`; `/approval allow` approves future actions in
-  the current session, and `/approval deny` rejects them without prompting.
+  the current session, `/approval deny` rejects them without prompting, and
+  `/approval plan` exposes read-only agent tools and produces an implementation
+  plan without mutating the workspace.
 - Ctrl-C during a running local command, one-shot task, or interactive task
   prints `Interrupted.` instead of a traceback; one-shot and local-command
   invocations exit with status 130, while the interactive prompt returns to the

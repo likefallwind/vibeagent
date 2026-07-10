@@ -162,6 +162,7 @@ def run_one_shot(
             model_retry_delay_ms=execution_config.model_retry_delay_ms,
             model_timeout_ms=execution_config.model_timeout_ms,
             approval_handler=build_approval_handler(approval_policy),
+            approval_policy=approval_policy,
             user_input_handler=None if output_json else prompt_user_input,
             prior_context=prior_context.context,
         )
