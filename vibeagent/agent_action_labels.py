@@ -155,6 +155,8 @@ def build_step_label(action: object) -> str:
         return f"Inspect {len(action.paths)} paths"
     if isinstance(action, t.ImageInfoAction):
         return f"Inspect {len(action.paths)} images"
+    if isinstance(action, t.ViewImageAction):
+        return f"View image {action.path}"
     if isinstance(action, t.PythonSymbolsAction):
         return f"Read Python symbols for {len(action.paths)} files"
     if isinstance(action, t.CodeOutlineAction):

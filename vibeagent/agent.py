@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import time
 from typing import Any
 
 from .actions import ActionParseError, execute_action, parse_tool_action
 from .agent_model import complete_with_retries
+from .agent_multimodal import build_tool_result_block, strip_consumed_tool_images
 from .agent_result import AgentResult
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
@@ -138,6 +138,7 @@ def run_agent(
                 command_timeout_ms=command_timeout_ms,
                 logger=logger,
             )
+        strip_consumed_tool_images(messages)
         assistant_content = normalize_assistant_content(response.content if hasattr(response, "content") else response)
         model_event: dict[str, Any] = {"iteration": iteration, "content": assistant_content}
         response_usage = response.usage if hasattr(response, "usage") else None
@@ -308,13 +309,7 @@ def run_agent(
                 "tool_result",
                 {"iteration": iteration, "id": tool_id, "name": tool_name, "result": result_payload},
             )
-            tool_results.append(
-                {
-                    "type": "tool_result",
-                    "tool_call_id": tool_id,
-                    "content": json.dumps(result_payload, ensure_ascii=False),
-                }
-            )
+            tool_results.append(build_tool_result_block(current_workspace, tool_id, observation, result_payload))
 
             if observation.kind == "finish":
                 blocked_completion_feedback = completion_blocked_feedback_if_needed(

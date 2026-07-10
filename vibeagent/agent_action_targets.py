@@ -56,6 +56,8 @@ def build_action_target(action: object) -> str:
         return ", ".join(action.paths)
     if isinstance(action, t.ImageInfoAction):
         return ", ".join(action.paths)
+    if isinstance(action, t.ViewImageAction):
+        return action.path
     if isinstance(action, t.PythonSymbolsAction):
         return ", ".join(action.paths)
     if isinstance(action, t.CodeOutlineAction):

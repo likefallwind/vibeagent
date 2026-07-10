@@ -10,6 +10,8 @@ from .types import (
     ImageInfoAction,
     ImageInfoObservation,
     ImageInfoResult,
+    ViewImageAction,
+    ViewImageObservation,
     Observation,
     PythonSymbol,
     PythonSymbolsAction,
@@ -38,6 +40,7 @@ from .workspace import (
     read_project_file_result,
     read_project_file_tail_result,
     read_project_image_info,
+    read_project_image_payload,
     read_python_symbol_outline,
 )
 from .workspace_core import RunWorkspace
@@ -60,6 +63,8 @@ def execute_read_file_action(workspace: RunWorkspace, action: object) -> Observa
         return file_info_observation(workspace, action)
     if isinstance(action, ImageInfoAction):
         return image_info_observation(workspace, action)
+    if isinstance(action, ViewImageAction):
+        return view_image_observation(workspace, action)
     if isinstance(action, PythonSymbolsAction):
         return python_symbols_observation(workspace, action)
     if isinstance(action, CodeOutlineAction):
@@ -369,6 +374,36 @@ def image_info_observation(workspace: RunWorkspace, action: ImageInfoAction) -> 
         images=images,
         message=f"Inspected {ok_count}/{len(images)} image(s).",
     )
+
+
+def view_image_observation(workspace: RunWorkspace, action: ViewImageAction) -> ViewImageObservation:
+    try:
+        payload = read_project_image_payload(workspace, action.path, action.max_bytes)
+        return ViewImageObservation(
+            kind="view_image",
+            ok=True,
+            path=action.path,
+            size_bytes=int(payload["size_bytes"]),
+            format=str(payload["format"]),
+            mime_type=str(payload["mime_type"]),
+            width=int(payload["width"]),
+            height=int(payload["height"]),
+            max_bytes=action.max_bytes,
+            message=f"Loaded image for model inspection: {action.path}",
+        )
+    except ValueError as error:
+        return ViewImageObservation(
+            kind="view_image",
+            ok=False,
+            path=action.path,
+            size_bytes=None,
+            format=None,
+            mime_type=None,
+            width=None,
+            height=None,
+            max_bytes=action.max_bytes,
+            message=str(error),
+        )
 
 
 def python_symbols_observation(workspace: RunWorkspace, action: PythonSymbolsAction) -> PythonSymbolsObservation:

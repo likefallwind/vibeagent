@@ -37,7 +37,10 @@ class ReadingToolDefinitionTests(unittest.TestCase):
             [tool["name"] for tool in READING_BATCH_TOOL_DEFINITIONS],
             ["tail_file", "read_files", "read_file_ranges"],
         )
-        self.assertEqual([tool["name"] for tool in READING_INSPECTION_TOOL_DEFINITIONS], ["file_info", "image_info"])
+        self.assertEqual(
+            [tool["name"] for tool in READING_INSPECTION_TOOL_DEFINITIONS],
+            ["file_info", "image_info", "view_image"],
+        )
         self.assertEqual(
             [tool["name"] for tool in READING_SOURCE_TOOL_DEFINITIONS],
             ["python_symbols", "code_outline", "python_check", "config_check"],

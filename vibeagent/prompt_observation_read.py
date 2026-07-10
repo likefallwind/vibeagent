@@ -112,6 +112,16 @@ def format_read_observation(index: int, observation: object) -> str | None:
         return _format_file_info(index, observation)
     if observation.kind == "image_info":
         return _format_image_info(index, observation)
+    if observation.kind == "view_image":
+        return "\n".join(
+            [
+                f"{index}. view_image {observation.path}: {observation.message}",
+                f"ok: {str(observation.ok).lower()}",
+                f"format: {observation.format or 'none'} mimeType={observation.mime_type or 'none'}",
+                f"dimensions: {observation.width or 'none'}x{observation.height or 'none'}",
+                f"sizeBytes: {observation.size_bytes if observation.size_bytes is not None else 'none'} maxBytes={observation.max_bytes}",
+            ]
+        )
     if observation.kind == "search":
         return "\n".join(
             [

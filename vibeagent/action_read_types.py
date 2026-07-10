@@ -154,6 +154,13 @@ class ImageInfoAction:
 
 
 @dataclass(frozen=True)
+class ViewImageAction:
+    type: Literal["view_image"]
+    path: str
+    max_bytes: int = 5_000_000
+
+
+@dataclass(frozen=True)
 class SearchAction:
     type: Literal["search"]
     query: str

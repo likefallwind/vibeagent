@@ -202,6 +202,6 @@ def classify_session_file_use(tool_name: str) -> str:
         return "move"
     if any(token in tool_name for token in ("write", "edit", "replace", "insert", "append", "patch", "set", "create")):
         return "write"
-    if tool_name.startswith(("read", "list", "search", "glob", "file_info", "image_info", "python_", "code_", "git_", "config_check")):
+    if tool_name.startswith(("read", "list", "search", "glob", "file_info", "image_info", "view_image", "python_", "code_", "git_", "config_check")):
         return "read"
     return "reference"

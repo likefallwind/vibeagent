@@ -229,6 +229,20 @@ class ImageInfoObservation:
 
 
 @dataclass(frozen=True)
+class ViewImageObservation:
+    kind: Literal["view_image"]
+    ok: bool
+    path: str
+    size_bytes: int | None
+    format: str | None
+    mime_type: str | None
+    width: int | None
+    height: int | None
+    max_bytes: int
+    message: str
+
+
+@dataclass(frozen=True)
 class PythonSymbol:
     name: str
     kind: Literal["class", "function", "async_function", "type", "impl"]

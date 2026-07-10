@@ -16,6 +16,7 @@ from .types import (
     ConfigCheckAction,
     FileInfoAction,
     ImageInfoAction,
+    ViewImageAction,
     ListFilesAction,
     ListTreeAction,
     OutputContextsAction,
@@ -47,6 +48,7 @@ READ_ACTION_TYPES = {
     "read_file_ranges",
     "file_info",
     "image_info",
+    "view_image",
     "python_symbols",
     "code_outline",
     "python_check",
@@ -250,6 +252,15 @@ def parse_read_action(action_type: object, value: dict[str, Any], raw: str) -> o
 
     if action_type == "image_info":
         return ImageInfoAction(type="image_info", paths=parse_path_list(value.get("paths"), raw, "image_info", maximum=20))
+
+    if action_type == "view_image":
+        path = value.get("path")
+        if not isinstance(path, str) or not path.strip():
+            raise ActionParseError("view_image action requires a non-empty path.", raw)
+        max_bytes = parse_optional_positive_int(
+            value.get("max_bytes", 5_000_000), "max_bytes", raw, maximum=5_000_000
+        ) or 5_000_000
+        return ViewImageAction(type="view_image", path=path.strip(), max_bytes=max_bytes)
 
     if action_type == "python_symbols":
         return PythonSymbolsAction(

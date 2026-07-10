@@ -173,6 +173,7 @@ from .observation_read_types import (
     FileInfoObservation,
     FileInfoResult,
     ImageInfoObservation,
+    ViewImageObservation,
     ImageInfoResult,
     ListFilesObservation,
     ListTreeObservation,

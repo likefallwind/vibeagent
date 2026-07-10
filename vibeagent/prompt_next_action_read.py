@@ -12,6 +12,7 @@ READ_NEXT_ACTION_KINDS = {
     "read_file_ranges",
     "file_info",
     "image_info",
+    "view_image",
     "repo_map",
     "python_symbols",
     "code_outline",
@@ -195,6 +196,11 @@ def _structure_next_action_instruction(base: str, latest: Observation) -> str:
                 "Use it to choose the right read/edit tool, or continue with verification if no edit is needed."
             )
         return f"{base} File metadata did not identify a usable target. Check the path or inspect the directory."
+
+    if latest.kind == "view_image":
+        if getattr(latest, "ok", False):
+            return f"{base} Use the visual content and image metadata to continue the requested implementation or review."
+        return f"{base} The image could not be shown. Fix the path, format, or size limit, or continue from available source evidence."
 
     return ""
 

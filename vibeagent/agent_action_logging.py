@@ -32,6 +32,8 @@ def log_action(logger: t.AgentLogger | None, action: object) -> None:
         logger("reading file info", build_action_target(action))
     elif action_type == "image_info":
         logger("reading image info", build_action_target(action))
+    elif action_type == "view_image":
+        logger("viewing image", build_action_target(action))
     elif action_type == "python_symbols":
         logger("reading python symbols", build_action_target(action))
     elif action_type == "code_outline":

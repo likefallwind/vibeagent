@@ -186,6 +186,8 @@ def observation_failed(observation: Observation) -> bool:
         return any(not item.ok for item in observation.files)
     if observation.kind == "image_info":
         return any(not item.ok for item in observation.images)
+    if observation.kind == "view_image":
+        return not observation.ok
     if observation.kind == "python_symbols":
         return any(not item.ok for item in observation.files)
     if observation.kind == "code_outline":

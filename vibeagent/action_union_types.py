@@ -180,6 +180,7 @@ from .action_read_types import (
     FindFilesAction,
     GlobAction,
     ImageInfoAction,
+    ViewImageAction,
     ListFilesAction,
     ListTreeAction,
     OutputContextsAction,
@@ -233,6 +234,7 @@ AgentAction: TypeAlias = (
     | ReadFileRangesAction
     | FileInfoAction
     | ImageInfoAction
+    | ViewImageAction
     | PythonSymbolsAction
     | CodeOutlineAction
     | PythonCheckAction

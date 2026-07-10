@@ -140,6 +140,7 @@ def tool_category(name: str) -> str:
         "read_file_ranges",
         "file_info",
         "image_info",
+        "view_image",
         "find_files",
         "glob",
         "search",

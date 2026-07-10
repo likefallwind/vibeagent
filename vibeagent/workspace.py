@@ -212,6 +212,7 @@ from .workspace_file_read import (
     read_project_file_result,
     read_project_file_tail_result,
     read_project_image_info,
+    read_project_image_payload,
     read_utf8_text_file,
     truncate_utf8_text_bytes,
 )

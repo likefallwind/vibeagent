@@ -179,6 +179,7 @@ from .observation_read_types import (
     ConfigCheckObservation,
     FileInfoObservation,
     ImageInfoObservation,
+    ViewImageObservation,
     ListFilesObservation,
     ListTreeObservation,
     OutputContextsObservation,
@@ -246,6 +247,7 @@ Observation: TypeAlias = (
     | ReadFileRangesObservation
     | FileInfoObservation
     | ImageInfoObservation
+    | ViewImageObservation
     | PythonSymbolsObservation
     | CodeOutlineObservation
     | PythonCheckObservation

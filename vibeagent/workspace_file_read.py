@@ -200,3 +200,20 @@ def read_project_image_info(workspace: RunWorkspace, relative_path: str) -> dict
         "height": height,
         "message": message,
     }
+
+
+def read_project_image_payload(workspace: RunWorkspace, relative_path: str, max_bytes: int = 5_000_000) -> dict[str, object]:
+    if max_bytes < 1 or max_bytes > 5_000_000:
+        raise ValueError("max_bytes must be between 1 and 5000000.")
+    info = read_project_image_info(workspace, relative_path)
+    if not info["ok"]:
+        raise ValueError(str(info["message"]))
+    size_bytes = int(info["size_bytes"])
+    if size_bytes > max_bytes:
+        raise ValueError(f"Image exceeds max_bytes ({size_bytes} > {max_bytes}): {relative_path}")
+    target = resolve_inside_run(workspace.root, relative_path)
+    with target.open("rb") as handle:
+        data = handle.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise ValueError(f"Image exceeds max_bytes: {relative_path}")
+    return {**info, "data": data, "max_bytes": max_bytes}

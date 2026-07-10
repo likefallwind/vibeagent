@@ -40,4 +40,22 @@ READING_INSPECTION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "view_image",
+        "description": "Send one bounded project-relative PNG, JPEG, GIF, or WebP image to the model for visual inspection. Image bytes are not written to session logs.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Project-relative image file path."},
+                "max_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5000000,
+                    "description": "Maximum image bytes to send. Defaults to 5000000.",
+                },
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    },
 ]

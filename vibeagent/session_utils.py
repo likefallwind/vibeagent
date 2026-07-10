@@ -192,6 +192,8 @@ def is_failed_tool_result(result: dict[str, Any]) -> bool:
     if kind == "image_info":
         images = result.get("images")
         return isinstance(images, list) and any(isinstance(image, dict) and image.get("ok") is False for image in images)
+    if kind == "view_image":
+        return result.get("ok") is False
     if kind == "repo_map":
         return result.get("ok") is False
     if kind == "python_symbols":
