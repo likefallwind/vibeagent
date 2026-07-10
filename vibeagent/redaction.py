@@ -31,6 +31,10 @@ SENSITIVE_TEXT_PATTERNS = (
     ),
 )
 
+SENSITIVE_KEY_PATTERN = re.compile(
+    r"(?i)(?:^|[_-])(?:authorization|password|secret|token|api[_-]?key)(?:$|[_-])"
+)
+
 
 def redact_sensitive_text(value: str) -> str:
     redacted = value
@@ -43,7 +47,18 @@ def redact_jsonable_payload(value: Any) -> Any:
     if isinstance(value, str):
         return redact_sensitive_text(value)
     if isinstance(value, dict):
-        return {key: redact_jsonable_payload(item) for key, item in value.items()}
+        return {
+            key: "[REDACTED]" if is_sensitive_key(str(key)) else redact_jsonable_payload(item)
+            for key, item in value.items()
+        }
     if isinstance(value, list):
         return [redact_jsonable_payload(item) for item in value]
     return value
+
+
+def is_sensitive_key(key: str) -> bool:
+    compact = re.sub(r"[^a-z0-9]", "", key.lower())
+    return bool(
+        SENSITIVE_KEY_PATTERN.search(key)
+        or compact.endswith(("apikey", "accesstoken", "authtoken", "password", "secret"))
+    )

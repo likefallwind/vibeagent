@@ -129,6 +129,7 @@ from .action_json_types import (
     JsonRemoveAction,
     JsonSetAction,
 )
+from .action_mcp_types import McpCallAction, McpServersAction, McpToolsAction
 from .action_process_types import (
     CheckRunCommandsAction,
     CheckStartCommandAction,
@@ -242,6 +243,9 @@ AgentAction: TypeAlias = (
     | JsonRemoveAction
     | CheckJsonPatchAction
     | JsonPatchAction
+    | McpServersAction
+    | McpToolsAction
+    | McpCallAction
     | PythonDependenciesAction
     | CodeDependenciesAction
     | CodeReferencesAction

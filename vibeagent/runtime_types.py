@@ -124,6 +124,8 @@ class ApprovalRequest:
         "run_suggested_checks",
         "start_command",
         "web_fetch",
+        "mcp_tools",
+        "mcp_call",
     ]
     target: str
     risk: str

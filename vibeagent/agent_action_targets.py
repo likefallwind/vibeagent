@@ -192,6 +192,12 @@ def build_action_target(action: object) -> str:
         return "project skills"
     if isinstance(action, t.SkillAction):
         return action.name
+    if isinstance(action, t.McpServersAction):
+        return "MCP servers"
+    if isinstance(action, t.McpToolsAction):
+        return action.server
+    if isinstance(action, t.McpCallAction):
+        return f"{action.server}/{action.name}"
     if isinstance(action, t.ProjectOverviewAction):
         return "project overview"
     if isinstance(action, t.CodeDependenciesAction):

@@ -60,6 +60,8 @@ APPROVAL_REQUIRED_TOOL_NAMES = {
     "write_files",
     "write_process",
     "web_fetch",
+    "mcp_tools",
+    "mcp_call",
 }
 
 
@@ -72,7 +74,7 @@ def categorize_tools() -> dict[str, list[str]]:
 
 
 def tool_category(name: str) -> str:
-    if name in {"delegate_task", "web_fetch"}:
+    if name in {"delegate_task", "mcp_call", "mcp_servers", "mcp_tools", "web_fetch"}:
         return "project"
     if name in {
         "ask_user",

@@ -58,6 +58,7 @@ PARALLEL_SAFE_TOOL_NAMES = {
     "project_instructions",
     "project_skills",
     "skill",
+    "mcp_servers",
     "project_overview",
     "environment_info",
     "command_check",

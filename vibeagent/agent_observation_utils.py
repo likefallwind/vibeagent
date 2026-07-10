@@ -322,6 +322,8 @@ def observation_failed(observation: Observation) -> bool:
         return not observation.ok
     if observation.kind == "skill":
         return not observation.ok
+    if observation.kind in {"mcp_servers", "mcp_tools", "mcp_call"}:
+        return not observation.ok
     if observation.kind == "project_todos":
         return not observation.ok
     if observation.kind == "project_overview":

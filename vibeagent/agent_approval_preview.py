@@ -66,7 +66,7 @@ PREVIEW_KIND_BY_ACTION_TYPE = {
 
 # External requests cannot be meaningfully previewed without performing the
 # disclosure that approval is intended to guard.
-APPROVAL_WITHOUT_PREVIEW_ACTION_TYPES = {"web_fetch"}
+APPROVAL_WITHOUT_PREVIEW_ACTION_TYPES = {"mcp_call", "mcp_tools", "web_fetch"}
 
 
 def attach_approval_preview(

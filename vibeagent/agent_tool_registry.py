@@ -29,6 +29,7 @@ CORE_AGENT_TOOL_NAMES = frozenset(
         "glob",
         "list_files",
         "list_tree",
+        "mcp_servers",
         "patch_file",
         "project_instructions",
         "project_overview",

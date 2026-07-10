@@ -19,6 +19,9 @@ PROJECT_NEXT_ACTION_KINDS = {
     "project_todos",
     "project_overview",
     "environment_info",
+    "mcp_servers",
+    "mcp_tools",
+    "mcp_call",
 }
 
 
@@ -375,6 +378,20 @@ def _environment_info_next_action_instruction(base: str, latest: Observation) ->
 
 
 def project_next_action_instruction(base: str, latest: Observation) -> str:
+    if latest.kind == "mcp_servers":
+        if not getattr(latest, "ok", False):
+            return f"{base} MCP configuration could not be read. Fix .mcp.json or continue without MCP."
+        if getattr(latest, "servers", []):
+            return f"{base} Choose a configured MCP server and use mcp_tools after approval before calling one of its advertised tools."
+        return f"{base} No MCP servers are configured. Continue with built-in tools."
+    if latest.kind == "mcp_tools":
+        if not getattr(latest, "ok", False):
+            return f"{base} MCP tool discovery failed. Inspect the server command, timeout, and protocol error before retrying."
+        return f"{base} Use mcp_call with an exact advertised tool name and arguments when it is relevant, or continue with built-in tools."
+    if latest.kind == "mcp_call":
+        if not getattr(latest, "ok", False):
+            return f"{base} The MCP tool call failed or reported an error. Use its bounded output to correct arguments or choose another tool."
+        return f"{base} Use the MCP result as external evidence and continue the task or answer directly if complete."
     if latest.kind == "delegate_task":
         if not getattr(latest, "ok", False):
             return (

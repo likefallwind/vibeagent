@@ -913,6 +913,31 @@ Example chat:
 /chat 今天适合学点什么？
 ```
 
+## MCP servers
+
+Project-scoped stdio MCP servers can be declared in `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "docs": {
+      "command": "npx",
+      "args": ["-y", "@example/docs-mcp"],
+      "cwd": ".",
+      "env": {"DOCS_TOKEN": "${DOCS_TOKEN}"}
+    }
+  }
+}
+```
+
+`mcp_servers` reads configuration metadata without starting a process or
+exposing argument and environment values. `mcp_tools` starts one server after
+approval and performs the MCP initialization plus `tools/list` flow.
+`mcp_call` requires separate approval for every invocation, verifies that the
+tool was advertised, sends bounded JSON arguments, enforces per-request
+timeouts and output limits, and terminates the stdio server afterward. MCP
+server commands still pass VibeAgent's hard command-safety checks.
+
 ## Architecture
 
 VibeAgent is intentionally small. The runtime is a loop that asks the model for
@@ -967,6 +992,10 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   command, user-input, and recursive delegation calls, and records the child
   model/tool lifecycle in the parent session before returning a structured
   summary to the main agent.
+- `vibeagent/mcp_config.py`, `vibeagent/mcp_stdio.py`, and
+  `vibeagent/mcp_action_executor.py`: validate project MCP configuration, run
+  newline-delimited JSON-RPC stdio sessions, and expose approved tool discovery
+  and calls without leaving MCP subprocesses running.
 - `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
   model out of the coding-agent JSON action protocol.
 - `vibeagent/providers.py`: selects the configured model provider. MiniMax is

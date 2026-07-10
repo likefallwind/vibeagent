@@ -276,6 +276,13 @@ from .observation_git_types import (
     GitUnstageObservation,
     UntrackedFilePreview,
 )
+from .observation_mcp_types import (
+    McpCallObservation,
+    McpServerInfo,
+    McpServersObservation,
+    McpToolInfo,
+    McpToolsObservation,
+)
 from .observation_union_types import Observation
 
 # Status tokens are constrained to keep logger and callers consistent.

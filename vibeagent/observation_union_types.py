@@ -138,6 +138,7 @@ from .observation_git_types import (
     GitSwitchObservation,
     GitUnstageObservation,
 )
+from .observation_mcp_types import McpCallObservation, McpServersObservation, McpToolsObservation
 from .observation_process_types import (
     CheckRunCommandsObservation,
     CheckStopAllProcessesObservation,
@@ -255,6 +256,9 @@ Observation: TypeAlias = (
     | JsonRemoveObservation
     | CheckJsonPatchObservation
     | JsonPatchObservation
+    | McpServersObservation
+    | McpToolsObservation
+    | McpCallObservation
     | PythonDependenciesObservation
     | CodeDependenciesObservation
     | CodeReferencesObservation
