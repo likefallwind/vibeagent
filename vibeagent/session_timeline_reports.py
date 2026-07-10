@@ -39,7 +39,7 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         if tool_names:
             return f"{prefix} toolCalls={', '.join(tool_names)}{usage_text}"
         return f"{prefix} response{usage_text}"
-    if event.type == "model_error":
+    if event.type in {"model_error", "subagent_model_error"}:
         error_type = payload.get("error_type")
         message = payload.get("message")
         iteration = payload.get("iteration")
@@ -159,6 +159,37 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
             suffix.append(f"cancelled={'yes' if cancelled else 'no'}")
         if isinstance(answer, str) and answer.strip():
             suffix.append(f"answer={compact(answer, max_text)}")
+        return f"{prefix}{format_detail_suffix(suffix)}"
+    if event.type == "subagent_started":
+        task = payload.get("task")
+        subagent_id = payload.get("subagent_id")
+        suffix = [f"id={compact(subagent_id, 80)}"] if isinstance(subagent_id, str) else []
+        return f"{prefix} {compact(task, max_text) if isinstance(task, str) else '(missing task)'}{format_detail_suffix(suffix)}"
+    if event.type == "subagent_model":
+        text = model_text(payload.get("content"))
+        tool_names = model_tool_call_names(payload.get("content"))
+        detail = compact(text, max_text) if text else "response"
+        suffix = [f"toolCalls={', '.join(tool_names)}"] if tool_names else []
+        return f"{prefix} {detail}{format_detail_suffix(suffix)}"
+    if event.type == "subagent_tool_call":
+        name = payload.get("name")
+        subagent_id = payload.get("subagent_id")
+        suffix = [f"id={compact(subagent_id, 80)}"] if isinstance(subagent_id, str) else []
+        return f"{prefix} {name if isinstance(name, str) else 'unknown'}{format_detail_suffix(suffix)}"
+    if event.type == "subagent_tool_result":
+        name = payload.get("name")
+        failed = payload.get("failed")
+        suffix = [f"failed={'yes' if failed else 'no'}"] if isinstance(failed, bool) else []
+        return f"{prefix} {name if isinstance(name, str) else 'unknown'}{format_detail_suffix(suffix)}"
+    if event.type == "subagent_completed":
+        result = payload.get("result")
+        ok = result.get("ok") if isinstance(result, dict) else None
+        message = result.get("message") if isinstance(result, dict) else None
+        suffix = []
+        if isinstance(ok, bool):
+            suffix.append(f"ok={'yes' if ok else 'no'}")
+        if isinstance(message, str) and message.strip():
+            suffix.append(f"message={compact(message, max_text)}")
         return f"{prefix}{format_detail_suffix(suffix)}"
     if event.type == "step_completed":
         step = payload.get("step")

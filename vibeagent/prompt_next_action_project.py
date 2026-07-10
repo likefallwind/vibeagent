@@ -4,6 +4,7 @@ from .types import Observation
 
 
 PROJECT_NEXT_ACTION_KINDS = {
+    "delegate_task",
     "suggest_checks",
     "check_suggested_checks",
     "project_commands",
@@ -372,6 +373,16 @@ def _environment_info_next_action_instruction(base: str, latest: Observation) ->
 
 
 def project_next_action_instruction(base: str, latest: Observation) -> str:
+    if latest.kind == "delegate_task":
+        if not getattr(latest, "ok", False):
+            return (
+                f"{base} The delegated investigation failed. Continue the necessary inspection in the main agent context "
+                "or retry once with a narrower task; do not repeat the same delegation unchanged."
+            )
+        return (
+            f"{base} Use the delegated findings as evidence, verify critical details with focused reads when needed, "
+            "then continue implementation or answer if the task is complete."
+        )
     if latest.kind == "suggest_checks":
         return _suggest_checks_next_action_instruction(base, latest)
     if latest.kind == "check_suggested_checks":

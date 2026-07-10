@@ -259,6 +259,8 @@ def build_action_target(action: object) -> str:
         return current or "plan"
     if isinstance(action, t.AskUserAction):
         return action.question
+    if isinstance(action, t.DelegateTaskAction):
+        return action.task
     if getattr(action, "type", None) == "list_files":
         return str(getattr(action, "path", None) or ".")
     if isinstance(action, t.FinishAction):

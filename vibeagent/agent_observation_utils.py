@@ -14,6 +14,8 @@ def observation_failed(observation: Observation) -> bool:
         return True
     if observation.kind == "ask_user":
         return observation.cancelled
+    if observation.kind == "delegate_task":
+        return not observation.ok
     if observation.kind == "check_write_file":
         return not observation.ok
     if observation.kind == "write_file":

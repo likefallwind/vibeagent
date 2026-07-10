@@ -11,6 +11,7 @@ from .agent_result import AgentResult
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .agent_action_logging import log_action
+from .agent_delegate import execute_delegate_task_action
 from .agent_auto_checkpoint import (
     create_auto_checkpoint_before_action as _create_auto_checkpoint_before_action,
     should_auto_checkpoint_before_action as _should_auto_checkpoint_before_action,
@@ -58,6 +59,7 @@ from .types import (
     ChatClient,
     ChatMessage,
     ContentBlock,
+    DelegateTaskAction,
     Observation,
     PlanItem,
     RunCommandObservation,
@@ -229,6 +231,23 @@ def run_agent(
                         logger,
                         user_input_handler,
                     )
+                elif isinstance(action, DelegateTaskAction):
+                    step = start_task_step(current_workspace, steps, iteration, action, logger)
+                    log_action(logger, action)
+                    observation = execute_delegate_task_action(
+                        current_workspace,
+                        action,
+                        client,
+                        parent_iteration=iteration,
+                        subagent_id=f"delegate-{iteration}-{step.id}",
+                        max_output_tokens=max_output_tokens,
+                        model_retries=model_retries,
+                        model_retry_delay_ms=model_retry_delay_ms,
+                        model_timeout_ms=model_timeout_ms,
+                        command_timeout_ms=command_timeout_ms,
+                        logger=logger,
+                    )
+                    complete_task_step(current_workspace, step, observation, iteration, logger)
                 else:
                     execution = execute_parsed_tool_action(
                         current_workspace,

@@ -30,6 +30,17 @@ class UserInputObservation:
 
 
 @dataclass(frozen=True)
+class DelegateTaskObservation:
+    kind: Literal["delegate_task"]
+    ok: bool
+    task: str
+    summary: str
+    iterations: int
+    tool_calls: list[str]
+    message: str
+
+
+@dataclass(frozen=True)
 class ToolErrorObservation:
     kind: Literal["tool_error"]
     tool: str

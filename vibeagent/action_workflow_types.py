@@ -29,6 +29,14 @@ class AskUserAction:
 
 
 @dataclass(frozen=True)
+class DelegateTaskAction:
+    type: Literal["delegate_task"]
+    task: str
+    context: str | None = None
+    max_iterations: int = 4
+
+
+@dataclass(frozen=True)
 class FinishAction:
     type: Literal["finish"]
     message: str

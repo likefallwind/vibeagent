@@ -5,6 +5,7 @@ from typing import Any
 
 from .action_parsing_helpers import ActionParseError, summarize_plan_update
 from .action_parsing_checkpoint import parse_checkpoint_action
+from .action_parsing_delegation import parse_delegation_action
 from .action_parsing_code_intel import parse_code_intel_action
 from .action_parsing_file_edit import parse_file_edit_action
 from .action_parsing_git import parse_git_action
@@ -35,6 +36,7 @@ def parse_action(value: Any, raw: str) -> AgentAction:
         parse_runtime_action,
         parse_session_action,
         parse_checkpoint_action,
+        parse_delegation_action,
         parse_file_edit_action,
         parse_process_action,
         parse_workflow_action,

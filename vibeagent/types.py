@@ -200,6 +200,7 @@ from .action_types import (
     PlanItem,
     UpdatePlanAction,
     AskUserAction,
+    DelegateTaskAction,
     FinishAction,
     AgentAction,
 )
@@ -466,6 +467,7 @@ from .observation_types import (
     FinishObservation,
     UpdatePlanObservation,
     UserInputObservation,
+    DelegateTaskObservation,
     ToolErrorObservation,
     ApprovalDeniedObservation,
     Observation,

@@ -129,6 +129,8 @@ def build_step_label(action: object) -> str:
         return "Update plan"
     if isinstance(action, t.AskUserAction):
         return "Ask user"
+    if isinstance(action, t.DelegateTaskAction):
+        return "Delegate task"
     if isinstance(action, t.RepoMapAction):
         return f"Map repo {action.path or '.'}"
     if isinstance(action, t.ReadFileAction):

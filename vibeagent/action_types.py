@@ -213,5 +213,5 @@ from .action_session_types import (
     SessionTranscriptAction,
     SessionVerificationAction,
 )
-from .action_workflow_types import AskUserAction, FinishAction, PlanItem, PlanItemStatus, UpdatePlanAction
+from .action_workflow_types import AskUserAction, DelegateTaskAction, FinishAction, PlanItem, PlanItemStatus, UpdatePlanAction
 from .action_union_types import AgentAction

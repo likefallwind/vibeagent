@@ -71,6 +71,8 @@ def categorize_tools() -> dict[str, list[str]]:
 
 
 def tool_category(name: str) -> str:
+    if name == "delegate_task":
+        return "project"
     if name in {
         "ask_user",
         "update_plan",

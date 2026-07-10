@@ -1,0 +1,295 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from vibeagent.action_parsing import ActionParseError, parse_tool_action
+from vibeagent.actions import AGENT_TOOL_DEFINITIONS, execute_action
+from vibeagent.agent import run_agent
+from vibeagent.agent_delegate import DELEGATE_TOOL_DEFINITIONS, execute_delegate_task_action
+from vibeagent.session_timeline_reports import format_session_event_timeline_item
+from vibeagent.session import summarize_session
+from vibeagent.session_types import SessionEvent
+from vibeagent.types import AssistantResponse, ChatMessage, ContentBlock, ModelUsage
+from vibeagent.workspace import create_run_workspace
+
+
+class DelegationClient:
+    def __init__(
+        self,
+        responses: list[list[ContentBlock]],
+        usages: list[ModelUsage | None] | None = None,
+    ) -> None:
+        self.responses = responses
+        self.usages = usages or []
+        self.messages: list[list[ChatMessage]] = []
+        self.tool_names: list[list[str]] = []
+
+    def complete(self, messages, tools=None, max_tokens=4096, temperature=0.2, timeout_ms=120_000):
+        self.messages.append(list(messages))
+        self.tool_names.append([str(tool["name"]) for tool in tools or []])
+        index = len(self.messages) - 1
+        content = self.responses[index]
+        usage = self.usages[index] if index < len(self.usages) else None
+        return AssistantResponse(content=content, raw={"content": content}, usage=usage)
+
+
+class DelegationTests(unittest.TestCase):
+    def test_parse_delegate_task_normalizes_limits_and_context(self) -> None:
+        action = parse_tool_action(
+            "delegate_task",
+            {"task": "  Find the auth flow  ", "context": "  Focus on middleware  ", "max_iterations": 6},
+        )
+
+        self.assertEqual(action.task, "Find the auth flow")
+        self.assertEqual(action.context, "Focus on middleware")
+        self.assertEqual(action.max_iterations, 6)
+
+    def test_parse_delegate_task_rejects_invalid_inputs(self) -> None:
+        invalid_inputs = [
+            {},
+            {"task": ""},
+            {"task": "inspect", "context": 1},
+            {"task": "inspect", "max_iterations": True},
+            {"task": "inspect", "max_iterations": 0},
+            {"task": "inspect", "max_iterations": 9},
+        ]
+
+        for tool_input in invalid_inputs:
+            with self.subTest(tool_input=tool_input), self.assertRaises(ActionParseError):
+                parse_tool_action("delegate_task", tool_input)
+
+    def test_delegate_tool_catalog_excludes_mutation_execution_and_recursion(self) -> None:
+        names = {str(tool["name"]) for tool in DELEGATE_TOOL_DEFINITIONS}
+
+        self.assertIn("read_file", names)
+        self.assertIn("search", names)
+        self.assertIn("finish", names)
+        self.assertNotIn("delegate_task", names)
+        self.assertNotIn("ask_user", names)
+        self.assertNotIn("write_file", names)
+        self.assertNotIn("run_command", names)
+        self.assertNotIn("git_commit", names)
+
+    def test_direct_action_execution_requires_agent_model_client(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            workspace = create_run_workspace(Path(base))
+            action = parse_tool_action("delegate_task", {"task": "Inspect auth"})
+
+            observation = execute_action(workspace, action)
+
+        self.assertFalse(observation.ok)
+        self.assertEqual(observation.iterations, 0)
+        self.assertIn("model client", observation.message)
+
+    def test_read_only_subagent_reads_file_and_returns_evidence(self) -> None:
+        client = DelegationClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "read-1",
+                        "name": "read_file",
+                        "input": {"path": "app.py"},
+                    }
+                ],
+                [{"type": "text", "text": "Authentication is implemented in `app.py:1`."}],
+            ],
+            usages=[
+                ModelUsage(input_tokens=10, output_tokens=3, total_tokens=13),
+                ModelUsage(input_tokens=20, output_tokens=5, total_tokens=25),
+            ],
+        )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            root = Path(base)
+            root.joinpath("app.py").write_text("def authenticate():\n    return True\n", encoding="utf-8")
+            workspace = create_run_workspace(root)
+            action = parse_tool_action("delegate_task", {"task": "Find authentication", "max_iterations": 2})
+
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+            summary = summarize_session(root, workspace.run_id)
+
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.iterations, 2)
+        self.assertEqual(observation.tool_calls, ["read_file"])
+        self.assertIn("app.py:1", observation.summary)
+        self.assertEqual(summary.input_tokens, 30)
+        self.assertEqual(summary.output_tokens, 8)
+        self.assertEqual(summary.total_tokens, 38)
+        read_result = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertEqual(read_result["kind"], "read_file")
+
+    def test_subagent_rejects_hallucinated_write_tool(self) -> None:
+        client = DelegationClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "write-1",
+                        "name": "write_file",
+                        "input": {"path": "owned.txt", "content": "no"},
+                    }
+                ],
+                [{"type": "text", "text": "The requested write is outside read-only delegation."}],
+            ]
+        )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root)
+            action = parse_tool_action("delegate_task", {"task": "Inspect only", "max_iterations": 2})
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+            write_result = json.loads(client.messages[1][-1].content[0]["content"])
+
+            self.assertFalse(root.joinpath("owned.txt").exists())
+
+        self.assertTrue(observation.ok)
+        self.assertEqual(write_result["kind"], "tool_error")
+        self.assertIn("not allowed", write_result["message"])
+
+    def test_parent_agent_receives_subagent_summary_as_tool_result(self) -> None:
+        client = DelegationClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "delegate-1",
+                        "name": "delegate_task",
+                        "input": {"task": "Find authentication", "max_iterations": 2},
+                    }
+                ],
+                [{"type": "text", "text": "Auth lives in `app.py:1`."}],
+                [{"type": "text", "text": "I found the authentication entry point."}],
+            ]
+        )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            root = Path(base)
+            root.joinpath("app.py").write_text("def authenticate():\n    pass\n", encoding="utf-8")
+            result = run_agent("Locate authentication", base_dir=root, client=client, max_iterations=2)
+            events = [
+                json.loads(line)
+                for line in (root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.observations[0].ok)
+        self.assertIn("app.py:1", result.observations[0].summary)
+        parent_result = json.loads(client.messages[2][-1].content[0]["content"])
+        self.assertEqual(parent_result["kind"], "delegate_task")
+        self.assertIn("app.py:1", parent_result["summary"])
+        self.assertIn("delegate_task", client.tool_names[0])
+        self.assertNotIn("delegate_task", client.tool_names[1])
+        self.assertEqual(
+            [event["type"] for event in events if event["type"].startswith("subagent_")],
+            ["subagent_started", "subagent_model", "subagent_completed"],
+        )
+
+    def test_subagent_iteration_limit_returns_failed_observation(self) -> None:
+        client = DelegationClient(
+            [[{"type": "tool_call", "id": "read-1", "name": "list_files", "input": {}}]]
+        )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            workspace = create_run_workspace(Path(base))
+            action = parse_tool_action("delegate_task", {"task": "Keep looking", "max_iterations": 1})
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+
+        self.assertFalse(observation.ok)
+        self.assertEqual(observation.iterations, 1)
+        self.assertIn("iteration limit", observation.message)
+
+    def test_subagent_empty_finish_is_not_success(self) -> None:
+        client = DelegationClient(
+            [[{"type": "tool_call", "id": "finish-1", "name": "finish", "input": {"message": ""}}]]
+        )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            workspace = create_run_workspace(Path(base))
+            action = parse_tool_action("delegate_task", {"task": "Inspect"})
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+            events = [
+                json.loads(line)
+                for line in workspace.session_dir.joinpath("events.jsonl").read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertFalse(observation.ok)
+        self.assertIn("did not include a report", observation.message)
+        event_types = [event["type"] for event in events]
+        self.assertLess(event_types.index("subagent_tool_result"), event_types.index("subagent_completed"))
+
+    def test_session_timeline_formats_subagent_lifecycle(self) -> None:
+        started = SessionEvent(
+            line_number=1,
+            type="subagent_started",
+            payload={"subagent_id": "delegate-1-1", "task": "Find auth"},
+        )
+        completed = SessionEvent(
+            line_number=2,
+            type="subagent_completed",
+            payload={"result": {"ok": True, "message": "done"}},
+        )
+
+        self.assertIn("Find auth", format_session_event_timeline_item(started))
+        self.assertIn("delegate-1-1", format_session_event_timeline_item(started))
+        self.assertIn("ok=yes", format_session_event_timeline_item(completed))
+
+    def test_main_catalog_contains_one_delegate_tool(self) -> None:
+        names = [str(tool["name"]) for tool in AGENT_TOOL_DEFINITIONS]
+
+        self.assertEqual(names.count("delegate_task"), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

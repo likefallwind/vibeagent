@@ -22,6 +22,8 @@ def complete_with_retries(
     session_dir: Path,
     logger: AgentLogger | None,
     sleep: Callable[[float], object] | None = None,
+    error_event_type: str = "model_error",
+    error_event_extra: dict[str, Any] | None = None,
 ) -> tuple[Any | None, str | None]:
     attempts = max(0, model_retries) + 1
     sleep_fn = sleep or time.sleep
@@ -34,8 +36,9 @@ def complete_with_retries(
             last_message = f"Model request failed: {format_exception(error)}"
             append_session_event(
                 session_dir,
-                "model_error",
+                error_event_type,
                 {
+                    **(error_event_extra or {}),
                     "iteration": iteration,
                     "attempt": attempt,
                     "attempts": attempts,

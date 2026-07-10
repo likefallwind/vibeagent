@@ -29,6 +29,8 @@ from .tool_definitions import AGENT_TOOL_DEFINITIONS
 from .types import (
     AgentAction,
     AskUserAction,
+    DelegateTaskAction,
+    DelegateTaskObservation,
     FinishObservation,
     Observation,
     UpdatePlanAction,
@@ -99,6 +101,17 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             answer=None,
             cancelled=True,
             message="User input is unavailable without an agent user-input handler.",
+        )
+
+    if isinstance(action, DelegateTaskAction):
+        return DelegateTaskObservation(
+            kind="delegate_task",
+            ok=False,
+            task=action.task,
+            summary="",
+            iterations=0,
+            tool_calls=[],
+            message="Task delegation is unavailable without an agent model client.",
         )
 
     return FinishObservation(kind="finish", message=action.message)

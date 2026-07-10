@@ -118,7 +118,7 @@ def session_failure_entries(events: list[SessionEvent], max_text: int) -> list[d
             if failure is not None:
                 failures.append(failure)
             continue
-        if event.type == "model_error":
+        if event.type in {"model_error", "subagent_model_error"}:
             failures.append(model_error_failure_entry(event, max_text=max_text))
             continue
         if event.type == "result":
@@ -186,7 +186,7 @@ def model_error_failure_entry(event: SessionEvent, max_text: int) -> dict[str, s
         details.append(f"willRetry={'yes' if will_retry else 'no'}")
     return {
         "line_number": event.line_number,
-        "type": "model_error",
+        "type": event.type,
         "name": compact(error_type, max_text) if isinstance(error_type, str) and error_type.strip() else "provider",
         "message": compact(message, max_text) if isinstance(message, str) and message.strip() else "Model request failed.",
         "detail": "; ".join(details),

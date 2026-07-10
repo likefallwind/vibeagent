@@ -99,19 +99,20 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
                 approvals_approved += 1
             elif approved is False:
                 approvals_denied += 1
-        elif event.type == "model":
-            text = model_text(event.payload.get("content"))
-            has_tool_call = has_tool_call_content(event.payload.get("content"))
+        elif event.type in {"model", "subagent_model"}:
             usage = parse_usage_payload(event.payload.get("usage"))
             input_tokens += usage["input_tokens"]
             output_tokens += usage["output_tokens"]
             total_tokens += usage["total_tokens"]
             cache_creation_tokens += usage["cache_creation_tokens"]
             cache_read_tokens += usage["cache_read_tokens"]
-            if text and not has_tool_call:
-                final_message = text
-                completed = True
-        elif event.type == "model_error":
+            if event.type == "model":
+                text = model_text(event.payload.get("content"))
+                has_tool_call = has_tool_call_content(event.payload.get("content"))
+                if text and not has_tool_call:
+                    final_message = text
+                    completed = True
+        elif event.type in {"model_error", "subagent_model_error"}:
             model_errors += 1
             message = event.payload.get("message")
             if isinstance(message, str) and message.strip():
