@@ -15,7 +15,7 @@ from .local_runtime_reports import (
     validate_run_output_context_options,
 )
 from .types import CheckRunCommandsAction, RunCommandAction, RunCommandItem, RunCommandsAction
-from .workspace_core import RunWorkspace
+from .workspace_core import create_local_workspace
 
 
 def get_run_text(
@@ -72,6 +72,8 @@ def get_run_report(
             "exitCode": None,
             "timedOut": False,
             "signal": None,
+            "sandboxed": False,
+            "sandboxWarning": None,
             "timeoutMs": timeout_ms,
             "maxOutputChars": max_output_chars,
             "stdout": "",
@@ -102,7 +104,7 @@ def get_run_report(
     if output_context_error:
         return failure(output_context_error)
 
-    workspace = RunWorkspace(root=root, run_id="local-run", session_dir=root / ".vibeagent" / "sessions" / "local-run")
+    workspace = create_local_workspace(root, "local-run")
     observation = execute_local_action(
         workspace,
         RunCommandAction(
@@ -217,7 +219,7 @@ def get_run_sequence_report(
     if output_context_error:
         return failure(output_context_error, selected_commands)
 
-    workspace = RunWorkspace(root=root, run_id="local-run-sequence", session_dir=root / ".vibeagent" / "sessions" / "local-run-sequence")
+    workspace = create_local_workspace(root, "local-run-sequence")
     observation = execute_local_action(
         workspace,
         RunCommandsAction(
@@ -311,7 +313,7 @@ def get_check_run_sequence_report(
     except ValueError as error:
         return failure(f"Usage: /check-run-seq <cmd> ;; <cmd>\nError: {error}")
 
-    workspace = RunWorkspace(root=root, run_id="local-check-run-sequence", session_dir=root / ".vibeagent" / "sessions" / "local-check-run-sequence")
+    workspace = create_local_workspace(root, "local-check-run-sequence")
     observation = execute_local_action(
         workspace,
         CheckRunCommandsAction(

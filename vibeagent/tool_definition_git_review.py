@@ -67,7 +67,7 @@ GIT_REVIEW_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "max_checks": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 50,
+                    "maximum": 100,
                     "description": "Maximum suggested verification command count to report. Defaults to 10.",
                 },
             },

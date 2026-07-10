@@ -303,15 +303,15 @@ def _specifier_matches(
     specifier = rule.specifier or ""
     if rule.tool == "WebFetch" and specifier.startswith("domain:"):
         hostname = urlsplit(str(getattr(action, "url", ""))).hostname or ""
-        return _wildcard_matches(specifier.removeprefix("domain:"), hostname, path_mode=False)
+        return wildcard_matches(specifier.removeprefix("domain:"), hostname, path_mode=False)
     if not subjects:
         return False
     path_mode = rule.tool in {"Read", "Edit", "Write"} or tool_category(tool_name) in {"edit", "code"}
-    matches = [_wildcard_matches(specifier, subject, path_mode=path_mode) for subject in subjects]
+    matches = [wildcard_matches(specifier, subject, path_mode=path_mode) for subject in subjects]
     return all(matches) if rule.effect == "allow" else any(matches)
 
 
-def _wildcard_matches(pattern: str, value: str, *, path_mode: bool) -> bool:
+def wildcard_matches(pattern: str, value: str, *, path_mode: bool) -> bool:
     normalized_pattern = pattern.replace("\\", "/")
     normalized_value = value.replace("\\", "/")
     if path_mode:

@@ -14,6 +14,7 @@ CoreCommandType: TypeAlias = Literal[
     "tool",
     "tool_search",
     "permissions",
+    "sandbox",
     "checks",
     "check_suggested_checks",
     "run_suggested_checks",

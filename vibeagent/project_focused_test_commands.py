@@ -24,7 +24,7 @@ from .types import (
     RelatedTestsAction,
     RunFocusedTestCommandsAction,
 )
-from .workspace_core import RunWorkspace
+from .workspace_core import create_local_workspace
 
 
 def get_related_tests_text(
@@ -58,7 +58,7 @@ def get_related_tests_report(
             "message": f"Usage: /related-tests [path...]\n  message: {error}",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-related-tests", session_dir=root / ".vibeagent" / "sessions" / "local-related-tests")
+    workspace = create_local_workspace(root, "local-related-tests")
     observation = execute_action(
         workspace,
         RelatedTestsAction(
@@ -142,7 +142,7 @@ def get_focused_test_commands_report(
             "message": f"Usage: /focused-tests [path...]\n  message: {error}",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-focused-tests", session_dir=root / ".vibeagent" / "sessions" / "local-focused-tests")
+    workspace = create_local_workspace(root, "local-focused-tests")
     observation = execute_action(
         workspace,
         FocusedTestCommandsAction(
@@ -219,7 +219,7 @@ def get_check_focused_test_commands_report(
             "message": f"Usage: /check-focused-tests [path...]\n  message: {error}",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-check-focused-tests", session_dir=root / ".vibeagent" / "sessions" / "local-check-focused-tests")
+    workspace = create_local_workspace(root, "local-check-focused-tests")
     observation = execute_action(
         workspace,
         CheckFocusedTestCommandsAction(
@@ -353,7 +353,7 @@ def get_run_focused_test_commands_report(
     if output_context_error:
         return failure(output_context_error)
 
-    workspace = RunWorkspace(root=root, run_id="local-run-focused-tests", session_dir=root / ".vibeagent" / "sessions" / "local-run-focused-tests")
+    workspace = create_local_workspace(root, "local-run-focused-tests")
     observation = execute_action(
         workspace,
         RunFocusedTestCommandsAction(

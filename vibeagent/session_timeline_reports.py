@@ -231,6 +231,26 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         if isinstance(error, str) and error.strip():
             suffix.append(f"error={compact(error, max_text)}")
         return f"{prefix} {', '.join(names) or '(no sources)'}{format_detail_suffix(suffix)}"
+    if event.type == "sandbox_loaded":
+        enabled = payload.get("enabled")
+        active = payload.get("active")
+        available = payload.get("available")
+        network_disabled = payload.get("network_disabled")
+        sources = payload.get("sources")
+        error = payload.get("error")
+        names = [str(source) for source in sources] if isinstance(sources, list) else []
+        suffix = []
+        if isinstance(enabled, bool):
+            suffix.append(f"enabled={'yes' if enabled else 'no'}")
+        if isinstance(active, bool):
+            suffix.append(f"active={'yes' if active else 'no'}")
+        if isinstance(available, bool):
+            suffix.append(f"available={'yes' if available else 'no'}")
+        if isinstance(network_disabled, bool):
+            suffix.append(f"networkDisabled={'yes' if network_disabled else 'no'}")
+        if isinstance(error, str) and error:
+            suffix.append(f"error={compact(error, max_text)}")
+        return f"{prefix} {', '.join(names) or '(no sources)'}{format_detail_suffix(suffix)}"
     if event.type == "permission_rule_evaluated":
         tool = payload.get("tool")
         effect = payload.get("effect")

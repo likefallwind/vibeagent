@@ -108,7 +108,7 @@ def parse_project_action(action_type: object, value: dict[str, Any], raw: str) -
 
     if action_type == "final_review":
         max_files = parse_optional_positive_int(value.get("max_files", 200), "max_files", raw, maximum=500) or 200
-        max_checks = parse_optional_positive_int(value.get("max_checks", 10), "max_checks", raw, maximum=50) or 10
+        max_checks = parse_optional_positive_int(value.get("max_checks", 10), "max_checks", raw, maximum=100) or 10
         return FinalReviewAction(type="final_review", max_files=max_files, max_checks=max_checks)
 
     if action_type == "suggest_checks":

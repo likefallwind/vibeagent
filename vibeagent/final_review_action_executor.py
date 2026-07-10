@@ -116,8 +116,8 @@ def final_review_observation(workspace: RunWorkspace, action: FinalReviewAction)
     try:
         if action.max_checks < 1:
             raise ValueError("max_checks must be at least 1.")
-        if action.max_checks > 50:
-            raise ValueError("max_checks must be at most 50.")
+        if action.max_checks > 100:
+            raise ValueError("max_checks must be at most 100.")
         review = review_project_changes(workspace, max_files=action.max_files)
     except ValueError as error:
         return FinalReviewObservation(

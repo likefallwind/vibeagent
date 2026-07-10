@@ -11,6 +11,7 @@ LOCAL_RESULT_ARG_NAMES = frozenset(
         "config",
         "tools",
         "permissions",
+        "sandbox_status",
         "trust_status",
         "trust_project",
         "untrust_project",

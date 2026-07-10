@@ -97,6 +97,7 @@ python -m vibeagent --trust-project-permissions "run the checks allowed by this 
 python -m vibeagent --trust-status --cwd ../my-project
 python -m vibeagent --trust-project --cwd ../my-project
 python -m vibeagent --untrust-project --cwd ../my-project
+python -m vibeagent --sandbox-status --cwd ../my-project
 python -m vibeagent --chat "explain this repository at a high level"
 python -m vibeagent --resume <run-id> --resume-max-files 25 --resume-max-commands 5 --resume-max-checks 20 "continue the previous change"
 python -m vibeagent --resume -- "continue the latest session"
@@ -587,7 +588,8 @@ and resume state, `/tools` to inspect the model tool catalog, `/tool <name>` to
 inspect one tool's description and input schema,
 `/tool-search [--max N] [--category CATEGORY] [--approval any|yes|no] <query>`
 to search tools by name, description, category, approval state, or input fields, `/permissions` to inspect
-approval-gated tools and command hard blocks, `/checks [--max-checks N]` to inspect suggested
+approval-gated tools and command hard blocks, `/sandbox` to inspect OS command isolation,
+`/checks [--max-checks N]` to inspect suggested
 test, build, and lint commands without running them,
 `/check-suggested-checks [max|--max-checks N]` to preflight those suggested commands,
 `/run-suggested-checks [opts] [max|--max-checks N]` to run available suggested commands with optional output diagnostics,
@@ -942,6 +944,48 @@ receive `VIBEAGENT_HOOK_EVENT`, `VIBEAGENT_TOOL_NAME`, and
 `VIBEAGENT_TOOL_TARGET` environment variables and are recorded in the session
 timeline with bounded output.
 
+## Command sandbox
+
+Linux and WSL2 command execution can use Bubblewrap OS isolation. Sandboxing is
+disabled by default and can be enabled in `.vibeagent/sandbox.json` or through
+the `sandbox` object in `.claude/settings.json` and
+`.claude/settings.local.json`:
+
+```json
+{
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "filesystem": {
+      "allowWrite": ["./build-cache"],
+      "denyWrite": ["./fixtures"],
+      "denyRead": ["~/.aws/credentials"]
+    },
+    "network": {
+      "allowedDomains": []
+    }
+  }
+}
+```
+
+When active, the host filesystem is mounted read-only, the project and explicit
+`allowWrite` paths are writable, `/tmp` and `/run` are isolated, `/dev` is
+minimal, and PID/IPC/UTS namespaces are separated. An empty `allowedDomains`
+list requests a fully isolated network namespace. The same launcher applies to
+finite checks, command batches, hooks, and background processes.
+
+External `allowWrite` paths and `excludedCommands` require explicit project
+configuration trust. `denyWrite` and `denyRead` mounts override the writable
+project mount. Sandbox paths must be exact; glob paths, `allowRead`, non-empty
+domain allowlists, and unsupported network options fail closed rather than
+claiming partial enforcement. Domain allowlists require a proxy and are not yet
+implemented. If Bubblewrap or network namespaces are unavailable,
+`failIfUnavailable: true` blocks execution; otherwise VibeAgent records a
+warning and falls back to unsandboxed execution or filesystem-only isolation.
+Normal approvals, permission deny rules, and command hard blocks still apply.
+Use `/sandbox` or `--sandbox-status --json` to inspect effective configuration
+and runtime capability.
+
 ## Project permissions
 
 Fine-grained project permissions can be declared in `.vibeagent/permissions.json`
@@ -1042,7 +1086,7 @@ CLI input
 Core modules:
 
 - `vibeagent/cli.py`: interactive command-line entry point. It handles local
-commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`, `/permissions`, `/checks`, `/check-suggested-checks`, `/run-suggested-checks`, `/commands`, `/related-tests`, `/focused-tests`, `/check-focused-tests`, `/run-focused-tests`, `/manifests`, `/instructions`, `/todos`, `/command`, `/run`, `/check-run-seq`, `/run-seq`, `/check-start`, `/start`, `/port`, `/http`, `/http-fetch`, `/overview`, `/repo-map`, `/search`, `/search-contexts`, `/find-files`, `/glob`, `/tree`, `/symbols`, `/file-info`, `/image-info`, `/read`, `/around`, `/around-many`, `/output-contexts`, `/output-diagnostics`, `/python-traceback`, `/tail`, `/read-files`, `/read-ranges`, `/python-check`, `/python-deps`, `/python-defs`, `/python-refs`, `/python-ref-contexts`, `/python-calls`, `/python-call-graph`, `/python-rename-preview`, `/python-rename`, `/check-replace-python-def`, `/replace-python-def`, `/config-check`, `/check-json-set`, `/json-set`, `/check-json-remove`, `/json-remove`, `/check-json-patch`, `/json-patch`, `/check-replace-lines`, `/replace-lines`, `/check-insert-lines`, `/insert-lines`, `/check-append`, `/append`, `/check-write`, `/write`, `/check-write-files`, `/write-files`, `/check-edit`, `/edit`, `/check-multi-edit`, `/multi-edit`, `/check-delete`, `/delete`, `/check-delete-files`, `/delete-files`, `/check-move`, `/move`, `/check-move-files`, `/move-files`, `/check-copy`, `/copy`, `/check-copy-files`, `/copy-files`, `/check-move-dir`, `/move-dir`, `/check-move-dirs`, `/move-dirs`, `/check-copy-dir`, `/copy-dir`, `/check-copy-dirs`, `/copy-dirs`, `/check-mkdir`, `/mkdir`, `/check-mkdirs`, `/mkdirs`, `/check-rmdir`, `/rmdir`, `/check-rmdirs`, `/check-executable`, `/set-executable`, `/check-patch`, `/patch`, `/check-patches`, `/patches`, `/check-regex-replace`, `/regex-replace`, `/code-deps`, `/code-refs`, `/code-ref-contexts`, `/code-defs`, `/code-rename-preview`, `/code-rename`, `/git-status`, `/conflicts`, `/git-info`, `/branches`, `/log`, `/show`, `/blame`, `/stashes`, `/check-fetch`, `/fetch`, `/check-pull`, `/pull`, `/check-push`, `/push`, `/check-stash`, `/stash`, `/check-stash-apply`, `/stash-apply`, `/check-stash-drop`, `/stash-drop`, `/check-stage`, `/stage`, `/check-unstage`, `/unstage`, `/check-commit`, `/commit`, `/check-restore`, `/restore`, `/check-switch`, `/switch`, `/env`, `/processes`, `/process`, `/process-output-contexts`, `/process-output-diagnostics`, `/wait-process`, `/check-write-process`, `/write-process`, `/check-stop-process`, `/stop-process`, `/check-stop-processes`, `/check-stop-all-processes`, `/stop-processes`, `/stop-all-processes`, `/status`, `/context`, `/init`, `/doctor`, `/review`, `/handoff`, `/changes`, `/diff`, `/diff-hunks`, `/diff-contexts`, `/clear`, `/usage`, `/cost`, `/approval`, `/plan`, `/transcript`, `/session-search`, `/session-commands`, `/session-output-contexts`, `/session-output-diagnostics`, `/session-files`, `/session-failures`, `/session-verification`, `/run-session-verification`, `/session-audit`, `/session-handoff`, `/checkpoint`, `/checkpoints`, `/checkpoint-show`, `/checkpoint-diff`, `/checkpoint-status`, `/check-checkpoint-restore`, `/checkpoint-restore`, `/check-checkpoint-delete`, `/checkpoint-delete`, `/check-checkpoint-prune`, `/checkpoint-prune`, `/resume`,
+commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`, `/permissions`, `/sandbox`, `/checks`, `/check-suggested-checks`, `/run-suggested-checks`, `/commands`, `/related-tests`, `/focused-tests`, `/check-focused-tests`, `/run-focused-tests`, `/manifests`, `/instructions`, `/todos`, `/command`, `/run`, `/check-run-seq`, `/run-seq`, `/check-start`, `/start`, `/port`, `/http`, `/http-fetch`, `/overview`, `/repo-map`, `/search`, `/search-contexts`, `/find-files`, `/glob`, `/tree`, `/symbols`, `/file-info`, `/image-info`, `/read`, `/around`, `/around-many`, `/output-contexts`, `/output-diagnostics`, `/python-traceback`, `/tail`, `/read-files`, `/read-ranges`, `/python-check`, `/python-deps`, `/python-defs`, `/python-refs`, `/python-ref-contexts`, `/python-calls`, `/python-call-graph`, `/python-rename-preview`, `/python-rename`, `/check-replace-python-def`, `/replace-python-def`, `/config-check`, `/check-json-set`, `/json-set`, `/check-json-remove`, `/json-remove`, `/check-json-patch`, `/json-patch`, `/check-replace-lines`, `/replace-lines`, `/check-insert-lines`, `/insert-lines`, `/check-append`, `/append`, `/check-write`, `/write`, `/check-write-files`, `/write-files`, `/check-edit`, `/edit`, `/check-multi-edit`, `/multi-edit`, `/check-delete`, `/delete`, `/check-delete-files`, `/delete-files`, `/check-move`, `/move`, `/check-move-files`, `/move-files`, `/check-copy`, `/copy`, `/check-copy-files`, `/copy-files`, `/check-move-dir`, `/move-dir`, `/check-move-dirs`, `/move-dirs`, `/check-copy-dir`, `/copy-dir`, `/check-copy-dirs`, `/copy-dirs`, `/check-mkdir`, `/mkdir`, `/check-mkdirs`, `/mkdirs`, `/check-rmdir`, `/rmdir`, `/check-rmdirs`, `/check-executable`, `/set-executable`, `/check-patch`, `/patch`, `/check-patches`, `/patches`, `/check-regex-replace`, `/regex-replace`, `/code-deps`, `/code-refs`, `/code-ref-contexts`, `/code-defs`, `/code-rename-preview`, `/code-rename`, `/git-status`, `/conflicts`, `/git-info`, `/branches`, `/log`, `/show`, `/blame`, `/stashes`, `/check-fetch`, `/fetch`, `/check-pull`, `/pull`, `/check-push`, `/push`, `/check-stash`, `/stash`, `/check-stash-apply`, `/stash-apply`, `/check-stash-drop`, `/stash-drop`, `/check-stage`, `/stage`, `/check-unstage`, `/unstage`, `/check-commit`, `/commit`, `/check-restore`, `/restore`, `/check-switch`, `/switch`, `/env`, `/processes`, `/process`, `/process-output-contexts`, `/process-output-diagnostics`, `/wait-process`, `/check-write-process`, `/write-process`, `/check-stop-process`, `/stop-process`, `/check-stop-processes`, `/check-stop-all-processes`, `/stop-processes`, `/stop-all-processes`, `/status`, `/context`, `/init`, `/doctor`, `/review`, `/handoff`, `/changes`, `/diff`, `/diff-hunks`, `/diff-contexts`, `/clear`, `/usage`, `/cost`, `/approval`, `/plan`, `/transcript`, `/session-search`, `/session-commands`, `/session-output-contexts`, `/session-output-diagnostics`, `/session-files`, `/session-failures`, `/session-verification`, `/run-session-verification`, `/session-audit`, `/session-handoff`, `/checkpoint`, `/checkpoints`, `/checkpoint-show`, `/checkpoint-diff`, `/checkpoint-status`, `/check-checkpoint-restore`, `/checkpoint-restore`, `/check-checkpoint-delete`, `/checkpoint-delete`, `/check-checkpoint-prune`, `/checkpoint-prune`, `/resume`,
   `/compact`, `/chat`, `/code`, and
   `/exit`, then delegates input to the selected mode.
   `/custom-commands` lists prompt templates from `.claude/commands/**/*.md`
@@ -1102,6 +1146,11 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
 - `vibeagent/session_approval.py`: caches only user-selected, exact
   action-type-and-target approvals for the current CLI session, marks cache
   hits for audit, and keeps MCP process/tool calls outside the cache.
+- `vibeagent/workspace_sandbox.py`, `vibeagent/command_sandbox.py`, and
+  `vibeagent/sandbox_commands.py`: load bounded sandbox settings, validate
+  trusted expansion paths, diagnose Bubblewrap/network namespace support, and
+  build one filesystem/network-isolated launcher for finite and background
+  shell commands.
 - `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
   model out of the coding-agent JSON action protocol.
 - `vibeagent/providers.py`: selects the configured model provider. MiniMax is
@@ -1388,8 +1437,10 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   pass through symbolic-link parent directories, so a model cannot write, patch,
   move, copy, delete, chmod, or create files through an alternate link target.
 - Commands time out after 30 seconds by default.
-- V1 is a local development prototype, not a strong OS sandbox. It does not try
-  to block every dangerous shell command.
+- Command hard blocks remain defense in depth and do not recognize every
+  dangerous shell program. With sandboxing disabled or explicitly bypassed,
+  approved commands run with the user's normal OS access. Enable the Bubblewrap
+  sandbox for OS-enforced project write boundaries.
 
 ## Development
 

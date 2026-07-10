@@ -12,6 +12,8 @@ def parse_runtime_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("tool_search", trimmed[13:].strip() or None)
     if trimmed == "/permissions":
         return make_local_command("permissions", None)
+    if trimmed == "/sandbox":
+        return make_local_command("sandbox", None)
     if trimmed == "/checks" or trimmed.startswith("/checks "):
         return make_local_command("checks", trimmed[8:].strip() or None)
     if trimmed == "/check-suggested-checks" or trimmed.startswith("/check-suggested-checks "):

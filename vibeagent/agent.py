@@ -81,6 +81,7 @@ from .types import (
 from .workspace_core import RunWorkspace, create_run_workspace
 from .workspace_hooks import read_project_hooks
 from .workspace_permissions import read_project_permissions
+from .workspace_sandbox import read_workspace_sandbox
 
 
 def run_agent(
@@ -104,6 +105,8 @@ def run_agent(
 ) -> AgentResult:
     # Start with an isolated run workspace for one task execution.
     current_workspace = workspace or create_run_workspace(base_dir)
+    if trust_project_permissions and not current_workspace.project_config_trusted:
+        current_workspace = replace(current_workspace, project_config_trusted=True)
     observations: list[Observation] = []
     steps: list[TaskStep] = []
     plan: list[PlanItem] = []
@@ -135,7 +138,7 @@ def run_agent(
             },
         )
     project_permissions = read_project_permissions(current_workspace)
-    if trust_project_permissions:
+    if current_workspace.project_config_trusted:
         project_permissions = replace(project_permissions, allow_rules_trusted=True)
     if project_permissions.enabled:
         append_session_event(
@@ -146,6 +149,22 @@ def run_agent(
                 "count": len(project_permissions.rules),
                 "error": project_permissions.error,
                 "allow_rules_trusted": project_permissions.allow_rules_trusted,
+            },
+        )
+    sandbox_config = read_workspace_sandbox(current_workspace)
+    if sandbox_config.enabled or sandbox_config.sources or sandbox_config.error is not None:
+        append_session_event(
+            current_workspace.session_dir,
+            "sandbox_loaded",
+            {
+                "enabled": sandbox_config.enabled,
+                "active": sandbox_config.active,
+                "available": sandbox_config.available,
+                "network_disabled": sandbox_config.network_disabled,
+                "network_available": sandbox_config.network_available,
+                "fail_if_unavailable": sandbox_config.fail_if_unavailable,
+                "sources": list(sandbox_config.sources),
+                "error": sandbox_config.error,
             },
         )
     active_tool_names = initialize_agent_tools(current_workspace, approval_policy)

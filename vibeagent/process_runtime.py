@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .command_safety import get_blocked_command_reason
+from .command_sandbox import prepare_command_launch
 from .output_conversion import output_context_results_from_dicts, output_diagnostics_from_dicts
 from .process_lifecycle import close_background_handles as _close_background_handles
 from .process_lifecycle import signal_name as _signal_name
@@ -86,14 +87,17 @@ def run_command(
     timeout_ms: int = 30_000,
     project_root: str | Path | None = None,
     max_output_chars: int = 12_000,
+    argv: tuple[str, ...] | None = None,
+    sandboxed: bool = False,
+    sandbox_warning: str | None = None,
 ) -> CommandResult:
     # Run shell command in controlled cwd, capture stdout/stderr, and enforce execution timeout.
     timed_out = False
     started = time.monotonic()
     process = subprocess.Popen(
-        command,
+        argv or command,
         cwd=Path(cwd),
-        shell=True,
+        shell=argv is None,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -110,7 +114,10 @@ def run_command(
     duration_ms = max(0, round((time.monotonic() - started) * 1000))
 
     stdout_value, stdout_truncated = truncate_command_output(stdout or "", max_output_chars)
-    stderr_value, stderr_truncated = truncate_command_output(stderr or "", max_output_chars)
+    stderr_text = stderr or ""
+    if sandbox_warning:
+        stderr_text = f"{sandbox_warning}\n{stderr_text}".rstrip() + "\n"
+    stderr_value, stderr_truncated = truncate_command_output(stderr_text, max_output_chars)
     return CommandResult(
         command=command,
         exit_code=process.returncode,
@@ -124,6 +131,8 @@ def run_command(
         stderr_truncated=stderr_truncated,
         max_output_chars=max_output_chars,
         duration_ms=duration_ms,
+        sandboxed=sandboxed,
+        sandbox_warning=sandbox_warning,
     )
 
 
@@ -161,12 +170,29 @@ def execute_run_command_item(
             cwd=action.cwd or ".",
             max_output_chars=max_output_chars,
         )
+    launch = prepare_command_launch(workspace, action.command, command_cwd)
+    if launch.error is not None:
+        return CommandResult(
+            command=action.command,
+            exit_code=None,
+            stdout="",
+            stderr=f"Command sandbox blocked: {launch.error}",
+            timed_out=False,
+            signal=None,
+            timeout_ms=timeout_ms,
+            cwd=action.cwd or ".",
+            max_output_chars=max_output_chars,
+            sandboxed=False,
+        )
     result = run_command(
         command_cwd,
         action.command,
         timeout_ms,
         workspace.root,
         max_output_chars=max_output_chars,
+        argv=launch.argv,
+        sandboxed=launch.sandboxed,
+        sandbox_warning=launch.warning,
     )
     return attach_output_analysis_to_command_result(workspace, action, result)
 
@@ -209,11 +235,30 @@ def start_background_command(workspace: RunWorkspace, command: str, cwd: str | N
     exit_code_path = process_dir / f"{process_id}.exitcode"
     stdout_handle = stdout_path.open("w", encoding="utf-8")
     stderr_handle = stderr_path.open("w", encoding="utf-8")
+    wrapped_command = wrap_background_command(command, exit_code_path)
+    launch = prepare_command_launch(workspace, command, command_cwd, executed_command=wrapped_command)
+    if launch.error is not None:
+        stdout_handle.close()
+        stderr_handle.close()
+        return StartCommandObservation(
+            kind="start_command",
+            process_id="",
+            pid=None,
+            command=command,
+            cwd=relative_cwd(command_cwd, workspace.root),
+            ok=False,
+            message=f"Command sandbox blocked: {launch.error}",
+            stdout_path=stdout_path.as_posix(),
+            stderr_path=stderr_path.as_posix(),
+        )
+    if launch.warning:
+        stderr_handle.write(f"{launch.warning}\n")
+        stderr_handle.flush()
     try:
         process = subprocess.Popen(
-            wrap_background_command(command, exit_code_path),
+            launch.argv,
             cwd=command_cwd,
-            shell=True,
+            shell=False,
             stdin=subprocess.PIPE,
             stdout=stdout_handle,
             stderr=stderr_handle,
@@ -269,6 +314,8 @@ def start_background_command(workspace: RunWorkspace, command: str, cwd: str | N
         message=f"Started process {process_id}.",
         stdout_path=stdout_path.as_posix(),
         stderr_path=stderr_path.as_posix(),
+        sandboxed=launch.sandboxed,
+        sandbox_warning=launch.warning,
     )
 
 

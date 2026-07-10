@@ -21,6 +21,7 @@ from vibeagent.project_trust import (
     trust_project_permissions,
     untrust_project_permissions,
 )
+from vibeagent.workspace import create_run_workspace
 
 
 class ProjectTrustStoreTests(unittest.TestCase):
@@ -69,8 +70,10 @@ class ProjectTrustStoreTests(unittest.TestCase):
             with patch.dict(os.environ, {TRUST_FILE_ENV: str(store)}):
                 trust_project_permissions(root)
                 trusted = is_project_permissions_trusted(root)
+                workspace = create_run_workspace(root)
 
         self.assertTrue(trusted)
+        self.assertTrue(workspace.project_config_trusted)
 
     def test_malformed_store_fails_closed_and_is_not_overwritten(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-trust-") as base:

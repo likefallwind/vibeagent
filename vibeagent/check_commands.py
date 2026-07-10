@@ -17,7 +17,7 @@ from .runner_report_helpers import (
     serialize_not_run_commands,
 )
 from .types import CheckSuggestedChecksAction, RunSuggestedChecksAction
-from .workspace_core import RunWorkspace
+from .workspace_core import create_local_workspace
 from .workspace import suggest_project_checks
 from .workflow_commands import format_review_check
 
@@ -33,7 +33,7 @@ def get_checks_report(project_root: str | Path = ".", max_checks: int = 20) -> d
     if max_checks > 100:
         raise ValueError("max_checks must be at most 100.")
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-checks", session_dir=root / ".vibeagent" / "sessions" / "local-checks")
+    workspace = create_local_workspace(root, "local-checks")
     suggestions = suggest_project_checks(workspace, max_commands=max_checks)
     checks = [item for item in suggestions["checks"] if isinstance(item, dict)]
     changed_files = [item for item in suggestions["changed_files"] if isinstance(item, str)]
@@ -185,7 +185,7 @@ def get_check_suggested_checks_report(
             "message": f"Usage: /check-suggested-checks [max|--max-checks N]\nError: {error}",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-check-suggested-checks", session_dir=root / ".vibeagent" / "sessions" / "local-check-suggested-checks")
+    workspace = create_local_workspace(root, "local-check-suggested-checks")
     observation = execute_action(
         workspace,
         CheckSuggestedChecksAction(type="check_suggested_checks", max_commands=selected_max),
@@ -323,7 +323,7 @@ def get_run_suggested_checks_report(
     if output_context_error:
         return failure(output_context_error, selected_max)
 
-    workspace = RunWorkspace(root=root, run_id="local-run-suggested-checks", session_dir=root / ".vibeagent" / "sessions" / "local-run-suggested-checks")
+    workspace = create_local_workspace(root, "local-run-suggested-checks")
     observation = execute_action(
         workspace,
         RunSuggestedChecksAction(
@@ -440,6 +440,7 @@ def format_run_suggested_checks_report_text(report: dict[str, object]) -> str:
                     f"      signal: {result.get('signal') or '.'}",
                     f"      timeoutMs: {result.get('timeoutMs', 0)}",
                     f"      durationMs: {result.get('durationMs', 0)}",
+                    f"      sandboxed: {'yes' if bool(result.get('sandboxed')) else 'no'}",
                     f"      maxOutputChars: {result.get('maxOutputChars', 0)}",
                     f"      stdoutTruncated: {'yes' if bool(result.get('stdoutTruncated')) else 'no'}",
                     f"      stderrTruncated: {'yes' if bool(result.get('stderrTruncated')) else 'no'}",

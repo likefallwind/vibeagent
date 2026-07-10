@@ -11249,8 +11249,8 @@ class CommandTests(unittest.TestCase):
         self.assertIn("package.json", limited)
         self.assertNotIn("pkg/__init__.py", limited)
 
-        with self.assertRaisesRegex(ValueError, "max_checks must be at most 50"):
-            get_review_text(root, max_checks=51)
+        with self.assertRaisesRegex(ValueError, "max_checks must be at most 100"):
+            get_review_text(root, max_checks=101)
 
     def test_get_review_report_returns_structured_review(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -11624,8 +11624,8 @@ class CommandTests(unittest.TestCase):
         self.assertIn("suggestedChecks: 1/", limited)
         self.assertIn("[context output truncated]", limited)
 
-        with self.assertRaisesRegex(ValueError, "max_checks must be at most 50"):
-            get_handoff_text(root, max_checks=51)
+        with self.assertRaisesRegex(ValueError, "max_checks must be at most 100"):
+            get_handoff_text(root, max_checks=101)
 
     def test_get_handoff_report_returns_structured_review_and_plan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:

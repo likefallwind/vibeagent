@@ -51,7 +51,7 @@ from .types import (
     CheckStartCommandAction,
     StartCommandAction,
 )
-from .workspace_core import RunWorkspace
+from .workspace_core import create_local_workspace
 
 
 def get_command_check_text(project_root: str | Path = ".", command: str | None = None, cwd: str | None = None) -> str:
@@ -73,7 +73,7 @@ def get_command_check_report(project_root: str | Path = ".", command: str | None
             "missingTool": None,
             "message": "Usage: /command <shell command>",
         }
-    workspace = RunWorkspace(root=root, run_id="local-command-check", session_dir=root / ".vibeagent" / "sessions" / "local-command-check")
+    workspace = create_local_workspace(root, "local-command-check")
     observation = build_command_check_observation(workspace, command.strip(), cwd)
     return {
         "projectRoot": str(root),
@@ -104,7 +104,7 @@ def get_check_start_report(project_root: str | Path = ".", command: str | None =
 
     if command is None or not command.strip():
         return failure("Usage: /check-start <shell command>")
-    workspace = RunWorkspace(root=root, run_id="local-check-start", session_dir=root / ".vibeagent" / "sessions" / "local-check-start")
+    workspace = create_local_workspace(root, "local-check-start")
     observation = execute_local_action(
         workspace,
         CheckStartCommandAction(type="check_start_command", command=command.strip(), cwd=cwd),
@@ -134,13 +134,15 @@ def get_start_report(project_root: str | Path = ".", command: str | None = None,
             "pid": None,
             "stdoutPath": "",
             "stderrPath": "",
+            "sandboxed": False,
+            "sandboxWarning": None,
             "message": message,
         }
 
     if command is None or not command.strip():
         return failure("Usage: /start <shell command>")
 
-    workspace = RunWorkspace(root=root, run_id="local-start", session_dir=root / ".vibeagent" / "sessions" / "local-start")
+    workspace = create_local_workspace(root, "local-start")
     observation = execute_local_action(
         workspace,
         StartCommandAction(type="start_command", command=command.strip(), cwd=cwd),
@@ -157,5 +159,7 @@ def get_start_report(project_root: str | Path = ".", command: str | None = None,
         "pid": observation.pid,
         "stdoutPath": observation.stdout_path,
         "stderrPath": observation.stderr_path,
+        "sandboxed": observation.sandboxed,
+        "sandboxWarning": observation.sandbox_warning,
         "message": observation.message,
     }

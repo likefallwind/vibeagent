@@ -12,6 +12,7 @@ from .workspace import (
     read_workspace_snapshot,
 )
 from .workspace_permissions import format_project_permissions_for_prompt
+from .workspace_sandbox import format_workspace_sandbox_for_prompt
 
 
 # System prompt defines the tool-use contract for project mode.
@@ -93,6 +94,7 @@ def build_messages(
     skill_catalog = format_project_skill_catalog(workspace)
     agent_catalog = format_project_agent_catalog(workspace)
     permission_summary = format_project_permissions_for_prompt(workspace)
+    sandbox_summary = format_workspace_sandbox_for_prompt(workspace)
     chunks = [f"User task:\n{task}"]
     if approval_policy == "plan":
         chunks.append(
@@ -126,6 +128,8 @@ def build_messages(
         )
     if permission_summary:
         chunks.append(permission_summary)
+    if sandbox_summary:
+        chunks.append(sandbox_summary)
     if command_hints:
         chunks.append(
             "\n".join(

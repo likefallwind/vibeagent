@@ -1776,8 +1776,8 @@ class ActionTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionParseError, "max_files must be at most 500"):
             parse_tool_action("review_changes", {"max_files": 501})
 
-        with self.assertRaisesRegex(ActionParseError, "max_checks must be at most 50"):
-            parse_tool_action("final_review", {"max_checks": 51})
+        with self.assertRaisesRegex(ActionParseError, "max_checks must be at most 100"):
+            parse_tool_action("final_review", {"max_checks": 101})
 
         with self.assertRaisesRegex(ActionParseError, "max_commands must be at most 100"):
             parse_tool_action("suggest_checks", {"max_commands": 101})

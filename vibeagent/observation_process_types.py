@@ -20,6 +20,8 @@ class CommandResult:
     stderr_truncated: bool = False
     max_output_chars: int = 12_000
     duration_ms: int = 0
+    sandboxed: bool = False
+    sandbox_warning: str | None = None
     output_contexts: list[OutputContextResult] = field(default_factory=list)
     output_context_total_refs: int = 0
     output_contexts_truncated: bool = False
@@ -76,6 +78,8 @@ class StartCommandObservation:
     message: str
     stdout_path: str
     stderr_path: str
+    sandboxed: bool = False
+    sandbox_warning: str | None = None
 
 
 @dataclass(frozen=True)

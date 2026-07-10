@@ -27,8 +27,8 @@ def get_review_report(project_root: str | Path = ".", max_files: int = 200, max_
         raise ValueError("max_files must be at most 500.")
     if max_checks < 1:
         raise ValueError("max_checks must be at least 1.")
-    if max_checks > 50:
-        raise ValueError("max_checks must be at most 50.")
+    if max_checks > 100:
+        raise ValueError("max_checks must be at most 100.")
     root = Path(project_root).resolve()
     workspace = local_final_review_workspace(root, "local-review")
     observation = execute_action(
@@ -149,8 +149,8 @@ def get_handoff_report(
         raise ValueError("max_files must be at most 500.")
     if max_checks < 1:
         raise ValueError("max_checks must be at least 1.")
-    if max_checks > 50:
-        raise ValueError("max_checks must be at most 50.")
+    if max_checks > 100:
+        raise ValueError("max_checks must be at most 100.")
     root = Path(project_root).resolve()
     workspace = local_final_review_workspace(root, "local-handoff", run_id=run_id)
     observation = execute_action(

@@ -85,6 +85,14 @@ def run_project_local_flag(
             commands["format_permissions_report_text"],
             lambda: commands["get_permissions_text"](args.approval, root),
         )
+    if args.sandbox_status:
+        return local_text_or_report(
+            args,
+            "sandbox",
+            lambda: commands["get_sandbox_report"](root),
+            commands["format_sandbox_report_text"],
+            lambda: commands["get_sandbox_text"](root),
+        )
     if args.trust_status:
         return local_text_or_report(
             args,
@@ -350,6 +358,8 @@ def run_interactive_project_command(
         return commands["get_tool_search_text"](query, **kwargs)
     if command.type == "permissions":
         return commands["get_permissions_text"](approval_policy, root)
+    if command.type == "sandbox":
+        return commands["get_sandbox_text"](root)
     if command.type == "checks":
         return _option_limited_text(
             command,

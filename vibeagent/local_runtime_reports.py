@@ -56,6 +56,8 @@ def serialize_command_result(result: object, index: int | None = None) -> dict[s
         "signal": getattr(result, "signal", None),
         "timeoutMs": int(getattr(result, "timeout_ms", 0) or 0),
         "durationMs": int(getattr(result, "duration_ms", 0) or 0),
+        "sandboxed": bool(getattr(result, "sandboxed", False)),
+        "sandboxWarning": getattr(result, "sandbox_warning", None),
         "maxOutputChars": int(getattr(result, "max_output_chars", 0) or 0),
         "stdout": str(getattr(result, "stdout", "") or ""),
         "stderr": str(getattr(result, "stderr", "") or ""),
@@ -124,6 +126,7 @@ def format_run_report_text(report: dict[str, object]) -> str:
         f"  signal: {report.get('signal') or '.'}",
         f"  timeoutMs: {report.get('timeoutMs', 0)}",
         f"  durationMs: {report.get('durationMs', 0)}",
+        f"  sandboxed: {'yes' if bool(report.get('sandboxed')) else 'no'}",
         f"  maxOutputChars: {report.get('maxOutputChars', 0)}",
         f"  stdoutTruncated: {'yes' if bool(report.get('stdoutTruncated')) else 'no'}",
         f"  stderrTruncated: {'yes' if bool(report.get('stderrTruncated')) else 'no'}",
@@ -178,6 +181,7 @@ def format_run_sequence_report_text(report: dict[str, object]) -> str:
                     f"      signal: {result.get('signal') or '.'}",
                     f"      timeoutMs: {result.get('timeoutMs', 0)}",
                     f"      durationMs: {result.get('durationMs', 0)}",
+                    f"      sandboxed: {'yes' if bool(result.get('sandboxed')) else 'no'}",
                     f"      maxOutputChars: {result.get('maxOutputChars', 0)}",
                     f"      stdoutTruncated: {'yes' if bool(result.get('stdoutTruncated')) else 'no'}",
                     f"      stderrTruncated: {'yes' if bool(result.get('stderrTruncated')) else 'no'}",
@@ -358,6 +362,7 @@ def format_start_report_text(report: dict[str, object]) -> str:
             f"  pid: {report.get('pid') if report.get('pid') is not None else '.'}",
             f"  stdoutPath: {report.get('stdoutPath') or '.'}",
             f"  stderrPath: {report.get('stderrPath') or '.'}",
+            f"  sandboxed: {'yes' if bool(report.get('sandboxed')) else 'no'}",
             f"  message: {message}",
         ]
     )

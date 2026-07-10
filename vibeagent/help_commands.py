@@ -184,6 +184,7 @@ def get_help_text() -> str:
             "  /usage  Show local session usage from recorded events.",
             "  /cost   Show token usage and configured cost estimate.",
             "  /approval [ask|allow|deny|plan]  Show or set the session approval policy.",
+            "  /sandbox  Show command sandbox configuration and Bubblewrap availability.",
             "  /sessions  List recent local sessions.",
             "  /session <run-id>  Show a compact session summary.",
             "  /last   Show a compact summary of the newest session.",

@@ -15,7 +15,7 @@ from .session_audit_formatting import format_session_verification_report_text as
 from .session_input import normalize_optional_run_id
 from .session_verification_action_executor import execute_run_session_verification_action
 from .types import RunSessionVerificationAction
-from .workspace_core import RunWorkspace
+from .workspace_core import create_local_workspace
 
 
 def get_session_verification_text(
@@ -171,11 +171,7 @@ def get_run_session_verification_report(
     if output_context_error:
         return failure(output_context_error, selected)
 
-    workspace = RunWorkspace(
-        root=root,
-        run_id="local-run-session-verification",
-        session_dir=root / ".vibeagent" / "sessions" / "local-run-session-verification",
-    )
+    workspace = create_local_workspace(root, "local-run-session-verification")
     observation = execute_run_session_verification_action(
         workspace,
         RunSessionVerificationAction(
@@ -282,6 +278,7 @@ def format_run_session_verification_report_text(report: dict[str, object]) -> st
                     f"      exitCode: {result.get('exitCode') if result.get('exitCode') is not None else '.'}",
                     f"      timedOut: {'yes' if bool(result.get('timedOut')) else 'no'}",
                     f"      durationMs: {result.get('durationMs', 0)}",
+                    f"      sandboxed: {'yes' if bool(result.get('sandboxed')) else 'no'}",
                     f"      stdoutTruncated: {'yes' if bool(result.get('stdoutTruncated')) else 'no'}",
                     f"      stderrTruncated: {'yes' if bool(result.get('stderrTruncated')) else 'no'}",
                 ]

@@ -12,6 +12,7 @@ class RunWorkspace:
     root: Path
     run_id: str
     session_dir: Path
+    project_config_trusted: bool = False
 
 
 @dataclass(frozen=True)
@@ -62,7 +63,26 @@ def create_run_workspace(base_dir: str | Path | None = None, run_id: str | None 
     ):
         if path.is_symlink() or not path.is_dir():
             raise ValueError(f"{label} is not a regular directory: {path.relative_to(project_root).as_posix()}")
-    return RunWorkspace(root=project_root, run_id=current_run_id, session_dir=session_dir)
+    from .project_trust import is_project_permissions_trusted
+
+    return RunWorkspace(
+        root=project_root,
+        run_id=current_run_id,
+        session_dir=session_dir,
+        project_config_trusted=is_project_permissions_trusted(project_root),
+    )
+
+
+def create_local_workspace(root: str | Path, run_id: str) -> RunWorkspace:
+    from .project_trust import is_project_permissions_trusted
+
+    project_root = Path(root).resolve()
+    return RunWorkspace(
+        root=project_root,
+        run_id=run_id,
+        session_dir=project_root / ".vibeagent" / "sessions" / run_id,
+        project_config_trusted=is_project_permissions_trusted(project_root),
+    )
 
 
 def make_run_id() -> str:

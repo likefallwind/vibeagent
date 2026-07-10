@@ -40,6 +40,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Optional approval filter for --tool-search.",
     )
     local.add_argument("--permissions", action="store_true", help="Show approval-gated tools and hard command blocks and exit.")
+    local.add_argument("--sandbox-status", action="store_true", help="Show command sandbox configuration and availability and exit.")
     local.add_argument("--trust-status", action="store_true", help="Show persistent permission trust for the active project and exit.")
     local.add_argument("--trust-project", action="store_true", help="Persist trust in permission allow rules for the active project and exit.")
     local.add_argument("--untrust-project", action="store_true", help="Remove persistent permission trust for the active project and exit.")
