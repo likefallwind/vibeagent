@@ -5,7 +5,7 @@ from pathlib import Path
 import time
 from typing import Any
 
-from .actions import AGENT_TOOL_DEFINITIONS, ActionParseError, execute_action, parse_tool_action
+from .actions import ActionParseError, execute_action, parse_tool_action
 from .agent_model import complete_with_retries
 from .agent_result import AgentResult
 from .prompts import build_messages
@@ -33,6 +33,12 @@ from .agent_parallel_safety import PARALLEL_SAFE_TOOL_NAMES, is_parallel_safe_ac
 from .agent_parallel_execution import execute_parallel_tool_call_batch
 from .agent_steps import complete_task_step, observation_summary, start_task_step
 from .agent_tool_execution import execute_parsed_tool_action
+from .agent_tool_registry import (
+    agent_tool_definitions,
+    activate_tools_for_run,
+    activate_tools_from_observations,
+    initialize_agent_tools,
+)
 from .agent_user_input import execute_user_input_action
 from .agent_run_completion import (
     auto_run_final_review_if_needed as _auto_run_final_review_if_needed,
@@ -99,6 +105,7 @@ def run_agent(
         "task",
         {"task": task, "prior_context": compact_session_context(prior_context) if prior_context else None},
     )
+    active_tool_names = initialize_agent_tools(current_workspace)
 
     for iteration in range(1, max_iterations + 1):
         # Tool loop: provider-neutral tool_call blocks -> local execution -> tool_result blocks.
@@ -108,7 +115,7 @@ def run_agent(
         response, model_error_message = complete_with_retries(
             client,
             messages,
-            tools=AGENT_TOOL_DEFINITIONS,
+            tools=agent_tool_definitions(active_tool_names),
             max_output_tokens=max_output_tokens,
             model_retries=model_retries,
             model_retry_delay_ms=model_retry_delay_ms,
@@ -181,6 +188,14 @@ def run_agent(
                 logger=logger,
             )
 
+        activate_tools_for_run(
+            current_workspace,
+            active_tool_names,
+            [str(block.get("name") or "") for block in tool_calls],
+            iteration,
+            source="model_call",
+        )
+        observation_start = len(observations)
         parallel_batch_result = execute_parallel_tool_call_batch(
             current_workspace,
             tool_calls,
@@ -196,6 +211,12 @@ def run_agent(
         if parallel_batch_result is not None:
             tool_results.extend(parallel_batch_result.tool_results)
             handled_tool_calls = parallel_batch_result.handled_count
+            activate_tools_from_observations(
+                current_workspace,
+                active_tool_names,
+                observations[observation_start:],
+                iteration,
+            )
         if handled_tool_calls == len(tool_calls):
             messages.append(ChatMessage(role="user", content=tool_results))
             messages = compact_agent_message_history(
@@ -274,6 +295,12 @@ def run_agent(
                 observation = tool_error_observation(tool_name, error)
 
             observations.append(observation)
+            activate_tools_from_observations(
+                current_workspace,
+                active_tool_names,
+                [observation],
+                iteration,
+            )
             result_payload = redact_jsonable_payload(to_jsonable(observation))
             append_session_event(
                 current_workspace.session_dir,

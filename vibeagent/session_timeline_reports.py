@@ -191,6 +191,16 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         if isinstance(message, str) and message.strip():
             suffix.append(f"message={compact(message, max_text)}")
         return f"{prefix}{format_detail_suffix(suffix)}"
+    if event.type == "tool_catalog_initialized":
+        active = payload.get("active")
+        total = payload.get("total")
+        return f"{prefix} active={active if isinstance(active, int) else '?'} total={total if isinstance(total, int) else '?'}"
+    if event.type == "tools_activated":
+        activated = payload.get("activated")
+        source = payload.get("source")
+        names = [str(name) for name in activated] if isinstance(activated, list) else []
+        suffix = [f"source={source}"] if isinstance(source, str) else []
+        return f"{prefix} {', '.join(names) or '(none)'}{format_detail_suffix(suffix)}"
     if event.type == "step_completed":
         step = payload.get("step")
         if isinstance(step, dict):

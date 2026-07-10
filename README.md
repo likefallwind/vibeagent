@@ -956,7 +956,11 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   event so interrupted sessions remain auditable and resumable. Every run
   records a final `result` session event with
   success/failure, message, iteration count, plan, and tool-step counts for later
-  resume and audit.
+  resume and audit. Provider requests start with a compact set of high-frequency
+  tool schemas instead of the full catalog; `tool_search` matches and any
+  directly called compatible tools are activated for later model turns and
+  recorded as session events. Local `/tools`, `/tool`, and `/tool-search`
+  commands continue to inspect the complete catalog.
 - `vibeagent/agent_delegate.py`: runs bounded read-only repository investigations
   for `delegate_task` in an isolated message history. It exposes only the
   established parallel-safe inspection tools plus `finish`, rejects mutation,
@@ -971,6 +975,9 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   Each prompt includes the original task, optional resumed session context,
   scoped `AGENTS.md`/`CLAUDE.md` instructions, discovered project command hints with
   command `cwd` and executable availability, current run directory, workspace file snapshot, and previous observations.
+- `vibeagent/agent_tool_registry.py`: defines the compact always-available tool
+  set, preserves the canonical catalog order, and activates complete schemas
+  returned by `tool_search` without changing parser or approval behavior.
 - `vibeagent/minimax.py`: MiniMax API client. It reads API configuration from
   environment variables, converts VibeAgent's generic tool blocks to Anthropic-compatible
   MiniMax messages, and normalizes responses back into generic tool blocks.
