@@ -142,6 +142,24 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         if isinstance(message, str) and message.strip():
             suffix.append(f"message={compact(message, max_text)}")
         return f"{prefix}{format_detail_suffix(suffix)}"
+    if event.type == "user_input_requested":
+        request = payload.get("request")
+        question = request.get("question") if isinstance(request, dict) else None
+        options = request.get("options") if isinstance(request, dict) else None
+        suffix = []
+        if isinstance(options, list):
+            suffix.append(f"options={len(options)}")
+        return f"{prefix} {compact(question, max_text) if isinstance(question, str) else '(missing question)'}{format_detail_suffix(suffix)}"
+    if event.type == "user_input_answered":
+        result = payload.get("result")
+        answer = result.get("answer") if isinstance(result, dict) else None
+        cancelled = result.get("cancelled") if isinstance(result, dict) else None
+        suffix = []
+        if isinstance(cancelled, bool):
+            suffix.append(f"cancelled={'yes' if cancelled else 'no'}")
+        if isinstance(answer, str) and answer.strip():
+            suffix.append(f"answer={compact(answer, max_text)}")
+        return f"{prefix}{format_detail_suffix(suffix)}"
     if event.type == "step_completed":
         step = payload.get("step")
         if isinstance(step, dict):

@@ -127,6 +127,8 @@ def build_step_label(action: object) -> str:
         return "Stop all background processes"
     if isinstance(action, t.UpdatePlanAction):
         return "Update plan"
+    if isinstance(action, t.AskUserAction):
+        return "Ask user"
     if isinstance(action, t.RepoMapAction):
         return f"Map repo {action.path or '.'}"
     if isinstance(action, t.ReadFileAction):

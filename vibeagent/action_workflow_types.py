@@ -21,6 +21,14 @@ class UpdatePlanAction:
 
 
 @dataclass(frozen=True)
+class AskUserAction:
+    type: Literal["ask_user"]
+    question: str
+    options: list[str]
+    allow_free_text: bool = True
+
+
+@dataclass(frozen=True)
 class FinishAction:
     type: Literal["finish"]
     message: str

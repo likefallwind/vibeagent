@@ -60,6 +60,12 @@ class ToolCatalogTests(unittest.TestCase):
 
         self.assertEqual(category_schema["enum"], list(valid_tool_categories()))
 
+    def test_ask_user_is_a_read_only_session_control(self) -> None:
+        report = get_tool_search_report("ask_user", max_matches=1)
+
+        self.assertEqual(report["matches"][0]["category"], "session")
+        self.assertFalse(report["matches"][0]["approvalRequired"])
+
 
 if __name__ == "__main__":
     unittest.main()

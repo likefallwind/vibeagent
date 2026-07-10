@@ -72,6 +72,7 @@ def categorize_tools() -> dict[str, list[str]]:
 
 def tool_category(name: str) -> str:
     if name in {
+        "ask_user",
         "update_plan",
         "finish",
         "session_summary",

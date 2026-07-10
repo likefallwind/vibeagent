@@ -37,6 +37,7 @@ from .observation_common_types import (
     FinishObservation,
     ToolErrorObservation,
     UpdatePlanObservation,
+    UserInputObservation,
 )
 from .observation_edit_types import (
     AppendFileObservation,
@@ -411,6 +412,7 @@ Observation: TypeAlias = (
     | StopProcessObservation
     | StopAllProcessesObservation
     | UpdatePlanObservation
+    | UserInputObservation
     | FinishObservation
     | ToolErrorObservation
     | ApprovalDeniedObservation

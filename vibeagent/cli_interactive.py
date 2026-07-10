@@ -13,7 +13,7 @@ from .cli_config import build_provider_env
 from .cli_edit_local_flags import run_interactive_edit_command
 from .cli_git_local_flags import run_interactive_git_command
 from .cli_json_local_flags import run_interactive_json_command
-from .cli_output import build_approval_handler, format_error, handle_approval_command, print_agent_result
+from .cli_output import build_approval_handler, format_error, handle_approval_command, print_agent_result, prompt_user_input
 from .cli_patch_local_flags import run_interactive_patch_command
 from .cli_project_local_flags import run_interactive_project_command, run_interactive_project_state_command
 from .cli_read_local_flags import run_interactive_read_command
@@ -175,6 +175,7 @@ def run_interactive_loop(
                 model_retry_delay_ms=execution_config.model_retry_delay_ms,
                 model_timeout_ms=execution_config.model_timeout_ms,
                 approval_handler=build_approval_handler(approval_policy),
+                user_input_handler=prompt_user_input,
                 prior_context=resume_context,
             )
             print_agent_result(result)

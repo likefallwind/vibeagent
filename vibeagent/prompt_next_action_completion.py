@@ -7,6 +7,7 @@ COMPLETION_NEXT_ACTION_KINDS = {
     "final_review",
     "finish",
     "update_plan",
+    "ask_user",
 }
 
 
@@ -139,5 +140,12 @@ def completion_next_action_instruction(base: str, latest: Observation) -> str:
         return _finish_next_action_instruction(base, latest)
     if latest.kind == "update_plan":
         return f"{base} Continue with the current in-progress plan item, or update the plan again if the work changed."
+    if latest.kind == "ask_user":
+        if getattr(latest, "cancelled", False):
+            return (
+                f"{base} User input was unavailable. Do not guess or continue with a choice that depends on the answer; "
+                "answer directly with the unresolved question so the user can respond in the next turn."
+            )
+        return f"{base} Use the user's answer to continue the requested work, inspecting or editing the project as needed."
 
     raise ValueError(f"Unsupported completion next-action kind: {latest.kind}")

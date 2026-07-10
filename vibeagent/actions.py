@@ -28,10 +28,12 @@ from .runtime_checks import build_command_check_observation
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
 from .types import (
     AgentAction,
+    AskUserAction,
     FinishObservation,
     Observation,
     UpdatePlanAction,
     UpdatePlanObservation,
+    UserInputObservation,
 )
 from .workspace import RunWorkspace
 
@@ -87,6 +89,16 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             kind="update_plan",
             plan=action.plan,
             message=summarize_plan_update(action),
+        )
+
+    if isinstance(action, AskUserAction):
+        return UserInputObservation(
+            kind="ask_user",
+            question=action.question,
+            options=list(action.options),
+            answer=None,
+            cancelled=True,
+            message="User input is unavailable without an agent user-input handler.",
         )
 
     return FinishObservation(kind="finish", message=action.message)

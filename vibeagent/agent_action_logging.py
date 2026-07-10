@@ -376,3 +376,5 @@ def log_action(logger: t.AgentLogger | None, action: object) -> None:
         logger("stopping process", getattr(action, "process_id"))
     elif action_type == "update_plan":
         logger("updating plan", build_action_target(action))
+    elif action_type == "ask_user":
+        logger("asking user", build_action_target(action))

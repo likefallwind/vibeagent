@@ -32,6 +32,7 @@ from .agent_parallel_safety import PARALLEL_SAFE_TOOL_NAMES, is_parallel_safe_ac
 from .agent_parallel_execution import execute_parallel_tool_call_batch
 from .agent_steps import complete_task_step, observation_summary, start_task_step
 from .agent_tool_execution import execute_parsed_tool_action
+from .agent_user_input import execute_user_input_action
 from .agent_run_completion import (
     auto_run_final_review_if_needed as _auto_run_final_review_if_needed,
     completion_blocked_feedback_if_needed as _completion_blocked_feedback_if_needed,
@@ -53,6 +54,7 @@ from .session import summarize_session
 from .types import (
     AgentLogger,
     ApprovalHandler,
+    AskUserAction,
     ChatClient,
     ChatMessage,
     ContentBlock,
@@ -61,6 +63,7 @@ from .types import (
     RunCommandObservation,
     TaskStep,
     ToolErrorObservation,
+    UserInputHandler,
 )
 from .workspace_core import RunWorkspace, create_run_workspace
 
@@ -78,6 +81,7 @@ def run_agent(
     logger: AgentLogger | None = None,
     workspace: RunWorkspace | None = None,
     approval_handler: ApprovalHandler | None = None,
+    user_input_handler: UserInputHandler | None = None,
     prior_context: str | None = None,
 ) -> AgentResult:
     # Start with an isolated run workspace for one task execution.
@@ -216,25 +220,35 @@ def run_agent(
 
             try:
                 action = parse_tool_action(tool_name, tool_input)
-                execution = execute_parsed_tool_action(
-                    current_workspace,
-                    action,
-                    observations,
-                    steps,
-                    iteration,
-                    command_timeout_ms,
-                    logger,
-                    approval_handler,
-                    tool_name,
-                    auto_checkpoint_attempted,
-                    execute_action_safely,
-                    should_auto_checkpoint_before_action,
-                    create_auto_checkpoint_before_action,
-                )
-                observation = execution.observation
-                auto_checkpoint_attempted = execution.auto_checkpoint_attempted
-                if execution.auto_checkpoint is not None:
-                    observations.append(execution.auto_checkpoint)
+                if isinstance(action, AskUserAction):
+                    observation = execute_user_input_action(
+                        current_workspace,
+                        action,
+                        steps,
+                        iteration,
+                        logger,
+                        user_input_handler,
+                    )
+                else:
+                    execution = execute_parsed_tool_action(
+                        current_workspace,
+                        action,
+                        observations,
+                        steps,
+                        iteration,
+                        command_timeout_ms,
+                        logger,
+                        approval_handler,
+                        tool_name,
+                        auto_checkpoint_attempted,
+                        execute_action_safely,
+                        should_auto_checkpoint_before_action,
+                        create_auto_checkpoint_before_action,
+                    )
+                    observation = execution.observation
+                    auto_checkpoint_attempted = execution.auto_checkpoint_attempted
+                    if execution.auto_checkpoint is not None:
+                        observations.append(execution.auto_checkpoint)
                 if observation.kind == "update_plan":
                     plan = list(observation.plan)
             except ActionParseError as error:

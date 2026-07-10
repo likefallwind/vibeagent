@@ -20,6 +20,16 @@ class UpdatePlanObservation:
 
 
 @dataclass(frozen=True)
+class UserInputObservation:
+    kind: Literal["ask_user"]
+    question: str
+    options: list[str]
+    answer: str | None
+    cancelled: bool
+    message: str
+
+
+@dataclass(frozen=True)
 class ToolErrorObservation:
     kind: Literal["tool_error"]
     tool: str

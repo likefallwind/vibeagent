@@ -12,6 +12,8 @@ def summarize(value: str, max_length: int = 500) -> str:
 def observation_failed(observation: Observation) -> bool:
     if observation.kind in {"tool_error", "approval_denied"}:
         return True
+    if observation.kind == "ask_user":
+        return observation.cancelled
     if observation.kind == "check_write_file":
         return not observation.ok
     if observation.kind == "write_file":

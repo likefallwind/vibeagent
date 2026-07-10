@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 from .agent_result import AgentResult
-from .types import ApprovalDecision, ApprovalHandler, ApprovalPolicy, ApprovalRequest
+from .types import ApprovalDecision, ApprovalHandler, ApprovalPolicy, ApprovalRequest, UserInputRequest
 
 
 def print_output(payload: dict[str, object], output_json: bool) -> None:
@@ -109,6 +109,31 @@ def prompt_approval(request: ApprovalRequest) -> ApprovalDecision:
     if answer in {"y", "yes"}:
         return ApprovalDecision(approved=True, message="Approved by user.")
     return ApprovalDecision(approved=False, message="Denied by user.")
+
+
+def prompt_user_input(request: UserInputRequest) -> str | None:
+    print(f"Question: {request.question}")
+    for index, option in enumerate(request.options, start=1):
+        print(f"  {index}. {option}")
+    prompt = "Answer: "
+    if request.options:
+        prompt = "Choose a number"
+        if request.allow_free_text:
+            prompt += " or enter another answer"
+        prompt += ": "
+    while True:
+        try:
+            answer = input(prompt).strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return None
+        if not answer:
+            return None
+        if answer.isdigit() and 1 <= int(answer) <= len(request.options):
+            return request.options[int(answer) - 1]
+        if answer in request.options or request.allow_free_text:
+            return answer
+        print(f"Enter a number from 1 to {len(request.options)}.")
 
 
 def handle_approval_command(argument: str | None, current: ApprovalPolicy) -> tuple[ApprovalPolicy, str]:

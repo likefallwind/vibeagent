@@ -21,6 +21,16 @@ ApprovalPolicy: TypeAlias = Literal["ask", "allow", "deny"]
 
 
 @dataclass(frozen=True)
+class UserInputRequest:
+    question: str
+    options: list[str]
+    allow_free_text: bool = True
+
+
+UserInputHandler: TypeAlias = Callable[[UserInputRequest], str | None]
+
+
+@dataclass(frozen=True)
 class ChatMessage:
     role: Literal["system", "user", "assistant"]
     content: MessageContent

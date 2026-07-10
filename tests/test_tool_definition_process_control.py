@@ -32,7 +32,7 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
             [tool["name"] for tool in PROCESS_STOP_TOOL_DEFINITIONS],
             ["list_processes", "check_stop_all_processes", "check_stop_process", "stop_all_processes", "stop_process"],
         )
-        self.assertEqual([tool["name"] for tool in TASK_CONTROL_TOOL_DEFINITIONS], ["update_plan", "finish"])
+        self.assertEqual([tool["name"] for tool in TASK_CONTROL_TOOL_DEFINITIONS], ["ask_user", "update_plan", "finish"])
 
 
 if __name__ == "__main__":
