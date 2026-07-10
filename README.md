@@ -806,11 +806,17 @@ processes, inspected through captured stdout/stderr tails across CLI calls, sent
 through local TCP and HTTP readiness probes, and stopped individually or all at once. In the CLI, edits, patches, writes, file lifecycle changes, and
 command starts/runs ask for approval before execution; when a matching read-only
 preview was run first, the approval prompt and session event include a short
-  preview summary without embedding full file content. Session logs are stored
+preview summary without embedding full file content. Session logs are stored
   under `.vibeagent/sessions/<session-id>/events.jsonl`; workspace creation and
   historical session readers refuse symlink `.vibeagent`, `.vibeagent/sessions`,
   session directories, or `events.jsonl` files so runtime logs are not written
   outside the project or read back through symlink roots.
+The interactive approval prompt accepts `y/yes` for one action and `a/always`
+to remember an approval for the same action type and target until the current
+CLI session ends. Remembered approvals are shared with hooks and coding
+subagents in that session, are cleared when `/approval` changes policy, and are
+recorded with `scope=session` and `remembered=true` in session events. Denials
+are never cached, and MCP discovery/calls always require separate approval.
 For multi-step coding tasks, the model can also maintain a compact task plan;
 the latest plan is captured in the run result, session log, `/session` and
 `/last` summaries, and `/resume` context. If a successful run finishes while
@@ -1093,6 +1099,9 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   user-owned persistent project-permission trust registry, expose trust/status/
   untrust commands, and keep repository-controlled allow rules inert until the
   user explicitly trusts them.
+- `vibeagent/session_approval.py`: caches only user-selected, exact
+  action-type-and-target approvals for the current CLI session, marks cache
+  hits for audit, and keeps MCP process/tool calls outside the cache.
 - `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
   model out of the coding-agent JSON action protocol.
 - `vibeagent/providers.py`: selects the configured model provider. MiniMax is

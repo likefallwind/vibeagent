@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .agent_result import AgentResult
 from .project_trust import is_project_permissions_trusted, trust_project_permissions
+from .session_approval import SessionApprovalHandler
 from .types import ApprovalDecision, ApprovalHandler, ApprovalPolicy, ApprovalRequest, UserInputRequest
 from .workspace_permissions import read_project_permissions_from_root
 
@@ -104,13 +105,19 @@ def prompt_approval(request: ApprovalRequest) -> ApprovalDecision:
     if request.preview:
         print(f"Preview: {request.preview}")
     try:
-        answer = input("Approve? [y/N] ").strip().lower()
+        answer = input("Approve? [y]es/[a]lways for this session/[N]o ").strip().lower()
     except (EOFError, KeyboardInterrupt):
         print()
         return ApprovalDecision(approved=False, message="Approval prompt interrupted.")
 
     if answer in {"y", "yes"}:
         return ApprovalDecision(approved=True, message="Approved by user.")
+    if answer in {"a", "always"}:
+        return ApprovalDecision(
+            approved=True,
+            message="Approved by user for matching actions in this session.",
+            scope="session",
+        )
     return ApprovalDecision(approved=False, message="Denied by user.")
 
 
@@ -184,7 +191,7 @@ def build_approval_handler(policy: ApprovalPolicy) -> ApprovalHandler:
             approved=False,
             message=f"Denied because Plan mode is read-only: {request.action_type}.",
         )
-    return prompt_approval
+    return SessionApprovalHandler(prompt_approval)
 
 
 def format_error(error: Exception) -> str:

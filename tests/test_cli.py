@@ -392,6 +392,21 @@ class CliTests(unittest.TestCase):
 
         self.assertFalse(decision.approved)
 
+    def test_prompt_approval_supports_session_scope(self) -> None:
+        request = ApprovalRequest(
+            action_type="run_command",
+            target="npm test",
+            risk="This will run a shell command from the active project directory.",
+        )
+
+        for answer in ("a", "always"):
+            with self.subTest(answer=answer):
+                with patch("builtins.input", return_value=answer), patch("sys.stdout", new_callable=io.StringIO):
+                    decision = prompt_approval(request)
+
+                self.assertTrue(decision.approved)
+                self.assertEqual(decision.scope, "session")
+
     def test_prompt_approval_prints_target_and_risk_without_file_content(self) -> None:
         request = ApprovalRequest(
             action_type="write_file",

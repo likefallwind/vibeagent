@@ -136,6 +136,8 @@ class ApprovalRequest:
 class ApprovalDecision:
     approved: bool
     message: str = ""
+    scope: Literal["once", "session"] = "once"
+    remembered: bool = False
 
 
 ApprovalHandler: TypeAlias = Callable[[ApprovalRequest], ApprovalDecision]

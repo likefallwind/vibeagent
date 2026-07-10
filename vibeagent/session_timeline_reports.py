@@ -136,9 +136,15 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         decision = payload.get("decision")
         approved = decision.get("approved") if isinstance(decision, dict) else None
         message = decision.get("message") if isinstance(decision, dict) else None
+        scope = decision.get("scope") if isinstance(decision, dict) else None
+        remembered = decision.get("remembered") if isinstance(decision, dict) else None
         suffix = []
         if isinstance(approved, bool):
             suffix.append(f"approved={'yes' if approved else 'no'}")
+        if isinstance(scope, str):
+            suffix.append(f"scope={compact(scope, 40)}")
+        if isinstance(remembered, bool):
+            suffix.append(f"remembered={'yes' if remembered else 'no'}")
         if isinstance(message, str) and message.strip():
             suffix.append(f"message={compact(message, max_text)}")
         return f"{prefix}{format_detail_suffix(suffix)}"

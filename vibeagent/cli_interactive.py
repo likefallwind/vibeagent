@@ -51,6 +51,7 @@ def run_interactive_loop(
     client = None
     mode = "code"
     approval_policy: ApprovalPolicy = "ask"
+    approval_handler = build_approval_handler(approval_policy)
     chat_history: list[ChatMessage] = []
     resume_run_id: str | None = None
     resume_context: str | None = None
@@ -131,7 +132,10 @@ def run_interactive_loop(
             print("Cleared chat history and resume context.")
             continue
         if command and command.type == "approval":
+            previous_policy = approval_policy
             approval_policy, text = handle_approval_command(command.argument, approval_policy)
+            if approval_policy != previous_policy:
+                approval_handler = build_approval_handler(approval_policy)
             print(text)
             continue
         if command and (session_text := run_interactive_session_command(command, command_namespace)) is not None:
@@ -194,7 +198,7 @@ def run_interactive_loop(
                 model_retries=execution_config.model_retries,
                 model_retry_delay_ms=execution_config.model_retry_delay_ms,
                 model_timeout_ms=execution_config.model_timeout_ms,
-                approval_handler=build_approval_handler(approval_policy),
+                approval_handler=approval_handler,
                 approval_policy=approval_policy,
                 trust_project_permissions=project_permissions_trusted,
                 user_input_handler=prompt_user_input,
