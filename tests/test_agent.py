@@ -144,6 +144,7 @@ class AgentTests(unittest.TestCase):
                 client=client,
                 max_iterations=1,
                 prior_context="session: old-run\nfinal: Added tests.",
+                task_metadata={"source": "project_command", "name": "resume-fix"},
             )
             events_path = Path(base) / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
             rows = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
@@ -156,6 +157,7 @@ class AgentTests(unittest.TestCase):
         self.assertIn("final: Added tests.", first_user)
         self.assertEqual(rows[0]["type"], "task")
         self.assertEqual(rows[0]["task"], "继续上次任务")
+        self.assertEqual(rows[0]["metadata"], {"source": "project_command", "name": "resume-fix"})
         self.assertIn("old-run", rows[0]["prior_context"])
 
     def test_run_agent_compacts_long_message_history(self) -> None:

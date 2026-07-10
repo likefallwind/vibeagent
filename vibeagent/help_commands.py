@@ -9,6 +9,7 @@ def get_help_text() -> str:
             "  /help   Show this help.",
             "  /model  Show model provider configuration.",
             "  /config Show resolved provider and execution configuration.",
+            "  /custom-commands  List project prompt commands from .claude/commands and .agents/commands.",
             "  /tools  Show the tools exposed to the model.",
             "  /tool <name>  Show one tool's description and input schema.",
             "  /tool-search [--max N] [--category CATEGORY] [--approval any|yes|no] <query>  Search tools.",

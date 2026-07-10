@@ -12,6 +12,8 @@ def parse_core_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("model", None)
     if trimmed == "/config":
         return make_local_command("config", None)
+    if trimmed == "/custom-commands":
+        return make_local_command("custom_commands", None)
     if trimmed == "/clear":
         return make_local_command("clear", None)
     if trimmed == "/usage":

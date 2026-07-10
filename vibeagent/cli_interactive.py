@@ -25,6 +25,7 @@ from .commands import get_resume_context as default_get_resume_context, parse_lo
 from .config import resolve_execution_config
 from .providers import create_chat_client as default_create_chat_client
 from .types import ApprovalPolicy, ChatMessage
+from .workspace_prompt_commands import expand_project_prompt_command
 
 
 def run_interactive_loop(
@@ -56,6 +57,15 @@ def run_interactive_loop(
             continue
 
         command = parse_local_command(task)
+        custom_command: dict[str, object] | None = None
+        if command is None and task.startswith("/"):
+            try:
+                custom_command = expand_project_prompt_command(Path.cwd(), task)
+            except ValueError as error:
+                print(str(error))
+                continue
+            if custom_command is not None:
+                task = str(custom_command["prompt"])
         if command and command.type == "exit":
             return 0
         if command and (project_text := run_interactive_project_command(command, command_namespace, approval_policy)) is not None:
@@ -126,7 +136,7 @@ def run_interactive_loop(
             resume_context = context
             print(text)
             continue
-        request_mode = mode
+        request_mode = "code" if custom_command is not None else mode
         if command and command.type == "chat":
             if not command.argument:
                 mode = "chat"
@@ -178,6 +188,16 @@ def run_interactive_loop(
                 approval_policy=approval_policy,
                 user_input_handler=prompt_user_input,
                 prior_context=resume_context,
+                task_metadata=(
+                    {
+                        "source": "project_command",
+                        "name": custom_command["name"],
+                        "path": custom_command["path"],
+                        "arguments": custom_command["arguments"],
+                    }
+                    if custom_command is not None
+                    else None
+                ),
             )
             print_agent_result(result)
             selected, next_context, _ = get_resume_context_func(result.run_id)

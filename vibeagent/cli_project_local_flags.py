@@ -308,6 +308,8 @@ def run_interactive_project_command(command: Any, commands: dict[str, Any], appr
         return commands["get_model_text"]()
     if command.type == "config":
         return commands["get_config_text"]()
+    if command.type == "custom_commands":
+        return commands["get_custom_commands_text"]()
     if command.type == "tools":
         return commands["get_tools_text"]()
     if command.type == "tool":

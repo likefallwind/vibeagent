@@ -554,6 +554,7 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(parse_local_command("/help"), LocalCommand(type="help"))
         self.assertEqual(parse_local_command("  /model  "), LocalCommand(type="model"))
         self.assertEqual(parse_local_command("/config"), LocalCommand(type="config"))
+        self.assertEqual(parse_local_command("/custom-commands"), LocalCommand(type="custom_commands"))
         self.assertEqual(parse_local_command("/tools"), LocalCommand(type="tools"))
         self.assertEqual(parse_local_command("/tool read_file"), LocalCommand(type="tool", argument="read_file"))
         self.assertEqual(parse_local_command("/tool"), LocalCommand(type="tool"))
@@ -962,6 +963,7 @@ class CommandTests(unittest.TestCase):
         from vibeagent.commands import get_help_text
 
         self.assertIn("/approval [ask|allow|deny|plan]", get_help_text())
+        self.assertIn("/custom-commands", get_help_text())
         self.assertIn("/config", get_help_text())
         self.assertIn("/resume [run-id|off] [--max-failures N] [--max-files N] [--max-commands N] [--max-checks N]", get_help_text())
         self.assertIn("previous session handoff", get_help_text())

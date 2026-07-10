@@ -95,6 +95,7 @@ def run_agent(
     user_input_handler: UserInputHandler | None = None,
     prior_context: str | None = None,
     approval_policy: ApprovalPolicy = "ask",
+    task_metadata: dict[str, object] | None = None,
 ) -> AgentResult:
     # Start with an isolated run workspace for one task execution.
     current_workspace = workspace or create_run_workspace(base_dir)
@@ -109,15 +110,14 @@ def run_agent(
     )
     original_prior_context = prior_context
     auto_checkpoint_attempted = False
-    append_session_event(
-        current_workspace.session_dir,
-        "task",
-        {
-            "task": task,
-            "approval_policy": approval_policy,
-            "prior_context": compact_session_context(prior_context) if prior_context else None,
-        },
-    )
+    task_event: dict[str, object] = {
+        "task": task,
+        "approval_policy": approval_policy,
+        "prior_context": compact_session_context(prior_context) if prior_context else None,
+    }
+    if task_metadata:
+        task_event["metadata"] = redact_jsonable_payload(task_metadata)
+    append_session_event(current_workspace.session_dir, "task", task_event)
     active_tool_names = initialize_agent_tools(current_workspace, approval_policy)
 
     for iteration in range(1, max_iterations + 1):
