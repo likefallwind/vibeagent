@@ -8,7 +8,8 @@ from .agent_execution_support import (
     execute_action_safely,
     should_auto_checkpoint_before_action,
 )
-from .agent_parallel_safety import PARALLEL_SAFE_TOOL_NAMES, is_parallel_safe_action
+from .agent_delegate_policy import CODE_DELEGATE_EXCLUDED_TOOL_NAMES, DELEGATE_TOOL_NAMES
+from .agent_parallel_safety import is_parallel_safe_action
 from .agent_runtime_utils import tool_error_observation
 from .agent_tool_execution import execute_parsed_tool_action
 from .agent_tool_registry import (
@@ -32,19 +33,11 @@ from .types import (
 from .workspace_core import RunWorkspace
 
 
-DELEGATE_TOOL_NAMES = {
-    name
-    for name in PARALLEL_SAFE_TOOL_NAMES
-    if not name.startswith("check_") and name not in {"final_review"}
-}
 DELEGATE_TOOL_DEFINITIONS = [
     tool
     for tool in AGENT_TOOL_DEFINITIONS
     if tool["name"] in DELEGATE_TOOL_NAMES or tool["name"] == "finish"
 ]
-CODE_DELEGATE_EXCLUDED_TOOL_NAMES = frozenset({"ask_user", "delegate_task", "update_plan"})
-
-
 @dataclass(frozen=True)
 class DelegateToolCallExecution:
     observation: Observation | None
@@ -52,11 +45,15 @@ class DelegateToolCallExecution:
     auto_checkpoint_attempted: bool
 
 
-def code_delegate_initial_tool_names(approval_policy: ApprovalPolicy) -> set[str]:
+def code_delegate_initial_tool_names(
+    approval_policy: ApprovalPolicy,
+    allowed_tool_names: frozenset[str] | None = None,
+) -> set[str]:
     return {
         name
         for name in initial_agent_tool_names()
         if tool_available_for_policy(name, approval_policy, CODE_DELEGATE_EXCLUDED_TOOL_NAMES)
+        and (allowed_tool_names is None or name in allowed_tool_names)
     }
 
 
@@ -64,14 +61,22 @@ def delegate_tool_definitions(
     mode: str,
     active_tool_names: set[str],
     approval_policy: ApprovalPolicy,
+    allowed_tool_names: frozenset[str] | None = None,
 ) -> list[dict[str, object]]:
     if mode == "explore":
-        return DELEGATE_TOOL_DEFINITIONS
-    return agent_tool_definitions(
+        return [
+            tool
+            for tool in DELEGATE_TOOL_DEFINITIONS
+            if allowed_tool_names is None or str(tool["name"]) in allowed_tool_names
+        ]
+    definitions = agent_tool_definitions(
         active_tool_names,
         approval_policy,
         CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
     )
+    if allowed_tool_names is None:
+        return definitions
+    return [tool for tool in definitions if str(tool["name"]) in allowed_tool_names]
 
 
 def execute_delegate_tool_call(
@@ -89,11 +94,20 @@ def execute_delegate_tool_call(
     approval_handler: ApprovalHandler | None,
     approval_policy: ApprovalPolicy,
     auto_checkpoint_attempted: bool,
+    allowed_tool_names: frozenset[str] | None = None,
 ) -> DelegateToolCallExecution:
+    if allowed_tool_names is not None and tool_name not in allowed_tool_names:
+        observation = ToolErrorObservation(
+            kind="tool_error",
+            tool=tool_name or "unknown",
+            message="Subagent tool is outside the selected project agent profile allowlist.",
+        )
+        observations.append(observation)
+        return DelegateToolCallExecution(observation, None, auto_checkpoint_attempted)
     if mode == "code":
         activate_agent_tool_names(
             active_tool_names,
-            [tool_name],
+            _allowed_requested_names([tool_name], allowed_tool_names),
             approval_policy,
             CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
         )
@@ -130,11 +144,20 @@ def execute_delegate_tool_call(
     if mode == "code":
         activate_agent_tool_names(
             active_tool_names,
-            tool_search_activation_names(observation),
+            _allowed_requested_names(tool_search_activation_names(observation), allowed_tool_names),
             approval_policy,
             CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
         )
     return DelegateToolCallExecution(observation, None, checkpoint_attempted)
+
+
+def _allowed_requested_names(
+    requested_names: list[str],
+    allowed_tool_names: frozenset[str] | None,
+) -> list[str]:
+    if allowed_tool_names is None:
+        return requested_names
+    return [name for name in requested_names if name in allowed_tool_names]
 
 
 def execute_delegate_action(

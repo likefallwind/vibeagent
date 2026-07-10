@@ -27,6 +27,11 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "enum": ["explore", "code"],
                     "description": "Use explore for read-only investigation or code for implementation. Defaults to explore.",
                 },
+                "agent": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+                    "description": "Optional exact project agent profile name from the available profile catalog. The profile controls mode, prompt, and tool scope.",
+                },
             },
             "required": ["task"],
             "additionalProperties": False,

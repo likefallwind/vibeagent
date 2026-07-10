@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 
 from .agent_delegate_tools import (
@@ -30,6 +31,7 @@ from .types import (
     TaskStep,
 )
 from .workspace import format_project_skill_catalog, read_project_instructions, read_workspace_snapshot
+from .workspace_agents import read_project_agent
 from .workspace_core import RunWorkspace
 
 
@@ -65,12 +67,31 @@ def execute_delegate_task_action(
     parent_observations: list[Observation] | None = None,
     parent_steps: list[TaskStep] | None = None,
 ) -> DelegateTaskObservation:
-    messages = build_delegate_messages(workspace, action)
+    profile: dict[str, object] | None = None
+    profile_error: str | None = None
+    if action.agent:
+        try:
+            profile = read_project_agent(workspace, action.agent)
+            action = replace(action, mode=str(profile["mode"]))
+        except ValueError as error:
+            profile_error = str(error)
+    profile_prompt = str(profile["prompt"]) if profile is not None else None
+    profile_tools = profile.get("tools") if profile is not None else None
+    allowed_tool_names = (
+        frozenset(str(name) for name in profile_tools) | {"finish"}
+        if isinstance(profile_tools, list)
+        else None
+    )
+    messages = build_delegate_messages(workspace, action, profile_prompt=profile_prompt)
     tool_calls_used: list[str] = []
     observations = parent_observations if action.mode == "code" and parent_observations is not None else []
     steps = parent_steps if action.mode == "code" and parent_steps is not None else []
     auto_checkpoint_attempted = False
-    active_tool_names = code_delegate_initial_tool_names(approval_policy) if action.mode == "code" else set()
+    active_tool_names = (
+        code_delegate_initial_tool_names(approval_policy, allowed_tool_names)
+        if action.mode == "code"
+        else set()
+    )
     append_session_event(
         workspace.session_dir,
         "subagent_started",
@@ -81,11 +102,25 @@ def execute_delegate_task_action(
             "context": action.context,
             "max_iterations": action.max_iterations,
             "mode": action.mode,
+            "agent": action.agent,
             "approval_policy": approval_policy,
         },
     )
     if logger:
         logger(f"{action.mode} subagent started", action.task)
+
+    if profile_error is not None:
+        return finish_delegate_task(
+            workspace,
+            action,
+            subagent_id,
+            ok=False,
+            summary="",
+            iterations=0,
+            tool_calls=tool_calls_used,
+            message=f"Project agent profile could not be loaded: {profile_error}",
+            logger=logger,
+        )
 
     if action.mode == "code" and approval_policy == "plan":
         return finish_delegate_task(
@@ -104,7 +139,12 @@ def execute_delegate_task_action(
         response, error_message = complete_with_retries(
             client,
             messages,
-            tools=delegate_tool_definitions(action.mode, active_tool_names, approval_policy),
+            tools=delegate_tool_definitions(
+                action.mode,
+                active_tool_names,
+                approval_policy,
+                allowed_tool_names,
+            ),
             max_output_tokens=max_output_tokens,
             model_retries=model_retries,
             model_retry_delay_ms=model_retry_delay_ms,
@@ -200,6 +240,7 @@ def execute_delegate_task_action(
                 approval_handler=approval_handler,
                 approval_policy=approval_policy,
                 auto_checkpoint_attempted=auto_checkpoint_attempted,
+                allowed_tool_names=allowed_tool_names,
             )
             auto_checkpoint_attempted = execution.auto_checkpoint_attempted
             if execution.finish_action is not None:
@@ -264,7 +305,11 @@ def execute_delegate_task_action(
     )
 
 
-def build_delegate_messages(workspace: RunWorkspace, action: DelegateTaskAction) -> list[ChatMessage]:
+def build_delegate_messages(
+    workspace: RunWorkspace,
+    action: DelegateTaskAction,
+    profile_prompt: str | None = None,
+) -> list[ChatMessage]:
     instructions = read_project_instructions(workspace)
     snapshot = read_workspace_snapshot(workspace)
     skill_catalog = format_project_skill_catalog(workspace)
@@ -276,10 +321,13 @@ def build_delegate_messages(workspace: RunWorkspace, action: DelegateTaskAction)
     if skill_catalog:
         parts.append(skill_catalog)
     parts.append(f"Workspace snapshot:\n{snapshot}")
+    system_prompt = CODE_DELEGATE_SYSTEM_PROMPT if action.mode == "code" else DELEGATE_SYSTEM_PROMPT
+    if profile_prompt:
+        system_prompt = f"{system_prompt}\n\nProject agent profile instructions:\n{profile_prompt}"
     return [
         ChatMessage(
             role="system",
-            content=CODE_DELEGATE_SYSTEM_PROMPT if action.mode == "code" else DELEGATE_SYSTEM_PROMPT,
+            content=system_prompt,
         ),
         ChatMessage(role="user", content="\n\n".join(parts)),
     ]
@@ -320,6 +368,7 @@ def finish_delegate_task(
         tool_calls=list(tool_calls),
         message=message,
         mode=action.mode,
+        agent=action.agent,
     )
     if tool_event is not None:
         append_session_event(

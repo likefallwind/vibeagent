@@ -38,6 +38,7 @@ class ProjectContextToolDefinitionTests(unittest.TestCase):
                 "project_manifests",
                 "project_instructions",
                 "project_skills",
+                "project_agents",
                 "skill",
                 "project_todos",
                 "project_overview",

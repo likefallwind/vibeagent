@@ -57,6 +57,7 @@ PARALLEL_SAFE_TOOL_NAMES = {
     "project_manifests",
     "project_instructions",
     "project_skills",
+    "project_agents",
     "skill",
     "mcp_servers",
     "project_overview",

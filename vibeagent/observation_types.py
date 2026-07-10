@@ -146,6 +146,8 @@ from .observation_project_types import (
     FocusedTestCommandsObservation,
     ProjectCommand,
     ProjectCommandsObservation,
+    ProjectAgentProfile,
+    ProjectAgentsObservation,
     ProjectInstructionSource,
     ProjectInstructionsObservation,
     ProjectSkill,

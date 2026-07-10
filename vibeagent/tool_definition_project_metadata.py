@@ -65,6 +65,22 @@ PROJECT_METADATA_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "project_agents",
+        "description": "List bounded metadata for custom project agent profiles without loading their system prompt bodies.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "max_agents": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum agent profile metadata entries to return. Defaults to 100.",
+                }
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "skill",
         "description": "Load one named project SKILL.md after selecting it from the available project skill catalog.",
         "input_schema": {

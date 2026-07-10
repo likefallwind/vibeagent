@@ -39,6 +39,7 @@ class DelegateTaskObservation:
     tool_calls: list[str]
     message: str
     mode: Literal["explore", "code"] = "explore"
+    agent: str | None = None
 
 
 @dataclass(frozen=True)

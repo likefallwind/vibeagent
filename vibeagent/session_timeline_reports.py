@@ -167,6 +167,9 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         mode = payload.get("mode")
         if isinstance(mode, str):
             suffix.append(f"mode={compact(mode, 20)}")
+        agent = payload.get("agent")
+        if isinstance(agent, str):
+            suffix.append(f"agent={compact(agent, 80)}")
         return f"{prefix} {compact(task, max_text) if isinstance(task, str) else '(missing task)'}{format_detail_suffix(suffix)}"
     if event.type == "subagent_model":
         text = model_text(payload.get("content"))

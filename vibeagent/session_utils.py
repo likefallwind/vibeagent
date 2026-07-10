@@ -265,6 +265,7 @@ def is_failed_tool_result(result: dict[str, Any]) -> bool:
         "run_focused_test_commands",
         "project_manifests",
         "project_skills",
+        "project_agents",
         "skill",
         "mcp_servers",
         "mcp_tools",

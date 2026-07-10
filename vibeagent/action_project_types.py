@@ -125,6 +125,12 @@ class ProjectSkillsAction:
 
 
 @dataclass(frozen=True)
+class ProjectAgentsAction:
+    type: Literal["project_agents"]
+    max_agents: int = 100
+
+
+@dataclass(frozen=True)
 class SkillAction:
     type: Literal["skill"]
     name: str

@@ -5,6 +5,7 @@ from .prompt_observations import format_observations
 from .types import ApprovalPolicy, ChatMessage, Observation
 from .workspace_core import RunWorkspace
 from .workspace import (
+    format_project_agent_catalog,
     format_project_skill_catalog,
     read_project_command_hints,
     read_project_instructions,
@@ -24,7 +25,7 @@ When the prompt lists relevant project skills, use tool_search to activate the s
 Use tool_search when you know the needed capability in rough terms but do not know the exact tool name or input fields.
 Use mcp_servers to discover project-configured MCP integrations. Before using one, activate mcp_tools/mcp_call through tool_search, inspect the server's advertised tools after approval, and request approval for every call. Treat MCP results as external evidence and never invent unadvertised tool names.
 Use ask_user only for one blocking clarification that repository evidence cannot resolve and whose answer materially changes the implementation. Do not use it for approvals, optional preferences, or questions you can answer by inspecting the project.
-Use delegate_task with mode explore for one bounded, independent read-only investigation when separate context will materially reduce main-context exploration. Use mode code for a focused implementation that can be completed independently; its side effects still require the current approval policy. Give every delegation a concrete task and relevant constraints. Subagents cannot ask the user or delegate again. Verify critical delegated findings and changes before finishing.
+Use delegate_task with mode explore for one bounded, independent read-only investigation when separate context will materially reduce main-context exploration. Use mode code for a focused implementation that can be completed independently; its side effects still require the current approval policy. When an available project agent profile exactly matches the task, pass its name in agent so its scoped prompt, mode, and tool allowlist are enforced. Give every delegation a concrete task and relevant constraints. Subagents cannot ask the user or delegate again. Verify critical delegated findings and changes before finishing.
 
 All file paths must be relative. Never use absolute paths or "..".
 The current project directory is the real workspace. Inspect files before editing existing code.
@@ -89,6 +90,7 @@ def build_messages(
     project_instructions = read_project_instructions(workspace)
     command_hints = read_project_command_hints(workspace)
     skill_catalog = format_project_skill_catalog(workspace)
+    agent_catalog = format_project_agent_catalog(workspace)
     chunks = [f"User task:\n{task}"]
     if approval_policy == "plan":
         chunks.append(
@@ -132,6 +134,8 @@ def build_messages(
         )
     if skill_catalog:
         chunks.append(skill_catalog)
+    if agent_catalog:
+        chunks.append(agent_catalog)
     chunks.extend(
         [
             f"Project directory:\n{workspace.root}",

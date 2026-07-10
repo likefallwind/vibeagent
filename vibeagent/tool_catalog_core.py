@@ -155,6 +155,7 @@ def tool_category(name: str) -> str:
         "project_manifests",
         "project_instructions",
         "project_skills",
+        "project_agents",
         "skill",
         "project_todos",
         "environment_info",

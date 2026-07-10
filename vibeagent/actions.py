@@ -118,6 +118,7 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             tool_calls=[],
             message="Task delegation is unavailable without an agent model client.",
             mode=action.mode,
+            agent=action.agent,
         )
 
     return FinishObservation(kind="finish", message=action.message)

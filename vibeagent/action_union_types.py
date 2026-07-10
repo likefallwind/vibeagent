@@ -160,6 +160,7 @@ from .action_project_types import (
     FinalReviewAction,
     FocusedTestCommandsAction,
     ProjectCommandsAction,
+    ProjectAgentsAction,
     ProjectInstructionsAction,
     ProjectSkillsAction,
     ProjectManifestsAction,
@@ -310,6 +311,7 @@ AgentAction: TypeAlias = (
     | ProjectManifestsAction
     | ProjectInstructionsAction
     | ProjectSkillsAction
+    | ProjectAgentsAction
     | SkillAction
     | ProjectTodosAction
     | ProjectOverviewAction

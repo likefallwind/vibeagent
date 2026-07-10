@@ -285,6 +285,7 @@ from .workspace_project_info import (
     read_workspace_snapshot,
 )
 from .workspace_skills import format_project_skill_catalog, read_project_skill, read_project_skills
+from .workspace_agents import format_project_agent_catalog, read_project_agent, read_project_agents
 from .workspace_paths import (
     gitignore_pattern_matches,
     gitignore_rule_bases,

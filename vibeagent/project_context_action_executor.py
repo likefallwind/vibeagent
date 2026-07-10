@@ -8,6 +8,9 @@ from .types import (
     ProjectCommand,
     ProjectCommandsAction,
     ProjectCommandsObservation,
+    ProjectAgentProfile,
+    ProjectAgentsAction,
+    ProjectAgentsObservation,
     ProjectInstructionSource,
     ProjectInstructionsAction,
     ProjectInstructionsObservation,
@@ -35,6 +38,7 @@ from .workspace import (
     read_environment_info,
     read_git_info,
     read_project_commands,
+    read_project_agents,
     read_project_instruction_sources,
     read_project_skill,
     read_project_skills,
@@ -213,6 +217,23 @@ def execute_project_context_action(
         except ValueError as error:
             return ProjectSkillsObservation(
                 kind="project_skills", ok=False, skills=[], total=0, truncated=False, invalid=0, message=str(error)
+            )
+
+    if isinstance(action, ProjectAgentsAction):
+        try:
+            metadata = read_project_agents(workspace, max_agents=action.max_agents)
+            return ProjectAgentsObservation(
+                kind="project_agents",
+                ok=bool(metadata["ok"]),
+                agents=[ProjectAgentProfile(**item) for item in metadata["agents"]],
+                total=int(metadata["total"]),
+                truncated=bool(metadata["truncated"]),
+                invalid=int(metadata["invalid"]),
+                message=str(metadata["message"]),
+            )
+        except ValueError as error:
+            return ProjectAgentsObservation(
+                kind="project_agents", ok=False, agents=[], total=0, truncated=False, invalid=0, message=str(error)
             )
 
     if isinstance(action, SkillAction):

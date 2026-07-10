@@ -162,6 +162,7 @@ from .observation_project_types import (
     CheckSuggestedChecksObservation,
     FocusedTestCommandsObservation,
     ProjectCommandsObservation,
+    ProjectAgentsObservation,
     ProjectInstructionsObservation,
     ProjectSkillsObservation,
     ProjectManifestsObservation,
@@ -321,6 +322,7 @@ Observation: TypeAlias = (
     | ProjectManifestsObservation
     | ProjectInstructionsObservation
     | ProjectSkillsObservation
+    | ProjectAgentsObservation
     | SkillObservation
     | ProjectTodosObservation
     | ProjectOverviewObservation

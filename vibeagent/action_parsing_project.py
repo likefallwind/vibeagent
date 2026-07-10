@@ -10,6 +10,7 @@ from .types import (
     FinalReviewAction,
     FocusedTestCommandsAction,
     ProjectCommandsAction,
+    ProjectAgentsAction,
     ProjectInstructionsAction,
     ProjectSkillsAction,
     ProjectManifestsAction,
@@ -40,6 +41,7 @@ PROJECT_ACTION_TYPES = {
     "project_manifests",
     "project_instructions",
     "project_skills",
+    "project_agents",
     "skill",
     "project_todos",
     "project_overview",
@@ -247,6 +249,10 @@ def parse_project_action(action_type: object, value: dict[str, Any], raw: str) -
     if action_type == "project_skills":
         max_skills = parse_optional_positive_int(value.get("max_skills", 100), "max_skills", raw, maximum=500) or 100
         return ProjectSkillsAction(type="project_skills", max_skills=max_skills)
+
+    if action_type == "project_agents":
+        max_agents = parse_optional_positive_int(value.get("max_agents", 100), "max_agents", raw, maximum=500) or 100
+        return ProjectAgentsAction(type="project_agents", max_agents=max_agents)
 
     if action_type == "skill":
         name = value.get("name")

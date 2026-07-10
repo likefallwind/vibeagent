@@ -58,6 +58,7 @@ class DelegationTests(unittest.TestCase):
             {"task": "inspect", "max_iterations": 0},
             {"task": "inspect", "max_iterations": 9},
             {"task": "inspect", "mode": "write"},
+            {"task": "inspect", "agent": "../unsafe"},
         ]
 
         for tool_input in invalid_inputs:

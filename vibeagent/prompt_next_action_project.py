@@ -15,6 +15,7 @@ PROJECT_NEXT_ACTION_KINDS = {
     "project_manifests",
     "project_instructions",
     "project_skills",
+    "project_agents",
     "skill",
     "project_todos",
     "project_overview",
@@ -417,6 +418,10 @@ def project_next_action_instruction(base: str, latest: Observation) -> str:
         if not getattr(latest, "ok", False):
             return f"{base} Project skill discovery failed. Continue without a skill or inspect the reported metadata error."
         return f"{base} Select a relevant available project skill by exact name and load it with skill, or continue directly if none applies."
+    if latest.kind == "project_agents":
+        if not getattr(latest, "ok", False):
+            return f"{base} Project agent profile discovery failed. Continue with a generic delegation or inspect the reported metadata error."
+        return f"{base} Select an available project agent profile by exact name in delegate_task.agent, or use a generic delegation if none matches."
     if latest.kind == "skill":
         if not getattr(latest, "ok", False):
             return f"{base} The requested project skill could not be loaded. Use project_skills to choose an available exact name or continue without it."

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-import os
 import re
-import stat
 from collections import Counter
 from pathlib import Path
 
 from .workspace_core import RunWorkspace
+from .workspace_metadata_files import (
+    has_symlink_component,
+    parse_scalar_frontmatter,
+    read_regular_file_bytes,
+)
 
 
 SKILL_ROOTS = ((".claude/skills", "claude"), (".agents/skills", "agents"))
@@ -84,7 +87,7 @@ def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]
     discovered: list[dict[str, object]] = []
     for relative_root, source in SKILL_ROOTS:
         root = workspace.root / relative_root
-        if not root.exists() or not root.is_dir() or _has_symlink_component(workspace.root, root):
+        if not root.exists() or not root.is_dir() or has_symlink_component(workspace.root, root):
             continue
         try:
             children = sorted(root.iterdir(), key=lambda path: path.name)[:MAX_SKILL_SCAN]
@@ -117,7 +120,7 @@ def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]
 
 
 def _inspect_skill_file(root: Path, path: Path) -> tuple[bool, str, str]:
-    if _has_symlink_component(root, path):
+    if has_symlink_component(root, path):
         return False, "", "Skill path contains a symbolic link."
     if not path.is_file():
         return False, "", "SKILL.md is missing."
@@ -150,48 +153,9 @@ def _validate_skill_content(path: Path, content: str) -> str:
 
 
 def _skill_frontmatter(content: str) -> dict[str, str]:
-    lines = content.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return {}
-    metadata: dict[str, str] = {}
-    closed = False
-    for line in lines[1:]:
-        stripped = line.strip()
-        if stripped == "---":
-            closed = True
-            break
-        if ":" not in stripped:
-            continue
-        key, value = stripped.split(":", 1)
-        if key not in {"name", "description"}:
-            continue
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
-            value = value[1:-1]
-        metadata[key] = " ".join(value.split())[:500]
-    return metadata if closed else {}
-
-
-def _has_symlink_component(root: Path, path: Path) -> bool:
-    relative = path.relative_to(root)
-    current = root
-    for part in relative.parts:
-        current = current / part
-        if current.is_symlink():
-            return True
-    return False
+    metadata, _ = parse_scalar_frontmatter(content, frozenset({"name", "description"}))
+    return {key: " ".join(value.split())[:500] for key, value in metadata.items()}
 
 
 def _read_skill_bytes(path: Path) -> bytes:
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-    descriptor = os.open(path, flags)
-    try:
-        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
-            raise ValueError("SKILL.md must be a regular file.")
-        with os.fdopen(descriptor, "rb", closefd=False) as stream:
-            raw = stream.read(MAX_SKILL_FILE_BYTES + 1)
-    finally:
-        os.close(descriptor)
-    if len(raw) > MAX_SKILL_FILE_BYTES:
-        raise ValueError(f"SKILL.md exceeds {MAX_SKILL_FILE_BYTES} bytes.")
-    return raw
+    return read_regular_file_bytes(path, max_bytes=MAX_SKILL_FILE_BYTES, label="SKILL.md")

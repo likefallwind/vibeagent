@@ -24,6 +24,8 @@ def format_project_observation(index: int, observation: object) -> str | None:
         return _format_project_instructions(index, observation)
     if observation.kind == "project_skills":
         return _format_project_skills(index, observation)
+    if observation.kind == "project_agents":
+        return _format_project_agents(index, observation)
     if observation.kind == "skill":
         return _format_skill(index, observation)
     if observation.kind == "project_todos":
@@ -293,6 +295,24 @@ def _format_project_skills(index: int, observation: object) -> str:
         parts.append(
             f"skill: name={skill.name} source={skill.source} path={skill.path} "
             f"available={str(skill.available).lower()} description={skill.description or '.'} message={skill.message}"
+        )
+    return "\n".join(parts)
+
+
+def _format_project_agents(index: int, observation: object) -> str:
+    parts = [
+        (
+            f"{index}. project_agents: {observation.message} "
+            f"shown={len(observation.agents)}/{observation.total} "
+            f"invalid={observation.invalid} truncated={str(observation.truncated).lower()}"
+        ),
+        f"ok: {str(observation.ok).lower()}",
+    ]
+    for agent in observation.agents:
+        tools = ",".join(agent.tools) if agent.tools is not None else "default"
+        parts.append(
+            f"agent: name={agent.name} mode={agent.mode} tools={tools} source={agent.source} path={agent.path} "
+            f"available={str(agent.available).lower()} description={agent.description or '.'} message={agent.message}"
         )
     return "\n".join(parts)
 

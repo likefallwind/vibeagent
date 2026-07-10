@@ -243,6 +243,29 @@ class ProjectSkillsObservation:
 
 
 @dataclass(frozen=True)
+class ProjectAgentProfile:
+    name: str
+    description: str
+    mode: str
+    tools: list[str] | None
+    path: str
+    source: str
+    available: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class ProjectAgentsObservation:
+    kind: Literal["project_agents"]
+    ok: bool
+    agents: list[ProjectAgentProfile]
+    total: int
+    truncated: bool
+    invalid: int
+    message: str
+
+
+@dataclass(frozen=True)
 class SkillObservation:
     kind: Literal["skill"]
     ok: bool
