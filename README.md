@@ -93,6 +93,7 @@ Pass a task as arguments to run once without entering the prompt:
 
 ```sh
 python -m vibeagent --approval allow "inspect the failing tests and fix them"
+python -m vibeagent --trust-project-permissions "run the checks allowed by this project's permission rules"
 python -m vibeagent --chat "explain this repository at a high level"
 python -m vibeagent --resume <run-id> --resume-max-files 25 --resume-max-commands 5 --resume-max-checks 20 "continue the previous change"
 python -m vibeagent --resume -- "continue the latest session"
@@ -932,6 +933,39 @@ receive `VIBEAGENT_HOOK_EVENT`, `VIBEAGENT_TOOL_NAME`, and
 `VIBEAGENT_TOOL_TARGET` environment variables and are recorded in the session
 timeline with bounded output.
 
+## Project permissions
+
+Fine-grained project permissions can be declared in `.vibeagent/permissions.json`
+or under the `permissions` key in `.claude/settings.json` and
+`.claude/settings.local.json`:
+
+```json
+{
+  "permissions": {
+    "deny": ["Read(**/.env)", "Bash(git push *)"],
+    "ask": ["WebFetch", "Bash(npm publish *)"],
+    "allow": ["Edit(src/**)", "Bash(npm test *)"]
+  }
+}
+```
+
+Rules use `Tool` or `Tool(specifier)` syntax and are evaluated by effect in
+`deny`, `ask`, then `allow` order. Common Claude Code names including `Bash`,
+`Read`, `Edit`, `Write`, `WebFetch`, `Agent`, and `AskUserQuestion` map to the
+corresponding VibeAgent tools; native snake-case tool names are also accepted.
+Command patterns support `*`, including the trailing `:*` spelling. File
+patterns use project-relative `/`, `*`, and recursive `**` matching. A deny or
+ask rule applies when any target in a multi-file operation matches; an allow
+rule applies only when every target matches.
+
+Project deny and ask rules always take effect. Because repository settings are
+untrusted input, allow rules do not skip side-effect approval unless a one-shot
+run explicitly uses `--trust-project-permissions` (or a library caller passes
+`trust_project_permissions=True`). Plan mode, explicit session deny, workspace
+boundaries, and command hard blocks still take precedence. `/permissions` and
+`--permissions --json` show loaded rule sources and errors, and rule matches are
+recorded in the session timeline.
+
 Example task:
 
 ```text
@@ -1039,6 +1073,10 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
 - `vibeagent/workspace_hooks.py` and `vibeagent/agent_hooks.py`: load bounded
   project hook configuration, match tool lifecycle events, request approval for
   command hooks, preserve command hard blocks, and emit auditable hook results.
+- `vibeagent/workspace_permissions.py` and `vibeagent/agent_permissions.py`:
+  load bounded project permission rules, match Claude-compatible tool/path/
+  command patterns, enforce explicit trust for allow rules, and centralize
+  deny/ask/allow decisions across the main agent, hooks, and subagents.
 - `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
   model out of the coding-agent JSON action protocol.
 - `vibeagent/providers.py`: selects the configured model provider. MiniMax is

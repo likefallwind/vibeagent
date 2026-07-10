@@ -81,9 +81,9 @@ def run_project_local_flag(
         return local_text_or_report(
             args,
             "permissions",
-            lambda: commands["get_permissions_report"](args.approval),
+            lambda: commands["get_permissions_report"](args.approval, root),
             commands["format_permissions_report_text"],
-            lambda: commands["get_permissions_text"](args.approval),
+            lambda: commands["get_permissions_text"](args.approval, root),
         )
     if args.checks:
         return local_text_or_report(
@@ -301,7 +301,12 @@ def _test_paths_text(
     return commands[getter_name](argument=command.argument)
 
 
-def run_interactive_project_command(command: Any, commands: dict[str, Any], approval_policy: str) -> str | None:
+def run_interactive_project_command(
+    command: Any,
+    commands: dict[str, Any],
+    approval_policy: str,
+    root: str | Path = ".",
+) -> str | None:
     if command.type == "help":
         return commands["get_help_text"]()
     if command.type == "model":
@@ -320,7 +325,7 @@ def run_interactive_project_command(command: Any, commands: dict[str, Any], appr
             return error
         return commands["get_tool_search_text"](query, **kwargs)
     if command.type == "permissions":
-        return commands["get_permissions_text"](approval_policy)
+        return commands["get_permissions_text"](approval_policy, root)
     if command.type == "checks":
         return _option_limited_text(
             command,

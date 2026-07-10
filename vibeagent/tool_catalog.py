@@ -177,8 +177,9 @@ def get_tool_text(name: str | None) -> str:
     return format_tool_report_text(get_tool_report(name))
 
 
-def get_permissions_report(approval_policy: str = "ask") -> dict[str, object]:
+def get_permissions_report(approval_policy: str = "ask", root: str = ".") -> dict[str, object]:
     from .workflow_commands import get_command_hard_block_report
+    from .workspace_permissions import PERMISSION_EFFECTS, read_project_permissions_from_root
 
     approval_required = sorted(
         str(tool["name"])
@@ -201,6 +202,15 @@ def get_permissions_report(approval_policy: str = "ask") -> dict[str, object]:
     for name in approval_required:
         category = tool_category(name)
         categories[category if category in categories else "other"].append(name)
+    project_permissions = read_project_permissions_from_root(root)
+    rules_by_effect = {
+        effect: [
+            {"rule": rule.raw, "source": rule.source}
+            for rule in project_permissions.rules
+            if rule.effect == effect
+        ]
+        for effect in PERMISSION_EFFECTS
+    }
     return {
         "approvalPolicy": approval_policy,
         "planMode": approval_policy == "plan",
@@ -213,12 +223,20 @@ def get_permissions_report(approval_policy: str = "ask") -> dict[str, object]:
             "count": len(read_only),
             "tools": read_only,
         },
+        "projectPermissions": {
+            "enabled": project_permissions.enabled,
+            "allowRulesRequireExplicitTrust": True,
+            "count": len(project_permissions.rules),
+            "sources": list(project_permissions.sources),
+            "error": project_permissions.error,
+            "byEffect": rules_by_effect,
+        },
         "commandHardBlocks": get_command_hard_block_report(),
     }
 
 
-def get_permissions_text(approval_policy: str = "ask") -> str:
-    return format_permissions_report_text(get_permissions_report(approval_policy))
+def get_permissions_text(approval_policy: str = "ask", root: str = ".") -> str:
+    return format_permissions_report_text(get_permissions_report(approval_policy, root))
 
 
 def format_permissions_report_text(report: dict[str, object]) -> str:
@@ -238,6 +256,31 @@ def format_permissions_report_text(report: dict[str, object]) -> str:
         if names:
             lines.append(f"    {category}: {len(names)}")
             lines.extend(f"      {line.strip()}" for line in wrap_tool_names(names, width=96))
+
+    project_permissions = report.get("projectPermissions")
+    if isinstance(project_permissions, dict):
+        sources = project_permissions.get("sources")
+        clean_sources = [str(source) for source in sources] if isinstance(sources, list) else []
+        lines.extend(
+            [
+                "  projectPermissions:",
+                f"    rules: {int(project_permissions.get('count', 0) or 0)}",
+                f"    sources: {', '.join(clean_sources) or '(none)'}",
+                "    allowRules: require --trust-project-permissions to skip side-effect approval",
+            ]
+        )
+        error = project_permissions.get("error")
+        if isinstance(error, str) and error:
+            lines.append(f"    error: {error}")
+        by_effect = project_permissions.get("byEffect")
+        if isinstance(by_effect, dict):
+            for effect in ("deny", "ask", "allow"):
+                rules = by_effect.get(effect)
+                if not isinstance(rules, list):
+                    continue
+                for item in rules:
+                    if isinstance(item, dict):
+                        lines.append(f"    - {effect}: {item.get('rule')} ({item.get('source')})")
 
     lines.extend(
         [

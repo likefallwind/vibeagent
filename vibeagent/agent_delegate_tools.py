@@ -9,6 +9,7 @@ from .agent_execution_support import (
     should_auto_checkpoint_before_action,
 )
 from .agent_hooks import HookRunResult
+from .agent_permissions import authorize_tool_action
 from .agent_delegate_policy import CODE_DELEGATE_EXCLUDED_TOOL_NAMES, DELEGATE_TOOL_NAMES
 from .agent_parallel_safety import is_parallel_safe_action
 from .agent_runtime_utils import tool_error_observation
@@ -33,6 +34,7 @@ from .types import (
 )
 from .workspace_core import RunWorkspace
 from .workspace_hooks import ProjectHooks
+from .workspace_permissions import ProjectPermissions
 
 
 DELEGATE_TOOL_DEFINITIONS = [
@@ -99,6 +101,7 @@ def execute_delegate_tool_call(
     auto_checkpoint_attempted: bool,
     allowed_tool_names: frozenset[str] | None = None,
     hooks: ProjectHooks = ProjectHooks(),
+    permissions: ProjectPermissions = ProjectPermissions(),
 ) -> DelegateToolCallExecution:
     if allowed_tool_names is not None and tool_name not in allowed_tool_names:
         observation = ToolErrorObservation(
@@ -133,6 +136,7 @@ def execute_delegate_tool_call(
             approval_policy=approval_policy,
             auto_checkpoint_attempted=auto_checkpoint_attempted,
             hooks=hooks,
+            permissions=permissions,
         )
     except ActionParseError as error:
         observation = tool_error_observation(tool_name, error)
@@ -182,6 +186,7 @@ def execute_delegate_action(
     approval_policy: ApprovalPolicy,
     auto_checkpoint_attempted: bool,
     hooks: ProjectHooks,
+    permissions: ProjectPermissions,
 ) -> tuple[Observation, bool, tuple[HookRunResult, ...]]:
     if mode == "explore":
         if tool_name not in DELEGATE_TOOL_NAMES or not is_parallel_safe_action(parsed):
@@ -194,6 +199,19 @@ def execute_delegate_action(
                 auto_checkpoint_attempted,
                 (),
             )
+        authorization = authorize_tool_action(
+            workspace,
+            permissions,
+            tool_name,
+            parsed,
+            iteration,
+            approval_handler,
+            approval_policy,
+            logger,
+        )
+        if not authorization.allowed:
+            assert authorization.denial is not None
+            return authorization.denial, auto_checkpoint_attempted, ()
         return execute_action(workspace, parsed, command_timeout_ms), auto_checkpoint_attempted, ()
     if tool_name in CODE_DELEGATE_EXCLUDED_TOOL_NAMES:
         return (
@@ -222,6 +240,7 @@ def execute_delegate_action(
         create_auto_checkpoint_before_action,
         approval_policy,
         hooks,
+        permissions,
     )
     if execution.auto_checkpoint is not None:
         observations.append(execution.auto_checkpoint)

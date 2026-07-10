@@ -35,6 +35,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "task": resolve_task_text(args.task),
         "request_mode": "chat" if args.chat else "code",
         "approval_policy": args.approval,
+        "trust_project_permissions": args.trust_project_permissions,
         "resume_arg": args.resume,
         "compact_arg": args.compact,
         "resume_max_failures": args.resume_max_failures,
@@ -65,6 +66,7 @@ def run_one_shot(
     task: str,
     request_mode: str,
     approval_policy: ApprovalPolicy,
+    trust_project_permissions: bool = False,
     resume_arg: str | None = None,
     compact_arg: str | None = None,
     resume_max_failures: int | None = None,
@@ -163,6 +165,7 @@ def run_one_shot(
             model_timeout_ms=execution_config.model_timeout_ms,
             approval_handler=build_approval_handler(approval_policy),
             approval_policy=approval_policy,
+            trust_project_permissions=trust_project_permissions,
             user_input_handler=None if output_json else prompt_user_input,
             prior_context=prior_context.context,
         )

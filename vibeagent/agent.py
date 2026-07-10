@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 import time
 from typing import Any
@@ -79,6 +80,7 @@ from .types import (
 )
 from .workspace_core import RunWorkspace, create_run_workspace
 from .workspace_hooks import read_project_hooks
+from .workspace_permissions import read_project_permissions
 
 
 def run_agent(
@@ -98,6 +100,7 @@ def run_agent(
     prior_context: str | None = None,
     approval_policy: ApprovalPolicy = "ask",
     task_metadata: dict[str, object] | None = None,
+    trust_project_permissions: bool = False,
 ) -> AgentResult:
     # Start with an isolated run workspace for one task execution.
     current_workspace = workspace or create_run_workspace(base_dir)
@@ -129,6 +132,20 @@ def run_agent(
                 "sources": list(project_hooks.sources),
                 "count": len(project_hooks.hooks),
                 "error": project_hooks.error,
+            },
+        )
+    project_permissions = read_project_permissions(current_workspace)
+    if trust_project_permissions:
+        project_permissions = replace(project_permissions, allow_rules_trusted=True)
+    if project_permissions.enabled:
+        append_session_event(
+            current_workspace.session_dir,
+            "permissions_loaded",
+            {
+                "sources": list(project_permissions.sources),
+                "count": len(project_permissions.rules),
+                "error": project_permissions.error,
+                "allow_rules_trusted": project_permissions.allow_rules_trusted,
             },
         )
     active_tool_names = initialize_agent_tools(current_workspace, approval_policy)
@@ -226,7 +243,7 @@ def run_agent(
         observation_start = len(observations)
         parallel_batch_result = (
             None
-            if project_hooks.enabled
+            if project_hooks.enabled or project_permissions.enabled
             else execute_parallel_tool_call_batch(
                 current_workspace,
                 tool_calls,
@@ -310,6 +327,7 @@ def run_agent(
                             parent_observations=observations,
                             parent_steps=steps,
                             hooks=project_hooks,
+                            permissions=project_permissions,
                         )
                         complete_task_step(current_workspace, step, delegate_observation, iteration, logger)
                         return delegate_observation
@@ -326,6 +344,7 @@ def run_agent(
                         approval_policy,
                         execute_action_safely,
                         execute_special_tool,
+                        project_permissions,
                     )
                     observation = wrapped.observation
                     hook_results = wrapped.hook_results
@@ -347,6 +366,7 @@ def run_agent(
                         create_auto_checkpoint_before_action,
                         approval_policy,
                         project_hooks,
+                        project_permissions,
                     )
                     observation = execution.observation
                     hook_results = execution.hook_results

@@ -389,6 +389,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Approval policy for one-shot coding tasks; plan exposes read-only tools only.",
     )
     parser.add_argument(
+        "--trust-project-permissions",
+        action="store_true",
+        help="Allow project permission allow rules to skip side-effect prompts for this one-shot run.",
+    )
+    parser.add_argument(
         "--resume",
         nargs="?",
         const="",

@@ -68,7 +68,9 @@ def run_interactive_loop(
                 task = str(custom_command["prompt"])
         if command and command.type == "exit":
             return 0
-        if command and (project_text := run_interactive_project_command(command, command_namespace, approval_policy)) is not None:
+        if command and (
+            project_text := run_interactive_project_command(command, command_namespace, approval_policy, Path.cwd())
+        ) is not None:
             print(project_text)
             continue
         if command and (command_text := run_interactive_command_execution(command, command_namespace)) is not None:

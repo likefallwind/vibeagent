@@ -4,21 +4,15 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from .agent_action_logging import log_action
-from .agent_approval import (
-    build_approval_request,
-    request_approval,
-    summarize_approval_decision,
-    summarize_approval_request,
-)
+from .agent_approval import build_approval_request
 from .agent_approval_preview import attach_approval_preview
 from .agent_hooks import HookRunResult, run_tool_hooks
 from .agent_observation_utils import observation_failed
+from .agent_permissions import authorize_tool_action
 from .agent_runtime_utils import append_session_event, build_repeated_list_observation, find_repeated_list_observation
 from .agent_steps import complete_task_step, start_task_step
 from .types import (
     AgentLogger,
-    ApprovalDecision,
-    ApprovalDeniedObservation,
     ApprovalHandler,
     ApprovalPolicy,
     Observation,
@@ -26,6 +20,7 @@ from .types import (
 )
 from .workspace_core import RunWorkspace
 from .workspace_hooks import ProjectHooks
+from .workspace_permissions import ProjectPermissions
 
 
 ExecuteActionSafely = Callable[[RunWorkspace, object, int, str], Observation]
@@ -58,6 +53,7 @@ def execute_parsed_tool_action(
     create_auto_checkpoint_before_action_func: CreateAutoCheckpoint,
     approval_policy: ApprovalPolicy = "ask",
     hooks: ProjectHooks = ProjectHooks(),
+    permissions: ProjectPermissions = ProjectPermissions(),
 ) -> ToolActionExecutionResult:
     step = start_task_step(workspace, steps, iteration, action, logger)
     log_action(logger, action)
@@ -67,7 +63,22 @@ def execute_parsed_tool_action(
     checkpoint_attempted = auto_checkpoint_attempted
     hook_results: tuple[HookRunResult, ...] = ()
     additional_observations: tuple[Observation, ...] = ()
-    if observation is None:
+    if observation is not None:
+        authorization = authorize_tool_action(
+            workspace,
+            permissions,
+            tool_name,
+            action,
+            iteration,
+            approval_handler,
+            approval_policy,
+            logger,
+            step=step,
+        )
+        if not authorization.allowed:
+            assert authorization.denial is not None
+            observation = authorization.denial
+    else:
         (
             observation,
             auto_checkpoint,
@@ -91,6 +102,7 @@ def execute_parsed_tool_action(
             create_auto_checkpoint_before_action_func,
             approval_policy,
             hooks,
+            permissions,
         )
 
     complete_task_step(workspace, step, observation, iteration, logger)
@@ -127,45 +139,26 @@ def _execute_non_repeated_action(
     create_auto_checkpoint_before_action_func: CreateAutoCheckpoint,
     approval_policy: ApprovalPolicy,
     hooks: ProjectHooks,
+    permissions: ProjectPermissions,
 ) -> tuple[Observation, Observation | None, bool, tuple[HookRunResult, ...], tuple[Observation, ...]]:
     approval_request = build_approval_request(action)
     if approval_request:
         approval_request = attach_approval_preview(approval_request, action, observations)
-        append_session_event(
-            workspace.session_dir,
-            "approval_requested",
-            {"iteration": iteration, "step": step, "request": approval_request},
-        )
-        if logger:
-            logger("approval required", summarize_approval_request(approval_request))
-        if approval_policy == "plan":
-            decision = ApprovalDecision(
-                approved=False,
-                message=f"Denied because Plan mode is read-only: {approval_request.action_type}.",
-            )
-        else:
-            decision = request_approval(approval_handler, approval_request)
-        append_session_event(
-            workspace.session_dir,
-            "approval_decision",
-            {"iteration": iteration, "step": step, "decision": decision},
-        )
-        if logger:
-            status = "approval approved" if decision.approved else "approval denied"
-            logger(status, summarize_approval_decision(approval_request, decision))
-        if not decision.approved:
-            return (
-                ApprovalDeniedObservation(
-                    kind="approval_denied",
-                    action_type=approval_request.action_type,
-                    target=approval_request.target,
-                    message=decision.message or "Action was denied by approval policy.",
-                ),
-                None,
-                auto_checkpoint_attempted,
-                (),
-                (),
-            )
+    authorization = authorize_tool_action(
+        workspace,
+        permissions,
+        tool_name,
+        action,
+        iteration,
+        approval_handler,
+        approval_policy,
+        logger,
+        default_request=approval_request,
+        step=step,
+    )
+    if not authorization.allowed:
+        assert authorization.denial is not None
+        return authorization.denial, None, auto_checkpoint_attempted, (), ()
 
     pre_hooks = run_tool_hooks(
         workspace,
@@ -179,6 +172,7 @@ def _execute_non_repeated_action(
         approval_handler,
         approval_policy,
         execute_action_safely_func,
+        permissions,
     )
     if pre_hooks.blocking_message is not None:
         failure = pre_hooks.failures[-1]
@@ -209,6 +203,7 @@ def _execute_non_repeated_action(
         approval_handler,
         approval_policy,
         execute_action_safely_func,
+        permissions,
     )
     return (
         observation,

@@ -5,12 +5,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from .agent_action_targets import build_action_target
-from .agent_approval import request_approval
+from .agent_permissions import authorize_tool_action
 from .agent_observation_utils import observation_failed, summarize
 from .agent_runtime_utils import append_session_event
 from .redaction import redact_jsonable_payload
 from .types import (
     AgentLogger,
+    ApprovalDecision,
     ApprovalHandler,
     ApprovalPolicy,
     ApprovalRequest,
@@ -21,6 +22,7 @@ from .types import (
 )
 from .workspace_core import RunWorkspace
 from .workspace_hooks import HookEvent, ProjectHook, ProjectHooks, matching_project_hooks
+from .workspace_permissions import ProjectPermissions
 
 
 ExecuteActionSafely = Callable[[RunWorkspace, object, int, str], Observation]
@@ -67,7 +69,22 @@ def run_hooks_around_tool(
     approval_policy: ApprovalPolicy,
     execute_action_safely_func: ExecuteActionSafely,
     execute_tool: ExecuteTool,
+    permissions: ProjectPermissions = ProjectPermissions(),
 ) -> HookWrappedToolResult:
+    authorization = authorize_tool_action(
+        workspace,
+        permissions,
+        tool_name,
+        action,
+        iteration,
+        approval_handler,
+        approval_policy,
+        logger,
+    )
+    if not authorization.allowed:
+        assert authorization.denial is not None
+        return HookWrappedToolResult(observation=authorization.denial)
+
     pre_hooks = run_tool_hooks(
         workspace,
         config,
@@ -80,6 +97,7 @@ def run_hooks_around_tool(
         approval_handler,
         approval_policy,
         execute_action_safely_func,
+        permissions,
     )
     if pre_hooks.blocking_message is not None:
         return HookWrappedToolResult(
@@ -101,6 +119,7 @@ def run_hooks_around_tool(
         approval_handler,
         approval_policy,
         execute_action_safely_func,
+        permissions,
     )
     return HookWrappedToolResult(
         observation=observation,
@@ -121,6 +140,7 @@ def run_tool_hooks(
     approval_handler: ApprovalHandler | None,
     approval_policy: ApprovalPolicy,
     execute_action_safely_func: ExecuteActionSafely,
+    permissions: ProjectPermissions = ProjectPermissions(),
 ) -> HookBatchResult:
     if config.error is not None:
         message = f"Project hook configuration is invalid: {config.error}"
@@ -145,6 +165,7 @@ def run_tool_hooks(
             approval_handler,
             approval_policy,
             execute_action_safely_func,
+            permissions,
         )
         results.append(result)
         if not result.ok:
@@ -171,6 +192,7 @@ def _run_one_hook(
     approval_handler: ApprovalHandler | None,
     approval_policy: ApprovalPolicy,
     execute_action_safely_func: ExecuteActionSafely,
+    permissions: ProjectPermissions,
 ) -> HookRunResult:
     event_payload = {
         "iteration": iteration,
@@ -203,9 +225,33 @@ def _run_one_hook(
         risk="This project hook will run a shell command in the active project.",
     )
     append_session_event(workspace.session_dir, "hook_approval_requested", {**event_payload, "request": request})
-    decision = request_approval(approval_handler, request)
+    hook_action = RunCommandAction(
+        type="run_command",
+        command=hook.command,
+        timeout_ms=min(hook.timeout_ms, command_timeout_ms),
+        max_output_chars=4_000,
+    )
+    authorization = authorize_tool_action(
+        workspace,
+        permissions,
+        "run_command",
+        hook_action,
+        iteration,
+        approval_handler,
+        approval_policy,
+        logger,
+        default_request=request,
+    )
+    decision = authorization.decision or ApprovalDecision(
+        approved=authorization.allowed,
+        message=(
+            "Hook command authorized."
+            if authorization.allowed
+            else getattr(authorization.denial, "message", "Hook command denied by project permissions.")
+        ),
+    )
     append_session_event(workspace.session_dir, "hook_approval_decision", {**event_payload, "decision": decision})
-    if not decision.approved:
+    if not authorization.allowed:
         result = HookRunResult(
             event=hook.event,
             command=hook.command,
@@ -222,17 +268,12 @@ def _run_one_hook(
         return result
 
     wrapped_command = _hook_command_with_context(hook, tool_name, action)
-    timeout_ms = min(hook.timeout_ms, command_timeout_ms)
+    timeout_ms = hook_action.timeout_ms
     if logger:
         logger("running hook", f"{hook.event} {tool_name} from {hook.source}")
     observation = execute_action_safely_func(
         workspace,
-        RunCommandAction(
-            type="run_command",
-            command=wrapped_command,
-            timeout_ms=timeout_ms,
-            max_output_chars=4_000,
-        ),
+        RunCommandAction(type="run_command", command=wrapped_command, timeout_ms=timeout_ms, max_output_chars=4_000),
         timeout_ms,
         f"hook:{hook.event}",
     )

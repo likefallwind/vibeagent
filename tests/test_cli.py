@@ -3796,7 +3796,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("Permissions:", stdout.getvalue())
         get_permissions_report.assert_not_called()
-        get_permissions_text.assert_called_once_with("deny")
+        get_permissions_text.assert_called_once_with("deny", ".")
         create_chat_client.assert_not_called()
 
     def test_main_runs_permissions_json_with_structured_payload(self) -> None:
@@ -3829,7 +3829,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("read_file", permissions["readOnlyTools"]["tools"])
         self.assertEqual(permissions["commandHardBlocks"]["active"], permissions["commandHardBlocks"]["total"])
         self.assertTrue(any(check["command"] == "code ." and check["active"] for check in permissions["commandHardBlocks"]["checks"]))
-        get_permissions_report.assert_called_once_with("allow")
+        get_permissions_report.assert_called_once_with("allow", ".")
         format_permissions_report_text.assert_called_once_with(report)
         get_permissions_text.assert_not_called()
         create_chat_client.assert_not_called()
@@ -13744,7 +13744,7 @@ class CliTests(unittest.TestCase):
         get_handoff_text.assert_called_once_with()
         get_changes_text.assert_called_once_with()
         get_tool_search_text.assert_called_once_with("verification", max_matches=3, category="session", approval_required=False)
-        get_permissions_text.assert_called_once_with("ask")
+        get_permissions_text.assert_called_once_with("ask", Path.cwd())
         get_checks_text.assert_called_once_with()
         get_commands_text.assert_called_once_with()
         get_related_tests_text.assert_called_once_with(argument="pkg/actions.py")

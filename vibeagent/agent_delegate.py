@@ -34,6 +34,7 @@ from .workspace import format_project_skill_catalog, read_project_instructions, 
 from .workspace_agents import read_project_agent
 from .workspace_core import RunWorkspace
 from .workspace_hooks import ProjectHooks
+from .workspace_permissions import ProjectPermissions
 
 
 DELEGATE_SYSTEM_PROMPT = """You are a read-only repository exploration subagent.
@@ -68,6 +69,7 @@ def execute_delegate_task_action(
     parent_observations: list[Observation] | None = None,
     parent_steps: list[TaskStep] | None = None,
     hooks: ProjectHooks = ProjectHooks(),
+    permissions: ProjectPermissions = ProjectPermissions(),
 ) -> DelegateTaskObservation:
     profile: dict[str, object] | None = None
     profile_error: str | None = None
@@ -244,6 +246,7 @@ def execute_delegate_task_action(
                 auto_checkpoint_attempted=auto_checkpoint_attempted,
                 allowed_tool_names=allowed_tool_names,
                 hooks=hooks,
+                permissions=permissions,
             )
             auto_checkpoint_attempted = execution.auto_checkpoint_attempted
             if execution.finish_action is not None:

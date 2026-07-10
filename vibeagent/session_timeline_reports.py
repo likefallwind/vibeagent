@@ -216,6 +216,30 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         if isinstance(error, str) and error.strip():
             suffix.append(f"error={compact(error, max_text)}")
         return f"{prefix} {', '.join(names) or '(no sources)'}{format_detail_suffix(suffix)}"
+    if event.type == "permissions_loaded":
+        sources = payload.get("sources")
+        count = payload.get("count")
+        error = payload.get("error")
+        names = [str(source) for source in sources] if isinstance(sources, list) else []
+        suffix = [f"count={count if isinstance(count, int) else '?'}"]
+        if isinstance(error, str) and error.strip():
+            suffix.append(f"error={compact(error, max_text)}")
+        return f"{prefix} {', '.join(names) or '(no sources)'}{format_detail_suffix(suffix)}"
+    if event.type == "permission_rule_evaluated":
+        tool = payload.get("tool")
+        effect = payload.get("effect")
+        rule = payload.get("rule")
+        source = payload.get("source")
+        error = payload.get("error")
+        suffix = []
+        if isinstance(rule, str):
+            suffix.append(f"rule={compact(rule, max_text)}")
+        if isinstance(source, str):
+            suffix.append(f"source={compact(source, 160)}")
+        if isinstance(error, str):
+            suffix.append(f"error={compact(error, max_text)}")
+        detail = f"{effect if isinstance(effect, str) else 'unknown'} {tool if isinstance(tool, str) else 'unknown'}"
+        return f"{prefix} {detail}{format_detail_suffix(suffix)}"
     if event.type in {"hook_approval_requested", "hook_approval_decision", "hook_completed", "hook_skipped"}:
         hook_event = payload.get("event")
         tool = payload.get("tool")
