@@ -104,6 +104,7 @@ python -m vibeagent --resume -- "continue the latest session"
 python -m vibeagent --compact <run-id> --compact-max-output-chars 0 --compact-max-checks 20 "continue from a compact handoff"
 python -m vibeagent --cwd ../my-project --max-iterations 8 --command-timeout-ms 120000 --max-output-tokens 8192 --model-retries 2 --model-retry-delay-ms 500 --model-timeout-ms 120000 "run the release checks"
 python -m vibeagent --json --cwd ../my-project "run the release checks"
+python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
 python -m vibeagent --provider deepseek --model-name deepseek-reasoner --base-url https://api.deepseek.com "inspect this repo"
 printf "summarize the project risks\n" | python -m vibeagent -
 ```
@@ -121,6 +122,17 @@ metadata, structured `plan` items, `completionReady`, `completionBlockers`,
 `changedFiles`, `verificationChecks`, `pendingVerificationChecks`, and
 `failedVerificationChecks` fields so automation can read the same final-review,
 blocked-attempt, changed-file, and verification status shown in the text UI.
+`--output-format json` is equivalent to `--json`. `--output-format stream-json`
+emits newline-delimited JSON for one-shot tasks: each durable session event is
+written as a `type: "event"` record with a monotonically increasing `sequence`,
+`runId`, and the redacted event payload, followed by exactly one
+`type: "result"` record containing the normal code or chat result. Every line
+is flushed immediately for CI and process supervisors. Stream mode never opens
+interactive approval or user-input prompts; with the default `--approval ask`,
+side-effecting tools are denied unless a trusted permission rule or complete
+sandbox auto-approval applies. Use `--approval allow` only in an appropriately
+isolated automation environment. `stream-json` requires a one-shot task and is
+not accepted for the interactive prompt or standalone local command flags.
 `--json --doctor` keeps the human-readable `text` field and also includes a
 structured `doctor` object with provider metadata, executable availability, cost
 rate status, and command hard-block self-checks without exposing API key values.

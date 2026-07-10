@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+from contextlib import nullcontext
 from pathlib import Path
 import sys
 
@@ -18,11 +19,14 @@ from .cli_output import (
     print_output,
     prompt_user_input,
 )
+from .cli_stream_output import JsonEventStream, build_code_result_payload, error_result_payload
 from .commands import get_compact_context, get_resume_context
 from .config import resolve_execution_config
 from .providers import create_chat_client
 from .project_trust import is_project_permissions_trusted
+from .session_event_observers import observe_session_events
 from .types import ApprovalPolicy
+from .workspace_core import create_run_workspace
 
 
 def resolve_task_text(parts: Sequence[str]) -> str:
@@ -59,6 +63,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "model_retry_delay_ms": args.model_retry_delay_ms,
         "model_timeout_ms": args.model_timeout_ms,
         "output_json": args.json,
+        "output_format": args.output_format,
         "provider_args": args,
     }
 
@@ -90,6 +95,7 @@ def run_one_shot(
     model_retry_delay_ms: int | None = None,
     model_timeout_ms: int | None = None,
     output_json: bool = False,
+    output_format: str | None = None,
     provider_args: argparse.Namespace | None = None,
     create_chat_client_func=create_chat_client,
     run_chat_func=run_chat,
@@ -97,9 +103,20 @@ def run_one_shot(
     get_resume_context_func=get_resume_context,
     get_compact_context_func=get_compact_context,
 ) -> int:
+    effective_output_format = output_format or ("json" if output_json else "text")
+    stream_json = effective_output_format == "stream-json"
+    machine_output = effective_output_format in {"json", "stream-json"}
+    stream = JsonEventStream() if stream_json else None
+
+    def emit_error(error: str, *, kind: str = "error", status: str = "failed", exit_code: int = 1) -> int:
+        if stream is not None:
+            stream.result(error_result_payload(error, kind=kind, status=status))
+            return exit_code
+        return print_error_result(error, output_json, exit_code=exit_code)
+
     try:
         if not task.strip():
-            return print_error_result("No task provided.", output_json)
+            return emit_error("No task provided.")
         project_root = resolve_project_root(base_dir) or Path.cwd()
         config_root = project_root
         execution_config = resolve_execution_config(
@@ -123,7 +140,11 @@ def run_one_shot(
                 model_retry_delay_ms=execution_config.model_retry_delay_ms,
                 model_timeout_ms=execution_config.model_timeout_ms,
             )
-            print_output({"kind": "chat", "success": True, "message": response}, output_json)
+            payload = {"kind": "chat", "success": True, "status": "completed", "message": response}
+            if stream is not None:
+                stream.result(payload)
+            else:
+                print_output(payload, output_json)
             return 0
 
         resume_kwargs = build_context_limit_kwargs(
@@ -152,63 +173,46 @@ def run_one_shot(
             get_compact_context_func=get_compact_context_func,
         )
         if prior_context.error is not None:
-            return print_error_result(prior_context.error, output_json)
+            return emit_error(prior_context.error)
         client = create_chat_client_func(provider_env)
-        result = run_agent_func(
-            task,
-            client=client,
-            base_dir=project_root,
-            max_iterations=execution_config.max_iterations,
-            command_timeout_ms=execution_config.command_timeout_ms,
-            max_output_tokens=execution_config.max_output_tokens,
-            model_retries=execution_config.model_retries,
-            model_retry_delay_ms=execution_config.model_retry_delay_ms,
-            model_timeout_ms=execution_config.model_timeout_ms,
-            approval_handler=build_approval_handler(approval_policy),
-            approval_policy=approval_policy,
-            trust_project_permissions=(
-                trust_project_permissions or is_project_permissions_trusted(project_root)
-            ),
-            user_input_handler=None if output_json else prompt_user_input,
-            prior_context=prior_context.context,
+        stream_workspace = create_run_workspace(project_root) if stream is not None else None
+        event_scope = (
+            observe_session_events(stream_workspace.session_dir, stream.session_event)
+            if stream is not None and stream_workspace is not None
+            else nullcontext()
         )
-        if output_json:
-            print_output(
-                {
-                    "kind": "code",
-                    "success": result.success,
-                    "status": result.status,
-                    "message": result.message,
-                    "runId": result.run_id,
-                    "runDir": str(result.run_dir),
-                    "iterations": result.iterations,
-                    "steps": len(result.steps),
-                    "priorContext": prior_context.to_json(),
-                    "plan": [{"status": item.status, "step": item.step} for item in result.plan],
-                    "completionReady": result.completion_ready,
-                    "completionBlockers": result.completion_blockers,
-                    "completionWarnings": result.completion_warnings,
-                    "completionBlockedCount": result.completion_blocked_count,
-                    "latestCompletionBlockers": result.latest_completion_blockers,
-                    "latestCompletionPendingChecks": result.latest_completion_pending_verification_checks,
-                    "latestCompletionFailedChecks": result.latest_completion_failed_verification_checks,
-                    "latestCompletionFinalReviewIssues": result.latest_completion_final_review_issues,
-                    "latestCompletionFinalReviewChangedFiles": result.latest_completion_final_review_changed_files,
-                    "latestCompletionToolErrors": result.latest_completion_tool_errors,
-                    "latestCompletionCheckpointFailures": result.latest_completion_checkpoint_failures,
-                    "latestCompletionActiveProcesses": result.latest_completion_active_background_processes,
-                    "latestCompletionDeniedApprovals": result.latest_completion_denied_approvals,
-                    "changedFiles": result.final_review_changed_files,
-                    "verificationChecks": result.verification_checks,
-                    "pendingVerificationChecks": result.pending_verification_checks,
-                    "failedVerificationChecks": result.failed_verification_checks,
-                },
-                True,
-            )
+        run_kwargs = {
+            "client": client,
+            "base_dir": project_root,
+            "max_iterations": execution_config.max_iterations,
+            "command_timeout_ms": execution_config.command_timeout_ms,
+            "max_output_tokens": execution_config.max_output_tokens,
+            "model_retries": execution_config.model_retries,
+            "model_retry_delay_ms": execution_config.model_retry_delay_ms,
+            "model_timeout_ms": execution_config.model_timeout_ms,
+            "approval_handler": None if stream_json and approval_policy == "ask" else build_approval_handler(approval_policy),
+            "approval_policy": approval_policy,
+            "trust_project_permissions": trust_project_permissions or is_project_permissions_trusted(project_root),
+            "user_input_handler": None if machine_output else prompt_user_input,
+            "prior_context": prior_context.context,
+        }
+        if stream_workspace is not None:
+            run_kwargs["workspace"] = stream_workspace
+        with event_scope:
+            result = run_agent_func(task, **run_kwargs)
+        result_payload = build_code_result_payload(result, prior_context)
+        if stream is not None:
+            stream.result(result_payload)
+        elif output_json:
+            print_output(result_payload, True)
         else:
             print_agent_result(result)
         return 0 if result.success and result.completion_ready else 1
     except KeyboardInterrupt:
+        if stream is not None:
+            return emit_error("Interrupted.", kind="interrupted", status="interrupted", exit_code=130)
         return print_interrupted_result(output_json)
     except Exception as error:
+        if stream is not None:
+            return emit_error(format_error(error))
         return print_error_result(format_error(error), output_json, prefix=True)

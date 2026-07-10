@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import argparse
 
+from .cli_local_flag_detection import has_local_flag
+
 
 def validate_cli_args(args: argparse.Namespace) -> str | None:
+    if args.output_format == "stream-json" and (not args.task or has_local_flag(args)):
+        return "--output-format stream-json requires a one-shot task."
     if args.diff_staged and args.diff is None and args.diff_hunks is None and args.diff_contexts is None:
         return "--staged can only be used with --diff, --diff-hunks, or --diff-contexts."
     if args.command_cwd and not args.command_check:

@@ -144,11 +144,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         args = parse_args(argv)
         validation_error = validate_cli_args(args)
         if validation_error is not None:
-            return print_error_result(validation_error, args.json, exit_code=2)
+            return print_error_result(validation_error, args.json, exit_code=2, output_format=args.output_format)
         normalize_task_bound_diff_args(args)
         if has_local_flag(args):
             if args.task:
-                return print_error_result("Local command flags cannot be combined with a task.", args.json, exit_code=2)
+                return print_error_result(
+                    "Local command flags cannot be combined with a task.",
+                    args.json,
+                    exit_code=2,
+                    output_format=args.output_format,
+                )
             return run_local_flag(args)
         if args.task:
             return run_one_shot(**build_one_shot_kwargs_from_args(args))
@@ -156,9 +161,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             return run_interactive(args.cwd)
         except KeyboardInterrupt:
-            return print_interrupted_result(args.json)
+            return print_interrupted_result(args.json, args.output_format)
         except ValueError as error:
-            return print_error_result(str(error), args.json, exit_code=2)
+            return print_error_result(str(error), args.json, exit_code=2, output_format=args.output_format)
     return run_interactive()
 
 
@@ -183,9 +188,9 @@ def run_local_flag(args: argparse.Namespace) -> int:
                 text = ""
         return emit_local_result(args, text, payload_extra)
     except KeyboardInterrupt:
-        return print_interrupted_result(args.json)
+        return print_interrupted_result(args.json, args.output_format)
     except Exception as error:
-        return print_error_result(format_error(error), args.json, prefix=True)
+        return print_error_result(format_error(error), args.json, prefix=True, output_format=args.output_format)
 
 
 def run_interactive(base_dir: str | None = None) -> int:

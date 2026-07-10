@@ -11,6 +11,7 @@ from .prompt_observations import format_observations
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .session_event_sanitization import sanitize_session_event_payload
+from .session_event_observers import notify_session_event_observers
 from .types import ApprovalPolicy, ChatMessage, ContentBlock, ListFilesObservation, Observation, PlanItem, ToolErrorObservation
 from .workspace_core import RunWorkspace
 
@@ -176,6 +177,7 @@ def append_session_event(session_dir: Path, event_type: str, payload: dict[str, 
     event = {"type": event_type, **event}
     with (session_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+    notify_session_event_observers(session_dir, event)
 
 
 def to_jsonable(value: Any) -> Any:

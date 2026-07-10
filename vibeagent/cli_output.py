@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from .agent_result import AgentResult
+from .cli_stream_output import JsonEventStream, error_result_payload
 from .project_trust import is_project_permissions_trusted, trust_project_permissions
 from .session_approval import SessionApprovalHandler
 from .types import ApprovalDecision, ApprovalHandler, ApprovalPolicy, ApprovalRequest, UserInputRequest
@@ -21,7 +22,16 @@ def print_output(payload: dict[str, object], output_json: bool) -> None:
     print("" if text is None else text)
 
 
-def print_error_result(error: str, output_json: bool, exit_code: int = 1, prefix: bool = False) -> int:
+def print_error_result(
+    error: str,
+    output_json: bool,
+    exit_code: int = 1,
+    prefix: bool = False,
+    output_format: str | None = None,
+) -> int:
+    if output_format == "stream-json":
+        JsonEventStream().result(error_result_payload(error))
+        return exit_code
     if output_json:
         print(json.dumps({"kind": "error", "success": False, "status": "failed", "error": error}, ensure_ascii=False, sort_keys=True))
     else:
@@ -29,7 +39,10 @@ def print_error_result(error: str, output_json: bool, exit_code: int = 1, prefix
     return exit_code
 
 
-def print_interrupted_result(output_json: bool) -> int:
+def print_interrupted_result(output_json: bool, output_format: str | None = None) -> int:
+    if output_format == "stream-json":
+        JsonEventStream().result(error_result_payload("Interrupted.", kind="interrupted", status="interrupted"))
+        return 130
     if output_json:
         print(
             json.dumps(

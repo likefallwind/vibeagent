@@ -8,6 +8,7 @@ from .cli_local_flag_detection import (
     LOCAL_FLAG_ARG_NAMES,
     has_local_flag as _has_local_flag,
 )
+from .cli_output_args import add_output_arguments, normalize_output_arguments
 from .tool_categories import valid_tool_categories
 from .tool_search_options import tool_search_approval_choices
 
@@ -424,7 +425,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--compact-max-output-chars", type=nonnegative_int, metavar="N", help="Maximum stdout/stderr tail characters per command in --compact context.")
     parser.add_argument("--compact-max-text", type=positive_int, metavar="N", help="Maximum text characters per timeline, failure, or readiness entry in --compact context.")
     parser.add_argument("--cwd", help="Project directory for one-shot coding tasks.")
-    parser.add_argument("--json", action="store_true", help="Print a single JSON result for one-shot or local command output.")
+    add_output_arguments(parser)
     parser.add_argument(
         "--provider",
         choices=("minimax", "deepseek", "openai-compatible"),
@@ -464,7 +465,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Provider request timeout in milliseconds. Defaults to project config or 120000.",
     )
     parser.add_argument("task", nargs="*", help="One-shot task text. Omit it to start the interactive prompt.")
-    return parser.parse_args(list(argv))
+    return normalize_output_arguments(parser.parse_args(list(argv)))
 
 
 def has_local_flag(args: argparse.Namespace) -> bool:
