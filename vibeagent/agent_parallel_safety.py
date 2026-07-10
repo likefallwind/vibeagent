@@ -56,6 +56,8 @@ PARALLEL_SAFE_TOOL_NAMES = {
     "focused_test_commands",
     "project_manifests",
     "project_instructions",
+    "project_skills",
+    "skill",
     "project_overview",
     "environment_info",
     "command_check",

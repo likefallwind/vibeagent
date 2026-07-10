@@ -222,6 +222,42 @@ class ProjectInstructionsObservation:
 
 
 @dataclass(frozen=True)
+class ProjectSkill:
+    name: str
+    description: str
+    path: str
+    source: str
+    available: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class ProjectSkillsObservation:
+    kind: Literal["project_skills"]
+    ok: bool
+    skills: list[ProjectSkill]
+    total: int
+    truncated: bool
+    invalid: int
+    message: str
+
+
+@dataclass(frozen=True)
+class SkillObservation:
+    kind: Literal["skill"]
+    ok: bool
+    name: str
+    description: str
+    path: str
+    source: str
+    content: str
+    bytes: int
+    truncated: bool
+    max_bytes: int
+    message: str
+
+
+@dataclass(frozen=True)
 class ProjectTodo:
     path: str
     line: int
@@ -275,5 +311,8 @@ class ProjectOverviewObservation:
     suggested_checks: list[SuggestedCheck]
     suggested_checks_total: int
     suggested_checks_truncated: bool
+    skills: list[ProjectSkill]
+    skills_total: int
+    skills_truncated: bool
     tools: list[RuntimeToolInfo]
     message: str

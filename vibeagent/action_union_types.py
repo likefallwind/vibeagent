@@ -160,6 +160,7 @@ from .action_project_types import (
     FocusedTestCommandsAction,
     ProjectCommandsAction,
     ProjectInstructionsAction,
+    ProjectSkillsAction,
     ProjectManifestsAction,
     ProjectOverviewAction,
     ProjectTodosAction,
@@ -168,6 +169,7 @@ from .action_project_types import (
     RunFocusedTestCommandsAction,
     RunSuggestedChecksAction,
     SuggestChecksAction,
+    SkillAction,
     ToolSearchAction,
 )
 from .action_read_types import (
@@ -301,6 +303,8 @@ AgentAction: TypeAlias = (
     | RunFocusedTestCommandsAction
     | ProjectManifestsAction
     | ProjectInstructionsAction
+    | ProjectSkillsAction
+    | SkillAction
     | ProjectTodosAction
     | ProjectOverviewAction
     | CommandCheckAction

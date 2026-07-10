@@ -49,6 +49,40 @@ PROJECT_METADATA_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "project_skills",
+        "description": "List bounded metadata for reusable project skills from .claude/skills and .agents/skills without loading skill instructions.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "max_skills": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum skill metadata entries to return. Defaults to 100.",
+                }
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "skill",
+        "description": "Load one named project SKILL.md after selecting it from the available project skill catalog.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Exact project skill directory name."},
+                "max_bytes": {
+                    "type": "integer",
+                    "minimum": 200,
+                    "maximum": 50000,
+                    "description": "Maximum SKILL.md bytes to return. Defaults to 20000.",
+                },
+            },
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "project_todos",
         "description": "Scan project text files for TODO, FIXME, HACK, XXX, and BUG markers without executing code.",
         "input_schema": {

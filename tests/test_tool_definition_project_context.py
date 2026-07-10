@@ -37,6 +37,8 @@ class ProjectContextToolDefinitionTests(unittest.TestCase):
                 "run_focused_test_commands",
                 "project_manifests",
                 "project_instructions",
+                "project_skills",
+                "skill",
                 "project_todos",
                 "project_overview",
             ],

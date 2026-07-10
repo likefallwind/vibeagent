@@ -6585,6 +6585,9 @@ class AgentTests(unittest.TestCase):
             ],
             suggested_checks_total=1,
             suggested_checks_truncated=False,
+            skills=[],
+            skills_total=0,
+            skills_truncated=False,
             tools=[],
             message="Project overview.",
         )

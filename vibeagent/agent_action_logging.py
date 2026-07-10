@@ -160,6 +160,10 @@ def log_action(logger: t.AgentLogger | None, action: object) -> None:
         logger("reading project manifests", None)
     elif action_type == "project_instructions":
         logger("reading project instructions", None)
+    elif action_type == "project_skills":
+        logger("listing project skills", None)
+    elif action_type == "skill":
+        logger("loading project skill", build_action_target(action))
     elif action_type == "project_overview":
         logger("reading project overview", None)
     elif action_type == "command_check":

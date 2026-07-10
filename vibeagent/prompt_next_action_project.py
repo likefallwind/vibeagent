@@ -14,6 +14,8 @@ PROJECT_NEXT_ACTION_KINDS = {
     "check_focused_test_commands",
     "project_manifests",
     "project_instructions",
+    "project_skills",
+    "skill",
     "project_todos",
     "project_overview",
     "environment_info",
@@ -389,6 +391,14 @@ def project_next_action_instruction(base: str, latest: Observation) -> str:
         return _check_suggested_checks_next_action_instruction(base, latest)
     if latest.kind == "project_commands":
         return _project_commands_next_action_instruction(base, latest)
+    if latest.kind == "project_skills":
+        if not getattr(latest, "ok", False):
+            return f"{base} Project skill discovery failed. Continue without a skill or inspect the reported metadata error."
+        return f"{base} Select a relevant available project skill by exact name and load it with skill, or continue directly if none applies."
+    if latest.kind == "skill":
+        if not getattr(latest, "ok", False):
+            return f"{base} The requested project skill could not be loaded. Use project_skills to choose an available exact name or continue without it."
+        return f"{base} Follow the loaded project skill instructions for the current task, while preserving higher-priority project and user requirements."
     if latest.kind == "tool_search":
         return _tool_search_next_action_instruction(base, latest)
     if latest.kind == "related_tests":

@@ -22,6 +22,10 @@ def format_project_observation(index: int, observation: object) -> str | None:
         return _format_project_manifests(index, observation)
     if observation.kind == "project_instructions":
         return _format_project_instructions(index, observation)
+    if observation.kind == "project_skills":
+        return _format_project_skills(index, observation)
+    if observation.kind == "skill":
+        return _format_skill(index, observation)
     if observation.kind == "project_todos":
         return _format_project_todos(index, observation)
     if observation.kind == "project_overview":
@@ -246,6 +250,36 @@ def _format_project_instructions(index: int, observation: object) -> str:
     return "\n".join(parts)
 
 
+def _format_project_skills(index: int, observation: object) -> str:
+    parts = [
+        (
+            f"{index}. project_skills: {observation.message} "
+            f"shown={len(observation.skills)}/{observation.total} "
+            f"invalid={observation.invalid} truncated={str(observation.truncated).lower()}"
+        ),
+        f"ok: {str(observation.ok).lower()}",
+    ]
+    for skill in observation.skills:
+        parts.append(
+            f"skill: name={skill.name} source={skill.source} path={skill.path} "
+            f"available={str(skill.available).lower()} description={skill.description or '.'} message={skill.message}"
+        )
+    return "\n".join(parts)
+
+
+def _format_skill(index: int, observation: object) -> str:
+    parts = [
+        f"{index}. skill {observation.name}: {observation.message}",
+        f"ok: {str(observation.ok).lower()}",
+        f"path: {observation.path or 'none'} source={observation.source or 'none'}",
+        f"bytes: {observation.bytes} maxBytes={observation.max_bytes} truncated={str(observation.truncated).lower()}",
+        f"description: {observation.description or 'none'}",
+    ]
+    if observation.content:
+        parts.append(f"instructions:\n{truncate(observation.content)}")
+    return "\n".join(parts)
+
+
 def _format_project_todos(index: int, observation: object) -> str:
     parts = [
         (
@@ -349,6 +383,16 @@ def _format_project_overview(index: int, observation: object) -> str:
                     f"available={str(check.available).lower()} missingTool={check.missing_tool or '.'} "
                     f"reason={check.reason}"
                 )
+            )
+    if observation.skills:
+        parts.append(
+            f"skills shown={len(observation.skills)}/{observation.skills_total} "
+            f"truncated={str(observation.skills_truncated).lower()}"
+        )
+        for skill in observation.skills[:20]:
+            parts.append(
+                f"skill: name={skill.name} available={str(skill.available).lower()} "
+                f"source={skill.source} description={skill.description or '.'}"
             )
     if observation.tools:
         parts.append(

@@ -24,7 +24,7 @@ from .types import (
     FinishAction,
     ToolErrorObservation,
 )
-from .workspace import read_project_instructions, read_workspace_snapshot
+from .workspace import format_project_skill_catalog, read_project_instructions, read_workspace_snapshot
 from .workspace_core import RunWorkspace
 
 
@@ -243,11 +243,14 @@ def execute_delegate_task_action(
 def build_delegate_messages(workspace: RunWorkspace, action: DelegateTaskAction) -> list[ChatMessage]:
     instructions = read_project_instructions(workspace)
     snapshot = read_workspace_snapshot(workspace)
+    skill_catalog = format_project_skill_catalog(workspace)
     parts = [f"Delegated task:\n{action.task}"]
     if action.context:
         parts.append(f"Focused context:\n{action.context}")
     if instructions:
         parts.append(f"Project instructions:\n{instructions}")
+    if skill_catalog:
+        parts.append(skill_catalog)
     parts.append(f"Workspace snapshot:\n{snapshot}")
     return [
         ChatMessage(role="system", content=DELEGATE_SYSTEM_PROMPT),

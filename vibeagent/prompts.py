@@ -4,7 +4,12 @@ from .prompt_next_action import get_next_action_instruction
 from .prompt_observations import format_observations
 from .types import ChatMessage, Observation
 from .workspace_core import RunWorkspace
-from .workspace import read_project_command_hints, read_project_instructions, read_workspace_snapshot
+from .workspace import (
+    format_project_skill_catalog,
+    read_project_command_hints,
+    read_project_instructions,
+    read_workspace_snapshot,
+)
 
 
 # System prompt defines the tool-use contract for project mode.
@@ -15,6 +20,7 @@ If the user asks a question that can be answered without workspace access, answe
 When a coding task is complete, either answer directly with a concise summary or call the finish tool.
 For multi-step coding tasks, use update_plan to keep a short checklist. Keep exactly one item in_progress while work is active.
 Follow project instructions from AGENTS.md or CLAUDE.md when they are provided in the prompt.
+When the prompt lists relevant project skills, use tool_search to activate the skill tool, load only the needed skill by exact name, and follow its instructions for the current task.
 Use tool_search when you know the needed capability in rough terms but do not know the exact tool name or input fields.
 Use ask_user only for one blocking clarification that repository evidence cannot resolve and whose answer materially changes the implementation. Do not use it for approvals, optional preferences, or questions you can answer by inspecting the project.
 Use delegate_task for one bounded, independent read-only repository investigation when separate context will materially reduce main-context exploration. Give it a concrete question and relevant constraints. Verify critical findings before editing. Do not delegate work that requires writes, commands, approvals, user input, or another delegation.
@@ -79,6 +85,7 @@ def build_messages(
     snapshot = read_workspace_snapshot(workspace)
     project_instructions = read_project_instructions(workspace)
     command_hints = read_project_command_hints(workspace)
+    skill_catalog = format_project_skill_catalog(workspace)
     chunks = [f"User task:\n{task}"]
     if prior_context:
         chunks.append(
@@ -110,6 +117,8 @@ def build_messages(
                 ]
             )
         )
+    if skill_catalog:
+        chunks.append(skill_catalog)
     chunks.extend(
         [
             f"Project directory:\n{workspace.root}",

@@ -11,6 +11,9 @@ from .types import (
     ProjectInstructionSource,
     ProjectInstructionsAction,
     ProjectInstructionsObservation,
+    ProjectSkill,
+    ProjectSkillsAction,
+    ProjectSkillsObservation,
     ProjectManifest,
     ProjectManifestItem,
     ProjectManifestsAction,
@@ -22,6 +25,8 @@ from .types import (
     ProjectTodosObservation,
     RuntimeToolInfo,
     SuggestedCheck,
+    SkillAction,
+    SkillObservation,
     ToolSearchAction,
     ToolSearchObservation,
 )
@@ -31,6 +36,8 @@ from .workspace import (
     read_git_info,
     read_project_commands,
     read_project_instruction_sources,
+    read_project_skill,
+    read_project_skills,
     read_project_manifests,
     read_project_todos,
     suggest_project_checks,
@@ -191,6 +198,54 @@ def execute_project_context_action(
                 message=str(error),
             )
 
+    if isinstance(action, ProjectSkillsAction):
+        try:
+            metadata = read_project_skills(workspace, max_skills=action.max_skills)
+            return ProjectSkillsObservation(
+                kind="project_skills",
+                ok=bool(metadata["ok"]),
+                skills=[ProjectSkill(**item) for item in metadata["skills"]],
+                total=int(metadata["total"]),
+                truncated=bool(metadata["truncated"]),
+                invalid=int(metadata["invalid"]),
+                message=str(metadata["message"]),
+            )
+        except ValueError as error:
+            return ProjectSkillsObservation(
+                kind="project_skills", ok=False, skills=[], total=0, truncated=False, invalid=0, message=str(error)
+            )
+
+    if isinstance(action, SkillAction):
+        try:
+            metadata = read_project_skill(workspace, action.name, max_bytes=action.max_bytes)
+            return SkillObservation(
+                kind="skill",
+                ok=True,
+                name=str(metadata["name"]),
+                description=str(metadata["description"]),
+                path=str(metadata["path"]),
+                source=str(metadata["source"]),
+                content=str(metadata["content"]),
+                bytes=int(metadata["bytes"]),
+                truncated=bool(metadata["truncated"]),
+                max_bytes=int(metadata["max_bytes"]),
+                message=str(metadata["message"]),
+            )
+        except (OSError, ValueError) as error:
+            return SkillObservation(
+                kind="skill",
+                ok=False,
+                name=action.name,
+                description="",
+                path="",
+                source="",
+                content="",
+                bytes=0,
+                truncated=False,
+                max_bytes=action.max_bytes,
+                message=str(error),
+            )
+
     if isinstance(action, ProjectTodosAction):
         try:
             metadata = read_project_todos(
@@ -249,6 +304,7 @@ def execute_project_context_action(
                 max_items=20,
                 max_files=action.max_files,
             )
+            skills_metadata = read_project_skills(workspace, max_skills=20)
             suggestions = suggest_project_checks(workspace, max_commands=action.max_checks)
             environment = read_environment_info(workspace)
             commands = [ProjectCommand(**item) for item in commands_metadata["commands"]]
@@ -269,6 +325,7 @@ def execute_project_context_action(
             instruction_sources = [ProjectInstructionSource(**item) for item in instructions_metadata["files"]]
             todos = [ProjectTodo(**item) for item in todos_metadata["todos"]]
             suggested_checks = [SuggestedCheck(**item) for item in suggestions["checks"]]
+            skills = [ProjectSkill(**item) for item in skills_metadata["skills"]]
             tools = [RuntimeToolInfo(**item) for item in environment["tools"]]
             return ProjectOverviewObservation(
                 kind="project_overview",
@@ -301,12 +358,16 @@ def execute_project_context_action(
                 suggested_checks=suggested_checks,
                 suggested_checks_total=int(suggestions["total"]),
                 suggested_checks_truncated=bool(suggestions["truncated"]),
+                skills=skills,
+                skills_total=int(skills_metadata["total"]),
+                skills_truncated=bool(skills_metadata["truncated"]),
                 tools=tools,
                 message=(
                     f"Project overview: {int(repo_map['total_files'])} file(s), "
                     f"{int(commands_metadata['total'])} command(s), "
                     f"{int(manifests_metadata['total_files'])} manifest file(s), "
                     f"{int(instructions_metadata['total_files'])} instruction file(s), "
+                    f"{int(skills_metadata['total'])} project skill(s), "
                     f"{int(todos_metadata['total'])} TODO marker(s)."
                 ),
             )
@@ -342,6 +403,9 @@ def execute_project_context_action(
                 suggested_checks=[],
                 suggested_checks_total=0,
                 suggested_checks_truncated=False,
+                skills=[],
+                skills_total=0,
+                skills_truncated=False,
                 tools=[],
                 message=str(error),
             )

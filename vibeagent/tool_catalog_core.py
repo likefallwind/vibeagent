@@ -151,6 +151,8 @@ def tool_category(name: str) -> str:
         "focused_test_commands",
         "project_manifests",
         "project_instructions",
+        "project_skills",
+        "skill",
         "project_todos",
         "environment_info",
         "suggest_checks",

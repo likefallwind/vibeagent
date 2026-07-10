@@ -318,6 +318,10 @@ def observation_failed(observation: Observation) -> bool:
         return not observation.ok
     if observation.kind == "project_instructions":
         return not observation.ok
+    if observation.kind == "project_skills":
+        return not observation.ok
+    if observation.kind == "skill":
+        return not observation.ok
     if observation.kind == "project_todos":
         return not observation.ok
     if observation.kind == "project_overview":

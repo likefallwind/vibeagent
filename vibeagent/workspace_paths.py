@@ -8,6 +8,7 @@ def should_ignore_path(root: Path, path: Path) -> bool:
     relative_parts = relative_path.parts
     hard_ignored = {
         ".agents",
+        ".claude",
         ".codex",
         ".git",
         ".pytest_cache",
@@ -154,4 +155,3 @@ def is_sensitive_project_path(relative_path: Path, is_dir: bool = False) -> bool
     if lower_path.endswith("/.kube/config"):
         return True
     return False
-

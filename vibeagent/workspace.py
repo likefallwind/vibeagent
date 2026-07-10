@@ -283,6 +283,7 @@ from .workspace_project_info import (
     read_pyproject_scripts,
     read_workspace_snapshot,
 )
+from .workspace_skills import format_project_skill_catalog, read_project_skill, read_project_skills
 from .workspace_paths import (
     gitignore_pattern_matches,
     gitignore_rule_bases,

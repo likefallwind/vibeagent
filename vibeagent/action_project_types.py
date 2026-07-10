@@ -119,6 +119,19 @@ class ProjectInstructionsAction:
 
 
 @dataclass(frozen=True)
+class ProjectSkillsAction:
+    type: Literal["project_skills"]
+    max_skills: int = 100
+
+
+@dataclass(frozen=True)
+class SkillAction:
+    type: Literal["skill"]
+    name: str
+    max_bytes: int = 20_000
+
+
+@dataclass(frozen=True)
 class ProjectTodosAction:
     type: Literal["project_todos"]
     path: str | None = None

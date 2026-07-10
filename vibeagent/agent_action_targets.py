@@ -188,6 +188,10 @@ def build_action_target(action: object) -> str:
         return "project manifests"
     if isinstance(action, t.ProjectInstructionsAction):
         return "project instructions"
+    if isinstance(action, t.ProjectSkillsAction):
+        return "project skills"
+    if isinstance(action, t.SkillAction):
+        return action.name
     if isinstance(action, t.ProjectOverviewAction):
         return "project overview"
     if isinstance(action, t.CodeDependenciesAction):

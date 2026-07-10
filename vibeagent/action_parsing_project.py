@@ -11,6 +11,7 @@ from .types import (
     FocusedTestCommandsAction,
     ProjectCommandsAction,
     ProjectInstructionsAction,
+    ProjectSkillsAction,
     ProjectManifestsAction,
     ProjectOverviewAction,
     ProjectTodosAction,
@@ -19,6 +20,7 @@ from .types import (
     RunFocusedTestCommandsAction,
     RunSuggestedChecksAction,
     SuggestChecksAction,
+    SkillAction,
     ToolSearchAction,
 )
 
@@ -37,6 +39,8 @@ PROJECT_ACTION_TYPES = {
     "run_focused_test_commands",
     "project_manifests",
     "project_instructions",
+    "project_skills",
+    "skill",
     "project_todos",
     "project_overview",
 }
@@ -239,6 +243,19 @@ def parse_project_action(action_type: object, value: dict[str, Any], raw: str) -
         if max_bytes < 200:
             raise ActionParseError("max_bytes must be at least 200.", raw)
         return ProjectInstructionsAction(type="project_instructions", max_files=max_files, max_bytes=max_bytes)
+
+    if action_type == "project_skills":
+        max_skills = parse_optional_positive_int(value.get("max_skills", 100), "max_skills", raw, maximum=500) or 100
+        return ProjectSkillsAction(type="project_skills", max_skills=max_skills)
+
+    if action_type == "skill":
+        name = value.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ActionParseError("skill action requires a non-empty name.", raw)
+        max_bytes = parse_optional_positive_int(value.get("max_bytes", 20_000), "max_bytes", raw, maximum=50_000) or 20_000
+        if max_bytes < 200:
+            raise ActionParseError("max_bytes must be at least 200.", raw)
+        return SkillAction(type="skill", name=name.strip(), max_bytes=max_bytes)
 
     if action_type == "project_todos":
         path = value.get("path")

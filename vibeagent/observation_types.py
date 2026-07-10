@@ -148,6 +148,8 @@ from .observation_project_types import (
     ProjectCommandsObservation,
     ProjectInstructionSource,
     ProjectInstructionsObservation,
+    ProjectSkill,
+    ProjectSkillsObservation,
     ProjectManifest,
     ProjectManifestItem,
     ProjectManifestsObservation,
@@ -160,6 +162,7 @@ from .observation_project_types import (
     RunSuggestedChecksObservation,
     SuggestChecksObservation,
     SuggestedCheck,
+    SkillObservation,
     ToolSearchObservation,
 )
 from .observation_read_types import (
