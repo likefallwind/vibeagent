@@ -8,6 +8,7 @@ from .agent_execution_support import (
     execute_action_safely,
     should_auto_checkpoint_before_action,
 )
+from .agent_hooks import HookRunResult
 from .agent_delegate_policy import CODE_DELEGATE_EXCLUDED_TOOL_NAMES, DELEGATE_TOOL_NAMES
 from .agent_parallel_safety import is_parallel_safe_action
 from .agent_runtime_utils import tool_error_observation
@@ -31,6 +32,7 @@ from .types import (
     ToolErrorObservation,
 )
 from .workspace_core import RunWorkspace
+from .workspace_hooks import ProjectHooks
 
 
 DELEGATE_TOOL_DEFINITIONS = [
@@ -43,6 +45,7 @@ class DelegateToolCallExecution:
     observation: Observation | None
     finish_action: FinishAction | None
     auto_checkpoint_attempted: bool
+    hook_results: tuple[HookRunResult, ...] = ()
 
 
 def code_delegate_initial_tool_names(
@@ -95,6 +98,7 @@ def execute_delegate_tool_call(
     approval_policy: ApprovalPolicy,
     auto_checkpoint_attempted: bool,
     allowed_tool_names: frozenset[str] | None = None,
+    hooks: ProjectHooks = ProjectHooks(),
 ) -> DelegateToolCallExecution:
     if allowed_tool_names is not None and tool_name not in allowed_tool_names:
         observation = ToolErrorObservation(
@@ -115,7 +119,7 @@ def execute_delegate_tool_call(
         parsed = prepare_action_for_policy(parse_tool_action(tool_name, tool_input), approval_policy)
         if isinstance(parsed, FinishAction):
             return DelegateToolCallExecution(None, parsed, auto_checkpoint_attempted)
-        observation, checkpoint_attempted = execute_delegate_action(
+        observation, checkpoint_attempted, hook_results = execute_delegate_action(
             workspace,
             mode=mode,
             tool_name=tool_name,
@@ -128,10 +132,12 @@ def execute_delegate_tool_call(
             approval_handler=approval_handler,
             approval_policy=approval_policy,
             auto_checkpoint_attempted=auto_checkpoint_attempted,
+            hooks=hooks,
         )
     except ActionParseError as error:
         observation = tool_error_observation(tool_name, error)
         checkpoint_attempted = auto_checkpoint_attempted
+        hook_results = ()
     except Exception as error:
         observation = ToolErrorObservation(
             kind="tool_error",
@@ -139,6 +145,7 @@ def execute_delegate_tool_call(
             message=f"Subagent tool execution failed: {error}",
         )
         checkpoint_attempted = auto_checkpoint_attempted
+        hook_results = ()
 
     observations.append(observation)
     if mode == "code":
@@ -148,7 +155,7 @@ def execute_delegate_tool_call(
             approval_policy,
             CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
         )
-    return DelegateToolCallExecution(observation, None, checkpoint_attempted)
+    return DelegateToolCallExecution(observation, None, checkpoint_attempted, hook_results)
 
 
 def _allowed_requested_names(
@@ -174,7 +181,8 @@ def execute_delegate_action(
     approval_handler: ApprovalHandler | None,
     approval_policy: ApprovalPolicy,
     auto_checkpoint_attempted: bool,
-) -> tuple[Observation, bool]:
+    hooks: ProjectHooks,
+) -> tuple[Observation, bool, tuple[HookRunResult, ...]]:
     if mode == "explore":
         if tool_name not in DELEGATE_TOOL_NAMES or not is_parallel_safe_action(parsed):
             return (
@@ -184,8 +192,9 @@ def execute_delegate_action(
                     message="Subagent tool is not allowed in read-only delegation mode.",
                 ),
                 auto_checkpoint_attempted,
+                (),
             )
-        return execute_action(workspace, parsed, command_timeout_ms), auto_checkpoint_attempted
+        return execute_action(workspace, parsed, command_timeout_ms), auto_checkpoint_attempted, ()
     if tool_name in CODE_DELEGATE_EXCLUDED_TOOL_NAMES:
         return (
             ToolErrorObservation(
@@ -194,6 +203,7 @@ def execute_delegate_action(
                 message="Subagent tool is not allowed because coding subagents cannot ask the user, update the parent plan, or delegate again.",
             ),
             auto_checkpoint_attempted,
+            (),
         )
 
     execution = execute_parsed_tool_action(
@@ -211,7 +221,9 @@ def execute_delegate_action(
         should_auto_checkpoint_before_action,
         create_auto_checkpoint_before_action,
         approval_policy,
+        hooks,
     )
     if execution.auto_checkpoint is not None:
         observations.append(execution.auto_checkpoint)
-    return execution.observation, execution.auto_checkpoint_attempted
+    observations.extend(execution.additional_observations)
+    return execution.observation, execution.auto_checkpoint_attempted, execution.hook_results

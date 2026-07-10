@@ -207,6 +207,37 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         names = [str(name) for name in activated] if isinstance(activated, list) else []
         suffix = [f"source={source}"] if isinstance(source, str) else []
         return f"{prefix} {', '.join(names) or '(none)'}{format_detail_suffix(suffix)}"
+    if event.type == "hooks_loaded":
+        sources = payload.get("sources")
+        count = payload.get("count")
+        error = payload.get("error")
+        names = [str(source) for source in sources] if isinstance(sources, list) else []
+        suffix = [f"count={count if isinstance(count, int) else '?'}"]
+        if isinstance(error, str) and error.strip():
+            suffix.append(f"error={compact(error, max_text)}")
+        return f"{prefix} {', '.join(names) or '(no sources)'}{format_detail_suffix(suffix)}"
+    if event.type in {"hook_approval_requested", "hook_approval_decision", "hook_completed", "hook_skipped"}:
+        hook_event = payload.get("event")
+        tool = payload.get("tool")
+        source = payload.get("source")
+        suffix = []
+        if isinstance(source, str):
+            suffix.append(f"source={compact(source, 160)}")
+        if event.type == "hook_approval_decision":
+            decision = payload.get("decision")
+            approved = decision.get("approved") if isinstance(decision, dict) else None
+            if isinstance(approved, bool):
+                suffix.append(f"approved={'yes' if approved else 'no'}")
+        if event.type in {"hook_completed", "hook_skipped"}:
+            result = payload.get("result")
+            status = result.get("status") if isinstance(result, dict) else None
+            message = result.get("message") if isinstance(result, dict) else None
+            if isinstance(status, str):
+                suffix.append(f"status={compact(status, 40)}")
+            if isinstance(message, str) and message.strip():
+                suffix.append(f"message={compact(message, max_text)}")
+        detail = f"{hook_event if isinstance(hook_event, str) else 'hook'} {tool if isinstance(tool, str) else 'unknown'}"
+        return f"{prefix} {detail}{format_detail_suffix(suffix)}"
     if event.type == "step_completed":
         step = payload.get("step")
         if isinstance(step, dict):

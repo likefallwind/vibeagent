@@ -12,6 +12,7 @@ from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .agent_action_logging import log_action
 from .agent_delegate import execute_delegate_task_action
+from .agent_hooks import run_hooks_around_tool
 from .agent_execution_support import (
     create_auto_checkpoint_before_action as _shared_create_auto_checkpoint_before_action,
     execute_action_safely as _shared_execute_action_safely,
@@ -77,6 +78,7 @@ from .types import (
     UserInputHandler,
 )
 from .workspace_core import RunWorkspace, create_run_workspace
+from .workspace_hooks import read_project_hooks
 
 
 def run_agent(
@@ -118,6 +120,17 @@ def run_agent(
     if task_metadata:
         task_event["metadata"] = redact_jsonable_payload(task_metadata)
     append_session_event(current_workspace.session_dir, "task", task_event)
+    project_hooks = read_project_hooks(current_workspace)
+    if project_hooks.enabled:
+        append_session_event(
+            current_workspace.session_dir,
+            "hooks_loaded",
+            {
+                "sources": list(project_hooks.sources),
+                "count": len(project_hooks.hooks),
+                "error": project_hooks.error,
+            },
+        )
     active_tool_names = initialize_agent_tools(current_workspace, approval_policy)
 
     for iteration in range(1, max_iterations + 1):
@@ -211,16 +224,20 @@ def run_agent(
             approval_policy=approval_policy,
         )
         observation_start = len(observations)
-        parallel_batch_result = execute_parallel_tool_call_batch(
-            current_workspace,
-            tool_calls,
-            observations,
-            steps,
-            iteration,
-            command_timeout_ms,
-            logger,
-            execute=execute_action,
-            approval_policy=approval_policy,
+        parallel_batch_result = (
+            None
+            if project_hooks.enabled
+            else execute_parallel_tool_call_batch(
+                current_workspace,
+                tool_calls,
+                observations,
+                steps,
+                iteration,
+                command_timeout_ms,
+                logger,
+                execute=execute_action,
+                approval_policy=approval_policy,
+            )
         )
         tool_results: list[ContentBlock] = []
         handled_tool_calls = 0
@@ -258,39 +275,61 @@ def run_agent(
                 "tool_call",
                 {"iteration": iteration, "id": tool_id, "name": tool_name, "input": tool_input},
             )
+            hook_results: tuple[object, ...] = ()
+            additional_observations: tuple[Observation, ...] = ()
 
             try:
                 action = prepare_action_for_policy(parse_tool_action(tool_name, tool_input), approval_policy)
-                if isinstance(action, AskUserAction):
-                    observation = execute_user_input_action(
+                if isinstance(action, (AskUserAction, DelegateTaskAction)):
+                    def execute_special_tool() -> Observation:
+                        if isinstance(action, AskUserAction):
+                            return execute_user_input_action(
+                                current_workspace,
+                                action,
+                                steps,
+                                iteration,
+                                logger,
+                                user_input_handler,
+                            )
+                        step = start_task_step(current_workspace, steps, iteration, action, logger)
+                        log_action(logger, action)
+                        delegate_observation = execute_delegate_task_action(
+                            current_workspace,
+                            action,
+                            client,
+                            parent_iteration=iteration,
+                            subagent_id=f"delegate-{iteration}-{step.id}",
+                            max_output_tokens=max_output_tokens,
+                            model_retries=model_retries,
+                            model_retry_delay_ms=model_retry_delay_ms,
+                            model_timeout_ms=model_timeout_ms,
+                            command_timeout_ms=command_timeout_ms,
+                            logger=logger,
+                            approval_handler=approval_handler,
+                            approval_policy=approval_policy,
+                            parent_observations=observations,
+                            parent_steps=steps,
+                            hooks=project_hooks,
+                        )
+                        complete_task_step(current_workspace, step, delegate_observation, iteration, logger)
+                        return delegate_observation
+
+                    wrapped = run_hooks_around_tool(
                         current_workspace,
+                        project_hooks,
+                        tool_name,
                         action,
-                        steps,
                         iteration,
+                        command_timeout_ms,
                         logger,
-                        user_input_handler,
+                        approval_handler,
+                        approval_policy,
+                        execute_action_safely,
+                        execute_special_tool,
                     )
-                elif isinstance(action, DelegateTaskAction):
-                    step = start_task_step(current_workspace, steps, iteration, action, logger)
-                    log_action(logger, action)
-                    observation = execute_delegate_task_action(
-                        current_workspace,
-                        action,
-                        client,
-                        parent_iteration=iteration,
-                        subagent_id=f"delegate-{iteration}-{step.id}",
-                        max_output_tokens=max_output_tokens,
-                        model_retries=model_retries,
-                        model_retry_delay_ms=model_retry_delay_ms,
-                        model_timeout_ms=model_timeout_ms,
-                        command_timeout_ms=command_timeout_ms,
-                        logger=logger,
-                        approval_handler=approval_handler,
-                        approval_policy=approval_policy,
-                        parent_observations=observations,
-                        parent_steps=steps,
-                    )
-                    complete_task_step(current_workspace, step, observation, iteration, logger)
+                    observation = wrapped.observation
+                    hook_results = wrapped.hook_results
+                    additional_observations = wrapped.additional_observations
                 else:
                     execution = execute_parsed_tool_action(
                         current_workspace,
@@ -307,8 +346,11 @@ def run_agent(
                         should_auto_checkpoint_before_action,
                         create_auto_checkpoint_before_action,
                         approval_policy,
+                        project_hooks,
                     )
                     observation = execution.observation
+                    hook_results = execution.hook_results
+                    additional_observations = execution.additional_observations
                     auto_checkpoint_attempted = execution.auto_checkpoint_attempted
                     if execution.auto_checkpoint is not None:
                         observations.append(execution.auto_checkpoint)
@@ -318,6 +360,7 @@ def run_agent(
                 observation = tool_error_observation(tool_name, error)
 
             observations.append(observation)
+            observations.extend(additional_observations)
             activate_tools_from_observations(
                 current_workspace,
                 active_tool_names,
@@ -326,6 +369,8 @@ def run_agent(
                 approval_policy,
             )
             result_payload = redact_jsonable_payload(to_jsonable(observation))
+            if hook_results and isinstance(result_payload, dict):
+                result_payload["hooks"] = redact_jsonable_payload(to_jsonable(hook_results))
             append_session_event(
                 current_workspace.session_dir,
                 "tool_result",

@@ -901,6 +901,37 @@ and `VIBEAGENT_CACHE_READ_USD_PER_MILLION` values; without those rates it report
 the missing configuration instead of guessing. The model can also inspect compact
 session summaries through a read-only tool without exposing full tool payloads.
 
+## Project hooks
+
+Project command hooks can be declared in `.vibeagent/hooks.json`,
+`.claude/settings.json`, or `.claude/settings.local.json`. Claude settings keep
+the hook map under a top-level `hooks` key; `.vibeagent/hooks.json` accepts the
+hook map directly or under `hooks`:
+
+```json
+{
+  "PreToolUse": [
+    {
+      "matcher": "write_file|edit_file",
+      "hooks": [
+        {"type": "command", "command": "python3 -m unittest", "timeout_ms": 30000}
+      ]
+    }
+  ]
+}
+```
+
+Supported lifecycle events are `PreToolUse`, `PostToolUse`, and
+`PostToolUseFailure`; matchers are regular expressions applied to the VibeAgent
+tool name. Every matching hook command requires approval under the current
+session policy and still passes command hard-block checks. Plan mode records and
+skips command hooks. A failed or denied pre-tool hook blocks the target tool; a
+failed post-tool hook preserves the target result but records an additional
+tool error that prevents an unqualified successful completion. Hook commands
+receive `VIBEAGENT_HOOK_EVENT`, `VIBEAGENT_TOOL_NAME`, and
+`VIBEAGENT_TOOL_TARGET` environment variables and are recorded in the session
+timeline with bounded output.
+
 Example task:
 
 ```text
@@ -1005,6 +1036,9 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   `vibeagent/mcp_action_executor.py`: validate project MCP configuration, run
   newline-delimited JSON-RPC stdio sessions, and expose approved tool discovery
   and calls without leaving MCP subprocesses running.
+- `vibeagent/workspace_hooks.py` and `vibeagent/agent_hooks.py`: load bounded
+  project hook configuration, match tool lifecycle events, request approval for
+  command hooks, preserve command hard blocks, and emit auditable hook results.
 - `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
   model out of the coding-agent JSON action protocol.
 - `vibeagent/providers.py`: selects the configured model provider. MiniMax is

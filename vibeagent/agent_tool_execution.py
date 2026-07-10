@@ -11,6 +11,8 @@ from .agent_approval import (
     summarize_approval_request,
 )
 from .agent_approval_preview import attach_approval_preview
+from .agent_hooks import HookRunResult, run_tool_hooks
+from .agent_observation_utils import observation_failed
 from .agent_runtime_utils import append_session_event, build_repeated_list_observation, find_repeated_list_observation
 from .agent_steps import complete_task_step, start_task_step
 from .types import (
@@ -23,6 +25,7 @@ from .types import (
     TaskStep,
 )
 from .workspace_core import RunWorkspace
+from .workspace_hooks import ProjectHooks
 
 
 ExecuteActionSafely = Callable[[RunWorkspace, object, int, str], Observation]
@@ -35,6 +38,8 @@ class ToolActionExecutionResult:
     observation: Observation
     auto_checkpoint: Observation | None
     auto_checkpoint_attempted: bool
+    hook_results: tuple[HookRunResult, ...] = ()
+    additional_observations: tuple[Observation, ...] = ()
 
 
 def execute_parsed_tool_action(
@@ -52,6 +57,7 @@ def execute_parsed_tool_action(
     should_auto_checkpoint_before_action_func: ShouldAutoCheckpoint,
     create_auto_checkpoint_before_action_func: CreateAutoCheckpoint,
     approval_policy: ApprovalPolicy = "ask",
+    hooks: ProjectHooks = ProjectHooks(),
 ) -> ToolActionExecutionResult:
     step = start_task_step(workspace, steps, iteration, action, logger)
     log_action(logger, action)
@@ -59,8 +65,16 @@ def execute_parsed_tool_action(
     observation = _build_repeated_list_observation(action, observations)
     auto_checkpoint: Observation | None = None
     checkpoint_attempted = auto_checkpoint_attempted
+    hook_results: tuple[HookRunResult, ...] = ()
+    additional_observations: tuple[Observation, ...] = ()
     if observation is None:
-        observation, auto_checkpoint, checkpoint_attempted = _execute_non_repeated_action(
+        (
+            observation,
+            auto_checkpoint,
+            checkpoint_attempted,
+            hook_results,
+            additional_observations,
+        ) = _execute_non_repeated_action(
             workspace,
             action,
             observations,
@@ -76,6 +90,7 @@ def execute_parsed_tool_action(
             should_auto_checkpoint_before_action_func,
             create_auto_checkpoint_before_action_func,
             approval_policy,
+            hooks,
         )
 
     complete_task_step(workspace, step, observation, iteration, logger)
@@ -83,6 +98,8 @@ def execute_parsed_tool_action(
         observation=observation,
         auto_checkpoint=auto_checkpoint,
         auto_checkpoint_attempted=checkpoint_attempted,
+        hook_results=hook_results,
+        additional_observations=additional_observations,
     )
 
 
@@ -109,7 +126,8 @@ def _execute_non_repeated_action(
     should_auto_checkpoint_before_action_func: ShouldAutoCheckpoint,
     create_auto_checkpoint_before_action_func: CreateAutoCheckpoint,
     approval_policy: ApprovalPolicy,
-) -> tuple[Observation, Observation | None, bool]:
+    hooks: ProjectHooks,
+) -> tuple[Observation, Observation | None, bool, tuple[HookRunResult, ...], tuple[Observation, ...]]:
     approval_request = build_approval_request(action)
     if approval_request:
         approval_request = attach_approval_preview(approval_request, action, observations)
@@ -145,7 +163,26 @@ def _execute_non_repeated_action(
                 ),
                 None,
                 auto_checkpoint_attempted,
+                (),
+                (),
             )
+
+    pre_hooks = run_tool_hooks(
+        workspace,
+        hooks,
+        "PreToolUse",
+        tool_name,
+        action,
+        iteration,
+        command_timeout_ms,
+        logger,
+        approval_handler,
+        approval_policy,
+        execute_action_safely_func,
+    )
+    if pre_hooks.blocking_message is not None:
+        failure = pre_hooks.failures[-1]
+        return failure, None, auto_checkpoint_attempted, pre_hooks.results, ()
 
     auto_checkpoint, checkpoint_attempted = _maybe_create_auto_checkpoint(
         workspace,
@@ -159,7 +196,27 @@ def _execute_non_repeated_action(
         create_auto_checkpoint_before_action_func,
     )
     observation = execute_action_safely_func(workspace, action, command_timeout_ms, tool_name)
-    return observation, auto_checkpoint, checkpoint_attempted
+    post_event = "PostToolUseFailure" if observation_failed(observation) else "PostToolUse"
+    post_hooks = run_tool_hooks(
+        workspace,
+        hooks,
+        post_event,
+        tool_name,
+        action,
+        iteration,
+        command_timeout_ms,
+        logger,
+        approval_handler,
+        approval_policy,
+        execute_action_safely_func,
+    )
+    return (
+        observation,
+        auto_checkpoint,
+        checkpoint_attempted,
+        pre_hooks.results + post_hooks.results,
+        tuple(post_hooks.failures),
+    )
 
 
 def _maybe_create_auto_checkpoint(

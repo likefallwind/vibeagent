@@ -33,6 +33,7 @@ from .types import (
 from .workspace import format_project_skill_catalog, read_project_instructions, read_workspace_snapshot
 from .workspace_agents import read_project_agent
 from .workspace_core import RunWorkspace
+from .workspace_hooks import ProjectHooks
 
 
 DELEGATE_SYSTEM_PROMPT = """You are a read-only repository exploration subagent.
@@ -66,6 +67,7 @@ def execute_delegate_task_action(
     approval_policy: ApprovalPolicy = "ask",
     parent_observations: list[Observation] | None = None,
     parent_steps: list[TaskStep] | None = None,
+    hooks: ProjectHooks = ProjectHooks(),
 ) -> DelegateTaskObservation:
     profile: dict[str, object] | None = None
     profile_error: str | None = None
@@ -241,6 +243,7 @@ def execute_delegate_task_action(
                 approval_policy=approval_policy,
                 auto_checkpoint_attempted=auto_checkpoint_attempted,
                 allowed_tool_names=allowed_tool_names,
+                hooks=hooks,
             )
             auto_checkpoint_attempted = execution.auto_checkpoint_attempted
             if execution.finish_action is not None:
@@ -270,6 +273,8 @@ def execute_delegate_task_action(
             if observation is None:
                 continue
             result_payload = redact_jsonable_payload(to_jsonable(observation))
+            if execution.hook_results and isinstance(result_payload, dict):
+                result_payload["hooks"] = redact_jsonable_payload(to_jsonable(execution.hook_results))
             append_session_event(
                 workspace.session_dir,
                 "subagent_tool_result",

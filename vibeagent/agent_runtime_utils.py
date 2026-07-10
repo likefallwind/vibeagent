@@ -185,6 +185,6 @@ def to_jsonable(value: Any) -> Any:
         return value.as_posix()
     if isinstance(value, dict):
         return {str(key): to_jsonable(item) for key, item in value.items()}
-    if isinstance(value, list):
+    if isinstance(value, (list, tuple)):
         return [to_jsonable(item) for item in value]
     return value
