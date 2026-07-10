@@ -85,6 +85,30 @@ def run_project_local_flag(
             commands["format_permissions_report_text"],
             lambda: commands["get_permissions_text"](args.approval, root),
         )
+    if args.trust_status:
+        return local_text_or_report(
+            args,
+            "projectTrust",
+            lambda: commands["get_project_trust_report"](root),
+            commands["format_project_trust_report_text"],
+            lambda: commands["get_project_trust_text"](root),
+        )
+    if args.trust_project:
+        return local_text_or_report(
+            args,
+            "projectTrust",
+            lambda: commands["get_trust_project_report"](root),
+            commands["format_project_trust_report_text"],
+            lambda: commands["get_trust_project_text"](root),
+        )
+    if args.untrust_project:
+        return local_text_or_report(
+            args,
+            "projectTrust",
+            lambda: commands["get_untrust_project_report"](root),
+            commands["format_project_trust_report_text"],
+            lambda: commands["get_untrust_project_text"](root),
+        )
     if args.checks:
         return local_text_or_report(
             args,

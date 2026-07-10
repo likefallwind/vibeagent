@@ -94,6 +94,9 @@ Pass a task as arguments to run once without entering the prompt:
 ```sh
 python -m vibeagent --approval allow "inspect the failing tests and fix them"
 python -m vibeagent --trust-project-permissions "run the checks allowed by this project's permission rules"
+python -m vibeagent --trust-status --cwd ../my-project
+python -m vibeagent --trust-project --cwd ../my-project
+python -m vibeagent --untrust-project --cwd ../my-project
 python -m vibeagent --chat "explain this repository at a high level"
 python -m vibeagent --resume <run-id> --resume-max-files 25 --resume-max-commands 5 --resume-max-checks 20 "continue the previous change"
 python -m vibeagent --resume -- "continue the latest session"
@@ -961,10 +964,19 @@ rule applies only when every target matches.
 Project deny and ask rules always take effect. Because repository settings are
 untrusted input, allow rules do not skip side-effect approval unless a one-shot
 run explicitly uses `--trust-project-permissions` (or a library caller passes
-`trust_project_permissions=True`). Plan mode, explicit session deny, workspace
-boundaries, and command hard blocks still take precedence. `/permissions` and
-`--permissions --json` show loaded rule sources and errors, and rule matches are
-recorded in the session timeline.
+`trust_project_permissions=True`) or the project has persistent user trust.
+Use `--trust-status`, `--trust-project`, and `--untrust-project` with `--cwd` to
+inspect, record, or remove persistent trust. Interactive mode offers the same
+trust decision in the terminal when it first sees untrusted allow rules.
+
+Persistent trust is stored outside the repository in
+`~/.vibeagent/trusted-projects.json` with the canonical absolute project path;
+`VIBEAGENT_TRUST_FILE` can override the location for isolated automation. The
+store uses private file permissions and atomic writes, refuses symlink paths,
+and fails closed on malformed content. Plan mode, explicit session deny,
+workspace boundaries, and command hard blocks still take precedence.
+`/permissions` and `--permissions --json` show loaded rule sources, persistent
+trust, and errors, and rule matches are recorded in the session timeline.
 
 Example task:
 
@@ -1077,6 +1089,10 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   load bounded project permission rules, match Claude-compatible tool/path/
   command patterns, enforce explicit trust for allow rules, and centralize
   deny/ask/allow decisions across the main agent, hooks, and subagents.
+- `vibeagent/project_trust.py` and `vibeagent/trust_commands.py`: maintain the
+  user-owned persistent project-permission trust registry, expose trust/status/
+  untrust commands, and keep repository-controlled allow rules inert until the
+  user explicitly trusts them.
 - `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
   model out of the coding-agent JSON action protocol.
 - `vibeagent/providers.py`: selects the configured model provider. MiniMax is

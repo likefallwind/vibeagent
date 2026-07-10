@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from .agent_result import AgentResult
+from .project_trust import is_project_permissions_trusted, trust_project_permissions
 from .types import ApprovalDecision, ApprovalHandler, ApprovalPolicy, ApprovalRequest, UserInputRequest
+from .workspace_permissions import read_project_permissions_from_root
 
 
 def print_output(payload: dict[str, object], output_json: bool) -> None:
@@ -134,6 +137,31 @@ def prompt_user_input(request: UserInputRequest) -> str | None:
         if answer in request.options or request.allow_free_text:
             return answer
         print(f"Enter a number from 1 to {len(request.options)}.")
+
+
+def prompt_project_permission_trust(root: str | Path) -> bool:
+    if is_project_permissions_trusted(root):
+        return True
+    permissions = read_project_permissions_from_root(root)
+    allow_rules = [rule for rule in permissions.rules if rule.effect == "allow"]
+    if permissions.error is not None or not allow_rules:
+        return False
+    print("\nThis project defines permission allow rules that can skip side-effect prompts.")
+    print(f"Project: {Path(root).resolve()}")
+    for rule in allow_rules:
+        print(f"  - {rule.raw} ({rule.source})")
+    try:
+        answer = input("Trust these permission allow rules for this project? [y/N] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+    if answer not in {"y", "yes"}:
+        return False
+    report = trust_project_permissions(root)
+    print(str(report["message"]))
+    if report.get("storeError"):
+        print(f"Error: {report['storeError']}")
+    return bool(report["trusted"])
 
 
 def handle_approval_command(argument: str | None, current: ApprovalPolicy) -> tuple[ApprovalPolicy, str]:

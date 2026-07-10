@@ -21,6 +21,7 @@ from .cli_output import (
 from .commands import get_compact_context, get_resume_context
 from .config import resolve_execution_config
 from .providers import create_chat_client
+from .project_trust import is_project_permissions_trusted
 from .types import ApprovalPolicy
 
 
@@ -165,7 +166,9 @@ def run_one_shot(
             model_timeout_ms=execution_config.model_timeout_ms,
             approval_handler=build_approval_handler(approval_policy),
             approval_policy=approval_policy,
-            trust_project_permissions=trust_project_permissions,
+            trust_project_permissions=(
+                trust_project_permissions or is_project_permissions_trusted(project_root)
+            ),
             user_input_handler=None if output_json else prompt_user_input,
             prior_context=prior_context.context,
         )

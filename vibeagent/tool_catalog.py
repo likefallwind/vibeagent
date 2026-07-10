@@ -178,6 +178,7 @@ def get_tool_text(name: str | None) -> str:
 
 
 def get_permissions_report(approval_policy: str = "ask", root: str = ".") -> dict[str, object]:
+    from .project_trust import get_project_trust_report
     from .workflow_commands import get_command_hard_block_report
     from .workspace_permissions import PERMISSION_EFFECTS, read_project_permissions_from_root
 
@@ -203,6 +204,7 @@ def get_permissions_report(approval_policy: str = "ask", root: str = ".") -> dic
         category = tool_category(name)
         categories[category if category in categories else "other"].append(name)
     project_permissions = read_project_permissions_from_root(root)
+    project_trust = get_project_trust_report(root)
     rules_by_effect = {
         effect: [
             {"rule": rule.raw, "source": rule.source}
@@ -226,6 +228,9 @@ def get_permissions_report(approval_policy: str = "ask", root: str = ".") -> dic
         "projectPermissions": {
             "enabled": project_permissions.enabled,
             "allowRulesRequireExplicitTrust": True,
+            "persistentlyTrusted": project_trust["trusted"],
+            "trustStorePath": project_trust["storePath"],
+            "trustStoreError": project_trust["storeError"],
             "count": len(project_permissions.rules),
             "sources": list(project_permissions.sources),
             "error": project_permissions.error,
@@ -266,7 +271,8 @@ def format_permissions_report_text(report: dict[str, object]) -> str:
                 "  projectPermissions:",
                 f"    rules: {int(project_permissions.get('count', 0) or 0)}",
                 f"    sources: {', '.join(clean_sources) or '(none)'}",
-                "    allowRules: require --trust-project-permissions to skip side-effect approval",
+                "    allowRules: require one-shot or persistent project trust to skip side-effect approval",
+                f"    persistentlyTrusted: {'yes' if project_permissions.get('persistentlyTrusted') else 'no'}",
             ]
         )
         error = project_permissions.get("error")

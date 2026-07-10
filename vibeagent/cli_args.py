@@ -40,6 +40,9 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Optional approval filter for --tool-search.",
     )
     local.add_argument("--permissions", action="store_true", help="Show approval-gated tools and hard command blocks and exit.")
+    local.add_argument("--trust-status", action="store_true", help="Show persistent permission trust for the active project and exit.")
+    local.add_argument("--trust-project", action="store_true", help="Persist trust in permission allow rules for the active project and exit.")
+    local.add_argument("--untrust-project", action="store_true", help="Remove persistent permission trust for the active project and exit.")
     local.add_argument("--checks", action="store_true", help="Show suggested test, build, and lint commands and exit.")
     parser.add_argument("--checks-max", type=positive_int, default=20, metavar="N", help="Maximum suggested checks to show with --checks.")
     local.add_argument("--check-suggested-checks", nargs="?", const="", metavar="N", help="Preflight suggested test, build, and lint commands and exit.")

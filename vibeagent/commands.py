@@ -16,6 +16,7 @@ from . import (
     session_commands as _session_commands,
     smart_code_commands as _smart_code_commands,
     tool_commands as _tool_commands,
+    trust_commands as _trust_commands,
     workflow_commands as _workflow_commands,
 )
 from .actions import execute_action
@@ -40,6 +41,7 @@ COMMAND_EXPORT_MODULES = (
     _session_commands,
     _smart_code_commands,
     _tool_commands,
+    _trust_commands,
     _workflow_commands,
 )
 
