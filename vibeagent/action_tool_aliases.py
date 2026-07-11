@@ -4,6 +4,7 @@ from typing import Any
 
 
 CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
+    "AskUserQuestion": "ask_user",
     "Agent": "delegate_task",
     "Bash": "run_command",
     "BashOutput": "read_process",
@@ -17,12 +18,11 @@ CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
     "NotebookEdit": "edit_file",
     "NotebookRead": "read_file",
     "Read": "read_file",
+    "Task": "delegate_task",
     "TodoRead": "todo_read",
     "TodoWrite": "todo_write",
-    "Task": "delegate_task",
     "WebFetch": "web_fetch",
     "Write": "write_file",
-    "AskUserQuestion": "ask_user",
 }
 
 

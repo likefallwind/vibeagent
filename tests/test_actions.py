@@ -21,6 +21,7 @@ from vibeagent.actions import (
     run_command,
     save_checkpoint_untracked_files,
 )
+from vibeagent.action_tool_aliases import CLAUDE_TOOL_ACTION_ALIASES
 from vibeagent.prompt_observation_session import format_session_observation
 from vibeagent.types import (
     AppendFileAction,
@@ -2350,6 +2351,31 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(grep_action.context_lines, 2)
         self.assertEqual(todo_write_action.type, "update_plan")
         self.assertEqual(todo_read_action.type, "session_plan")
+
+    def test_documented_claude_tool_call_aliases_are_registered(self) -> None:
+        documented = {
+            "Agent",
+            "AskUserQuestion",
+            "Bash",
+            "BashOutput",
+            "Edit",
+            "ExitPlanMode",
+            "Glob",
+            "Grep",
+            "KillBash",
+            "LS",
+            "MultiEdit",
+            "NotebookEdit",
+            "NotebookRead",
+            "Read",
+            "Task",
+            "TodoRead",
+            "TodoWrite",
+            "WebFetch",
+            "Write",
+        }
+
+        self.assertLessEqual(documented, set(CLAUDE_TOOL_ACTION_ALIASES))
 
     def test_run_command_captures_stdout_stderr_exit_code_and_success(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-command-") as cwd:

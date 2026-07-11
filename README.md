@@ -1098,8 +1098,8 @@ and `AskUserQuestion` map to the corresponding VibeAgent tools; native
 snake-case tool names are also accepted. Model tool calls also accept common
 Claude Code names such as `Bash`, `BashOutput`, `KillBash`, `Read`, `Write`,
 `Edit`, `MultiEdit`, `NotebookRead`, `NotebookEdit`, `LS`, `Glob`, `Grep`,
-`WebFetch`, `Task`, `Agent`, `AskUserQuestion`, `ExitPlanMode`, `TodoWrite`, and `TodoRead`, with
-Claude-style field names normalized before execution.
+`WebFetch`, `Task`, `Agent`, `AskUserQuestion`, `ExitPlanMode`, `TodoWrite`,
+and `TodoRead`, with Claude-style field names normalized before execution.
 Command patterns support `*`, including the trailing `:*` spelling. File
 patterns use project-relative `/`, `*`, and recursive `**` matching. A deny or
 ask rule applies when any target in a multi-file operation matches; an allow
