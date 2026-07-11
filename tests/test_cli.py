@@ -314,6 +314,22 @@ class CliTests(unittest.TestCase):
         plan_args = cli_module.parse_args(["--approval", "plan", "inspect", "repo"])
         self.assertEqual(plan_args.approval, "plan")
 
+    def test_build_one_shot_kwargs_from_args_includes_system_prompt_overrides(self) -> None:
+        args = cli_module.parse_args(
+            [
+                "--system-prompt",
+                "You are a release engineer.",
+                "--append-system-prompt",
+                "Prefer focused tests.",
+                "inspect",
+            ]
+        )
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertEqual(kwargs["system_prompt"], "You are a release engineer.")
+        self.assertEqual(kwargs["append_system_prompt"], "Prefer focused tests.")
+
     def test_cli_compat_aliases_map_to_existing_one_shot_fields(self) -> None:
         args = cli_module.parse_args(
             [
@@ -355,6 +371,16 @@ class CliTests(unittest.TestCase):
         self.assertEqual(
             cli_module.validate_cli_args(turn_args),
             "--max-iterations and --max-turns cannot specify different values.",
+        )
+
+    def test_cli_rejects_empty_or_local_system_prompt_arguments(self) -> None:
+        empty_args = cli_module.parse_args(["--system-prompt", " ", "inspect"])
+        local_args = cli_module.parse_args(["--append-system-prompt", "Extra", "--tools"])
+
+        self.assertEqual(cli_module.validate_cli_args(empty_args), "--system-prompt cannot be empty.")
+        self.assertEqual(
+            cli_module.validate_cli_args(local_args),
+            "--system-prompt and --append-system-prompt require a one-shot task.",
         )
 
     def test_build_one_shot_kwargs_from_args_includes_permission_overrides(self) -> None:
@@ -13026,6 +13052,44 @@ class CliTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload, {"kind": "chat", "message": "你好", "success": True, "status": "completed"})
+
+    def test_main_passes_system_prompt_to_one_shot_chat(self) -> None:
+        run_chat = Mock(return_value="好")
+
+        with (
+            patch("vibeagent.cli.create_chat_client", return_value=object()),
+            patch("vibeagent.cli.run_chat", run_chat),
+            redirect_stdout(io.StringIO()),
+        ):
+            exit_code = main(["--chat", "--system-prompt", "You are terse.", "随便聊聊"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_chat.call_args.kwargs["system_prompt"], "You are terse.")
+        self.assertIsNone(run_chat.call_args.kwargs["append_system_prompt"])
+
+    def test_main_passes_appended_system_prompt_to_one_shot_code_task(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="new-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", base, "--append-system-prompt", "Prefer focused tests.", "inspect"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIsNone(run_agent.call_args.kwargs["system_prompt"])
+        self.assertEqual(run_agent.call_args.kwargs["append_system_prompt"], "Prefer focused tests.")
 
     def test_main_one_shot_code_task_can_load_resume_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:

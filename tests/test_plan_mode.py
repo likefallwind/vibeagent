@@ -51,6 +51,23 @@ class PlanModeTests(unittest.TestCase):
 
         self.assertIn("Plan mode is active", str(compacted[1].content))
 
+    def test_custom_system_prompt_survives_context_compaction(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-plan-") as base:
+            workspace = create_run_workspace(Path(base))
+            messages = [ChatMessage(role="user", content=str(index)) for index in range(20)]
+            compacted = compact_agent_message_history(
+                "Plan a refactor",
+                workspace,
+                messages,
+                [],
+                [],
+                None,
+                10,
+                append_system_prompt="Keep the final answer terse.",
+            )
+
+        self.assertIn("Keep the final answer terse.", str(compacted[0].content))
+
     def test_plan_mode_denies_hidden_write_even_with_approving_handler(self) -> None:
         approvals: list[str] = []
 

@@ -49,6 +49,8 @@ def compact_agent_message_history(
     observation_limit: int = AGENT_COMPACT_OBSERVATION_LIMIT,
     max_context_length: int = AGENT_COMPACT_CONTEXT_MAX_LENGTH,
     approval_policy: ApprovalPolicy = "ask",
+    system_prompt: str | None = None,
+    append_system_prompt: str | None = None,
 ) -> list[ChatMessage]:
     if len(messages) <= threshold:
         return messages
@@ -66,6 +68,8 @@ def compact_agent_message_history(
         observations,
         prior_context=prior_context,
         approval_policy=approval_policy,
+        system_prompt=system_prompt,
+        append_system_prompt=append_system_prompt,
     )
     append_session_event(
         workspace.session_dir,

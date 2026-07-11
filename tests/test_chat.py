@@ -61,6 +61,14 @@ class ChatTests(unittest.TestCase):
         self.assertIn("Do not use the coding-agent JSON action protocol", messages[0].content)
         self.assertEqual(messages[-1], ChatMessage(role="user", content="你好"))
 
+    def test_build_chat_messages_supports_custom_system_prompt(self) -> None:
+        replaced = build_chat_messages("你好", system_prompt="You are concise.")
+        appended = build_chat_messages("你好", append_system_prompt="Reply in one sentence.")
+
+        self.assertEqual(replaced[0].content, "You are concise.")
+        self.assertIn("daily conversation mode", appended[0].content)
+        self.assertIn("Additional system instructions:\nReply in one sentence.", appended[0].content)
+
     def test_build_chat_messages_bounds_history(self) -> None:
         history = [ChatMessage(role="user", content=str(index)) for index in range(20)]
 
@@ -85,6 +93,14 @@ class ChatTests(unittest.TestCase):
         self.assertEqual(response, "好")
         self.assertEqual(client.max_tokens, 8192)
         self.assertEqual(client.timeout_ms, 45_000)
+
+    def test_run_chat_passes_custom_system_prompt_to_client(self) -> None:
+        client = MockClient("  好  ")
+
+        response = run_chat("你好", client, append_system_prompt="Use short answers.")
+
+        self.assertEqual(response, "好")
+        self.assertIn("Use short answers.", client.messages[0].content)
 
     def test_run_chat_retries_transient_model_failures(self) -> None:
         client = FlakyClient(failures=1)

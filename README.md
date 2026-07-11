@@ -108,6 +108,7 @@ python -m vibeagent --cwd ../my-project --max-iterations 8 --command-timeout-ms 
 python -m vibeagent --json --cwd ../my-project "run the release checks"
 python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
 printf '{"type":"user","text":"inspect the change"}\n' | python -m vibeagent --input-format stream-json -
+python -m vibeagent --append-system-prompt "Prefer focused tests before broad suites." "inspect the change"
 python -m vibeagent --allowed-tools "Read" --allowed-tools "Bash(git diff:*)" --disallowed-tools "Bash(git push:*)" "inspect the change"
 python -m vibeagent --provider deepseek --model-name deepseek-reasoner --base-url https://api.deepseek.com "inspect this repo"
 printf "summarize the project risks\n" | python -m vibeagent -
@@ -122,6 +123,10 @@ alias, `-r` is an alias for `--resume`, `-c` resumes the newest session for a
 one-shot task, `--permission-mode` maps to `--approval`, and `--max-turns` maps
 to `--max-iterations`. `--input-format stream-json` reads newline-delimited
 JSON task records from stdin when the task is `-`.
+`--system-prompt` replaces the default one-shot system prompt for a command;
+`--append-system-prompt` keeps the default prompt and adds extra system-level
+constraints. Both options work in one-shot code and chat modes and are never
+saved to project configuration.
 With `--json`, one-shot coding results include `status` (`completed`,
 `blocked`, or `failed`), a `priorContext` object with loaded/source/run id
 metadata, structured `plan` items, `completionReady`, `completionBlockers`,

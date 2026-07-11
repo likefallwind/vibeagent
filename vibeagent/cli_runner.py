@@ -67,6 +67,8 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "model_retries": args.model_retries,
         "model_retry_delay_ms": args.model_retry_delay_ms,
         "model_timeout_ms": args.model_timeout_ms,
+        "system_prompt": args.system_prompt,
+        "append_system_prompt": args.append_system_prompt,
         "output_json": args.json,
         "output_format": args.output_format,
         "permission_overrides": build_permission_overrides(args),
@@ -100,6 +102,8 @@ def run_one_shot(
     model_retries: int | None = None,
     model_retry_delay_ms: int | None = None,
     model_timeout_ms: int | None = None,
+    system_prompt: str | None = None,
+    append_system_prompt: str | None = None,
     output_json: bool = False,
     output_format: str | None = None,
     permission_overrides=None,
@@ -146,6 +150,8 @@ def run_one_shot(
                 model_retries=execution_config.model_retries,
                 model_retry_delay_ms=execution_config.model_retry_delay_ms,
                 model_timeout_ms=execution_config.model_timeout_ms,
+                system_prompt=system_prompt,
+                append_system_prompt=append_system_prompt,
             )
             payload = {"kind": "chat", "success": True, "status": "completed", "message": response}
             if stream is not None:
@@ -203,6 +209,8 @@ def run_one_shot(
             "permission_overrides": permission_overrides,
             "user_input_handler": None if machine_output else prompt_user_input,
             "prior_context": prior_context.context,
+            "system_prompt": system_prompt,
+            "append_system_prompt": append_system_prompt,
         }
         if stream_workspace is not None:
             run_kwargs["workspace"] = stream_workspace

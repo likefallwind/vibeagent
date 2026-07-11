@@ -438,6 +438,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--model-name", help="Temporarily override the model name for this command.")
     parser.add_argument("--base-url", help="Temporarily override the provider base URL for this command.")
     parser.add_argument("--api-key", help="Temporarily override the provider API key for this command.")
+    parser.add_argument("--system-prompt", help="Override the default one-shot system prompt for this command.")
+    parser.add_argument(
+        "--append-system-prompt",
+        help="Append extra instructions to the default or overridden one-shot system prompt.",
+    )
     parser.add_argument(
         "--max-iterations",
         type=positive_int,

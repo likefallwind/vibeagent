@@ -16,6 +16,12 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--continue requires a one-shot task."
     if args.input_format == "stream-json" and args.task != ["-"]:
         return "--input-format stream-json requires task '-' so input can be read from stdin."
+    if args.system_prompt is not None and not args.system_prompt.strip():
+        return "--system-prompt cannot be empty."
+    if args.append_system_prompt is not None and not args.append_system_prompt.strip():
+        return "--append-system-prompt cannot be empty."
+    if (args.system_prompt is not None or args.append_system_prompt is not None) and (not args.task or has_local_flag(args)):
+        return "--system-prompt and --append-system-prompt require a one-shot task."
     if args.output_format == "stream-json" and (not args.task or has_local_flag(args)):
         return "--output-format stream-json requires a one-shot task."
     override_error = permission_override_validation_error(args)

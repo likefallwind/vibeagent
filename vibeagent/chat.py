@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 
 from .minimax import content_blocks_to_text
+from .prompt_system import build_effective_system_prompt
 from .types import ChatClient, ChatMessage
 
 
@@ -24,9 +25,16 @@ def run_chat(
     model_retries: int = 1,
     model_retry_delay_ms: int = 250,
     model_timeout_ms: int = 120_000,
+    system_prompt: str | None = None,
+    append_system_prompt: str | None = None,
 ) -> str:
     # Chat mode is a plain assistant turn with bounded prior conversation context.
-    messages = build_chat_messages(message, history or [])
+    messages = build_chat_messages(
+        message,
+        history or [],
+        system_prompt=system_prompt,
+        append_system_prompt=append_system_prompt,
+    )
     response = complete_chat_with_retries(
         client,
         messages,
@@ -63,10 +71,23 @@ def complete_chat_with_retries(
     raise RuntimeError("Model request failed.")
 
 
-def build_chat_messages(message: str, history: list[ChatMessage] | None = None, max_history: int = 12) -> list[ChatMessage]:
+def build_chat_messages(
+    message: str,
+    history: list[ChatMessage] | None = None,
+    max_history: int = 12,
+    system_prompt: str | None = None,
+    append_system_prompt: str | None = None,
+) -> list[ChatMessage]:
     bounded_history = list(history or [])[-max_history:]
     return [
-        ChatMessage(role="system", content=CHAT_SYSTEM_PROMPT),
+        ChatMessage(
+            role="system",
+            content=build_effective_system_prompt(
+                CHAT_SYSTEM_PROMPT,
+                system_prompt=system_prompt,
+                append_system_prompt=append_system_prompt,
+            ),
+        ),
         *bounded_history,
         ChatMessage(role="user", content=message),
     ]

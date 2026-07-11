@@ -108,6 +108,8 @@ def run_agent(
     task_metadata: dict[str, object] | None = None,
     trust_project_permissions: bool = False,
     permission_overrides: ProjectPermissions | None = None,
+    system_prompt: str | None = None,
+    append_system_prompt: str | None = None,
 ) -> AgentResult:
     # Start with an isolated run workspace for one task execution.
     current_workspace = workspace or create_run_workspace(base_dir)
@@ -126,6 +128,8 @@ def run_agent(
         prior_context=prior_context,
         approval_policy=approval_policy,
         permission_summary=format_permissions_for_prompt(project_permissions),
+        system_prompt=system_prompt,
+        append_system_prompt=append_system_prompt,
     )
     original_prior_context = prior_context
     auto_checkpoint_attempted = False
@@ -308,6 +312,8 @@ def run_agent(
                 original_prior_context,
                 iteration,
                 approval_policy=approval_policy,
+                system_prompt=system_prompt,
+                append_system_prompt=append_system_prompt,
             )
             continue
 
@@ -474,6 +480,8 @@ def run_agent(
             original_prior_context,
             iteration,
             approval_policy=approval_policy,
+            system_prompt=system_prompt,
+            append_system_prompt=append_system_prompt,
         )
 
     # Return failure only after exhausting max iterations without an explicit finish action.

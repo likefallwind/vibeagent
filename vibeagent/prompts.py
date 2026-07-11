@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .prompt_next_action import get_next_action_instruction
 from .prompt_observations import format_observations
+from .prompt_system import build_effective_system_prompt
 from .types import ApprovalPolicy, ChatMessage, Observation
 from .workspace_core import RunWorkspace
 from .workspace import (
@@ -87,6 +88,8 @@ def build_messages(
     prior_context: str | None = None,
     approval_policy: ApprovalPolicy = "ask",
     permission_summary: str | None = None,
+    system_prompt: str | None = None,
+    append_system_prompt: str | None = None,
 ) -> list[ChatMessage]:
     # Assemble initial context for the model: goal and current workspace state.
     snapshot = read_workspace_snapshot(workspace)
@@ -156,6 +159,13 @@ def build_messages(
     )
     content = "\n\n".join(chunks)
     return [
-        ChatMessage(role="system", content=SYSTEM_PROMPT),
+        ChatMessage(
+            role="system",
+            content=build_effective_system_prompt(
+                SYSTEM_PROMPT,
+                system_prompt=system_prompt,
+                append_system_prompt=append_system_prompt,
+            ),
+        ),
         ChatMessage(role="user", content=content),
     ]
