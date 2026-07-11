@@ -2122,6 +2122,51 @@ class AgentTests(unittest.TestCase):
             ["git_switch feature/new (create): denied"],
         )
 
+    def test_denied_approval_resolution_matches_git_commit_message_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="git_commit",
+                target="Add app",
+                message="denied",
+            ),
+            types_module.GitCommitObservation(
+                kind="git_commit",
+                ok=True,
+                head_before="abc123",
+                head_after="def456",
+                status="",
+                message="Committed staged changes.",
+                message_text="Add app",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_git_commit_message_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="git_commit",
+                target="Add app",
+                message="denied",
+            ),
+            types_module.GitCommitObservation(
+                kind="git_commit",
+                ok=True,
+                head_before="abc123",
+                head_after="def456",
+                status="",
+                message="Committed staged changes.",
+                message_text="Update docs",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["git_commit Add app: denied"],
+        )
+
     def test_denied_approval_resolution_matches_git_stash_message_target(self) -> None:
         observations = [
             ApprovalDeniedObservation(

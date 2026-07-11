@@ -3916,6 +3916,7 @@ class ActionTests(unittest.TestCase):
         self.assertTrue(committed.ok)
         self.assertNotEqual(committed.head_before, committed.head_after)
         self.assertEqual(committed.status, "")
+        self.assertEqual(committed.message_text, "update app")
         self.assertEqual(checked_push.kind, "check_git_push")
         self.assertTrue(checked_push.ok)
         self.assertEqual(checked_push.remote, "origin")
