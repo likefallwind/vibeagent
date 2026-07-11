@@ -1362,6 +1362,50 @@ class AgentTests(unittest.TestCase):
             ["move_file src/old.py -> src/new.py: denied"],
         )
 
+    def test_denied_approval_resolution_matches_batch_transfer_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="move_files",
+                target="src/a.py -> src/b.py, src/c.py -> src/d.py",
+                message="denied",
+            ),
+            types_module.MoveFilesObservation(
+                kind="move_files",
+                transfers=[
+                    types_module.MoveFileTransfer(source="src/a.py", destination="src/b.py"),
+                    types_module.MoveFileTransfer(source="src/c.py", destination="src/d.py"),
+                ],
+                ok=True,
+                message="Moved files.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_partial_batch_transfer_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="move_files",
+                target="src/a.py -> src/b.py, src/c.py -> src/d.py",
+                message="denied",
+            ),
+            types_module.MoveFilesObservation(
+                kind="move_files",
+                transfers=[
+                    types_module.MoveFileTransfer(source="src/a.py", destination="src/other.py"),
+                ],
+                ok=True,
+                message="Moved files.",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["move_files src/a.py -> src/b.py, src/c.py -> src/d.py: denied"],
+        )
+
     def test_denied_approval_resolution_matches_line_edit_target(self) -> None:
         observations = [
             ApprovalDeniedObservation(

@@ -194,10 +194,6 @@ def observation_target_tokens(observation: Observation) -> set[str]:
     transfers = getattr(observation, "transfers", [])
     if isinstance(transfers, list):
         for transfer in transfers:
-            source = string_attr(transfer, "source")
-            destination = string_attr(transfer, "destination")
-            tokens.update(normalized_approval_target_tokens(source))
-            tokens.update(normalized_approval_target_tokens(destination))
             tokens.update(transfer_target_tokens(transfer))
     return tokens
 
@@ -304,25 +300,16 @@ def normalized_approval_target_tokens(value: object) -> set[str]:
     text = str(value or "").strip()
     if not text:
         return set()
-    if "(cwd:" in text:
-        return {text}
-    if (
-        _looks_like_path_pointer_target(text)
-        or _looks_like_path_line_target(text)
-        or _looks_like_symbol_target(text)
-        or _looks_like_operation_count_target(text)
-        or _looks_like_char_count_target(text)
-        or _looks_like_transfer_target(text)
-        or _looks_like_mcp_arguments_target(text)
-        or _looks_like_git_switch_create_target(text)
-    ):
+    if should_preserve_approval_target(text):
         return {text}
     tokens: set[str] = set()
     candidates = [text]
     candidates.extend(part.strip() for part in text.split(","))
     split_candidates = list(candidates)
     for candidate in split_candidates:
-        if " -> " in candidate and not _looks_like_transfer_target(candidate):
+        if should_preserve_approval_target(candidate):
+            continue
+        if " -> " in candidate and "," not in candidate and not _looks_like_transfer_target(candidate):
             candidates.extend(part.strip() for part in candidate.split(" -> "))
         if " " in candidate:
             candidates.append(candidate.split(" ", 1)[0].strip())
@@ -333,6 +320,20 @@ def normalized_approval_target_tokens(value: object) -> set[str]:
         if normalized:
             tokens.add(normalized)
     return tokens
+
+
+def should_preserve_approval_target(text: str) -> bool:
+    return (
+        "(cwd:" in text
+        or _looks_like_path_pointer_target(text)
+        or _looks_like_path_line_target(text)
+        or _looks_like_symbol_target(text)
+        or _looks_like_operation_count_target(text)
+        or _looks_like_char_count_target(text)
+        or _looks_like_transfer_target(text)
+        or _looks_like_mcp_arguments_target(text)
+        or _looks_like_git_switch_create_target(text)
+    )
 
 
 def _looks_like_path_pointer_target(text: str) -> bool:
