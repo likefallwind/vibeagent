@@ -1600,6 +1600,98 @@ class AgentTests(unittest.TestCase):
             ["git_stash_drop stash@{0}: denied"],
         )
 
+    def test_denied_approval_resolution_matches_checkpoint_restore_id_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="checkpoint_restore",
+                target="ckpt-1",
+                message="denied",
+            ),
+            CheckpointRestoreObservation(
+                kind="checkpoint_restore",
+                ok=True,
+                checkpoint_id="ckpt-1",
+                restored=True,
+                matches=True,
+                saved_head="abc123",
+                current_head="abc123",
+                saved_untracked_files=0,
+                current_untracked_files=0,
+                staged_patch_chars=0,
+                unstaged_patch_chars=0,
+                message="Restored checkpoint.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_matches_checkpoint_delete_id_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="checkpoint_delete",
+                target="ckpt-1",
+                message="denied",
+            ),
+            types_module.CheckpointDeleteObservation(
+                kind="checkpoint_delete",
+                ok=True,
+                checkpoint_id="ckpt-1",
+                deleted=True,
+                message="Deleted checkpoint.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_matches_checkpoint_prune_keep_last_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="checkpoint_prune",
+                target="keep_last=2",
+                message="denied",
+            ),
+            CheckpointPruneObservation(
+                kind="checkpoint_prune",
+                ok=True,
+                keep_last=2,
+                total=5,
+                kept=2,
+                deleted=3,
+                checkpoints=[],
+                message="Pruned checkpoints.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_checkpoint_prune_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="checkpoint_prune",
+                target="keep_last=2",
+                message="denied",
+            ),
+            CheckpointPruneObservation(
+                kind="checkpoint_prune",
+                ok=True,
+                keep_last=1,
+                total=5,
+                kept=1,
+                deleted=4,
+                checkpoints=[],
+                message="Pruned checkpoints.",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["checkpoint_prune keep_last=2: denied"],
+        )
+
     def test_run_agent_continues_when_multistep_work_has_no_plan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)

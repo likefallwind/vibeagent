@@ -140,6 +140,7 @@ def observation_target_tokens(observation: Observation) -> set[str]:
         "upstream",
         "stash_ref",
         "message_text",
+        "checkpoint_id",
     ):
         tokens.update(normalized_approval_target_tokens(getattr(observation, name, "")))
     server = str(getattr(observation, "server", "") or "").strip()
@@ -191,6 +192,9 @@ def observation_summary_target_token(observation: Observation) -> str | None:
         include_pending = int(getattr(observation, "pending_count", 0) or 0) > 0
         run_id = str(getattr(observation, "run_id", "") or "current session")
         return session_verification_target(run_id, include_failed, include_pending)
+    keep_last = getattr(observation, "keep_last", None)
+    if observation.kind == "checkpoint_prune" and isinstance(keep_last, int):
+        return f"keep_last={keep_last}"
     return None
 
 
