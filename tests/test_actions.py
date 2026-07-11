@@ -21,7 +21,7 @@ from vibeagent.actions import (
     run_command,
     save_checkpoint_untracked_files,
 )
-from vibeagent.action_tool_aliases import CLAUDE_TOOL_ACTION_ALIASES, tool_name_candidates
+from vibeagent.action_tool_aliases import CLAUDE_TOOL_ACTION_ALIASES, profile_tool_names, tool_name_candidates
 from vibeagent.prompt_observation_session import format_session_observation
 from vibeagent.types import (
     AppendFileAction,
@@ -303,6 +303,11 @@ class ActionTests(unittest.TestCase):
 
         self.assertEqual(tool_name_candidates("Write", action), ("Write", "write_file", "Edit", "NotebookEdit"))
         self.assertEqual(tool_name_candidates("write_file", action), ("write_file", "Edit", "NotebookEdit", "Write"))
+
+    def test_profile_tool_names_expand_input_sensitive_claude_aliases(self) -> None:
+        self.assertEqual(profile_tool_names("Bash"), frozenset({"run_command", "start_command"}))
+        self.assertEqual(profile_tool_names("Read"), frozenset({"read_file"}))
+        self.assertEqual(profile_tool_names("write_file"), frozenset({"write_file"}))
 
     def test_parse_tool_action_accepts_project_actions(self) -> None:
         cases = [

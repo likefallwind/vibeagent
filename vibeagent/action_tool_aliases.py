@@ -129,6 +129,9 @@ CLAUDE_TOOL_ALIASES = {
     "WebFetch": frozenset({"web_fetch"}),
     "Write": FILE_EDIT_TOOL_NAMES,
 }
+PROFILE_TOOL_ALIAS_EXPANSIONS = {
+    "Bash": frozenset({"run_command", "start_command"}),
+}
 
 
 def tool_name_candidates(tool_name: str, action: object | None = None) -> tuple[str, ...]:
@@ -142,6 +145,13 @@ def tool_name_candidates(tool_name: str, action: object | None = None) -> tuple[
         if tool_name == alias or tool_name in internal_names or action_type in internal_names:
             names.append(alias)
     return tuple(names)
+
+
+def profile_tool_names(name: str) -> frozenset[str]:
+    expanded = PROFILE_TOOL_ALIAS_EXPANSIONS.get(name)
+    if expanded is not None:
+        return expanded
+    return frozenset({CLAUDE_TOOL_ACTION_ALIASES.get(name, name)})
 
 
 def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, dict[str, Any]]:
@@ -289,5 +299,6 @@ __all__ = [
     "FILE_EDIT_TOOL_NAMES",
     "FILE_READ_TOOL_NAMES",
     "normalize_tool_action",
+    "profile_tool_names",
     "tool_name_candidates",
 ]
