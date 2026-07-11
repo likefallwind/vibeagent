@@ -232,6 +232,8 @@ def observation_summary_target_token(observation: Observation) -> str | None:
     keep_last = getattr(observation, "keep_last", None)
     if observation.kind == "checkpoint_prune" and isinstance(keep_last, int):
         return f"keep_last={keep_last}"
+    if observation.kind in {"git_pull", "git_push"}:
+        return "current branch upstream"
     if observation.kind == "stop_all_processes":
         return "background processes"
     return None

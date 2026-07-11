@@ -1753,6 +1753,57 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(completion_module.build_denied_approval_details(observations), [])
 
+    def test_denied_approval_resolution_matches_git_pull_upstream_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="git_pull",
+                target="current branch upstream",
+                message="denied",
+            ),
+            types_module.GitPullObservation(
+                kind="git_pull",
+                ok=True,
+                remote="origin",
+                branch="main",
+                current_before="main",
+                current_after="main",
+                upstream="origin/main",
+                ahead_before=0,
+                behind_before=1,
+                ahead_after=0,
+                behind_after=0,
+                status="",
+                message="Pulled origin/main.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_matches_git_push_upstream_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="git_push",
+                target="current branch upstream",
+                message="denied",
+            ),
+            types_module.GitPushObservation(
+                kind="git_push",
+                ok=True,
+                remote="origin",
+                branch="main",
+                current="main",
+                upstream="origin/main",
+                ahead_before=1,
+                behind_before=0,
+                status="",
+                message="Pushed origin/main.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
     def test_denied_approval_resolution_matches_git_stash_message_target(self) -> None:
         observations = [
             ApprovalDeniedObservation(
