@@ -267,7 +267,7 @@ class CliTests(unittest.TestCase):
         )
 
     def test_local_result_exit_code_covers_local_result_flags(self) -> None:
-        self.assertEqual(LOCAL_FLAG_ARG_NAMES - cli_module.LOCAL_RESULT_ARG_NAMES, {"usage"})
+        self.assertEqual(LOCAL_FLAG_ARG_NAMES - cli_module.LOCAL_RESULT_ARG_NAMES, set())
         self.assertEqual(cli_module.LOCAL_RESULT_ARG_NAMES - LOCAL_FLAG_ARG_NAMES, set())
 
     def test_normalize_task_bound_diff_args_moves_task_into_diff_argument(self) -> None:
@@ -2179,6 +2179,31 @@ class CliTests(unittest.TestCase):
         self.assertTrue(payload["success"])
         self.assertEqual(payload["usage"], report)
         self.assertEqual(payload["text"], "Usage:\n  sessions: 1")
+        get_usage_report.assert_called_once_with(Path(base).resolve())
+        format_usage_report_text.assert_called_once_with(report)
+        get_usage_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
+    def test_main_usage_json_reports_missing_sessions_as_failure(self) -> None:
+        report = {"exists": False, "ok": False, "status": "missing", "message": "No sessions found."}
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_usage_report", return_value=report) as get_usage_report,
+                patch("vibeagent.cli.format_usage_report_text", return_value="No sessions found.") as format_usage_report_text,
+                patch("vibeagent.cli.get_usage_text") as get_usage_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--usage"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 1)
+        self.assertFalse(payload["success"])
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["usage"], report)
+        self.assertEqual(payload["text"], "No sessions found.")
         get_usage_report.assert_called_once_with(Path(base).resolve())
         format_usage_report_text.assert_called_once_with(report)
         get_usage_text.assert_not_called()

@@ -206,6 +206,7 @@ LOCAL_RESULT_ARG_NAMES = frozenset(
         "checkpoint_delete",
         "check_checkpoint_prune",
         "checkpoint_prune",
+        "usage",
         "cost",
         "save_config",
     }
@@ -216,7 +217,7 @@ def local_result_exit_code(args: argparse.Namespace, text: str) -> int:
     result_flag = any(local_result_arg_selected(getattr(args, name, None)) for name in LOCAL_RESULT_ARG_NAMES)
     if not result_flag:
         return 0
-    if text.startswith("Usage:"):
+    if text.startswith("Usage:") and not args.usage:
         return 2
     if text == "No sessions found.":
         return 1
