@@ -108,6 +108,8 @@ CLAUDE_TOOL_ALIASES = {
     "AskUserQuestion": frozenset({"ask_user"}),
     "Bash": BASH_TOOL_NAMES,
     "Edit": FILE_EDIT_TOOL_NAMES,
+    "NotebookEdit": FILE_EDIT_TOOL_NAMES,
+    "NotebookRead": FILE_READ_TOOL_NAMES,
     "Read": FILE_READ_TOOL_NAMES,
     "WebFetch": frozenset({"web_fetch"}),
     "Write": FILE_EDIT_TOOL_NAMES,

@@ -131,6 +131,36 @@ class ProjectPermissionConfigTests(unittest.TestCase):
         self.assertEqual(match_project_permission(config, "write_files", allowed_writes).effect, "allow")
         self.assertIsNone(match_project_permission(config, "write_files", mixed_writes))
 
+    def test_matches_claude_notebook_aliases_to_file_tools(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
+            root = Path(base)
+            _write_permissions(
+                root,
+                {
+                    "deny": ["NotebookRead(secrets/**)"],
+                    "allow": ["NotebookEdit(notebooks/**)"],
+                },
+            )
+            config = read_project_permissions(create_run_workspace(root))
+            denied_read = parse_tool_action("read_file", {"path": "secrets/model.ipynb"})
+            allowed_write = parse_tool_action(
+                "write_file",
+                {"path": "notebooks/demo.ipynb", "content": "{}\n"},
+            )
+            mixed_write = parse_tool_action(
+                "write_files",
+                {
+                    "files": [
+                        {"path": "notebooks/demo.ipynb", "content": "{}\n"},
+                        {"path": "src/demo.py", "content": "x = 1\n"},
+                    ]
+                },
+            )
+
+        self.assertEqual(match_project_permission(config, "read_file", denied_read).effect, "deny")
+        self.assertEqual(match_project_permission(config, "write_file", allowed_write).effect, "allow")
+        self.assertIsNone(match_project_permission(config, "write_files", mixed_write))
+
     def test_invalid_and_symlinked_configs_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
             root = Path(base)

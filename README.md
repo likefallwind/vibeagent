@@ -1091,8 +1091,9 @@ or under the `permissions` key in `.claude/settings.json` and
 
 Rules use `Tool` or `Tool(specifier)` syntax and are evaluated by effect in
 `deny`, `ask`, then `allow` order. Common Claude Code names including `Bash`,
-`Read`, `Edit`, `Write`, `WebFetch`, `Agent`, and `AskUserQuestion` map to the
-corresponding VibeAgent tools; native snake-case tool names are also accepted.
+`Read`, `Edit`, `Write`, `NotebookRead`, `NotebookEdit`, `WebFetch`, `Agent`,
+and `AskUserQuestion` map to the corresponding VibeAgent tools; native
+snake-case tool names are also accepted.
 Command patterns support `*`, including the trailing `:*` spelling. File
 patterns use project-relative `/`, `*`, and recursive `**` matching. A deny or
 ask rule applies when any target in a multi-file operation matches; an allow
