@@ -99,9 +99,9 @@ def _text_chunks_from_record(record: object) -> Iterable[str]:
         return tuple(chunks)
     if not _allows_task_text(record):
         return ()
-    direct_text = record.get("text")
-    if isinstance(direct_text, str):
-        return (direct_text,)
+    direct_text = _direct_text_chunks(record)
+    if direct_text:
+        return direct_text
     direct_message = record.get("message")
     if isinstance(direct_message, str):
         return (direct_message,)
@@ -118,9 +118,9 @@ def _text_chunks_from_record(record: object) -> Iterable[str]:
 def _text_from_message(message: object) -> tuple[str, ...]:
     if not isinstance(message, dict):
         return ()
-    text = message.get("text")
-    if isinstance(text, str):
-        return (text,)
+    direct_text = _direct_text_chunks(message)
+    if direct_text:
+        return direct_text
     return _text_from_content(message.get("content"))
 
 
@@ -131,9 +131,9 @@ def _text_from_role_message(message: object) -> tuple[str, ...]:
 
 
 def _message_text_chunks(message: dict[str, object]) -> tuple[str, ...]:
-    direct_text = message.get("text")
-    if isinstance(direct_text, str):
-        return (direct_text,)
+    direct_text = _direct_text_chunks(message)
+    if direct_text:
+        return direct_text
     direct_message = message.get("message")
     if isinstance(direct_message, str):
         return (direct_message,)
@@ -142,6 +142,14 @@ def _message_text_chunks(message: dict[str, object]) -> tuple[str, ...]:
         if nested_message or _record_role(direct_message) is not None:
             return nested_message
     return _text_from_content(message.get("content"))
+
+
+def _direct_text_chunks(record: dict[str, object]) -> tuple[str, ...]:
+    for key in ("text", "prompt", "input"):
+        value = record.get(key)
+        if isinstance(value, str):
+            return (value,)
+    return ()
 
 
 def _text_from_content(content: object) -> tuple[str, ...]:

@@ -89,6 +89,32 @@ class CliInputFormatTests(unittest.TestCase):
 
         self.assertEqual(resolve_stream_json_task_text(raw), "legacy direct\nlegacy message")
 
+    def test_stream_json_accepts_prompt_and_input_text_fields(self) -> None:
+        raw = "\n".join(
+            [
+                json.dumps({"prompt": "inspect changed files"}),
+                json.dumps({"type": "user", "input": "run focused tests"}),
+                json.dumps({"role": "system", "prompt": "Prefer concise output."}),
+                json.dumps({"role": "assistant", "input": "I found tests/test_app.py."}),
+            ]
+        )
+
+        parsed = resolve_stream_json_task_input(raw)
+
+        self.assertEqual(parsed.task, "inspect changed files\nrun focused tests")
+        self.assertEqual(parsed.system_prompt, "Prefer concise output.")
+        self.assertEqual(parsed.assistant_context, "I found tests/test_app.py.")
+
+    def test_stream_json_accepts_nested_prompt_and_input_message_fields(self) -> None:
+        raw = "\n".join(
+            [
+                json.dumps({"message": {"role": "user", "prompt": "fix lint"}}),
+                json.dumps({"message": {"role": "user", "input": "then summarize"}}),
+            ]
+        )
+
+        self.assertEqual(resolve_stream_json_task_text(raw), "fix lint\nthen summarize")
+
     def test_stream_json_parse_error_reports_line(self) -> None:
         with self.assertRaisesRegex(TaskInputFormatError, "line 2"):
             resolve_stream_json_task_text("{}\n{not json}\n")

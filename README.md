@@ -127,12 +127,14 @@ to `--max-iterations`. `--dangerously-skip-permissions` maps to
 `--approval allow` for one-shot coding tasks and cannot be combined with
 `--approval` or `--permission-mode`. `--input-format stream-json` reads
 newline-delimited JSON task records from stdin when the task is `-`; it accepts
-simple `text` records, `message.content`, or SDK-style `messages` arrays and
-uses `role: "user"` / `type: "user"` message text as the task when roles are
-present. System-role text becomes a one-shot system prompt for that run, and
+simple `text`, `prompt`, or `input` records, `message.content`, direct
+`message.prompt` / `message.input` text, or SDK-style `messages` arrays and uses
+`role: "user"` / `type: "user"` message text as the task when roles are present.
+System-role text becomes a one-shot system prompt for that run, and
 assistant-role text is treated as caller-supplied prior conversation context in
-coding mode. A top-level `session_id` or `sessionId` field resumes that VibeAgent
-session in coding mode when neither `--resume` nor `--compact` is provided.
+coding mode. A top-level `session_id` or `sessionId` field resumes that
+VibeAgent session in coding mode when neither `--resume` nor `--compact` is
+provided.
 When `-c`, `--resume [run-id]`, or `--compact [run-id]` is provided without a
 task, VibeAgent starts the interactive prompt with that context already loaded.
 `--system-prompt` replaces the default one-shot system prompt for a command;
