@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from vibeagent.actions import parse_tool_action
-from vibeagent.action_tool_aliases import CLAUDE_TOOL_ACTION_ALIASES
+from vibeagent.action_tool_aliases import CLAUDE_TOOL_ACTION_ALIASES, CLAUDE_TOOL_ALIASES
 from vibeagent.agent import run_agent
 from vibeagent.agent_delegate_tools import execute_delegate_tool_call
 from vibeagent.cli_args import parse_args
@@ -22,7 +22,6 @@ from vibeagent.tool_catalog import format_permissions_report_text, get_permissio
 from vibeagent.types import ApprovalDecision, AssistantResponse, ChatMessage, ContentBlock
 from vibeagent.workspace import create_run_workspace
 from vibeagent.workspace_permissions import (
-    CLAUDE_TOOL_ALIASES,
     match_project_permission,
     merge_project_permissions,
     read_project_permissions,

@@ -21,7 +21,7 @@ from vibeagent.actions import (
     run_command,
     save_checkpoint_untracked_files,
 )
-from vibeagent.action_tool_aliases import CLAUDE_TOOL_ACTION_ALIASES
+from vibeagent.action_tool_aliases import CLAUDE_TOOL_ACTION_ALIASES, tool_name_candidates
 from vibeagent.prompt_observation_session import format_session_observation
 from vibeagent.types import (
     AppendFileAction,
@@ -298,6 +298,12 @@ class FakeHTTPResponse:
 
 
 class ActionTests(unittest.TestCase):
+    def test_tool_name_candidates_include_internal_and_claude_aliases(self) -> None:
+        action = parse_tool_action("Write", {"file_path": "app.py", "content": "x = 1\n"})
+
+        self.assertEqual(tool_name_candidates("Write", action), ("Write", "write_file", "Edit", "NotebookEdit"))
+        self.assertEqual(tool_name_candidates("write_file", action), ("write_file", "Edit", "NotebookEdit", "Write"))
+
     def test_parse_tool_action_accepts_project_actions(self) -> None:
         cases = [
             ("list_files", {"path": "src"}, "list_files"),
