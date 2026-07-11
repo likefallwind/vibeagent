@@ -11,6 +11,7 @@ from .chat import run_chat
 from .cli_context import build_context_limit_kwargs, resolve_one_shot_prior_context
 from .cli_config import build_provider_env, resolve_project_root
 from .cli_input_format import resolve_stream_json_task_text
+from .cli_mcp_args import resolve_mcp_config_paths
 from .cli_output import (
     build_approval_handler,
     format_error,
@@ -67,6 +68,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "model_retries": args.model_retries,
         "model_retry_delay_ms": args.model_retry_delay_ms,
         "model_timeout_ms": args.model_timeout_ms,
+        "mcp_config_paths": args.mcp_config,
         "system_prompt": args.system_prompt,
         "append_system_prompt": args.append_system_prompt,
         "output_json": args.json,
@@ -102,6 +104,7 @@ def run_one_shot(
     model_retries: int | None = None,
     model_retry_delay_ms: int | None = None,
     model_timeout_ms: int | None = None,
+    mcp_config_paths: list[str] | tuple[str, ...] | None = None,
     system_prompt: str | None = None,
     append_system_prompt: str | None = None,
     output_json: bool = False,
@@ -129,6 +132,10 @@ def run_one_shot(
         if not task.strip():
             return emit_error("No task provided.")
         project_root = resolve_project_root(base_dir) or Path.cwd()
+        try:
+            resolved_mcp_config_paths = resolve_mcp_config_paths(project_root, mcp_config_paths)
+        except ValueError as error:
+            return emit_error(str(error), exit_code=2)
         config_root = project_root
         execution_config = resolve_execution_config(
             config_root,
@@ -188,7 +195,9 @@ def run_one_shot(
         if prior_context.error is not None:
             return emit_error(prior_context.error)
         client = create_chat_client_func(provider_env)
-        stream_workspace = create_run_workspace(project_root) if stream is not None else None
+        stream_workspace = (
+            create_run_workspace(project_root, mcp_config_paths=resolved_mcp_config_paths) if stream is not None else None
+        )
         event_scope = (
             observe_session_events(stream_workspace.session_dir, stream.session_event)
             if stream is not None and stream_workspace is not None
@@ -207,6 +216,7 @@ def run_one_shot(
             "approval_policy": approval_policy,
             "trust_project_permissions": trust_project_permissions or is_project_permissions_trusted(project_root),
             "permission_overrides": permission_overrides,
+            "mcp_config_paths": resolved_mcp_config_paths,
             "user_input_handler": None if machine_output else prompt_user_input,
             "prior_context": prior_context.context,
             "system_prompt": system_prompt,

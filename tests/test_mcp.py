@@ -83,6 +83,23 @@ def _write_mcp_project(root: Path, *, cwd: str = ".") -> None:
     )
 
 
+def _write_mcp_config(path: Path, server_name: str, *, cwd: str = ".") -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    server_name: {
+                        "command": sys.executable,
+                        "args": ["mcp_server.py"],
+                        "cwd": cwd,
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 class McpRuntimeTests(unittest.TestCase):
     def test_lists_config_without_exposing_environment_values(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
@@ -98,6 +115,44 @@ class McpRuntimeTests(unittest.TestCase):
         self.assertEqual(observation.servers[0].env_keys, ["MCP_TEST_VALUE"])
         self.assertFalse(hasattr(observation.servers[0], "env"))
         self.assertFalse(hasattr(observation.servers[0], "args"))
+
+    def test_workspace_can_merge_extra_mcp_config_paths(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
+            root = Path(base)
+            _write_mcp_project(root)
+            extra = root / "extra.mcp.json"
+            _write_mcp_config(extra, "extra")
+            workspace = create_run_workspace(root, "run-1", mcp_config_paths=(extra,))
+
+            configs = read_mcp_server_configs(workspace)
+            observation = execute_action(workspace, parse_tool_action("mcp_servers", {}))
+
+        self.assertEqual([config.name for config in configs], ["extra", "test"])
+        self.assertEqual([server.name for server in observation.servers], ["extra", "test"])
+        self.assertIn(".mcp.json", observation.config_path)
+        self.assertIn("extra.mcp.json", observation.config_path)
+
+    def test_duplicate_extra_mcp_server_names_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
+            root = Path(base)
+            (root / "mcp_server.py").write_text(MCP_SERVER_SOURCE, encoding="utf-8")
+            _write_mcp_config(root / ".mcp.json", "test")
+            extra = root / "extra.mcp.json"
+            _write_mcp_config(extra, "test")
+            workspace = create_run_workspace(root, "run-1", mcp_config_paths=(extra,))
+
+            with self.assertRaisesRegex(ValueError, "defined in both"):
+                read_mcp_server_configs(workspace)
+
+    def test_explicit_project_mcp_config_path_is_deduplicated(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
+            root = Path(base)
+            _write_mcp_project(root)
+            workspace = create_run_workspace(root, "run-1", mcp_config_paths=(root / ".mcp.json",))
+
+            configs = read_mcp_server_configs(workspace)
+
+        self.assertEqual([config.name for config in configs], ["test"])
 
     def test_lists_and_calls_tools_over_real_stdio_protocol(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:

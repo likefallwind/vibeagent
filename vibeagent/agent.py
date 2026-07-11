@@ -108,11 +108,15 @@ def run_agent(
     task_metadata: dict[str, object] | None = None,
     trust_project_permissions: bool = False,
     permission_overrides: ProjectPermissions | None = None,
+    mcp_config_paths: tuple[Path, ...] = (),
     system_prompt: str | None = None,
     append_system_prompt: str | None = None,
 ) -> AgentResult:
     # Start with an isolated run workspace for one task execution.
-    current_workspace = workspace or create_run_workspace(base_dir)
+    current_workspace = workspace or create_run_workspace(base_dir, mcp_config_paths=mcp_config_paths)
+    if workspace is not None and mcp_config_paths and not workspace.mcp_config_paths:
+        absolute_mcp_paths = tuple(path if path.is_absolute() else current_workspace.root / path for path in mcp_config_paths)
+        current_workspace = replace(workspace, mcp_config_paths=absolute_mcp_paths)
     if trust_project_permissions and not current_workspace.project_config_trusted:
         current_workspace = replace(current_workspace, project_config_trusted=True)
     project_permissions = read_project_permissions(current_workspace)

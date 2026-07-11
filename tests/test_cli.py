@@ -330,6 +330,13 @@ class CliTests(unittest.TestCase):
         self.assertEqual(kwargs["system_prompt"], "You are a release engineer.")
         self.assertEqual(kwargs["append_system_prompt"], "Prefer focused tests.")
 
+    def test_build_one_shot_kwargs_from_args_includes_mcp_config_paths(self) -> None:
+        args = cli_module.parse_args(["--mcp-config", "extra.mcp.json", "inspect"])
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertEqual(kwargs["mcp_config_paths"], ["extra.mcp.json"])
+
     def test_cli_compat_aliases_map_to_existing_one_shot_fields(self) -> None:
         args = cli_module.parse_args(
             [
@@ -382,6 +389,11 @@ class CliTests(unittest.TestCase):
             cli_module.validate_cli_args(local_args),
             "--system-prompt and --append-system-prompt require a one-shot task.",
         )
+
+    def test_cli_rejects_mcp_config_without_one_shot_task(self) -> None:
+        args = cli_module.parse_args(["--mcp-config", "extra.mcp.json", "--tools"])
+
+        self.assertEqual(cli_module.validate_cli_args(args), "--mcp-config requires a one-shot task.")
 
     def test_build_one_shot_kwargs_from_args_includes_permission_overrides(self) -> None:
         args = cli_module.parse_args(
@@ -13090,6 +13102,44 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIsNone(run_agent.call_args.kwargs["system_prompt"])
         self.assertEqual(run_agent.call_args.kwargs["append_system_prompt"], "Prefer focused tests.")
+
+    def test_main_passes_mcp_config_paths_to_one_shot_code_task(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            (root / "extra.mcp.json").write_text('{"mcpServers": {}}', encoding="utf-8")
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=root,
+                run_id="new-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", base, "--mcp-config", "extra.mcp.json", "inspect"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.kwargs["mcp_config_paths"], (root / "extra.mcp.json",))
+
+    def test_main_missing_mcp_config_path_does_not_create_client(self) -> None:
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", base, "--mcp-config", "missing.json", "inspect"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("--mcp-config file not found: missing.json.", stdout.getvalue())
+        create_chat_client.assert_not_called()
 
     def test_main_one_shot_code_task_can_load_resume_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:

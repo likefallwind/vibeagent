@@ -110,6 +110,7 @@ python -m vibeagent --output-format stream-json --cwd ../my-project "run the rel
 printf '{"type":"user","text":"inspect the change"}\n' | python -m vibeagent --input-format stream-json -
 python -m vibeagent --append-system-prompt "Prefer focused tests before broad suites." "inspect the change"
 python -m vibeagent --allowed-tools "Read" --allowed-tools "Bash(git diff:*)" --disallowed-tools "Bash(git push:*)" "inspect the change"
+python -m vibeagent --mcp-config docs.mcp.json "use the docs MCP server to check the API"
 python -m vibeagent --provider deepseek --model-name deepseek-reasoner --base-url https://api.deepseek.com "inspect this repo"
 printf "summarize the project risks\n" | python -m vibeagent -
 ```
@@ -1111,6 +1112,10 @@ approval and performs the MCP initialization plus `tools/list` flow.
 tool was advertised, sends bounded JSON arguments, enforces per-request
 timeouts and output limits, and terminates the stdio server afterward. MCP
 server commands still pass VibeAgent's hard command-safety checks.
+One-shot runs can add extra MCP configuration files with repeated
+`--mcp-config PATH` arguments. Relative paths are resolved from `--cwd` or the
+current project directory. Server names must be unique across `.mcp.json` and
+all extra files, and each server `cwd` still has to resolve inside the project.
 
 ## Architecture
 

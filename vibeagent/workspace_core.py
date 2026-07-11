@@ -13,6 +13,7 @@ class RunWorkspace:
     run_id: str
     session_dir: Path
     project_config_trusted: bool = False
+    mcp_config_paths: tuple[Path, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -36,7 +37,11 @@ TEST_FILE_SUFFIXES = (".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs")
 JS_TEST_SUFFIXES = (".test", ".spec")
 
 
-def create_run_workspace(base_dir: str | Path | None = None, run_id: str | None = None) -> RunWorkspace:
+def create_run_workspace(
+    base_dir: str | Path | None = None,
+    run_id: str | None = None,
+    mcp_config_paths: tuple[Path, ...] = (),
+) -> RunWorkspace:
     # Project mode: work in the caller's directory and store task logs under .vibeagent/sessions/.
     base = Path(base_dir) if base_dir is not None else Path.cwd()
     project_root = base.resolve()
@@ -70,10 +75,11 @@ def create_run_workspace(base_dir: str | Path | None = None, run_id: str | None 
         run_id=current_run_id,
         session_dir=session_dir,
         project_config_trusted=is_project_permissions_trusted(project_root),
+        mcp_config_paths=tuple(_absolute_path(project_root, path) for path in mcp_config_paths),
     )
 
 
-def create_local_workspace(root: str | Path, run_id: str) -> RunWorkspace:
+def create_local_workspace(root: str | Path, run_id: str, mcp_config_paths: tuple[Path, ...] = ()) -> RunWorkspace:
     from .project_trust import is_project_permissions_trusted
 
     project_root = Path(root).resolve()
@@ -82,6 +88,7 @@ def create_local_workspace(root: str | Path, run_id: str) -> RunWorkspace:
         run_id=run_id,
         session_dir=project_root / ".vibeagent" / "sessions" / run_id,
         project_config_trusted=is_project_permissions_trusted(project_root),
+        mcp_config_paths=tuple(_absolute_path(project_root, path) for path in mcp_config_paths),
     )
 
 
@@ -90,3 +97,7 @@ def make_run_id() -> str:
     timestamp = datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
     safe_timestamp = timestamp.replace(":", "-").replace(".", "-")
     return f"{safe_timestamp}-{uuid4().hex[:8]}"
+
+
+def _absolute_path(root: Path, path: Path) -> Path:
+    return path if path.is_absolute() else root / path

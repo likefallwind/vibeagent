@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .command_safety import get_blocked_command_reason
-from .mcp_config import get_mcp_server_config, read_mcp_server_configs
+from .mcp_config import get_mcp_server_config, mcp_config_paths, read_mcp_server_configs
 from .mcp_stdio import McpStdioClient
 from .redaction import redact_sensitive_text
 from .types import (
@@ -27,6 +27,7 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
     if isinstance(action, McpServersAction):
         try:
             configs = read_mcp_server_configs(workspace)
+            config_path = ", ".join(_config_path_label(workspace, path) for path in mcp_config_paths(workspace)) or ".mcp.json"
             shown = configs[: action.max_servers]
             return McpServersObservation(
                 kind="mcp_servers",
@@ -43,7 +44,7 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
                 ],
                 total=len(configs),
                 truncated=len(configs) > len(shown),
-                config_path=".mcp.json",
+                config_path=config_path,
                 message=f"Found {len(configs)} configured MCP server(s).",
             )
         except (OSError, ValueError) as error:
@@ -115,6 +116,13 @@ def _safe_server_config(workspace: RunWorkspace, name: str):
     if blocked:
         raise ValueError(f"MCP server command is blocked: {blocked}")
     return config
+
+
+def _config_path_label(workspace: RunWorkspace, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(workspace.root).as_posix()
+    except ValueError:
+        return path.resolve().as_posix()
 
 
 def _normalize_tool(item: dict[str, Any]) -> McpToolInfo:
