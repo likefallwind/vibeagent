@@ -8,6 +8,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from .config import get_first_api_key, normalize_api_key, resolve_provider_config
+from .provider_tool_calls import parse_function_tool_call
 from .types import AssistantResponse, ChatMessage, ChatClient, ContentBlock, ModelUsage
 
 
@@ -219,28 +220,10 @@ def legacy_message_content_blocks(message: dict[str, Any]) -> list[ContentBlock]
     tool_calls = message.get("tool_calls")
     if isinstance(tool_calls, list):
         for tool_call in tool_calls:
-            block = legacy_tool_call_block(tool_call)
+            block = parse_function_tool_call(tool_call)
             if block is not None:
                 blocks.append(block)
     return blocks
-
-
-def legacy_tool_call_block(value: Any) -> ContentBlock | None:
-    if not isinstance(value, dict) or not isinstance(value.get("id"), str):
-        return None
-    function = value.get("function")
-    if not isinstance(function, dict) or not isinstance(function.get("name"), str):
-        return None
-    raw_arguments = function.get("arguments", "{}")
-    tool_input: Any
-    if isinstance(raw_arguments, str):
-        try:
-            tool_input = json.loads(raw_arguments or "{}")
-        except json.JSONDecodeError:
-            tool_input = raw_arguments
-    else:
-        tool_input = raw_arguments
-    return {"type": "tool_call", "id": value["id"], "name": function["name"], "input": tool_input}
 
 
 def extract_usage(data: Any) -> ModelUsage | None:
