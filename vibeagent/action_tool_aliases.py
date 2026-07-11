@@ -7,6 +7,7 @@ CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
     "Bash": "run_command",
     "BashOutput": "read_process",
     "Edit": "edit_file",
+    "ExitPlanMode": "update_plan",
     "Glob": "glob",
     "Grep": "search",
     "KillBash": "stop_process",
@@ -15,7 +16,10 @@ CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
     "Read": "read_file",
     "TodoRead": "todo_read",
     "TodoWrite": "todo_write",
+    "Task": "delegate_task",
+    "WebFetch": "web_fetch",
     "Write": "write_file",
+    "AskUserQuestion": "ask_user",
 }
 
 
@@ -25,6 +29,12 @@ def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, d
         return "start_command", _drop_fields(dict(tool_input), {"run_in_background", "timeout_ms", "max_output_chars"})
     if action_type in {"read_process", "stop_process"}:
         return action_type, _rename_fields(tool_input, {"bash_id": "process_id"})
+    if name == "ExitPlanMode":
+        return action_type, _normalize_exit_plan_mode_input(tool_input)
+    if action_type == "ask_user":
+        return action_type, _rename_fields(tool_input, {"prompt": "question"})
+    if action_type == "delegate_task":
+        return action_type, _normalize_task_input(tool_input)
     if action_type == "read_file":
         return action_type, _rename_fields(tool_input, {"file_path": "path", "offset": "start_line", "limit": "line_count"})
     if action_type in {"write_file", "list_tree"}:
@@ -53,6 +63,15 @@ def _drop_fields(value: dict[str, Any], fields: set[str]) -> dict[str, Any]:
     return value
 
 
+def _normalize_exit_plan_mode_input(value: dict[str, Any]) -> dict[str, Any]:
+    plan = value.get("plan")
+    if isinstance(plan, list):
+        return {"plan": plan}
+    if isinstance(plan, str) and plan.strip():
+        return {"plan": [{"step": plan.strip(), "status": "completed"}]}
+    return dict(value)
+
+
 def _normalize_multi_edit_input(value: dict[str, Any]) -> dict[str, Any]:
     normalized = _rename_fields(value, {"file_path": "path"})
     edits = normalized.get("edits")
@@ -61,6 +80,12 @@ def _normalize_multi_edit_input(value: dict[str, Any]) -> dict[str, Any]:
             _rename_fields(edit, {"old_string": "old", "new_string": "new"}) if isinstance(edit, dict) else edit
             for edit in edits
         ]
+    return normalized
+
+
+def _normalize_task_input(value: dict[str, Any]) -> dict[str, Any]:
+    normalized = _rename_fields(value, {"prompt": "task", "description": "context", "subagent_type": "agent"})
+    normalized.setdefault("mode", "explore")
     return normalized
 
 

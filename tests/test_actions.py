@@ -2268,6 +2268,13 @@ class ActionTests(unittest.TestCase):
         background_bash_action = parse_tool_action("Bash", {"command": "npm run dev", "run_in_background": True})
         bash_output_action = parse_tool_action("BashOutput", {"bash_id": "proc-1", "max_output_chars": 2000})
         kill_bash_action = parse_tool_action("KillBash", {"bash_id": "proc-1"})
+        web_fetch_action = parse_tool_action("WebFetch", {"url": "https://docs.python.org/3/"})
+        ask_user_action = parse_tool_action("AskUserQuestion", {"prompt": "Which option?", "options": ["A", "B"]})
+        task_action = parse_tool_action(
+            "Task",
+            {"prompt": "Inspect failures", "description": "Focus on tests", "subagent_type": "test-writer"},
+        )
+        exit_plan_action = parse_tool_action("ExitPlanMode", {"plan": "Implement the selected fix"})
         write_action = parse_tool_action("Write", {"file_path": "out.txt", "content": "ok\n"})
         edit_action = parse_tool_action("Edit", {"file_path": "app.py", "old_string": "old", "new_string": "new"})
         multi_edit_action = parse_tool_action(
@@ -2298,6 +2305,17 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(bash_output_action.max_output_chars, 2000)
         self.assertEqual(kill_bash_action.type, "stop_process")
         self.assertEqual(kill_bash_action.process_id, "proc-1")
+        self.assertEqual(web_fetch_action.type, "web_fetch")
+        self.assertEqual(web_fetch_action.url, "https://docs.python.org/3/")
+        self.assertEqual(ask_user_action.type, "ask_user")
+        self.assertEqual(ask_user_action.question, "Which option?")
+        self.assertEqual(task_action.type, "delegate_task")
+        self.assertEqual(task_action.task, "Inspect failures")
+        self.assertEqual(task_action.context, "Focus on tests")
+        self.assertEqual(task_action.agent, "test-writer")
+        self.assertEqual(exit_plan_action.type, "update_plan")
+        self.assertEqual(exit_plan_action.plan[0].step, "Implement the selected fix")
+        self.assertEqual(exit_plan_action.plan[0].status, "completed")
         self.assertEqual(write_action.type, "write_file")
         self.assertEqual(write_action.path, "out.txt")
         self.assertEqual(edit_action.type, "edit_file")
