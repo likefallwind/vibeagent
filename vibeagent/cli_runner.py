@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from contextlib import nullcontext
 from pathlib import Path
 import sys
+from time import monotonic
 
 from .agent import run_agent
 from .chat import run_chat
@@ -118,6 +119,7 @@ def run_one_shot(
     get_resume_context_func=get_resume_context,
     get_compact_context_func=get_compact_context,
 ) -> int:
+    started_at = monotonic()
     effective_output_format = output_format or ("json" if output_json else "text")
     stream_json = effective_output_format == "stream-json"
     machine_output = effective_output_format in {"json", "stream-json"}
@@ -162,6 +164,8 @@ def run_one_shot(
                 append_system_prompt=append_system_prompt,
             )
             payload = {"kind": "chat", "success": True, "status": "completed", "message": response}
+            if machine_output:
+                payload["durationMs"] = elapsed_milliseconds(started_at)
             if stream is not None:
                 stream.result(payload)
             else:
@@ -229,6 +233,7 @@ def run_one_shot(
             result = run_agent_func(task, **run_kwargs)
         result_payload = build_code_result_payload(result, prior_context)
         if machine_output:
+            result_payload["durationMs"] = elapsed_milliseconds(started_at)
             result_payload["usage"] = build_run_usage_report(project_root, result.run_id)
         if stream is not None:
             stream.result(result_payload)
@@ -245,3 +250,7 @@ def run_one_shot(
         if stream is not None:
             return emit_error(format_error(error))
         return print_error_result(format_error(error), output_json, prefix=True)
+
+
+def elapsed_milliseconds(started_at: float) -> int:
+    return max(0, round((monotonic() - started_at) * 1000))

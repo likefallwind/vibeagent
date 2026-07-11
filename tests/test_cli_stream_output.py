@@ -99,6 +99,7 @@ class CliOutputFormatTests(unittest.TestCase):
             with (
                 patch("vibeagent.cli.create_chat_client", return_value=object()),
                 patch("vibeagent.cli.run_agent", return_value=_result(Path(base))),
+                patch("vibeagent.cli_runner.monotonic", side_effect=[10.0, 10.123]),
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--output-format", "json", "--cwd", base, "inspect"])
@@ -107,6 +108,7 @@ class CliOutputFormatTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "code")
         self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["durationMs"], 123)
         self.assertEqual(payload["usage"]["usage"]["sessions"], 1)
         self.assertEqual(payload["usage"]["usage"]["tokens"]["input"], 10)
         self.assertEqual(payload["usage"]["usage"]["tokens"]["output"], 4)
@@ -140,6 +142,8 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual(final["kind"], "code")
         self.assertEqual(final["status"], "completed")
         self.assertEqual(final["message"], "Inspected the project.")
+        self.assertIsInstance(final["durationMs"], int)
+        self.assertGreaterEqual(final["durationMs"], 0)
         self.assertTrue(final["usage"]["exists"])
         self.assertEqual(final["usage"]["usage"]["sessions"], 1)
         self.assertEqual(final["usage"]["usage"]["tokens"]["input"], 0)
@@ -246,6 +250,8 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual(records[0]["type"], "result")
         self.assertEqual(records[0]["kind"], "chat")
         self.assertEqual(records[0]["message"], "hello")
+        self.assertIsInstance(records[0]["durationMs"], int)
+        self.assertGreaterEqual(records[0]["durationMs"], 0)
 
 
 class SessionEventObserverTests(unittest.TestCase):

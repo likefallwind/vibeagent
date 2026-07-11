@@ -13118,13 +13118,17 @@ class CliTests(unittest.TestCase):
         with (
             patch("vibeagent.cli.create_chat_client", return_value=object()),
             patch("vibeagent.cli.run_chat", return_value="你好"),
+            patch("vibeagent.cli_runner.monotonic", side_effect=[20.0, 20.045]),
             redirect_stdout(stdout),
         ):
             exit_code = main(["--json", "--chat", "随便聊聊"])
 
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 0)
-        self.assertEqual(payload, {"kind": "chat", "message": "你好", "success": True, "status": "completed"})
+        self.assertEqual(
+            payload,
+            {"durationMs": 45, "kind": "chat", "message": "你好", "success": True, "status": "completed"},
+        )
 
     def test_main_passes_system_prompt_to_one_shot_chat(self) -> None:
         run_chat = Mock(return_value="好")
