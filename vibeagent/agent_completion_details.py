@@ -143,10 +143,7 @@ def observation_target_tokens(observation: Observation) -> set[str]:
         "checkpoint_id",
     ):
         tokens.update(normalized_approval_target_tokens(getattr(observation, name, "")))
-    source = str(getattr(observation, "source", "") or "").strip()
-    destination = str(getattr(observation, "destination", "") or "").strip()
-    if source and destination:
-        tokens.add(f"{source} -> {destination}")
+    tokens.update(transfer_target_tokens(observation))
     server = str(getattr(observation, "server", "") or "").strip()
     name = str(getattr(observation, "name", "") or "").strip()
     if server and name:
@@ -192,13 +189,24 @@ def observation_target_tokens(observation: Observation) -> set[str]:
     transfers = getattr(observation, "transfers", [])
     if isinstance(transfers, list):
         for transfer in transfers:
-            source = str(getattr(transfer, "source", "") or "").strip()
-            destination = str(getattr(transfer, "destination", "") or "").strip()
+            source = string_attr(transfer, "source")
+            destination = string_attr(transfer, "destination")
             tokens.update(normalized_approval_target_tokens(source))
             tokens.update(normalized_approval_target_tokens(destination))
-            if source and destination:
-                tokens.add(f"{source} -> {destination}")
+            tokens.update(transfer_target_tokens(transfer))
     return tokens
+
+
+def string_attr(value: object, name: str, default: str = "") -> str:
+    return str(getattr(value, name, default) or default).strip()
+
+
+def transfer_target_tokens(value: object) -> set[str]:
+    source = string_attr(value, "source")
+    destination = string_attr(value, "destination")
+    if not source or not destination:
+        return set()
+    return {f"{source} -> {destination}"}
 
 
 def observation_symbol_target_tokens(observation: Observation) -> set[str]:
