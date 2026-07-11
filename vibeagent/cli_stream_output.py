@@ -21,6 +21,7 @@ class JsonEventStream:
                 "type": "event",
                 "runId": session_dir.name,
                 "sessionId": session_dir.name,
+                "session_id": session_dir.name,
                 "event": event,
             }
         )
@@ -37,18 +38,22 @@ class JsonEventStream:
 
 
 def build_code_result_payload(result: AgentResult, prior_context: object) -> dict[str, object]:
+    stop_reason = code_result_stop_reason(result)
     return {
         "kind": "code",
         "success": result.success,
         "status": result.status,
-        "stopReason": code_result_stop_reason(result),
+        "stopReason": stop_reason,
+        "stop_reason": stop_reason,
         "message": result.message,
         "result": result.message,
         "runId": result.run_id,
         "sessionId": result.run_id,
+        "session_id": result.run_id,
         "runDir": str(result.run_dir),
         "iterations": result.iterations,
         "numTurns": result.iterations,
+        "num_turns": result.iterations,
         "steps": len(result.steps),
         "priorContext": prior_context.to_json(),
         "plan": [{"status": item.status, "step": item.step} for item in result.plan],
@@ -76,6 +81,11 @@ def error_result_payload(error: str, *, kind: str = "error", status: str = "fail
     return {"kind": kind, "success": False, "status": status, "error": error}
 
 
+def add_duration_fields(payload: dict[str, object], duration_ms: int) -> None:
+    payload["durationMs"] = duration_ms
+    payload["duration_ms"] = duration_ms
+
+
 def code_result_stop_reason(result: AgentResult) -> str:
     if result.success and result.completion_ready:
         return "completed"
@@ -84,4 +94,10 @@ def code_result_stop_reason(result: AgentResult) -> str:
     return "failed"
 
 
-__all__ = ["JsonEventStream", "build_code_result_payload", "code_result_stop_reason", "error_result_payload"]
+__all__ = [
+    "JsonEventStream",
+    "add_duration_fields",
+    "build_code_result_payload",
+    "code_result_stop_reason",
+    "error_result_payload",
+]

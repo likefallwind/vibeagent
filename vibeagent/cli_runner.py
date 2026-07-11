@@ -23,7 +23,7 @@ from .cli_output import (
     prompt_user_input,
 )
 from .cli_permission_overrides import build_permission_overrides
-from .cli_stream_output import JsonEventStream, build_code_result_payload, error_result_payload
+from .cli_stream_output import JsonEventStream, add_duration_fields, build_code_result_payload, error_result_payload
 from .commands import get_compact_context, get_resume_context
 from .config import resolve_cost_rates, resolve_execution_config
 from .providers import create_chat_client
@@ -188,8 +188,9 @@ def run_one_shot(
                 "result": response,
             }
             if machine_output:
-                payload["durationMs"] = elapsed_milliseconds(started_at)
+                add_duration_fields(payload, elapsed_milliseconds(started_at))
                 payload["numTurns"] = 1
+                payload["num_turns"] = 1
             if stream is not None:
                 stream.result(payload)
             else:
@@ -258,7 +259,7 @@ def run_one_shot(
             result = run_agent_func(task, **run_kwargs)
         result_payload = build_code_result_payload(result, prior_context)
         if machine_output:
-            result_payload["durationMs"] = elapsed_milliseconds(started_at)
+            add_duration_fields(result_payload, elapsed_milliseconds(started_at))
             result_payload["usage"] = build_run_usage_report(project_root, result.run_id)
             cost_rates, cost_errors = resolve_cost_rates(provider_env)
             result_payload["cost"] = build_run_cost_report(project_root, result.run_id, cost_rates, cost_errors)

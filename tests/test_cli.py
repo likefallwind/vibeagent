@@ -891,12 +891,15 @@ class CliTests(unittest.TestCase):
         self.assertTrue(payload["success"])
         self.assertEqual(payload["status"], "blocked")
         self.assertEqual(payload["stopReason"], "blocked")
+        self.assertEqual(payload["stop_reason"], "blocked")
         self.assertEqual(payload["message"], "done")
         self.assertEqual(payload["result"], "done")
         self.assertEqual(payload["runId"], "one-shot")
         self.assertEqual(payload["sessionId"], "one-shot")
+        self.assertEqual(payload["session_id"], "one-shot")
         self.assertEqual(payload["iterations"], 2)
         self.assertEqual(payload["numTurns"], 2)
+        self.assertEqual(payload["num_turns"], 2)
         self.assertEqual(payload["steps"], 1)
         self.assertEqual(payload["priorContext"], {"loaded": False, "source": "auto_compact", "runId": None})
         self.assertEqual(
@@ -13224,9 +13227,11 @@ class CliTests(unittest.TestCase):
             payload,
             {
                 "durationMs": 45,
+                "duration_ms": 45,
                 "kind": "chat",
                 "message": "你好",
                 "numTurns": 1,
+                "num_turns": 1,
                 "result": "你好",
                 "success": True,
                 "status": "completed",
