@@ -23,6 +23,9 @@ AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 MAX_AGENT_FILE_BYTES = 64_000
 MAX_AGENT_SCAN = 500
 KNOWN_TOOL_NAMES = frozenset(str(tool["name"]) for tool in AGENT_TOOL_DEFINITIONS)
+PROFILE_TOOL_ALIAS_EXPANSIONS = {
+    "Bash": frozenset({"run_command", "start_command"}),
+}
 
 
 def read_project_agents(workspace: RunWorkspace, max_agents: int = 100) -> dict[str, object]:
@@ -181,14 +184,22 @@ def _parse_tool_names(value: object) -> frozenset[str] | None:
         names = parsed
     else:
         names = text.split(",")
-    normalized = frozenset(_normalize_profile_tool_name(name.strip()) for name in names if name.strip())
+    normalized = frozenset(
+        tool_name
+        for name in names
+        if name.strip()
+        for tool_name in _normalize_profile_tool_names(name.strip())
+    )
     if not normalized:
         raise ValueError("Agent profile tools must not be empty when declared.")
     return normalized
 
 
-def _normalize_profile_tool_name(name: str) -> str:
-    return CLAUDE_TOOL_ACTION_ALIASES.get(name, name)
+def _normalize_profile_tool_names(name: str) -> frozenset[str]:
+    expanded = PROFILE_TOOL_ALIAS_EXPANSIONS.get(name)
+    if expanded is not None:
+        return expanded
+    return frozenset({CLAUDE_TOOL_ACTION_ALIASES.get(name, name)})
 
 
 def _validate_agent_tools(mode: str, tools: frozenset[str] | None) -> None:

@@ -54,11 +54,11 @@ def code_delegate_initial_tool_names(
     approval_policy: ApprovalPolicy,
     allowed_tool_names: frozenset[str] | None = None,
 ) -> set[str]:
+    source_names = allowed_tool_names if allowed_tool_names is not None else initial_agent_tool_names()
     return {
         name
-        for name in initial_agent_tool_names()
+        for name in source_names
         if tool_available_for_policy(name, approval_policy, CODE_DELEGATE_EXCLUDED_TOOL_NAMES)
-        and (allowed_tool_names is None or name in allowed_tool_names)
     }
 
 

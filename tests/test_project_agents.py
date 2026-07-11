@@ -238,6 +238,60 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertEqual(result["kind"], "read_file")
         self.assertEqual(result["path"], "README.md")
 
+    def test_code_profile_bash_alias_allows_background_bash(self) -> None:
+        approvals: list[str] = []
+        client = ProfileClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "bash-1",
+                        "name": "Bash",
+                        "input": {"command": "python3 -c \"print('ready')\"", "run_in_background": True},
+                    }
+                ],
+                [{"type": "text", "text": "Started the command."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            _write_agent(
+                root,
+                ".claude/agents",
+                "runner",
+                "Runs commands",
+                "Use the declared command tool.",
+                mode="code",
+                tools="Bash",
+            )
+            workspace = create_run_workspace(root, "run-1")
+            loaded = read_project_agent(workspace, "runner")
+            action = parse_tool_action("delegate_task", {"task": "Start a command", "agent": "runner"})
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=lambda request: (
+                    approvals.append(request.action_type)
+                    or ApprovalDecision(approved=True, message="approved")
+                ),
+            )
+
+        self.assertEqual(loaded["tools"], ["run_command", "start_command"])
+        self.assertTrue(observation.ok)
+        self.assertEqual(set(client.tool_names[0]), {"finish", "run_command", "start_command"})
+        result = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertEqual(result["kind"], "start_command")
+        self.assertEqual(approvals, ["start_command"])
+
     def test_hidden_tool_call_cannot_escape_profile_allowlist(self) -> None:
         approvals: list[str] = []
         client = ProfileClient(
