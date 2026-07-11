@@ -13,6 +13,23 @@ from .agent_completion_kinds import PROJECT_CHANGE_OBSERVATION_KINDS
 from .agent_observation_utils import observation_failed, summarize
 from .types import Observation
 
+BASIC_TARGET_FIELDS = (
+    "path",
+    "definition_path",
+    "source",
+    "destination",
+    "process_id",
+    "url",
+    "final_url",
+    "server",
+    "remote",
+    "branch",
+    "upstream",
+    "stash_ref",
+    "message_text",
+    "checkpoint_id",
+)
+
 
 def final_review_running_process_count(final_review: Observation | None) -> int:
     if final_review is None:
@@ -128,35 +145,46 @@ def denied_approval_target_matches_observation(denied_target: str, observation: 
 
 def observation_target_tokens(observation: Observation) -> set[str]:
     tokens: set[str] = set()
-    for name in (
-        "path",
-        "definition_path",
-        "source",
-        "destination",
-        "process_id",
-        "url",
-        "final_url",
-        "server",
-        "remote",
-        "branch",
-        "upstream",
-        "stash_ref",
-        "message_text",
-        "checkpoint_id",
-    ):
-        tokens.update(normalized_approval_target_tokens(getattr(observation, name, "")))
+    add_basic_target_tokens(tokens, observation)
     tokens.update(transfer_target_tokens(observation))
+    add_mcp_target_tokens(tokens, observation)
+    path = str(getattr(observation, "path", "") or "").strip()
+    add_json_pointer_target_tokens(tokens, observation, path)
+    add_line_target_tokens(tokens, observation, path)
+    tokens.update(observation_symbol_target_tokens(observation))
+    summary_target = observation_summary_target_token(observation)
+    if summary_target:
+        tokens.add(summary_target)
+    add_command_target_tokens(tokens, observation)
+    add_path_list_target_tokens(tokens, getattr(observation, "paths", []))
+    add_path_list_target_tokens(tokens, getattr(observation, "files", []))
+    add_transfer_list_target_tokens(tokens, getattr(observation, "transfers", []))
+    return tokens
+
+
+def add_basic_target_tokens(tokens: set[str], observation: Observation) -> None:
+    for name in BASIC_TARGET_FIELDS:
+        tokens.update(normalized_approval_target_tokens(getattr(observation, name, "")))
+
+
+def add_mcp_target_tokens(tokens: set[str], observation: Observation) -> None:
     server = str(getattr(observation, "server", "") or "").strip()
     name = str(getattr(observation, "name", "") or "").strip()
-    if server and name:
-        tokens.add(f"{server}/{name}")
-        mcp_target = mcp_call_target_token(observation, server, name)
-        if mcp_target:
-            tokens.add(mcp_target)
-    path = str(getattr(observation, "path", "") or "").strip()
+    if not server or not name:
+        return
+    tokens.add(f"{server}/{name}")
+    mcp_target = mcp_call_target_token(observation, server, name)
+    if mcp_target:
+        tokens.add(mcp_target)
+
+
+def add_json_pointer_target_tokens(tokens: set[str], observation: Observation, path: str) -> None:
     pointer = str(getattr(observation, "pointer", "") or "").strip()
     if path and pointer:
         tokens.add(f"{path} {pointer}")
+
+
+def add_line_target_tokens(tokens: set[str], observation: Observation, path: str) -> None:
     line = getattr(observation, "line", None)
     if path and isinstance(line, int):
         tokens.add(f"{path}:{line}")
@@ -164,10 +192,9 @@ def observation_target_tokens(observation: Observation) -> set[str]:
     end_line = getattr(observation, "end_line", None)
     if path and isinstance(start_line, int) and isinstance(end_line, int):
         tokens.add(f"{path}:{start_line}-{end_line}")
-    tokens.update(observation_symbol_target_tokens(observation))
-    summary_target = observation_summary_target_token(observation)
-    if summary_target:
-        tokens.add(summary_target)
+
+
+def add_command_target_tokens(tokens: set[str], observation: Observation) -> None:
     command = str(getattr(observation, "command", "") or "").strip()
     if command:
         cwd = str(getattr(observation, "cwd", ".") or ".")
@@ -182,24 +209,27 @@ def observation_target_tokens(observation: Observation) -> set[str]:
     tokens.update(result_tokens)
     if result_tokens:
         tokens.add(command_batch_target(getattr(observation, "results", [])))
-    for name in ("paths", "files"):
-        values = getattr(observation, name, [])
-        if not isinstance(values, list):
-            continue
-        path_values = [path_target(value) for value in values]
-        batch_target = batch_path_target(path_values)
-        if batch_target:
-            tokens.add(batch_target)
-        for value in values:
-            tokens.update(normalized_approval_target_tokens(path_target(value)))
-    transfers = getattr(observation, "transfers", [])
-    if isinstance(transfers, list):
-        batch_target = batch_transfer_target(transfers)
-        if batch_target:
-            tokens.add(batch_target)
-        for transfer in transfers:
-            tokens.update(transfer_target_tokens(transfer))
-    return tokens
+
+
+def add_path_list_target_tokens(tokens: set[str], values: object) -> None:
+    if not isinstance(values, list):
+        return
+    path_values = [path_target(value) for value in values]
+    batch_target = batch_path_target(path_values)
+    if batch_target:
+        tokens.add(batch_target)
+    for value in values:
+        tokens.update(normalized_approval_target_tokens(path_target(value)))
+
+
+def add_transfer_list_target_tokens(tokens: set[str], transfers: object) -> None:
+    if not isinstance(transfers, list):
+        return
+    batch_target = batch_transfer_target(transfers)
+    if batch_target:
+        tokens.add(batch_target)
+    for transfer in transfers:
+        tokens.update(transfer_target_tokens(transfer))
 
 
 def string_attr(value: object, name: str, default: str = "") -> str:
