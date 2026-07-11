@@ -1210,6 +1210,50 @@ class AgentTests(unittest.TestCase):
             ["json_set config.json /features/chat: denied"],
         )
 
+    def test_denied_approval_resolution_matches_line_edit_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="insert_lines",
+                target="src/app.py:12",
+                message="denied",
+            ),
+            types_module.InsertLinesObservation(
+                kind="insert_lines",
+                path="src/app.py",
+                line=12,
+                ok=True,
+                message="Inserted lines.",
+                diff="",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_line_edit_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="replace_lines",
+                target="src/app.py:12-14",
+                message="denied",
+            ),
+            types_module.ReplaceLinesObservation(
+                kind="replace_lines",
+                path="src/app.py",
+                start_line=20,
+                end_line=22,
+                ok=True,
+                message="Replaced lines.",
+                diff="",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["replace_lines src/app.py:12-14: denied"],
+        )
+
     def test_denied_approval_resolution_matches_run_command_targets(self) -> None:
         observations = [
             ApprovalDeniedObservation(

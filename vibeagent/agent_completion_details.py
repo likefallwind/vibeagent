@@ -151,6 +151,13 @@ def observation_target_tokens(observation: Observation) -> set[str]:
     pointer = str(getattr(observation, "pointer", "") or "").strip()
     if path and pointer:
         tokens.add(f"{path} {pointer}")
+    line = getattr(observation, "line", None)
+    if path and isinstance(line, int):
+        tokens.add(f"{path}:{line}")
+    start_line = getattr(observation, "start_line", None)
+    end_line = getattr(observation, "end_line", None)
+    if path and isinstance(start_line, int) and isinstance(end_line, int):
+        tokens.add(f"{path}:{start_line}-{end_line}")
     summary_target = observation_summary_target_token(observation)
     if summary_target:
         tokens.add(summary_target)
@@ -223,7 +230,7 @@ def normalized_approval_target_tokens(value: object) -> set[str]:
         return set()
     if "(cwd:" in text:
         return {text}
-    if _looks_like_path_pointer_target(text):
+    if _looks_like_path_pointer_target(text) or _looks_like_path_line_target(text):
         return {text}
     tokens: set[str] = set()
     candidates = [text]
@@ -246,6 +253,16 @@ def normalized_approval_target_tokens(value: object) -> set[str]:
 def _looks_like_path_pointer_target(text: str) -> bool:
     parts = text.split(" ", 1)
     return len(parts) == 2 and parts[1].startswith("/")
+
+
+def _looks_like_path_line_target(text: str) -> bool:
+    prefix, separator, suffix = text.rpartition(":")
+    if not separator or not prefix or not suffix:
+        return False
+    if "-" in suffix:
+        start, end = suffix.split("-", 1)
+        return bool(start.isdigit() and end.isdigit())
+    return suffix.isdigit()
 
 
 def denied_approval_detail(observation: Observation) -> str:
