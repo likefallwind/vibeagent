@@ -139,11 +139,12 @@ session for a one-shot task,
 `--approval` or `--permission-mode`. `--input-format json` reads one JSON object
 or array from stdin when the task is `-`; `--input-format stream-json` reads
 newline-delimited JSON task records. Structured input accepts simple `text`,
-`prompt`, or `input` records, `message.content`, direct `message.prompt` /
-`message.input` text, or SDK-style `messages` arrays and uses `role: "user"` /
-`type: "user"` message text as the task when roles are present. System-role text
-becomes a one-shot system prompt for that run, and assistant-role text is treated
-as caller-supplied prior conversation context in coding mode. A top-level
+`prompt`, or string `input` records, `message.content`, direct `message.prompt`
+/ `message.input` text, SDK-style `messages` arrays, or Responses-style
+top-level `input` message arrays and uses `role: "user"` / `type: "user"`
+message text as the task when roles are present. System-role text becomes a
+one-shot system prompt for that run, and assistant-role text is treated as
+caller-supplied prior conversation context in coding mode. A top-level
 `session_id` or `sessionId` field resumes that VibeAgent session in coding mode
 when neither `--resume` nor `--compact` is provided.
 When `-c`, `--resume [run-id]`, or `--compact [run-id]` is provided without a

@@ -13337,6 +13337,42 @@ class CliTests(unittest.TestCase):
         self.assertIn("tests/test_app.py", run_agent.call_args.kwargs["prior_context"])
         get_resume_context.assert_called_once_with("run-1", Path(base).resolve())
 
+    def test_main_runs_one_shot_code_task_from_responses_style_json_input(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+            input_record = json.dumps(
+                {
+                    "input": [
+                        {"role": "system", "content": "Prefer focused checks."},
+                        {"role": "assistant", "content": [{"type": "output_text", "text": "I saw tests/test_app.py."}]},
+                        {"role": "user", "content": [{"type": "input_text", "text": "continue task"}]},
+                    ],
+                }
+            )
+
+            with (
+                patch("sys.stdin", io.StringIO(input_record)),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--input-format", "json", "--cwd", base, "-"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.args[0], "continue task")
+        self.assertEqual(run_agent.call_args.kwargs["system_prompt"], "Prefer focused checks.")
+        self.assertIn("Structured input assistant messages:", run_agent.call_args.kwargs["prior_context"])
+        self.assertIn("tests/test_app.py", run_agent.call_args.kwargs["prior_context"])
+
     def test_main_stream_json_session_id_does_not_override_explicit_resume(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             result = AgentResult(

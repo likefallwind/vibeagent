@@ -79,8 +79,8 @@ class _RoleTextChunks:
 def _role_text_chunks_from_record(record: object) -> _RoleTextChunks:
     if not isinstance(record, dict):
         return _RoleTextChunks()
-    messages = record.get("messages")
-    if isinstance(messages, list):
+    messages = _message_sequence_from_record(record)
+    if messages is not None:
         user: list[str] = []
         system: list[str] = []
         assistant: list[str] = []
@@ -110,8 +110,8 @@ def _role_text_chunks_from_message(message: object) -> _RoleTextChunks:
 def _text_chunks_from_record(record: object) -> Iterable[str]:
     if not isinstance(record, dict):
         return ()
-    messages = record.get("messages")
-    if isinstance(messages, list):
+    messages = _message_sequence_from_record(record)
+    if messages is not None:
         chunks: list[str] = []
         for message in messages:
             chunks.extend(_text_from_role_message(message))
@@ -169,6 +169,16 @@ def _direct_text_chunks(record: dict[str, object]) -> tuple[str, ...]:
         if isinstance(value, str):
             return (value,)
     return ()
+
+
+def _message_sequence_from_record(record: dict[str, object]) -> list[object] | None:
+    messages = record.get("messages")
+    if isinstance(messages, list):
+        return messages
+    input_value = record.get("input")
+    if isinstance(input_value, list):
+        return input_value
+    return None
 
 
 def _text_from_content(content: object) -> tuple[str, ...]:

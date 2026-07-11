@@ -141,6 +141,26 @@ class CliInputFormatTests(unittest.TestCase):
         self.assertEqual(parsed.assistant_context, "Previous context.")
         self.assertEqual(parsed.session_id, "run-1")
 
+    def test_json_extracts_responses_style_input_messages(self) -> None:
+        raw = json.dumps(
+            {
+                "sessionId": "run-2",
+                "input": [
+                    {"role": "system", "content": "Prefer minimal patches."},
+                    {"role": "assistant", "content": [{"type": "output_text", "text": "I inspected src/app.py."}]},
+                    {"role": "user", "content": [{"type": "input_text", "text": "fix the parser"}]},
+                    {"role": "user", "content": "run focused tests"},
+                ],
+            }
+        )
+
+        parsed = resolve_json_task_input(raw)
+
+        self.assertEqual(parsed.task, "fix the parser\nrun focused tests")
+        self.assertEqual(parsed.system_prompt, "Prefer minimal patches.")
+        self.assertEqual(parsed.assistant_context, "I inspected src/app.py.")
+        self.assertEqual(parsed.session_id, "run-2")
+
     def test_json_extracts_record_array(self) -> None:
         raw = json.dumps(
             [
