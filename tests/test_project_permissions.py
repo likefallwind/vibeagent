@@ -126,8 +126,8 @@ class ProjectPermissionConfigTests(unittest.TestCase):
                 {"files": [{"path": "src/a.py", "content": "a"}, {"path": "docs/b.md", "content": "b"}]},
             )
 
-        self.assertEqual(match_project_permission(config, "read_file", root_secret).effect, "deny")
-        self.assertEqual(match_project_permission(config, "read_file", nested_secret).effect, "deny")
+        self.assertEqual(match_project_permission(config, "Read", root_secret).effect, "deny")
+        self.assertEqual(match_project_permission(config, "Read", nested_secret).effect, "deny")
         self.assertEqual(match_project_permission(config, "write_files", allowed_writes).effect, "allow")
         self.assertIsNone(match_project_permission(config, "write_files", mixed_writes))
 
@@ -157,9 +157,53 @@ class ProjectPermissionConfigTests(unittest.TestCase):
                 },
             )
 
-        self.assertEqual(match_project_permission(config, "read_file", denied_read).effect, "deny")
-        self.assertEqual(match_project_permission(config, "write_file", allowed_write).effect, "allow")
+        self.assertEqual(match_project_permission(config, "NotebookRead", denied_read).effect, "deny")
+        self.assertEqual(match_project_permission(config, "NotebookEdit", allowed_write).effect, "allow")
         self.assertIsNone(match_project_permission(config, "write_files", mixed_write))
+
+    def test_matches_claude_runtime_aliases(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
+            root = Path(base)
+            _write_permissions(
+                root,
+                {
+                    "deny": ["KillBash(proc-deny)"],
+                    "allow": ["BashOutput(proc-1)", "KillBash(proc-1)"],
+                },
+            )
+            config = read_project_permissions(create_run_workspace(root))
+            output_allowed = parse_tool_action("BashOutput", {"bash_id": "proc-1"})
+            kill_allowed = parse_tool_action("KillBash", {"bash_id": "proc-1"})
+            kill_denied = parse_tool_action("KillBash", {"bash_id": "proc-deny"})
+            kill_unmatched = parse_tool_action("KillBash", {"bash_id": "proc-2"})
+
+        self.assertEqual(match_project_permission(config, "BashOutput", output_allowed).effect, "allow")
+        self.assertEqual(match_project_permission(config, "KillBash", kill_allowed).effect, "allow")
+        self.assertEqual(match_project_permission(config, "KillBash", kill_denied).effect, "deny")
+        self.assertIsNone(match_project_permission(config, "KillBash", kill_unmatched))
+
+    def test_matches_claude_search_and_plan_aliases(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
+            root = Path(base)
+            _write_permissions(
+                root,
+                {
+                    "deny": ["TodoWrite", "ExitPlanMode"],
+                    "allow": ["LS(src)", "Glob(src/**/*.py)", "Grep(needle)", "TodoRead"],
+                },
+            )
+            config = read_project_permissions(create_run_workspace(root))
+            list_action = parse_tool_action("LS", {"path": "src"})
+            glob_action = parse_tool_action("Glob", {"path": "src", "pattern": "**/*.py"})
+            grep_action = parse_tool_action("Grep", {"pattern": "needle"})
+            todo_read = parse_tool_action("TodoRead", {})
+            todo_write = parse_tool_action("TodoWrite", {"todos": [{"content": "Ship", "status": "completed"}]})
+
+        self.assertEqual(match_project_permission(config, "LS", list_action).effect, "allow")
+        self.assertEqual(match_project_permission(config, "Glob", glob_action).effect, "allow")
+        self.assertEqual(match_project_permission(config, "Grep", grep_action).effect, "allow")
+        self.assertEqual(match_project_permission(config, "TodoRead", todo_read).effect, "allow")
+        self.assertEqual(match_project_permission(config, "TodoWrite", todo_write).effect, "deny")
 
     def test_matches_claude_mcp_tool_names(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
@@ -170,9 +214,9 @@ class ProjectPermissionConfigTests(unittest.TestCase):
             wrong_server = parse_tool_action("mcp__repo__search", {"query": "python"})
             wrong_tool = parse_tool_action("mcp__docs__lookup", {"query": "python"})
 
-        self.assertEqual(match_project_permission(config, "mcp_call", allowed).effect, "allow")
-        self.assertIsNone(match_project_permission(config, "mcp_call", wrong_server))
-        self.assertIsNone(match_project_permission(config, "mcp_call", wrong_tool))
+        self.assertEqual(match_project_permission(config, "mcp__docs__search", allowed).effect, "allow")
+        self.assertIsNone(match_project_permission(config, "mcp__repo__search", wrong_server))
+        self.assertIsNone(match_project_permission(config, "mcp__docs__lookup", wrong_tool))
 
     def test_cli_permission_overrides_match_claude_mcp_tool_names(self) -> None:
         overrides = build_permission_overrides(
@@ -181,8 +225,8 @@ class ProjectPermissionConfigTests(unittest.TestCase):
         search = parse_tool_action("mcp__docs__search", {"query": "python"})
         delete = parse_tool_action("mcp__docs__delete", {"id": "page-1"})
 
-        self.assertEqual(match_project_permission(overrides, "mcp_call", search).effect, "allow")
-        self.assertEqual(match_project_permission(overrides, "mcp_call", delete).effect, "deny")
+        self.assertEqual(match_project_permission(overrides, "mcp__docs__search", search).effect, "allow")
+        self.assertEqual(match_project_permission(overrides, "mcp__docs__delete", delete).effect, "deny")
 
     def test_invalid_and_symlinked_configs_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
@@ -209,6 +253,22 @@ class ProjectPermissionExecutionTests(unittest.TestCase):
         client = PermissionClient(
             [
                 [{"type": "tool_call", "id": "read-1", "name": "read_file", "input": {"path": ".env"}}],
+                [{"type": "text", "text": "The project rule denied the read."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
+            root = Path(base)
+            root.joinpath(".env").write_text("SECRET=value\n", encoding="utf-8")
+            _write_permissions(root, {"deny": ["Read(**/.env)"]})
+            result = run_agent("Read .env", base_dir=root, client=client, max_iterations=2)
+
+        self.assertEqual(result.observations[0].kind, "approval_denied")
+        self.assertIn("Read(**/.env)", result.observations[0].message)
+
+    def test_deny_rule_blocks_claude_alias_tool_name_without_prompt(self) -> None:
+        client = PermissionClient(
+            [
+                [{"type": "tool_call", "id": "read-1", "name": "Read", "input": {"file_path": ".env"}}],
                 [{"type": "text", "text": "The project rule denied the read."}],
             ]
         )

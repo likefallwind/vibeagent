@@ -107,10 +107,20 @@ CLAUDE_TOOL_ALIASES = {
     "Agent": frozenset({"delegate_task"}),
     "AskUserQuestion": frozenset({"ask_user"}),
     "Bash": BASH_TOOL_NAMES,
+    "BashOutput": frozenset({"read_process"}),
     "Edit": FILE_EDIT_TOOL_NAMES,
+    "ExitPlanMode": frozenset({"update_plan"}),
+    "Glob": frozenset({"glob"}),
+    "Grep": frozenset({"search"}),
+    "KillBash": frozenset({"stop_process"}),
+    "LS": frozenset({"list_tree"}),
+    "MultiEdit": frozenset({"multi_edit_file"}),
     "NotebookEdit": FILE_EDIT_TOOL_NAMES,
     "NotebookRead": FILE_READ_TOOL_NAMES,
     "Read": FILE_READ_TOOL_NAMES,
+    "Task": frozenset({"delegate_task"}),
+    "TodoRead": frozenset({"session_plan"}),
+    "TodoWrite": frozenset({"update_plan"}),
     "WebFetch": frozenset({"web_fetch"}),
     "Write": FILE_EDIT_TOOL_NAMES,
 }
@@ -271,6 +281,9 @@ def permission_subjects(action: object) -> tuple[str, ...]:
     pattern = getattr(action, "pattern", None)
     if isinstance(pattern, str):
         return (pattern,)
+    query = getattr(action, "query", None)
+    if isinstance(query, str):
+        return (query,)
     url = getattr(action, "url", None)
     if isinstance(url, str):
         return (url,)
@@ -278,6 +291,9 @@ def permission_subjects(action: object) -> tuple[str, ...]:
     name = getattr(action, "name", None)
     if isinstance(server, str) and isinstance(name, str):
         return (f"{server}/{name}",)
+    process_id = getattr(action, "process_id", None)
+    if isinstance(process_id, str):
+        return (process_id,)
     return ()
 
 
@@ -319,13 +335,14 @@ def _parse_permission_rules(payload: dict[str, object], source: str) -> list[Pro
 
 
 def _tool_matches(rule_tool: str, tool_name: str, action: object) -> bool:
+    action_type = getattr(action, "type", None)
     aliases = CLAUDE_TOOL_ALIASES.get(rule_tool)
     if aliases is not None:
-        return tool_name in aliases
-    if rule_tool.startswith("mcp__") and tool_name == "mcp_call":
+        return tool_name in aliases or action_type in aliases
+    if rule_tool.startswith("mcp__") and (tool_name == "mcp_call" or action_type == "mcp_call"):
         parts = rule_tool.split("__", 2)
         return len(parts) == 3 and parts[1] == getattr(action, "server", None) and parts[2] == getattr(action, "name", None)
-    return rule_tool == tool_name
+    return rule_tool == tool_name or rule_tool == action_type
 
 
 def _specifier_matches(

@@ -1093,13 +1093,12 @@ or under the `permissions` key in `.claude/settings.json` and
 
 Rules use `Tool` or `Tool(specifier)` syntax and are evaluated by effect in
 `deny`, `ask`, then `allow` order. Common Claude Code names including `Bash`,
-`Read`, `Edit`, `Write`, `NotebookRead`, `NotebookEdit`, `WebFetch`, `Agent`,
-and `AskUserQuestion` map to the corresponding VibeAgent tools; native
-snake-case tool names are also accepted. Model tool calls also accept common
-Claude Code names such as `Bash`, `BashOutput`, `KillBash`, `Read`, `Write`,
-`Edit`, `MultiEdit`, `NotebookRead`, `NotebookEdit`, `LS`, `Glob`, `Grep`,
-`WebFetch`, `Task`, `Agent`, `AskUserQuestion`, `ExitPlanMode`, `TodoWrite`,
-and `TodoRead`, with Claude-style field names normalized before execution.
+`BashOutput`, `KillBash`, `Read`, `Write`, `Edit`, `MultiEdit`,
+`NotebookRead`, `NotebookEdit`, `LS`, `Glob`, `Grep`, `WebFetch`, `Task`,
+`Agent`, `AskUserQuestion`, `ExitPlanMode`, `TodoWrite`, and `TodoRead` map to
+the corresponding VibeAgent tools; native snake-case tool names are also
+accepted. Model tool calls accept the same names with Claude-style field names
+normalized before execution.
 Claude MCP tool names such as `mcp__docs__search` can be used as model tool
 names and permission rules; they match the corresponding `mcp_call`
 server/tool pair exactly.
