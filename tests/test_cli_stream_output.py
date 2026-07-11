@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -100,6 +101,14 @@ class CliOutputFormatTests(unittest.TestCase):
                 patch("vibeagent.cli.create_chat_client", return_value=object()),
                 patch("vibeagent.cli.run_agent", return_value=_result(Path(base))),
                 patch("vibeagent.cli_runner.monotonic", side_effect=[10.0, 10.123]),
+                patch.dict(
+                    os.environ,
+                    {
+                        "VIBEAGENT_INPUT_USD_PER_MILLION": "1",
+                        "VIBEAGENT_OUTPUT_USD_PER_MILLION": "2",
+                    },
+                    clear=True,
+                ),
                 redirect_stdout(stdout),
             ):
                 exit_code = main(["--output-format", "json", "--cwd", base, "inspect"])
@@ -113,6 +122,8 @@ class CliOutputFormatTests(unittest.TestCase):
         self.assertEqual(payload["usage"]["usage"]["tokens"]["input"], 10)
         self.assertEqual(payload["usage"]["usage"]["tokens"]["output"], 4)
         self.assertEqual(payload["usage"]["usage"]["tokens"]["total"], 14)
+        self.assertTrue(payload["cost"]["estimate"]["available"])
+        self.assertEqual(payload["cost"]["estimate"]["estimatedCostUsd"], "0.000018")
         self.assertNotIn("type", payload)
         self.assertNotIn("sequence", payload)
 

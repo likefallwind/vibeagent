@@ -142,10 +142,11 @@ metadata, structured `plan` items, `completionReady`, `completionBlockers`,
 `latestCompletionBlockers`, `latestCompletionPendingChecks`,
 `latestCompletionFailedChecks`, `latestCompletionFinalReviewChangedFiles`,
 `changedFiles`, `verificationChecks`, `pendingVerificationChecks`, and
-`failedVerificationChecks` fields, plus `durationMs` and a `usage` report for
+`failedVerificationChecks` fields, plus `durationMs`, a `usage` report, and a
+`cost` report for
 the current run, so automation can read the same final-review, blocked-attempt,
-changed-file, verification, timing, and local token-usage status shown in the
-text UI.
+changed-file, verification, timing, local token-usage, and configured cost
+estimate status shown in the text UI.
 `--output-format json` is equivalent to `--json`. `--output-format stream-json`
 emits newline-delimited JSON for one-shot tasks: each durable session event is
 written as a `type: "event"` record with a monotonically increasing `sequence`,

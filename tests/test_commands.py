@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+from decimal import Decimal
 from pathlib import Path
 from types import UnionType
 from typing import Literal, Union, get_args, get_origin, get_type_hints
@@ -517,7 +518,8 @@ from vibeagent.commands import (
     is_exit_command,
     parse_local_command,
 )
-from vibeagent.session_usage import build_run_usage_report
+from vibeagent.config import CostRates
+from vibeagent.session_usage import build_run_cost_report, build_run_usage_report
 from vibeagent.types import CheckStartCommandObservation, CheckStopAllProcessesObservation, CheckStopProcessObservation, CheckWriteProcessObservation, FinalReviewObservation, FocusedTestCommand, HttpCheckObservation, HttpFetchObservation, ListProcessesObservation, OutputContextResult, OutputDiagnostic, PortCheckObservation, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadProcessObservation, StartCommandObservation, StopAllProcessesObservation, StopProcessObservation, StoppedProcessInfo, SuggestedCheck, WaitProcessObservation, WriteProcessObservation
 
 
@@ -12048,6 +12050,54 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(report["usage"]["tokens"]["input"], 100)
         self.assertEqual(report["usage"]["tokens"]["output"], 50)
         self.assertEqual(report["cost"]["reason"], "provider pricing is not configured")
+        self.assertFalse(missing["exists"])
+        self.assertEqual(missing["status"], "missing")
+
+    def test_run_cost_report_estimates_one_session(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            first = root / ".vibeagent" / "sessions" / "run-1"
+            second = root / ".vibeagent" / "sessions" / "run-2"
+            first.mkdir(parents=True)
+            second.mkdir(parents=True)
+            (first / "events.jsonl").write_text(
+                json.dumps(
+                    {
+                        "type": "model",
+                        "iteration": 1,
+                        "usage": {"input_tokens": 100, "output_tokens": 50},
+                        "content": [{"type": "text", "text": "Done."}],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (second / "events.jsonl").write_text(
+                json.dumps(
+                    {
+                        "type": "model",
+                        "iteration": 1,
+                        "usage": {"input_tokens": 3, "output_tokens": 2},
+                        "content": [{"type": "text", "text": "Other."}],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            report = build_run_cost_report(
+                root,
+                "run-1",
+                CostRates(input_usd_per_million=Decimal("1"), output_usd_per_million=Decimal("2")),
+            )
+            missing = build_run_cost_report(root, "missing", CostRates())
+
+        self.assertTrue(report["exists"])
+        self.assertTrue(report["estimate"]["available"])
+        self.assertEqual(report["usage"]["sessions"], 1)
+        self.assertEqual(report["usage"]["tokens"]["input"], 100)
+        self.assertEqual(report["usage"]["tokens"]["output"], 50)
+        self.assertEqual(report["estimate"]["estimatedCostUsd"], "0.000200")
         self.assertFalse(missing["exists"])
         self.assertEqual(missing["status"], "missing")
 

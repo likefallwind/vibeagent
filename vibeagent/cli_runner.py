@@ -25,11 +25,11 @@ from .cli_output import (
 from .cli_permission_overrides import build_permission_overrides
 from .cli_stream_output import JsonEventStream, build_code_result_payload, error_result_payload
 from .commands import get_compact_context, get_resume_context
-from .config import resolve_execution_config
+from .config import resolve_cost_rates, resolve_execution_config
 from .providers import create_chat_client
 from .project_trust import is_project_permissions_trusted
 from .session_event_observers import observe_session_events
-from .session_usage import build_run_usage_report
+from .session_usage import build_run_cost_report, build_run_usage_report
 from .types import ApprovalPolicy
 from .workspace_core import create_run_workspace
 
@@ -235,6 +235,8 @@ def run_one_shot(
         if machine_output:
             result_payload["durationMs"] = elapsed_milliseconds(started_at)
             result_payload["usage"] = build_run_usage_report(project_root, result.run_id)
+            cost_rates, cost_errors = resolve_cost_rates(provider_env)
+            result_payload["cost"] = build_run_cost_report(project_root, result.run_id, cost_rates, cost_errors)
         if stream is not None:
             stream.result(result_payload)
         elif output_json:

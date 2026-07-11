@@ -228,12 +228,29 @@ def build_cost_report(
     limit: int = 20,
 ) -> dict[str, Any]:
     usage = summarize_usage(project_root, limit=limit)
+    return build_cost_report_from_summary(usage, rates, rate_errors, missing_message="No sessions found.")
+
+def build_run_cost_report(
+    project_root: str | Path,
+    run_id: str,
+    rates: CostRates,
+    rate_errors: list[str] | None = None,
+) -> dict[str, Any]:
+    usage = summarize_run_usage(project_root, run_id)
+    return build_cost_report_from_summary(usage, rates, rate_errors, missing_message=f"No session found for {run_id}.")
+
+def build_cost_report_from_summary(
+    usage: SessionUsageSummary,
+    rates: CostRates,
+    rate_errors: list[str] | None,
+    missing_message: str,
+) -> dict[str, Any]:
     if usage.sessions == 0:
         return {
             "exists": False,
             "ok": False,
             "status": "missing",
-            "message": "No sessions found.",
+            "message": missing_message,
         }
 
     errors = list(rate_errors or [])

@@ -424,6 +424,7 @@ def get_last_session_id(project_root: str | Path) -> str | None:
 from .session_usage import (
     SessionUsageSummary,
     build_cost_report,
+    build_run_cost_report,
     build_usage_report,
     decimal_rate_string,
     decimal_usd_string,
