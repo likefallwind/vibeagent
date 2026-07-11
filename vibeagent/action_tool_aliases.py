@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
+
+
+ToolInputNormalizer = Callable[[dict[str, Any]], dict[str, Any]]
 
 
 CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
@@ -33,33 +37,14 @@ def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, d
 
     action_type = CLAUDE_TOOL_ACTION_ALIASES.get(name, name)
     if name == "Bash" and tool_input.get("run_in_background") is True:
-        return "start_command", _drop_fields(dict(tool_input), {"run_in_background", "timeout_ms", "max_output_chars"})
-    if action_type in {"read_process", "stop_process"}:
-        return action_type, _rename_fields(tool_input, {"bash_id": "process_id"})
-    if name == "ExitPlanMode":
-        return action_type, _normalize_exit_plan_mode_input(tool_input)
-    if action_type == "ask_user":
-        return action_type, _rename_fields(tool_input, {"prompt": "question"})
-    if action_type == "delegate_task":
-        return action_type, _normalize_task_input(tool_input)
-    if action_type == "read_file":
-        return action_type, _rename_fields(
-            tool_input,
-            {"file_path": "path", "notebook_path": "path", "offset": "start_line", "limit": "line_count"},
+        return "start_command", _drop_fields(
+            dict(tool_input),
+            {"run_in_background", "timeout_ms", "max_output_chars"},
         )
-    if action_type in {"write_file", "list_tree"}:
-        return action_type, _rename_fields(tool_input, {"file_path": "path"})
-    if action_type == "edit_file":
-        return action_type, _rename_fields(
-            tool_input,
-            {"file_path": "path", "notebook_path": "path", "old_string": "old", "new_string": "new"},
-        )
-    if action_type == "multi_edit_file":
-        return action_type, _normalize_multi_edit_input(tool_input)
-    if action_type == "search":
-        return action_type, _normalize_search_input(tool_input)
-    if action_type == "glob":
-        return action_type, _normalize_glob_input(tool_input)
+
+    normalizer = _NAME_INPUT_NORMALIZERS.get(name) or _ACTION_INPUT_NORMALIZERS.get(action_type)
+    if normalizer is not None:
+        return action_type, normalizer(tool_input)
     return action_type, dict(tool_input)
 
 
@@ -120,12 +105,58 @@ def _normalize_task_input(value: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+def _normalize_process_alias_input(value: dict[str, Any]) -> dict[str, Any]:
+    return _rename_fields(value, {"bash_id": "process_id"})
+
+
+def _normalize_ask_user_input(value: dict[str, Any]) -> dict[str, Any]:
+    return _rename_fields(value, {"prompt": "question"})
+
+
+def _normalize_read_file_input(value: dict[str, Any]) -> dict[str, Any]:
+    return _rename_fields(
+        value,
+        {"file_path": "path", "notebook_path": "path", "offset": "start_line", "limit": "line_count"},
+    )
+
+
+def _normalize_path_alias_input(value: dict[str, Any]) -> dict[str, Any]:
+    return _rename_fields(value, {"file_path": "path"})
+
+
+def _normalize_edit_file_input(value: dict[str, Any]) -> dict[str, Any]:
+    return _rename_fields(
+        value,
+        {"file_path": "path", "notebook_path": "path", "old_string": "old", "new_string": "new"},
+    )
+
+
 def _normalize_claude_mcp_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
     parts = name.split("__", 2)
     if len(parts) != 3 or parts[0] != "mcp":
         return None
     _, server, tool_name = parts
     return "mcp_call", {"server": server, "name": tool_name, "arguments": dict(tool_input)}
+
+
+_NAME_INPUT_NORMALIZERS: dict[str, ToolInputNormalizer] = {
+    "ExitPlanMode": _normalize_exit_plan_mode_input,
+}
+
+
+_ACTION_INPUT_NORMALIZERS: dict[str, ToolInputNormalizer] = {
+    "ask_user": _normalize_ask_user_input,
+    "delegate_task": _normalize_task_input,
+    "edit_file": _normalize_edit_file_input,
+    "glob": _normalize_glob_input,
+    "list_tree": _normalize_path_alias_input,
+    "multi_edit_file": _normalize_multi_edit_input,
+    "read_file": _normalize_read_file_input,
+    "read_process": _normalize_process_alias_input,
+    "search": _normalize_search_input,
+    "stop_process": _normalize_process_alias_input,
+    "write_file": _normalize_path_alias_input,
+}
 
 
 __all__ = [
