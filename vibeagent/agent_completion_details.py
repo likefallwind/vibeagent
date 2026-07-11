@@ -229,6 +229,13 @@ def observation_summary_target_token(observation: Observation) -> str | None:
         include_pending = int(getattr(observation, "pending_count", 0) or 0) > 0
         run_id = str(getattr(observation, "run_id", "") or "current session")
         return session_verification_target(run_id, include_failed, include_pending)
+    if observation.kind == "json_patch":
+        path = str(getattr(observation, "path", "") or "").strip()
+        operation_count = getattr(observation, "operation_count", None)
+        if path and isinstance(operation_count, int):
+            return f"{path} ({operation_count} operations)"
+    if observation.kind == "patch_files":
+        return "multiple files"
     keep_last = getattr(observation, "keep_last", None)
     if observation.kind == "checkpoint_prune" and isinstance(keep_last, int):
         return f"keep_last={keep_last}"
@@ -262,6 +269,7 @@ def normalized_approval_target_tokens(value: object) -> set[str]:
         _looks_like_path_pointer_target(text)
         or _looks_like_path_line_target(text)
         or _looks_like_symbol_target(text)
+        or _looks_like_operation_count_target(text)
     ):
         return {text}
     tokens: set[str] = set()
@@ -307,6 +315,14 @@ def _looks_like_symbol_target(text: str) -> bool:
         old_name, new_name = symbol_part.split(" -> ", 1)
         return bool(old_name.strip() and new_name.strip())
     return True
+
+
+def _looks_like_operation_count_target(text: str) -> bool:
+    prefix, separator, suffix = text.rpartition(" (")
+    if not separator or not prefix.strip() or not suffix.endswith(" operations)"):
+        return False
+    count_text = suffix.removesuffix(" operations)")
+    return count_text.isdigit()
 
 
 def denied_approval_detail(observation: Observation) -> str:

@@ -1210,6 +1210,68 @@ class AgentTests(unittest.TestCase):
             ["json_set config.json /features/chat: denied"],
         )
 
+    def test_denied_approval_resolution_matches_json_patch_operation_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="json_patch",
+                target="config.json (2 operations)",
+                message="denied",
+            ),
+            types_module.JsonPatchObservation(
+                kind="json_patch",
+                path="config.json",
+                operation_count=2,
+                ok=True,
+                message="Applied JSON patch.",
+                diff="",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_json_patch_operation_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="json_patch",
+                target="config.json (2 operations)",
+                message="denied",
+            ),
+            types_module.JsonPatchObservation(
+                kind="json_patch",
+                path="config.json",
+                operation_count=1,
+                ok=True,
+                message="Applied JSON patch.",
+                diff="",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["json_patch config.json (2 operations): denied"],
+        )
+
+    def test_denied_approval_resolution_matches_patch_files_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="patch_files",
+                target="multiple files",
+                message="denied",
+            ),
+            types_module.PatchFilesObservation(
+                kind="patch_files",
+                files=["src/app.py", "tests/test_app.py"],
+                ok=True,
+                message="Applied patches.",
+                diff="",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
     def test_denied_approval_resolution_matches_line_edit_target(self) -> None:
         observations = [
             ApprovalDeniedObservation(
