@@ -1138,6 +1138,35 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(completion_module.build_denied_approval_details(observations), ["stop_process proc-1: denied"])
 
+    def test_denied_approval_resolution_matches_stop_all_processes_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="stop_all_processes",
+                target="background processes",
+                message="denied",
+            ),
+            types_module.StopAllProcessesObservation(
+                kind="stop_all_processes",
+                ok=True,
+                stopped=[
+                    types_module.StoppedProcessInfo(
+                        process_id="proc-1",
+                        pid=123,
+                        command="python -m http.server",
+                        cwd=".",
+                        ok=True,
+                        exit_code=0,
+                        signal=None,
+                        message="Stopped proc-1.",
+                    )
+                ],
+                message="Stopped 1 background process.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
     def test_denied_approval_resolution_matches_run_command_targets(self) -> None:
         observations = [
             ApprovalDeniedObservation(
