@@ -22,6 +22,8 @@ class CliContextTests(unittest.TestCase):
 
     def test_normalize_resume_arg_maps_empty_string_to_none(self) -> None:
         self.assertIsNone(normalize_resume_arg(""))
+        self.assertIsNone(normalize_resume_arg("latest"))
+        self.assertIsNone(normalize_resume_arg(" LATEST "))
         self.assertEqual(normalize_resume_arg("run-1"), "run-1")
 
     def test_is_resume_clear_arg_accepts_clear_tokens(self) -> None:

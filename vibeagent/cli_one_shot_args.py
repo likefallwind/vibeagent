@@ -34,7 +34,7 @@ def add_one_shot_arguments(
     parser.add_argument(
         "--session-id",
         metavar="RUN_ID",
-        help="Claude-compatible alias for --resume RUN_ID on one-shot coding tasks.",
+        help="Claude-compatible alias for --resume RUN_ID on one-shot coding tasks. Use latest for the newest session.",
     )
     parser.add_argument("--resume-max-failures", type=positive_int, metavar="N", help="Maximum failure entries in --resume context.")
     parser.add_argument("--resume-max-files", type=positive_int, metavar="N", help="Maximum file references in --resume context.")

@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from .session_input import normalize_optional_run_id
+
 
 SessionContextGetter = Callable[..., tuple[str | None, str | None, str]]
 
@@ -47,7 +49,7 @@ def build_context_limit_kwargs(
 
 
 def normalize_resume_arg(value: str) -> str | None:
-    return value or None
+    return normalize_optional_run_id(value)
 
 
 def is_resume_clear_arg(value: str | None) -> bool:

@@ -101,6 +101,7 @@ python -m vibeagent --sandbox-status --cwd ../my-project
 python -m vibeagent --chat "explain this repository at a high level"
 python -m vibeagent --resume <run-id> --resume-max-files 25 --resume-max-commands 5 --resume-max-checks 20 "continue the previous change"
 python -m vibeagent --session-id <run-id> "continue the previous change"
+python -m vibeagent --session-id latest "continue the latest session"
 python -m vibeagent --resume -- "continue the latest session"
 python -m vibeagent -r <run-id> -p "continue the previous change"
 python -m vibeagent -c --permission-mode plan --max-turns 3 "inspect the latest change"
@@ -125,8 +126,9 @@ per-command overrides; they do not rewrite environment variables or local config
 files.
 For Claude-style scripting compatibility, `-p` / `--print` runs a one-shot task
 and prints only the final text in normal text output, `-r` is an alias for
-`--resume`, `--session-id RUN_ID` is an alias for `--resume RUN_ID`, `-c`
-resumes the newest session for a one-shot task,
+`--resume`, `--session-id RUN_ID` is an alias for `--resume RUN_ID`,
+`--session-id latest` resumes the newest session, `-c` resumes the newest
+session for a one-shot task,
 `--permission-mode` maps to `--approval`, and `--max-turns` maps to
 `--max-iterations`. `--dangerously-skip-permissions` maps to
 `--approval allow` for one-shot coding tasks and cannot be combined with
@@ -913,8 +915,9 @@ verification evidence in the final result and session summary; suggested checks
 that are still pending or failed are listed by command. Each coding turn records its task, and
 `/sessions` lists recent runs with completion status and a compact task summary.
 The CLI automatically uses the latest run as compact context for the next coding
-turn; `--resume [run-id]` on one-shot tasks and `/resume [run-id]` in the
-interactive prompt load a bounded historical resume context, while
+turn; `--resume [run-id]`, `--session-id [run-id|latest]` on one-shot tasks,
+and `/resume [run-id|latest]` in the interactive prompt load a bounded
+historical resume context, while
 `--compact [run-id]` and `/compact [run-id]` load the same compact handoff
 context explicitly. Both one-shot forms accept `--resume-max-failures`,
 `--resume-max-files`, `--resume-max-commands`, `--resume-max-checks`,
