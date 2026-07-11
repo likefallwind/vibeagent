@@ -262,6 +262,9 @@ def extract_content(data: Any) -> list[ContentBlock] | None:
     content = message.get("content")
     if isinstance(content, str) and content:
         blocks.append({"type": "text", "text": content})
+    elif isinstance(content, list):
+        for text in text_chunks_from_openai_content(content):
+            blocks.append({"type": "text", "text": text})
 
     tool_calls = message.get("tool_calls")
     if isinstance(tool_calls, list):
@@ -270,6 +273,24 @@ def extract_content(data: Any) -> list[ContentBlock] | None:
             if block:
                 blocks.append(block)
     return blocks or None
+
+
+def text_chunks_from_openai_content(content: list[Any]) -> tuple[str, ...]:
+    chunks: list[str] = []
+    for item in content:
+        if isinstance(item, str):
+            if item:
+                chunks.append(item)
+            continue
+        if not isinstance(item, dict):
+            continue
+        item_type = item.get("type")
+        if item_type not in {None, "text", "output_text", "input_text"}:
+            continue
+        text = item.get("text")
+        if isinstance(text, str) and text:
+            chunks.append(text)
+    return tuple(chunks)
 
 
 def extract_usage(data: Any) -> ModelUsage | None:

@@ -76,6 +76,39 @@ class OpenAICompatibleTests(unittest.TestCase):
             ],
         )
 
+    def test_extract_content_maps_content_block_text_to_generic_text(self) -> None:
+        self.assertEqual(
+            extract_content(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": [
+                                    {"type": "text", "text": "first"},
+                                    {"type": "output_text", "text": "second"},
+                                    {"type": "image_url", "image_url": {"url": "ignored"}},
+                                    "third",
+                                ],
+                                "tool_calls": [
+                                    {
+                                        "id": "call_1",
+                                        "type": "function",
+                                        "function": {"name": "read_file", "arguments": '{"path":"app.py"}'},
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                }
+            ),
+            [
+                {"type": "text", "text": "first"},
+                {"type": "text", "text": "second"},
+                {"type": "text", "text": "third"},
+                {"type": "tool_call", "id": "call_1", "name": "read_file", "input": {"path": "app.py"}},
+            ],
+        )
+
     def test_extract_content_preserves_malformed_arguments_for_validation(self) -> None:
         self.assertEqual(
             extract_content(
