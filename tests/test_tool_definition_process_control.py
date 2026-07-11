@@ -37,6 +37,15 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
             ["ask_user", "update_plan", "todo_write", "todo_read", "finish"],
         )
 
+    def test_todo_write_schema_accepts_plan_or_todos(self) -> None:
+        todo_write = next(tool for tool in TASK_CONTROL_TOOL_DEFINITIONS if tool["name"] == "todo_write")
+        schema = todo_write["input_schema"]
+
+        self.assertNotIn("required", schema)
+        self.assertEqual([branch["required"] for branch in schema["anyOf"]], [["plan"], ["todos"]])
+        self.assertIn("plan", schema["anyOf"][0]["properties"])
+        self.assertIn("todos", schema["anyOf"][1]["properties"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -100,7 +100,49 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "description": "Optional short reason for the todo update.",
                 },
             },
-            "required": ["todos"],
+            "anyOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "plan": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "step": {"type": "string"},
+                                    "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
+                                },
+                                "required": ["step", "status"],
+                                "additionalProperties": False,
+                            },
+                        }
+                    },
+                    "required": ["plan"],
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "todos": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "content": {"type": "string"},
+                                    "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
+                                    "activeForm": {"type": "string"},
+                                },
+                                "required": ["content", "status"],
+                                "additionalProperties": True,
+                            },
+                        }
+                    },
+                    "required": ["todos"],
+                },
+            ],
             "additionalProperties": False,
         },
     },

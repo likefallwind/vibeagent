@@ -2249,6 +2249,14 @@ class ActionTests(unittest.TestCase):
         self.assertEqual([item.status for item in write_action.plan], ["completed", "in_progress"])
         self.assertEqual(read_action.type, "session_plan")
 
+        plan_write_action = parse_tool_action(
+            "todo_write",
+            {"plan": [{"step": "Verify schema", "status": "completed"}]},
+        )
+        self.assertEqual(plan_write_action.type, "update_plan")
+        self.assertEqual(plan_write_action.plan[0].step, "Verify schema")
+        self.assertEqual(plan_write_action.plan[0].status, "completed")
+
         with self.assertRaisesRegex(ActionParseError, "todo_write action requires a non-empty todos list"):
             parse_tool_action("todo_write", {})
         with self.assertRaisesRegex(ActionParseError, "todo_write item 1 requires non-empty content"):
