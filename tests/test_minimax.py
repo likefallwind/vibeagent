@@ -132,7 +132,7 @@ class MiniMaxTests(unittest.TestCase):
                 "content": [
                     {"type": "text", "text": "hello"},
                     {"type": "thinking", "thinking": "..."},
-                    {"type": "text", "text": " world"},
+                    {"type": "output_text", "text": " world"},
                 ]
             }
         )
@@ -161,6 +161,58 @@ class MiniMaxTests(unittest.TestCase):
         self.assertEqual(
             extract_content({"content": [{"type": "tool_use", "id": "toolu_1", "name": "read_file", "input": "bad"}]}),
             [{"type": "tool_call", "id": "toolu_1", "name": "read_file", "input": "bad"}],
+        )
+
+    def test_extract_content_maps_legacy_choice_tool_calls_to_generic_tool_calls(self) -> None:
+        self.assertEqual(
+            extract_content(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": [
+                                    {"type": "text", "text": "thinking"},
+                                    {"type": "output_text", "text": " more"},
+                                ],
+                                "tool_calls": [
+                                    {
+                                        "id": "call_1",
+                                        "type": "function",
+                                        "function": {"name": "read_file", "arguments": '{"path":"app.py"}'},
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                }
+            ),
+            [
+                {"type": "text", "text": "thinking"},
+                {"type": "text", "text": " more"},
+                {"type": "tool_call", "id": "call_1", "name": "read_file", "input": {"path": "app.py"}},
+            ],
+        )
+
+    def test_extract_content_preserves_legacy_malformed_tool_arguments_for_validation(self) -> None:
+        self.assertEqual(
+            extract_content(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "tool_calls": [
+                                    {
+                                        "id": "call_1",
+                                        "type": "function",
+                                        "function": {"name": "read_file", "arguments": "bad json"},
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ),
+            [{"type": "tool_call", "id": "call_1", "name": "read_file", "input": "bad json"}],
         )
 
     def test_extract_usage_reads_anthropic_token_usage(self) -> None:

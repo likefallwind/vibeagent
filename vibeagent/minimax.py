@@ -178,8 +178,8 @@ def extract_content(data: Any) -> list[ContentBlock] | None:
             if not isinstance(block, dict):
                 continue
             block_type = block.get("type")
-            if block_type == "text" and isinstance(block.get("text"), str):
-                blocks.append(dict(block))
+            if block_type in {"text", "output_text"} and isinstance(block.get("text"), str):
+                blocks.append({"type": "text", "text": block["text"]})
             elif block_type == "tool_use" and isinstance(block.get("name"), str) and isinstance(block.get("id"), str):
                 normalized = {
                     "type": "tool_call",
@@ -197,10 +197,50 @@ def extract_content(data: Any) -> list[ContentBlock] | None:
     if not isinstance(first, dict):
         return None
     message = first.get("message")
-    if isinstance(message, dict) and isinstance(message.get("content"), str):
-        return [{"type": "text", "text": message["content"]}]
+    if isinstance(message, dict):
+        blocks = legacy_message_content_blocks(message)
+        if blocks:
+            return blocks
     text = first.get("text")
     return [{"type": "text", "text": text}] if isinstance(text, str) else None
+
+
+def legacy_message_content_blocks(message: dict[str, Any]) -> list[ContentBlock]:
+    blocks: list[ContentBlock] = []
+    content = message.get("content")
+    if isinstance(content, str) and content:
+        blocks.append({"type": "text", "text": content})
+    elif isinstance(content, list):
+        for item in content:
+            if isinstance(item, str) and item:
+                blocks.append({"type": "text", "text": item})
+            elif isinstance(item, dict) and item.get("type") in {None, "text", "output_text"} and isinstance(item.get("text"), str):
+                blocks.append({"type": "text", "text": item["text"]})
+    tool_calls = message.get("tool_calls")
+    if isinstance(tool_calls, list):
+        for tool_call in tool_calls:
+            block = legacy_tool_call_block(tool_call)
+            if block is not None:
+                blocks.append(block)
+    return blocks
+
+
+def legacy_tool_call_block(value: Any) -> ContentBlock | None:
+    if not isinstance(value, dict) or not isinstance(value.get("id"), str):
+        return None
+    function = value.get("function")
+    if not isinstance(function, dict) or not isinstance(function.get("name"), str):
+        return None
+    raw_arguments = function.get("arguments", "{}")
+    tool_input: Any
+    if isinstance(raw_arguments, str):
+        try:
+            tool_input = json.loads(raw_arguments or "{}")
+        except json.JSONDecodeError:
+            tool_input = raw_arguments
+    else:
+        tool_input = raw_arguments
+    return {"type": "tool_call", "id": value["id"], "name": function["name"], "input": tool_input}
 
 
 def extract_usage(data: Any) -> ModelUsage | None:
