@@ -6,7 +6,12 @@ from pathlib import Path
 from vibeagent.action_parsing import ActionParseError, parse_tool_action
 from vibeagent.actions import AGENT_TOOL_DEFINITIONS, execute_action
 from vibeagent.agent import run_agent
-from vibeagent.agent_delegate import DELEGATE_TOOL_DEFINITIONS, execute_delegate_task_action
+from vibeagent.agent_delegate import (
+    DELEGATE_TOOL_DEFINITIONS,
+    code_delegate_initial_tool_names,
+    delegate_tool_definitions,
+    execute_delegate_task_action,
+)
 from vibeagent.session_timeline_reports import format_session_event_timeline_item
 from vibeagent.session import summarize_session
 from vibeagent.session_types import SessionEvent
@@ -76,6 +81,19 @@ class DelegationTests(unittest.TestCase):
         self.assertNotIn("write_file", names)
         self.assertNotIn("run_command", names)
         self.assertNotIn("git_commit", names)
+
+    def test_code_delegate_tool_catalog_uses_shared_visibility_policy(self) -> None:
+        active = code_delegate_initial_tool_names("plan")
+        names = {str(tool["name"]) for tool in delegate_tool_definitions("code", active, "plan")}
+
+        self.assertIn("read_file", names)
+        self.assertIn("finish", names)
+        self.assertNotIn("web_fetch", names)
+        self.assertNotIn("write_file", names)
+        self.assertNotIn("ask_user", names)
+        self.assertNotIn("update_plan", names)
+        self.assertNotIn("todo_write", names)
+        self.assertNotIn("delegate_task", names)
 
     def test_direct_action_execution_requires_agent_model_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:

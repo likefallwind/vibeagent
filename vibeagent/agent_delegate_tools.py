@@ -15,11 +15,11 @@ from .agent_parallel_safety import is_parallel_safe_action
 from .agent_runtime_utils import tool_error_observation
 from .agent_tool_execution import execute_parsed_tool_action
 from .agent_tool_registry import (
+    ToolVisibilityPolicy,
     activate_agent_tool_names,
     agent_tool_definitions,
     initial_agent_tool_names,
     prepare_action_for_policy,
-    tool_available_for_policy,
     tool_search_activation_names,
 )
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
@@ -54,12 +54,12 @@ def code_delegate_initial_tool_names(
     approval_policy: ApprovalPolicy,
     allowed_tool_names: frozenset[str] | None = None,
 ) -> set[str]:
+    policy = ToolVisibilityPolicy(
+        approval_policy=approval_policy,
+        excluded_names=CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
+    )
     source_names = allowed_tool_names if allowed_tool_names is not None else initial_agent_tool_names()
-    return {
-        name
-        for name in source_names
-        if tool_available_for_policy(name, approval_policy, CODE_DELEGATE_EXCLUDED_TOOL_NAMES)
-    }
+    return {name for name in source_names if policy.allows(name)}
 
 
 def delegate_tool_definitions(
