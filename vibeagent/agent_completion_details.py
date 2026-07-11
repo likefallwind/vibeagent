@@ -147,6 +147,10 @@ def observation_target_tokens(observation: Observation) -> set[str]:
     name = str(getattr(observation, "name", "") or "").strip()
     if server and name:
         tokens.add(f"{server}/{name}")
+    path = str(getattr(observation, "path", "") or "").strip()
+    pointer = str(getattr(observation, "pointer", "") or "").strip()
+    if path and pointer:
+        tokens.add(f"{path} {pointer}")
     summary_target = observation_summary_target_token(observation)
     if summary_target:
         tokens.add(summary_target)
@@ -219,6 +223,8 @@ def normalized_approval_target_tokens(value: object) -> set[str]:
         return set()
     if "(cwd:" in text:
         return {text}
+    if _looks_like_path_pointer_target(text):
+        return {text}
     tokens: set[str] = set()
     candidates = [text]
     candidates.extend(part.strip() for part in text.split(","))
@@ -235,6 +241,11 @@ def normalized_approval_target_tokens(value: object) -> set[str]:
         if normalized:
             tokens.add(normalized)
     return tokens
+
+
+def _looks_like_path_pointer_target(text: str) -> bool:
+    parts = text.split(" ", 1)
+    return len(parts) == 2 and parts[1].startswith("/")
 
 
 def denied_approval_detail(observation: Observation) -> str:

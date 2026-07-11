@@ -1167,6 +1167,49 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(completion_module.build_denied_approval_details(observations), [])
 
+    def test_denied_approval_resolution_matches_json_pointer_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="json_set",
+                target="config.json /features/chat",
+                message="denied",
+            ),
+            types_module.JsonSetObservation(
+                kind="json_set",
+                path="config.json",
+                pointer="/features/chat",
+                ok=True,
+                message="Updated config.json.",
+                diff="",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_json_pointer_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="json_set",
+                target="config.json /features/chat",
+                message="denied",
+            ),
+            types_module.JsonSetObservation(
+                kind="json_set",
+                path="config.json",
+                pointer="/features/search",
+                ok=True,
+                message="Updated config.json.",
+                diff="",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["json_set config.json /features/chat: denied"],
+        )
+
     def test_denied_approval_resolution_matches_run_command_targets(self) -> None:
         observations = [
             ApprovalDeniedObservation(
