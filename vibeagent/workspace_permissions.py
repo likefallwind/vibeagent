@@ -24,6 +24,8 @@ MAX_PERMISSION_CONFIG_BYTES = 128_000
 MAX_PERMISSION_RULES = 200
 MAX_PERMISSION_RULE_CHARS = 1_000
 RULE_PATTERN = re.compile(r"^([A-Za-z_][A-Za-z0-9_.:-]*)(?:\((.*)\))?$")
+PATH_PERMISSION_RULE_TOOLS = frozenset({"Edit", "LS", "MultiEdit", "NotebookEdit", "NotebookRead", "Read", "Write"})
+
 
 @dataclass(frozen=True)
 class ProjectPermissionRule:
@@ -253,9 +255,18 @@ def _specifier_matches(
         return wildcard_matches(specifier.removeprefix("domain:"), hostname, path_mode=False)
     if not subjects:
         return False
-    path_mode = rule.tool in {"Read", "Edit", "Write"} or tool_category(tool_name) in {"edit", "code"}
+    path_mode = _specifier_uses_path_matching(rule.tool, tool_name, action)
     matches = [wildcard_matches(specifier, subject, path_mode=path_mode) for subject in subjects]
     return all(matches) if rule.effect == "allow" else any(matches)
+
+
+def _specifier_uses_path_matching(rule_tool: str, tool_name: str, action: object) -> bool:
+    action_type = getattr(action, "type", None)
+    return (
+        rule_tool in PATH_PERMISSION_RULE_TOOLS
+        or tool_category(tool_name) in {"edit", "code"}
+        or (isinstance(action_type, str) and tool_category(action_type) in {"edit", "code"})
+    )
 
 
 def wildcard_matches(pattern: str, value: str, *, path_mode: bool) -> bool:

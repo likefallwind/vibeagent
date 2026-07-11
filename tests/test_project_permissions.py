@@ -149,6 +149,7 @@ class ProjectPermissionConfigTests(unittest.TestCase):
                     "allow": ["NotebookEdit(notebooks/**)"],
                 },
             )
+            _write_permissions(root, {"allow": ["NotebookEdit(shallow/*)"]}, source=".claude/settings.local.json")
             config = read_project_permissions(create_run_workspace(root))
             denied_read = parse_tool_action("read_file", {"path": "secrets/model.ipynb"})
             allowed_write = parse_tool_action(
@@ -164,10 +165,17 @@ class ProjectPermissionConfigTests(unittest.TestCase):
                     ]
                 },
             )
+            shallow_write = parse_tool_action("write_file", {"path": "shallow/demo.ipynb", "content": "{}\n"})
+            nested_shallow_write = parse_tool_action(
+                "write_file",
+                {"path": "shallow/archive/demo.ipynb", "content": "{}\n"},
+            )
 
         self.assertEqual(match_project_permission(config, "NotebookRead", denied_read).effect, "deny")
         self.assertEqual(match_project_permission(config, "NotebookEdit", allowed_write).effect, "allow")
         self.assertIsNone(match_project_permission(config, "write_files", mixed_write))
+        self.assertEqual(match_project_permission(config, "NotebookEdit", shallow_write).effect, "allow")
+        self.assertIsNone(match_project_permission(config, "NotebookEdit", nested_shallow_write))
 
     def test_matches_claude_runtime_aliases(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
