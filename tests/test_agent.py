@@ -1644,7 +1644,7 @@ class AgentTests(unittest.TestCase):
             ApprovalDeniedObservation(
                 kind="approval_denied",
                 action_type="mcp_call",
-                target='docs/search arguments={"query":"python"}',
+                target='docs/search arguments={"query": "python"}',
                 message="denied",
             ),
             types_module.McpCallObservation(
@@ -1652,6 +1652,7 @@ class AgentTests(unittest.TestCase):
                 ok=True,
                 server="docs",
                 name="search",
+                arguments={"query": "python"},
                 output="Python documentation",
                 is_error=False,
                 truncated=False,
@@ -1669,7 +1670,7 @@ class AgentTests(unittest.TestCase):
             ApprovalDeniedObservation(
                 kind="approval_denied",
                 action_type="mcp_call",
-                target='docs/search arguments={"query":"python"}',
+                target='docs/search arguments={"query": "python"}',
                 message="denied",
             ),
             types_module.McpCallObservation(
@@ -1677,6 +1678,7 @@ class AgentTests(unittest.TestCase):
                 ok=True,
                 server="docs",
                 name="lookup",
+                arguments={"query": "python"},
                 output="Python documentation",
                 is_error=False,
                 truncated=False,
@@ -1689,7 +1691,36 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(
             completion_module.build_denied_approval_details(observations),
-            ['mcp_call docs/search arguments={"query":"python"}: denied'],
+            ['mcp_call docs/search arguments={"query": "python"}: denied'],
+        )
+
+    def test_denied_approval_resolution_keeps_unrelated_mcp_call_arguments_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="mcp_call",
+                target='docs/search arguments={"query": "python"}',
+                message="denied",
+            ),
+            types_module.McpCallObservation(
+                kind="mcp_call",
+                ok=True,
+                server="docs",
+                name="search",
+                arguments={"query": "java"},
+                output="Java documentation",
+                is_error=False,
+                truncated=False,
+                max_output_chars=6000,
+                timeout_ms=10_000,
+                error=None,
+                message="MCP tool docs/search completed.",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ['mcp_call docs/search arguments={"query": "python"}: denied'],
         )
 
     def test_denied_approval_resolution_matches_run_commands_batch_target(self) -> None:

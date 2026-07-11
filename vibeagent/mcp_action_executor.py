@@ -8,7 +8,7 @@ from typing import Any
 from .command_safety import get_blocked_command_reason
 from .mcp_config import get_mcp_server_config, mcp_config_paths, read_mcp_server_configs
 from .mcp_stdio import McpStdioClient
-from .redaction import redact_sensitive_text
+from .redaction import redact_jsonable_payload, redact_sensitive_text
 from .types import (
     McpCallAction,
     McpCallObservation,
@@ -101,12 +101,14 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
                 timeout_ms=action.timeout_ms,
                 error=output if is_error else None,
                 message=f"MCP tool {action.server}/{action.name} {'reported an error' if is_error else 'completed'}.",
+                arguments=_redacted_arguments(action.arguments),
             )
         except (OSError, RuntimeError, TimeoutError, ValueError) as error:
             return McpCallObservation(
                 kind="mcp_call", ok=False, server=action.server, name=action.name, output="", is_error=True,
                 truncated=False, max_output_chars=action.max_output_chars, timeout_ms=action.timeout_ms,
-                error=str(error), message=f"Could not call MCP tool {action.server}/{action.name}: {error}"
+                error=str(error), message=f"Could not call MCP tool {action.server}/{action.name}: {error}",
+                arguments=_redacted_arguments(action.arguments),
             )
     return None
 
@@ -118,6 +120,11 @@ def _safe_server_config(workspace: RunWorkspace, name: str):
     if blocked:
         raise ValueError(f"MCP server command is blocked: {blocked}")
     return config
+
+
+def _redacted_arguments(arguments: dict[str, Any]) -> dict[str, object]:
+    redacted = redact_jsonable_payload(arguments)
+    return redacted if isinstance(redacted, dict) else {}
 
 
 def _config_path_label(workspace: RunWorkspace, path: Path) -> str:

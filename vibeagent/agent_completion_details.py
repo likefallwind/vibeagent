@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from .agent_approval_targets import (
     command_batch_target,
     command_target,
@@ -8,7 +10,7 @@ from .agent_approval_targets import (
     suggested_checks_target,
 )
 from .agent_completion_kinds import PROJECT_CHANGE_OBSERVATION_KINDS
-from .agent_observation_utils import observation_failed
+from .agent_observation_utils import observation_failed, summarize
 from .types import Observation
 
 
@@ -148,6 +150,9 @@ def observation_target_tokens(observation: Observation) -> set[str]:
     name = str(getattr(observation, "name", "") or "").strip()
     if server and name:
         tokens.add(f"{server}/{name}")
+        mcp_target = mcp_call_target_token(observation, server, name)
+        if mcp_target:
+            tokens.add(mcp_target)
     path = str(getattr(observation, "path", "") or "").strip()
     pointer = str(getattr(observation, "pointer", "") or "").strip()
     if path and pointer:
@@ -207,6 +212,16 @@ def transfer_target_tokens(value: object) -> set[str]:
     if not source or not destination:
         return set()
     return {f"{source} -> {destination}"}
+
+
+def mcp_call_target_token(observation: Observation, server: str, name: str) -> str | None:
+    if observation.kind != "mcp_call":
+        return None
+    arguments = getattr(observation, "arguments", None)
+    if not isinstance(arguments, dict):
+        return None
+    serialized = summarize(json.dumps(arguments, ensure_ascii=False), 500)
+    return f"{server}/{name} arguments={serialized}"
 
 
 def observation_symbol_target_tokens(observation: Observation) -> set[str]:
@@ -293,6 +308,7 @@ def normalized_approval_target_tokens(value: object) -> set[str]:
         or _looks_like_operation_count_target(text)
         or _looks_like_char_count_target(text)
         or _looks_like_transfer_target(text)
+        or _looks_like_mcp_arguments_target(text)
     ):
         return {text}
     tokens: set[str] = set()
@@ -362,6 +378,11 @@ def _looks_like_transfer_target(text: str) -> bool:
         return False
     source, separator, destination = text.partition(" -> ")
     return bool(separator and source.strip() and destination.strip())
+
+
+def _looks_like_mcp_arguments_target(text: str) -> bool:
+    tool, separator, arguments = text.partition(" arguments=")
+    return bool(separator and "/" in tool and tool.strip() and arguments.strip())
 
 
 def denied_approval_detail(observation: Observation) -> str:

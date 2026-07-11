@@ -208,6 +208,7 @@ class McpRuntimeTests(unittest.TestCase):
         self.assertEqual(listed.tools[0].name, "echo")
         self.assertEqual(listed.tools[0].input_schema, {"type": "object"})
         self.assertTrue(called.ok, called.error)
+        self.assertEqual(called.arguments, {"message": "hello"})
         self.assertIn('"message": "hello"', called.output)
         self.assertIn('"env": "expanded"', called.output)
 
