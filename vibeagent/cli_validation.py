@@ -5,6 +5,7 @@ import argparse
 from .cli_local_flag_detection import has_local_flag, has_non_model_local_flag
 from .cli_local_option_validation import validate_local_option_dependencies
 from .cli_permission_overrides import has_permission_overrides, permission_override_validation_error
+from .cli_resume_args import validate_resume_arguments
 
 
 def validate_cli_args(args: argparse.Namespace) -> str | None:
@@ -19,12 +20,11 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--model MODEL requires a one-shot task or --save-config."
     if args.dangerously_skip_permissions and (not args.task or has_local_flag(args) or args.chat):
         return "--dangerously-skip-permissions requires a one-shot coding task."
-    if (args.resume is not None or args.compact is not None or args.continue_latest) and has_local_flag(args):
-        return "--resume, --compact, and --continue cannot be combined with local command flags."
     if args.no_auto_compact and (not args.task or has_local_flag(args) or args.chat):
         return "--no-auto-compact requires a one-shot coding task."
-    if args.no_auto_compact and (args.resume is not None or args.compact is not None or args.continue_latest):
-        return "--no-auto-compact cannot be combined with --resume, --compact, or --continue."
+    resume_error = validate_resume_arguments(args, local_selected=has_local_flag(args))
+    if resume_error is not None:
+        return resume_error
     if args.input_format in {"json", "stream-json"} and args.task != ["-"]:
         return f"--input-format {args.input_format} requires task '-' so input can be read from stdin."
     if args.mcp_config and (not args.task or has_local_flag(args)):

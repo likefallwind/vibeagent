@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 
+from .cli_resume_args import normalize_resume_arguments
+
 
 PERMISSION_MODE_ALIASES = {
     "default": "ask",
@@ -63,11 +65,7 @@ def normalize_compat_arguments(args: argparse.Namespace) -> argparse.Namespace:
     if args.max_iterations is None and args.max_turns is not None:
         args.max_iterations = args.max_turns
 
-    args.resume_from_continue = False
-    if args.continue_latest and args.resume is None:
-        args.resume = ""
-        args.resume_from_continue = True
-    return args
+    return normalize_resume_arguments(args)
 
 
 def normalize_permission_mode(value: str | None) -> str | None:

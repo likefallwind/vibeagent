@@ -401,6 +401,17 @@ class CliTests(unittest.TestCase):
         self.assertEqual(kwargs["max_iterations"], 3)
         self.assertTrue(kwargs["print_mode"])
 
+    def test_cli_continue_long_alias_maps_to_latest_resume_context(self) -> None:
+        args = cli_module.parse_args(["--continue", "inspect", "repo"])
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertTrue(args.continue_latest)
+        self.assertEqual(args.resume, "")
+        self.assertTrue(args.resume_from_continue)
+        self.assertEqual(kwargs["resume_arg"], "")
+        self.assertIsNone(cli_module.validate_cli_args(args))
+
     def test_cli_permission_mode_accepts_claude_values(self) -> None:
         cases = [
             ("default", "ask"),

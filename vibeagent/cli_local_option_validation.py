@@ -325,29 +325,4 @@ def validate_local_option_dependencies(args: argparse.Namespace) -> str | None:
         return "--run-output-context-max-bytes can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification."
     if args.run_output_diagnostic_max != 50 and not run_output_context_target:
         return "--run-output-diagnostic-max can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification."
-    resume_context_selected = args.resume is not None or args.session_id is not None
-    if resume_context_selected and args.compact is not None:
-        return "--resume/--session-id and --compact cannot be used together."
-    resume_limit_options = {
-        "--resume-max-failures": args.resume_max_failures,
-        "--resume-max-files": args.resume_max_files,
-        "--resume-max-commands": args.resume_max_commands,
-        "--resume-max-checks": args.resume_max_checks,
-        "--resume-max-output-chars": args.resume_max_output_chars,
-        "--resume-max-text": args.resume_max_text,
-    }
-    compact_limit_options = {
-        "--compact-max-failures": args.compact_max_failures,
-        "--compact-max-files": args.compact_max_files,
-        "--compact-max-commands": args.compact_max_commands,
-        "--compact-max-checks": args.compact_max_checks,
-        "--compact-max-output-chars": args.compact_max_output_chars,
-        "--compact-max-text": args.compact_max_text,
-    }
-    for option, value in resume_limit_options.items():
-        if value is not None and not resume_context_selected:
-            return f"{option} can only be used with --resume or --session-id."
-    for option, value in compact_limit_options.items():
-        if value is not None and args.compact is None:
-            return f"{option} can only be used with --compact."
     return None
