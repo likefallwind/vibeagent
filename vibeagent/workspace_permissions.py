@@ -24,7 +24,7 @@ MAX_PERMISSION_CONFIG_BYTES = 128_000
 MAX_PERMISSION_RULES = 200
 MAX_PERMISSION_RULE_CHARS = 1_000
 RULE_PATTERN = re.compile(r"^([A-Za-z_][A-Za-z0-9_.:-]*)(?:\((.*)\))?$")
-PATH_PERMISSION_RULE_TOOLS = frozenset({"Edit", "LS", "MultiEdit", "NotebookEdit", "NotebookRead", "Read", "Write"})
+PATH_PERMISSION_RULE_TOOLS = frozenset({"Edit", "Glob", "LS", "MultiEdit", "NotebookEdit", "NotebookRead", "Read", "Write"})
 
 
 @dataclass(frozen=True)
