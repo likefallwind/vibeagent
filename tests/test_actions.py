@@ -2265,6 +2265,9 @@ class ActionTests(unittest.TestCase):
     def test_parse_tool_action_accepts_claude_tool_name_aliases(self) -> None:
         read_action = parse_tool_action("Read", {"file_path": "app.py", "offset": 2, "limit": 5})
         bash_action = parse_tool_action("Bash", {"command": "python3 -m unittest"})
+        background_bash_action = parse_tool_action("Bash", {"command": "npm run dev", "run_in_background": True})
+        bash_output_action = parse_tool_action("BashOutput", {"bash_id": "proc-1", "max_output_chars": 2000})
+        kill_bash_action = parse_tool_action("KillBash", {"bash_id": "proc-1"})
         write_action = parse_tool_action("Write", {"file_path": "out.txt", "content": "ok\n"})
         edit_action = parse_tool_action("Edit", {"file_path": "app.py", "old_string": "old", "new_string": "new"})
         multi_edit_action = parse_tool_action(
@@ -2288,6 +2291,13 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(read_action.start_line, 2)
         self.assertEqual(read_action.line_count, 5)
         self.assertEqual(bash_action.type, "run_command")
+        self.assertEqual(background_bash_action.type, "start_command")
+        self.assertEqual(background_bash_action.command, "npm run dev")
+        self.assertEqual(bash_output_action.type, "read_process")
+        self.assertEqual(bash_output_action.process_id, "proc-1")
+        self.assertEqual(bash_output_action.max_output_chars, 2000)
+        self.assertEqual(kill_bash_action.type, "stop_process")
+        self.assertEqual(kill_bash_action.process_id, "proc-1")
         self.assertEqual(write_action.type, "write_file")
         self.assertEqual(write_action.path, "out.txt")
         self.assertEqual(edit_action.type, "edit_file")

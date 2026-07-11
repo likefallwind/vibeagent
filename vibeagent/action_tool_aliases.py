@@ -5,9 +5,11 @@ from typing import Any
 
 CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
     "Bash": "run_command",
+    "BashOutput": "read_process",
     "Edit": "edit_file",
     "Glob": "glob",
     "Grep": "search",
+    "KillBash": "stop_process",
     "LS": "list_tree",
     "MultiEdit": "multi_edit_file",
     "Read": "read_file",
@@ -19,6 +21,10 @@ CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
 
 def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     action_type = CLAUDE_TOOL_ACTION_ALIASES.get(name, name)
+    if name == "Bash" and tool_input.get("run_in_background") is True:
+        return "start_command", _drop_fields(dict(tool_input), {"run_in_background", "timeout_ms", "max_output_chars"})
+    if action_type in {"read_process", "stop_process"}:
+        return action_type, _rename_fields(tool_input, {"bash_id": "process_id"})
     if action_type == "read_file":
         return action_type, _rename_fields(tool_input, {"file_path": "path", "offset": "start_line", "limit": "line_count"})
     if action_type in {"write_file", "list_tree"}:
@@ -39,6 +45,12 @@ def _rename_fields(value: dict[str, Any], aliases: dict[str, str]) -> dict[str, 
             normalized[target] = normalized[source]
         normalized.pop(source, None)
     return normalized
+
+
+def _drop_fields(value: dict[str, Any], fields: set[str]) -> dict[str, Any]:
+    for field in fields:
+        value.pop(field, None)
+    return value
 
 
 def _normalize_multi_edit_input(value: dict[str, Any]) -> dict[str, Any]:

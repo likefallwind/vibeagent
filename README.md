@@ -893,9 +893,10 @@ recorded with `scope=session` and `remembered=true` in session events. Denials
 are never cached, and MCP discovery/calls always require separate approval.
 For multi-step coding tasks, the model can also maintain a compact task plan;
 the latest plan is captured in the run result, session log, `/session` and
-`/last` summaries, and `/resume` context. `todo_write` is a Claude-compatible
-alias for replacing that same plan, and `todo_read` reads the latest plan from
-the current session. If a successful run finishes while the latest plan still
+`/last` summaries, and `/resume` context. `todo_write`/`TodoWrite` are
+Claude-compatible aliases for replacing that same plan, and
+`todo_read`/`TodoRead` read the latest plan from the current session. If a
+successful run finishes while the latest plan still
 has `pending` or `in_progress` items, the final result and session summary
 include a completion warning and completion blocker. If no plan exists after
 multi-step coding work, such as multiple project changes or a project change
@@ -1094,7 +1095,10 @@ Rules use `Tool` or `Tool(specifier)` syntax and are evaluated by effect in
 `deny`, `ask`, then `allow` order. Common Claude Code names including `Bash`,
 `Read`, `Edit`, `Write`, `NotebookRead`, `NotebookEdit`, `WebFetch`, `Agent`,
 and `AskUserQuestion` map to the corresponding VibeAgent tools; native
-snake-case tool names are also accepted.
+snake-case tool names are also accepted. Model tool calls also accept common
+Claude Code names such as `Bash`, `BashOutput`, `KillBash`, `Read`, `Write`,
+`Edit`, `MultiEdit`, `LS`, `Glob`, `Grep`, `TodoWrite`, and `TodoRead`, with
+Claude-style field names normalized before execution.
 Command patterns support `*`, including the trailing `:*` spelling. File
 patterns use project-relative `/`, `*`, and recursive `**` matching. A deny or
 ask rule applies when any target in a multi-file operation matches; an allow
