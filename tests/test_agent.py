@@ -1272,6 +1272,47 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(completion_module.build_denied_approval_details(observations), [])
 
+    def test_denied_approval_resolution_matches_transfer_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="move_file",
+                target="src/old.py -> src/new.py",
+                message="denied",
+            ),
+            types_module.MoveFileObservation(
+                kind="move_file",
+                source="src/old.py",
+                destination="src/new.py",
+                ok=True,
+                message="Moved file.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_transfer_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="move_file",
+                target="src/old.py -> src/new.py",
+                message="denied",
+            ),
+            types_module.MoveFileObservation(
+                kind="move_file",
+                source="src/old.py",
+                destination="src/other.py",
+                ok=True,
+                message="Moved file.",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["move_file src/old.py -> src/new.py: denied"],
+        )
+
     def test_denied_approval_resolution_matches_line_edit_target(self) -> None:
         observations = [
             ApprovalDeniedObservation(

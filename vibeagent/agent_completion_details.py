@@ -143,6 +143,10 @@ def observation_target_tokens(observation: Observation) -> set[str]:
         "checkpoint_id",
     ):
         tokens.update(normalized_approval_target_tokens(getattr(observation, name, "")))
+    source = str(getattr(observation, "source", "") or "").strip()
+    destination = str(getattr(observation, "destination", "") or "").strip()
+    if source and destination:
+        tokens.add(f"{source} -> {destination}")
     server = str(getattr(observation, "server", "") or "").strip()
     name = str(getattr(observation, "name", "") or "").strip()
     if server and name:
@@ -188,8 +192,12 @@ def observation_target_tokens(observation: Observation) -> set[str]:
     transfers = getattr(observation, "transfers", [])
     if isinstance(transfers, list):
         for transfer in transfers:
-            tokens.update(normalized_approval_target_tokens(getattr(transfer, "source", "")))
-            tokens.update(normalized_approval_target_tokens(getattr(transfer, "destination", "")))
+            source = str(getattr(transfer, "source", "") or "").strip()
+            destination = str(getattr(transfer, "destination", "") or "").strip()
+            tokens.update(normalized_approval_target_tokens(source))
+            tokens.update(normalized_approval_target_tokens(destination))
+            if source and destination:
+                tokens.add(f"{source} -> {destination}")
     return tokens
 
 
@@ -270,6 +278,7 @@ def normalized_approval_target_tokens(value: object) -> set[str]:
         or _looks_like_path_line_target(text)
         or _looks_like_symbol_target(text)
         or _looks_like_operation_count_target(text)
+        or _looks_like_transfer_target(text)
     ):
         return {text}
     tokens: set[str] = set()
@@ -277,7 +286,7 @@ def normalized_approval_target_tokens(value: object) -> set[str]:
     candidates.extend(part.strip() for part in text.split(","))
     split_candidates = list(candidates)
     for candidate in split_candidates:
-        if " -> " in candidate:
+        if " -> " in candidate and not _looks_like_transfer_target(candidate):
             candidates.extend(part.strip() for part in candidate.split(" -> "))
         if " " in candidate:
             candidates.append(candidate.split(" ", 1)[0].strip())
@@ -323,6 +332,13 @@ def _looks_like_operation_count_target(text: str) -> bool:
         return False
     count_text = suffix.removesuffix(" operations)")
     return count_text.isdigit()
+
+
+def _looks_like_transfer_target(text: str) -> bool:
+    if "," in text:
+        return False
+    source, separator, destination = text.partition(" -> ")
+    return bool(separator and source.strip() and destination.strip())
 
 
 def denied_approval_detail(observation: Observation) -> str:
