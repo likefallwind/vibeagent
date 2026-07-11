@@ -374,6 +374,16 @@ class CliTests(unittest.TestCase):
         self.assertEqual(kwargs["resume_arg"], "")
         self.assertEqual(kwargs["max_iterations"], 3)
 
+    def test_cli_dangerously_skip_permissions_maps_to_allow_for_code_tasks(self) -> None:
+        args = cli_module.parse_args(["--dangerously-skip-permissions", "inspect", "repo"])
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertTrue(args.dangerously_skip_permissions)
+        self.assertEqual(args.approval, "allow")
+        self.assertEqual(kwargs["approval_policy"], "allow")
+        self.assertIsNone(cli_module.validate_cli_args(args))
+
     def test_cli_resume_short_alias_accepts_run_id(self) -> None:
         args = cli_module.parse_args(["-r", "run-1", "continue"])
 
@@ -383,6 +393,8 @@ class CliTests(unittest.TestCase):
     def test_cli_compat_alias_conflicts_are_validation_errors(self) -> None:
         approval_args = cli_module.parse_args(["--approval", "allow", "--permission-mode", "deny", "inspect"])
         turn_args = cli_module.parse_args(["--max-iterations", "2", "--max-turns", "3", "inspect"])
+        skip_approval_args = cli_module.parse_args(["--dangerously-skip-permissions", "--approval", "allow", "inspect"])
+        skip_permission_mode_args = cli_module.parse_args(["--dangerously-skip-permissions", "--permission-mode", "allow", "inspect"])
 
         self.assertEqual(
             cli_module.validate_cli_args(approval_args),
@@ -391,6 +403,32 @@ class CliTests(unittest.TestCase):
         self.assertEqual(
             cli_module.validate_cli_args(turn_args),
             "--max-iterations and --max-turns cannot specify different values.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(skip_approval_args),
+            "--dangerously-skip-permissions cannot be combined with --approval or --permission-mode.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(skip_permission_mode_args),
+            "--dangerously-skip-permissions cannot be combined with --approval or --permission-mode.",
+        )
+
+    def test_cli_dangerously_skip_permissions_requires_one_shot_code_task(self) -> None:
+        no_task_args = cli_module.parse_args(["--dangerously-skip-permissions"])
+        chat_args = cli_module.parse_args(["--dangerously-skip-permissions", "--chat", "hello"])
+        local_args = cli_module.parse_args(["--dangerously-skip-permissions", "--tools"])
+
+        self.assertEqual(
+            cli_module.validate_cli_args(no_task_args),
+            "--dangerously-skip-permissions requires a one-shot coding task.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(chat_args),
+            "--dangerously-skip-permissions requires a one-shot coding task.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(local_args),
+            "--dangerously-skip-permissions requires a one-shot coding task.",
         )
 
     def test_cli_continue_without_task_is_valid_but_not_with_local_flags(self) -> None:

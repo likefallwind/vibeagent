@@ -123,10 +123,12 @@ they do not rewrite environment variables or local config files.
 For Claude-style scripting compatibility, `-p` is accepted as a one-shot print
 alias, `-r` is an alias for `--resume`, `-c` resumes the newest session for a
 one-shot task, `--permission-mode` maps to `--approval`, and `--max-turns` maps
-to `--max-iterations`. `--input-format stream-json` reads newline-delimited
-JSON task records from stdin when the task is `-`; it accepts simple `text`
-records, `message.content`, or SDK-style `messages` arrays and uses only
-`role: "user"` / `type: "user"` message text when roles are present.
+to `--max-iterations`. `--dangerously-skip-permissions` maps to
+`--approval allow` for one-shot coding tasks and cannot be combined with
+`--approval` or `--permission-mode`. `--input-format stream-json` reads
+newline-delimited JSON task records from stdin when the task is `-`; it accepts
+simple `text` records, `message.content`, or SDK-style `messages` arrays and
+uses only `role: "user"` / `type: "user"` message text when roles are present.
 When `-c`, `--resume [run-id]`, or `--compact [run-id]` is provided without a
 task, VibeAgent starts the interactive prompt with that context already loaded.
 `--system-prompt` replaces the default one-shot system prompt for a command;
@@ -151,9 +153,10 @@ written as a `type: "event"` record with a monotonically increasing `sequence`,
 is flushed immediately for CI and process supervisors. Stream mode never opens
 interactive approval or user-input prompts; with the default `--approval ask`,
 side-effecting tools are denied unless a trusted permission rule or complete
-sandbox auto-approval applies. Use `--approval allow` only in an appropriately
-isolated automation environment. `stream-json` requires a one-shot task and is
-not accepted for the interactive prompt or standalone local command flags.
+sandbox auto-approval applies. Use `--approval allow` or
+`--dangerously-skip-permissions` only in an appropriately isolated automation
+environment. `stream-json` requires a one-shot task and is not accepted for the
+interactive prompt or standalone local command flags.
 `--allowed-tools`/`--allowedTools` and `--disallowed-tools`/`--disallowedTools`
 add Claude-style permission rules for one coding task without editing project
 settings. Allowed CLI rules are trusted for that run and can skip side-effect

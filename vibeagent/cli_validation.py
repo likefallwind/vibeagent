@@ -12,6 +12,8 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return compat_error
     if args.print_mode and (not args.task or has_local_flag(args)):
         return "--print requires a one-shot task."
+    if args.dangerously_skip_permissions and (not args.task or has_local_flag(args) or args.chat):
+        return "--dangerously-skip-permissions requires a one-shot coding task."
     if (args.resume is not None or args.compact is not None or args.continue_latest) and has_local_flag(args):
         return "--resume, --compact, and --continue cannot be combined with local command flags."
     if args.input_format == "stream-json" and args.task != ["-"]:
