@@ -131,6 +131,7 @@ CLAUDE_TOOL_ALIASES = {
 }
 PROFILE_TOOL_ALIAS_EXPANSIONS = {
     "Bash": frozenset({"run_command", "start_command"}),
+    "TodoRead": frozenset({"session_plan"}),
 }
 
 

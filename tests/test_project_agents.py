@@ -292,6 +292,52 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertEqual(result["kind"], "start_command")
         self.assertEqual(approvals, ["start_command"])
 
+    def test_explore_profile_todoread_alias_allows_claude_tool_call(self) -> None:
+        client = ProfileClient(
+            [
+                [{"type": "tool_call", "id": "todo-1", "name": "TodoRead", "input": {}}],
+                [{"type": "text", "text": "Read the plan."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            root.joinpath(".vibeagent/sessions/run-1").mkdir(parents=True)
+            root.joinpath(".vibeagent/sessions/run-1/events.jsonl").write_text(
+                '{"type":"tool_result","iteration":1,"name":"update_plan","result":{"kind":"update_plan","plan":[{"step":"Inspect","status":"completed"}],"message":"Plan updated."}}\n',
+                encoding="utf-8",
+            )
+            _write_agent(
+                root,
+                ".claude/agents",
+                "planner",
+                "Reads plans",
+                "Read the current task plan.",
+                tools="TodoRead",
+            )
+            workspace = create_run_workspace(root, "run-1")
+            loaded = read_project_agent(workspace, "planner")
+            action = parse_tool_action("delegate_task", {"task": "Read plan", "agent": "planner", "max_iterations": 2})
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+
+        self.assertEqual(loaded["tools"], ["session_plan"])
+        self.assertTrue(observation.ok)
+        self.assertEqual(set(client.tool_names[0]), {"finish", "session_plan"})
+        result = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertEqual(result["kind"], "session_plan")
+        self.assertIn("completed: Inspect", result["plan"])
+
     def test_hidden_tool_call_cannot_escape_profile_allowlist(self) -> None:
         approvals: list[str] = []
         client = ProfileClient(
