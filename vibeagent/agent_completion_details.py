@@ -158,6 +158,7 @@ def observation_target_tokens(observation: Observation) -> set[str]:
     end_line = getattr(observation, "end_line", None)
     if path and isinstance(start_line, int) and isinstance(end_line, int):
         tokens.add(f"{path}:{start_line}-{end_line}")
+    tokens.update(observation_symbol_target_tokens(observation))
     summary_target = observation_summary_target_token(observation)
     if summary_target:
         tokens.add(summary_target)
@@ -189,6 +190,31 @@ def observation_target_tokens(observation: Observation) -> set[str]:
         for transfer in transfers:
             tokens.update(normalized_approval_target_tokens(getattr(transfer, "source", "")))
             tokens.update(normalized_approval_target_tokens(getattr(transfer, "destination", "")))
+    return tokens
+
+
+def observation_symbol_target_tokens(observation: Observation) -> set[str]:
+    symbol = str(getattr(observation, "symbol", "") or "").strip()
+    qualified_name = str(getattr(observation, "qualified_name", "") or "").strip()
+    new_name = str(getattr(observation, "new_name", "") or "").strip()
+    symbols = {value for value in (symbol, qualified_name) if value}
+    if not symbols:
+        return set()
+
+    paths = [
+        str(getattr(observation, attr, "") or "").strip()
+        for attr in ("path", "definition_path")
+    ]
+    paths = [path for path in paths if path]
+    if not paths:
+        paths = ["."]
+
+    tokens: set[str] = set()
+    for current_symbol in symbols:
+        for path in paths:
+            tokens.add(f"{current_symbol} in {path}")
+            if new_name:
+                tokens.add(f"{current_symbol} -> {new_name} in {path}")
     return tokens
 
 
@@ -230,7 +256,11 @@ def normalized_approval_target_tokens(value: object) -> set[str]:
         return set()
     if "(cwd:" in text:
         return {text}
-    if _looks_like_path_pointer_target(text) or _looks_like_path_line_target(text):
+    if (
+        _looks_like_path_pointer_target(text)
+        or _looks_like_path_line_target(text)
+        or _looks_like_symbol_target(text)
+    ):
         return {text}
     tokens: set[str] = set()
     candidates = [text]
@@ -263,6 +293,18 @@ def _looks_like_path_line_target(text: str) -> bool:
         start, end = suffix.split("-", 1)
         return bool(start.isdigit() and end.isdigit())
     return suffix.isdigit()
+
+
+def _looks_like_symbol_target(text: str) -> bool:
+    if " in " not in text:
+        return False
+    symbol_part, _, path_part = text.rpartition(" in ")
+    if not symbol_part.strip() or not path_part.strip():
+        return False
+    if " -> " in symbol_part:
+        old_name, new_name = symbol_part.split(" -> ", 1)
+        return bool(old_name.strip() and new_name.strip())
+    return True
 
 
 def denied_approval_detail(observation: Observation) -> str:

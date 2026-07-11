@@ -1254,6 +1254,110 @@ class AgentTests(unittest.TestCase):
             ["replace_lines src/app.py:12-14: denied"],
         )
 
+    def test_denied_approval_resolution_matches_symbol_definition_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="replace_python_definition",
+                target="handle in src/app.py",
+                message="denied",
+            ),
+            types_module.ReplacePythonDefinitionObservation(
+                kind="replace_python_definition",
+                symbol="handle",
+                path="src/app.py",
+                definition_path="src/app.py",
+                qualified_name="handle",
+                start_line=10,
+                end_line=15,
+                ok=True,
+                message="Replaced definition.",
+                diff="",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_symbol_definition_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="replace_python_definition",
+                target="handle in src/app.py",
+                message="denied",
+            ),
+            types_module.ReplacePythonDefinitionObservation(
+                kind="replace_python_definition",
+                symbol="other",
+                path="src/app.py",
+                definition_path="src/app.py",
+                qualified_name="other",
+                start_line=10,
+                end_line=15,
+                ok=True,
+                message="Replaced definition.",
+                diff="",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["replace_python_definition handle in src/app.py: denied"],
+        )
+
+    def test_denied_approval_resolution_matches_symbol_rename_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="python_rename",
+                target="handle -> render in src/app.py",
+                message="denied",
+            ),
+            types_module.PythonRenameObservation(
+                kind="python_rename",
+                symbol="handle",
+                new_name="render",
+                path="src/app.py",
+                files=[],
+                total_replacements=2,
+                total_files=1,
+                ok=True,
+                errors=[],
+                message="Renamed symbol.",
+                diff="",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_symbol_rename_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="code_rename",
+                target="handle -> render in src/app.py",
+                message="denied",
+            ),
+            types_module.CodeRenameObservation(
+                kind="code_rename",
+                symbol="handle",
+                new_name="display",
+                path="src/app.py",
+                files=[],
+                total_replacements=2,
+                total_files=1,
+                ok=True,
+                errors=[],
+                message="Renamed symbol.",
+                diff="",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["code_rename handle -> render in src/app.py: denied"],
+        )
+
     def test_denied_approval_resolution_matches_run_command_targets(self) -> None:
         observations = [
             ApprovalDeniedObservation(
