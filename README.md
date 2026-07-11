@@ -140,9 +140,9 @@ task, VibeAgent starts the interactive prompt with that context already loaded.
 constraints. Both options work in one-shot code and chat modes and are never
 saved to project configuration.
 With `--json`, one-shot coding results include `status` (`completed`,
-`blocked`, or `failed`), matching `stopReason`, a `priorContext` object with
-loaded/source/run id metadata, structured `plan` items, `completionReady`,
-`completionBlockers`, `completionWarnings`, `completionBlockedCount`,
+`blocked`, or `failed`), matching `stopReason`, `numTurns`, a `priorContext`
+object with loaded/source/run id metadata, structured `plan` items,
+`completionReady`, `completionBlockers`, `completionWarnings`, `completionBlockedCount`,
 `latestCompletionBlockers`, `latestCompletionPendingChecks`,
 `latestCompletionFailedChecks`, `latestCompletionFinalReviewChangedFiles`,
 `changedFiles`, `verificationChecks`, `pendingVerificationChecks`, and

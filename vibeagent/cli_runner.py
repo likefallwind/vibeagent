@@ -183,6 +183,7 @@ def run_one_shot(
             payload = {"kind": "chat", "success": True, "status": "completed", "message": response}
             if machine_output:
                 payload["durationMs"] = elapsed_milliseconds(started_at)
+                payload["numTurns"] = 1
             if stream is not None:
                 stream.result(payload)
             else:

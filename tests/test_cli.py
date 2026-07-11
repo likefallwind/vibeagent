@@ -894,6 +894,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["message"], "done")
         self.assertEqual(payload["runId"], "one-shot")
         self.assertEqual(payload["iterations"], 2)
+        self.assertEqual(payload["numTurns"], 2)
         self.assertEqual(payload["steps"], 1)
         self.assertEqual(payload["priorContext"], {"loaded": False, "source": "auto_compact", "runId": None})
         self.assertEqual(
@@ -13219,7 +13220,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(
             payload,
-            {"durationMs": 45, "kind": "chat", "message": "你好", "success": True, "status": "completed"},
+            {"durationMs": 45, "kind": "chat", "message": "你好", "numTurns": 1, "success": True, "status": "completed"},
         )
 
     def test_main_passes_system_prompt_to_one_shot_chat(self) -> None:

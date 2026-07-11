@@ -45,6 +45,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
         "runId": result.run_id,
         "runDir": str(result.run_dir),
         "iterations": result.iterations,
+        "numTurns": result.iterations,
         "steps": len(result.steps),
         "priorContext": prior_context.to_json(),
         "plan": [{"status": item.status, "step": item.step} for item in result.plan],

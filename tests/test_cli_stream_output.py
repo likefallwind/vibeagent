@@ -119,6 +119,7 @@ class CliOutputFormatTests(unittest.TestCase):
         self.assertEqual(payload["kind"], "code")
         self.assertEqual(payload["status"], "completed")
         self.assertEqual(payload["stopReason"], "completed")
+        self.assertEqual(payload["numTurns"], 1)
         self.assertEqual(payload["durationMs"], 123)
         self.assertEqual(payload["usage"]["usage"]["sessions"], 1)
         self.assertEqual(payload["usage"]["usage"]["tokens"]["input"], 10)
@@ -155,6 +156,7 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual(final["kind"], "code")
         self.assertEqual(final["status"], "completed")
         self.assertEqual(final["stopReason"], "completed")
+        self.assertEqual(final["numTurns"], 1)
         self.assertEqual(final["message"], "Inspected the project.")
         self.assertIsInstance(final["durationMs"], int)
         self.assertGreaterEqual(final["durationMs"], 0)
@@ -298,6 +300,7 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual(records[0]["type"], "result")
         self.assertEqual(records[0]["kind"], "chat")
         self.assertEqual(records[0]["message"], "hello")
+        self.assertEqual(records[0]["numTurns"], 1)
         self.assertIsInstance(records[0]["durationMs"], int)
         self.assertGreaterEqual(records[0]["durationMs"], 0)
 
