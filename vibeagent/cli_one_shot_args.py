@@ -56,7 +56,10 @@ def add_one_shot_arguments(
         choices=("minimax", "deepseek", "openai-compatible"),
         help="Temporarily override the model provider for this command.",
     )
-    parser.add_argument("--model-name", help="Temporarily override the model name for this command.")
+    parser.add_argument(
+        "--model-name",
+        help="Temporarily override the model name for this command. --model MODEL is also accepted.",
+    )
     parser.add_argument("--base-url", help="Temporarily override the provider base URL for this command.")
     parser.add_argument("--api-key", help="Temporarily override the provider API key for this command.")
     parser.add_argument(

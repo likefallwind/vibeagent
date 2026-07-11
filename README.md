@@ -113,14 +113,15 @@ printf '{"prompt":"inspect the change"}\n' | python -m vibeagent --input-format 
 python -m vibeagent --append-system-prompt "Prefer focused tests before broad suites." "inspect the change"
 python -m vibeagent --allowed-tools "Read" --allowed-tools "Bash(git diff:*)" --disallowed-tools "Bash(git push:*)" "inspect the change"
 python -m vibeagent --mcp-config docs.mcp.json "use the docs MCP server to check the API"
-python -m vibeagent --provider deepseek --model-name deepseek-reasoner --base-url https://api.deepseek.com "inspect this repo"
+python -m vibeagent --provider deepseek --model deepseek-reasoner --base-url https://api.deepseek.com "inspect this repo"
 printf "summarize the project risks\n" | python -m vibeagent -
 ```
 
-`--provider`, `--model-name`, `--base-url`, `--api-key`, `--max-iterations`,
-`--command-timeout-ms`, `--max-output-tokens`, `--model-retries`,
-`--model-retry-delay-ms`, and `--model-timeout-ms` are per-command overrides;
-they do not rewrite environment variables or local config files.
+`--provider`, `--model MODEL` / `--model-name MODEL`, `--base-url`, `--api-key`,
+`--max-iterations`, `--command-timeout-ms`, `--max-output-tokens`,
+`--model-retries`, `--model-retry-delay-ms`, and `--model-timeout-ms` are
+per-command overrides; they do not rewrite environment variables or local config
+files.
 For Claude-style scripting compatibility, `-p` is accepted as a one-shot print
 alias, `-r` is an alias for `--resume`, `-c` resumes the newest session for a
 one-shot task, `--permission-mode` maps to `--approval`, and `--max-turns` maps
@@ -182,6 +183,7 @@ ordering. These flags accept rules such as `Read`, `Edit(src/**)`,
 `--json --doctor` keeps the human-readable `text` field and also includes a
 structured `doctor` object with provider metadata, executable availability, cost
 rate status, and command hard-block self-checks without exposing API key values.
+`--model` without a value shows the active model provider configuration.
 `--json --model` and `--json --config` include structured provider and
 execution-configuration payloads with model/base URL, API-key configured/source
 metadata, project-config status, execution limits, and cost-rate status without

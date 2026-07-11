@@ -155,7 +155,7 @@ def save_project_config(
         updates["model_timeout_ms"] = validate_timeout_ms(model_timeout_ms, "model_timeout_ms")
     if not updates:
         raise ValueError(
-            "Usage: --save-config requires at least one of --provider, --model-name, --base-url, "
+            "Usage: --save-config requires at least one of --provider, --model/--model-name, --base-url, "
             "--max-iterations, --command-timeout-ms, --max-output-tokens, --model-retries, "
             "--model-retry-delay-ms, or --model-timeout-ms."
         )

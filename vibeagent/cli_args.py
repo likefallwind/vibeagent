@@ -25,7 +25,13 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     mode.add_argument("--chat", action="store_true", help="Run the one-shot task in daily conversation mode.")
     mode.add_argument("--code", action="store_true", help="Run the one-shot task in coding mode. This is the default.")
     local = parser.add_mutually_exclusive_group()
-    local.add_argument("--model", action="store_true", help="Show model provider configuration and exit.")
+    parser.add_argument(
+        "--model",
+        nargs="?",
+        const=True,
+        metavar="MODEL",
+        help="Show model provider configuration and exit, or set the model for a one-shot task when MODEL is provided.",
+    )
     local.add_argument("--config", action="store_true", help="Show resolved provider and execution configuration and exit.")
     local.add_argument("--tools", action="store_true", help="Show model tool names by category and exit.")
     local.add_argument("--tool", metavar="NAME", help="Show one model tool's description and input schema and exit.")

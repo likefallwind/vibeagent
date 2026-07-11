@@ -270,6 +270,15 @@ class CliTests(unittest.TestCase):
         self.assertEqual(LOCAL_FLAG_ARG_NAMES - cli_module.LOCAL_RESULT_ARG_NAMES, set())
         self.assertEqual(cli_module.LOCAL_RESULT_ARG_NAMES - LOCAL_FLAG_ARG_NAMES, set())
 
+    def test_model_flag_without_value_remains_local_but_model_value_is_one_shot_override(self) -> None:
+        local_args = cli_module.parse_args(["--model"])
+        override_args = cli_module.parse_args(["--model", "MiniMax-custom", "inspect"])
+
+        self.assertIs(local_args.model, True)
+        self.assertTrue(cli_module.has_local_flag(local_args))
+        self.assertEqual(override_args.model, "MiniMax-custom")
+        self.assertFalse(cli_module.has_local_flag(override_args))
+
     def test_normalize_task_bound_diff_args_moves_task_into_diff_argument(self) -> None:
         args = argparse.Namespace(
             diff_contexts="",
@@ -411,6 +420,17 @@ class CliTests(unittest.TestCase):
         self.assertEqual(
             cli_module.validate_cli_args(skip_permission_mode_args),
             "--dangerously-skip-permissions cannot be combined with --approval or --permission-mode.",
+        )
+
+        bare_model_args = cli_module.parse_args(["--model", "MiniMax-custom"])
+        model_with_config_args = cli_module.parse_args(["--model", "--config"])
+        self.assertEqual(
+            cli_module.validate_cli_args(bare_model_args),
+            "--model MODEL requires a one-shot task or --save-config.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(model_with_config_args),
+            "--model cannot be combined with other local command flags unless a MODEL value is provided.",
         )
 
     def test_cli_dangerously_skip_permissions_requires_one_shot_code_task(self) -> None:
@@ -993,7 +1013,7 @@ class CliTests(unittest.TestCase):
                     [
                         "--provider",
                         "minimax",
-                        "--model-name",
+                        "--model",
                         "MiniMax-custom",
                         "--base-url",
                         "https://minimax.example",
@@ -1216,6 +1236,31 @@ class CliTests(unittest.TestCase):
         self.assertEqual(provider_env["VIBEAGENT_PROVIDER"], "minimax")
         self.assertEqual(provider_env["MINIMAX_MODEL"], "MiniMax-custom")
         self.assertEqual(provider_env["VIBEAGENT_MODEL"], "deepseek-reasoner")
+
+    def test_main_model_alias_sets_one_shot_provider_model(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+
+            with (
+                patch.dict("vibeagent.cli.os.environ", {}, clear=True),
+                patch("vibeagent.cli.create_chat_client", return_value=object()) as create_chat_client,
+                patch("vibeagent.cli.run_agent", return_value=result),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", base, "--provider", "minimax", "--model", "MiniMax-custom", "fix"])
+
+        provider_env = create_chat_client.call_args.args[0]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(provider_env["VIBEAGENT_PROVIDER"], "minimax")
+        self.assertEqual(provider_env["MINIMAX_MODEL"], "MiniMax-custom")
 
     def test_main_runs_local_flags_without_creating_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
@@ -12793,6 +12838,22 @@ class CliTests(unittest.TestCase):
         self.assertEqual(data["model_retry_delay_ms"], 25)
         self.assertEqual(data["model_timeout_ms"], 60000)
         self.assertNotIn("api_key", data)
+        create_chat_client.assert_not_called()
+
+    def test_main_save_config_accepts_model_alias(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", base, "--save-config", "--provider", "minimax", "--model", "MiniMax-custom"])
+            data = json.loads((Path(base) / ".vibeagent" / "config.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(data["provider"], "minimax")
+        self.assertEqual(data["model"], "MiniMax-custom")
         create_chat_client.assert_not_called()
 
     def test_main_save_config_rejects_api_key_without_writing_secret(self) -> None:

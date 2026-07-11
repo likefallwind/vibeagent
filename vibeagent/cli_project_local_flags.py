@@ -18,7 +18,7 @@ def run_project_local_flag(
     commands: dict[str, Any],
 ) -> tuple[str, dict[str, object]] | None:
     root = project_root or "."
-    if args.model:
+    if args.model is True:
         return local_text_or_report(
             args,
             "model",

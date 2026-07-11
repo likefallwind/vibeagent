@@ -24,7 +24,7 @@ def build_provider_env(args: argparse.Namespace | None, project_root: Path | Non
         if not env.get(key):
             env[key] = value
     arg_provider = getattr(args, "provider", None)
-    arg_model_name = getattr(args, "model_name", None)
+    arg_model_name = model_override_from_args(args)
     arg_base_url = getattr(args, "base_url", None)
     arg_api_key = getattr(args, "api_key", None)
     provider = arg_provider or get_provider_name(env)
@@ -57,7 +57,7 @@ def save_project_config_from_args(args: argparse.Namespace, project_root: str | 
     return save_project_config(
         project_root,
         provider=args.provider,
-        model=args.model_name,
+        model=model_override_from_args(args),
         base_url=args.base_url,
         max_iterations=args.max_iterations,
         command_timeout_ms=args.command_timeout_ms,
@@ -78,7 +78,7 @@ def save_project_config_report_from_args(args: argparse.Namespace, project_root:
         key
         for key, value in {
             "provider": args.provider,
-            "model": args.model_name,
+            "model": model_override_from_args(args),
             "base_url": args.base_url,
             "max_iterations": args.max_iterations,
             "command_timeout_ms": args.command_timeout_ms,
@@ -100,6 +100,16 @@ def save_project_config_report_from_args(args: argparse.Namespace, project_root:
         "config": config,
         "message": message,
     }
+
+
+def model_override_from_args(args: argparse.Namespace | None) -> str | None:
+    if args is None:
+        return None
+    model = getattr(args, "model", None)
+    if isinstance(model, str):
+        return model
+    model_name = getattr(args, "model_name", None)
+    return model_name if isinstance(model_name, str) else None
 
 
 def format_save_config_report_text(report: dict[str, object]) -> str:

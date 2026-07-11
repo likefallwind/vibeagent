@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 
-from .cli_local_flag_detection import has_local_flag
+from .cli_local_flag_detection import has_local_flag, has_non_model_local_flag
 from .cli_permission_overrides import has_permission_overrides, permission_override_validation_error
 
 
@@ -12,6 +12,10 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return compat_error
     if args.print_mode and (not args.task or has_local_flag(args)):
         return "--print requires a one-shot task."
+    if args.model is True and has_non_model_local_flag(args):
+        return "--model cannot be combined with other local command flags unless a MODEL value is provided."
+    if isinstance(args.model, str) and not args.task and not args.save_config and not has_non_model_local_flag(args):
+        return "--model MODEL requires a one-shot task or --save-config."
     if args.dangerously_skip_permissions and (not args.task or has_local_flag(args) or args.chat):
         return "--dangerously-skip-permissions requires a one-shot coding task."
     if (args.resume is not None or args.compact is not None or args.continue_latest) and has_local_flag(args):
