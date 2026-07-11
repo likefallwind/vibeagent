@@ -126,7 +126,21 @@ def denied_approval_target_matches_observation(denied_target: str, observation: 
 
 def observation_target_tokens(observation: Observation) -> set[str]:
     tokens: set[str] = set()
-    for name in ("path", "definition_path", "source", "destination", "process_id", "url", "final_url", "server"):
+    for name in (
+        "path",
+        "definition_path",
+        "source",
+        "destination",
+        "process_id",
+        "url",
+        "final_url",
+        "server",
+        "remote",
+        "branch",
+        "upstream",
+        "stash_ref",
+        "message_text",
+    ):
         tokens.update(normalized_approval_target_tokens(getattr(observation, name, "")))
     server = str(getattr(observation, "server", "") or "").strip()
     name = str(getattr(observation, "name", "") or "").strip()

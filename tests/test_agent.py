@@ -1508,6 +1508,98 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(completion_module.build_denied_approval_details(observations), [])
 
+    def test_denied_approval_resolution_matches_git_fetch_remote_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="git_fetch",
+                target="origin",
+                message="denied",
+            ),
+            types_module.GitFetchObservation(
+                kind="git_fetch",
+                ok=True,
+                remote="origin",
+                remote_url="https://example.com/repo.git",
+                branch="main",
+                upstream="origin/main",
+                ahead_before=0,
+                behind_before=1,
+                ahead_after=0,
+                behind_after=0,
+                message="Fetched origin.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_matches_git_stash_message_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="git_stash",
+                target="save work",
+                message="denied",
+            ),
+            types_module.GitStashObservation(
+                kind="git_stash",
+                ok=True,
+                message_text="save work",
+                include_untracked=False,
+                stash_ref="stash@{0}",
+                status="",
+                diff="",
+                message="Saved work to stash@{0}.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_matches_git_stash_drop_ref_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="git_stash_drop",
+                target="stash@{0}",
+                message="denied",
+            ),
+            types_module.GitStashDropObservation(
+                kind="git_stash_drop",
+                ok=True,
+                stash_ref="stash@{0}",
+                patch="",
+                summary="stash@{0}: save work",
+                remaining_total=0,
+                message="Dropped stash@{0}.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_git_stash_drop_ref_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="git_stash_drop",
+                target="stash@{0}",
+                message="denied",
+            ),
+            types_module.GitStashDropObservation(
+                kind="git_stash_drop",
+                ok=True,
+                stash_ref="stash@{1}",
+                patch="",
+                summary="stash@{1}: other work",
+                remaining_total=1,
+                message="Dropped stash@{1}.",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["git_stash_drop stash@{0}: denied"],
+        )
+
     def test_run_agent_continues_when_multistep_work_has_no_plan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)
