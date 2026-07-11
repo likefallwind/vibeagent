@@ -14,6 +14,7 @@ class StreamJsonTaskInput:
     task: str
     system_prompt: str | None = None
     assistant_context: str | None = None
+    session_id: str | None = None
 
 
 def resolve_stream_json_task_text(raw: str) -> str:
@@ -25,6 +26,7 @@ def resolve_stream_json_task_input(raw: str) -> StreamJsonTaskInput:
     system_chunks: list[str] = []
     assistant_chunks: list[str] = []
     chunks: list[str] = []
+    session_id: str | None = None
     for line_number, line in enumerate(raw.splitlines(), start=1):
         stripped = line.strip()
         if not stripped:
@@ -33,6 +35,7 @@ def resolve_stream_json_task_input(raw: str) -> StreamJsonTaskInput:
             record = json.loads(stripped)
         except json.JSONDecodeError as exc:
             raise TaskInputFormatError(f"Invalid stream-json input on line {line_number}: {exc.msg}.") from exc
+        session_id = session_id or _session_id_from_record(record)
         chunks.extend(_text_chunks_from_record(record))
         role_chunks = _role_text_chunks_from_record(record)
         user_chunks.extend(role_chunks.user)
@@ -43,6 +46,7 @@ def resolve_stream_json_task_input(raw: str) -> StreamJsonTaskInput:
         task=_join_text_chunks(task_chunks),
         system_prompt=_optional_join_text_chunks(system_chunks),
         assistant_context=_optional_join_text_chunks(assistant_chunks),
+        session_id=session_id,
     )
 
 
@@ -168,6 +172,16 @@ def _record_role(record: dict[str, object]) -> str | None:
         normalized = record_type.strip().lower()
         if normalized in {"user", "assistant", "system"}:
             return normalized
+    return None
+
+
+def _session_id_from_record(record: object) -> str | None:
+    if not isinstance(record, dict):
+        return None
+    for key in ("session_id", "sessionId"):
+        value = record.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
     return None
 
 

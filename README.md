@@ -131,7 +131,8 @@ simple `text` records, `message.content`, or SDK-style `messages` arrays and
 uses `role: "user"` / `type: "user"` message text as the task when roles are
 present. System-role text becomes a one-shot system prompt for that run, and
 assistant-role text is treated as caller-supplied prior conversation context in
-coding mode.
+coding mode. A top-level `session_id` or `sessionId` field resumes that VibeAgent
+session in coding mode when neither `--resume` nor `--compact` is provided.
 When `-c`, `--resume [run-id]`, or `--compact [run-id]` is provided without a
 task, VibeAgent starts the interactive prompt with that context already loaded.
 `--system-prompt` replaces the default one-shot system prompt for a command;

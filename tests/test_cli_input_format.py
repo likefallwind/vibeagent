@@ -36,6 +36,7 @@ class CliInputFormatTests(unittest.TestCase):
         self.assertEqual(parsed.task, "fix the failing test\nthen summarize\nrun focused checks")
         self.assertEqual(parsed.system_prompt, "You are terse.")
         self.assertEqual(parsed.assistant_context, "Previous answer.")
+        self.assertIsNone(parsed.session_id)
 
     def test_stream_json_ignores_assistant_and_system_direct_records(self) -> None:
         raw = "\n".join(
@@ -51,6 +52,19 @@ class CliInputFormatTests(unittest.TestCase):
         self.assertEqual(parsed.task, "continue the change")
         self.assertEqual(parsed.system_prompt, "old instruction")
         self.assertEqual(parsed.assistant_context, "old reply")
+
+    def test_stream_json_extracts_session_id_from_records(self) -> None:
+        raw = "\n".join(
+            [
+                json.dumps({"session_id": "run-1", "type": "system", "text": "Use context."}),
+                json.dumps({"sessionId": "run-2", "type": "user", "text": "continue"}),
+            ]
+        )
+
+        parsed = resolve_stream_json_task_input(raw)
+
+        self.assertEqual(parsed.task, "continue")
+        self.assertEqual(parsed.session_id, "run-1")
 
     def test_stream_json_supports_wrapped_role_message(self) -> None:
         raw = json.dumps(

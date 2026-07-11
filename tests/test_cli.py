@@ -13043,6 +13043,72 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(run_agent.call_args.args[0], "fix from\nstream json")
 
+    def test_main_stream_json_session_id_loads_resume_context(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+            input_records = json.dumps(
+                {
+                    "session_id": "run-1",
+                    "messages": [{"role": "user", "content": "continue task"}],
+                }
+            )
+
+            with (
+                patch("sys.stdin", io.StringIO(input_records)),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                patch(
+                    "vibeagent.cli.get_resume_context",
+                    return_value=("run-1", "previous context", "Resume context loaded from session run-1."),
+                ) as get_resume_context,
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--input-format", "stream-json", "--cwd", base, "-"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.args[0], "continue task")
+        self.assertEqual(run_agent.call_args.kwargs["prior_context"], "previous context")
+        get_resume_context.assert_called_once_with("run-1", Path(base).resolve())
+
+    def test_main_stream_json_session_id_does_not_override_explicit_resume(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+            input_records = json.dumps({"session_id": "run-1", "type": "user", "text": "continue task"})
+
+            with (
+                patch("sys.stdin", io.StringIO(input_records)),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                patch(
+                    "vibeagent.cli.get_resume_context",
+                    return_value=("explicit-run", "explicit context", "Resume context loaded from session explicit-run."),
+                ) as get_resume_context,
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--input-format", "stream-json", "--cwd", base, "--resume", "explicit-run", "-"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.kwargs["prior_context"], "explicit context")
+        get_resume_context.assert_called_once_with("explicit-run", Path(base).resolve())
+
     def test_main_stream_json_stdin_parse_error_does_not_call_agent(self) -> None:
         stdout = io.StringIO()
 
