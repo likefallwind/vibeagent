@@ -131,6 +131,35 @@ class OpenAICompatibleTests(unittest.TestCase):
             [{"type": "tool_call", "id": "call_1", "name": "read_file", "input": "not json"}],
         )
 
+    def test_extract_content_maps_responses_output_to_generic_blocks(self) -> None:
+        self.assertEqual(
+            extract_content(
+                {
+                    "output": [
+                        {
+                            "type": "message",
+                            "content": [
+                                {"type": "output_text", "text": "thinking"},
+                                {"type": "image", "source": "ignored"},
+                                " done",
+                            ],
+                        },
+                        {
+                            "type": "function_call",
+                            "call_id": "call_1",
+                            "name": "read_file",
+                            "arguments": '{"path":"app.py"}',
+                        },
+                    ]
+                }
+            ),
+            [
+                {"type": "text", "text": "thinking"},
+                {"type": "text", "text": " done"},
+                {"type": "tool_call", "id": "call_1", "name": "read_file", "input": {"path": "app.py"}},
+            ],
+        )
+
     def test_extract_usage_reads_openai_token_usage(self) -> None:
         usage = extract_usage(
             {
@@ -138,6 +167,21 @@ class OpenAICompatibleTests(unittest.TestCase):
                     "prompt_tokens": 13,
                     "completion_tokens": 8,
                     "total_tokens": 21,
+                }
+            }
+        )
+
+        self.assertIsNotNone(usage)
+        self.assertEqual(usage.input_tokens, 13)
+        self.assertEqual(usage.output_tokens, 8)
+        self.assertEqual(usage.total_tokens, 21)
+
+    def test_extract_usage_reads_responses_token_usage(self) -> None:
+        usage = extract_usage(
+            {
+                "usage": {
+                    "input_tokens": 13,
+                    "output_tokens": 8,
                 }
             }
         )

@@ -8,7 +8,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from .config import get_first_api_key, normalize_api_key as normalize_config_api_key, resolve_provider_config
-from .provider_tool_calls import parse_function_tool_call
+from .provider_tool_calls import parse_function_tool_call, parse_responses_function_call
 from .types import AssistantResponse, ChatMessage, ChatClient, ContentBlock, ModelUsage, ToolSpec
 
 
@@ -251,7 +251,7 @@ def extract_content(data: Any) -> list[ContentBlock] | None:
         return None
     choices = data.get("choices")
     if not isinstance(choices, list) or not choices:
-        return None
+        return extract_responses_output_content(data)
     first = choices[0]
     if not isinstance(first, dict):
         return None
@@ -273,6 +273,27 @@ def extract_content(data: Any) -> list[ContentBlock] | None:
             block = parse_function_tool_call(tool_call)
             if block:
                 blocks.append(block)
+    return blocks or None
+
+
+def extract_responses_output_content(data: dict[str, Any]) -> list[ContentBlock] | None:
+    output = data.get("output")
+    if not isinstance(output, list):
+        return None
+    blocks: list[ContentBlock] = []
+    for item in output:
+        if not isinstance(item, dict):
+            continue
+        item_type = item.get("type")
+        if item_type == "message":
+            content = item.get("content")
+            if isinstance(content, list):
+                for text in text_chunks_from_openai_content(content):
+                    blocks.append({"type": "text", "text": text})
+            continue
+        block = parse_responses_function_call(item)
+        if block is not None:
+            blocks.append(block)
     return blocks or None
 
 
@@ -301,7 +322,11 @@ def extract_usage(data: Any) -> ModelUsage | None:
     if not isinstance(usage, dict):
         return None
     input_tokens = parse_nonnegative_int(usage.get("prompt_tokens"))
+    if input_tokens is None:
+        input_tokens = parse_nonnegative_int(usage.get("input_tokens"))
     output_tokens = parse_nonnegative_int(usage.get("completion_tokens"))
+    if output_tokens is None:
+        output_tokens = parse_nonnegative_int(usage.get("output_tokens"))
     total_tokens = parse_nonnegative_int(usage.get("total_tokens"))
     if total_tokens is None and input_tokens is not None and output_tokens is not None:
         total_tokens = input_tokens + output_tokens
