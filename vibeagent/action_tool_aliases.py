@@ -4,6 +4,7 @@ from typing import Any
 
 
 CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
+    "Agent": "delegate_task",
     "Bash": "run_command",
     "BashOutput": "read_process",
     "Edit": "edit_file",
@@ -13,6 +14,8 @@ CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
     "KillBash": "stop_process",
     "LS": "list_tree",
     "MultiEdit": "multi_edit_file",
+    "NotebookEdit": "edit_file",
+    "NotebookRead": "read_file",
     "Read": "read_file",
     "TodoRead": "todo_read",
     "TodoWrite": "todo_write",
@@ -36,11 +39,17 @@ def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, d
     if action_type == "delegate_task":
         return action_type, _normalize_task_input(tool_input)
     if action_type == "read_file":
-        return action_type, _rename_fields(tool_input, {"file_path": "path", "offset": "start_line", "limit": "line_count"})
+        return action_type, _rename_fields(
+            tool_input,
+            {"file_path": "path", "notebook_path": "path", "offset": "start_line", "limit": "line_count"},
+        )
     if action_type in {"write_file", "list_tree"}:
         return action_type, _rename_fields(tool_input, {"file_path": "path"})
     if action_type == "edit_file":
-        return action_type, _rename_fields(tool_input, {"file_path": "path", "old_string": "old", "new_string": "new"})
+        return action_type, _rename_fields(
+            tool_input,
+            {"file_path": "path", "notebook_path": "path", "old_string": "old", "new_string": "new"},
+        )
     if action_type == "multi_edit_file":
         return action_type, _normalize_multi_edit_input(tool_input)
     if action_type == "search":

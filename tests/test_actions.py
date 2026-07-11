@@ -2274,9 +2274,15 @@ class ActionTests(unittest.TestCase):
             "Task",
             {"prompt": "Inspect failures", "description": "Focus on tests", "subagent_type": "test-writer"},
         )
+        agent_action = parse_tool_action("Agent", {"prompt": "Map the repo", "description": "Read-only scan"})
         exit_plan_action = parse_tool_action("ExitPlanMode", {"plan": "Implement the selected fix"})
         write_action = parse_tool_action("Write", {"file_path": "out.txt", "content": "ok\n"})
         edit_action = parse_tool_action("Edit", {"file_path": "app.py", "old_string": "old", "new_string": "new"})
+        notebook_read_action = parse_tool_action("NotebookRead", {"notebook_path": "analysis.ipynb", "offset": 3, "limit": 4})
+        notebook_edit_action = parse_tool_action(
+            "NotebookEdit",
+            {"notebook_path": "analysis.ipynb", "old_string": '"old"', "new_string": '"new"'},
+        )
         multi_edit_action = parse_tool_action(
             "MultiEdit",
             {
@@ -2313,6 +2319,9 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(task_action.task, "Inspect failures")
         self.assertEqual(task_action.context, "Focus on tests")
         self.assertEqual(task_action.agent, "test-writer")
+        self.assertEqual(agent_action.type, "delegate_task")
+        self.assertEqual(agent_action.task, "Map the repo")
+        self.assertEqual(agent_action.context, "Read-only scan")
         self.assertEqual(exit_plan_action.type, "update_plan")
         self.assertEqual(exit_plan_action.plan[0].step, "Implement the selected fix")
         self.assertEqual(exit_plan_action.plan[0].status, "completed")
@@ -2321,6 +2330,14 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(edit_action.type, "edit_file")
         self.assertEqual(edit_action.old, "old")
         self.assertEqual(edit_action.new, "new")
+        self.assertEqual(notebook_read_action.type, "read_file")
+        self.assertEqual(notebook_read_action.path, "analysis.ipynb")
+        self.assertEqual(notebook_read_action.start_line, 3)
+        self.assertEqual(notebook_read_action.line_count, 4)
+        self.assertEqual(notebook_edit_action.type, "edit_file")
+        self.assertEqual(notebook_edit_action.path, "analysis.ipynb")
+        self.assertEqual(notebook_edit_action.old, '"old"')
+        self.assertEqual(notebook_edit_action.new, '"new"')
         self.assertEqual(multi_edit_action.type, "multi_edit_file")
         self.assertEqual(multi_edit_action.path, "app.py")
         self.assertEqual([(edit.old, edit.new) for edit in multi_edit_action.edits], [("old", "new"), ("second old", "second new")])
