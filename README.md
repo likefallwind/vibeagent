@@ -129,7 +129,9 @@ and prints only the final text in normal text output, `-r` is an alias for
 `--resume`, `--session-id RUN_ID` is an alias for `--resume RUN_ID`,
 `--session-id latest` resumes the newest session, `-c` resumes the newest
 session for a one-shot task,
-`--permission-mode` maps to `--approval`, and `--max-turns` maps to
+`--permission-mode` maps to `--approval`, accepting both VibeAgent values
+(`ask`, `allow`, `deny`, `plan`) and Claude-style values (`default` -> `ask`,
+`acceptEdits`/`bypassPermissions` -> `allow`), and `--max-turns` maps to
 `--max-iterations`. `--dangerously-skip-permissions` maps to
 `--approval allow` for one-shot coding tasks and cannot be combined with
 `--approval` or `--permission-mode`. `--input-format json` reads one JSON object

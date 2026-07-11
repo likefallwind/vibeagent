@@ -3,6 +3,14 @@ from __future__ import annotations
 import argparse
 
 
+PERMISSION_MODE_ALIASES = {
+    "default": "ask",
+    "acceptEdits": "allow",
+    "bypassPermissions": "allow",
+}
+PERMISSION_MODE_CHOICES = ("ask", "allow", "deny", "plan", *PERMISSION_MODE_ALIASES)
+
+
 def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int) -> None:
     parser.add_argument(
         "-p",
@@ -20,7 +28,7 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int) -> No
     )
     parser.add_argument(
         "--permission-mode",
-        choices=("ask", "allow", "deny", "plan"),
+        choices=PERMISSION_MODE_CHOICES,
         help="Claude-compatible alias for --approval.",
     )
     parser.add_argument(
@@ -43,11 +51,12 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int) -> No
 
 def normalize_compat_arguments(args: argparse.Namespace) -> argparse.Namespace:
     args.compat_error = None
+    permission_mode = normalize_permission_mode(args.permission_mode)
     if args.dangerously_skip_permissions and (args.approval is not None or args.permission_mode is not None):
         args.compat_error = "--dangerously-skip-permissions cannot be combined with --approval or --permission-mode."
-    if args.compat_error is None and args.approval is not None and args.permission_mode is not None and args.approval != args.permission_mode:
+    if args.compat_error is None and args.approval is not None and permission_mode is not None and args.approval != permission_mode:
         args.compat_error = "--approval and --permission-mode cannot specify different policies."
-    args.approval = "allow" if args.dangerously_skip_permissions else args.permission_mode or args.approval or "ask"
+    args.approval = "allow" if args.dangerously_skip_permissions else permission_mode or args.approval or "ask"
 
     if args.compat_error is None and args.max_iterations is not None and args.max_turns is not None and args.max_iterations != args.max_turns:
         args.compat_error = "--max-iterations and --max-turns cannot specify different values."
@@ -59,3 +68,9 @@ def normalize_compat_arguments(args: argparse.Namespace) -> argparse.Namespace:
         args.resume = ""
         args.resume_from_continue = True
     return args
+
+
+def normalize_permission_mode(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return PERMISSION_MODE_ALIASES.get(value, value)

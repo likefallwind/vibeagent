@@ -384,6 +384,23 @@ class CliTests(unittest.TestCase):
         self.assertEqual(kwargs["max_iterations"], 3)
         self.assertTrue(kwargs["print_mode"])
 
+    def test_cli_permission_mode_accepts_claude_values(self) -> None:
+        cases = [
+            ("default", "ask"),
+            ("acceptEdits", "allow"),
+            ("bypassPermissions", "allow"),
+            ("plan", "plan"),
+        ]
+
+        for value, expected in cases:
+            with self.subTest(value=value):
+                args = cli_module.parse_args(["--permission-mode", value, "inspect"])
+                kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+                self.assertEqual(args.approval, expected)
+                self.assertEqual(kwargs["approval_policy"], expected)
+                self.assertIsNone(cli_module.validate_cli_args(args))
+
     def test_cli_dangerously_skip_permissions_maps_to_allow_for_code_tasks(self) -> None:
         args = cli_module.parse_args(["--dangerously-skip-permissions", "inspect", "repo"])
 
@@ -410,14 +427,20 @@ class CliTests(unittest.TestCase):
 
     def test_cli_compat_alias_conflicts_are_validation_errors(self) -> None:
         approval_args = cli_module.parse_args(["--approval", "allow", "--permission-mode", "deny", "inspect"])
+        matching_accept_edits_args = cli_module.parse_args(["--approval", "allow", "--permission-mode", "acceptEdits", "inspect"])
+        matching_bypass_args = cli_module.parse_args(["--approval", "allow", "--permission-mode", "bypassPermissions", "inspect"])
+        matching_default_args = cli_module.parse_args(["--approval", "ask", "--permission-mode", "default", "inspect"])
         turn_args = cli_module.parse_args(["--max-iterations", "2", "--max-turns", "3", "inspect"])
         skip_approval_args = cli_module.parse_args(["--dangerously-skip-permissions", "--approval", "allow", "inspect"])
-        skip_permission_mode_args = cli_module.parse_args(["--dangerously-skip-permissions", "--permission-mode", "allow", "inspect"])
+        skip_permission_mode_args = cli_module.parse_args(["--dangerously-skip-permissions", "--permission-mode", "acceptEdits", "inspect"])
 
         self.assertEqual(
             cli_module.validate_cli_args(approval_args),
             "--approval and --permission-mode cannot specify different policies.",
         )
+        self.assertIsNone(cli_module.validate_cli_args(matching_accept_edits_args))
+        self.assertIsNone(cli_module.validate_cli_args(matching_bypass_args))
+        self.assertIsNone(cli_module.validate_cli_args(matching_default_args))
         self.assertEqual(
             cli_module.validate_cli_args(turn_args),
             "--max-iterations and --max-turns cannot specify different values.",
