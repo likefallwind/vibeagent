@@ -238,6 +238,27 @@ class ProjectPermissionConfigTests(unittest.TestCase):
         self.assertIsNone(match_project_permission(config, "mcp__repo__search", wrong_server))
         self.assertIsNone(match_project_permission(config, "mcp__docs__lookup", wrong_tool))
 
+    def test_web_fetch_domain_rules_accept_claude_and_internal_names(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
+            root = Path(base)
+            _write_permissions(
+                root,
+                {
+                    "deny": ["web_fetch(domain:private.example.com)"],
+                    "allow": ["WebFetch(domain:*.python.org)", "web_fetch(domain:docs.example.com)"],
+                },
+            )
+            config = read_project_permissions(create_run_workspace(root))
+            docs_python = parse_tool_action("WebFetch", {"url": "https://docs.python.org/3/"})
+            docs_example = parse_tool_action("web_fetch", {"url": "https://docs.example.com/page"})
+            private = parse_tool_action("WebFetch", {"url": "https://private.example.com/secret"})
+            unrelated = parse_tool_action("web_fetch", {"url": "https://example.net/"})
+
+        self.assertEqual(match_project_permission(config, "WebFetch", docs_python).effect, "allow")
+        self.assertEqual(match_project_permission(config, "web_fetch", docs_example).effect, "allow")
+        self.assertEqual(match_project_permission(config, "WebFetch", private).effect, "deny")
+        self.assertIsNone(match_project_permission(config, "web_fetch", unrelated))
+
     def test_cli_permission_overrides_match_claude_mcp_tool_names(self) -> None:
         overrides = build_permission_overrides(
             parse_args(["--allowed-tools", "mcp__docs__search", "--disallowed-tools", "mcp__docs__delete", "inspect"])

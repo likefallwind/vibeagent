@@ -250,7 +250,7 @@ def _specifier_matches(
     subjects: tuple[str, ...],
 ) -> bool:
     specifier = rule.specifier or ""
-    if rule.tool == "WebFetch" and specifier.startswith("domain:"):
+    if _specifier_is_web_fetch_domain(rule.tool, tool_name, action, specifier):
         hostname = urlsplit(str(getattr(action, "url", ""))).hostname or ""
         return wildcard_matches(specifier.removeprefix("domain:"), hostname, path_mode=False)
     if not subjects:
@@ -258,6 +258,11 @@ def _specifier_matches(
     path_mode = _specifier_uses_path_matching(rule.tool, tool_name, action)
     matches = [wildcard_matches(specifier, subject, path_mode=path_mode) for subject in subjects]
     return all(matches) if rule.effect == "allow" else any(matches)
+
+
+def _specifier_is_web_fetch_domain(rule_tool: str, tool_name: str, action: object, specifier: str) -> bool:
+    names = tool_name_candidates(tool_name, action)
+    return specifier.startswith("domain:") and "WebFetch" in names and rule_tool in names
 
 
 def _specifier_uses_path_matching(rule_tool: str, tool_name: str, action: object) -> bool:
