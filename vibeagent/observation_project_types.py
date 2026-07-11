@@ -147,6 +147,8 @@ class CheckFocusedTestCommandsObservation:
     max_commands: int
     related_tests_total: int
     message: str
+    max_paths: int = 100
+    max_candidates: int = 200
 
 
 @dataclass(frozen=True)
@@ -163,6 +165,8 @@ class RunFocusedTestCommandsObservation:
     stopped_early: bool
     skipped_unavailable: int
     message: str
+    max_paths: int = 100
+    max_candidates: int = 200
 
 
 @dataclass(frozen=True)

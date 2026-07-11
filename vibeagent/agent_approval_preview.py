@@ -167,7 +167,15 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
         return ("run_suggested_checks", getattr(value, "max_commands", None))
     if kind in {"run_focused_test_commands", "check_focused_test_commands"}:
         paths = tuple(getattr(value, "paths", None) or ())
-        return ("run_focused_test_commands", paths, getattr(value, "max_commands", None))
+        if not paths:
+            paths = tuple(getattr(value, "target_paths", None) or ())
+        return (
+            "run_focused_test_commands",
+            paths,
+            getattr(value, "max_paths", None),
+            getattr(value, "max_candidates", None),
+            getattr(value, "max_commands", None),
+        )
     if kind in {"run_session_verification", "session_verification"}:
         return ("run_session_verification", getattr(value, "run_id", None))
     if kind in {"write_process", "check_write_process"}:

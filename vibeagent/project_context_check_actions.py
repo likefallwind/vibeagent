@@ -274,6 +274,8 @@ def check_focused_test_commands_observation(
             max_commands=action.max_commands,
             related_tests_total=int(metadata["related_tests_total"]),
             message=f"Preflighted {len(checks)}/{int(metadata['total'])} focused test command(s); {failed_count} failed.",
+            max_paths=action.max_paths,
+            max_candidates=action.max_candidates,
         )
     except ValueError as error:
         return CheckFocusedTestCommandsObservation(
@@ -287,6 +289,8 @@ def check_focused_test_commands_observation(
             max_commands=action.max_commands,
             related_tests_total=0,
             message=str(error),
+            max_paths=action.max_paths,
+            max_candidates=action.max_candidates,
         )
 
 
@@ -338,6 +342,8 @@ def run_focused_test_commands_observation(
                 f"Ran {len(results)}/{len(runnable_commands)} available focused test command(s); "
                 f"{'all passed' if ok else 'one or more failed or were unavailable'}."
             ),
+            max_paths=action.max_paths,
+            max_candidates=action.max_candidates,
         )
     except ValueError as error:
         return RunFocusedTestCommandsObservation(
@@ -353,6 +359,8 @@ def run_focused_test_commands_observation(
             stopped_early=False,
             skipped_unavailable=0,
             message=str(error),
+            max_paths=action.max_paths,
+            max_candidates=action.max_candidates,
         )
 
 
