@@ -124,7 +124,9 @@ For Claude-style scripting compatibility, `-p` is accepted as a one-shot print
 alias, `-r` is an alias for `--resume`, `-c` resumes the newest session for a
 one-shot task, `--permission-mode` maps to `--approval`, and `--max-turns` maps
 to `--max-iterations`. `--input-format stream-json` reads newline-delimited
-JSON task records from stdin when the task is `-`.
+JSON task records from stdin when the task is `-`; it accepts simple `text`
+records, `message.content`, or SDK-style `messages` arrays and uses only
+`role: "user"` / `type: "user"` message text when roles are present.
 When `-c`, `--resume [run-id]`, or `--compact [run-id]` is provided without a
 task, VibeAgent starts the interactive prompt with that context already loaded.
 `--system-prompt` replaces the default one-shot system prompt for a command;
