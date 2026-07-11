@@ -6,7 +6,9 @@ from pathlib import Path
 from vibeagent.agent import run_agent
 from vibeagent.agent_tool_registry import (
     CORE_AGENT_TOOL_NAMES,
+    ToolVisibilityPolicy,
     activate_agent_tool_names,
+    activate_tools_for_run,
     agent_tool_definitions,
     initial_agent_tool_names,
     tool_search_activation_names,
@@ -17,6 +19,7 @@ from vibeagent.session_types import SessionEvent
 from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
 from vibeagent.tool_catalog_core import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.types import AssistantResponse, ChatMessage, ContentBlock, ToolSearchObservation
+from vibeagent.workspace import create_run_workspace
 
 
 class ToolLoadingClient:
@@ -70,6 +73,40 @@ class AgentToolRegistryTests(unittest.TestCase):
             ["python_dependencies"],
         )
         self.assertNotIn("git_push", active)
+
+    def test_visibility_policy_excludes_tools_from_schema_and_activation(self) -> None:
+        active = initial_agent_tool_names()
+        excluded = frozenset({"python_dependencies", "write_file"})
+        definitions = agent_tool_definitions(active | {"python_dependencies"}, excluded_names=excluded)
+        names = {str(tool["name"]) for tool in definitions}
+
+        self.assertFalse(ToolVisibilityPolicy(excluded_names=excluded).allows("write_file"))
+        self.assertNotIn("write_file", names)
+        self.assertNotIn("python_dependencies", names)
+        self.assertEqual(
+            activate_agent_tool_names(active, ["python_dependencies", "code_dependencies"], excluded_names=excluded),
+            ["code_dependencies"],
+        )
+
+    def test_run_level_activation_honors_excluded_tools(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-tools-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root)
+            active = initial_agent_tool_names()
+            activated = activate_tools_for_run(
+                workspace,
+                active,
+                ["python_dependencies"],
+                1,
+                source="model_call",
+                excluded_names=frozenset({"python_dependencies"}),
+            )
+            events_path = root / ".vibeagent" / "sessions" / workspace.run_id / "events.jsonl"
+            event_written = events_path.exists()
+
+        self.assertEqual(activated, [])
+        self.assertNotIn("python_dependencies", active)
+        self.assertFalse(event_written)
 
     def test_tool_search_activation_uses_only_returned_matches(self) -> None:
         observation = ToolSearchObservation(

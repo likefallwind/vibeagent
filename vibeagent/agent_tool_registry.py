@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Any
 
 from .agent_runtime_utils import append_session_event
@@ -59,6 +59,24 @@ TOOL_DEFINITION_BY_NAME = {
 }
 
 
+@dataclass(frozen=True)
+class ToolVisibilityPolicy:
+    approval_policy: ApprovalPolicy = "ask"
+    excluded_names: frozenset[str] = frozenset()
+
+    def allows(self, name: str) -> bool:
+        return name not in self.excluded_names and (
+            self.approval_policy != "plan" or name not in APPROVAL_REQUIRED_TOOL_NAMES
+        )
+
+
+def _visibility_policy(
+    approval_policy: ApprovalPolicy,
+    excluded_names: frozenset[str],
+) -> ToolVisibilityPolicy:
+    return ToolVisibilityPolicy(approval_policy=approval_policy, excluded_names=excluded_names)
+
+
 def initial_agent_tool_names() -> set[str]:
     return set(CORE_AGENT_TOOL_NAMES)
 
@@ -68,9 +86,7 @@ def tool_available_for_policy(
     approval_policy: ApprovalPolicy,
     excluded_names: frozenset[str] = frozenset(),
 ) -> bool:
-    return name not in excluded_names and (
-        approval_policy != "plan" or name not in APPROVAL_REQUIRED_TOOL_NAMES
-    )
+    return _visibility_policy(approval_policy, excluded_names).allows(name)
 
 
 def prepare_action_for_policy(action: object, approval_policy: ApprovalPolicy) -> object:
@@ -84,9 +100,10 @@ def initialize_agent_tools(
     approval_policy: ApprovalPolicy = "ask",
     excluded_names: frozenset[str] = frozenset(),
 ) -> set[str]:
+    policy = _visibility_policy(approval_policy, excluded_names)
     active_names = {
         name for name in initial_agent_tool_names()
-        if tool_available_for_policy(name, approval_policy, excluded_names)
+        if policy.allows(name)
     }
     append_session_event(
         workspace.session_dir,
@@ -106,11 +123,12 @@ def agent_tool_definitions(
     approval_policy: ApprovalPolicy = "ask",
     excluded_names: frozenset[str] = frozenset(),
 ) -> list[dict[str, Any]]:
+    policy = _visibility_policy(approval_policy, excluded_names)
     return [
         tool
         for tool in AGENT_TOOL_DEFINITIONS
         if str(tool["name"]) in active_names
-        and tool_available_for_policy(str(tool["name"]), approval_policy, excluded_names)
+        and policy.allows(str(tool["name"]))
     ]
 
 
@@ -120,12 +138,13 @@ def activate_agent_tool_names(
     approval_policy: ApprovalPolicy = "ask",
     excluded_names: frozenset[str] = frozenset(),
 ) -> list[str]:
+    policy = _visibility_policy(approval_policy, excluded_names)
     newly_active: list[str] = []
     for name in requested_names:
         if (
             name in active_names
             or name not in TOOL_DEFINITION_BY_NAME
-            or not tool_available_for_policy(name, approval_policy, excluded_names)
+            or not policy.allows(name)
         ):
             continue
         active_names.add(name)
@@ -157,8 +176,9 @@ def activate_tools_for_run(
     *,
     source: str,
     approval_policy: ApprovalPolicy = "ask",
+    excluded_names: frozenset[str] = frozenset(),
 ) -> list[str]:
-    activated = activate_agent_tool_names(active_names, requested_names, approval_policy)
+    activated = activate_agent_tool_names(active_names, requested_names, approval_policy, excluded_names)
     if activated:
         append_session_event(
             workspace.session_dir,
@@ -180,6 +200,7 @@ def activate_tools_from_observations(
     observations: list[Observation],
     iteration: int,
     approval_policy: ApprovalPolicy = "ask",
+    excluded_names: frozenset[str] = frozenset(),
 ) -> list[str]:
     requested_names: list[str] = []
     for observation in observations:
@@ -191,6 +212,7 @@ def activate_tools_from_observations(
         iteration,
         source="tool_search",
         approval_policy=approval_policy,
+        excluded_names=excluded_names,
     )
 
 
