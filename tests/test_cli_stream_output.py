@@ -168,6 +168,31 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual(records[-1]["type"], "result")
         self.assertEqual(records[-1]["status"], "blocked")
 
+    def test_stream_json_allowed_tools_source_is_streamed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-stream-") as base:
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=TextClient()),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--output-format",
+                        "stream-json",
+                        "--allowed-tools",
+                        "Read",
+                        "--cwd",
+                        base,
+                        "inspect",
+                    ]
+                )
+
+        records = [json.loads(line) for line in stdout.getvalue().splitlines()]
+        loaded = next(record["event"] for record in records if record["type"] == "event" and record["event"]["type"] == "permissions_loaded")
+        self.assertEqual(exit_code, 0)
+        self.assertIn("<cli --allowed-tools>", loaded["sources"])
+        self.assertIn("<cli --allowed-tools>", loaded["trusted_allow_sources"])
+
     def test_stream_json_emits_structured_empty_input_error(self) -> None:
         stdout = io.StringIO()
 

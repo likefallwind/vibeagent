@@ -86,6 +86,7 @@ def build_messages(
     observations: list[Observation] | None = None,
     prior_context: str | None = None,
     approval_policy: ApprovalPolicy = "ask",
+    permission_summary: str | None = None,
 ) -> list[ChatMessage]:
     # Assemble initial context for the model: goal and current workspace state.
     snapshot = read_workspace_snapshot(workspace)
@@ -93,7 +94,8 @@ def build_messages(
     command_hints = read_project_command_hints(workspace)
     skill_catalog = format_project_skill_catalog(workspace)
     agent_catalog = format_project_agent_catalog(workspace)
-    permission_summary = format_project_permissions_for_prompt(workspace)
+    if permission_summary is None:
+        permission_summary = format_project_permissions_for_prompt(workspace)
     sandbox_summary = format_workspace_sandbox_for_prompt(workspace)
     chunks = [f"User task:\n{task}"]
     if approval_policy == "plan":

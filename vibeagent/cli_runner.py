@@ -19,6 +19,7 @@ from .cli_output import (
     print_output,
     prompt_user_input,
 )
+from .cli_permission_overrides import build_permission_overrides
 from .cli_stream_output import JsonEventStream, build_code_result_payload, error_result_payload
 from .commands import get_compact_context, get_resume_context
 from .config import resolve_execution_config
@@ -64,6 +65,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "model_timeout_ms": args.model_timeout_ms,
         "output_json": args.json,
         "output_format": args.output_format,
+        "permission_overrides": build_permission_overrides(args),
         "provider_args": args,
     }
 
@@ -96,6 +98,7 @@ def run_one_shot(
     model_timeout_ms: int | None = None,
     output_json: bool = False,
     output_format: str | None = None,
+    permission_overrides=None,
     provider_args: argparse.Namespace | None = None,
     create_chat_client_func=create_chat_client,
     run_chat_func=run_chat,
@@ -193,6 +196,7 @@ def run_one_shot(
             "approval_handler": None if stream_json and approval_policy == "ask" else build_approval_handler(approval_policy),
             "approval_policy": approval_policy,
             "trust_project_permissions": trust_project_permissions or is_project_permissions_trusted(project_root),
+            "permission_overrides": permission_overrides,
             "user_input_handler": None if machine_output else prompt_user_input,
             "prior_context": prior_context.context,
         }

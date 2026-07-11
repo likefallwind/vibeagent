@@ -80,7 +80,12 @@ from .types import (
 )
 from .workspace_core import RunWorkspace, create_run_workspace
 from .workspace_hooks import read_project_hooks
-from .workspace_permissions import read_project_permissions
+from .workspace_permissions import (
+    ProjectPermissions,
+    format_permissions_for_prompt,
+    merge_project_permissions,
+    read_project_permissions,
+)
 from .workspace_sandbox import read_workspace_sandbox
 
 
@@ -102,11 +107,16 @@ def run_agent(
     approval_policy: ApprovalPolicy = "ask",
     task_metadata: dict[str, object] | None = None,
     trust_project_permissions: bool = False,
+    permission_overrides: ProjectPermissions | None = None,
 ) -> AgentResult:
     # Start with an isolated run workspace for one task execution.
     current_workspace = workspace or create_run_workspace(base_dir)
     if trust_project_permissions and not current_workspace.project_config_trusted:
         current_workspace = replace(current_workspace, project_config_trusted=True)
+    project_permissions = read_project_permissions(current_workspace)
+    project_permissions = merge_project_permissions(project_permissions, permission_overrides)
+    if current_workspace.project_config_trusted:
+        project_permissions = replace(project_permissions, allow_rules_trusted=True)
     observations: list[Observation] = []
     steps: list[TaskStep] = []
     plan: list[PlanItem] = []
@@ -115,6 +125,7 @@ def run_agent(
         current_workspace,
         prior_context=prior_context,
         approval_policy=approval_policy,
+        permission_summary=format_permissions_for_prompt(project_permissions),
     )
     original_prior_context = prior_context
     auto_checkpoint_attempted = False
@@ -137,9 +148,6 @@ def run_agent(
                 "error": project_hooks.error,
             },
         )
-    project_permissions = read_project_permissions(current_workspace)
-    if current_workspace.project_config_trusted:
-        project_permissions = replace(project_permissions, allow_rules_trusted=True)
     if project_permissions.enabled:
         append_session_event(
             current_workspace.session_dir,
@@ -149,6 +157,7 @@ def run_agent(
                 "count": len(project_permissions.rules),
                 "error": project_permissions.error,
                 "allow_rules_trusted": project_permissions.allow_rules_trusted,
+                "trusted_allow_sources": list(project_permissions.trusted_allow_sources),
             },
         )
     sandbox_config = read_workspace_sandbox(current_workspace)

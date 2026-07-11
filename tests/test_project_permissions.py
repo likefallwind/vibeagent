@@ -9,13 +9,18 @@ from vibeagent.actions import parse_tool_action
 from vibeagent.agent import run_agent
 from vibeagent.agent_delegate_tools import execute_delegate_tool_call
 from vibeagent.cli_args import parse_args
+from vibeagent.cli_permission_overrides import (
+    ALLOWED_TOOLS_SOURCE,
+    DISALLOWED_TOOLS_SOURCE,
+    build_permission_overrides,
+)
 from vibeagent.prompts import build_messages
 from vibeagent.session_timeline_reports import format_session_event_timeline_item
 from vibeagent.session_types import SessionEvent
 from vibeagent.tool_catalog import format_permissions_report_text, get_permissions_report
 from vibeagent.types import ApprovalDecision, AssistantResponse, ChatMessage, ContentBlock
 from vibeagent.workspace import create_run_workspace
-from vibeagent.workspace_permissions import match_project_permission, read_project_permissions
+from vibeagent.workspace_permissions import match_project_permission, merge_project_permissions, read_project_permissions
 
 
 class PermissionClient:
@@ -46,9 +51,41 @@ class ProjectPermissionConfigTests(unittest.TestCase):
     def test_cli_requires_explicit_flag_to_trust_allow_rules(self) -> None:
         default = parse_args(["inspect"])
         trusted = parse_args(["--trust-project-permissions", "inspect"])
+        allowed = parse_args(["--allowedTools", "Read", "--allowed-tools", "Bash(git diff:*)", "inspect"])
+        disallowed = parse_args(["--disallowedTools", "Edit(src/**)", "inspect"])
 
         self.assertFalse(default.trust_project_permissions)
         self.assertTrue(trusted.trust_project_permissions)
+        self.assertEqual(allowed.allowed_tools, ["Read", "Bash(git diff:*)"])
+        self.assertEqual(disallowed.disallowed_tools, ["Edit(src/**)"])
+
+    def test_cli_permission_overrides_merge_as_trusted_allow_source(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
+            root = Path(base)
+            _write_permissions(root, {"allow": ["Edit(src/**)"]})
+            workspace = create_run_workspace(root)
+            overrides = build_permission_overrides(
+                parse_args(
+                    [
+                        "--allowed-tools",
+                        "Read,Bash(git diff:*)",
+                        "--disallowed-tools",
+                        "Edit(src/**)",
+                        "inspect",
+                    ]
+                )
+            )
+            merged = merge_project_permissions(read_project_permissions(workspace), overrides)
+
+            read_action = parse_tool_action("read_file", {"path": "README.md"})
+            write_action = parse_tool_action("write_file", {"path": "src/app.py", "content": "x = 1\n"})
+
+        self.assertEqual([rule.raw for rule in overrides.rules], ["Read", "Bash(git diff:*)", "Edit(src/**)"])
+        self.assertIn(ALLOWED_TOOLS_SOURCE, merged.sources)
+        self.assertIn(DISALLOWED_TOOLS_SOURCE, merged.sources)
+        self.assertEqual(merged.trusted_allow_sources, (ALLOWED_TOOLS_SOURCE,))
+        self.assertEqual(match_project_permission(merged, "read_file", read_action).effect, "allow")
+        self.assertEqual(match_project_permission(merged, "write_file", write_action).effect, "deny")
 
     def test_loads_all_sources_and_uses_deny_ask_allow_precedence(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
@@ -197,6 +234,84 @@ class ProjectPermissionExecutionTests(unittest.TestCase):
 
         self.assertEqual(denied.observations[0].kind, "approval_denied")
         self.assertIn("session policy", denied.observations[0].message)
+
+    def test_cli_allowed_tools_skip_prompt_without_trusting_project_allow_rules(self) -> None:
+        untrusted_project_client = PermissionClient(
+            [
+                [{"type": "tool_call", "id": "write-1", "name": "write_file", "input": {"path": "project.py", "content": "x = 0\n"}}],
+                [{"type": "text", "text": "Project allow still needed approval."}],
+            ]
+        )
+        approvals: list[str] = []
+
+        def approve(request):
+            approvals.append(request.target)
+            return ApprovalDecision(approved=True, message="approved")
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
+            root = Path(base)
+            _write_permissions(root, {"allow": ["Edit(project.py)"]})
+            run_agent(
+                "Write project.py",
+                base_dir=root,
+                client=untrusted_project_client,
+                max_iterations=2,
+                approval_handler=approve,
+                permission_overrides=build_permission_overrides(parse_args(["--allowed-tools", "Edit(cli.py)", "write"])),
+            )
+
+        self.assertEqual(approvals, ["project.py"])
+
+        cli_allowed_client = PermissionClient(
+            [
+                [{"type": "tool_call", "id": "write-1", "name": "write_file", "input": {"path": "cli.py", "content": "x = 1\n"}}],
+                [{"type": "text", "text": "CLI allow skipped approval."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
+            root = Path(base)
+            result = run_agent(
+                "Write cli.py",
+                base_dir=root,
+                client=cli_allowed_client,
+                max_iterations=2,
+                approval_handler=None,
+                permission_overrides=build_permission_overrides(parse_args(["--allowed-tools", "Edit(cli.py)", "write"])),
+            )
+            content = root.joinpath("cli.py").read_text(encoding="utf-8")
+
+        self.assertEqual(result.observations[0].kind, "write_file")
+        self.assertEqual(content, "x = 1\n")
+        prompt = "\n".join(str(message.content) for message in cli_allowed_client.messages[0])
+        self.assertIn("allow: Edit(cli.py)", prompt)
+        self.assertIn(ALLOWED_TOOLS_SOURCE, prompt)
+
+    def test_cli_disallowed_tools_override_project_and_cli_allow_rules(self) -> None:
+        client = PermissionClient(
+            [
+                [{"type": "tool_call", "id": "write-1", "name": "write_file", "input": {"path": "src/app.py", "content": "x = 1\n"}}],
+                [{"type": "text", "text": "The CLI deny blocked the write."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
+            root = Path(base)
+            _write_permissions(root, {"allow": ["Edit(src/**)"]})
+            result = run_agent(
+                "Write app",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_handler=lambda request: ApprovalDecision(approved=True, message="approved"),
+                trust_project_permissions=True,
+                permission_overrides=build_permission_overrides(
+                    parse_args(["--allowed-tools", "Edit(src/**)", "--disallowed-tools", "Edit(src/**)", "write"])
+                ),
+            )
+            exists = root.joinpath("src/app.py").exists()
+
+        self.assertFalse(exists)
+        self.assertEqual(result.observations[0].kind, "approval_denied")
+        self.assertIn(DISALLOWED_TOOLS_SOURCE, result.observations[0].message)
 
     def test_ask_rule_prompts_for_read_only_tools_and_disables_parallel_bypass(self) -> None:
         client = PermissionClient(

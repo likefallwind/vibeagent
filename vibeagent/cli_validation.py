@@ -3,11 +3,17 @@ from __future__ import annotations
 import argparse
 
 from .cli_local_flag_detection import has_local_flag
+from .cli_permission_overrides import has_permission_overrides, permission_override_validation_error
 
 
 def validate_cli_args(args: argparse.Namespace) -> str | None:
     if args.output_format == "stream-json" and (not args.task or has_local_flag(args)):
         return "--output-format stream-json requires a one-shot task."
+    override_error = permission_override_validation_error(args)
+    if override_error is not None:
+        return override_error
+    if has_permission_overrides(args) and (not args.task or has_local_flag(args) or args.chat):
+        return "--allowed-tools and --disallowed-tools can only be used with one-shot coding tasks."
     if args.diff_staged and args.diff is None and args.diff_hunks is None and args.diff_contexts is None:
         return "--staged can only be used with --diff, --diff-hunks, or --diff-contexts."
     if args.command_cwd and not args.command_check:

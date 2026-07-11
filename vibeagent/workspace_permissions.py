@@ -129,6 +129,7 @@ class ProjectPermissions:
     sources: tuple[str, ...] = ()
     error: str | None = None
     allow_rules_trusted: bool = False
+    trusted_allow_sources: tuple[str, ...] = ()
 
     @property
     def enabled(self) -> bool:
@@ -171,16 +172,47 @@ def read_project_permissions_from_root(root: str | Path) -> ProjectPermissions:
     return read_project_permissions(workspace)
 
 
+def permission_rules_from_values(
+    effect: PermissionEffect,
+    values: list[str] | tuple[str, ...],
+    source: str,
+) -> tuple[ProjectPermissionRule, ...]:
+    return tuple(_parse_permission_rules({effect: list(values)}, source))
+
+
+def merge_project_permissions(
+    base: ProjectPermissions,
+    extra: ProjectPermissions | None,
+) -> ProjectPermissions:
+    if extra is None or not extra.enabled:
+        return base
+    error = base.error or extra.error
+    return ProjectPermissions(
+        rules=base.rules + extra.rules,
+        sources=tuple(dict.fromkeys((*base.sources, *extra.sources))),
+        error=error,
+        allow_rules_trusted=base.allow_rules_trusted,
+        trusted_allow_sources=tuple(dict.fromkeys((*base.trusted_allow_sources, *extra.trusted_allow_sources))),
+    )
+
+
 def format_project_permissions_for_prompt(workspace: RunWorkspace) -> str:
     config = read_project_permissions(workspace)
+    return format_permissions_for_prompt(config)
+
+
+def format_permissions_for_prompt(config: ProjectPermissions) -> str:
     if config.error is not None:
         return f"Project permission configuration is invalid and tool calls will be denied: {config.error}"
     if not config.rules:
         return ""
     lines = [
-        "Project permission rules (deny rules take precedence over ask, then allow):",
+        "Permission rules (deny rules take precedence over ask, then allow):",
         "Allow rules skip side-effect approval only when project permissions were explicitly trusted for this run.",
     ]
+    if config.trusted_allow_sources:
+        sources = ", ".join(config.trusted_allow_sources)
+        lines.append(f"Allow rules from these sources are trusted for this run: {sources}.")
     lines.extend(f"- {rule.effect}: {rule.raw} ({rule.source})" for rule in config.rules)
     return "\n".join(lines)
 

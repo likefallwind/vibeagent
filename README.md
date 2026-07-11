@@ -105,6 +105,7 @@ python -m vibeagent --compact <run-id> --compact-max-output-chars 0 --compact-ma
 python -m vibeagent --cwd ../my-project --max-iterations 8 --command-timeout-ms 120000 --max-output-tokens 8192 --model-retries 2 --model-retry-delay-ms 500 --model-timeout-ms 120000 "run the release checks"
 python -m vibeagent --json --cwd ../my-project "run the release checks"
 python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
+python -m vibeagent --allowed-tools "Read" --allowed-tools "Bash(git diff:*)" --disallowed-tools "Bash(git push:*)" "inspect the change"
 python -m vibeagent --provider deepseek --model-name deepseek-reasoner --base-url https://api.deepseek.com "inspect this repo"
 printf "summarize the project risks\n" | python -m vibeagent -
 ```
@@ -133,6 +134,12 @@ side-effecting tools are denied unless a trusted permission rule or complete
 sandbox auto-approval applies. Use `--approval allow` only in an appropriately
 isolated automation environment. `stream-json` requires a one-shot task and is
 not accepted for the interactive prompt or standalone local command flags.
+`--allowed-tools`/`--allowedTools` and `--disallowed-tools`/`--disallowedTools`
+add Claude-style permission rules for one coding task without editing project
+settings. Allowed CLI rules are trusted for that run and can skip side-effect
+prompts; disallowed CLI rules take precedence through the normal deny/ask/allow
+ordering. These flags accept rules such as `Read`, `Edit(src/**)`,
+`Bash(git diff:*)`, or `WebFetch(domain:docs.python.org)`, and can be repeated.
 `--json --doctor` keeps the human-readable `text` field and also includes a
 structured `doctor` object with provider metadata, executable availability, cost
 rate status, and command hard-block self-checks without exposing API key values.
@@ -1034,6 +1041,9 @@ Command patterns support `*`, including the trailing `:*` spelling. File
 patterns use project-relative `/`, `*`, and recursive `**` matching. A deny or
 ask rule applies when any target in a multi-file operation matches; an allow
 rule applies only when every target matches.
+Per-run CLI overrides use the same rule syntax via `--allowed-tools` and
+`--disallowed-tools`. CLI allow rules are trusted for that run only; project
+file allow rules still require explicit project trust.
 
 Project deny and ask rules always take effect. Because repository settings are
 untrusted input, allow rules do not skip side-effect approval unless a one-shot

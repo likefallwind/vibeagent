@@ -308,10 +308,66 @@ class CliTests(unittest.TestCase):
         self.assertEqual(kwargs["resume_arg"], "last")
         self.assertEqual(kwargs["max_iterations"], 7)
         self.assertEqual(kwargs["command_timeout_ms"], 1234)
+        self.assertEqual(kwargs["permission_overrides"].rules, ())
         self.assertIs(kwargs["provider_args"], args)
 
         plan_args = cli_module.parse_args(["--approval", "plan", "inspect", "repo"])
         self.assertEqual(plan_args.approval, "plan")
+
+    def test_build_one_shot_kwargs_from_args_includes_permission_overrides(self) -> None:
+        args = cli_module.parse_args(
+            [
+                "--allowedTools",
+                "Read",
+                "--allowed-tools",
+                "Bash(git diff:*)",
+                "--disallowedTools",
+                "Edit(src/**)",
+                "inspect",
+            ]
+        )
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+        permissions = kwargs["permission_overrides"]
+
+        self.assertEqual([rule.effect for rule in permissions.rules], ["allow", "allow", "deny"])
+        self.assertEqual([rule.raw for rule in permissions.rules], ["Read", "Bash(git diff:*)", "Edit(src/**)"])
+        self.assertTrue(permissions.trusted_allow_sources)
+
+    def test_main_rejects_invalid_permission_override_rule(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--json", "--allowed-tools", "Read(", "inspect"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(payload["kind"], "error")
+        self.assertIn("permission rule is invalid", payload["error"])
+        create_chat_client.assert_not_called()
+
+    def test_main_rejects_permission_overrides_without_code_task(self) -> None:
+        cases = [
+            ["--json", "--allowed-tools", "Read"],
+            ["--json", "--allowed-tools", "Read", "--chat", "hello"],
+            ["--json", "--disallowed-tools", "Edit", "--permissions"],
+        ]
+        for argv in cases:
+            with self.subTest(argv=argv):
+                stdout = io.StringIO()
+                with (
+                    patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                    redirect_stdout(stdout),
+                ):
+                    exit_code = main(argv)
+
+                payload = json.loads(stdout.getvalue())
+                self.assertEqual(exit_code, 2)
+                self.assertIn("can only be used with one-shot coding tasks", payload["error"])
+                create_chat_client.assert_not_called()
 
     def test_parse_args_accepts_explicit_aliases_but_rejects_implicit_abbreviations(self) -> None:
         command_args = cli_module.parse_args(["--command", "python3 --version"])

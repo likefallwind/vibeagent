@@ -9,6 +9,7 @@ from .cli_local_flag_detection import (
     has_local_flag as _has_local_flag,
 )
 from .cli_output_args import add_output_arguments, normalize_output_arguments
+from .cli_permission_overrides import add_permission_override_arguments
 from .tool_categories import valid_tool_categories
 from .tool_search_options import tool_search_approval_choices
 
@@ -398,6 +399,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         action="store_true",
         help="Allow project permission allow rules to skip side-effect prompts for this one-shot run.",
     )
+    add_permission_override_arguments(parser)
     parser.add_argument(
         "--resume",
         nargs="?",

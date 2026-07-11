@@ -74,7 +74,11 @@ def authorize_tool_action(
         if rule_match.effect == "deny":
             message = f"Denied by project permission rule {rule_match.rule.raw} from {rule_match.rule.source}."
             return ToolAuthorization(False, _denial(tool_name, action, message), rule_match=rule_match)
-        allow_can_skip_approval = default_request is None or permissions.allow_rules_trusted
+        allow_can_skip_approval = (
+            default_request is None
+            or permissions.allow_rules_trusted
+            or rule_match.rule.source in permissions.trusted_allow_sources
+        )
         if rule_match.effect == "allow" and allow_can_skip_approval and not (
             default_request is not None and approval_policy in {"deny", "plan"}
         ):
