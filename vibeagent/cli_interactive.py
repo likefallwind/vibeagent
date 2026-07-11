@@ -42,10 +42,15 @@ def run_interactive_loop(
     run_chat_func: Callable[..., str] = default_run_chat,
     run_agent_func: Callable[..., object] = default_run_agent,
     get_resume_context_func: Callable[..., tuple[str | None, str | None, str]] = default_get_resume_context,
+    initial_resume_run_id: str | None = None,
+    initial_resume_context: str | None = None,
+    initial_resume_message: str | None = None,
 ) -> int:
     # Entry loop: parse local commands first, otherwise delegate to the agent.
     print("VibeAgent v0.1")
     print("Type a programming task, or use /chat for daily conversation. Use /help for commands.")
+    if initial_resume_message:
+        print(initial_resume_message)
     project_permissions_trusted = prompt_project_permission_trust(Path.cwd())
 
     client = None
@@ -53,8 +58,8 @@ def run_interactive_loop(
     approval_policy: ApprovalPolicy = "ask"
     approval_handler = build_approval_handler(approval_policy)
     chat_history: list[ChatMessage] = []
-    resume_run_id: str | None = None
-    resume_context: str | None = None
+    resume_run_id: str | None = initial_resume_run_id
+    resume_context: str | None = initial_resume_context
     while True:
         try:
             task = input("\nvibeagent> ").strip()

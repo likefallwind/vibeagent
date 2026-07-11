@@ -48,6 +48,7 @@ from .cli_json_local_flags import run_json_local_flag
 from .cli_local_dispatch import dispatch_local_flag
 from .cli_patch_local_flags import run_patch_local_flag
 from .cli_session_local_flags import run_session_local_flag
+from .cli_startup_context import InteractiveStartupContext, resolve_interactive_startup_context
 from .cli_interactive import run_interactive_loop as _run_interactive_loop
 from .cli_main_args import normalize_task_bound_diff_args
 from .cli_runner import (
@@ -163,7 +164,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_one_shot(**kwargs)
     if argv is not None:
         try:
-            return run_interactive(args.cwd)
+            return run_interactive_with_args(args)
         except KeyboardInterrupt:
             return print_interrupted_result(args.json, args.output_format)
         except ValueError as error:
@@ -197,17 +198,31 @@ def run_local_flag(args: argparse.Namespace) -> int:
         return print_error_result(format_error(error), args.json, prefix=True, output_format=args.output_format)
 
 
-def run_interactive(base_dir: str | None = None) -> int:
+def run_interactive(base_dir: str | None = None, startup_context: InteractiveStartupContext | None = None) -> int:
     project_root = resolve_project_root(base_dir)
+    context = startup_context or InteractiveStartupContext()
     if project_root is None:
-        return run_interactive_loop()
+        return run_interactive_loop(context)
 
     previous_cwd = Path.cwd()
     os.chdir(project_root)
     try:
-        return run_interactive_loop()
+        return run_interactive_loop(context)
     finally:
         os.chdir(previous_cwd)
+
+
+def run_interactive_with_args(args: argparse.Namespace) -> int:
+    project_root = resolve_project_root(args.cwd) or Path.cwd()
+    startup_context = resolve_interactive_startup_context(
+        args,
+        project_root,
+        get_resume_context_func=get_resume_context,
+        get_compact_context_func=get_compact_context,
+    )
+    if startup_context.error is not None:
+        return print_error_result(startup_context.error, args.json, exit_code=2, output_format=args.output_format)
+    return run_interactive(args.cwd, startup_context)
 
 
 def run_one_shot(*args, **kwargs) -> int:
@@ -219,13 +234,17 @@ def run_one_shot(*args, **kwargs) -> int:
     return _run_one_shot(*args, **kwargs)
 
 
-def run_interactive_loop() -> int:
+def run_interactive_loop(startup_context: InteractiveStartupContext | None = None) -> int:
+    context = startup_context or InteractiveStartupContext()
     return _run_interactive_loop(
         command_namespace=globals(),
         create_chat_client_func=create_chat_client,
         run_chat_func=run_chat,
         run_agent_func=run_agent,
         get_resume_context_func=get_resume_context,
+        initial_resume_run_id=context.run_id,
+        initial_resume_context=context.context,
+        initial_resume_message=context.message,
     )
 if __name__ == "__main__":
     import sys

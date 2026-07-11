@@ -103,6 +103,7 @@ python -m vibeagent --resume <run-id> --resume-max-files 25 --resume-max-command
 python -m vibeagent --resume -- "continue the latest session"
 python -m vibeagent -r <run-id> -p "continue the previous change"
 python -m vibeagent -c --permission-mode plan --max-turns 3 "inspect the latest change"
+python -m vibeagent -c
 python -m vibeagent --compact <run-id> --compact-max-output-chars 0 --compact-max-checks 20 "continue from a compact handoff"
 python -m vibeagent --cwd ../my-project --max-iterations 8 --command-timeout-ms 120000 --max-output-tokens 8192 --model-retries 2 --model-retry-delay-ms 500 --model-timeout-ms 120000 "run the release checks"
 python -m vibeagent --json --cwd ../my-project "run the release checks"
@@ -124,6 +125,8 @@ alias, `-r` is an alias for `--resume`, `-c` resumes the newest session for a
 one-shot task, `--permission-mode` maps to `--approval`, and `--max-turns` maps
 to `--max-iterations`. `--input-format stream-json` reads newline-delimited
 JSON task records from stdin when the task is `-`.
+When `-c`, `--resume [run-id]`, or `--compact [run-id]` is provided without a
+task, VibeAgent starts the interactive prompt with that context already loaded.
 `--system-prompt` replaces the default one-shot system prompt for a command;
 `--append-system-prompt` keeps the default prompt and adds extra system-level
 constraints. Both options work in one-shot code and chat modes and are never
