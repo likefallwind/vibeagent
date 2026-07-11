@@ -122,10 +122,11 @@ printf "summarize the project risks\n" | python -m vibeagent -
 `--model-retries`, `--model-retry-delay-ms`, and `--model-timeout-ms` are
 per-command overrides; they do not rewrite environment variables or local config
 files.
-For Claude-style scripting compatibility, `-p` is accepted as a one-shot print
-alias, `-r` is an alias for `--resume`, `-c` resumes the newest session for a
-one-shot task, `--permission-mode` maps to `--approval`, and `--max-turns` maps
-to `--max-iterations`. `--dangerously-skip-permissions` maps to
+For Claude-style scripting compatibility, `-p` / `--print` runs a one-shot task
+and prints only the final text in normal text output, `-r` is an alias for
+`--resume`, `-c` resumes the newest session for a one-shot task,
+`--permission-mode` maps to `--approval`, and `--max-turns` maps to
+`--max-iterations`. `--dangerously-skip-permissions` maps to
 `--approval allow` for one-shot coding tasks and cannot be combined with
 `--approval` or `--permission-mode`. `--input-format json` reads one JSON object
 or array from stdin when the task is `-`; `--input-format stream-json` reads

@@ -93,6 +93,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "input_prior_context": format_stream_assistant_context(task_input.assistant_context),
         "output_json": args.json,
         "output_format": args.output_format,
+        "print_mode": args.print_mode,
         "permission_overrides": build_permission_overrides(args),
         "provider_args": args,
     }
@@ -130,6 +131,7 @@ def run_one_shot(
     input_prior_context: str | None = None,
     output_json: bool = False,
     output_format: str | None = None,
+    print_mode: bool = False,
     permission_overrides=None,
     provider_args: argparse.Namespace | None = None,
     create_chat_client_func=create_chat_client,
@@ -269,6 +271,8 @@ def run_one_shot(
             stream.result(result_payload)
         elif output_json:
             print_output(result_payload, True)
+        elif print_mode:
+            print_output({"message": result.message}, False)
         else:
             print_agent_result(result)
         return 0 if result.success and result.completion_ready else 1

@@ -382,6 +382,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(kwargs["approval_policy"], "plan")
         self.assertEqual(kwargs["resume_arg"], "")
         self.assertEqual(kwargs["max_iterations"], 3)
+        self.assertTrue(kwargs["print_mode"])
 
     def test_cli_dangerously_skip_permissions_maps_to_allow_for_code_tasks(self) -> None:
         args = cli_module.parse_args(["--dangerously-skip-permissions", "inspect", "repo"])
@@ -862,6 +863,58 @@ class CliTests(unittest.TestCase):
         self.assertIn("done", stdout.getvalue())
         self.assertIn("Completion blockers:", stdout.getvalue())
         self.assertIn("Final review did not report ready.", stdout.getvalue())
+
+    def test_main_print_mode_outputs_only_final_code_message(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+                completion_ready=False,
+                completion_blockers=["Final review did not report ready."],
+                final_review_changed_files=["M app.py"],
+            )
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", return_value=result),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["-p", "--cwd", base, "fix", "the", "test"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(stdout.getvalue(), "done\n")
+
+    def test_main_print_mode_keeps_json_machine_result(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", return_value=result),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["-p", "--json", "--cwd", base, "fix", "the", "test"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "code")
+        self.assertEqual(payload["message"], "done")
+        self.assertEqual(payload["result"], "done")
 
     def test_main_runs_one_shot_code_task_with_json_output(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
