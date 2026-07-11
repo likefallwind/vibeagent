@@ -27,6 +27,10 @@ CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
 
 
 def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    mcp_action = _normalize_claude_mcp_tool_action(name, tool_input)
+    if mcp_action is not None:
+        return mcp_action
+
     action_type = CLAUDE_TOOL_ACTION_ALIASES.get(name, name)
     if name == "Bash" and tool_input.get("run_in_background") is True:
         return "start_command", _drop_fields(dict(tool_input), {"run_in_background", "timeout_ms", "max_output_chars"})
@@ -114,6 +118,14 @@ def _normalize_task_input(value: dict[str, Any]) -> dict[str, Any]:
     normalized = _rename_fields(value, {"prompt": "task", "description": "context", "subagent_type": "agent"})
     normalized.setdefault("mode", "explore")
     return normalized
+
+
+def _normalize_claude_mcp_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
+    parts = name.split("__", 2)
+    if len(parts) != 3 or parts[0] != "mcp":
+        return None
+    _, server, tool_name = parts
+    return "mcp_call", {"server": server, "name": tool_name, "arguments": dict(tool_input)}
 
 
 __all__ = [

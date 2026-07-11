@@ -2352,6 +2352,18 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(todo_write_action.type, "update_plan")
         self.assertEqual(todo_read_action.type, "session_plan")
 
+    def test_parse_tool_action_accepts_claude_mcp_tool_names(self) -> None:
+        action = parse_tool_action(
+            "mcp__docs__search",
+            {"query": "python", "timeout_ms": 250},
+        )
+
+        self.assertEqual(action.type, "mcp_call")
+        self.assertEqual(action.server, "docs")
+        self.assertEqual(action.name, "search")
+        self.assertEqual(action.arguments, {"query": "python", "timeout_ms": 250})
+        self.assertEqual(action.timeout_ms, 30_000)
+
     def test_documented_claude_tool_call_aliases_are_registered(self) -> None:
         documented = {
             "Agent",
