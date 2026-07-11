@@ -191,6 +191,53 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertEqual(set(client.tool_names[0]), {"finish", "write_file"})
         self.assertIn("PROFILE_SPECIAL_INSTRUCTION", str(client.messages[0][0].content))
 
+    def test_explore_profile_accepts_claude_read_tool_alias(self) -> None:
+        client = ProfileClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "read-1",
+                        "name": "Read",
+                        "input": {"file_path": "README.md", "limit": 2},
+                    }
+                ],
+                [{"type": "text", "text": "Read the file."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            root.joinpath("README.md").write_text("# Demo\nBody\n", encoding="utf-8")
+            _write_agent(
+                root,
+                ".claude/agents",
+                "reader",
+                "Reads files",
+                "Use read-only evidence.",
+                tools="Read",
+            )
+            workspace = create_run_workspace(root, "run-1")
+            action = parse_tool_action("delegate_task", {"task": "Read README", "agent": "reader", "max_iterations": 2})
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+
+        self.assertTrue(observation.ok)
+        self.assertEqual(set(client.tool_names[0]), {"finish", "read_file"})
+        result = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertEqual(result["kind"], "read_file")
+        self.assertEqual(result["path"], "README.md")
+
     def test_hidden_tool_call_cannot_escape_profile_allowlist(self) -> None:
         approvals: list[str] = []
         client = ProfileClient(

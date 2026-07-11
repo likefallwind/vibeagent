@@ -2364,6 +2364,14 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(action.arguments, {"query": "python", "timeout_ms": 250})
         self.assertEqual(action.timeout_ms, 30_000)
 
+    def test_parse_tool_action_accepts_claude_read_limit_without_offset(self) -> None:
+        action = parse_tool_action("Read", {"file_path": "README.md", "limit": 2})
+
+        self.assertEqual(action.type, "read_file")
+        self.assertEqual(action.path, "README.md")
+        self.assertEqual(action.start_line, 1)
+        self.assertEqual(action.line_count, 2)
+
     def test_documented_claude_tool_call_aliases_are_registered(self) -> None:
         documented = {
             "Agent",

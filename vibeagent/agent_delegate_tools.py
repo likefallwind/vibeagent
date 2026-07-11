@@ -199,8 +199,10 @@ def execute_delegate_action(
     hooks: ProjectHooks,
     permissions: ProjectPermissions,
 ) -> tuple[Observation, bool, tuple[HookRunResult, ...]]:
+    action_type = getattr(parsed, "type", None)
     if mode == "explore":
-        if tool_name not in DELEGATE_TOOL_NAMES or not is_parallel_safe_action(parsed):
+        allowed_read_only_tool = tool_name in DELEGATE_TOOL_NAMES or action_type in DELEGATE_TOOL_NAMES
+        if not allowed_read_only_tool or not is_parallel_safe_action(parsed):
             return (
                 ToolErrorObservation(
                     kind="tool_error",
@@ -224,7 +226,6 @@ def execute_delegate_action(
             assert authorization.denial is not None
             return authorization.denial, auto_checkpoint_attempted, ()
         return execute_action(workspace, parsed, command_timeout_ms), auto_checkpoint_attempted, ()
-    action_type = getattr(parsed, "type", None)
     if tool_name in CODE_DELEGATE_EXCLUDED_TOOL_NAMES or action_type in CODE_DELEGATE_EXCLUDED_TOOL_NAMES:
         return (
             ToolErrorObservation(

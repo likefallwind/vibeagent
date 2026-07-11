@@ -120,6 +120,13 @@ def _normalize_read_file_input(value: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _normalize_claude_read_file_input(value: dict[str, Any]) -> dict[str, Any]:
+    normalized = _normalize_read_file_input(value)
+    if "line_count" in normalized and "start_line" not in normalized:
+        normalized["start_line"] = 1
+    return normalized
+
+
 def _normalize_path_alias_input(value: dict[str, Any]) -> dict[str, Any]:
     return _rename_fields(value, {"file_path": "path"})
 
@@ -141,6 +148,8 @@ def _normalize_claude_mcp_tool_action(name: str, tool_input: dict[str, Any]) -> 
 
 _NAME_INPUT_NORMALIZERS: dict[str, ToolInputNormalizer] = {
     "ExitPlanMode": _normalize_exit_plan_mode_input,
+    "NotebookRead": _normalize_claude_read_file_input,
+    "Read": _normalize_claude_read_file_input,
 }
 
 
