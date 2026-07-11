@@ -2262,6 +2262,47 @@ class ActionTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionParseError, "todo_write item 1 requires non-empty content"):
             parse_tool_action("todo_write", {"todos": [{"content": "", "status": "pending"}]})
 
+    def test_parse_tool_action_accepts_claude_tool_name_aliases(self) -> None:
+        read_action = parse_tool_action("Read", {"file_path": "app.py", "offset": 2, "limit": 5})
+        bash_action = parse_tool_action("Bash", {"command": "python3 -m unittest"})
+        write_action = parse_tool_action("Write", {"file_path": "out.txt", "content": "ok\n"})
+        edit_action = parse_tool_action("Edit", {"file_path": "app.py", "old_string": "old", "new_string": "new"})
+        multi_edit_action = parse_tool_action(
+            "MultiEdit",
+            {
+                "file_path": "app.py",
+                "edits": [
+                    {"old_string": "old", "new_string": "new"},
+                    {"old": "second old", "new": "second new"},
+                ],
+            },
+        )
+        ls_action = parse_tool_action("LS", {"path": "src"})
+        glob_action = parse_tool_action("Glob", {"pattern": "**/*.py"})
+        grep_action = parse_tool_action("Grep", {"pattern": "needle", "path": "src"})
+        todo_write_action = parse_tool_action("TodoWrite", {"todos": [{"content": "Plan", "status": "completed"}]})
+        todo_read_action = parse_tool_action("TodoRead", {})
+
+        self.assertEqual(read_action.type, "read_file")
+        self.assertEqual(read_action.path, "app.py")
+        self.assertEqual(read_action.start_line, 2)
+        self.assertEqual(read_action.line_count, 5)
+        self.assertEqual(bash_action.type, "run_command")
+        self.assertEqual(write_action.type, "write_file")
+        self.assertEqual(write_action.path, "out.txt")
+        self.assertEqual(edit_action.type, "edit_file")
+        self.assertEqual(edit_action.old, "old")
+        self.assertEqual(edit_action.new, "new")
+        self.assertEqual(multi_edit_action.type, "multi_edit_file")
+        self.assertEqual(multi_edit_action.path, "app.py")
+        self.assertEqual([(edit.old, edit.new) for edit in multi_edit_action.edits], [("old", "new"), ("second old", "second new")])
+        self.assertEqual(ls_action.type, "list_tree")
+        self.assertEqual(glob_action.type, "glob")
+        self.assertEqual(grep_action.type, "search")
+        self.assertEqual(grep_action.query, "needle")
+        self.assertEqual(todo_write_action.type, "update_plan")
+        self.assertEqual(todo_read_action.type, "session_plan")
+
     def test_run_command_captures_stdout_stderr_exit_code_and_success(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-command-") as cwd:
             result = run_command(

@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 from .action_parsing_helpers import ActionParseError, summarize_plan_update
+from .action_tool_aliases import normalize_tool_action
 from .action_parsing_checkpoint import parse_checkpoint_action
 from .action_parsing_delegation import parse_delegation_action
 from .action_parsing_code_intel import parse_code_intel_action
@@ -53,7 +54,11 @@ def parse_action(value: Any, raw: str) -> AgentAction:
 def parse_tool_action(name: str, tool_input: Any) -> AgentAction:
     if not isinstance(tool_input, dict):
         raise ActionParseError(f"{name} tool input must be an object.", json.dumps(tool_input))
-    return parse_action({"type": name, **tool_input}, json.dumps({"name": name, "input": tool_input}))
+    action_type, normalized_input = normalize_tool_action(name, tool_input)
+    return parse_action(
+        {"type": action_type, **normalized_input},
+        json.dumps({"name": name, "input": tool_input}),
+    )
 
 
 __all__ = [

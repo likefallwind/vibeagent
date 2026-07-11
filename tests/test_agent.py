@@ -858,6 +858,33 @@ class AgentTests(unittest.TestCase):
         self.assertIn("todo_write", [event.get("name") for event in events if event["type"] == "tool_call"])
         self.assertIn("todo_write", [event.get("name") for event in events if event["type"] == "tool_result"])
 
+    def test_run_agent_accepts_claude_todo_write_tool_alias(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "todo-1",
+                            "name": "TodoWrite",
+                            "input": {"todos": [{"content": "Inspect files", "status": "completed"}]},
+                        }
+                    ],
+                    [{"type": "text", "text": "Todo is complete."}],
+                ]
+            )
+
+            result = run_agent("make a todo list", base_dir=Path(base), client=client, max_iterations=2)
+            events_path = Path(base) / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.status, "completed")
+        self.assertEqual([item.step for item in result.plan], ["Inspect files"])
+        self.assertEqual([item.kind for item in result.observations], ["update_plan"])
+        self.assertIn("TodoWrite", [event.get("name") for event in events if event["type"] == "tool_call"])
+        self.assertIn("TodoWrite", [event.get("name") for event in events if event["type"] == "tool_result"])
+
     def test_run_agent_continues_when_text_finish_has_completion_blockers(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             client = MockClient(
