@@ -144,7 +144,7 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
     if kind in {"git_pull", "check_git_pull", "git_push", "check_git_push"}:
         return (kind.replace("check_", ""),)
     if kind in {"git_commit", "check_git_commit"}:
-        return ("git_commit",)
+        return ("git_commit", getattr(value, "message_text", getattr(value, "message", "")))
     if kind in {"git_switch", "check_git_switch"}:
         return ("git_switch", getattr(value, "branch", ""), getattr(value, "create", False))
     if kind in {"git_stash", "check_git_stash"}:

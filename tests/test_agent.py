@@ -11417,11 +11417,27 @@ class AgentTests(unittest.TestCase):
                     head_after="abc123",
                     status="ready",
                     message="Commit can be created from staged changes.",
+                    message_text="update docs",
+                )
+            ],
+        )
+        mismatched_preview = agent_module.approval_preview_summary(
+            GitCommitAction(type="git_commit", message="release build"),
+            [
+                CheckGitCommitObservation(
+                    kind="check_git_commit",
+                    ok=True,
+                    head_before="abc123",
+                    head_after="abc123",
+                    status="ready",
+                    message="Commit can be created from staged changes.",
+                    message_text="update docs",
                 )
             ],
         )
 
         self.assertIn("Commit can be created", preview or "")
+        self.assertIsNone(mismatched_preview)
 
     def test_approval_preview_mapping_covers_approval_required_tools(self) -> None:
         tool_names = {tool["name"] for tool in AGENT_TOOL_DEFINITIONS}

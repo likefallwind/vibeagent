@@ -376,6 +376,7 @@ class CheckGitCommitObservation:
     head_after: str
     status: str
     message: str
+    message_text: str = ""
 
 
 @dataclass(frozen=True)

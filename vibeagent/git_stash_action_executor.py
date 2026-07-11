@@ -182,6 +182,7 @@ def execute_git_stash_action(workspace: RunWorkspace, action: object) -> Observa
             head_after=str(result["head_after"]),
             status=str(result["status"]),
             message=str(result["message"]),
+            message_text=action.message,
         )
 
     if isinstance(action, GitCommitAction):
