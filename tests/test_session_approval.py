@@ -13,8 +13,8 @@ from vibeagent.session_types import SessionEvent
 from vibeagent.session_approval import SessionApprovalHandler, approval_cache_key
 
 
-def _request(action_type: str = "write_file", target: str = "app.py") -> ApprovalRequest:
-    return ApprovalRequest(action_type=action_type, target=target, risk="test risk")
+def _request(action_type: str = "write_file", target: str = "app.py", preview: str | None = None) -> ApprovalRequest:
+    return ApprovalRequest(action_type=action_type, target=target, risk="test risk", preview=preview)
 
 
 class SessionApprovalHandlerTests(unittest.TestCase):
@@ -39,6 +39,36 @@ class SessionApprovalHandlerTests(unittest.TestCase):
         self.assertEqual(different.message, "other")
         self.assertEqual(prompt.call_count, 2)
         self.assertEqual(handler.remembered_count, 1)
+
+    def test_session_decision_includes_preview_in_cache_key(self) -> None:
+        prompt = Mock(
+            side_effect=[
+                ApprovalDecision(approved=True, message="always first", scope="session"),
+                ApprovalDecision(approved=True, message="always second", scope="session"),
+            ]
+        )
+        handler = SessionApprovalHandler(prompt)
+
+        first = handler(_request(preview="diff: add app"))
+        remembered = handler(_request(preview="diff: add app"))
+        different = handler(_request(preview="diff: add docs"))
+
+        self.assertTrue(first.approved)
+        self.assertTrue(remembered.remembered)
+        self.assertEqual(different.message, "always second")
+        self.assertEqual(prompt.call_count, 2)
+        self.assertEqual(handler.remembered_count, 2)
+
+    def test_session_decision_without_preview_keeps_existing_cache_key_shape(self) -> None:
+        prompt = Mock(return_value=ApprovalDecision(approved=True, message="always", scope="session"))
+        handler = SessionApprovalHandler(prompt)
+
+        first = handler(_request())
+        remembered = handler(_request())
+
+        self.assertTrue(first.approved)
+        self.assertTrue(remembered.remembered)
+        self.assertEqual(prompt.call_count, 1)
 
     def test_denials_are_not_cached_and_clear_removes_approvals(self) -> None:
         prompt = Mock(
