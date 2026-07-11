@@ -229,6 +229,40 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertIn("<cli --allowed-tools>", loaded["sources"])
         self.assertIn("<cli --allowed-tools>", loaded["trusted_allow_sources"])
 
+    def test_stream_json_input_roles_feed_system_prompt_and_prior_context(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-stream-") as base:
+            stdout = io.StringIO()
+            stdin = io.StringIO(
+                json.dumps(
+                    {
+                        "messages": [
+                            {"role": "system", "content": "Prefer focused tests."},
+                            {"role": "assistant", "content": "I previously found tests/test_app.py."},
+                            {"role": "user", "content": "fix the failing test"},
+                        ]
+                    }
+                )
+                + "\n"
+            )
+            root = Path(base)
+            run_agent = Mock(return_value=_result(root))
+            with (
+                patch("sys.stdin", stdin),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                patch("vibeagent.cli.get_compact_context", return_value=(None, None, "No sessions found.")),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--output-format", "json", "--input-format", "stream-json", "--cwd", base, "-"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "code")
+        self.assertEqual(run_agent.call_args.args[0], "fix the failing test")
+        self.assertEqual(run_agent.call_args.kwargs["system_prompt"], "Prefer focused tests.")
+        self.assertIn("Stream-json assistant messages:", run_agent.call_args.kwargs["prior_context"])
+        self.assertIn("tests/test_app.py", run_agent.call_args.kwargs["prior_context"])
+
     def test_stream_json_emits_structured_empty_input_error(self) -> None:
         stdout = io.StringIO()
 
