@@ -103,6 +103,7 @@ python -m vibeagent --resume <run-id> --resume-max-files 25 --resume-max-command
 python -m vibeagent --session-id <run-id> "continue the previous change"
 python -m vibeagent --session-id latest "continue the latest session"
 python -m vibeagent --resume -- "continue the latest session"
+python -m vibeagent --no-auto-compact "start this task without prior session context"
 python -m vibeagent -r <run-id> -p "continue the previous change"
 python -m vibeagent -c --permission-mode plan --max-turns 3 "inspect the latest change"
 python -m vibeagent -c
@@ -928,7 +929,8 @@ context explicitly. Both one-shot forms accept `--resume-max-failures`,
 `--compact-max-*` options; the interactive forms use `--max-failures`,
 `--max-files`, `--max-commands`, `--max-checks`, `--max-output-chars`, and
 `--max-text`. The loaded context is marked as prior-session evidence, not a new
-user instruction. When no run id is supplied, these recovery commands skip
+user instruction. Use `--no-auto-compact` for a one-shot coding task that should
+not automatically load the latest compact session context. When no run id is supplied, these recovery commands skip
 `local-*` sessions created by read-only CLI utilities. `/resume off` or `/clear`
 clears it before a fresh task.
 Tool result payloads sent back to the model and persisted session events redact

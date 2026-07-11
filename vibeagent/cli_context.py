@@ -60,6 +60,7 @@ def resolve_one_shot_prior_context(
     *,
     resume_arg: str | None,
     compact_arg: str | None,
+    auto_compact: bool = True,
     project_root: Path,
     resume_kwargs: dict[str, int],
     compact_kwargs: dict[str, int],
@@ -78,6 +79,9 @@ def resolve_one_shot_prior_context(
         if resume_context is None:
             return OneShotPriorContext(error=text, source="compact", run_id=selected)
         return OneShotPriorContext(context=resume_context, source="compact", run_id=selected)
+
+    if not auto_compact:
+        return OneShotPriorContext(source="none")
 
     selected, resume_context, _text = get_compact_context_func(None, project_root)
     return OneShotPriorContext(context=resume_context, source="auto_compact", run_id=selected)

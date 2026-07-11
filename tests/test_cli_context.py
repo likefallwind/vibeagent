@@ -126,6 +126,26 @@ class CliContextTests(unittest.TestCase):
         )
         get_compact_context.assert_called_once_with(None, root)
 
+    def test_resolve_one_shot_prior_context_can_skip_auto_compact_context(self) -> None:
+        root = Path("/project")
+        get_resume_context = Mock()
+        get_compact_context = Mock(return_value=("latest-run", "latest compact context", "Compacted context loaded."))
+
+        prior_context = resolve_one_shot_prior_context(
+            resume_arg=None,
+            compact_arg=None,
+            auto_compact=False,
+            project_root=root,
+            resume_kwargs={},
+            compact_kwargs={},
+            get_resume_context_func=get_resume_context,
+            get_compact_context_func=get_compact_context,
+        )
+
+        self.assertEqual(prior_context, OneShotPriorContext(source="none"))
+        get_resume_context.assert_not_called()
+        get_compact_context.assert_not_called()
+
     def test_resolve_one_shot_prior_context_ignores_missing_auto_context(self) -> None:
         root = Path("/project")
 

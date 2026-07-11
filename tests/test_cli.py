@@ -330,6 +330,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(kwargs["resume_arg"], "last")
         self.assertEqual(kwargs["max_iterations"], 7)
         self.assertEqual(kwargs["command_timeout_ms"], 1234)
+        self.assertTrue(kwargs["auto_compact"])
         self.assertEqual(kwargs["permission_overrides"].rules, ())
         self.assertIs(kwargs["provider_args"], args)
 
@@ -367,6 +368,13 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(kwargs["mcp_config_paths"], ["extra.mcp.json"])
         self.assertTrue(kwargs["strict_mcp_config"])
+
+    def test_build_one_shot_kwargs_from_args_includes_no_auto_compact(self) -> None:
+        args = cli_module.parse_args(["--no-auto-compact", "inspect"])
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertFalse(kwargs["auto_compact"])
 
     def test_cli_compat_aliases_map_to_existing_one_shot_fields(self) -> None:
         args = cli_module.parse_args(
@@ -507,6 +515,33 @@ class CliTests(unittest.TestCase):
             cli_module.validate_cli_args(local_args),
             "--resume, --compact, and --continue cannot be combined with local command flags.",
         )
+
+    def test_cli_no_auto_compact_requires_plain_one_shot_code_task(self) -> None:
+        no_task_args = cli_module.parse_args(["--no-auto-compact"])
+        chat_args = cli_module.parse_args(["--no-auto-compact", "--chat", "hello"])
+        local_args = cli_module.parse_args(["--no-auto-compact", "--tools"])
+        resume_args = cli_module.parse_args(["--no-auto-compact", "--resume", "run-1", "continue"])
+        compact_args = cli_module.parse_args(["--no-auto-compact", "--compact", "run-1", "continue"])
+        continue_args = cli_module.parse_args(["--no-auto-compact", "-c", "continue"])
+
+        self.assertEqual(
+            cli_module.validate_cli_args(no_task_args),
+            "--no-auto-compact requires a one-shot coding task.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(chat_args),
+            "--no-auto-compact requires a one-shot coding task.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(local_args),
+            "--no-auto-compact requires a one-shot coding task.",
+        )
+        for args in (resume_args, compact_args, continue_args):
+            with self.subTest(args=args):
+                self.assertEqual(
+                    cli_module.validate_cli_args(args),
+                    "--no-auto-compact cannot be combined with --resume, --compact, or --continue.",
+                )
 
     def test_cli_rejects_empty_or_local_system_prompt_arguments(self) -> None:
         empty_args = cli_module.parse_args(["--system-prompt", " ", "inspect"])
@@ -13762,6 +13797,31 @@ class CliTests(unittest.TestCase):
         get_compact_context.assert_called_once_with(None, Path(base).resolve())
         self.assertEqual(run_agent.call_args.kwargs["prior_context"], "latest compact context")
 
+    def test_main_one_shot_no_auto_compact_runs_without_prior_context(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="new-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.get_compact_context") as get_compact_context,
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", base, "--no-auto-compact", "continue", "task"])
+
+        self.assertEqual(exit_code, 0)
+        get_compact_context.assert_not_called()
+        self.assertIsNone(run_agent.call_args.kwargs["prior_context"])
+
     def test_main_one_shot_json_reports_auto_loaded_compact_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             result = AgentResult(
@@ -13791,6 +13851,34 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(run_agent.call_args.kwargs["prior_context"], "latest compact context")
         self.assertEqual(payload["priorContext"], {"loaded": True, "source": "auto_compact", "runId": "latest-run"})
+
+    def test_main_one_shot_json_reports_no_auto_compact_context(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="new-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            stdout = io.StringIO()
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.get_compact_context") as get_compact_context,
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--no-auto-compact", "continue", "task"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        get_compact_context.assert_not_called()
+        self.assertIsNone(run_agent.call_args.kwargs["prior_context"])
+        self.assertEqual(payload["priorContext"], {"loaded": False, "source": "none", "runId": None})
 
     def test_main_one_shot_code_task_without_sessions_runs_without_prior_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:

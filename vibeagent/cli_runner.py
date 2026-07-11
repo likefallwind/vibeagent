@@ -75,6 +75,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "resume_max_checks": args.resume_max_checks,
         "resume_max_output_chars": args.resume_max_output_chars,
         "resume_max_text": args.resume_max_text,
+        "auto_compact": not args.no_auto_compact,
         "compact_max_failures": args.compact_max_failures,
         "compact_max_files": args.compact_max_files,
         "compact_max_commands": args.compact_max_commands,
@@ -114,6 +115,7 @@ def run_one_shot(
     resume_max_checks: int | None = None,
     resume_max_output_chars: int | None = None,
     resume_max_text: int | None = None,
+    auto_compact: bool = True,
     compact_max_failures: int | None = None,
     compact_max_files: int | None = None,
     compact_max_commands: int | None = None,
@@ -223,6 +225,7 @@ def run_one_shot(
         prior_context = resolve_one_shot_prior_context(
             resume_arg=resume_arg,
             compact_arg=compact_arg,
+            auto_compact=auto_compact,
             project_root=project_root,
             resume_kwargs=resume_kwargs,
             compact_kwargs=compact_kwargs,

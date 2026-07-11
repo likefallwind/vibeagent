@@ -49,6 +49,11 @@ def add_one_shot_arguments(
         metavar="RUN_ID",
         help="Load a compact previous session handoff before a one-shot coding task. Omit RUN_ID to use the newest session.",
     )
+    parser.add_argument(
+        "--no-auto-compact",
+        action="store_true",
+        help="Disable automatic latest-session compact context when neither --resume nor --compact is provided.",
+    )
     parser.add_argument("--compact-max-failures", type=positive_int, metavar="N", help="Maximum failure entries in --compact context.")
     parser.add_argument("--compact-max-files", type=positive_int, metavar="N", help="Maximum file references in --compact context.")
     parser.add_argument("--compact-max-commands", type=positive_int, metavar="N", help="Maximum command results in --compact context.")
