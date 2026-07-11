@@ -277,6 +277,16 @@ class ProjectPermissionConfigTests(unittest.TestCase):
         self.assertEqual(match_project_permission(overrides, "mcp__docs__search", search).effect, "allow")
         self.assertEqual(match_project_permission(overrides, "mcp__docs__delete", delete).effect, "deny")
 
+    def test_cli_permission_overrides_match_webfetch_domain_rules(self) -> None:
+        overrides = build_permission_overrides(
+            parse_args(["--allowed-tools", "WebFetch(domain:docs.python.org)", "inspect"])
+        )
+        allowed = parse_tool_action("WebFetch", {"url": "https://docs.python.org/3/"})
+        unmatched = parse_tool_action("WebFetch", {"url": "https://example.com/"})
+
+        self.assertEqual(match_project_permission(overrides, "WebFetch", allowed).effect, "allow")
+        self.assertIsNone(match_project_permission(overrides, "WebFetch", unmatched))
+
     def test_invalid_and_symlinked_configs_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
             root = Path(base)

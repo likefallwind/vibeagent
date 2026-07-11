@@ -1107,6 +1107,9 @@ Command patterns support `*`, including the trailing `:*` spelling. File
 patterns use project-relative `/`, `*`, and recursive `**` matching. A deny or
 ask rule applies when any target in a multi-file operation matches; an allow
 rule applies only when every target matches.
+`WebFetch(domain:example.com)` and wildcard forms such as
+`WebFetch(domain:*.python.org)` match the requested URL host before the fetch
+approval/execution path runs.
 Per-run CLI overrides use the same rule syntax via `--allowed-tools` and
 `--disallowed-tools`. CLI allow rules are trusted for that run only; project
 file allow rules still require explicit project trust.

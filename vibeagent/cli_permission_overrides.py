@@ -16,7 +16,10 @@ def add_permission_override_arguments(parser: argparse.ArgumentParser) -> None:
         action="append",
         default=[],
         metavar="RULE",
-        help="Allow one Claude-style tool permission rule for this one-shot run, for example Read or Bash(git diff:*).",
+        help=(
+            "Allow one Claude-style tool permission rule for this one-shot run, "
+            "for example Read, Bash(git diff:*), or WebFetch(domain:docs.python.org)."
+        ),
     )
     parser.add_argument(
         "--disallowed-tools",
