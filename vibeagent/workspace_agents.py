@@ -5,6 +5,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from .action_tool_aliases import CLAUDE_TOOL_ACTION_ALIASES
 from .agent_delegate_policy import CODE_DELEGATE_EXCLUDED_TOOL_NAMES, DELEGATE_TOOL_NAMES
 from .tool_catalog_core import APPROVAL_REQUIRED_TOOL_NAMES
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
@@ -180,10 +181,14 @@ def _parse_tool_names(value: object) -> frozenset[str] | None:
         names = parsed
     else:
         names = text.split(",")
-    normalized = frozenset(name.strip() for name in names if name.strip())
+    normalized = frozenset(_normalize_profile_tool_name(name.strip()) for name in names if name.strip())
     if not normalized:
         raise ValueError("Agent profile tools must not be empty when declared.")
     return normalized
+
+
+def _normalize_profile_tool_name(name: str) -> str:
+    return CLAUDE_TOOL_ACTION_ALIASES.get(name, name)
 
 
 def _validate_agent_tools(mode: str, tools: frozenset[str] | None) -> None:

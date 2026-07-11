@@ -103,23 +103,23 @@ def execute_delegate_tool_call(
     hooks: ProjectHooks = ProjectHooks(),
     permissions: ProjectPermissions = ProjectPermissions(),
 ) -> DelegateToolCallExecution:
-    if allowed_tool_names is not None and tool_name not in allowed_tool_names:
-        observation = ToolErrorObservation(
-            kind="tool_error",
-            tool=tool_name or "unknown",
-            message="Subagent tool is outside the selected project agent profile allowlist.",
-        )
-        observations.append(observation)
-        return DelegateToolCallExecution(observation, None, auto_checkpoint_attempted)
-    if mode == "code":
-        activate_agent_tool_names(
-            active_tool_names,
-            _allowed_requested_names([tool_name], allowed_tool_names),
-            approval_policy,
-            CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
-        )
     try:
         parsed = prepare_action_for_policy(parse_tool_action(tool_name, tool_input), approval_policy)
+        if not _profile_allows_tool_call(tool_name, parsed, allowed_tool_names):
+            observation = ToolErrorObservation(
+                kind="tool_error",
+                tool=tool_name or "unknown",
+                message="Subagent tool is outside the selected project agent profile allowlist.",
+            )
+            observations.append(observation)
+            return DelegateToolCallExecution(observation, None, auto_checkpoint_attempted)
+        if mode == "code":
+            activate_agent_tool_names(
+                active_tool_names,
+                _allowed_requested_names([str(getattr(parsed, "type", tool_name))], allowed_tool_names),
+                approval_policy,
+                CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
+            )
         if isinstance(parsed, FinishAction):
             return DelegateToolCallExecution(None, parsed, auto_checkpoint_attempted)
         observation, checkpoint_attempted, hook_results = execute_delegate_action(
@@ -160,6 +160,17 @@ def execute_delegate_tool_call(
             CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
         )
     return DelegateToolCallExecution(observation, None, checkpoint_attempted, hook_results)
+
+
+def _profile_allows_tool_call(
+    tool_name: str,
+    parsed: object,
+    allowed_tool_names: frozenset[str] | None,
+) -> bool:
+    if allowed_tool_names is None:
+        return True
+    action_type = getattr(parsed, "type", None)
+    return tool_name in allowed_tool_names or (isinstance(action_type, str) and action_type in allowed_tool_names)
 
 
 def _allowed_requested_names(
@@ -213,7 +224,8 @@ def execute_delegate_action(
             assert authorization.denial is not None
             return authorization.denial, auto_checkpoint_attempted, ()
         return execute_action(workspace, parsed, command_timeout_ms), auto_checkpoint_attempted, ()
-    if tool_name in CODE_DELEGATE_EXCLUDED_TOOL_NAMES:
+    action_type = getattr(parsed, "type", None)
+    if tool_name in CODE_DELEGATE_EXCLUDED_TOOL_NAMES or action_type in CODE_DELEGATE_EXCLUDED_TOOL_NAMES:
         return (
             ToolErrorObservation(
                 kind="tool_error",

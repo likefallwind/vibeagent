@@ -59,7 +59,7 @@ class ProjectAgentProfileTests(unittest.TestCase):
                 "Writes focused tests",
                 "PRIVATE_AGENT_PROMPT",
                 mode="code",
-                tools="[read_file, write_file]",
+                tools="[Read, Write]",
             )
             workspace = create_run_workspace(root, "run-1")
 
@@ -107,6 +107,15 @@ class ProjectAgentProfileTests(unittest.TestCase):
             _write_agent(
                 root,
                 ".claude/agents",
+                "todo-writer",
+                "Todo writer",
+                "Todo prompt",
+                mode="code",
+                tools="TodoWrite",
+            )
+            _write_agent(
+                root,
+                ".claude/agents",
                 "recursive",
                 "Recursive",
                 "Recursive prompt",
@@ -124,9 +133,10 @@ class ProjectAgentProfileTests(unittest.TestCase):
         messages = {str(agent["name"]): str(agent["message"]) for agent in catalog["agents"]}
         self.assertIn("Duplicate agent profile", messages["duplicate"])
         self.assertIn("non-read-only", messages["unsafe-explore"])
+        self.assertIn("forbidden tool", messages["todo-writer"])
         self.assertIn("forbidden tool", messages["recursive"])
         self.assertIn("symbolic link", messages["linked"])
-        self.assertEqual(catalog["invalid"], 5)
+        self.assertEqual(catalog["invalid"], 6)
 
     def test_profile_controls_mode_prompt_and_visible_tools(self) -> None:
         client = ProfileClient(
@@ -135,8 +145,8 @@ class ProjectAgentProfileTests(unittest.TestCase):
                     {
                         "type": "tool_call",
                         "id": "write-1",
-                        "name": "write_file",
-                        "input": {"path": "profiled.py", "content": "profiled = True\n"},
+                        "name": "Write",
+                        "input": {"file_path": "profiled.py", "content": "profiled = True\n"},
                     }
                 ],
                 [{"type": "text", "text": "Completed the profiled implementation."}],
@@ -151,7 +161,7 @@ class ProjectAgentProfileTests(unittest.TestCase):
                 "Writes one focused file",
                 "PROFILE_SPECIAL_INSTRUCTION",
                 mode="code",
-                tools="write_file",
+                tools="Write",
             )
             workspace = create_run_workspace(root, "run-1")
             action = parse_tool_action(
@@ -230,6 +240,47 @@ class ProjectAgentProfileTests(unittest.TestCase):
         result = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual(result["kind"], "tool_error")
         self.assertIn("allowlist", result["message"])
+        self.assertEqual(approvals, [])
+
+    def test_code_subagent_cannot_update_parent_plan_through_todo_alias(self) -> None:
+        approvals: list[str] = []
+        client = ProfileClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "todo-1",
+                        "name": "TodoWrite",
+                        "input": {"todos": [{"content": "Change parent plan", "status": "completed"}]},
+                    }
+                ],
+                [{"type": "text", "text": "TodoWrite was blocked."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            workspace = create_run_workspace(Path(base), "run-1")
+            action = parse_tool_action("delegate_task", {"task": "Stay scoped", "mode": "code"})
+            execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=lambda request: (
+                    approvals.append(request.action_type)
+                    or ApprovalDecision(approved=True, message="approved")
+                ),
+            )
+
+        result = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertEqual(result["kind"], "tool_error")
+        self.assertIn("cannot ask the user, update the parent plan, or delegate again", result["message"])
         self.assertEqual(approvals, [])
 
     def test_missing_profile_fails_before_model_request(self) -> None:

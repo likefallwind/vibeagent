@@ -1232,7 +1232,7 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   message history. Explore mode exposes only the established parallel-safe
   inspection tools plus `finish`. Code mode reuses progressive tool loading,
   parent approvals, workspace safety, and automatic checkpoints while excluding
-  user input, parent-plan updates, and recursive delegation. Code-mode steps and
+  user input, parent-plan/todo updates, and recursive delegation. Code-mode steps and
   observations feed the parent completion audit, and both modes record the child
   model/tool lifecycle before returning a structured summary.
 - `vibeagent/mcp_config.py`, `vibeagent/mcp_stdio.py`, and
@@ -1435,7 +1435,7 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   `project_manifests` reads package and pyproject dependency/script metadata; the local `/manifests` command and `--manifests` flag expose manifest file/item bounds;
   `project_instructions` reads AGENTS.md and CLAUDE.md instruction sources with scopes and bounded text; the local `/instructions` command and `--instructions` flag expose `--max-files`/`--max-bytes` and `--instructions-max-files`/`--instructions-max-bytes` bounds respectively;
   `project_skills` discovers bounded metadata from `.claude/skills/*/SKILL.md` and `.agents/skills/*/SKILL.md`, while `skill` loads one exact available skill on demand; skill bodies are excluded from the initial project snapshot and duplicate or symlinked skills are refused;
-  project agent profiles are discovered from `.claude/agents/*.md` and `.agents/agents/*.md`; only bounded metadata enters the main prompt, while `delegate_task.agent` loads one exact profile body on demand and enforces its mode and optional built-in-tool allowlist at both schema and runtime boundaries. A profile uses frontmatter such as `name: test-writer`, `description: Writes focused tests`, `mode: code`, and `tools: read_file, write_file`, followed by its scoped system instructions;
+  project agent profiles are discovered from `.claude/agents/*.md` and `.agents/agents/*.md`; only bounded metadata enters the main prompt, while `delegate_task.agent` loads one exact profile body on demand and enforces its mode and optional built-in-tool allowlist at both schema and runtime boundaries. A profile uses frontmatter such as `name: test-writer`, `description: Writes focused tests`, `mode: code`, and `tools: read_file, write_file` or Claude-compatible `tools: Read, Write`, followed by its scoped system instructions;
   `project_todos` scans project text files for TODO, FIXME, HACK, XXX, and BUG markers;
   `command_check` does the same preflight for one proposed finite command and also reports cwd and block-rule failures;
   `check_run_commands` preflights a short ordered command batch without running it;
