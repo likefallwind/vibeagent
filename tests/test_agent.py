@@ -1117,6 +1117,55 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(completion_module.build_denied_approval_details(observations), [])
 
+    def test_denied_approval_resolution_matches_write_process_char_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="write_process",
+                target="proc-1 (5 chars)",
+                message="denied",
+            ),
+            types_module.WriteProcessObservation(
+                kind="write_process",
+                process_id="proc-1",
+                pid=123,
+                ok=True,
+                running=True,
+                command="python -i",
+                cwd=".",
+                content_chars=5,
+                message="Wrote input.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_write_process_char_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="write_process",
+                target="proc-1 (5 chars)",
+                message="denied",
+            ),
+            types_module.WriteProcessObservation(
+                kind="write_process",
+                process_id="proc-1",
+                pid=123,
+                ok=True,
+                running=True,
+                command="python -i",
+                cwd=".",
+                content_chars=12,
+                message="Wrote input.",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["write_process proc-1 (5 chars): denied"],
+        )
+
     def test_denied_approval_resolution_keeps_unrelated_non_project_target(self) -> None:
         observations = [
             ApprovalDeniedObservation(

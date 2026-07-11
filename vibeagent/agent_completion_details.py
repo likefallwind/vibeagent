@@ -242,6 +242,11 @@ def observation_summary_target_token(observation: Observation) -> str | None:
         operation_count = getattr(observation, "operation_count", None)
         if path and isinstance(operation_count, int):
             return f"{path} ({operation_count} operations)"
+    if observation.kind == "write_process":
+        process_id = str(getattr(observation, "process_id", "") or "").strip()
+        content_chars = getattr(observation, "content_chars", None)
+        if process_id and isinstance(content_chars, int):
+            return f"{process_id} ({content_chars} chars)"
     if observation.kind == "patch_files":
         return "multiple files"
     keep_last = getattr(observation, "keep_last", None)
@@ -278,6 +283,7 @@ def normalized_approval_target_tokens(value: object) -> set[str]:
         or _looks_like_path_line_target(text)
         or _looks_like_symbol_target(text)
         or _looks_like_operation_count_target(text)
+        or _looks_like_char_count_target(text)
         or _looks_like_transfer_target(text)
     ):
         return {text}
@@ -327,10 +333,19 @@ def _looks_like_symbol_target(text: str) -> bool:
 
 
 def _looks_like_operation_count_target(text: str) -> bool:
+    return _looks_like_count_target(text, "operations")
+
+
+def _looks_like_char_count_target(text: str) -> bool:
+    return _looks_like_count_target(text, "chars")
+
+
+def _looks_like_count_target(text: str, label: str) -> bool:
     prefix, separator, suffix = text.rpartition(" (")
-    if not separator or not prefix.strip() or not suffix.endswith(" operations)"):
+    suffix_text = f" {label})"
+    if not separator or not prefix.strip() or not suffix.endswith(suffix_text):
         return False
-    count_text = suffix.removesuffix(" operations)")
+    count_text = suffix.removesuffix(suffix_text)
     return count_text.isdigit()
 
 
