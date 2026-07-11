@@ -2024,6 +2024,31 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(completion_module.build_denied_approval_details(observations), [])
 
+    def test_denied_approval_resolution_matches_git_fetch_default_remote_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="git_fetch",
+                target="default remote",
+                message="denied",
+            ),
+            types_module.GitFetchObservation(
+                kind="git_fetch",
+                ok=True,
+                remote="origin",
+                remote_url="https://example.com/repo.git",
+                branch="main",
+                upstream="origin/main",
+                ahead_before=0,
+                behind_before=1,
+                ahead_after=0,
+                behind_after=0,
+                message="Fetched origin.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
     def test_denied_approval_resolution_matches_git_pull_upstream_target(self) -> None:
         observations = [
             ApprovalDeniedObservation(

@@ -332,6 +332,8 @@ def observation_summary_target_token(observation: Observation) -> str | None:
         create = bool(getattr(observation, "create", False))
         if branch:
             return f"{branch}{' (create)' if create else ''}"
+    if observation.kind == "git_fetch":
+        return "default remote"
     keep_last = getattr(observation, "keep_last", None)
     if observation.kind == "checkpoint_prune" and isinstance(keep_last, int):
         return f"keep_last={keep_last}"
