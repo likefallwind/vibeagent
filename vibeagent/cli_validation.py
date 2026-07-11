@@ -16,8 +16,8 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--dangerously-skip-permissions requires a one-shot coding task."
     if (args.resume is not None or args.compact is not None or args.continue_latest) and has_local_flag(args):
         return "--resume, --compact, and --continue cannot be combined with local command flags."
-    if args.input_format == "stream-json" and args.task != ["-"]:
-        return "--input-format stream-json requires task '-' so input can be read from stdin."
+    if args.input_format in {"json", "stream-json"} and args.task != ["-"]:
+        return f"--input-format {args.input_format} requires task '-' so input can be read from stdin."
     if args.mcp_config and (not args.task or has_local_flag(args)):
         return "--mcp-config requires a one-shot task."
     if args.system_prompt is not None and not args.system_prompt.strip():

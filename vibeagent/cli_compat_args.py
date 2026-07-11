@@ -35,7 +35,7 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int) -> No
     )
     parser.add_argument(
         "--input-format",
-        choices=("text", "stream-json"),
+        choices=("text", "json", "stream-json"),
         default="text",
         help="Input format for task text read from stdin.",
     )

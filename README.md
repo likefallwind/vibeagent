@@ -109,6 +109,7 @@ python -m vibeagent --cwd ../my-project --max-iterations 8 --command-timeout-ms 
 python -m vibeagent --json --cwd ../my-project "run the release checks"
 python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
 printf '{"type":"user","text":"inspect the change"}\n' | python -m vibeagent --input-format stream-json -
+printf '{"prompt":"inspect the change"}\n' | python -m vibeagent --input-format json -
 python -m vibeagent --append-system-prompt "Prefer focused tests before broad suites." "inspect the change"
 python -m vibeagent --allowed-tools "Read" --allowed-tools "Bash(git diff:*)" --disallowed-tools "Bash(git push:*)" "inspect the change"
 python -m vibeagent --mcp-config docs.mcp.json "use the docs MCP server to check the API"
@@ -125,16 +126,16 @@ alias, `-r` is an alias for `--resume`, `-c` resumes the newest session for a
 one-shot task, `--permission-mode` maps to `--approval`, and `--max-turns` maps
 to `--max-iterations`. `--dangerously-skip-permissions` maps to
 `--approval allow` for one-shot coding tasks and cannot be combined with
-`--approval` or `--permission-mode`. `--input-format stream-json` reads
-newline-delimited JSON task records from stdin when the task is `-`; it accepts
-simple `text`, `prompt`, or `input` records, `message.content`, direct
-`message.prompt` / `message.input` text, or SDK-style `messages` arrays and uses
-`role: "user"` / `type: "user"` message text as the task when roles are present.
-System-role text becomes a one-shot system prompt for that run, and
-assistant-role text is treated as caller-supplied prior conversation context in
-coding mode. A top-level `session_id` or `sessionId` field resumes that
-VibeAgent session in coding mode when neither `--resume` nor `--compact` is
-provided.
+`--approval` or `--permission-mode`. `--input-format json` reads one JSON object
+or array from stdin when the task is `-`; `--input-format stream-json` reads
+newline-delimited JSON task records. Structured input accepts simple `text`,
+`prompt`, or `input` records, `message.content`, direct `message.prompt` /
+`message.input` text, or SDK-style `messages` arrays and uses `role: "user"` /
+`type: "user"` message text as the task when roles are present. System-role text
+becomes a one-shot system prompt for that run, and assistant-role text is treated
+as caller-supplied prior conversation context in coding mode. A top-level
+`session_id` or `sessionId` field resumes that VibeAgent session in coding mode
+when neither `--resume` nor `--compact` is provided.
 When `-c`, `--resume [run-id]`, or `--compact [run-id]` is provided without a
 task, VibeAgent starts the interactive prompt with that context already loaded.
 `--system-prompt` replaces the default one-shot system prompt for a command;

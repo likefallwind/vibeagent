@@ -280,7 +280,7 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual(payload["kind"], "code")
         self.assertEqual(run_agent.call_args.args[0], "fix the failing test")
         self.assertEqual(run_agent.call_args.kwargs["system_prompt"], "Prefer focused tests.")
-        self.assertIn("Stream-json assistant messages:", run_agent.call_args.kwargs["prior_context"])
+        self.assertIn("Structured input assistant messages:", run_agent.call_args.kwargs["prior_context"])
         self.assertIn("tests/test_app.py", run_agent.call_args.kwargs["prior_context"])
 
     def test_stream_json_emits_structured_empty_input_error(self) -> None:

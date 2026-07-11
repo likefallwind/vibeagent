@@ -1,7 +1,13 @@
 import json
 import unittest
 
-from vibeagent.cli_input_format import TaskInputFormatError, resolve_stream_json_task_input, resolve_stream_json_task_text
+from vibeagent.cli_input_format import (
+    TaskInputFormatError,
+    resolve_json_task_input,
+    resolve_json_task_text,
+    resolve_stream_json_task_input,
+    resolve_stream_json_task_text,
+)
 
 
 class CliInputFormatTests(unittest.TestCase):
@@ -114,6 +120,44 @@ class CliInputFormatTests(unittest.TestCase):
         )
 
         self.assertEqual(resolve_stream_json_task_text(raw), "fix lint\nthen summarize")
+
+    def test_json_extracts_single_record(self) -> None:
+        raw = json.dumps(
+            {
+                "session_id": "run-1",
+                "messages": [
+                    {"role": "system", "content": "Prefer tests."},
+                    {"role": "assistant", "content": "Previous context."},
+                    {"role": "user", "prompt": "continue task"},
+                ],
+            }
+        )
+
+        parsed = resolve_json_task_input(raw)
+
+        self.assertEqual(resolve_json_task_text(raw), "continue task")
+        self.assertEqual(parsed.task, "continue task")
+        self.assertEqual(parsed.system_prompt, "Prefer tests.")
+        self.assertEqual(parsed.assistant_context, "Previous context.")
+        self.assertEqual(parsed.session_id, "run-1")
+
+    def test_json_extracts_record_array(self) -> None:
+        raw = json.dumps(
+            [
+                {"type": "system", "text": "Be concise."},
+                {"type": "user", "input": "inspect"},
+                {"type": "user", "text": "summarize"},
+            ]
+        )
+
+        parsed = resolve_json_task_input(raw)
+
+        self.assertEqual(parsed.task, "inspect\nsummarize")
+        self.assertEqual(parsed.system_prompt, "Be concise.")
+
+    def test_json_parse_error_reports_format(self) -> None:
+        with self.assertRaisesRegex(TaskInputFormatError, "Invalid json input"):
+            resolve_json_task_text("{not json}")
 
     def test_stream_json_parse_error_reports_line(self) -> None:
         with self.assertRaisesRegex(TaskInputFormatError, "line 2"):

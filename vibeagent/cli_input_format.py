@@ -21,20 +21,39 @@ def resolve_stream_json_task_text(raw: str) -> str:
     return resolve_stream_json_task_input(raw).task
 
 
+def resolve_json_task_text(raw: str) -> str:
+    return resolve_json_task_input(raw).task
+
+
+def resolve_json_task_input(raw: str) -> StreamJsonTaskInput:
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise TaskInputFormatError(f"Invalid json input: {exc.msg}.") from exc
+    records = parsed if isinstance(parsed, list) else [parsed]
+    return _resolve_task_input_records(records)
+
+
 def resolve_stream_json_task_input(raw: str) -> StreamJsonTaskInput:
-    user_chunks: list[str] = []
-    system_chunks: list[str] = []
-    assistant_chunks: list[str] = []
-    chunks: list[str] = []
-    session_id: str | None = None
+    records: list[object] = []
     for line_number, line in enumerate(raw.splitlines(), start=1):
         stripped = line.strip()
         if not stripped:
             continue
         try:
-            record = json.loads(stripped)
+            records.append(json.loads(stripped))
         except json.JSONDecodeError as exc:
             raise TaskInputFormatError(f"Invalid stream-json input on line {line_number}: {exc.msg}.") from exc
+    return _resolve_task_input_records(records)
+
+
+def _resolve_task_input_records(records: Iterable[object]) -> StreamJsonTaskInput:
+    user_chunks: list[str] = []
+    system_chunks: list[str] = []
+    assistant_chunks: list[str] = []
+    chunks: list[str] = []
+    session_id: str | None = None
+    for record in records:
         session_id = session_id or _session_id_from_record(record)
         chunks.extend(_text_chunks_from_record(record))
         role_chunks = _role_text_chunks_from_record(record)

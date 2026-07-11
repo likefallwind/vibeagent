@@ -13086,6 +13086,49 @@ class CliTests(unittest.TestCase):
         self.assertEqual(run_agent.call_args.kwargs["prior_context"], "previous context")
         get_resume_context.assert_called_once_with("run-1", Path(base).resolve())
 
+    def test_main_runs_one_shot_code_task_from_json_stdin(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+            input_record = json.dumps(
+                {
+                    "session_id": "run-1",
+                    "messages": [
+                        {"role": "system", "content": "Prefer focused checks."},
+                        {"role": "assistant", "content": "I saw tests/test_app.py."},
+                        {"role": "user", "input": "continue task"},
+                    ],
+                }
+            )
+
+            with (
+                patch("sys.stdin", io.StringIO(input_record)),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                patch(
+                    "vibeagent.cli.get_resume_context",
+                    return_value=("run-1", "previous context", "Resume context loaded from session run-1."),
+                ) as get_resume_context,
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--input-format", "json", "--cwd", base, "-"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.args[0], "continue task")
+        self.assertEqual(run_agent.call_args.kwargs["system_prompt"], "Prefer focused checks.")
+        self.assertIn("previous context", run_agent.call_args.kwargs["prior_context"])
+        self.assertIn("Structured input assistant messages:", run_agent.call_args.kwargs["prior_context"])
+        self.assertIn("tests/test_app.py", run_agent.call_args.kwargs["prior_context"])
+        get_resume_context.assert_called_once_with("run-1", Path(base).resolve())
+
     def test_main_stream_json_session_id_does_not_override_explicit_resume(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             result = AgentResult(
@@ -13130,6 +13173,20 @@ class CliTests(unittest.TestCase):
         self.assertIn("Invalid stream-json input on line 1", stdout.getvalue())
         create_chat_client.assert_not_called()
 
+    def test_main_json_stdin_parse_error_does_not_call_agent(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("sys.stdin", io.StringIO("{not json}\n")),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--input-format", "json", "-"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("Invalid json input", stdout.getvalue())
+        create_chat_client.assert_not_called()
+
     def test_main_rejects_input_format_stream_json_without_stdin_task(self) -> None:
         stdout = io.StringIO()
 
@@ -13140,6 +13197,18 @@ class CliTests(unittest.TestCase):
         self.assertEqual(
             stdout.getvalue(),
             "--input-format stream-json requires task '-' so input can be read from stdin.\n",
+        )
+
+    def test_main_rejects_input_format_json_without_stdin_task(self) -> None:
+        stdout = io.StringIO()
+
+        with redirect_stdout(stdout):
+            exit_code = main(["--input-format", "json", "inspect"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(
+            stdout.getvalue(),
+            "--input-format json requires task '-' so input can be read from stdin.\n",
         )
 
     def test_main_one_shot_empty_stdin_returns_error(self) -> None:
