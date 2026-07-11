@@ -1189,6 +1189,61 @@ class AgentTests(unittest.TestCase):
             ["run_command python -m unittest (cwd: .): denied"],
         )
 
+    def test_denied_approval_resolution_matches_web_fetch_url_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="web_fetch",
+                target="https://docs.python.org/3/",
+                message="denied",
+            ),
+            types_module.WebFetchObservation(
+                kind="web_fetch",
+                ok=True,
+                url="https://docs.python.org/3/",
+                final_url="https://docs.python.org/3/",
+                status=200,
+                content_type="text/html",
+                title="Python 3 documentation",
+                text="Python docs",
+                text_truncated=False,
+                max_text_chars=6000,
+                error=None,
+                message="Fetched document.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_web_fetch_url_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="web_fetch",
+                target="https://docs.python.org/3/",
+                message="denied",
+            ),
+            types_module.WebFetchObservation(
+                kind="web_fetch",
+                ok=True,
+                url="https://example.com/",
+                final_url="https://example.com/",
+                status=200,
+                content_type="text/html",
+                title="Example",
+                text="Example",
+                text_truncated=False,
+                max_text_chars=6000,
+                error=None,
+                message="Fetched document.",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["web_fetch https://docs.python.org/3/: denied"],
+        )
+
     def test_denied_approval_resolution_matches_run_commands_batch_target(self) -> None:
         observations = [
             ApprovalDeniedObservation(

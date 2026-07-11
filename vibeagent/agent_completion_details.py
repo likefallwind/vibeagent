@@ -126,7 +126,7 @@ def denied_approval_target_matches_observation(denied_target: str, observation: 
 
 def observation_target_tokens(observation: Observation) -> set[str]:
     tokens: set[str] = set()
-    for name in ("path", "definition_path", "source", "destination", "process_id"):
+    for name in ("path", "definition_path", "source", "destination", "process_id", "url", "final_url"):
         tokens.update(normalized_approval_target_tokens(getattr(observation, name, "")))
     summary_target = observation_summary_target_token(observation)
     if summary_target:
@@ -204,7 +204,7 @@ def normalized_approval_target_tokens(value: object) -> set[str]:
             candidates.extend(part.strip() for part in candidate.split(" -> "))
         if " " in candidate:
             candidates.append(candidate.split(" ", 1)[0].strip())
-        if ":" in candidate:
+        if ":" in candidate and "://" not in candidate:
             candidates.append(candidate.split(":", 1)[0].strip())
     for candidate in candidates:
         normalized = candidate.strip()
