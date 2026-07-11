@@ -100,6 +100,7 @@ python -m vibeagent --untrust-project --cwd ../my-project
 python -m vibeagent --sandbox-status --cwd ../my-project
 python -m vibeagent --chat "explain this repository at a high level"
 python -m vibeagent --resume <run-id> --resume-max-files 25 --resume-max-commands 5 --resume-max-checks 20 "continue the previous change"
+python -m vibeagent --session-id <run-id> "continue the previous change"
 python -m vibeagent --resume -- "continue the latest session"
 python -m vibeagent -r <run-id> -p "continue the previous change"
 python -m vibeagent -c --permission-mode plan --max-turns 3 "inspect the latest change"
@@ -124,7 +125,8 @@ per-command overrides; they do not rewrite environment variables or local config
 files.
 For Claude-style scripting compatibility, `-p` / `--print` runs a one-shot task
 and prints only the final text in normal text output, `-r` is an alias for
-`--resume`, `-c` resumes the newest session for a one-shot task,
+`--resume`, `--session-id RUN_ID` is an alias for `--resume RUN_ID`, `-c`
+resumes the newest session for a one-shot task,
 `--permission-mode` maps to `--approval`, and `--max-turns` maps to
 `--max-iterations`. `--dangerously-skip-permissions` maps to
 `--approval allow` for one-shot coding tasks and cannot be combined with

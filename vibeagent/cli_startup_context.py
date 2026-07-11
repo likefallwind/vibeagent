@@ -27,9 +27,10 @@ def resolve_interactive_startup_context(
     get_resume_context_func=get_resume_context,
     get_compact_context_func=get_compact_context,
 ) -> InteractiveStartupContext:
-    if args.resume is None and args.compact is None:
+    session_resume = args.resume if args.resume is not None else args.session_id
+    if session_resume is None and args.compact is None:
         return InteractiveStartupContext()
-    if args.resume is not None:
+    if session_resume is not None:
         resume_kwargs = build_context_limit_kwargs(
             max_failures=args.resume_max_failures,
             max_files=args.resume_max_files,
@@ -38,8 +39,9 @@ def resolve_interactive_startup_context(
             max_output_chars=args.resume_max_output_chars,
             max_text=args.resume_max_text,
         )
-        run_id, context, message = get_resume_context_func(normalize_resume_arg(args.resume), project_root, **resume_kwargs)
-        if context is None and not is_resume_clear_arg(normalize_resume_arg(args.resume)):
+        normalized_resume = normalize_resume_arg(session_resume)
+        run_id, context, message = get_resume_context_func(normalized_resume, project_root, **resume_kwargs)
+        if context is None and not is_resume_clear_arg(normalized_resume):
             return InteractiveStartupContext(run_id=run_id, message=message, error=message)
         return InteractiveStartupContext(run_id=run_id, context=context, message=message)
 

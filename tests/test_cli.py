@@ -400,6 +400,14 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.resume, "run-1")
         self.assertFalse(args.resume_from_continue)
 
+    def test_cli_session_id_alias_maps_to_resume_arg(self) -> None:
+        args = cli_module.parse_args(["--session-id", "run-1", "continue"])
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertEqual(args.session_id, "run-1")
+        self.assertEqual(kwargs["resume_arg"], "run-1")
+
     def test_cli_compat_alias_conflicts_are_validation_errors(self) -> None:
         approval_args = cli_module.parse_args(["--approval", "allow", "--permission-mode", "deny", "inspect"])
         turn_args = cli_module.parse_args(["--max-iterations", "2", "--max-turns", "3", "inspect"])
@@ -432,6 +440,12 @@ class CliTests(unittest.TestCase):
         self.assertEqual(
             cli_module.validate_cli_args(model_with_config_args),
             "--model cannot be combined with other local command flags unless a MODEL value is provided.",
+        )
+
+        session_compact_args = cli_module.parse_args(["--session-id", "run-1", "--compact", "run-2", "continue"])
+        self.assertEqual(
+            cli_module.validate_cli_args(session_compact_args),
+            "--resume/--session-id and --compact cannot be used together.",
         )
 
     def test_cli_dangerously_skip_permissions_requires_one_shot_code_task(self) -> None:
@@ -13553,6 +13567,56 @@ class CliTests(unittest.TestCase):
         self.assertEqual(run_agent.call_args.kwargs["base_dir"], Path(base).resolve())
         self.assertEqual(run_agent.call_args.kwargs["prior_context"], "previous context")
 
+    def test_main_one_shot_session_id_alias_loads_resume_context(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="new-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.get_resume_context", return_value=("run-1", "previous context", "Resume context loaded from session run-1.")) as get_resume_context,
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", base, "--session-id", "run-1", "--resume-max-files", "4", "continue", "task"])
+
+        self.assertEqual(exit_code, 0)
+        get_resume_context.assert_called_once_with("run-1", Path(base).resolve(), max_files=4)
+        self.assertEqual(run_agent.call_args.kwargs["prior_context"], "previous context")
+
+    def test_main_resume_overrides_session_id_alias(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="new-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.get_resume_context", return_value=("explicit-run", "explicit context", "Resume context loaded from session explicit-run.")) as get_resume_context,
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", base, "--session-id", "run-1", "--resume", "explicit-run", "continue", "task"])
+
+        self.assertEqual(exit_code, 0)
+        get_resume_context.assert_called_once_with("explicit-run", Path(base).resolve())
+        self.assertEqual(run_agent.call_args.kwargs["prior_context"], "explicit context")
+
     def test_main_one_shot_resume_without_run_id_loads_newest_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             result = AgentResult(
@@ -17233,6 +17297,39 @@ class CliTests(unittest.TestCase):
         get_compact_context.assert_called_once_with("run-1", Path(base).resolve(), max_checks=2)
         self.assertEqual(run_agent.call_args.kwargs["prior_context"], "startup compact context")
 
+    def test_main_starts_interactive_with_session_id_resume_context(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="new-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("builtins.input", side_effect=["continue task", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch(
+                    "vibeagent.cli.get_resume_context",
+                    side_effect=[
+                        ("run-1", "startup resume context", "Resume context loaded from session run-1."),
+                        ("new-run", "new context", "Resume context loaded from session new-run."),
+                    ],
+                ) as get_resume_context,
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", base, "--session-id", "run-1", "--resume-max-checks", "2"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(get_resume_context.call_args_list[0].args, ("run-1", Path(base).resolve()))
+        self.assertEqual(get_resume_context.call_args_list[0].kwargs, {"max_checks": 2})
+        self.assertEqual(run_agent.call_args.kwargs["prior_context"], "startup resume context")
+
     def test_main_one_shot_compact_passes_compacted_context_to_agent(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             result = AgentResult(
@@ -17312,13 +17409,13 @@ class CliTests(unittest.TestCase):
             exit_code = main(["--resume", "run-1", "--compact", "run-2", "continue"])
 
         self.assertEqual(exit_code, 2)
-        self.assertIn("--resume and --compact cannot be used together.", stdout.getvalue())
+        self.assertIn("--resume/--session-id and --compact cannot be used together.", stdout.getvalue())
 
     def test_main_rejects_resume_compact_limit_without_matching_context_flag(self) -> None:
         cases = [
-            (["--resume-max-checks", "2", "continue"], "--resume-max-checks can only be used with --resume."),
-            (["--resume-max-files", "2", "continue"], "--resume-max-files can only be used with --resume."),
-            (["--resume-max-output-chars", "0", "continue"], "--resume-max-output-chars can only be used with --resume."),
+            (["--resume-max-checks", "2", "continue"], "--resume-max-checks can only be used with --resume or --session-id."),
+            (["--resume-max-files", "2", "continue"], "--resume-max-files can only be used with --resume or --session-id."),
+            (["--resume-max-output-chars", "0", "continue"], "--resume-max-output-chars can only be used with --resume or --session-id."),
             (["--compact-max-checks", "2", "continue"], "--compact-max-checks can only be used with --compact."),
             (["--compact-max-files", "2", "continue"], "--compact-max-files can only be used with --compact."),
             (["--compact-max-output-chars", "0", "continue"], "--compact-max-output-chars can only be used with --compact."),

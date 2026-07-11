@@ -65,6 +65,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
             explicit_resume_arg=args.resume,
             compact_arg=args.compact,
             request_mode="chat" if args.chat else "code",
+            cli_session_id=args.session_id,
             input_session_id=task_input.session_id,
         ),
         "compact_arg": args.compact,
@@ -319,11 +320,12 @@ def resolve_input_resume_arg(
     explicit_resume_arg: str | None,
     compact_arg: str | None,
     request_mode: str,
+    cli_session_id: str | None,
     input_session_id: str | None,
 ) -> str | None:
     if explicit_resume_arg is not None or compact_arg is not None or request_mode == "chat":
         return explicit_resume_arg
-    return input_session_id or explicit_resume_arg
+    return cli_session_id or input_session_id or explicit_resume_arg
 
 
 def combine_optional_text(first: str | None, second: str | None) -> str | None:

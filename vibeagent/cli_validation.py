@@ -358,8 +358,9 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--run-output-context-max-bytes can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification."
     if args.run_output_diagnostic_max != 50 and not run_output_context_target:
         return "--run-output-diagnostic-max can only be used with --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification."
-    if args.resume is not None and args.compact is not None:
-        return "--resume and --compact cannot be used together."
+    resume_context_selected = args.resume is not None or args.session_id is not None
+    if resume_context_selected and args.compact is not None:
+        return "--resume/--session-id and --compact cannot be used together."
     resume_limit_options = {
         "--resume-max-failures": args.resume_max_failures,
         "--resume-max-files": args.resume_max_files,
@@ -377,8 +378,8 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         "--compact-max-text": args.compact_max_text,
     }
     for option, value in resume_limit_options.items():
-        if value is not None and args.resume is None:
-            return f"{option} can only be used with --resume."
+        if value is not None and not resume_context_selected:
+            return f"{option} can only be used with --resume or --session-id."
     for option, value in compact_limit_options.items():
         if value is not None and args.compact is None:
             return f"{option} can only be used with --compact."
