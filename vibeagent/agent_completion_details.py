@@ -186,13 +186,17 @@ def observation_target_tokens(observation: Observation) -> set[str]:
         values = getattr(observation, name, [])
         if not isinstance(values, list):
             continue
+        path_values = [path_target(value) for value in values]
+        batch_target = batch_path_target(path_values)
+        if batch_target:
+            tokens.add(batch_target)
         for value in values:
-            if isinstance(value, str):
-                tokens.update(normalized_approval_target_tokens(value))
-            else:
-                tokens.update(normalized_approval_target_tokens(getattr(value, "path", "")))
+            tokens.update(normalized_approval_target_tokens(path_target(value)))
     transfers = getattr(observation, "transfers", [])
     if isinstance(transfers, list):
+        batch_target = batch_transfer_target(transfers)
+        if batch_target:
+            tokens.add(batch_target)
         for transfer in transfers:
             tokens.update(transfer_target_tokens(transfer))
     return tokens
@@ -208,6 +212,31 @@ def transfer_target_tokens(value: object) -> set[str]:
     if not source or not destination:
         return set()
     return {f"{source} -> {destination}"}
+
+
+def path_target(value: object) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    return string_attr(value, "path")
+
+
+def batch_path_target(paths: list[str]) -> str | None:
+    clean_paths = [path for path in paths if path]
+    if len(clean_paths) < 2:
+        return None
+    return ", ".join(clean_paths)
+
+
+def batch_transfer_target(transfers: list[object]) -> str | None:
+    targets: list[str] = []
+    for transfer in transfers:
+        source = string_attr(transfer, "source")
+        destination = string_attr(transfer, "destination")
+        if source and destination:
+            targets.append(f"{source} -> {destination}")
+    if len(targets) < 2:
+        return None
+    return ", ".join(targets)
 
 
 def mcp_call_target_token(observation: Observation, server: str, name: str) -> str | None:
@@ -333,6 +362,7 @@ def should_preserve_approval_target(text: str) -> bool:
         or _looks_like_transfer_target(text)
         or _looks_like_mcp_arguments_target(text)
         or _looks_like_git_switch_create_target(text)
+        or _looks_like_comma_list_target(text)
     )
 
 
@@ -385,6 +415,10 @@ def _looks_like_transfer_target(text: str) -> bool:
         return False
     source, separator, destination = text.partition(" -> ")
     return bool(separator and source.strip() and destination.strip())
+
+
+def _looks_like_comma_list_target(text: str) -> bool:
+    return "," in text and all(part.strip() for part in text.split(","))
 
 
 def _looks_like_mcp_arguments_target(text: str) -> bool:

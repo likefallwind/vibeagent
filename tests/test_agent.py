@@ -1406,6 +1406,50 @@ class AgentTests(unittest.TestCase):
             ["move_files src/a.py -> src/b.py, src/c.py -> src/d.py: denied"],
         )
 
+    def test_denied_approval_resolution_matches_batch_path_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="write_files",
+                target="src/a.py, src/b.py",
+                message="denied",
+            ),
+            types_module.WriteFilesObservation(
+                kind="write_files",
+                files=[
+                    types_module.WriteFileResult(path="src/a.py", ok=True, message="Wrote file."),
+                    types_module.WriteFileResult(path="src/b.py", ok=True, message="Wrote file."),
+                ],
+                ok=True,
+                message="Wrote files.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_partial_batch_path_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="write_files",
+                target="src/a.py, src/b.py",
+                message="denied",
+            ),
+            types_module.WriteFilesObservation(
+                kind="write_files",
+                files=[
+                    types_module.WriteFileResult(path="src/a.py", ok=True, message="Wrote file."),
+                ],
+                ok=True,
+                message="Wrote files.",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["write_files src/a.py, src/b.py: denied"],
+        )
+
     def test_denied_approval_resolution_matches_line_edit_target(self) -> None:
         observations = [
             ApprovalDeniedObservation(
