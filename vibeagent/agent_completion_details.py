@@ -30,6 +30,8 @@ BASIC_TARGET_FIELDS = (
     "checkpoint_id",
 )
 
+EXACT_MESSAGE_TARGET_ACTION_TYPES = {"git_commit", "git_stash"}
+
 
 def final_review_running_process_count(final_review: Observation | None) -> int:
     if final_review is None:
@@ -125,22 +127,31 @@ def denied_approval_resolved(denied: Observation, later_observations: list[Obser
         if action_type not in PROJECT_CHANGE_OBSERVATION_KINDS:
             if observation.kind != action_type:
                 continue
-            if not denied_target or denied_approval_target_matches_observation(denied_target, observation):
+            if not denied_target or denied_approval_target_matches_observation(action_type, denied_target, observation):
                 return True
             continue
         if observation.kind not in PROJECT_CHANGE_OBSERVATION_KINDS:
             continue
-        if denied_approval_target_matches_observation(denied_target, observation):
+        if denied_approval_target_matches_observation(action_type, denied_target, observation):
             return True
     return False
 
 
-def denied_approval_target_matches_observation(denied_target: str, observation: Observation) -> bool:
+def denied_approval_target_matches_observation(action_type: str, denied_target: str, observation: Observation) -> bool:
+    if action_type in EXACT_MESSAGE_TARGET_ACTION_TYPES:
+        return denied_target in exact_message_target_tokens(observation)
     denied_targets = normalized_approval_target_tokens(denied_target)
     if not denied_targets:
         return False
     observation_targets = observation_target_tokens(observation)
     return bool(denied_targets & observation_targets)
+
+
+def exact_message_target_tokens(observation: Observation) -> set[str]:
+    message_text = str(getattr(observation, "message_text", "") or "").strip()
+    if not message_text:
+        return set()
+    return {message_text, summarize(message_text, 120)}
 
 
 def observation_target_tokens(observation: Observation) -> set[str]:

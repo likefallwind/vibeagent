@@ -2192,6 +2192,30 @@ class AgentTests(unittest.TestCase):
             ["git_commit Add app: denied"],
         )
 
+    def test_denied_approval_resolution_keeps_same_prefix_git_commit_message_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="git_commit",
+                target="Add app",
+                message="denied",
+            ),
+            types_module.GitCommitObservation(
+                kind="git_commit",
+                ok=True,
+                head_before="abc123",
+                head_after="def456",
+                status="",
+                message="Committed staged changes.",
+                message_text="Add docs",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["git_commit Add app: denied"],
+        )
+
     def test_denied_approval_resolution_matches_git_stash_message_target(self) -> None:
         observations = [
             ApprovalDeniedObservation(
@@ -2213,6 +2237,31 @@ class AgentTests(unittest.TestCase):
         ]
 
         self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_same_prefix_git_stash_message_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="git_stash",
+                target="save work",
+                message="denied",
+            ),
+            types_module.GitStashObservation(
+                kind="git_stash",
+                ok=True,
+                message_text="save docs",
+                include_untracked=False,
+                stash_ref="stash@{0}",
+                status="",
+                diff="",
+                message="Saved work to stash@{0}.",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["git_stash save work: denied"],
+        )
 
     def test_denied_approval_resolution_matches_git_stash_drop_ref_target(self) -> None:
         observations = [
