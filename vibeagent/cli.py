@@ -52,7 +52,6 @@ from .cli_interactive import run_interactive_loop as _run_interactive_loop
 from .cli_main_args import normalize_task_bound_diff_args
 from .cli_runner import (
     build_one_shot_kwargs_from_args,
-    resolve_task_text,
     run_one_shot as _run_one_shot,
 )
 from .cli_review_local_flags import run_review_local_flag
@@ -136,6 +135,7 @@ from .cli_parse_run import (
     parse_interactive_run_suggested_checks_argument,
 )
 from .cli_command_namespace import *  # re-export command helpers for local flag dispatch and tests
+from .cli_input_format import TaskInputFormatError
 from .providers import create_chat_client
 
 
@@ -156,7 +156,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             return run_local_flag(args)
         if args.task:
-            return run_one_shot(**build_one_shot_kwargs_from_args(args))
+            try:
+                kwargs = build_one_shot_kwargs_from_args(args)
+            except TaskInputFormatError as error:
+                return print_error_result(str(error), args.json, exit_code=2, output_format=args.output_format)
+            return run_one_shot(**kwargs)
     if argv is not None:
         try:
             return run_interactive(args.cwd)

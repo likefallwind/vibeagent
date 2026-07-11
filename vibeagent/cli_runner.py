@@ -10,6 +10,7 @@ from .agent import run_agent
 from .chat import run_chat
 from .cli_context import build_context_limit_kwargs, resolve_one_shot_prior_context
 from .cli_config import build_provider_env, resolve_project_root
+from .cli_input_format import resolve_stream_json_task_text
 from .cli_output import (
     build_approval_handler,
     format_error,
@@ -30,15 +31,18 @@ from .types import ApprovalPolicy
 from .workspace_core import create_run_workspace
 
 
-def resolve_task_text(parts: Sequence[str]) -> str:
+def resolve_task_text(parts: Sequence[str], input_format: str = "text") -> str:
     if len(parts) == 1 and parts[0] == "-":
-        return sys.stdin.read().strip()
+        raw = sys.stdin.read()
+        if input_format == "stream-json":
+            return resolve_stream_json_task_text(raw)
+        return raw.strip()
     return " ".join(parts)
 
 
 def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, object]:
     return {
-        "task": resolve_task_text(args.task),
+        "task": resolve_task_text(args.task, args.input_format),
         "request_mode": "chat" if args.chat else "code",
         "approval_policy": args.approval,
         "trust_project_permissions": args.trust_project_permissions,

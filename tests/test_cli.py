@@ -314,6 +314,49 @@ class CliTests(unittest.TestCase):
         plan_args = cli_module.parse_args(["--approval", "plan", "inspect", "repo"])
         self.assertEqual(plan_args.approval, "plan")
 
+    def test_cli_compat_aliases_map_to_existing_one_shot_fields(self) -> None:
+        args = cli_module.parse_args(
+            [
+                "-p",
+                "-c",
+                "--permission-mode",
+                "plan",
+                "--max-turns",
+                "3",
+                "inspect",
+                "repo",
+            ]
+        )
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertTrue(args.print_mode)
+        self.assertTrue(args.continue_latest)
+        self.assertEqual(args.resume, "")
+        self.assertTrue(args.resume_from_continue)
+        self.assertEqual(kwargs["approval_policy"], "plan")
+        self.assertEqual(kwargs["resume_arg"], "")
+        self.assertEqual(kwargs["max_iterations"], 3)
+
+    def test_cli_resume_short_alias_accepts_run_id(self) -> None:
+        args = cli_module.parse_args(["-r", "run-1", "continue"])
+
+        self.assertEqual(args.resume, "run-1")
+        self.assertFalse(args.resume_from_continue)
+
+    def test_cli_compat_alias_conflicts_are_validation_errors(self) -> None:
+        approval_args = cli_module.parse_args(["--approval", "allow", "--permission-mode", "deny", "inspect"])
+        turn_args = cli_module.parse_args(["--max-iterations", "2", "--max-turns", "3", "inspect"])
+
+        self.assertEqual(
+            cli_module.validate_cli_args(approval_args),
+            "--approval and --permission-mode cannot specify different policies.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(turn_args),
+            "--max-iterations and --max-turns cannot specify different values.",
+        )
+
     def test_build_one_shot_kwargs_from_args_includes_permission_overrides(self) -> None:
         args = cli_module.parse_args(
             [
@@ -12845,6 +12888,62 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(run_agent.call_args.args[0], "fix from stdin")
+
+    def test_main_runs_one_shot_code_task_from_stream_json_stdin(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+            input_records = "\n".join(
+                [
+                    json.dumps({"type": "user", "message": {"content": [{"type": "text", "text": "fix from"}]}}),
+                    json.dumps({"type": "user", "text": "stream json"}),
+                ]
+            )
+
+            with (
+                patch("sys.stdin", io.StringIO(input_records)),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--input-format", "stream-json", "-"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.args[0], "fix from\nstream json")
+
+    def test_main_stream_json_stdin_parse_error_does_not_call_agent(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("sys.stdin", io.StringIO("{not json}\n")),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--input-format", "stream-json", "-"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("Invalid stream-json input on line 1", stdout.getvalue())
+        create_chat_client.assert_not_called()
+
+    def test_main_rejects_input_format_stream_json_without_stdin_task(self) -> None:
+        stdout = io.StringIO()
+
+        with redirect_stdout(stdout):
+            exit_code = main(["--input-format", "stream-json", "inspect"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(
+            stdout.getvalue(),
+            "--input-format stream-json requires task '-' so input can be read from stdin.\n",
+        )
 
     def test_main_one_shot_empty_stdin_returns_error(self) -> None:
         stdout = io.StringIO()

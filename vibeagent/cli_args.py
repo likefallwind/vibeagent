@@ -4,6 +4,7 @@ import argparse
 from collections.abc import Sequence
 
 from .cli_parse_core import nonnegative_int, positive_int, timeout_ms
+from .cli_compat_args import add_compat_arguments, normalize_compat_arguments
 from .cli_local_flag_detection import (
     LOCAL_FLAG_ARG_NAMES,
     has_local_flag as _has_local_flag,
@@ -391,7 +392,6 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument(
         "--approval",
         choices=("ask", "allow", "deny", "plan"),
-        default="ask",
         help="Approval policy for one-shot coding tasks; plan exposes read-only tools only.",
     )
     parser.add_argument(
@@ -402,6 +402,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     add_permission_override_arguments(parser)
     parser.add_argument(
         "--resume",
+        "-r",
         nargs="?",
         const="",
         metavar="RUN_ID",
@@ -428,6 +429,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--compact-max-text", type=positive_int, metavar="N", help="Maximum text characters per timeline, failure, or readiness entry in --compact context.")
     parser.add_argument("--cwd", help="Project directory for one-shot coding tasks.")
     add_output_arguments(parser)
+    add_compat_arguments(parser, positive_int=positive_int)
     parser.add_argument(
         "--provider",
         choices=("minimax", "deepseek", "openai-compatible"),
@@ -467,7 +469,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Provider request timeout in milliseconds. Defaults to project config or 120000.",
     )
     parser.add_argument("task", nargs="*", help="One-shot task text. Omit it to start the interactive prompt.")
-    return normalize_output_arguments(parser.parse_args(list(argv)))
+    return normalize_output_arguments(normalize_compat_arguments(parser.parse_args(list(argv))))
 
 
 def has_local_flag(args: argparse.Namespace) -> bool:

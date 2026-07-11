@@ -7,6 +7,15 @@ from .cli_permission_overrides import has_permission_overrides, permission_overr
 
 
 def validate_cli_args(args: argparse.Namespace) -> str | None:
+    compat_error = getattr(args, "compat_error", None)
+    if compat_error is not None:
+        return compat_error
+    if args.print_mode and (not args.task or has_local_flag(args)):
+        return "--print requires a one-shot task."
+    if args.continue_latest and not args.task:
+        return "--continue requires a one-shot task."
+    if args.input_format == "stream-json" and args.task != ["-"]:
+        return "--input-format stream-json requires task '-' so input can be read from stdin."
     if args.output_format == "stream-json" and (not args.task or has_local_flag(args)):
         return "--output-format stream-json requires a one-shot task."
     override_error = permission_override_validation_error(args)
