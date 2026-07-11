@@ -267,8 +267,9 @@ def _specifier_is_web_fetch_domain(rule_tool: str, tool_name: str, action: objec
 
 def _specifier_uses_path_matching(rule_tool: str, tool_name: str, action: object) -> bool:
     action_type = getattr(action, "type", None)
+    names = tool_name_candidates(tool_name, action)
     return (
-        rule_tool in PATH_PERMISSION_RULE_TOOLS
+        (rule_tool in names and any(name in PATH_PERMISSION_RULE_TOOLS for name in names))
         or tool_category(tool_name) in {"edit", "code"}
         or (isinstance(action_type, str) and tool_category(action_type) in {"edit", "code"})
     )

@@ -119,12 +119,14 @@ class ProjectPermissionConfigTests(unittest.TestCase):
                 root,
                 {
                     "deny": ["Read(**/.env)"],
-                    "allow": ["Edit(src/**)"],
+                    "allow": ["Edit(src/**)", "read_file(docs/*)"],
                 },
             )
             config = read_project_permissions(create_run_workspace(root))
             root_secret = parse_tool_action("read_file", {"path": ".env"})
             nested_secret = parse_tool_action("read_file", {"path": "apps/api/.env"})
+            shallow_doc = parse_tool_action("read_file", {"path": "docs/guide.md"})
+            nested_doc = parse_tool_action("read_file", {"path": "docs/archive/guide.md"})
             allowed_writes = parse_tool_action(
                 "write_files",
                 {"files": [{"path": "src/a.py", "content": "a"}, {"path": "src/b.py", "content": "b"}]},
@@ -136,6 +138,8 @@ class ProjectPermissionConfigTests(unittest.TestCase):
 
         self.assertEqual(match_project_permission(config, "Read", root_secret).effect, "deny")
         self.assertEqual(match_project_permission(config, "Read", nested_secret).effect, "deny")
+        self.assertEqual(match_project_permission(config, "read_file", shallow_doc).effect, "allow")
+        self.assertIsNone(match_project_permission(config, "read_file", nested_doc))
         self.assertEqual(match_project_permission(config, "write_files", allowed_writes).effect, "allow")
         self.assertIsNone(match_project_permission(config, "write_files", mixed_writes))
 
@@ -205,7 +209,7 @@ class ProjectPermissionConfigTests(unittest.TestCase):
                 root,
                 {
                     "deny": ["TodoWrite", "ExitPlanMode"],
-                    "allow": ["LS(src)", "Glob(src/**/*.py)", "Glob(shallow/*)", "Grep(needle)", "TodoRead"],
+                    "allow": ["LS(src)", "Glob(src/**/*.py)", "Glob(shallow/*)", "glob(internal/*)", "Grep(needle)", "TodoRead"],
                 },
             )
             config = read_project_permissions(create_run_workspace(root))
@@ -213,6 +217,8 @@ class ProjectPermissionConfigTests(unittest.TestCase):
             glob_action = parse_tool_action("Glob", {"path": "src", "pattern": "**/*.py"})
             shallow_glob_action = parse_tool_action("Glob", {"path": "shallow", "pattern": "*.py"})
             nested_shallow_glob_action = parse_tool_action("Glob", {"path": "shallow/nested", "pattern": "*.py"})
+            internal_glob_action = parse_tool_action("glob", {"pattern": "internal/*.py"})
+            nested_internal_glob_action = parse_tool_action("glob", {"pattern": "internal/nested/*.py"})
             grep_action = parse_tool_action("Grep", {"pattern": "needle"})
             todo_read = parse_tool_action("TodoRead", {})
             todo_write = parse_tool_action("TodoWrite", {"todos": [{"content": "Ship", "status": "completed"}]})
@@ -221,6 +227,8 @@ class ProjectPermissionConfigTests(unittest.TestCase):
         self.assertEqual(match_project_permission(config, "Glob", glob_action).effect, "allow")
         self.assertEqual(match_project_permission(config, "Glob", shallow_glob_action).effect, "allow")
         self.assertIsNone(match_project_permission(config, "Glob", nested_shallow_glob_action))
+        self.assertEqual(match_project_permission(config, "glob", internal_glob_action).effect, "allow")
+        self.assertIsNone(match_project_permission(config, "glob", nested_internal_glob_action))
         self.assertEqual(match_project_permission(config, "Grep", grep_action).effect, "allow")
         self.assertEqual(match_project_permission(config, "TodoRead", todo_read).effect, "allow")
         self.assertEqual(match_project_permission(config, "TodoWrite", todo_write).effect, "deny")
