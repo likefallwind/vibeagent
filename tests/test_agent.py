@@ -1987,6 +1987,53 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(completion_module.build_denied_approval_details(observations), [])
 
+    def test_denied_approval_resolution_matches_git_switch_create_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="git_switch",
+                target="feature/new (create)",
+                message="denied",
+            ),
+            types_module.GitSwitchObservation(
+                kind="git_switch",
+                ok=True,
+                branch="feature/new",
+                create=True,
+                current_before="main",
+                current_after="feature/new",
+                status="",
+                message="Created and switched to feature/new.",
+            ),
+        ]
+
+        self.assertEqual(completion_module.build_denied_approval_details(observations), [])
+
+    def test_denied_approval_resolution_keeps_unrelated_git_switch_create_target(self) -> None:
+        observations = [
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type="git_switch",
+                target="feature/new (create)",
+                message="denied",
+            ),
+            types_module.GitSwitchObservation(
+                kind="git_switch",
+                ok=True,
+                branch="feature/new",
+                create=False,
+                current_before="main",
+                current_after="feature/new",
+                status="",
+                message="Switched to feature/new.",
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_denied_approval_details(observations),
+            ["git_switch feature/new (create): denied"],
+        )
+
     def test_denied_approval_resolution_matches_git_stash_message_target(self) -> None:
         observations = [
             ApprovalDeniedObservation(

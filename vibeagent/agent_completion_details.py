@@ -272,6 +272,11 @@ def observation_summary_target_token(observation: Observation) -> str | None:
             return f"{process_id} ({content_chars} chars)"
     if observation.kind == "patch_files":
         return "multiple files"
+    if observation.kind == "git_switch":
+        branch = str(getattr(observation, "branch", "") or "").strip()
+        create = bool(getattr(observation, "create", False))
+        if branch:
+            return f"{branch}{' (create)' if create else ''}"
     keep_last = getattr(observation, "keep_last", None)
     if observation.kind == "checkpoint_prune" and isinstance(keep_last, int):
         return f"keep_last={keep_last}"
@@ -309,6 +314,7 @@ def normalized_approval_target_tokens(value: object) -> set[str]:
         or _looks_like_char_count_target(text)
         or _looks_like_transfer_target(text)
         or _looks_like_mcp_arguments_target(text)
+        or _looks_like_git_switch_create_target(text)
     ):
         return {text}
     tokens: set[str] = set()
@@ -383,6 +389,10 @@ def _looks_like_transfer_target(text: str) -> bool:
 def _looks_like_mcp_arguments_target(text: str) -> bool:
     tool, separator, arguments = text.partition(" arguments=")
     return bool(separator and "/" in tool and tool.strip() and arguments.strip())
+
+
+def _looks_like_git_switch_create_target(text: str) -> bool:
+    return text.endswith(" (create)") and bool(text.removesuffix(" (create)").strip())
 
 
 def denied_approval_detail(observation: Observation) -> str:
