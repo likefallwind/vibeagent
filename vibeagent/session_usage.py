@@ -36,6 +36,17 @@ def _session_summaries(project_root: str | Path, limit: int) -> list[object]:
 
 def summarize_usage(project_root: str | Path, limit: int = 20) -> SessionUsageSummary:
     summaries = _session_summaries(project_root, limit)
+    return summarize_usage_from_session_summaries(summaries)
+
+def summarize_run_usage(project_root: str | Path, run_id: str) -> SessionUsageSummary:
+    from .session import summarize_session
+
+    summary = summarize_session(project_root, run_id)
+    if not summary.exists:
+        return summarize_usage_from_session_summaries([])
+    return summarize_usage_from_session_summaries([summary])
+
+def summarize_usage_from_session_summaries(summaries: list[object]) -> SessionUsageSummary:
     return SessionUsageSummary(
         sessions=len(summaries),
         events=sum(summary.event_count for summary in summaries),
@@ -99,12 +110,19 @@ def format_usage(project_root: str | Path, limit: int = 20) -> str:
 
 def build_usage_report(project_root: str | Path, limit: int = 20) -> dict[str, Any]:
     usage = summarize_usage(project_root, limit=limit)
+    return build_usage_report_from_summary(usage, missing_message="No sessions found.")
+
+def build_run_usage_report(project_root: str | Path, run_id: str) -> dict[str, Any]:
+    usage = summarize_run_usage(project_root, run_id)
+    return build_usage_report_from_summary(usage, missing_message=f"No session found for {run_id}.")
+
+def build_usage_report_from_summary(usage: SessionUsageSummary, missing_message: str) -> dict[str, Any]:
     if usage.sessions == 0:
         return {
             "exists": False,
             "ok": False,
             "status": "missing",
-            "message": "No sessions found.",
+            "message": missing_message,
         }
     return {
         "exists": True,

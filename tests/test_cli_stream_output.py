@@ -82,6 +82,20 @@ class CliOutputFormatTests(unittest.TestCase):
     def test_output_format_json_matches_single_json_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-stream-") as base:
             stdout = io.StringIO()
+            session_dir = Path(base) / ".vibeagent" / "sessions" / "stream-run"
+            session_dir.mkdir(parents=True)
+            (session_dir / "events.jsonl").write_text(
+                json.dumps(
+                    {
+                        "type": "model",
+                        "iteration": 1,
+                        "usage": {"input_tokens": 10, "output_tokens": 4, "total_tokens": 14},
+                        "content": [{"type": "text", "text": "done"}],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
             with (
                 patch("vibeagent.cli.create_chat_client", return_value=object()),
                 patch("vibeagent.cli.run_agent", return_value=_result(Path(base))),
@@ -93,6 +107,10 @@ class CliOutputFormatTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "code")
         self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["usage"]["usage"]["sessions"], 1)
+        self.assertEqual(payload["usage"]["usage"]["tokens"]["input"], 10)
+        self.assertEqual(payload["usage"]["usage"]["tokens"]["output"], 4)
+        self.assertEqual(payload["usage"]["usage"]["tokens"]["total"], 14)
         self.assertNotIn("type", payload)
         self.assertNotIn("sequence", payload)
 
@@ -122,6 +140,9 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual(final["kind"], "code")
         self.assertEqual(final["status"], "completed")
         self.assertEqual(final["message"], "Inspected the project.")
+        self.assertTrue(final["usage"]["exists"])
+        self.assertEqual(final["usage"]["usage"]["sessions"], 1)
+        self.assertEqual(final["usage"]["usage"]["tokens"]["input"], 0)
         self.assertTrue(all(record["runId"] == final["runId"] for record in event_records))
 
     def test_stream_json_disables_interactive_handlers_by_default(self) -> None:

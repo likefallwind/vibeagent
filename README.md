@@ -138,8 +138,9 @@ metadata, structured `plan` items, `completionReady`, `completionBlockers`,
 `latestCompletionBlockers`, `latestCompletionPendingChecks`,
 `latestCompletionFailedChecks`, `latestCompletionFinalReviewChangedFiles`,
 `changedFiles`, `verificationChecks`, `pendingVerificationChecks`, and
-`failedVerificationChecks` fields so automation can read the same final-review,
-blocked-attempt, changed-file, and verification status shown in the text UI.
+`failedVerificationChecks` fields, plus a `usage` report for the current run,
+so automation can read the same final-review, blocked-attempt, changed-file,
+verification, and local token-usage status shown in the text UI.
 `--output-format json` is equivalent to `--json`. `--output-format stream-json`
 emits newline-delimited JSON for one-shot tasks: each durable session event is
 written as a `type: "event"` record with a monotonically increasing `sequence`,

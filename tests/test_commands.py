@@ -517,6 +517,7 @@ from vibeagent.commands import (
     is_exit_command,
     parse_local_command,
 )
+from vibeagent.session_usage import build_run_usage_report
 from vibeagent.types import CheckStartCommandObservation, CheckStopAllProcessesObservation, CheckStopProcessObservation, CheckWriteProcessObservation, FinalReviewObservation, FocusedTestCommand, HttpCheckObservation, HttpFetchObservation, ListProcessesObservation, OutputContextResult, OutputDiagnostic, PortCheckObservation, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ReadProcessObservation, StartCommandObservation, StopAllProcessesObservation, StopProcessObservation, StoppedProcessInfo, SuggestedCheck, WaitProcessObservation, WriteProcessObservation
 
 
@@ -12006,6 +12007,49 @@ class CommandTests(unittest.TestCase):
         self.assertIn("sessions: 1", rendered)
         self.assertIn("cost: unavailable", rendered)
         self.assertNotIn("SECRET_PATH", rendered)
+
+    def test_run_usage_report_summarizes_one_session(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            first = root / ".vibeagent" / "sessions" / "run-1"
+            second = root / ".vibeagent" / "sessions" / "run-2"
+            first.mkdir(parents=True)
+            second.mkdir(parents=True)
+            (first / "events.jsonl").write_text(
+                json.dumps(
+                    {
+                        "type": "model",
+                        "iteration": 1,
+                        "usage": {"input_tokens": 100, "output_tokens": 50},
+                        "content": [{"type": "text", "text": "Done."}],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (second / "events.jsonl").write_text(
+                json.dumps(
+                    {
+                        "type": "model",
+                        "iteration": 1,
+                        "usage": {"input_tokens": 3, "output_tokens": 2},
+                        "content": [{"type": "text", "text": "Other."}],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            report = build_run_usage_report(root, "run-1")
+            missing = build_run_usage_report(root, "missing")
+
+        self.assertTrue(report["exists"])
+        self.assertEqual(report["usage"]["sessions"], 1)
+        self.assertEqual(report["usage"]["tokens"]["input"], 100)
+        self.assertEqual(report["usage"]["tokens"]["output"], 50)
+        self.assertEqual(report["cost"]["reason"], "provider pricing is not configured")
+        self.assertFalse(missing["exists"])
+        self.assertEqual(missing["status"], "missing")
 
     def test_get_cost_text_estimates_with_env_rates(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
