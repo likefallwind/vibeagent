@@ -2288,8 +2288,8 @@ class ActionTests(unittest.TestCase):
             },
         )
         ls_action = parse_tool_action("LS", {"path": "src"})
-        glob_action = parse_tool_action("Glob", {"pattern": "**/*.py"})
-        grep_action = parse_tool_action("Grep", {"pattern": "needle", "path": "src"})
+        glob_action = parse_tool_action("Glob", {"pattern": "**/*.py", "path": "src"})
+        grep_action = parse_tool_action("Grep", {"pattern": "needle", "path": "src", "head_limit": 7, "output_mode": "content"})
         todo_write_action = parse_tool_action("TodoWrite", {"todos": [{"content": "Plan", "status": "completed"}]})
         todo_read_action = parse_tool_action("TodoRead", {})
 
@@ -2326,8 +2326,11 @@ class ActionTests(unittest.TestCase):
         self.assertEqual([(edit.old, edit.new) for edit in multi_edit_action.edits], [("old", "new"), ("second old", "second new")])
         self.assertEqual(ls_action.type, "list_tree")
         self.assertEqual(glob_action.type, "glob")
+        self.assertEqual(glob_action.pattern, "src/**/*.py")
         self.assertEqual(grep_action.type, "search")
         self.assertEqual(grep_action.query, "needle")
+        self.assertEqual(grep_action.max_matches, 7)
+        self.assertEqual(grep_action.context_lines, 2)
         self.assertEqual(todo_write_action.type, "update_plan")
         self.assertEqual(todo_read_action.type, "session_plan")
 

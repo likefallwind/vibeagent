@@ -44,7 +44,9 @@ def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, d
     if action_type == "multi_edit_file":
         return action_type, _normalize_multi_edit_input(tool_input)
     if action_type == "search":
-        return action_type, _rename_fields(tool_input, {"pattern": "query"})
+        return action_type, _normalize_search_input(tool_input)
+    if action_type == "glob":
+        return action_type, _normalize_glob_input(tool_input)
     return action_type, dict(tool_input)
 
 
@@ -80,6 +82,22 @@ def _normalize_multi_edit_input(value: dict[str, Any]) -> dict[str, Any]:
             _rename_fields(edit, {"old_string": "old", "new_string": "new"}) if isinstance(edit, dict) else edit
             for edit in edits
         ]
+    return normalized
+
+
+def _normalize_search_input(value: dict[str, Any]) -> dict[str, Any]:
+    normalized = _rename_fields(value, {"pattern": "query", "head_limit": "max_matches"})
+    if normalized.get("output_mode") == "content" and "context_lines" not in normalized:
+        normalized["context_lines"] = 2
+    return normalized
+
+
+def _normalize_glob_input(value: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(value)
+    pattern = normalized.get("pattern")
+    path = normalized.pop("path", None)
+    if isinstance(pattern, str) and isinstance(path, str) and path.strip():
+        normalized["pattern"] = f"{path.strip().rstrip('/')}/{pattern.strip()}"
     return normalized
 
 
