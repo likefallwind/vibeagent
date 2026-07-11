@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from .action_parsing_helpers import ActionParseError, parse_plan_items
-from .types import AskUserAction, FinishAction, UpdatePlanAction
+from .types import AskUserAction, FinishAction, PlanItem, UpdatePlanAction
 
 
 WORKFLOW_ACTION_TYPES = {
     "ask_user",
+    "todo_write",
     "update_plan",
     "finish",
 }
@@ -47,14 +48,18 @@ def parse_workflow_action(action_type: object, value: dict[str, Any], raw: str) 
             allow_free_text=allow_free_text,
         )
 
-    if action_type == "update_plan":
+    if action_type in {"update_plan", "todo_write"}:
         explanation = value.get("explanation")
         if explanation is not None and not isinstance(explanation, str):
-            raise ActionParseError("update_plan action explanation must be a string when provided.", raw)
+            raise ActionParseError(f"{action_type} action explanation must be a string when provided.", raw)
+        if action_type == "update_plan":
+            plan = parse_plan_items(value.get("plan"), raw)
+        else:
+            plan = parse_plan_items(value.get("plan"), raw) if "plan" in value else parse_todo_items(value.get("todos"), raw)
         return UpdatePlanAction(
             type="update_plan",
             explanation=explanation,
-            plan=parse_plan_items(value.get("plan"), raw),
+            plan=plan,
         )
 
     if action_type == "finish":
@@ -64,3 +69,29 @@ def parse_workflow_action(action_type: object, value: dict[str, Any], raw: str) 
         return FinishAction(type="finish", message=message)
 
     raise AssertionError(f"Unhandled workflow action type: {action_type!r}")
+
+
+def parse_todo_items(value: Any, raw: str) -> list[PlanItem]:
+    if not isinstance(value, list) or not value:
+        raise ActionParseError("todo_write action requires a non-empty todos list.", raw)
+    if len(value) > 20:
+        raise ActionParseError("todo_write action todos must contain at most 20 items.", raw)
+
+    items: list[PlanItem] = []
+    in_progress_count = 0
+    for index, item in enumerate(value, start=1):
+        if not isinstance(item, dict):
+            raise ActionParseError(f"todo_write item {index} must be an object.", raw)
+        content = item.get("content")
+        status = item.get("status")
+        if not isinstance(content, str) or not content.strip():
+            raise ActionParseError(f"todo_write item {index} requires non-empty content.", raw)
+        if status not in {"pending", "in_progress", "completed"}:
+            raise ActionParseError(f"todo_write item {index} has an invalid status.", raw)
+        if status == "in_progress":
+            in_progress_count += 1
+        items.append(PlanItem(step=content.strip(), status=status))
+
+    if in_progress_count > 1:
+        raise ActionParseError("todo_write action allows at most one in_progress item.", raw)
+    return items

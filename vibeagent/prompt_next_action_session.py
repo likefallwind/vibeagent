@@ -393,6 +393,7 @@ SESSION_NEXT_ACTION_KINDS = {
     "session_audit",
     "session_handoff",
     "session_plan",
+    "todo_read",
     "session_failures",
     "session_files",
 }

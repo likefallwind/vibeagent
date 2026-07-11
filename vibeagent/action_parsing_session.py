@@ -27,6 +27,7 @@ from .types import (
 
 
 SESSION_ACTION_TYPES = {
+    "todo_read",
     "session_summary",
     "session_plan",
     "session_transcript",
@@ -98,8 +99,8 @@ def parse_session_action(action_type: object, value: dict[str, Any], raw: str) -
         recent_limit = parse_optional_positive_int(value.get("recent_limit", 5), "recent_limit", raw, maximum=20) or 5
         return SessionSummaryAction(type="session_summary", run_id=run_id, recent_limit=recent_limit)
 
-    if action_type == "session_plan":
-        run_id = _parse_run_id(value.get("run_id"), raw, "session_plan")
+    if action_type in {"session_plan", "todo_read"}:
+        run_id = _parse_run_id(value.get("run_id"), raw, str(action_type))
         return SessionPlanAction(type="session_plan", run_id=run_id)
 
     if action_type == "session_transcript":

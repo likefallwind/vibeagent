@@ -44,6 +44,8 @@ CORE_AGENT_TOOL_NAMES = frozenset(
         "search",
         "search_contexts",
         "suggest_checks",
+        "todo_read",
+        "todo_write",
         "tool_search",
         "update_plan",
         "write_file",

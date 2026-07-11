@@ -6,6 +6,7 @@ from .types import Observation
 COMPLETION_NEXT_ACTION_KINDS = {
     "final_review",
     "finish",
+    "todo_write",
     "update_plan",
     "ask_user",
 }

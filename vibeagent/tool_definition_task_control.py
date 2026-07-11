@@ -59,6 +59,61 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "todo_write",
+        "description": "Claude-compatible alias for replacing the current task plan. Accepts either a VibeAgent plan list or a Claude-style todos list.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "plan": {
+                    "type": "array",
+                    "description": "VibeAgent plan items with step and status.",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "step": {"type": "string"},
+                            "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
+                        },
+                        "required": ["step", "status"],
+                        "additionalProperties": False,
+                    },
+                },
+                "todos": {
+                    "type": "array",
+                    "description": "Claude-style todo items. content is mapped to the plan step; activeForm is accepted but not stored separately.",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "content": {"type": "string"},
+                            "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
+                            "activeForm": {"type": "string"},
+                        },
+                        "required": ["content", "status"],
+                        "additionalProperties": True,
+                    },
+                },
+                "explanation": {
+                    "type": "string",
+                    "description": "Optional short reason for the todo update.",
+                },
+            },
+            "required": ["todos"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "todo_read",
+        "description": "Claude-compatible alias for reading the latest task plan from the current session.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "finish",
         "description": "Finish the task with a concise summary for the user.",
         "input_schema": {

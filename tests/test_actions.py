@@ -2023,6 +2023,8 @@ class ActionTests(unittest.TestCase):
         names = [tool["name"] for tool in AGENT_TOOL_DEFINITIONS]
 
         self.assertIn("update_plan", names)
+        self.assertIn("todo_write", names)
+        self.assertIn("todo_read", names)
         self.assertIn("read_file_context", names)
         self.assertIn("read_file_contexts", names)
         self.assertIn("output_contexts", names)
@@ -2229,6 +2231,28 @@ class ActionTests(unittest.TestCase):
                     ]
                 },
             )
+
+    def test_parse_tool_action_maps_todo_tools_to_plan_actions(self) -> None:
+        write_action = parse_tool_action(
+            "todo_write",
+            {
+                "todos": [
+                    {"content": "Inspect files", "status": "completed", "activeForm": "Inspecting files"},
+                    {"content": "Run tests", "status": "in_progress", "activeForm": "Running tests"},
+                ],
+            },
+        )
+        read_action = parse_tool_action("todo_read", {})
+
+        self.assertEqual(write_action.type, "update_plan")
+        self.assertEqual([item.step for item in write_action.plan], ["Inspect files", "Run tests"])
+        self.assertEqual([item.status for item in write_action.plan], ["completed", "in_progress"])
+        self.assertEqual(read_action.type, "session_plan")
+
+        with self.assertRaisesRegex(ActionParseError, "todo_write action requires a non-empty todos list"):
+            parse_tool_action("todo_write", {})
+        with self.assertRaisesRegex(ActionParseError, "todo_write item 1 requires non-empty content"):
+            parse_tool_action("todo_write", {"todos": [{"content": "", "status": "pending"}]})
 
     def test_run_command_captures_stdout_stderr_exit_code_and_success(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-command-") as cwd:
