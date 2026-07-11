@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
 
+from .workspace_permissions import CLAUDE_TOOL_ALIASES
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
 
@@ -66,12 +67,26 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
     return ProjectHooks(hooks=tuple(hooks), sources=tuple(sources))
 
 
-def matching_project_hooks(config: ProjectHooks, event: HookEvent, tool_name: str) -> list[ProjectHook]:
+def matching_project_hooks(config: ProjectHooks, event: HookEvent, tool_name: str, action: object | None = None) -> list[ProjectHook]:
+    names = _hook_tool_name_candidates(tool_name, action)
     return [
         hook
         for hook in config.hooks
-        if hook.event == event and re.search(hook.matcher, tool_name) is not None
+        if hook.event == event and any(re.search(hook.matcher, name) is not None for name in names)
     ]
+
+
+def _hook_tool_name_candidates(tool_name: str, action: object | None) -> tuple[str, ...]:
+    names = [tool_name]
+    action_type = getattr(action, "type", None)
+    if isinstance(action_type, str) and action_type not in names:
+        names.append(action_type)
+    for alias, internal_names in CLAUDE_TOOL_ALIASES.items():
+        if alias in names:
+            continue
+        if tool_name == alias or tool_name in internal_names or action_type in internal_names:
+            names.append(alias)
+    return tuple(names)
 
 
 def _read_hook_config(root: Path, path: Path) -> dict[str, object]:

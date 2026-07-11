@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from vibeagent.actions import parse_tool_action
 from vibeagent.agent import run_agent
 from vibeagent.session_timeline_reports import format_session_event_timeline_item
 from vibeagent.session_types import SessionEvent
@@ -57,6 +58,24 @@ class ProjectHookConfigTests(unittest.TestCase):
         self.assertEqual(len(matching_project_hooks(config, "PreToolUse", "write_file")), 1)
         self.assertEqual(len(matching_project_hooks(config, "PreToolUse", "read_file")), 0)
         self.assertEqual(set(config.sources), {".vibeagent/hooks.json", ".claude/settings.json"})
+
+    def test_matchers_accept_claude_and_internal_tool_names_for_same_action(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-hooks-") as base:
+            root = Path(base)
+            _write_hooks(
+                root,
+                {
+                    "PreToolUse": [
+                        _command_hook("python3 -V", "Write"),
+                        _command_hook("python3 -V", "write_file"),
+                    ]
+                },
+            )
+            config = read_project_hooks(create_run_workspace(root))
+            write_action = parse_tool_action("Write", {"file_path": "app.py", "content": "x = 1\n"})
+
+        self.assertEqual(len(matching_project_hooks(config, "PreToolUse", "Write", write_action)), 2)
+        self.assertEqual(len(matching_project_hooks(config, "PreToolUse", "write_file", write_action)), 2)
 
     def test_invalid_matcher_and_symlink_config_are_reported(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-hooks-") as base:
@@ -152,6 +171,26 @@ class AgentHookExecutionTests(unittest.TestCase):
         self.assertEqual(len(approvals), 3)
         payload = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual([hook["status"] for hook in payload["hooks"]], ["passed", "passed"])
+
+    def test_internal_hook_matcher_runs_for_claude_tool_alias(self) -> None:
+        hook_command = "python3 -c \"import pathlib; pathlib.Path('hooks.log').write_text('ran', encoding='utf-8')\""
+        client = HookClient(
+            [
+                [{"type": "tool_call", "id": "write-1", "name": "Write", "input": {"file_path": "app.py", "content": "x = 1\n"}}],
+                [{"type": "text", "text": "Created app.py."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-hooks-") as base:
+            root = Path(base)
+            _write_hooks(root, {"PreToolUse": [_command_hook(hook_command, "write_file")]})
+            result = run_agent("Create app.py", base_dir=root, client=client, max_iterations=2, approval_handler=_approve)
+
+            hook_log = root.joinpath("hooks.log").read_text(encoding="utf-8")
+            app_content = root.joinpath("app.py").read_text(encoding="utf-8")
+
+        self.assertTrue(result.success)
+        self.assertEqual(hook_log, "ran")
+        self.assertEqual(app_content, "x = 1\n")
 
     def test_failing_pre_hook_blocks_target_tool(self) -> None:
         client = HookClient(

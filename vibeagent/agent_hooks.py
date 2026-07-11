@@ -147,7 +147,7 @@ def run_tool_hooks(
         failure = _hook_failure_observation(event, tool_name, message)
         return HookBatchResult(blocking_message=message if event == "PreToolUse" else None, failures=(failure,))
 
-    hooks = matching_project_hooks(config, event, tool_name)
+    hooks = matching_project_hooks(config, event, tool_name, action)
     if not hooks:
         return HookBatchResult()
     results: list[HookRunResult] = []

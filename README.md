@@ -1011,8 +1011,9 @@ hook map directly or under `hooks`:
 ```
 
 Supported lifecycle events are `PreToolUse`, `PostToolUse`, and
-`PostToolUseFailure`; matchers are regular expressions applied to the VibeAgent
-tool name. Every matching hook command requires approval under the current
+`PostToolUseFailure`; matchers are regular expressions applied to the model
+tool name, the parsed VibeAgent action type, and matching Claude-compatible
+aliases. Every matching hook command requires approval under the current
 session policy and still passes command hard-block checks. Plan mode records and
 skips command hooks. A failed or denied pre-tool hook blocks the target tool; a
 failed post-tool hook preserves the target result but records an additional
