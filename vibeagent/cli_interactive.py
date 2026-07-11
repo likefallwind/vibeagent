@@ -27,6 +27,7 @@ from .cli_read_local_flags import run_interactive_read_command
 from .cli_review_local_flags import run_interactive_review_command
 from .cli_runtime_local_flags import run_interactive_runtime_command
 from .cli_session_local_flags import run_interactive_resume_command, run_interactive_session_command
+from .cli_system_prompt_state import update_system_prompt_state
 from .cli_text_edit_local_flags import run_interactive_text_edit_command
 from .commands import get_resume_context as default_get_resume_context, parse_local_command
 from .config import resolve_execution_config
@@ -60,6 +61,8 @@ def run_interactive_loop(
     chat_history: list[ChatMessage] = []
     resume_run_id: str | None = initial_resume_run_id
     resume_context: str | None = initial_resume_context
+    system_prompt: str | None = None
+    append_system_prompt: str | None = None
     while True:
         try:
             task = input("\nvibeagent> ").strip()
@@ -123,6 +126,8 @@ def run_interactive_loop(
                 resume_run_id=resume_run_id,
                 resume_context=resume_context,
                 chat_turns=len(chat_history) // 2,
+                system_prompt_set=bool(system_prompt),
+                append_system_prompt_set=bool(append_system_prompt),
             )
         ) is not None:
             print(state_text)
@@ -135,6 +140,18 @@ def run_interactive_loop(
             resume_run_id = None
             resume_context = None
             print("Cleared chat history and resume context.")
+            continue
+        if command and command.type == "system_prompt":
+            system_prompt, text = update_system_prompt_state(system_prompt, command.argument, label="System prompt")
+            print(text)
+            continue
+        if command and command.type == "append_system_prompt":
+            append_system_prompt, text = update_system_prompt_state(
+                append_system_prompt,
+                command.argument,
+                label="Appended system prompt",
+            )
+            print(text)
             continue
         if command and command.type == "approval":
             previous_policy = approval_policy
@@ -184,6 +201,8 @@ def run_interactive_loop(
                     model_retries=execution_config.model_retries,
                     model_retry_delay_ms=execution_config.model_retry_delay_ms,
                     model_timeout_ms=execution_config.model_timeout_ms,
+                    system_prompt=system_prompt,
+                    append_system_prompt=append_system_prompt,
                 )
                 chat_history.extend(
                     [
@@ -208,6 +227,8 @@ def run_interactive_loop(
                 trust_project_permissions=project_permissions_trusted,
                 user_input_handler=prompt_user_input,
                 prior_context=resume_context,
+                system_prompt=system_prompt,
+                append_system_prompt=append_system_prompt,
                 task_metadata=(
                     {
                         "source": "project_command",

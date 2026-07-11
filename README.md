@@ -795,7 +795,9 @@ and the latest plan, `/changes [--max-files N]` to inspect a structured changed-
 `/diff-hunks [--staged] [--max-hunks N] [--max-lines N] [path]` to inspect structured git diff hunks,
 `/diff-contexts [--staged] [--context-lines N] [--max-hunks N] [--max-bytes N] [path]` to inspect source context around git diff hunks,
 `/approval [ask|allow|deny|plan]` to control
-the session approval policy, `/resume [run-id|off]` to carry a previous coding
+the session approval policy, `/system-prompt [text|off]` and
+`/append-system-prompt [text|off]` to set or clear session-only system-prompt
+instructions for chat and coding turns, `/resume [run-id|off]` to carry a previous coding
 session handoff into the next task or clear it, `/compact [run-id]` to explicitly
 compact the newest or selected session into context, `/plan [run-id]` to inspect
 the latest recorded task plan, `/transcript [run-id]` to inspect a safe session

@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 
-def get_status_report(mode: str, approval_policy: str, resume_run_id: str | None = None, chat_turns: int = 0) -> dict[str, object]:
+def get_status_report(
+    mode: str,
+    approval_policy: str,
+    resume_run_id: str | None = None,
+    chat_turns: int = 0,
+    system_prompt_set: bool = False,
+    append_system_prompt_set: bool = False,
+) -> dict[str, object]:
     return {
         "mode": mode,
         "approval": approval_policy,
         "resume": resume_run_id or "",
         "chatTurns": chat_turns,
+        "systemPrompt": "custom" if system_prompt_set else "default",
+        "appendSystemPrompt": "set" if append_system_prompt_set else "none",
         "message": "Runtime status resolved.",
     }
 
@@ -20,9 +29,27 @@ def format_status_report_text(report: dict[str, object]) -> str:
             f"  approval: {report.get('approval') or ''}",
             f"  resume: {resume}",
             f"  chatTurns: {int(report.get('chatTurns', 0) or 0)}",
+            f"  systemPrompt: {report.get('systemPrompt') or 'default'}",
+            f"  appendSystemPrompt: {report.get('appendSystemPrompt') or 'none'}",
         ]
     )
 
 
-def get_status_text(mode: str, approval_policy: str, resume_run_id: str | None = None, chat_turns: int = 0) -> str:
-    return format_status_report_text(get_status_report(mode, approval_policy, resume_run_id, chat_turns))
+def get_status_text(
+    mode: str,
+    approval_policy: str,
+    resume_run_id: str | None = None,
+    chat_turns: int = 0,
+    system_prompt_set: bool = False,
+    append_system_prompt_set: bool = False,
+) -> str:
+    return format_status_report_text(
+        get_status_report(
+            mode,
+            approval_policy,
+            resume_run_id,
+            chat_turns,
+            system_prompt_set=system_prompt_set,
+            append_system_prompt_set=append_system_prompt_set,
+        )
+    )

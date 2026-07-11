@@ -22,6 +22,10 @@ def parse_core_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("cost", None)
     if trimmed == "/approval" or trimmed.startswith("/approval "):
         return make_local_command("approval", trimmed[9:].strip() or None)
+    if trimmed == "/system-prompt" or trimmed.startswith("/system-prompt "):
+        return make_local_command("system_prompt", trimmed[14:].strip() or None)
+    if trimmed == "/append-system-prompt" or trimmed.startswith("/append-system-prompt "):
+        return make_local_command("append_system_prompt", trimmed[21:].strip() or None)
     if trimmed == "/resume" or trimmed.startswith("/resume "):
         return make_local_command("resume", trimmed[8:].strip() or None)
     if trimmed == "/compact" or trimmed.startswith("/compact "):

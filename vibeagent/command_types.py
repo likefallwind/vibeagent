@@ -213,6 +213,8 @@ ReviewCommandType: TypeAlias = Literal[
     "usage",
     "cost",
     "approval",
+    "system_prompt",
+    "append_system_prompt",
 ]
 
 SessionCommandType: TypeAlias = Literal[

@@ -886,6 +886,13 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(parse_local_command("/cost"), LocalCommand(type="cost"))
         self.assertEqual(parse_local_command("/approval"), LocalCommand(type="approval"))
         self.assertEqual(parse_local_command("/approval allow"), LocalCommand(type="approval", argument="allow"))
+        self.assertEqual(parse_local_command("/system-prompt"), LocalCommand(type="system_prompt"))
+        self.assertEqual(parse_local_command("/system-prompt You are terse"), LocalCommand(type="system_prompt", argument="You are terse"))
+        self.assertEqual(parse_local_command("/append-system-prompt"), LocalCommand(type="append_system_prompt"))
+        self.assertEqual(
+            parse_local_command("/append-system-prompt Prefer focused tests"),
+            LocalCommand(type="append_system_prompt", argument="Prefer focused tests"),
+        )
         self.assertEqual(parse_local_command("/sessions"), LocalCommand(type="sessions"))
         self.assertEqual(parse_local_command("/last"), LocalCommand(type="last"))
         self.assertEqual(parse_local_command("/plan"), LocalCommand(type="plan"))
@@ -996,6 +1003,8 @@ class CommandTests(unittest.TestCase):
         self.assertIn("/clear", get_help_text())
         self.assertIn("/usage", get_help_text())
         self.assertIn("/cost", get_help_text())
+        self.assertIn("/system-prompt [text|off]", get_help_text())
+        self.assertIn("/append-system-prompt [text|off]", get_help_text())
         self.assertIn("/tools", get_help_text())
         self.assertIn("/tool <name>", get_help_text())
         self.assertIn("/permissions", get_help_text())
@@ -8864,22 +8873,33 @@ class CommandTests(unittest.TestCase):
         self.assertIn("todoMarkers:", rendered)
 
     def test_get_status_text_reports_local_runtime_state(self) -> None:
-        text = get_status_text("chat", "allow", "run-1", chat_turns=2)
+        text = get_status_text(
+            "chat",
+            "allow",
+            "run-1",
+            chat_turns=2,
+            system_prompt_set=True,
+            append_system_prompt_set=True,
+        )
 
         self.assertIn("Status:", text)
         self.assertIn("mode: chat", text)
         self.assertIn("approval: allow", text)
         self.assertIn("resume: run-1", text)
         self.assertIn("chatTurns: 2", text)
+        self.assertIn("systemPrompt: custom", text)
+        self.assertIn("appendSystemPrompt: set", text)
 
     def test_get_status_report_returns_structured_runtime_state(self) -> None:
-        report = get_status_report("chat", "allow", "run-1", chat_turns=2)
+        report = get_status_report("chat", "allow", "run-1", chat_turns=2, system_prompt_set=True)
 
         json.dumps(report)
         self.assertEqual(report["mode"], "chat")
         self.assertEqual(report["approval"], "allow")
         self.assertEqual(report["resume"], "run-1")
         self.assertEqual(report["chatTurns"], 2)
+        self.assertEqual(report["systemPrompt"], "custom")
+        self.assertEqual(report["appendSystemPrompt"], "none")
         self.assertIn("Status:", format_status_report_text(report))
 
     def test_get_context_text_reports_prompt_context_sources(self) -> None:

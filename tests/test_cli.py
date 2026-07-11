@@ -16,6 +16,7 @@ from vibeagent.agent import AgentResult
 from vibeagent.cli import build_approval_handler, format_error, handle_approval_command, main, print_agent_result, prompt_approval
 from vibeagent.cli_local_dispatch import LOCAL_FLAG_HANDLER_NAMES, dispatch_local_flag
 from vibeagent.cli_local_flag_detection import LOCAL_FLAG_ARG_NAMES
+from vibeagent.cli_system_prompt_state import update_system_prompt_state
 from vibeagent.command_namespace_exports import command_export_names
 from vibeagent.tool_categories import valid_tool_categories
 from vibeagent.tool_search_options import tool_search_approval_choices
@@ -27,6 +28,18 @@ class Http401Error(Exception):
 
 
 class CliTests(unittest.TestCase):
+    def test_update_system_prompt_state_shows_sets_and_clears_value(self) -> None:
+        current, shown = update_system_prompt_state(None, None, label="System prompt")
+        updated, set_text = update_system_prompt_state(current, "Use short answers.", label="System prompt")
+        cleared, clear_text = update_system_prompt_state(updated, "off", label="System prompt")
+
+        self.assertIsNone(current)
+        self.assertEqual(shown, "System prompt: default")
+        self.assertEqual(updated, "Use short answers.")
+        self.assertEqual(set_text, "System prompt set (18 chars).")
+        self.assertIsNone(cleared)
+        self.assertEqual(clear_text, "System prompt cleared.")
+
     def test_cli_reexports_command_namespace_helpers(self) -> None:
         missing_or_changed = [
             name
@@ -17131,6 +17144,88 @@ class CliTests(unittest.TestCase):
         request = ApprovalRequest(action_type="write_file", target="note.txt", risk="write")
         self.assertTrue(first_handler(request).approved)
         self.assertFalse(second_handler(request).approved)
+
+    def test_main_interactive_system_prompt_commands_affect_code_and_chat_turns(self) -> None:
+        result = AgentResult(
+            success=True,
+            message="done",
+            run_dir=Path(tempfile.gettempdir()),
+            run_id="test-run",
+            iterations=1,
+            observations=[],
+            steps=[],
+        )
+        stdout = io.StringIO()
+        run_agent = Mock(return_value=result)
+        run_chat = Mock(return_value="chat response")
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/system-prompt You are a release engineer.",
+                    "/append-system-prompt Prefer focused tests.",
+                    "inspect code",
+                    "/chat explain",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client", return_value=object()),
+            patch("vibeagent.cli.run_agent", run_agent),
+            patch("vibeagent.cli.run_chat", run_chat),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.kwargs["system_prompt"], "You are a release engineer.")
+        self.assertEqual(run_agent.call_args.kwargs["append_system_prompt"], "Prefer focused tests.")
+        self.assertEqual(run_chat.call_args.kwargs["system_prompt"], "You are a release engineer.")
+        self.assertEqual(run_chat.call_args.kwargs["append_system_prompt"], "Prefer focused tests.")
+        output = stdout.getvalue()
+        self.assertIn("System prompt set", output)
+        self.assertIn("Appended system prompt set", output)
+
+    def test_main_interactive_system_prompt_status_and_clear(self) -> None:
+        result = AgentResult(
+            success=True,
+            message="done",
+            run_dir=Path(tempfile.gettempdir()),
+            run_id="test-run",
+            iterations=1,
+            observations=[],
+            steps=[],
+        )
+        stdout = io.StringIO()
+        run_agent = Mock(return_value=result)
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/system-prompt You are terse.",
+                    "/append-system-prompt Prefer focused tests.",
+                    "/status",
+                    "/system-prompt off",
+                    "/append-system-prompt off",
+                    "inspect code",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client", return_value=object()),
+            patch("vibeagent.cli.run_agent", run_agent),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("systemPrompt: custom", output)
+        self.assertIn("appendSystemPrompt: set", output)
+        self.assertIn("System prompt cleared.", output)
+        self.assertIn("Appended system prompt cleared.", output)
+        self.assertIsNone(run_agent.call_args.kwargs["system_prompt"])
+        self.assertIsNone(run_agent.call_args.kwargs["append_system_prompt"])
 
     def test_main_interactive_task_keyboard_interrupt_returns_to_prompt(self) -> None:
         stdout = io.StringIO()
