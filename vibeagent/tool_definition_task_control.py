@@ -3,6 +3,49 @@ from __future__ import annotations
 from typing import Any
 
 
+PLAN_ITEM_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "step": {"type": "string"},
+        "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
+    },
+    "required": ["step", "status"],
+    "additionalProperties": False,
+}
+
+TODO_ITEM_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "content": {"type": "string"},
+        "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
+        "activeForm": {"type": "string"},
+    },
+    "required": ["content", "status"],
+    "additionalProperties": True,
+}
+
+PLAN_ARRAY_SCHEMA: dict[str, Any] = {
+    "type": "array",
+    "description": "Ordered task checklist. Keep it short and update it as work changes.",
+    "minItems": 1,
+    "maxItems": 20,
+    "items": PLAN_ITEM_SCHEMA,
+}
+
+TODO_PLAN_ARRAY_SCHEMA: dict[str, Any] = {
+    **PLAN_ARRAY_SCHEMA,
+    "description": "VibeAgent plan items with step and status.",
+}
+
+TODO_ARRAY_SCHEMA: dict[str, Any] = {
+    "type": "array",
+    "description": "Claude-style todo items. content is mapped to the plan step; activeForm is accepted but not stored separately.",
+    "minItems": 1,
+    "maxItems": 20,
+    "items": TODO_ITEM_SCHEMA,
+}
+
+
 TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "ask_user",
@@ -39,19 +82,7 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "description": "Optional short reason for the plan change.",
                 },
                 "plan": {
-                    "type": "array",
-                    "description": "Ordered task checklist. Keep it short and update it as work changes.",
-                    "minItems": 1,
-                    "maxItems": 20,
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "step": {"type": "string"},
-                            "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
-                        },
-                        "required": ["step", "status"],
-                        "additionalProperties": False,
-                    },
+                    **PLAN_ARRAY_SCHEMA,
                 },
             },
             "required": ["plan"],
@@ -65,35 +96,10 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "plan": {
-                    "type": "array",
-                    "description": "VibeAgent plan items with step and status.",
-                    "minItems": 1,
-                    "maxItems": 20,
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "step": {"type": "string"},
-                            "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
-                        },
-                        "required": ["step", "status"],
-                        "additionalProperties": False,
-                    },
+                    **TODO_PLAN_ARRAY_SCHEMA,
                 },
                 "todos": {
-                    "type": "array",
-                    "description": "Claude-style todo items. content is mapped to the plan step; activeForm is accepted but not stored separately.",
-                    "minItems": 1,
-                    "maxItems": 20,
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "content": {"type": "string"},
-                            "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
-                            "activeForm": {"type": "string"},
-                        },
-                        "required": ["content", "status"],
-                        "additionalProperties": True,
-                    },
+                    **TODO_ARRAY_SCHEMA,
                 },
                 "explanation": {
                     "type": "string",
@@ -105,18 +111,7 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "object",
                     "properties": {
                         "plan": {
-                            "type": "array",
-                            "minItems": 1,
-                            "maxItems": 20,
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "step": {"type": "string"},
-                                    "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
-                                },
-                                "required": ["step", "status"],
-                                "additionalProperties": False,
-                            },
+                            **TODO_PLAN_ARRAY_SCHEMA,
                         }
                     },
                     "required": ["plan"],
@@ -125,19 +120,7 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "object",
                     "properties": {
                         "todos": {
-                            "type": "array",
-                            "minItems": 1,
-                            "maxItems": 20,
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "content": {"type": "string"},
-                                    "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
-                                    "activeForm": {"type": "string"},
-                                },
-                                "required": ["content", "status"],
-                                "additionalProperties": True,
-                            },
+                            **TODO_ARRAY_SCHEMA,
                         }
                     },
                     "required": ["todos"],

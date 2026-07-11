@@ -7,7 +7,7 @@ from vibeagent.tool_definition_process_io import PROCESS_IO_TOOL_DEFINITIONS
 from vibeagent.tool_definition_process_output import PROCESS_OUTPUT_TOOL_DEFINITIONS
 from vibeagent.tool_definition_process_run import PROCESS_RUN_TOOL_DEFINITIONS
 from vibeagent.tool_definition_process_stop import PROCESS_STOP_TOOL_DEFINITIONS
-from vibeagent.tool_definition_task_control import TASK_CONTROL_TOOL_DEFINITIONS
+from vibeagent.tool_definition_task_control import PLAN_ITEM_SCHEMA, TASK_CONTROL_TOOL_DEFINITIONS, TODO_ITEM_SCHEMA
 
 
 class ProcessControlToolDefinitionTests(unittest.TestCase):
@@ -45,6 +45,16 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         self.assertEqual([branch["required"] for branch in schema["anyOf"]], [["plan"], ["todos"]])
         self.assertIn("plan", schema["anyOf"][0]["properties"])
         self.assertIn("todos", schema["anyOf"][1]["properties"])
+
+    def test_task_control_plan_and_todo_item_schemas_are_shared(self) -> None:
+        update_plan = next(tool for tool in TASK_CONTROL_TOOL_DEFINITIONS if tool["name"] == "update_plan")
+        todo_write = next(tool for tool in TASK_CONTROL_TOOL_DEFINITIONS if tool["name"] == "todo_write")
+
+        self.assertIs(update_plan["input_schema"]["properties"]["plan"]["items"], PLAN_ITEM_SCHEMA)
+        self.assertIs(todo_write["input_schema"]["properties"]["plan"]["items"], PLAN_ITEM_SCHEMA)
+        self.assertIs(todo_write["input_schema"]["anyOf"][0]["properties"]["plan"]["items"], PLAN_ITEM_SCHEMA)
+        self.assertIs(todo_write["input_schema"]["properties"]["todos"]["items"], TODO_ITEM_SCHEMA)
+        self.assertIs(todo_write["input_schema"]["anyOf"][1]["properties"]["todos"]["items"], TODO_ITEM_SCHEMA)
 
 
 if __name__ == "__main__":
