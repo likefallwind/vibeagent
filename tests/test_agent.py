@@ -10532,6 +10532,28 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result.observations[0].action_type, "start_command")
         self.assertEqual(result.steps[0].status, "denied")
 
+    def test_run_agent_denies_web_fetch_without_approval_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "1",
+                            "name": "WebFetch",
+                            "input": {"url": "https://docs.python.org/3/"},
+                        }
+                    ]
+                ]
+            )
+
+            result = run_agent("read docs", base_dir=Path(base), client=client, max_iterations=1)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.observations[0].kind, "approval_denied")
+        self.assertEqual(result.observations[0].action_type, "web_fetch")
+        self.assertEqual(result.steps[0].status, "denied")
+
     def test_run_agent_denies_patch_file_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             Path(base, "app.py").write_text("value = 'old'\n", encoding="utf-8")

@@ -63,12 +63,13 @@ class AgentToolRegistryTests(unittest.TestCase):
 
         self.assertIn("read_file", names)
         self.assertIn("update_plan", names)
+        self.assertNotIn("web_fetch", names)
         self.assertTrue(names.isdisjoint(APPROVAL_REQUIRED_TOOL_NAMES))
         self.assertEqual(
-            activate_agent_tool_names(active, ["web_fetch", "python_dependencies"], "plan"),
+            activate_agent_tool_names(active, ["git_push", "python_dependencies"], "plan"),
             ["python_dependencies"],
         )
-        self.assertNotIn("web_fetch", active)
+        self.assertNotIn("git_push", active)
 
     def test_tool_search_activation_uses_only_returned_matches(self) -> None:
         observation = ToolSearchObservation(

@@ -48,6 +48,7 @@ CORE_AGENT_TOOL_NAMES = frozenset(
         "todo_write",
         "tool_search",
         "update_plan",
+        "web_fetch",
         "write_file",
     }
 )
