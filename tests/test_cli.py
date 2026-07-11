@@ -890,6 +890,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["kind"], "code")
         self.assertTrue(payload["success"])
         self.assertEqual(payload["status"], "blocked")
+        self.assertEqual(payload["stopReason"], "blocked")
         self.assertEqual(payload["message"], "done")
         self.assertEqual(payload["runId"], "one-shot")
         self.assertEqual(payload["iterations"], 2)

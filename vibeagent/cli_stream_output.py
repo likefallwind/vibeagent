@@ -40,6 +40,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
         "kind": "code",
         "success": result.success,
         "status": result.status,
+        "stopReason": code_result_stop_reason(result),
         "message": result.message,
         "runId": result.run_id,
         "runDir": str(result.run_dir),
@@ -71,4 +72,12 @@ def error_result_payload(error: str, *, kind: str = "error", status: str = "fail
     return {"kind": kind, "success": False, "status": status, "error": error}
 
 
-__all__ = ["JsonEventStream", "build_code_result_payload", "error_result_payload"]
+def code_result_stop_reason(result: AgentResult) -> str:
+    if result.success and result.completion_ready:
+        return "completed"
+    if result.success and not result.completion_ready:
+        return "blocked"
+    return "failed"
+
+
+__all__ = ["JsonEventStream", "build_code_result_payload", "code_result_stop_reason", "error_result_payload"]

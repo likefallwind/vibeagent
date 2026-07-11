@@ -13,6 +13,7 @@ from vibeagent.agent_result import AgentResult
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.cli import main
 from vibeagent.cli_args import parse_args
+from vibeagent.cli_stream_output import code_result_stop_reason
 from vibeagent.runtime_types import AssistantResponse
 from vibeagent.session_event_observers import observe_session_events
 
@@ -117,6 +118,7 @@ class CliOutputFormatTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "code")
         self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["stopReason"], "completed")
         self.assertEqual(payload["durationMs"], 123)
         self.assertEqual(payload["usage"]["usage"]["sessions"], 1)
         self.assertEqual(payload["usage"]["usage"]["tokens"]["input"], 10)
@@ -152,6 +154,7 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual(final["type"], "result")
         self.assertEqual(final["kind"], "code")
         self.assertEqual(final["status"], "completed")
+        self.assertEqual(final["stopReason"], "completed")
         self.assertEqual(final["message"], "Inspected the project.")
         self.assertIsInstance(final["durationMs"], int)
         self.assertGreaterEqual(final["durationMs"], 0)
@@ -312,6 +315,42 @@ class SessionEventObserverTests(unittest.TestCase):
         self.assertEqual(observed[0][0], session_dir)
         self.assertEqual(observed[0][1]["type"], "task")
         self.assertNotEqual(observed[0][1].get("api_key"), "secret")
+
+
+class CodeResultPayloadTests(unittest.TestCase):
+    def test_stop_reason_reflects_completion_state(self) -> None:
+        root = Path("/tmp/vibeagent-result")
+
+        self.assertEqual(code_result_stop_reason(_result(root)), "completed")
+        self.assertEqual(
+            code_result_stop_reason(
+                AgentResult(
+                    success=True,
+                    message="blocked",
+                    run_dir=root,
+                    run_id="run-1",
+                    iterations=1,
+                    observations=[],
+                    steps=[],
+                    completion_ready=False,
+                )
+            ),
+            "blocked",
+        )
+        self.assertEqual(
+            code_result_stop_reason(
+                AgentResult(
+                    success=False,
+                    message="failed",
+                    run_dir=root,
+                    run_id="run-1",
+                    iterations=1,
+                    observations=[],
+                    steps=[],
+                )
+            ),
+            "failed",
+        )
 
 
 if __name__ == "__main__":
