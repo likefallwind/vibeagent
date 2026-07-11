@@ -39,6 +39,7 @@ from vibeagent.cli_parse_session import (
     parse_interactive_session_search_argument,
     parse_interactive_transcript_argument,
 )
+from vibeagent.cli_session_args import add_session_limit_arguments, add_session_local_arguments
 from vibeagent.cli_parse_tool_search import parse_interactive_tool_search_argument
 
 
@@ -84,6 +85,34 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertEqual(parse_cli_json_value('{"ok": true}'), {"ok": True})
         self.assertEqual(timeout_ms("100"), 100)
         self.assertEqual(build_focused_tests_kwargs(args), {"max_paths": 2, "max_commands": 3})
+
+    def test_session_arg_helpers_register_limits_and_local_flags(self) -> None:
+        parser = argparse.ArgumentParser()
+        local = parser.add_mutually_exclusive_group()
+        add_session_limit_arguments(
+            parser,
+            positive_int=cli_parsing.positive_int,
+            nonnegative_int=cli_parsing.nonnegative_int,
+        )
+        add_session_local_arguments(parser, local)
+
+        args = parser.parse_args(
+            [
+                "--session-output-command-max",
+                "3",
+                "--session-output-context-lines",
+                "0",
+                "--session-max-output-chars",
+                "0",
+                "--session-handoff",
+                "run-1",
+            ]
+        )
+
+        self.assertEqual(args.session_output_command_max, 3)
+        self.assertEqual(args.session_output_context_lines, 0)
+        self.assertEqual(args.session_max_output_chars, 0)
+        self.assertEqual(args.session_handoff, "run-1")
 
     def test_diff_and_session_parsers_keep_existing_behavior(self) -> None:
         diff_arg, max_chars, error = parse_interactive_diff_argument("--max-chars=5 --staged src/app.py")

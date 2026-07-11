@@ -11,6 +11,7 @@ from .cli_local_flag_detection import (
 )
 from .cli_output_args import add_output_arguments, normalize_output_arguments
 from .cli_one_shot_args import add_one_shot_arguments
+from .cli_session_args import add_session_limit_arguments, add_session_local_arguments
 from .tool_categories import valid_tool_categories
 from .tool_search_options import tool_search_approval_choices
 
@@ -314,21 +315,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--output-diagnostic-max", type=positive_int, default=50, metavar="N", help="Maximum diagnostic lines to show with --output-diagnostics.")
     parser.add_argument("--output-diagnostic-context-max", type=positive_int, default=20, metavar="N", help="Maximum source contexts to read with --output-diagnostics.")
     parser.add_argument("--output-diagnostic-context-max-bytes", type=positive_int, default=20_000, metavar="N", help="Maximum bytes per context with --output-diagnostics or --python-traceback.")
-    parser.add_argument("--session-output-command-max", type=positive_int, default=20, metavar="N", help="Maximum session command outputs to scan with --session-output-contexts or --session-output-diagnostics.")
-    parser.add_argument("--session-output-max-chars", type=positive_int, default=20_000, metavar="N", help="Maximum characters to read per session command output.")
-    parser.add_argument("--session-output-context-lines", type=nonnegative_int, default=5, metavar="N", help="Surrounding line count for --session-output-contexts or --session-output-diagnostics.")
-    parser.add_argument("--session-output-context-max", type=positive_int, default=20, metavar="N", help="Maximum contexts to read with --session-output-contexts or --session-output-diagnostics.")
-    parser.add_argument("--session-output-context-max-bytes", type=positive_int, default=20_000, metavar="N", help="Maximum bytes per session output source context.")
-    parser.add_argument("--session-output-diagnostic-max", type=positive_int, default=50, metavar="N", help="Maximum diagnostic lines to show with --session-output-diagnostics.")
-    parser.add_argument("--session-transcript-event-max", type=positive_int, metavar="N", help="Maximum timeline events to show with --transcript.")
-    parser.add_argument("--session-search-match-max", type=positive_int, metavar="N", help="Maximum matching timeline events to show with --session-search.")
-    parser.add_argument("--session-search-case-sensitive", action="store_true", help="Use case-sensitive matching with --session-search.")
-    parser.add_argument("--session-max-checks", type=positive_int, metavar="N", help="Maximum check rows per group to show with --session-verification, --run-session-verification, --session-audit, or --session-handoff.")
-    parser.add_argument("--session-max-commands", type=positive_int, metavar="N", help="Maximum command results to show with --session-commands, --session-audit, or --session-handoff.")
-    parser.add_argument("--session-max-output-chars", type=nonnegative_int, metavar="N", help="Maximum stdout/stderr tail characters per command with --session-commands or --session-handoff.")
-    parser.add_argument("--session-max-files", type=positive_int, metavar="N", help="Maximum file references to show with --session-files, --session-audit, or --session-handoff.")
-    parser.add_argument("--session-max-failures", type=positive_int, metavar="N", help="Maximum failure entries to show with --session-failures, --session-audit, or --session-handoff.")
-    parser.add_argument("--session-max-text", type=positive_int, metavar="N", help="Maximum text characters per timeline, search, failure, or readiness entry.")
+    add_session_limit_arguments(
+        parser,
+        positive_int=positive_int,
+        nonnegative_int=nonnegative_int,
+    )
     parser.add_argument("--tail-lines", type=positive_int, default=80, metavar="N", help="Trailing line count for --tail.")
     parser.add_argument("--tail-max-bytes", type=positive_int, metavar="N", help="Maximum bytes to read with --tail.")
     parser.add_argument("--log-count", type=positive_int, default=5, metavar="N", help="Maximum commits to show with --log.")
@@ -365,22 +356,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--run-output-diagnostic-max", type=positive_int, default=50, metavar="N", help="Maximum diagnostic lines to show with --run-output-diagnostics or failed-command auto-diagnostics.")
     parser.add_argument("--run-output-context-max", type=positive_int, default=20, metavar="N", help="Maximum extracted run output contexts.")
     parser.add_argument("--run-output-context-max-bytes", type=positive_int, default=20_000, metavar="N", help="Maximum bytes per extracted run output context.")
-    local.add_argument("--sessions", action="store_true", help="List recent local sessions and exit.")
-    local.add_argument("--last", action="store_true", help="Show the newest session summary and exit.")
-    local.add_argument("--session", metavar="RUN_ID", help="Show one compact session summary and exit.")
-    local.add_argument("--plan", nargs="?", const="", metavar="RUN_ID", help="Show the newest or selected session task plan and exit.")
-    local.add_argument("--transcript", nargs="?", const="", metavar="RUN_ID", help="Show a safe timeline of the newest or selected session and exit.")
-    local.add_argument("--session-search", metavar="QUERY", help="Search the newest or selected safe session timeline and exit.")
-    parser.add_argument("--session-search-run", metavar="RUN_ID", help="Session id for --session-search.")
-    local.add_argument("--session-commands", nargs="?", const="", metavar="RUN_ID", help="Show bounded stdout/stderr from the newest or selected session commands and exit.")
-    local.add_argument("--session-output-contexts", nargs="?", const="", metavar="RUN_ID", help="Extract file:line contexts from newest or selected session command output and exit.")
-    local.add_argument("--session-output-diagnostics", nargs="?", const="", metavar="RUN_ID", help="Summarize diagnostics from newest or selected session command output and exit.")
-    local.add_argument("--session-files", nargs="?", const="", metavar="RUN_ID", help="Show project paths referenced by the newest or selected session and exit.")
-    local.add_argument("--session-failures", nargs="?", const="", metavar="RUN_ID", help="Show failed tools, commands, final results, malformed events, and denied approvals from the newest or selected session and exit.")
-    local.add_argument("--session-verification", nargs="?", const="", metavar="RUN_ID", help="Show verified, pending, and failed suggested checks for the newest or selected session and exit.")
-    local.add_argument("--run-session-verification", nargs="?", const="", metavar="RUN_ID", help="Rerun failed and pending verification commands from the newest or selected session and exit.")
-    local.add_argument("--session-audit", nargs="?", const="", metavar="RUN_ID", help="Show finish-time readiness, blockers, active processes, checks, failures, commands, and files for the newest or selected session and exit.")
-    local.add_argument("--session-handoff", nargs="?", const="", metavar="RUN_ID", help="Show a compact recovery handoff bundle for the newest or selected session and exit.")
+    add_session_local_arguments(parser, local)
     local.add_argument("--checkpoint", nargs="?", const="", metavar="LABEL", help="Save current git status, diffs, and ordinary untracked files as a local checkpoint and exit.")
     local.add_argument("--checkpoints", action="store_true", help="List saved local checkpoints and exit.")
     local.add_argument("--checkpoint-show", metavar="ID", help="Show one saved local checkpoint and exit.")
