@@ -11439,6 +11439,55 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Commit can be created", preview or "")
         self.assertIsNone(mismatched_preview)
 
+    def test_approval_preview_summary_matches_git_stash_preview_message(self) -> None:
+        preview = agent_module.approval_preview_summary(
+            types_module.GitStashAction(type="git_stash", message="save work", include_untracked=True),
+            [
+                types_module.CheckGitStashObservation(
+                    kind="check_git_stash",
+                    ok=True,
+                    message_text="save work",
+                    include_untracked=True,
+                    status=" M app.py\n",
+                    diff="diff --git a/app.py b/app.py\n",
+                    message="Can stash 1 path(s).",
+                )
+            ],
+        )
+        default_preview = agent_module.approval_preview_summary(
+            types_module.GitStashAction(type="git_stash"),
+            [
+                types_module.CheckGitStashObservation(
+                    kind="check_git_stash",
+                    ok=True,
+                    message_text="vibeagent stash",
+                    include_untracked=False,
+                    status=" M app.py\n",
+                    diff="diff --git a/app.py b/app.py\n",
+                    message="Can stash 1 path(s).",
+                )
+            ],
+        )
+        mismatched_preview = agent_module.approval_preview_summary(
+            types_module.GitStashAction(type="git_stash", message="save docs", include_untracked=True),
+            [
+                types_module.CheckGitStashObservation(
+                    kind="check_git_stash",
+                    ok=True,
+                    message_text="save work",
+                    include_untracked=True,
+                    status=" M app.py\n",
+                    diff="diff --git a/app.py b/app.py\n",
+                    message="Can stash 1 path(s).",
+                )
+            ],
+        )
+
+        self.assertIn("Can stash 1", preview or "")
+        self.assertIn("diffChars=", preview or "")
+        self.assertIn("Can stash 1", default_preview or "")
+        self.assertIsNone(mismatched_preview)
+
     def test_approval_preview_mapping_covers_approval_required_tools(self) -> None:
         tool_names = {tool["name"] for tool in AGENT_TOOL_DEFINITIONS}
         missing = sorted(

@@ -148,7 +148,7 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
     if kind in {"git_switch", "check_git_switch"}:
         return ("git_switch", getattr(value, "branch", ""), getattr(value, "create", False))
     if kind in {"git_stash", "check_git_stash"}:
-        return ("git_stash", getattr(value, "message_text", getattr(value, "message", None)), getattr(value, "include_untracked", False))
+        return ("git_stash", git_stash_preview_message(value), getattr(value, "include_untracked", False))
     if kind in {"git_stash_apply", "check_git_stash_apply", "git_stash_drop", "check_git_stash_drop"}:
         return (kind.replace("check_", ""), getattr(value, "stash_ref", ""))
     if kind in {"checkpoint_restore", "check_checkpoint_restore", "checkpoint_delete", "check_checkpoint_delete"}:
@@ -177,3 +177,13 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
     if kind in {"stop_all_processes", "check_stop_all_processes"}:
         return ("stop_all_processes",)
     return (kind,)
+
+
+def git_stash_preview_message(value: object) -> str:
+    message_text = getattr(value, "message_text", None)
+    if isinstance(message_text, str) and message_text.strip():
+        return message_text.strip()
+    message = getattr(value, "message", None)
+    if isinstance(message, str) and message.strip():
+        return message.strip()
+    return "vibeagent stash"
