@@ -892,6 +892,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["status"], "blocked")
         self.assertEqual(payload["stopReason"], "blocked")
         self.assertEqual(payload["message"], "done")
+        self.assertEqual(payload["result"], "done")
         self.assertEqual(payload["runId"], "one-shot")
         self.assertEqual(payload["sessionId"], "one-shot")
         self.assertEqual(payload["iterations"], 2)
@@ -13221,7 +13222,15 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(
             payload,
-            {"durationMs": 45, "kind": "chat", "message": "你好", "numTurns": 1, "success": True, "status": "completed"},
+            {
+                "durationMs": 45,
+                "kind": "chat",
+                "message": "你好",
+                "numTurns": 1,
+                "result": "你好",
+                "success": True,
+                "status": "completed",
+            },
         )
 
     def test_main_passes_system_prompt_to_one_shot_chat(self) -> None:

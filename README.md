@@ -140,25 +140,26 @@ task, VibeAgent starts the interactive prompt with that context already loaded.
 constraints. Both options work in one-shot code and chat modes and are never
 saved to project configuration.
 With `--json`, one-shot coding results include `status` (`completed`,
-`blocked`, or `failed`), matching `stopReason`, `numTurns`, `runId` plus a
-`sessionId` alias, a `priorContext` object with loaded/source/run id metadata,
-structured `plan` items,
-`completionReady`, `completionBlockers`, `completionWarnings`, `completionBlockedCount`,
+`blocked`, or `failed`), matching `stopReason`, `numTurns`, final text as
+`message` plus a `result` alias, `runId` plus a `sessionId` alias, a
+`priorContext` object with loaded/source/run id metadata, structured `plan`
+items,
+`completionReady`, `completionBlockers`, `completionWarnings`,
+`completionBlockedCount`,
 `latestCompletionBlockers`, `latestCompletionPendingChecks`,
 `latestCompletionFailedChecks`, `latestCompletionFinalReviewChangedFiles`,
 `changedFiles`, `verificationChecks`, `pendingVerificationChecks`, and
 `failedVerificationChecks` fields, plus `durationMs`, a `usage` report, and a
-`cost` report for
-the current run, so automation can read the same final-review, blocked-attempt,
-changed-file, verification, timing, local token-usage, and configured cost
-estimate status shown in the text UI.
+`cost` report for the current run, so automation can read the same final-review,
+blocked-attempt, changed-file, verification, timing, local token-usage, and
+configured cost estimate status shown in the text UI.
 `--output-format json` is equivalent to `--json`. `--output-format stream-json`
 emits newline-delimited JSON for one-shot tasks: each durable session event is
 written as a `type: "event"` record with a monotonically increasing `sequence`,
 `runId`, matching `sessionId`, and the redacted event payload, followed by
-exactly one
-`type: "result"` record containing the normal code or chat result. Every line
-is flushed immediately for CI and process supervisors. Stream mode never opens
+exactly one `type: "result"` record containing the normal code or chat result,
+with final text available as both `message` and `result`. Every line is flushed
+immediately for CI and process supervisors. Stream mode never opens
 interactive approval or user-input prompts; with the default `--approval ask`,
 side-effecting tools are denied unless a trusted permission rule or complete
 sandbox auto-approval applies. Use `--approval allow` or

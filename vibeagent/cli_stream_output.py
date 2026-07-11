@@ -43,6 +43,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
         "status": result.status,
         "stopReason": code_result_stop_reason(result),
         "message": result.message,
+        "result": result.message,
         "runId": result.run_id,
         "sessionId": result.run_id,
         "runDir": str(result.run_dir),

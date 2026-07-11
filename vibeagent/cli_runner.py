@@ -180,7 +180,13 @@ def run_one_shot(
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
             )
-            payload = {"kind": "chat", "success": True, "status": "completed", "message": response}
+            payload = {
+                "kind": "chat",
+                "success": True,
+                "status": "completed",
+                "message": response,
+                "result": response,
+            }
             if machine_output:
                 payload["durationMs"] = elapsed_milliseconds(started_at)
                 payload["numTurns"] = 1
