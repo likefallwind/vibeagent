@@ -20,6 +20,7 @@ class JsonEventStream:
             {
                 "type": "event",
                 "runId": session_dir.name,
+                "sessionId": session_dir.name,
                 "event": event,
             }
         )
@@ -43,6 +44,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
         "stopReason": code_result_stop_reason(result),
         "message": result.message,
         "runId": result.run_id,
+        "sessionId": result.run_id,
         "runDir": str(result.run_dir),
         "iterations": result.iterations,
         "numTurns": result.iterations,

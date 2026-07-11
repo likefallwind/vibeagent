@@ -120,6 +120,7 @@ class CliOutputFormatTests(unittest.TestCase):
         self.assertEqual(payload["status"], "completed")
         self.assertEqual(payload["stopReason"], "completed")
         self.assertEqual(payload["numTurns"], 1)
+        self.assertEqual(payload["sessionId"], payload["runId"])
         self.assertEqual(payload["durationMs"], 123)
         self.assertEqual(payload["usage"]["usage"]["sessions"], 1)
         self.assertEqual(payload["usage"]["usage"]["tokens"]["input"], 10)
@@ -157,6 +158,7 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual(final["status"], "completed")
         self.assertEqual(final["stopReason"], "completed")
         self.assertEqual(final["numTurns"], 1)
+        self.assertEqual(final["sessionId"], final["runId"])
         self.assertEqual(final["message"], "Inspected the project.")
         self.assertIsInstance(final["durationMs"], int)
         self.assertGreaterEqual(final["durationMs"], 0)
@@ -164,6 +166,7 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual(final["usage"]["usage"]["sessions"], 1)
         self.assertEqual(final["usage"]["usage"]["tokens"]["input"], 0)
         self.assertTrue(all(record["runId"] == final["runId"] for record in event_records))
+        self.assertTrue(all(record["sessionId"] == final["sessionId"] for record in event_records))
 
     def test_stream_json_disables_interactive_handlers_by_default(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-stream-") as base:

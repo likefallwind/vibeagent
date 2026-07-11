@@ -140,8 +140,9 @@ task, VibeAgent starts the interactive prompt with that context already loaded.
 constraints. Both options work in one-shot code and chat modes and are never
 saved to project configuration.
 With `--json`, one-shot coding results include `status` (`completed`,
-`blocked`, or `failed`), matching `stopReason`, `numTurns`, a `priorContext`
-object with loaded/source/run id metadata, structured `plan` items,
+`blocked`, or `failed`), matching `stopReason`, `numTurns`, `runId` plus a
+`sessionId` alias, a `priorContext` object with loaded/source/run id metadata,
+structured `plan` items,
 `completionReady`, `completionBlockers`, `completionWarnings`, `completionBlockedCount`,
 `latestCompletionBlockers`, `latestCompletionPendingChecks`,
 `latestCompletionFailedChecks`, `latestCompletionFinalReviewChangedFiles`,
@@ -154,7 +155,8 @@ estimate status shown in the text UI.
 `--output-format json` is equivalent to `--json`. `--output-format stream-json`
 emits newline-delimited JSON for one-shot tasks: each durable session event is
 written as a `type: "event"` record with a monotonically increasing `sequence`,
-`runId`, and the redacted event payload, followed by exactly one
+`runId`, matching `sessionId`, and the redacted event payload, followed by
+exactly one
 `type: "result"` record containing the normal code or chat result. Every line
 is flushed immediately for CI and process supervisors. Stream mode never opens
 interactive approval or user-input prompts; with the default `--approval ask`,
