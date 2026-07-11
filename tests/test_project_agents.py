@@ -292,6 +292,60 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertEqual(result["kind"], "start_command")
         self.assertEqual(approvals, ["start_command"])
 
+    def test_code_profile_webfetch_alias_reaches_approval_boundary(self) -> None:
+        approvals: list[str] = []
+        client = ProfileClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "fetch-1",
+                        "name": "WebFetch",
+                        "input": {"url": "https://docs.python.org/3/"},
+                    }
+                ],
+                [{"type": "text", "text": "WebFetch was sent to approval."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            _write_agent(
+                root,
+                ".claude/agents",
+                "fetcher",
+                "Fetches public docs",
+                "Use only approved public documentation.",
+                mode="code",
+                tools="WebFetch",
+            )
+            workspace = create_run_workspace(root, "run-1")
+            loaded = read_project_agent(workspace, "fetcher")
+            action = parse_tool_action("delegate_task", {"task": "Fetch docs", "agent": "fetcher"})
+            execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=lambda request: (
+                    approvals.append(request.action_type)
+                    or ApprovalDecision(approved=False, message="not approved")
+                ),
+            )
+
+        self.assertEqual(loaded["tools"], ["web_fetch"])
+        self.assertEqual(set(client.tool_names[0]), {"finish", "web_fetch"})
+        result = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertEqual(result["kind"], "approval_denied")
+        self.assertEqual(result["action_type"], "web_fetch")
+        self.assertEqual(approvals, ["web_fetch"])
+
     def test_explore_profile_todoread_alias_allows_claude_tool_call(self) -> None:
         client = ProfileClient(
             [
