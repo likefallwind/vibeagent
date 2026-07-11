@@ -14,6 +14,7 @@ class RunWorkspace:
     session_dir: Path
     project_config_trusted: bool = False
     mcp_config_paths: tuple[Path, ...] = ()
+    strict_mcp_config: bool = False
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,7 @@ def create_run_workspace(
     base_dir: str | Path | None = None,
     run_id: str | None = None,
     mcp_config_paths: tuple[Path, ...] = (),
+    strict_mcp_config: bool = False,
 ) -> RunWorkspace:
     # Project mode: work in the caller's directory and store task logs under .vibeagent/sessions/.
     base = Path(base_dir) if base_dir is not None else Path.cwd()
@@ -76,10 +78,16 @@ def create_run_workspace(
         session_dir=session_dir,
         project_config_trusted=is_project_permissions_trusted(project_root),
         mcp_config_paths=tuple(_absolute_path(project_root, path) for path in mcp_config_paths),
+        strict_mcp_config=strict_mcp_config,
     )
 
 
-def create_local_workspace(root: str | Path, run_id: str, mcp_config_paths: tuple[Path, ...] = ()) -> RunWorkspace:
+def create_local_workspace(
+    root: str | Path,
+    run_id: str,
+    mcp_config_paths: tuple[Path, ...] = (),
+    strict_mcp_config: bool = False,
+) -> RunWorkspace:
     from .project_trust import is_project_permissions_trusted
 
     project_root = Path(root).resolve()
@@ -89,6 +97,7 @@ def create_local_workspace(root: str | Path, run_id: str, mcp_config_paths: tupl
         session_dir=project_root / ".vibeagent" / "sessions" / run_id,
         project_config_trusted=is_project_permissions_trusted(project_root),
         mcp_config_paths=tuple(_absolute_path(project_root, path) for path in mcp_config_paths),
+        strict_mcp_config=strict_mcp_config,
     )
 
 

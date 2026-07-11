@@ -27,7 +27,9 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
     if isinstance(action, McpServersAction):
         try:
             configs = read_mcp_server_configs(workspace)
-            config_path = ", ".join(_config_path_label(workspace, path) for path in mcp_config_paths(workspace)) or ".mcp.json"
+            config_path = ", ".join(_config_path_label(workspace, path) for path in mcp_config_paths(workspace))
+            if not config_path:
+                config_path = "none" if workspace.strict_mcp_config else ".mcp.json"
             shown = configs[: action.max_servers]
             return McpServersObservation(
                 kind="mcp_servers",

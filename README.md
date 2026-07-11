@@ -115,6 +115,7 @@ printf '{"prompt":"inspect the change"}\n' | python -m vibeagent --input-format 
 python -m vibeagent --append-system-prompt "Prefer focused tests before broad suites." "inspect the change"
 python -m vibeagent --allowed-tools "Read" --allowed-tools "Bash(git diff:*)" --disallowed-tools "Bash(git push:*)" "inspect the change"
 python -m vibeagent --mcp-config docs.mcp.json "use the docs MCP server to check the API"
+python -m vibeagent --mcp-config docs.mcp.json --strict-mcp-config "use only this MCP config"
 python -m vibeagent --provider deepseek --model deepseek-reasoner --base-url https://api.deepseek.com "inspect this repo"
 printf "summarize the project risks\n" | python -m vibeagent -
 ```
@@ -1155,6 +1156,8 @@ One-shot runs can add extra MCP configuration files with repeated
 `--mcp-config PATH` arguments. Relative paths are resolved from `--cwd` or the
 current project directory. Server names must be unique across `.mcp.json` and
 all extra files, and each server `cwd` still has to resolve inside the project.
+Use `--strict-mcp-config` to ignore project `.mcp.json` and load only the
+explicit `--mcp-config` files for that one-shot run.
 
 ## Architecture
 

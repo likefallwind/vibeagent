@@ -89,6 +89,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "model_retry_delay_ms": args.model_retry_delay_ms,
         "model_timeout_ms": args.model_timeout_ms,
         "mcp_config_paths": args.mcp_config,
+        "strict_mcp_config": args.strict_mcp_config,
         "system_prompt": system_prompt,
         "append_system_prompt": append_system_prompt,
         "input_prior_context": format_stream_assistant_context(task_input.assistant_context),
@@ -127,6 +128,7 @@ def run_one_shot(
     model_retry_delay_ms: int | None = None,
     model_timeout_ms: int | None = None,
     mcp_config_paths: list[str] | tuple[str, ...] | None = None,
+    strict_mcp_config: bool = False,
     system_prompt: str | None = None,
     append_system_prompt: str | None = None,
     input_prior_context: str | None = None,
@@ -232,7 +234,13 @@ def run_one_shot(
         merged_prior_context = combine_optional_text(prior_context.context, input_prior_context)
         client = create_chat_client_func(provider_env)
         stream_workspace = (
-            create_run_workspace(project_root, mcp_config_paths=resolved_mcp_config_paths) if stream is not None else None
+            create_run_workspace(
+                project_root,
+                mcp_config_paths=resolved_mcp_config_paths,
+                strict_mcp_config=strict_mcp_config,
+            )
+            if stream is not None
+            else None
         )
         event_scope = (
             observe_session_events(stream_workspace.session_dir, stream.session_event)
@@ -253,6 +261,7 @@ def run_one_shot(
             "trust_project_permissions": trust_project_permissions or is_project_permissions_trusted(project_root),
             "permission_overrides": permission_overrides,
             "mcp_config_paths": resolved_mcp_config_paths,
+            "strict_mcp_config": strict_mcp_config,
             "user_input_handler": None if machine_output else prompt_user_input,
             "prior_context": merged_prior_context,
             "system_prompt": system_prompt,

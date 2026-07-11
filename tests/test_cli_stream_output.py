@@ -249,6 +249,35 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertIn("<cli --allowed-tools>", loaded["sources"])
         self.assertIn("<cli --allowed-tools>", loaded["trusted_allow_sources"])
 
+    def test_stream_json_strict_mcp_config_marks_stream_workspace(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-stream-") as base:
+            root = Path(base)
+            (root / "extra.mcp.json").write_text('{"mcpServers": {}}', encoding="utf-8")
+            run_agent = Mock(return_value=_result(root))
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(
+                    [
+                        "--output-format",
+                        "stream-json",
+                        "--mcp-config",
+                        "extra.mcp.json",
+                        "--strict-mcp-config",
+                        "--cwd",
+                        base,
+                        "inspect",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        workspace = run_agent.call_args.kwargs["workspace"]
+        self.assertTrue(workspace.strict_mcp_config)
+        self.assertEqual(workspace.mcp_config_paths, (root / "extra.mcp.json",))
+
     def test_stream_json_input_roles_feed_system_prompt_and_prior_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-stream-") as base:
             stdout = io.StringIO()

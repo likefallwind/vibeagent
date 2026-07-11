@@ -48,7 +48,7 @@ def read_mcp_server_configs(workspace: RunWorkspace) -> list[McpServerConfig]:
 def mcp_config_paths(workspace: RunWorkspace) -> list[Path]:
     paths: list[Path] = []
     project_config = workspace.root / MCP_CONFIG_NAME
-    if project_config.exists():
+    if not workspace.strict_mcp_config and project_config.exists():
         paths.append(project_config)
     paths.extend(workspace.mcp_config_paths)
     deduped: list[Path] = []

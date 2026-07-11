@@ -132,6 +132,34 @@ class McpRuntimeTests(unittest.TestCase):
         self.assertIn(".mcp.json", observation.config_path)
         self.assertIn("extra.mcp.json", observation.config_path)
 
+    def test_strict_workspace_uses_only_explicit_mcp_config_paths(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
+            root = Path(base)
+            _write_mcp_project(root)
+            extra = root / "extra.mcp.json"
+            _write_mcp_config(extra, "extra")
+            workspace = create_run_workspace(root, "run-1", mcp_config_paths=(extra,), strict_mcp_config=True)
+
+            configs = read_mcp_server_configs(workspace)
+            observation = execute_action(workspace, parse_tool_action("mcp_servers", {}))
+
+        self.assertEqual([config.name for config in configs], ["extra"])
+        self.assertEqual([server.name for server in observation.servers], ["extra"])
+        self.assertEqual(observation.config_path, "extra.mcp.json")
+
+    def test_strict_workspace_without_explicit_mcp_configs_reports_none(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
+            root = Path(base)
+            _write_mcp_project(root)
+            workspace = create_run_workspace(root, "run-1", strict_mcp_config=True)
+
+            configs = read_mcp_server_configs(workspace)
+            observation = execute_action(workspace, parse_tool_action("mcp_servers", {}))
+
+        self.assertEqual(configs, [])
+        self.assertEqual(observation.servers, [])
+        self.assertEqual(observation.config_path, "none")
+
     def test_duplicate_extra_mcp_server_names_are_rejected(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
             root = Path(base)

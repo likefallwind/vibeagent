@@ -74,6 +74,11 @@ def add_one_shot_arguments(
         metavar="PATH",
         help="Load an additional MCP configuration file for this one-shot command.",
     )
+    parser.add_argument(
+        "--strict-mcp-config",
+        action="store_true",
+        help="Use only --mcp-config files for this one-shot command, ignoring project .mcp.json.",
+    )
     parser.add_argument("--system-prompt", help="Override the default one-shot system prompt for this command.")
     parser.add_argument(
         "--append-system-prompt",
