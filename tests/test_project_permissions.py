@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from vibeagent.actions import parse_tool_action
+from vibeagent.action_tool_aliases import CLAUDE_TOOL_ACTION_ALIASES
 from vibeagent.agent import run_agent
 from vibeagent.agent_delegate_tools import execute_delegate_tool_call
 from vibeagent.cli_args import parse_args
@@ -20,7 +21,12 @@ from vibeagent.session_types import SessionEvent
 from vibeagent.tool_catalog import format_permissions_report_text, get_permissions_report
 from vibeagent.types import ApprovalDecision, AssistantResponse, ChatMessage, ContentBlock
 from vibeagent.workspace import create_run_workspace
-from vibeagent.workspace_permissions import match_project_permission, merge_project_permissions, read_project_permissions
+from vibeagent.workspace_permissions import (
+    CLAUDE_TOOL_ALIASES,
+    match_project_permission,
+    merge_project_permissions,
+    read_project_permissions,
+)
 
 
 class PermissionClient:
@@ -48,6 +54,9 @@ def _write_permissions(
 
 
 class ProjectPermissionConfigTests(unittest.TestCase):
+    def test_claude_action_aliases_are_permission_rule_aliases(self) -> None:
+        self.assertLessEqual(set(CLAUDE_TOOL_ACTION_ALIASES), set(CLAUDE_TOOL_ALIASES))
+
     def test_cli_requires_explicit_flag_to_trust_allow_rules(self) -> None:
         default = parse_args(["inspect"])
         trusted = parse_args(["--trust-project-permissions", "inspect"])
