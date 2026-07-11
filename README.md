@@ -1100,6 +1100,9 @@ Claude Code names such as `Bash`, `BashOutput`, `KillBash`, `Read`, `Write`,
 `Edit`, `MultiEdit`, `NotebookRead`, `NotebookEdit`, `LS`, `Glob`, `Grep`,
 `WebFetch`, `Task`, `Agent`, `AskUserQuestion`, `ExitPlanMode`, `TodoWrite`,
 and `TodoRead`, with Claude-style field names normalized before execution.
+Claude MCP tool names such as `mcp__docs__search` can be used as model tool
+names and permission rules; they match the corresponding `mcp_call`
+server/tool pair exactly.
 Command patterns support `*`, including the trailing `:*` spelling. File
 patterns use project-relative `/`, `*`, and recursive `**` matching. A deny or
 ask rule applies when any target in a multi-file operation matches; an allow

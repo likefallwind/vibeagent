@@ -161,6 +161,29 @@ class ProjectPermissionConfigTests(unittest.TestCase):
         self.assertEqual(match_project_permission(config, "write_file", allowed_write).effect, "allow")
         self.assertIsNone(match_project_permission(config, "write_files", mixed_write))
 
+    def test_matches_claude_mcp_tool_names(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
+            root = Path(base)
+            _write_permissions(root, {"allow": ["mcp__docs__search"]}, source=".claude/settings.json")
+            config = read_project_permissions(create_run_workspace(root))
+            allowed = parse_tool_action("mcp__docs__search", {"query": "python"})
+            wrong_server = parse_tool_action("mcp__repo__search", {"query": "python"})
+            wrong_tool = parse_tool_action("mcp__docs__lookup", {"query": "python"})
+
+        self.assertEqual(match_project_permission(config, "mcp_call", allowed).effect, "allow")
+        self.assertIsNone(match_project_permission(config, "mcp_call", wrong_server))
+        self.assertIsNone(match_project_permission(config, "mcp_call", wrong_tool))
+
+    def test_cli_permission_overrides_match_claude_mcp_tool_names(self) -> None:
+        overrides = build_permission_overrides(
+            parse_args(["--allowed-tools", "mcp__docs__search", "--disallowed-tools", "mcp__docs__delete", "inspect"])
+        )
+        search = parse_tool_action("mcp__docs__search", {"query": "python"})
+        delete = parse_tool_action("mcp__docs__delete", {"id": "page-1"})
+
+        self.assertEqual(match_project_permission(overrides, "mcp_call", search).effect, "allow")
+        self.assertEqual(match_project_permission(overrides, "mcp_call", delete).effect, "deny")
+
     def test_invalid_and_symlinked_configs_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
             root = Path(base)
