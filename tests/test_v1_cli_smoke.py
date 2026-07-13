@@ -80,6 +80,24 @@ def _initial_prompt(client: DogfoodClient) -> str:
     return "\n".join(str(message.content) for message in client.messages[0])
 
 
+def pending_user_input_responses() -> list[list[dict[str, object]]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "ask-1",
+                "name": "AskUserQuestion",
+                "input": {
+                    "question": "Should calc.add use addition or subtraction?",
+                    "options": ["addition", "subtraction"],
+                    "allow_free_text": False,
+                },
+            }
+        ],
+        [{"type": "text", "text": "Should calc.add use addition or subtraction?"}],
+    ]
+
+
 def _assert_completed_code_result(
     testcase: unittest.TestCase,
     result: dict[str, object],
@@ -339,6 +357,54 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertGreaterEqual(len(approval_decisions), 1)
         self.assertTrue(all(decision["approved"] for decision in approval_decisions))
         self.assertTrue(all("Approved by policy" in decision["message"] for decision in approval_decisions))
+
+    def test_v1_cli_json_reports_pending_user_input_for_machine_callers(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-user-input-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(pending_user_input_responses())
+            exit_code, payload = _run_json_cli(
+                client,
+                [
+                    "--output-format",
+                    "json",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "2",
+                    "Clarify the expected calculator behavior before changing files.",
+                ],
+            )
+            events = _session_events(root, payload["runId"])
+            event_types = [event["type"] for event in events]
+            git_status = _git_status(root)
+            head_subject = _git_head_subject(root)
+            calc_text = _calc_text(root)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "code")
+        self.assertEqual(payload["status"], "completed")
+        self.assertTrue(payload["success"])
+        self.assertTrue(payload["pendingUserInput"])
+        self.assertTrue(payload["pending_user_input"])
+        self.assertEqual(
+            payload["userInputRequests"],
+            [
+                {
+                    "question": "Should calc.add use addition or subtraction?",
+                    "options": ["addition", "subtraction"],
+                    "answer": None,
+                    "cancelled": True,
+                    "message": "User input is unavailable in this run. Return the question to the user without guessing.",
+                }
+            ],
+        )
+        self.assertEqual(payload["user_input_requests"], payload["userInputRequests"])
+        self.assertIn("user_input_requested", event_types)
+        self.assertIn("user_input_answered", event_types)
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_subject, "initial broken calculator")
+        self.assertIn("return left - right", calc_text)
 
 
 if __name__ == "__main__":

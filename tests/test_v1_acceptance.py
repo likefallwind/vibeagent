@@ -38,6 +38,7 @@ CLI_SMOKE_TESTS = {
     "test_v1_cli_json_can_compact_interrupted_run_and_commit",
     "test_v1_cli_json_can_repair_verify_commit_and_report_ready",
     "test_v1_cli_json_can_resume_interrupted_run_and_commit",
+    "test_v1_cli_json_reports_pending_user_input_for_machine_callers",
     "test_v1_cli_stream_json_can_repair_with_allowed_tools_and_report_events",
 }
 PROJECT_COMMAND_TESTS = {

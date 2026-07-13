@@ -129,6 +129,11 @@ local changes when asked, and resume from recorded session context.
   `main()` one-shot JSON path with `--dangerously-skip-permissions`, confirming
   the automation shortcut can repair, verify, and commit without interactive
   approval prompts.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_reports_pending_user_input_for_machine_callers`
+  runs a real CLI `main()` JSON path where the model uses the Claude-compatible
+  `AskUserQuestion` alias and no interactive input handler is available,
+  confirming machine callers receive `pendingUserInput` plus structured
+  `userInputRequests` and the workspace remains unchanged.
 - `tests.test_project_prompt_commands.ProjectPromptCommandCliTests.test_one_shot_custom_command_expands_to_code_task_with_metadata`
   covers Claude-style project slash commands in one-shot code mode: a
   `.claude/commands/*.md` template expands before the agent run, while command
