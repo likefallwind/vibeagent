@@ -7,7 +7,7 @@ from .cli_resume_args import normalize_resume_arguments
 
 PERMISSION_MODE_ALIASES = {
     "default": "ask",
-    "acceptEdits": "allow",
+    "acceptEdits": "ask",
     "bypassPermissions": "allow",
 }
 PERMISSION_MODE_CHOICES = ("ask", "allow", "deny", "plan", *PERMISSION_MODE_ALIASES)
@@ -72,3 +72,7 @@ def normalize_permission_mode(value: str | None) -> str | None:
     if value is None:
         return None
     return PERMISSION_MODE_ALIASES.get(value, value)
+
+
+def permission_mode_accepts_edits(value: str | None) -> bool:
+    return value == "acceptEdits"

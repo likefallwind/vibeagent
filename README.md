@@ -136,8 +136,9 @@ and prints only the final text in normal text output, `-r` is an alias for
 session for a one-shot task,
 `--permission-mode` maps to `--approval`, accepting both VibeAgent values
 (`ask`, `allow`, `deny`, `plan`) and Claude-style values (`default` -> `ask`,
-`acceptEdits`/`bypassPermissions` -> `allow`), and `--max-turns` maps to
-`--max-iterations`. `--dangerously-skip-permissions` maps to
+`acceptEdits` -> `ask` plus an automatic `Edit` allow rule,
+`bypassPermissions` -> `allow`), and `--max-turns` maps to `--max-iterations`.
+`--dangerously-skip-permissions` maps to
 `--approval allow` for one-shot coding tasks and cannot be combined with
 `--approval` or `--permission-mode`. `--input-format json` reads one JSON object
 or array from stdin when the task is `-`; `--input-format stream-json` reads

@@ -415,7 +415,7 @@ class CliTests(unittest.TestCase):
     def test_cli_permission_mode_accepts_claude_values(self) -> None:
         cases = [
             ("default", "ask"),
-            ("acceptEdits", "allow"),
+            ("acceptEdits", "ask"),
             ("bypassPermissions", "allow"),
             ("plan", "plan"),
         ]
@@ -428,6 +428,9 @@ class CliTests(unittest.TestCase):
                 self.assertEqual(args.approval, expected)
                 self.assertEqual(kwargs["approval_policy"], expected)
                 self.assertIsNone(cli_module.validate_cli_args(args))
+
+                expected_rules = ["Edit"] if value == "acceptEdits" else []
+                self.assertEqual([rule.raw for rule in kwargs["permission_overrides"].rules], expected_rules)
 
     def test_cli_dangerously_skip_permissions_maps_to_allow_for_code_tasks(self) -> None:
         args = cli_module.parse_args(["--dangerously-skip-permissions", "inspect", "repo"])
@@ -455,7 +458,8 @@ class CliTests(unittest.TestCase):
 
     def test_cli_compat_alias_conflicts_are_validation_errors(self) -> None:
         approval_args = cli_module.parse_args(["--approval", "allow", "--permission-mode", "deny", "inspect"])
-        matching_accept_edits_args = cli_module.parse_args(["--approval", "allow", "--permission-mode", "acceptEdits", "inspect"])
+        matching_accept_edits_args = cli_module.parse_args(["--approval", "ask", "--permission-mode", "acceptEdits", "inspect"])
+        conflicting_accept_edits_args = cli_module.parse_args(["--approval", "allow", "--permission-mode", "acceptEdits", "inspect"])
         matching_bypass_args = cli_module.parse_args(["--approval", "allow", "--permission-mode", "bypassPermissions", "inspect"])
         matching_default_args = cli_module.parse_args(["--approval", "ask", "--permission-mode", "default", "inspect"])
         turn_args = cli_module.parse_args(["--max-iterations", "2", "--max-turns", "3", "inspect"])
@@ -467,6 +471,10 @@ class CliTests(unittest.TestCase):
             "--approval and --permission-mode cannot specify different policies.",
         )
         self.assertIsNone(cli_module.validate_cli_args(matching_accept_edits_args))
+        self.assertEqual(
+            cli_module.validate_cli_args(conflicting_accept_edits_args),
+            "--approval and --permission-mode cannot specify different policies.",
+        )
         self.assertIsNone(cli_module.validate_cli_args(matching_bypass_args))
         self.assertIsNone(cli_module.validate_cli_args(matching_default_args))
         self.assertEqual(
@@ -591,6 +599,18 @@ class CliTests(unittest.TestCase):
         self.assertEqual([rule.raw for rule in permissions.rules], ["Read", "Bash(git diff:*)", "Edit(src/**)"])
         self.assertTrue(permissions.trusted_allow_sources)
 
+    def test_accept_edits_permission_mode_adds_edit_permission_override(self) -> None:
+        args = cli_module.parse_args(["--permission-mode", "acceptEdits", "inspect"])
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+        permissions = kwargs["permission_overrides"]
+
+        self.assertEqual(kwargs["approval_policy"], "ask")
+        self.assertEqual([rule.effect for rule in permissions.rules], ["allow"])
+        self.assertEqual([rule.raw for rule in permissions.rules], ["Edit"])
+        self.assertEqual([rule.source for rule in permissions.rules], ["<cli --permission-mode acceptEdits>"])
+        self.assertEqual(permissions.trusted_allow_sources, ("<cli --permission-mode acceptEdits>",))
+
     def test_main_rejects_invalid_permission_override_rule(self) -> None:
         stdout = io.StringIO()
 
@@ -611,6 +631,7 @@ class CliTests(unittest.TestCase):
             ["--json", "--allowed-tools", "Read"],
             ["--json", "--allowed-tools", "Read", "--chat", "hello"],
             ["--json", "--disallowed-tools", "Edit", "--permissions"],
+            ["--json", "--permission-mode", "acceptEdits"],
         ]
         for argv in cases:
             with self.subTest(argv=argv):

@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import argparse
 
+from .cli_compat_args import permission_mode_accepts_edits
 from .workspace_permissions import ProjectPermissions, permission_rules_from_values
 
 
 ALLOWED_TOOLS_SOURCE = "<cli --allowed-tools>"
 DISALLOWED_TOOLS_SOURCE = "<cli --disallowed-tools>"
+ACCEPT_EDITS_SOURCE = "<cli --permission-mode acceptEdits>"
+ACCEPT_EDITS_RULE = "Edit"
 
 
 def add_permission_override_arguments(parser: argparse.ArgumentParser) -> None:
@@ -34,20 +37,25 @@ def add_permission_override_arguments(parser: argparse.ArgumentParser) -> None:
 def build_permission_overrides(args: argparse.Namespace) -> ProjectPermissions:
     allowed = _split_rule_values(getattr(args, "allowed_tools", []))
     disallowed = _split_rule_values(getattr(args, "disallowed_tools", []))
-    rules = permission_rules_from_values("allow", allowed, ALLOWED_TOOLS_SOURCE) + permission_rules_from_values(
-        "deny",
-        disallowed,
-        DISALLOWED_TOOLS_SOURCE,
-    )
+    allow_rules = permission_rules_from_values("allow", allowed, ALLOWED_TOOLS_SOURCE)
+    accept_edit_rules = ()
+    if permission_mode_accepts_edits(getattr(args, "permission_mode", None)):
+        accept_edit_rules = permission_rules_from_values("allow", [ACCEPT_EDITS_RULE], ACCEPT_EDITS_SOURCE)
+    rules = allow_rules + accept_edit_rules + permission_rules_from_values("deny", disallowed, DISALLOWED_TOOLS_SOURCE)
     sources = []
+    trusted_allow_sources = []
     if allowed:
         sources.append(ALLOWED_TOOLS_SOURCE)
+        trusted_allow_sources.append(ALLOWED_TOOLS_SOURCE)
+    if accept_edit_rules:
+        sources.append(ACCEPT_EDITS_SOURCE)
+        trusted_allow_sources.append(ACCEPT_EDITS_SOURCE)
     if disallowed:
         sources.append(DISALLOWED_TOOLS_SOURCE)
     return ProjectPermissions(
         rules=rules,
         sources=tuple(sources),
-        trusted_allow_sources=(ALLOWED_TOOLS_SOURCE,) if allowed else (),
+        trusted_allow_sources=tuple(trusted_allow_sources),
     )
 
 
@@ -60,7 +68,11 @@ def permission_override_validation_error(args: argparse.Namespace) -> str | None
 
 
 def has_permission_overrides(args: argparse.Namespace) -> bool:
-    return bool(getattr(args, "allowed_tools", []) or getattr(args, "disallowed_tools", []))
+    return bool(
+        getattr(args, "allowed_tools", [])
+        or getattr(args, "disallowed_tools", [])
+        or permission_mode_accepts_edits(getattr(args, "permission_mode", None))
+    )
 
 
 def _split_rule_values(values: list[str] | tuple[str, ...]) -> list[str]:
@@ -71,6 +83,7 @@ def _split_rule_values(values: list[str] | tuple[str, ...]) -> list[str]:
 
 
 __all__ = [
+    "ACCEPT_EDITS_SOURCE",
     "ALLOWED_TOOLS_SOURCE",
     "DISALLOWED_TOOLS_SOURCE",
     "add_permission_override_arguments",

@@ -43,7 +43,7 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
     if override_error is not None:
         return override_error
     if has_permission_overrides(args) and (not args.task or has_local_flag(args) or args.chat):
-        return "--allowed-tools and --disallowed-tools can only be used with one-shot coding tasks."
+        return "permission overrides can only be used with one-shot coding tasks."
     dependency_error = validate_local_option_dependencies(args)
     if dependency_error is not None:
         return dependency_error
