@@ -87,37 +87,46 @@ def search_project_result(
             lines = path.read_text(encoding="utf-8").splitlines()
         except UnicodeDecodeError:
             continue
-        file_matches = False
-        file_match_count = 0
-        for line_number, line in enumerate(lines, start=1):
-            haystack = line if case_sensitive else line.lower()
-            found = bool(pattern.search(line)) if pattern else needle in haystack
-            if found:
-                if output_mode == "files_with_matches":
-                    file_matches = True
-                    break
-                if output_mode == "count":
-                    file_match_count += 1
-                    continue
+        file_matches = search_file_line_matches(lines, pattern, needle, case_sensitive)
+        if output_mode == "files_with_matches":
+            if file_matches:
                 total += 1
                 if len(matches) < max_matches:
-                    if context_lines:
-                        matches.append(format_search_context(relative, lines, line_number, context_lines))
-                    else:
-                        matches.append(f"{relative}:{line_number}: {line.strip()}")
-        if file_matches:
+                    matches.append(relative)
+            continue
+        if output_mode == "count":
+            if file_matches:
+                total += 1
+                if len(matches) < max_matches:
+                    matches.append(f"{relative}: {len(file_matches)}")
+            continue
+        for line_number, line in file_matches:
             total += 1
             if len(matches) < max_matches:
-                matches.append(relative)
-        elif file_match_count:
-            total += 1
-            if len(matches) < max_matches:
-                matches.append(f"{relative}: {file_match_count}")
+                if context_lines:
+                    matches.append(format_search_context(relative, lines, line_number, context_lines))
+                else:
+                    matches.append(f"{relative}:{line_number}: {line.strip()}")
     return {
         "matches": matches,
         "total": total,
         "truncated": total > len(matches),
     }
+
+
+def search_file_line_matches(
+    lines: list[str],
+    pattern: re.Pattern[str] | None,
+    needle: str,
+    case_sensitive: bool,
+) -> list[tuple[int, str]]:
+    matches: list[tuple[int, str]] = []
+    for line_number, line in enumerate(lines, start=1):
+        haystack = line if case_sensitive else line.lower()
+        found = bool(pattern.search(line)) if pattern else needle in haystack
+        if found:
+            matches.append((line_number, line))
+    return matches
 
 
 def search_project_contexts_result(
