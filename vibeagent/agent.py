@@ -9,10 +9,8 @@ from .agent_model import complete_with_retries
 from .agent_multimodal import build_tool_result_block, strip_consumed_tool_images
 from .agent_result import AgentResult
 from .redaction import redact_jsonable_payload
-from .agent_action_logging import log_action
-from .agent_delegate import execute_delegate_task_action
-from .agent_hooks import run_hooks_around_tool
 from .agent_run_setup import prepare_agent_run
+from .agent_special_tools import execute_special_tool_action
 from .agent_execution_support import (
     create_auto_checkpoint_before_action as _shared_create_auto_checkpoint_before_action,
     execute_action_safely as _shared_execute_action_safely,
@@ -34,16 +32,14 @@ from .agent_approval_preview import (
 )
 from .agent_parallel_safety import PARALLEL_SAFE_TOOL_NAMES, is_parallel_safe_action
 from .agent_parallel_execution import execute_parallel_tool_call_batch
-from .agent_steps import complete_task_step, observation_summary, start_task_step
+from .agent_steps import observation_summary
 from .agent_tool_execution import execute_parsed_tool_action
 from .agent_tool_registry import (
     agent_tool_definitions,
     activate_tools_for_run,
     activate_tools_from_observations,
-    initialize_agent_tools,
     prepare_action_for_policy,
 )
-from .agent_user_input import execute_user_input_action
 from .agent_run_completion import (
     auto_run_final_review_if_needed as _auto_run_final_review_if_needed,
     completion_blocked_feedback_if_needed as _completion_blocked_feedback_if_needed,
@@ -279,53 +275,26 @@ def run_agent(
             try:
                 action = prepare_action_for_policy(parse_tool_action(tool_name, tool_input), approval_policy)
                 if isinstance(action, (AskUserAction, DelegateTaskAction)):
-                    def execute_special_tool() -> Observation:
-                        if isinstance(action, AskUserAction):
-                            return execute_user_input_action(
-                                current_workspace,
-                                action,
-                                steps,
-                                iteration,
-                                logger,
-                                user_input_handler,
-                            )
-                        step = start_task_step(current_workspace, steps, iteration, action, logger)
-                        log_action(logger, action)
-                        delegate_observation = execute_delegate_task_action(
-                            current_workspace,
-                            action,
-                            client,
-                            parent_iteration=iteration,
-                            subagent_id=f"delegate-{iteration}-{step.id}",
-                            max_output_tokens=max_output_tokens,
-                            model_retries=model_retries,
-                            model_retry_delay_ms=model_retry_delay_ms,
-                            model_timeout_ms=model_timeout_ms,
-                            command_timeout_ms=command_timeout_ms,
-                            logger=logger,
-                            approval_handler=approval_handler,
-                            approval_policy=approval_policy,
-                            parent_observations=observations,
-                            parent_steps=steps,
-                            hooks=project_hooks,
-                            permissions=project_permissions,
-                        )
-                        complete_task_step(current_workspace, step, delegate_observation, iteration, logger)
-                        return delegate_observation
-
-                    wrapped = run_hooks_around_tool(
+                    wrapped = execute_special_tool_action(
                         current_workspace,
-                        project_hooks,
-                        tool_name,
                         action,
-                        iteration,
-                        command_timeout_ms,
-                        logger,
-                        approval_handler,
-                        approval_policy,
-                        execute_action_safely,
-                        execute_special_tool,
-                        project_permissions,
+                        client,
+                        steps=steps,
+                        observations=observations,
+                        iteration=iteration,
+                        tool_name=tool_name,
+                        max_output_tokens=max_output_tokens,
+                        model_retries=model_retries,
+                        model_retry_delay_ms=model_retry_delay_ms,
+                        model_timeout_ms=model_timeout_ms,
+                        command_timeout_ms=command_timeout_ms,
+                        logger=logger,
+                        approval_handler=approval_handler,
+                        approval_policy=approval_policy,
+                        user_input_handler=user_input_handler,
+                        hooks=project_hooks,
+                        permissions=project_permissions,
+                        execute_action_safely_func=execute_action_safely,
                     )
                     observation = wrapped.observation
                     hook_results = wrapped.hook_results

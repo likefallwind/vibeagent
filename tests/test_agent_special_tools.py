@@ -1,0 +1,109 @@
+from __future__ import annotations
+
+import tempfile
+import unittest
+from pathlib import Path
+
+from vibeagent.agent_special_tools import execute_special_tool_action
+from vibeagent.types import (
+    AssistantResponse,
+    AskUserAction,
+    ChatMessage,
+    ContentBlock,
+    DelegateTaskAction,
+    Observation,
+)
+from vibeagent.workspace import create_run_workspace
+from vibeagent.workspace_hooks import ProjectHooks
+from vibeagent.workspace_permissions import ProjectPermissions
+
+
+class SpecialToolClient:
+    def __init__(self, responses: list[list[ContentBlock]]) -> None:
+        self.responses = responses
+        self.messages: list[list[ChatMessage]] = []
+
+    def complete(self, messages, tools=None, max_tokens=4096, temperature=0.2, timeout_ms=120_000):
+        self.messages.append(list(messages))
+        content = self.responses[len(self.messages) - 1]
+        return AssistantResponse(content=content, raw={"content": content})
+
+
+class AgentSpecialToolTests(unittest.TestCase):
+    def test_executes_ask_user_action_through_special_tool_wrapper(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-special-") as base:
+            workspace = create_run_workspace(Path(base))
+            steps = []
+            wrapped = execute_special_tool_action(
+                workspace,
+                AskUserAction(type="ask_user", question="Continue?", options=["yes", "no"], allow_free_text=False),
+                SpecialToolClient([]),
+                steps=steps,
+                observations=[],
+                iteration=1,
+                tool_name="ask_user",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=None,
+                approval_policy="ask",
+                user_input_handler=lambda _request: "yes",
+                hooks=ProjectHooks(),
+                permissions=ProjectPermissions(),
+                execute_action_safely_func=_unexpected_execute_action_safely,
+            )
+
+        self.assertEqual(wrapped.observation.kind, "ask_user")
+        self.assertEqual(wrapped.observation.answer, "yes")
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0].status, "completed")
+
+    def test_executes_delegate_action_through_special_tool_wrapper(self) -> None:
+        client = SpecialToolClient([[{"type": "text", "text": "Found auth in app.py:1"}]])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-special-") as base:
+            workspace = create_run_workspace(Path(base))
+            steps = []
+            wrapped = execute_special_tool_action(
+                workspace,
+                DelegateTaskAction(type="delegate_task", task="Find auth", max_iterations=2),
+                client,
+                steps=steps,
+                observations=[],
+                iteration=2,
+                tool_name="delegate_task",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=None,
+                approval_policy="ask",
+                user_input_handler=None,
+                hooks=ProjectHooks(),
+                permissions=ProjectPermissions(),
+                execute_action_safely_func=_unexpected_execute_action_safely,
+            )
+
+        self.assertEqual(wrapped.observation.kind, "delegate_task")
+        self.assertTrue(wrapped.observation.ok)
+        self.assertEqual(wrapped.observation.summary, "Found auth in app.py:1")
+        self.assertEqual(len(client.messages), 1)
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0].status, "completed")
+
+
+def _unexpected_execute_action_safely(
+    _workspace: object,
+    _action: object,
+    _command_timeout_ms: int,
+    _tool_name: str,
+) -> Observation:
+    raise AssertionError("special tool tests should not execute generic actions")
+
+
+if __name__ == "__main__":
+    unittest.main()
