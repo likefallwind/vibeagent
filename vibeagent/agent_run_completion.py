@@ -95,6 +95,7 @@ def finish_agent_run(
     completion_ready = success and not completion_blockers
     result_status = session_result_status(success, completion_ready)
     completion_warnings = build_completion_warnings(success, observations, plan, verification_status)
+    completion_details = build_completion_blocker_details(success, observations, verification_status)
     verification_checks, pending_verification_checks, failed_verification_checks = resolve_completion_verification_status(
         success,
         observations,
@@ -115,6 +116,7 @@ def finish_agent_run(
             "completion_ready": completion_ready,
             "completion_blockers": completion_blockers,
             "completion_warnings": completion_warnings,
+            "completion_details": completion_details,
             "verification_checks": verification_checks,
             "pending_verification_checks": pending_verification_checks,
             "failed_verification_checks": failed_verification_checks,

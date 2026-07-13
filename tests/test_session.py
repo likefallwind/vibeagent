@@ -549,6 +549,16 @@ class SessionTests(unittest.TestCase):
                         "completion_ready": False,
                         "completion_blockers": ["Run did not complete successfully."],
                         "completion_warnings": ["Project changes completed without a final_review observation."],
+                        "completion_details": {
+                            "pendingVerificationChecks": ["npm test"],
+                            "failedVerificationChecks": ["npm test (exit=1)"],
+                            "finalReviewBlockingIssues": ["Changed Python files have syntax errors."],
+                            "finalReviewChangedFiles": ["M app.py"],
+                            "toolErrors": ["read_file: Tool execution failed: boom"],
+                            "checkpointFailures": ["checkpoint_create: git diff failed."],
+                            "activeBackgroundProcesses": ["bg-1: pid=123, cwd=web, command=npm run dev"],
+                            "deniedApprovals": ["write_file note.txt: Denied by policy."],
+                        },
                         "verification_checks": ["python -m unittest discover -s tests"],
                         "pending_verification_checks": ["npm test"],
                         "failed_verification_checks": ["npm test (exit=1)"],
@@ -569,6 +579,14 @@ class SessionTests(unittest.TestCase):
         self.assertFalse(summary.completion_ready)
         self.assertEqual(summary.completion_blockers, ["Run did not complete successfully."])
         self.assertEqual(summary.completion_warnings, ["Project changes completed without a final_review observation."])
+        self.assertEqual(summary.latest_completion_pending_verification_checks, ["npm test"])
+        self.assertEqual(summary.latest_completion_failed_verification_checks, ["npm test (exit=1)"])
+        self.assertEqual(summary.latest_completion_final_review_issues, ["Changed Python files have syntax errors."])
+        self.assertEqual(summary.latest_completion_final_review_changed_files, ["M app.py"])
+        self.assertEqual(summary.latest_completion_tool_errors, ["read_file: Tool execution failed: boom"])
+        self.assertEqual(summary.latest_completion_checkpoint_failures, ["checkpoint_create: git diff failed."])
+        self.assertEqual(summary.latest_completion_active_background_processes, ["bg-1: pid=123, cwd=web, command=npm run dev"])
+        self.assertEqual(summary.latest_completion_denied_approvals, ["write_file note.txt: Denied by policy."])
         self.assertEqual(summary.verification_checks, ["python -m unittest discover -s tests"])
         self.assertEqual(summary.pending_verification_checks, ["npm test"])
         self.assertEqual(summary.failed_verification_checks, ["npm test (exit=1)"])
@@ -621,6 +639,7 @@ class SessionTests(unittest.TestCase):
                         "plan": [{"step": "Run tests", "status": "completed"}],
                         "completion_ready": True,
                         "completion_blockers": [],
+                        "completion_details": {},
                     },
                 ],
             )

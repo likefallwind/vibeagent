@@ -713,6 +713,7 @@ class AgentTests(unittest.TestCase):
             events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
 
         blocked_events = [event for event in events if event["type"] == "completion_blocked"]
+        result_event = next(event for event in events if event["type"] == "result")
         feedback_messages = [
             message.content
             for call_messages in client.messages
@@ -726,6 +727,7 @@ class AgentTests(unittest.TestCase):
         self.assertEqual([item.kind for item in result.observations], ["tool_error"])
         self.assertEqual(len(blocked_events), 1)
         self.assertEqual(blocked_events[0]["details"]["toolErrors"], ["read_file: Tool execution failed: boom"])
+        self.assertEqual(result_event["completion_details"]["toolErrors"], ["read_file: Tool execution failed: boom"])
         self.assertEqual(result.latest_completion_tool_errors, ["read_file: Tool execution failed: boom"])
         self.assertIn("Tool errors:\n- read_file: Tool execution failed: boom", "\n".join(feedback_messages))
 

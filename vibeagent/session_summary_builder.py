@@ -125,14 +125,16 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
                 latest_completion_blockers = [item for item in blockers if isinstance(item, str) and item.strip()]
             details = event.payload.get("details")
             if isinstance(details, dict):
-                latest_completion_pending_verification_checks = parse_string_list(details.get("pendingVerificationChecks"))
-                latest_completion_failed_verification_checks = parse_string_list(details.get("failedVerificationChecks"))
-                latest_completion_final_review_issues = parse_string_list(details.get("finalReviewBlockingIssues"))
-                latest_completion_final_review_changed_files = parse_string_list(details.get("finalReviewChangedFiles"))
-                latest_completion_tool_errors = parse_string_list(details.get("toolErrors"))
-                latest_completion_checkpoint_failures = parse_string_list(details.get("checkpointFailures"))
-                latest_completion_active_background_processes = parse_string_list(details.get("activeBackgroundProcesses"))
-                latest_completion_denied_approvals = parse_string_list(details.get("deniedApprovals"))
+                (
+                    latest_completion_pending_verification_checks,
+                    latest_completion_failed_verification_checks,
+                    latest_completion_final_review_issues,
+                    latest_completion_final_review_changed_files,
+                    latest_completion_tool_errors,
+                    latest_completion_checkpoint_failures,
+                    latest_completion_active_background_processes,
+                    latest_completion_denied_approvals,
+                ) = parse_completion_detail_lists(details)
             else:
                 latest_completion_pending_verification_checks = []
                 latest_completion_failed_verification_checks = []
@@ -206,6 +208,34 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
             result_warnings = event.payload.get("completion_warnings")
             if isinstance(result_warnings, list):
                 completion_warnings = [item for item in result_warnings if isinstance(item, str) and item.strip()]
+            result_details = event.payload.get("completion_details")
+            if isinstance(result_details, dict):
+                (
+                    result_pending_checks,
+                    result_failed_checks,
+                    result_final_review_issues,
+                    result_final_review_changed_files,
+                    result_tool_errors,
+                    result_checkpoint_failures,
+                    result_active_background_processes,
+                    result_denied_approvals,
+                ) = parse_completion_detail_lists(result_details)
+                if result_pending_checks:
+                    latest_completion_pending_verification_checks = result_pending_checks
+                if result_failed_checks:
+                    latest_completion_failed_verification_checks = result_failed_checks
+                if result_final_review_issues:
+                    latest_completion_final_review_issues = result_final_review_issues
+                if result_final_review_changed_files:
+                    latest_completion_final_review_changed_files = result_final_review_changed_files
+                if result_tool_errors:
+                    latest_completion_tool_errors = result_tool_errors
+                if result_checkpoint_failures:
+                    latest_completion_checkpoint_failures = result_checkpoint_failures
+                if result_active_background_processes:
+                    latest_completion_active_background_processes = result_active_background_processes
+                if result_denied_approvals:
+                    latest_completion_denied_approvals = result_denied_approvals
             result_checks = event.payload.get("verification_checks")
             if isinstance(result_checks, list):
                 verification_payload_seen = True
@@ -298,6 +328,28 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
         latest_model_error=latest_model_error,
         background_processes_started=background_processes_started,
         active_background_processes=sorted(active_background_processes.values(), key=lambda process: process.process_id),
+    )
+
+
+def parse_completion_detail_lists(details: dict[object, object]) -> tuple[
+    list[str],
+    list[str],
+    list[str],
+    list[str],
+    list[str],
+    list[str],
+    list[str],
+    list[str],
+]:
+    return (
+        parse_string_list(details.get("pendingVerificationChecks")),
+        parse_string_list(details.get("failedVerificationChecks")),
+        parse_string_list(details.get("finalReviewBlockingIssues")),
+        parse_string_list(details.get("finalReviewChangedFiles")),
+        parse_string_list(details.get("toolErrors")),
+        parse_string_list(details.get("checkpointFailures")),
+        parse_string_list(details.get("activeBackgroundProcesses")),
+        parse_string_list(details.get("deniedApprovals")),
     )
 
 
