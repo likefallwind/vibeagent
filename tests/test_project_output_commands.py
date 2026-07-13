@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from vibeagent import project_commands, project_output_commands
+from vibeagent import project_commands, project_output_commands, project_output_reports
 
 
 class ProjectOutputCommandModuleTests(unittest.TestCase):
@@ -21,6 +21,20 @@ class ProjectOutputCommandModuleTests(unittest.TestCase):
         self.assertIs(
             project_commands.format_python_traceback_report_text,
             project_output_commands.format_python_traceback_report_text,
+        )
+
+    def test_project_output_commands_reexports_report_formatters(self) -> None:
+        self.assertIs(
+            project_output_commands.format_output_contexts_report_text,
+            project_output_reports.format_output_contexts_report_text,
+        )
+        self.assertIs(
+            project_output_commands.format_output_diagnostics_report_text,
+            project_output_reports.format_output_diagnostics_report_text,
+        )
+        self.assertIs(
+            project_output_commands.format_python_traceback_report_text,
+            project_output_reports.format_python_traceback_report_text,
         )
 
 
