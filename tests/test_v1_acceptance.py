@@ -35,6 +35,7 @@ DOGFOOD_TESTS = {
 }
 CLI_SMOKE_TESTS = {
     "test_v1_cli_dangerously_skip_permissions_can_repair_with_claude_aliases",
+    "test_v1_cli_json_can_create_and_check_checkpoint_before_commit",
     "test_v1_cli_json_input_format_can_repair_verify_commit_and_report_ready",
     "test_v1_cli_json_can_compact_interrupted_run_and_commit",
     "test_v1_cli_json_can_delegate_read_only_investigation_before_repair_and_commit",

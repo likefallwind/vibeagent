@@ -141,6 +141,10 @@ local changes when asked, and resume from recorded session context.
   confirming a read-only subagent can inspect project files and return a
   bounded summary before the parent agent repairs, verifies, reports, and
   commits.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_create_and_check_checkpoint_before_commit`
+  runs the real CLI JSON path through checkpoint creation, listing, status, and
+  restore preflight before repair, verification, review, and commit, confirming
+  a rollback point is available before workspace mutation.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_resume_interrupted_run_and_commit`
   runs an interrupted deterministic repair dogfood through the real CLI
   `main()` JSON path, then resumes it through `--resume <runId>`, confirming

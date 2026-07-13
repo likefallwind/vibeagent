@@ -13,6 +13,7 @@ from unittest.mock import patch
 from tests.test_v1_dogfood import (
     DogfoodClient,
     background_process_dogfood_responses,
+    checkpoint_safety_dogfood_responses,
     claude_compat_dogfood_responses,
     claude_hook_dogfood_responses,
     claude_mcp_dogfood_responses,
@@ -456,6 +457,39 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn('"name": "Read"', events_text)
         self.assertIn("calc.py subtracts", events_text)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add after delegation")
+
+    def test_v1_cli_json_can_create_and_check_checkpoint_before_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-checkpoint-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(checkpoint_safety_dogfood_responses())
+            exit_code, payload = _run_json_cli(
+                client,
+                [
+                    "--output-format",
+                    "json",
+                    "--approval",
+                    "allow",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "18",
+                    "Create a rollback checkpoint, fix the calculator test failure, verify checkpoint safety, and commit.",
+                ],
+            )
+            events = _session_events(root, payload["runId"])
+            events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload)
+        self.assertIn('"name": "checkpoint_create"', events_text)
+        self.assertIn('"name": "checkpoint_list"', events_text)
+        self.assertIn('"name": "checkpoint_status"', events_text)
+        self.assertIn('"name": "check_checkpoint_restore"', events_text)
+        self.assertIn("before calculator edit", events_text)
+        self.assertIn('"can_restore": true', events_text)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add with checkpoint safety")
 
     def test_v1_cli_stream_json_input_format_can_repair_verify_commit_and_report_ready(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-input-stream-smoke-") as base:
