@@ -9,7 +9,7 @@ from .workspace_permissions import ProjectPermissions, permission_rules_from_val
 ALLOWED_TOOLS_SOURCE = "<cli --allowed-tools>"
 DISALLOWED_TOOLS_SOURCE = "<cli --disallowed-tools>"
 ACCEPT_EDITS_SOURCE = "<cli --permission-mode acceptEdits>"
-ACCEPT_EDITS_RULE = "Edit"
+ACCEPT_EDITS_RULES = ("Edit", "NotebookEdit")
 
 
 def add_permission_override_arguments(parser: argparse.ArgumentParser) -> None:
@@ -40,7 +40,7 @@ def build_permission_overrides(args: argparse.Namespace) -> ProjectPermissions:
     allow_rules = permission_rules_from_values("allow", allowed, ALLOWED_TOOLS_SOURCE)
     accept_edit_rules = ()
     if permission_mode_accepts_edits(getattr(args, "permission_mode", None)):
-        accept_edit_rules = permission_rules_from_values("allow", [ACCEPT_EDITS_RULE], ACCEPT_EDITS_SOURCE)
+        accept_edit_rules = permission_rules_from_values("allow", ACCEPT_EDITS_RULES, ACCEPT_EDITS_SOURCE)
     rules = allow_rules + accept_edit_rules + permission_rules_from_values("deny", disallowed, DISALLOWED_TOOLS_SOURCE)
     sources = []
     trusted_allow_sources = []
@@ -83,6 +83,7 @@ def _split_rule_values(values: list[str] | tuple[str, ...]) -> list[str]:
 
 
 __all__ = [
+    "ACCEPT_EDITS_RULES",
     "ACCEPT_EDITS_SOURCE",
     "ALLOWED_TOOLS_SOURCE",
     "DISALLOWED_TOOLS_SOURCE",

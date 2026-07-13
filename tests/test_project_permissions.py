@@ -11,6 +11,7 @@ from vibeagent.agent import run_agent
 from vibeagent.agent_delegate_tools import execute_delegate_tool_call
 from vibeagent.cli_args import parse_args
 from vibeagent.cli_permission_overrides import (
+    ACCEPT_EDITS_SOURCE,
     ALLOWED_TOOLS_SOURCE,
     DISALLOWED_TOOLS_SOURCE,
     build_permission_overrides,
@@ -94,6 +95,26 @@ class ProjectPermissionConfigTests(unittest.TestCase):
         self.assertEqual(merged.trusted_allow_sources, (ALLOWED_TOOLS_SOURCE,))
         self.assertEqual(match_project_permission(merged, "read_file", read_action).effect, "allow")
         self.assertEqual(match_project_permission(merged, "write_file", write_action).effect, "deny")
+
+    def test_accept_edits_permission_mode_allows_file_edits_but_not_commands(self) -> None:
+        overrides = build_permission_overrides(parse_args(["--permission-mode", "acceptEdits", "inspect"]))
+        write_action = parse_tool_action("write_file", {"path": "src/app.py", "content": "x = 1\n"})
+        multi_edit_action = parse_tool_action(
+            "multi_edit_file",
+            {"path": "src/app.py", "edits": [{"old": "x = 0", "new": "x = 1"}]},
+        )
+        notebook_action = parse_tool_action(
+            "notebook_edit",
+            {"path": "analysis.ipynb", "new_source": "print(1)", "cell_number": 1},
+        )
+        command_action = parse_tool_action("run_command", {"command": "python3 -m unittest"})
+
+        self.assertEqual([rule.raw for rule in overrides.rules], ["Edit", "NotebookEdit"])
+        self.assertEqual(overrides.trusted_allow_sources, (ACCEPT_EDITS_SOURCE,))
+        self.assertEqual(match_project_permission(overrides, "write_file", write_action).effect, "allow")
+        self.assertEqual(match_project_permission(overrides, "multi_edit_file", multi_edit_action).effect, "allow")
+        self.assertEqual(match_project_permission(overrides, "notebook_edit", notebook_action).effect, "allow")
+        self.assertIsNone(match_project_permission(overrides, "run_command", command_action))
 
     def test_loads_all_sources_and_uses_deny_ask_allow_precedence(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:

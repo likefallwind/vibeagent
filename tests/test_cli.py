@@ -431,7 +431,7 @@ class CliTests(unittest.TestCase):
                 self.assertEqual(kwargs["approval_policy"], expected)
                 self.assertIsNone(cli_module.validate_cli_args(args))
 
-                expected_rules = ["Edit"] if value == "acceptEdits" else []
+                expected_rules = ["Edit", "NotebookEdit"] if value == "acceptEdits" else []
                 self.assertEqual([rule.raw for rule in kwargs["permission_overrides"].rules], expected_rules)
 
     def test_cli_dangerously_skip_permissions_maps_to_allow_for_code_tasks(self) -> None:
@@ -601,16 +601,19 @@ class CliTests(unittest.TestCase):
         self.assertEqual([rule.raw for rule in permissions.rules], ["Read", "Bash(git diff:*)", "Edit(src/**)"])
         self.assertTrue(permissions.trusted_allow_sources)
 
-    def test_accept_edits_permission_mode_adds_edit_permission_override(self) -> None:
+    def test_accept_edits_permission_mode_adds_edit_permission_overrides(self) -> None:
         args = cli_module.parse_args(["--permission-mode", "acceptEdits", "inspect"])
 
         kwargs = cli_module.build_one_shot_kwargs_from_args(args)
         permissions = kwargs["permission_overrides"]
 
         self.assertEqual(kwargs["approval_policy"], "ask")
-        self.assertEqual([rule.effect for rule in permissions.rules], ["allow"])
-        self.assertEqual([rule.raw for rule in permissions.rules], ["Edit"])
-        self.assertEqual([rule.source for rule in permissions.rules], ["<cli --permission-mode acceptEdits>"])
+        self.assertEqual([rule.effect for rule in permissions.rules], ["allow", "allow"])
+        self.assertEqual([rule.raw for rule in permissions.rules], ["Edit", "NotebookEdit"])
+        self.assertEqual(
+            [rule.source for rule in permissions.rules],
+            ["<cli --permission-mode acceptEdits>", "<cli --permission-mode acceptEdits>"],
+        )
         self.assertEqual(permissions.trusted_allow_sources, ("<cli --permission-mode acceptEdits>",))
 
     def test_main_rejects_invalid_permission_override_rule(self) -> None:
