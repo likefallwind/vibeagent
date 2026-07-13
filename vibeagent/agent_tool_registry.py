@@ -4,70 +4,12 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from typing import Any
 
+from .agent_core_tools import CORE_AGENT_TOOL_NAMES
 from .agent_runtime_utils import append_session_event
 from .tool_catalog_core import tool_name_requires_approval
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
 from .types import ApprovalPolicy, Observation, ToolSearchAction
 from .workspace_core import RunWorkspace
-
-
-CORE_AGENT_TOOL_NAMES = frozenset(
-    {
-        "ask_user",
-        "AskUserQuestion",
-        "Bash",
-        "BashOutput",
-        "check_edit_file",
-        "check_patch",
-        "check_write_file",
-        "command_check",
-        "delegate_task",
-        "edit_file",
-        "Edit",
-        "file_info",
-        "final_review",
-        "find_files",
-        "finish",
-        "focused_test_commands",
-        "git_changes",
-        "git_diff",
-        "git_status",
-        "glob",
-        "Glob",
-        "Grep",
-        "KillBash",
-        "list_files",
-        "list_tree",
-        "LS",
-        "mcp_servers",
-        "MultiEdit",
-        "patch_file",
-        "project_instructions",
-        "project_overview",
-        "read_file",
-        "read_file_context",
-        "read_files",
-        "Read",
-        "related_tests",
-        "repo_map",
-        "run_command",
-        "search",
-        "search_contexts",
-        "suggest_checks",
-        "todo_read",
-        "TodoRead",
-        "todo_write",
-        "TodoWrite",
-        "tool_search",
-        "update_plan",
-        "ExitPlanMode",
-        "Task",
-        "WebFetch",
-        "web_fetch",
-        "write_file",
-        "Write",
-    }
-)
 
 TOOL_DEFINITION_BY_NAME = {
     str(tool["name"]): tool

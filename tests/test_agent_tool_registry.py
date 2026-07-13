@@ -4,6 +4,13 @@ import unittest
 from pathlib import Path
 
 from vibeagent.agent import run_agent
+from vibeagent.agent_core_tools import (
+    CORE_COMMAND_TOOL_NAMES,
+    CORE_EDIT_TOOL_NAMES,
+    CORE_PROJECT_TOOL_NAMES,
+    CORE_READ_TOOL_NAMES,
+    CORE_SESSION_TOOL_NAMES,
+)
 from vibeagent.agent_tool_registry import (
     CORE_AGENT_TOOL_NAMES,
     ToolVisibilityPolicy,
@@ -36,6 +43,20 @@ class ToolLoadingClient:
 
 
 class AgentToolRegistryTests(unittest.TestCase):
+    def test_core_tool_groups_compose_the_exported_core_set(self) -> None:
+        grouped = (
+            CORE_SESSION_TOOL_NAMES
+            | CORE_READ_TOOL_NAMES
+            | CORE_EDIT_TOOL_NAMES
+            | CORE_COMMAND_TOOL_NAMES
+            | CORE_PROJECT_TOOL_NAMES
+        )
+
+        self.assertEqual(CORE_AGENT_TOOL_NAMES, grouped)
+        self.assertTrue(CORE_SESSION_TOOL_NAMES.isdisjoint(CORE_COMMAND_TOOL_NAMES))
+        self.assertTrue(CORE_READ_TOOL_NAMES.isdisjoint(CORE_EDIT_TOOL_NAMES))
+        self.assertIn("final_review", CORE_PROJECT_TOOL_NAMES)
+
     def test_core_registry_is_valid_unique_and_materially_smaller(self) -> None:
         initial = agent_tool_definitions(initial_agent_tool_names())
         initial_names = [str(tool["name"]) for tool in initial]
