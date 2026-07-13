@@ -280,6 +280,7 @@ from .observation_git_types import (
     UntrackedFilePreview,
 )
 from .observation_notebook_types import (
+    CheckNotebookEditObservation,
     NotebookCellSummary,
     NotebookEditObservation,
     NotebookReadObservation,

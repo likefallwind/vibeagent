@@ -4,7 +4,7 @@ from .prompt_observation_utils import truncate
 
 
 def format_edit_observation(index: int, observation: object) -> str | None:
-    if observation.kind in {"edit_file", "check_edit_file", "multi_edit_file", "check_multi_edit_file", "notebook_edit"}:
+    if observation.kind in {"edit_file", "check_edit_file", "multi_edit_file", "check_multi_edit_file", "check_notebook_edit", "notebook_edit"}:
         return _format_path_diff(index, observation)
 
     if observation.kind == "check_replace_lines":

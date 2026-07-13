@@ -123,6 +123,7 @@ from .action_git_types import (
     GitUnstageAction,
 )
 from .action_notebook_types import (
+    CheckNotebookEditAction,
     NotebookEditAction,
     NotebookReadAction,
 )

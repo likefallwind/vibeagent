@@ -28,7 +28,7 @@ CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "offset": {"type": "integer", "minimum": 0},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 2000},
             },
-            "required": ["notebook_path", "cell_number", "new_source"],
+            "required": ["notebook_path"],
             "additionalProperties": False,
         },
     },

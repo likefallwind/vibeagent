@@ -60,6 +60,22 @@ FILE_EXACT_EDIT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "check_notebook_edit",
+        "description": "Validate replacing one notebook cell source without writing changes. Returns the notebook JSON diff that would be applied.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "cell_id": {"type": "string"},
+                "cell_number": {"type": "integer", "minimum": 1},
+                "new_source": {"type": "string"},
+                "cell_type": {"type": "string", "enum": ["code", "markdown", "raw"]},
+            },
+            "required": ["path", "cell_number", "new_source"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "multi_edit_file",
         "description": "Apply multiple exact text replacements to one existing project file atomically.",
         "input_schema": {

@@ -15,6 +15,16 @@ class NotebookReadAction:
 
 
 @dataclass(frozen=True)
+class CheckNotebookEditAction:
+    type: Literal["check_notebook_edit"]
+    path: str
+    new_source: str
+    cell_id: str | None = None
+    cell_number: int | None = None
+    cell_type: str | None = None
+
+
+@dataclass(frozen=True)
 class NotebookEditAction:
     type: Literal["notebook_edit"]
     path: str

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from vibeagent.action_parsing import parse_tool_action
 from vibeagent.actions import execute_action
+from vibeagent.agent_approval_preview import approval_preview_summary
 from vibeagent.prompts import format_observations
 from vibeagent.types import NotebookEditAction, NotebookReadAction
 from vibeagent.workspace import create_run_workspace
@@ -87,6 +88,41 @@ class NotebookToolTests(unittest.TestCase):
         self.assertEqual(observation.cell_id, "calc")
         self.assertEqual(updated["cells"][1]["source"], ["value = 2 + 3\n", "value\n"])
         self.assertIn("+    \"value = 2 + 3\\n\"", observation.diff)
+
+    def test_check_notebook_edit_previews_without_writing_and_matches_approval_preview(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-notebook-") as base:
+            root = Path(base)
+            notebook_path = root / "analysis.ipynb"
+            write_notebook(notebook_path)
+            before = notebook_path.read_text(encoding="utf-8")
+            preview_action = parse_tool_action(
+                "check_notebook_edit",
+                {
+                    "path": "analysis.ipynb",
+                    "cell_number": 2,
+                    "new_source": "value = 5\nvalue\n",
+                },
+            )
+            edit_action = parse_tool_action(
+                "NotebookEdit",
+                {
+                    "notebook_path": "analysis.ipynb",
+                    "cell_number": 2,
+                    "new_source": "value = 5\nvalue\n",
+                },
+            )
+
+            preview = execute_action(create_run_workspace(root), preview_action)
+            after_preview = notebook_path.read_text(encoding="utf-8")
+
+        self.assertEqual(preview.kind, "check_notebook_edit")
+        self.assertTrue(preview.ok)
+        self.assertEqual(after_preview, before)
+        self.assertIn("+    \"value = 5\\n\"", preview.diff)
+        approval_preview = approval_preview_summary(edit_action, [preview])
+        self.assertIsNotNone(approval_preview)
+        assert approval_preview is not None
+        self.assertIn("diffChars=", approval_preview)
 
     def test_notebook_edit_legacy_raw_text_mode_still_maps_to_text_edit(self) -> None:
         action = parse_tool_action(

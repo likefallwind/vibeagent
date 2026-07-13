@@ -32,6 +32,7 @@ from .types import (
     CheckMoveDirectoryAction,
     CheckMoveDirectoriesAction,
     CheckMultiEditAction,
+    CheckNotebookEditAction,
     CheckPatchAction,
     CheckPatchesAction,
     CheckRegexReplaceAction,
@@ -70,6 +71,7 @@ from .types import (
 FILE_EDIT_ACTION_TYPES = {
     "check_edit_file",
     "edit_file",
+    "check_notebook_edit",
     "notebook_edit",
     "check_multi_edit_file",
     "multi_edit_file",
@@ -202,21 +204,22 @@ def parse_file_edit_action(action_type: object, value: dict[str, Any], raw: str)
         new = _parse_string_field(value.get("new"), raw, "edit_file action requires string new.")
         return EditFileAction(type="edit_file", path=path, old=old, new=new)
 
-    if action_type == "notebook_edit":
-        path = _parse_string_field(value.get("path"), raw, "notebook_edit action requires a string path.")
-        new_source = _parse_string_field(value.get("new_source"), raw, "notebook_edit action requires string new_source.")
+    if action_type in {"check_notebook_edit", "notebook_edit"}:
+        path = _parse_string_field(value.get("path"), raw, f"{action_type} action requires a string path.")
+        new_source = _parse_string_field(value.get("new_source"), raw, f"{action_type} action requires string new_source.")
         cell_id = value.get("cell_id")
         cell_number = value.get("cell_number")
         cell_type = value.get("cell_type")
         if cell_id is not None and not isinstance(cell_id, str):
-            raise ActionParseError("notebook_edit action cell_id must be a string when provided.", raw)
+            raise ActionParseError(f"{action_type} action cell_id must be a string when provided.", raw)
         parsed_cell_number = parse_optional_positive_int(cell_number, "cell_number", raw, maximum=1_000_000)
         if cell_id is None and parsed_cell_number is None:
-            raise ActionParseError("notebook_edit action requires cell_id or cell_number.", raw)
+            raise ActionParseError(f"{action_type} action requires cell_id or cell_number.", raw)
         if cell_type is not None and not isinstance(cell_type, str):
-            raise ActionParseError("notebook_edit action cell_type must be a string when provided.", raw)
-        return NotebookEditAction(
-            type="notebook_edit",
+            raise ActionParseError(f"{action_type} action cell_type must be a string when provided.", raw)
+        action_cls = CheckNotebookEditAction if action_type == "check_notebook_edit" else NotebookEditAction
+        return action_cls(
+            type=action_type,
             path=path,
             new_source=new_source,
             cell_id=cell_id,

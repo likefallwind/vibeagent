@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 
 from .types import (
+    CheckNotebookEditAction,
+    CheckNotebookEditObservation,
     NotebookCellSummary,
     NotebookEditAction,
     NotebookEditObservation,
@@ -21,6 +23,8 @@ from .workspace_resolve import resolve_inside_run, resolve_mutation_path
 def execute_notebook_action(workspace: RunWorkspace, action: object) -> Observation | None:
     if isinstance(action, NotebookReadAction):
         return read_notebook(workspace, action)
+    if isinstance(action, CheckNotebookEditAction):
+        return preview_notebook_cell_edit(workspace, action)
     if isinstance(action, NotebookEditAction):
         return edit_notebook_cell(workspace, action)
     return None
@@ -68,22 +72,34 @@ def read_notebook(workspace: RunWorkspace, action: NotebookReadAction) -> Notebo
         )
 
 
+def preview_notebook_cell_edit(workspace: RunWorkspace, action: CheckNotebookEditAction) -> CheckNotebookEditObservation:
+    try:
+        _target, cell_index, cell_id, diff, _after = _build_notebook_cell_edit(workspace, action, mutate=False)
+        return CheckNotebookEditObservation(
+            kind="check_notebook_edit",
+            path=action.path,
+            ok=True,
+            cell_number=action.cell_number,
+            cell_id=action.cell_id,
+            message=f"Notebook edit can apply to cell {cell_index + 1} in {action.path}.",
+            diff=diff,
+        )
+    except ValueError as error:
+        return CheckNotebookEditObservation(
+            kind="check_notebook_edit",
+            path=action.path,
+            ok=False,
+            cell_number=action.cell_number,
+            cell_id=action.cell_id,
+            message=str(error),
+            diff="",
+        )
+
+
 def edit_notebook_cell(workspace: RunWorkspace, action: NotebookEditAction) -> NotebookEditObservation:
     try:
-        target, notebook = _load_notebook(workspace, action.path, mutate=True)
-        before = target.read_text(encoding="utf-8")
-        cells = _notebook_cells(notebook)
-        cell_index = _find_cell_index(cells, cell_id=action.cell_id, cell_number=action.cell_number)
-        cell = cells[cell_index]
-        if action.cell_type is not None:
-            _validate_cell_type(action.cell_type)
-            cell["cell_type"] = action.cell_type
-        cell["source"] = _source_to_notebook_lines(action.new_source)
-        after = json.dumps(notebook, ensure_ascii=False, indent=1) + "\n"
-        if before == after:
-            raise ValueError(f"Notebook edit made no changes to {action.path}")
+        target, cell_index, cell_id, diff, after = _build_notebook_cell_edit(workspace, action, mutate=True)
         target.write_text(after, encoding="utf-8")
-        cell_id = cell.get("id") if isinstance(cell.get("id"), str) else None
         return NotebookEditObservation(
             kind="notebook_edit",
             path=action.path,
@@ -91,7 +107,7 @@ def edit_notebook_cell(workspace: RunWorkspace, action: NotebookEditAction) -> N
             cell_number=cell_index + 1,
             cell_id=cell_id,
             message=f"Edited notebook cell {cell_index + 1} in {action.path}.",
-            diff=build_simple_diff(action.path, before, after),
+            diff=diff,
         )
     except ValueError as error:
         return NotebookEditObservation(
@@ -103,6 +119,28 @@ def edit_notebook_cell(workspace: RunWorkspace, action: NotebookEditAction) -> N
             message=str(error),
             diff="",
         )
+
+
+def _build_notebook_cell_edit(
+    workspace: RunWorkspace,
+    action: CheckNotebookEditAction | NotebookEditAction,
+    *,
+    mutate: bool,
+) -> tuple[Path, int, str | None, str, str]:
+    target, notebook = _load_notebook(workspace, action.path, mutate=mutate)
+    before = target.read_text(encoding="utf-8")
+    cells = _notebook_cells(notebook)
+    cell_index = _find_cell_index(cells, cell_id=action.cell_id, cell_number=action.cell_number)
+    cell = cells[cell_index]
+    if action.cell_type is not None:
+        _validate_cell_type(action.cell_type)
+        cell["cell_type"] = action.cell_type
+    cell["source"] = _source_to_notebook_lines(action.new_source)
+    after = json.dumps(notebook, ensure_ascii=False, indent=1) + "\n"
+    if before == after:
+        raise ValueError(f"Notebook edit made no changes to {action.path}")
+    cell_id = cell.get("id") if isinstance(cell.get("id"), str) else None
+    return target, cell_index, cell_id, build_simple_diff(action.path, before, after), after
 
 
 def _load_notebook(workspace: RunWorkspace, path: str, *, mutate: bool) -> tuple[Path, dict[str, Any]]:

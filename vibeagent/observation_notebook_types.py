@@ -30,6 +30,17 @@ class NotebookReadObservation:
 
 
 @dataclass(frozen=True)
+class CheckNotebookEditObservation:
+    kind: Literal["check_notebook_edit"]
+    path: str
+    ok: bool
+    cell_number: int | None
+    cell_id: str | None
+    message: str
+    diff: str = ""
+
+
+@dataclass(frozen=True)
 class NotebookEditObservation:
     kind: Literal["notebook_edit"]
     path: str

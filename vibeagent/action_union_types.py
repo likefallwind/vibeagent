@@ -130,6 +130,7 @@ from .action_json_types import (
     JsonSetAction,
 )
 from .action_notebook_types import (
+    CheckNotebookEditAction,
     NotebookEditAction,
     NotebookReadAction,
 )
@@ -360,6 +361,7 @@ AgentAction: TypeAlias = (
     | CheckpointPruneAction
     | CheckEditFileAction
     | EditFileAction
+    | CheckNotebookEditAction
     | NotebookEditAction
     | MultiEditAction
     | CheckMultiEditAction

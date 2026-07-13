@@ -13,6 +13,7 @@ PREVIEW_KIND_BY_ACTION_TYPE = {
     "write_file": "check_write_file",
     "write_files": "check_write_files",
     "edit_file": "check_edit_file",
+    "notebook_edit": "check_notebook_edit",
     "multi_edit_file": "check_multi_edit_file",
     "replace_python_definition": "check_replace_python_definition",
     "code_rename": "code_rename_preview",
@@ -68,7 +69,7 @@ PREVIEW_KIND_BY_ACTION_TYPE = {
 
 # External requests cannot be meaningfully previewed without performing the
 # disclosure that approval is intended to guard.
-APPROVAL_WITHOUT_PREVIEW_ACTION_TYPES = {"mcp_call", "mcp_tools", "notebook_edit", "web_fetch"}
+APPROVAL_WITHOUT_PREVIEW_ACTION_TYPES = {"mcp_call", "mcp_tools", "web_fetch"}
 
 
 def attach_approval_preview(
@@ -157,6 +158,13 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
     kind = str(getattr(value, "kind", getattr(value, "type", "")))
     if kind in {"write_file", "check_write_file", "edit_file", "check_edit_file", "multi_edit_file", "check_multi_edit_file", "append_file", "check_append_file", "regex_replace", "check_regex_replace", "patch_file", "check_patch", "delete_file", "check_delete_file", "create_dir", "check_create_dir", "delete_empty_dir", "check_delete_empty_dir", "set_executable", "check_set_executable"}:
         return (kind.replace("check_", ""), getattr(value, "path", ""), getattr(value, "executable", None))
+    if kind in {"notebook_edit", "check_notebook_edit"}:
+        return (
+            "notebook_edit",
+            getattr(value, "path", ""),
+            getattr(value, "cell_id", None),
+            getattr(value, "cell_number", None),
+        )
     if kind in {"json_set", "check_json_set", "json_remove", "check_json_remove"}:
         return (kind.replace("check_", ""), getattr(value, "path", ""), getattr(value, "pointer", ""))
     if kind in {"json_patch", "check_json_patch"}:

@@ -36,6 +36,8 @@ def observation_failed(observation: Observation) -> bool:
         return not observation.ok
     if observation.kind == "notebook_read":
         return not observation.ok
+    if observation.kind == "check_notebook_edit":
+        return not observation.ok
     if observation.kind == "notebook_edit":
         return not observation.ok
     if observation.kind == "check_replace_python_definition":

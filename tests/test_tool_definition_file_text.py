@@ -34,6 +34,7 @@ class FileTextToolDefinitionTests(unittest.TestCase):
                 "check_edit_file",
                 "edit_file",
                 "check_multi_edit_file",
+                "check_notebook_edit",
                 "multi_edit_file",
                 "check_replace_lines",
                 "replace_lines",

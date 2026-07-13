@@ -21,6 +21,7 @@ def build_action_target(action: object) -> str:
             t.EditFileAction,
             t.CheckMultiEditAction,
             t.MultiEditAction,
+            t.CheckNotebookEditAction,
             t.NotebookEditAction,
             t.CheckReplaceLinesAction,
             t.CheckPatchAction,

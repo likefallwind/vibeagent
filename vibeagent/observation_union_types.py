@@ -139,6 +139,7 @@ from .observation_git_types import (
     GitUnstageObservation,
 )
 from .observation_notebook_types import (
+    CheckNotebookEditObservation,
     NotebookEditObservation,
     NotebookReadObservation,
 )
@@ -371,6 +372,7 @@ Observation: TypeAlias = (
     | CheckpointPruneObservation
     | CheckEditFileObservation
     | EditFileObservation
+    | CheckNotebookEditObservation
     | NotebookEditObservation
     | MultiEditObservation
     | CheckMultiEditObservation
