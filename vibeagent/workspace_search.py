@@ -198,9 +198,7 @@ def search_project_contexts_result(
         except UnicodeDecodeError:
             continue
         for line_number, line in enumerate(lines, start=1):
-            haystack = line if case_sensitive else line.lower()
-            found = bool(pattern.search(line)) if pattern else needle in haystack
-            if not found:
+            if not search_line_matches(line, pattern, needle, case_sensitive):
                 continue
             total += 1
             if len(contexts) >= max_matches:
