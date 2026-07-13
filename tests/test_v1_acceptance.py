@@ -1,0 +1,79 @@
+from __future__ import annotations
+
+import re
+import unittest
+from pathlib import Path
+
+from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
+
+
+ROOT = Path(__file__).resolve().parents[1]
+PLAN_PATH = ROOT / "docs" / "vibeagent-1.0.md"
+
+EXPECTED_GATES = {
+    "VA1-READ": {
+        "tools": {"project_overview", "repo_map", "read_file", "read_file_context", "search", "project_instructions"},
+        "tests": {"test_run_agent_includes_project_instruction_files_in_initial_prompt"},
+    },
+    "VA1-EDIT": {
+        "tools": {"check_write_file", "write_file", "check_edit_file", "edit_file", "multi_edit_file"},
+        "tests": {"test_run_agent_writes_multiple_files_with_approval"},
+    },
+    "VA1-RUN": {
+        "tools": {"command_check", "check_run_commands", "run_command", "run_commands", "focused_test_commands", "run_suggested_checks"},
+        "tests": {"test_run_agent_continues_after_pending_suggested_check_is_run"},
+    },
+    "VA1-REPAIR": {
+        "tools": {"write_file", "run_command"},
+        "tests": {"test_run_agent_repairs_a_failing_script_and_finishes"},
+    },
+    "VA1-REVIEW": {
+        "tools": {"final_review", "suggest_checks", "run_suggested_checks"},
+        "tests": {"test_run_agent_continues_after_pending_suggested_check_is_run"},
+    },
+    "VA1-COMMIT": {
+        "tools": {"check_git_stage", "git_stage", "check_git_commit", "git_commit"},
+        "tests": {"test_run_agent_keeps_verification_after_stage_and_commit"},
+    },
+    "VA1-RESUME": {
+        "tools": {"session_summary", "session_verification", "run_session_verification", "session_handoff"},
+        "tests": {"test_run_agent_uses_existing_session_verification_on_resume"},
+    },
+    "VA1-SAFETY": {
+        "tools": {"command_check", "final_review", "check_git_push"},
+        "tests": {"test_run_agent_returns_blocked_command_as_tool_result"},
+    },
+}
+
+
+class V1AcceptanceTests(unittest.TestCase):
+    def test_acceptance_plan_lists_exactly_the_v1_gates(self) -> None:
+        text = PLAN_PATH.read_text(encoding="utf-8")
+        gates = set(re.findall(r"\bVA1-[A-Z]+\b", text))
+
+        self.assertEqual(gates, set(EXPECTED_GATES))
+
+    def test_acceptance_gate_tools_exist_in_agent_tool_catalog(self) -> None:
+        tool_names = {str(tool["name"]) for tool in AGENT_TOOL_DEFINITIONS}
+
+        for gate, evidence in EXPECTED_GATES.items():
+            missing = evidence["tools"] - tool_names
+            with self.subTest(gate=gate):
+                self.assertEqual(missing, set())
+
+    def test_acceptance_gate_evidence_names_existing_regressions(self) -> None:
+        test_sources = "\n".join(path.read_text(encoding="utf-8") for path in sorted((ROOT / "tests").glob("test_*.py")))
+
+        for gate, evidence in EXPECTED_GATES.items():
+            missing = {name for name in evidence["tests"] if f"def {name}" not in test_sources}
+            with self.subTest(gate=gate):
+                self.assertEqual(missing, set())
+
+    def test_readme_links_to_v1_acceptance_plan(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn("docs/vibeagent-1.0.md", readme)
+
+
+if __name__ == "__main__":
+    unittest.main()

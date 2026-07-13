@@ -8,6 +8,9 @@ task finishes or the iteration limit is reached. It also
 includes a daily conversation mode for normal chat that does not write files or
 run commands.
 
+The current 1.0 usability scope and acceptance gates are tracked in
+[`docs/vibeagent-1.0.md`](docs/vibeagent-1.0.md).
+
 ## Setup
 
 ```sh
