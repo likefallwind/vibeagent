@@ -13,7 +13,9 @@ from vibeagent.agent_result import AgentResult
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.cli import main
 from vibeagent.cli_args import parse_args
-from vibeagent.cli_stream_output import code_result_stop_reason
+from vibeagent.cli_context import OneShotPriorContext
+from vibeagent.cli_stream_output import build_code_result_payload, code_result_stop_reason
+from vibeagent.observation_common_types import UserInputObservation
 from vibeagent.runtime_types import AssistantResponse
 from vibeagent.session_event_observers import observe_session_events
 
@@ -135,6 +137,42 @@ class CliOutputFormatTests(unittest.TestCase):
         self.assertEqual(payload["cost"]["estimate"]["estimatedCostUsd"], "0.000018")
         self.assertNotIn("type", payload)
         self.assertNotIn("sequence", payload)
+
+    def test_json_output_reports_pending_user_input_requests(self) -> None:
+        client = SequenceClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "ask-1",
+                        "name": "ask_user",
+                        "input": {
+                            "question": "Which database?",
+                            "options": ["SQLite", "PostgreSQL"],
+                            "allow_free_text": False,
+                        },
+                    }
+                ],
+                [{"type": "text", "text": "Which database should I use?"}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-stream-") as base:
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=client),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "--max-iterations", "2", "configure", "storage"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["pendingUserInput"])
+        self.assertTrue(payload["pending_user_input"])
+        self.assertEqual(payload["userInputRequests"][0]["question"], "Which database?")
+        self.assertEqual(payload["userInputRequests"][0]["options"], ["SQLite", "PostgreSQL"])
+        self.assertIsNone(payload["userInputRequests"][0]["answer"])
+        self.assertTrue(payload["userInputRequests"][0]["cancelled"])
+        self.assertEqual(payload["user_input_requests"], payload["userInputRequests"])
 
 
 class CliStreamJsonTests(unittest.TestCase):
@@ -395,6 +433,81 @@ class SessionEventObserverTests(unittest.TestCase):
 
 
 class CodeResultPayloadTests(unittest.TestCase):
+    def test_result_payload_includes_empty_user_input_requests_by_default(self) -> None:
+        root = Path("/tmp/vibeagent-result")
+        payload = build_code_result_payload(_result(root), prior_context=OneShotPriorContext(source="none"))
+
+        self.assertFalse(payload["pendingUserInput"])
+        self.assertFalse(payload["pending_user_input"])
+        self.assertEqual(payload["userInputRequests"], [])
+        self.assertEqual(payload["user_input_requests"], [])
+
+    def test_result_payload_marks_cancelled_user_input_as_pending(self) -> None:
+        root = Path("/tmp/vibeagent-result")
+        result = AgentResult(
+            success=True,
+            message="Which database should I use?",
+            run_dir=root,
+            run_id="run-1",
+            iterations=1,
+            observations=[
+                UserInputObservation(
+                    kind="ask_user",
+                    question="Which database?",
+                    options=["SQLite", "PostgreSQL"],
+                    answer=None,
+                    cancelled=True,
+                    message="User input is unavailable in this run. Return the question to the user without guessing.",
+                )
+            ],
+            steps=[],
+        )
+
+        payload = build_code_result_payload(result, prior_context=OneShotPriorContext(source="none"))
+
+        self.assertTrue(payload["pendingUserInput"])
+        self.assertTrue(payload["pending_user_input"])
+        self.assertEqual(
+            payload["userInputRequests"],
+            [
+                {
+                    "question": "Which database?",
+                    "options": ["SQLite", "PostgreSQL"],
+                    "answer": None,
+                    "cancelled": True,
+                    "message": "User input is unavailable in this run. Return the question to the user without guessing.",
+                }
+            ],
+        )
+        self.assertEqual(payload["user_input_requests"], payload["userInputRequests"])
+
+    def test_result_payload_keeps_answered_user_input_without_pending_flag(self) -> None:
+        root = Path("/tmp/vibeagent-result")
+        result = AgentResult(
+            success=True,
+            message="Using PostgreSQL.",
+            run_dir=root,
+            run_id="run-1",
+            iterations=1,
+            observations=[
+                UserInputObservation(
+                    kind="ask_user",
+                    question="Which database?",
+                    options=["SQLite", "PostgreSQL"],
+                    answer="PostgreSQL",
+                    cancelled=False,
+                    message="User answered: PostgreSQL",
+                )
+            ],
+            steps=[],
+        )
+
+        payload = build_code_result_payload(result, prior_context=OneShotPriorContext(source="none"))
+
+        self.assertFalse(payload["pendingUserInput"])
+        self.assertEqual(payload["userInputRequests"][0]["answer"], "PostgreSQL")
+        self.assertFalse(payload["userInputRequests"][0]["cancelled"])
+
     def test_stop_reason_reflects_completion_state(self) -> None:
         root = Path("/tmp/vibeagent-result")
 

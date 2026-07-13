@@ -39,6 +39,8 @@ class JsonEventStream:
 
 def build_code_result_payload(result: AgentResult, prior_context: object) -> dict[str, object]:
     stop_reason = code_result_stop_reason(result)
+    user_input_requests = code_result_user_input_requests(result)
+    pending_user_input = any(bool(request["cancelled"]) for request in user_input_requests)
     return {
         "kind": "code",
         "success": result.success,
@@ -74,6 +76,10 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
         "verificationChecks": result.verification_checks,
         "pendingVerificationChecks": result.pending_verification_checks,
         "failedVerificationChecks": result.failed_verification_checks,
+        "pendingUserInput": pending_user_input,
+        "pending_user_input": pending_user_input,
+        "userInputRequests": user_input_requests,
+        "user_input_requests": user_input_requests,
     }
 
 
@@ -94,10 +100,28 @@ def code_result_stop_reason(result: AgentResult) -> str:
     return "failed"
 
 
+def code_result_user_input_requests(result: AgentResult) -> list[dict[str, object]]:
+    requests: list[dict[str, object]] = []
+    for observation in result.observations:
+        if getattr(observation, "kind", None) != "ask_user":
+            continue
+        answer = getattr(observation, "answer", None)
+        request = {
+            "question": str(getattr(observation, "question", "")),
+            "options": list(getattr(observation, "options", [])),
+            "answer": answer,
+            "cancelled": bool(getattr(observation, "cancelled", False)),
+            "message": str(getattr(observation, "message", "")),
+        }
+        requests.append(request)
+    return requests
+
+
 __all__ = [
     "JsonEventStream",
     "add_duration_fields",
     "build_code_result_payload",
     "code_result_stop_reason",
+    "code_result_user_input_requests",
     "error_result_payload",
 ]
