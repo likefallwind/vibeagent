@@ -45,7 +45,13 @@ Before declaring 1.0 complete, run at least one live-provider dogfood against a
 throwaway repository, not this fixture suite. The run must use the installed CLI
 entrypoint and a real provider configuration.
 
-Minimum command shape:
+Prepare the throwaway repository and print the command with:
+
+```sh
+python3 scripts/live_dogfood_v1.py --prepare --force --print-command
+```
+
+Minimum command shape printed by the script:
 
 ```sh
 python3 -m vibeagent --cwd /tmp/vibeagent-live-dogfood --approval ask --max-iterations 20 "inspect this repo, fix the failing test, verify, review, and commit"
@@ -62,6 +68,12 @@ The live dogfood is passing only if all of these are true:
 - `session_handoff` for the run is ready after completion.
 - The run transcript has no secret leakage, unsafe command execution, or
   unapproved mutation.
+
+After the live run completes, audit local outcomes with:
+
+```sh
+python3 scripts/live_dogfood_v1.py --audit --run-id <run-id>
+```
 
 ## Current Decision
 

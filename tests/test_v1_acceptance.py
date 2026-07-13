@@ -61,6 +61,10 @@ CLI_SMOKE_TESTS = {
 PROJECT_COMMAND_TESTS = {
     "test_one_shot_custom_command_expands_to_code_task_with_metadata",
 }
+LIVE_DOGFOOD_TESTS = {
+    "test_prepare_repo_creates_broken_calculator_and_command",
+    "test_audit_repo_fails_before_repair_and_passes_after_commit",
+}
 
 EXPECTED_GATES = {
     "VA1-READ": {
@@ -143,7 +147,7 @@ class V1AcceptanceTests(unittest.TestCase):
 
         self.assertEqual(
             package["scripts"]["test:v1"],
-            "python3 -m unittest tests.test_v1_acceptance tests.test_v1_dogfood tests.test_v1_cli_smoke tests.test_project_prompt_commands -q",
+            "python3 -m unittest tests.test_v1_acceptance tests.test_v1_dogfood tests.test_v1_cli_smoke tests.test_project_prompt_commands tests.test_v1_live_dogfood -q",
         )
 
     def test_package_exposes_full_v1_readiness_script(self) -> None:
@@ -172,6 +176,15 @@ class V1AcceptanceTests(unittest.TestCase):
                 self.assertIn(test_name, plan)
                 self.assertIn(f"def {test_name}", source)
 
+    def test_acceptance_plan_names_live_dogfood_script_tests(self) -> None:
+        plan = PLAN_PATH.read_text(encoding="utf-8")
+        source = (ROOT / "tests" / "test_v1_live_dogfood.py").read_text(encoding="utf-8")
+
+        for test_name in LIVE_DOGFOOD_TESTS:
+            with self.subTest(test_name=test_name):
+                self.assertIn(test_name, plan)
+                self.assertIn(f"def {test_name}", source)
+
     def test_readme_links_to_v1_acceptance_plan(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
@@ -190,6 +203,7 @@ class V1AcceptanceTests(unittest.TestCase):
         self.assertIn("npm run test:v1:full", readiness)
         self.assertIn("Live Provider Gate", readiness)
         self.assertIn("Status: `not-complete-for-release`", readiness)
+        self.assertIn("scripts/live_dogfood_v1.py", readiness)
         self.assertIn("python3 -m vibeagent --cwd /tmp/vibeagent-live-dogfood", readiness)
 
     def test_readme_documents_accept_edits_file_permission_scope(self) -> None:

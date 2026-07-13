@@ -213,6 +213,13 @@ local changes when asked, and resume from recorded session context.
   covers Claude-style project slash commands in one-shot code mode: a
   `.claude/commands/*.md` template expands before the agent run, while command
   provenance is recorded in task metadata.
+- `tests.test_v1_live_dogfood.V1LiveDogfoodScriptTests.test_prepare_repo_creates_broken_calculator_and_command`
+  covers the live-provider dogfood helper's throwaway repository setup and
+  command generation, keeping the final manual gate reproducible.
+- `tests.test_v1_live_dogfood.V1LiveDogfoodScriptTests.test_audit_repo_fails_before_repair_and_passes_after_commit`
+  covers the helper's local post-run audit logic without calling a provider,
+  confirming the script rejects the initial broken repo and accepts a clean
+  repaired commit.
 - `tests.test_agent.AgentTests.test_run_agent_repairs_a_failing_script_and_finishes`
   covers write -> failed command -> repair -> successful command.
 - `tests.test_agent.AgentTests.test_run_agent_continues_after_pending_suggested_check_is_run`
