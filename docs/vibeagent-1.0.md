@@ -40,6 +40,11 @@ local changes when asked, and resume from recorded session context.
   delegates the first investigation through the Claude-compatible `Task` alias,
   lets the read-only subagent use `Read`, then the parent fixes, verifies, and
   commits the change.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_delegate_with_project_agent_profile_before_repair`
+  delegates the first investigation to a `.claude/agents` project profile via
+  `Task` `subagent_type`, injects the profile instruction into the subagent
+  prompt, preserves the read-only allowlist, then lets the parent fix, verify,
+  final-review, and commit.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_delegate_code_subagent_repair_and_commit`
   delegates the whole repair to a code-mode `Task` subagent, which reads,
   edits, runs tests, commits, reruns suggested checks, performs final review,

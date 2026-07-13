@@ -144,6 +144,12 @@ def v1_dogfood_responses() -> list[list[ContentBlock]]:
         [
             {
                 "type": "tool_call",
+                "id": "suggested-1",
+                "name": "run_suggested_checks",
+                "input": {"timeout_ms": 10_000, "max_checks": 5},
+            },
+            {
+                "type": "tool_call",
                 "id": "verify-1",
                 "name": "run_session_verification",
                 "input": {"include_pending": True, "include_failed": True, "timeout_ms": 10_000},
@@ -474,6 +480,100 @@ def delegated_dogfood_responses() -> list[list[ContentBlock]]:
             }
         ],
         [{"type": "text", "text": "Delegated the investigation, fixed the implementation, verified tests, and committed."}],
+    ]
+
+
+def profiled_delegated_dogfood_responses() -> list[list[ContentBlock]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "delegate-1",
+                "name": "Task",
+                "input": {
+                    "prompt": "Inspect calc.py and its test to identify the failing behavior.",
+                    "description": "Use the project calc-reviewer profile for a bounded read-only investigation.",
+                    "subagent_type": "calc-reviewer",
+                    "max_iterations": 2,
+                },
+            }
+        ],
+        [
+            {"type": "tool_call", "id": "read-1", "name": "Read", "input": {"file_path": "calc.py"}},
+            {"type": "tool_call", "id": "read-2", "name": "Read", "input": {"file_path": "tests/test_calc.py"}},
+        ],
+        [{"type": "text", "text": "Profiled review: test expects add(2, 3) == 5, but calc.py subtracts on line 2."}],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-1",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Use profiled delegated investigation", "status": "completed"},
+                        {"content": "Patch add implementation", "status": "in_progress"},
+                        {"content": "Verify and commit", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "edit-1",
+                "name": "Edit",
+                "input": {
+                    "file_path": "calc.py",
+                    "old_string": "return left - right",
+                    "new_string": "return left + right",
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-1",
+                "name": "Bash",
+                "input": {
+                    "command": "PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests",
+                    "timeout": 10_000,
+                },
+            }
+        ],
+        [{"type": "tool_call", "id": "stage-1", "name": "git_stage", "input": {"paths": ["calc.py"]}}],
+        [{"type": "tool_call", "id": "commit-1", "name": "git_commit", "input": {"message": "Fix calculator add after profiled delegation"}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-2",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Use profiled delegated investigation", "status": "completed"},
+                        {"content": "Patch add implementation", "status": "completed"},
+                        {"content": "Verify and commit", "status": "completed"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "suggested-1",
+                "name": "run_suggested_checks",
+                "input": {"timeout_ms": 10_000, "max_checks": 5},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "verify-1",
+                "name": "run_session_verification",
+                "input": {"include_pending": True, "include_failed": True, "timeout_ms": 10_000},
+            }
+        ],
+        [{"type": "tool_call", "id": "review-1", "name": "final_review", "input": {}}],
+        [{"type": "text", "text": "Used calc-reviewer profile, fixed the implementation, final-reviewed, verified tests, and committed."}],
     ]
 
 
@@ -958,6 +1058,83 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertLess(observation_kinds.index("delegate_task"), observation_kinds.index("edit_file"))
         self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("git_commit"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
+
+    def test_v1_agent_can_delegate_with_project_agent_profile_before_repair(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-profiled-delegate-dogfood-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            agent_dir = root / ".claude" / "agents"
+            agent_dir.mkdir(parents=True)
+            agent_path = agent_dir / "calc-reviewer.md"
+            agent_path.write_text(
+                "---\n"
+                "name: calc-reviewer\n"
+                "description: Reviews calculator failures\n"
+                "mode: explore\n"
+                "tools: Read\n"
+                "---\n\n"
+                "PROFILED_CALC_REVIEWER_INSTRUCTION: inspect calculator code and test evidence only.\n",
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "add", ".claude/agents/calc-reviewer.md"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "add calc reviewer profile"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            client = DogfoodClient(profiled_delegated_dogfood_responses())
+
+            result = run_agent(
+                "Delegate the initial investigation to the calc-reviewer profile, then fix and commit.",
+                base_dir=root,
+                client=client,
+                max_iterations=14,
+                approval_handler=approve_all,
+            )
+            git_status = subprocess.run(
+                ["git", "status", "--short"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout
+            head_message = subprocess.run(
+                ["git", "log", "-1", "--pretty=%s"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout.strip()
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events_text = events_path.read_text(encoding="utf-8")
+
+        first_subagent_prompt = str(client.messages[1][0].content)
+        observation_kinds = [item.kind for item in result.observations]
+        delegated = next(item for item in result.observations if item.kind == "delegate_task")
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_message, "Fix calculator add after profiled delegation")
+        self.assertEqual([item.status for item in result.plan], ["completed"] * 3)
+        self.assertTrue(delegated.ok)
+        self.assertEqual(delegated.mode, "explore")
+        self.assertEqual(delegated.agent, "calc-reviewer")
+        self.assertEqual(delegated.tool_calls, ["Read", "Read"])
+        self.assertIn("Profiled review", delegated.summary)
+        self.assertIn("PROFILED_CALC_REVIEWER_INSTRUCTION", first_subagent_prompt)
+        self.assertIn("run_suggested_checks", observation_kinds)
+        self.assertIn("run_session_verification", observation_kinds)
+        self.assertIn("final_review", observation_kinds)
+        self.assertIn('"agent": "calc-reviewer"', events_text)
+        self.assertIn('"name": "Task"', events_text)
+        self.assertIn('"type": "subagent_tool_call"', events_text)
+        self.assertLess(observation_kinds.index("delegate_task"), observation_kinds.index("edit_file"))
+        self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("git_commit"))
+        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_suggested_checks"))
+        self.assertLess(observation_kinds.index("run_suggested_checks"), observation_kinds.index("run_session_verification"))
+        self.assertLess(observation_kinds.index("run_session_verification"), observation_kinds.index("final_review"))
 
     def test_v1_agent_can_delegate_code_subagent_repair_and_commit(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-code-delegate-dogfood-") as base:
