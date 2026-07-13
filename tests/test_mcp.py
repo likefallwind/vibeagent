@@ -344,6 +344,53 @@ class McpRuntimeTests(unittest.TestCase):
         self.assertEqual(result.observations[1].name, "echo")
         self.assertIn('"message": "hello"', result.observations[1].output)
 
+    def test_claude_mcp_hook_matcher_runs_for_generic_mcp_call(self) -> None:
+        hook_command = "python3 -c \"from pathlib import Path; Path('mcp-hook').write_text('ran')\""
+        client = _Client(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "call-1",
+                        "name": "mcp_call",
+                        "input": {"server": "test", "name": "echo", "arguments": {"message": "hooked"}, "timeout_ms": 2000},
+                    }
+                ],
+                [{"type": "text", "text": "MCP call completed."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
+            root = Path(base)
+            _write_mcp_project(root)
+            root.joinpath(".vibeagent").mkdir(exist_ok=True)
+            root.joinpath(".vibeagent/hooks.json").write_text(
+                json.dumps(
+                    {
+                        "PreToolUse": [
+                            {
+                                "matcher": "mcp__test__echo",
+                                "hooks": [{"type": "command", "command": hook_command, "timeout_ms": 10_000}],
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with patch.dict("os.environ", {"MCP_TEST_SOURCE": "expanded"}):
+                result = run_agent(
+                    "Call MCP through generic action",
+                    base_dir=root,
+                    client=client,
+                    max_iterations=2,
+                    approval_handler=lambda request: ApprovalDecision(approved=True, message="approved"),
+                )
+
+            hook_marker = root.joinpath("mcp-hook").read_text(encoding="utf-8")
+
+        self.assertTrue(result.success)
+        self.assertEqual(hook_marker, "ran")
+        self.assertEqual([observation.kind for observation in result.observations], ["mcp_call"])
+
     def test_code_subagent_exposes_listed_mcp_tools_as_dynamic_tools(self) -> None:
         client = _Client(
             [

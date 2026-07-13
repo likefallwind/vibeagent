@@ -77,6 +77,27 @@ class ProjectHookConfigTests(unittest.TestCase):
         self.assertEqual(len(matching_project_hooks(config, "PreToolUse", "Write", write_action)), 2)
         self.assertEqual(len(matching_project_hooks(config, "PreToolUse", "write_file", write_action)), 2)
 
+    def test_matchers_accept_claude_mcp_alias_for_generic_mcp_call_action(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-hooks-") as base:
+            root = Path(base)
+            _write_hooks(
+                root,
+                {
+                    "PreToolUse": [
+                        _command_hook("python3 -V", "mcp__docs__search"),
+                        _command_hook("python3 -V", "mcp_call"),
+                    ]
+                },
+            )
+            config = read_project_hooks(create_run_workspace(root))
+            generic = parse_tool_action("mcp_call", {"server": "docs", "name": "search", "arguments": {"q": "api"}})
+            alias = parse_tool_action("mcp__docs__search", {"q": "api"})
+            other = parse_tool_action("mcp_call", {"server": "docs", "name": "lookup", "arguments": {"q": "api"}})
+
+        self.assertEqual(len(matching_project_hooks(config, "PreToolUse", "mcp_call", generic)), 2)
+        self.assertEqual(len(matching_project_hooks(config, "PreToolUse", "mcp__docs__search", alias)), 2)
+        self.assertEqual(len(matching_project_hooks(config, "PreToolUse", "mcp_call", other)), 1)
+
     def test_invalid_matcher_and_symlink_config_are_reported(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-hooks-") as base:
             root = Path(base)

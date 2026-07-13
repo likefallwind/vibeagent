@@ -146,12 +146,26 @@ def tool_name_candidates(tool_name: str, action: object | None = None) -> tuple[
     action_type = getattr(action, "type", None)
     if isinstance(action_type, str) and action_type not in names:
         names.append(action_type)
+    mcp_alias = _mcp_alias_candidate(action)
+    if mcp_alias is not None and mcp_alias not in names:
+        names.append(mcp_alias)
     for alias, internal_names in CLAUDE_TOOL_ALIASES.items():
         if alias in names:
             continue
         if tool_name == alias or tool_name in internal_names or action_type in internal_names:
             names.append(alias)
     return tuple(names)
+
+
+def _mcp_alias_candidate(action: object | None) -> str | None:
+    if getattr(action, "type", None) != "mcp_call":
+        return None
+    server = getattr(action, "server", None)
+    name = getattr(action, "name", None)
+    if not isinstance(server, str) or not isinstance(name, str):
+        return None
+    candidate = f"mcp__{server}__{name}"
+    return candidate if CLAUDE_MCP_TOOL_NAME_PATTERN.fullmatch(candidate) else None
 
 
 def profile_tool_names(name: str) -> frozenset[str]:
