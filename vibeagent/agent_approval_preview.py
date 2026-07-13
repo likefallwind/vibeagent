@@ -166,12 +166,9 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
     if kind in {"run_suggested_checks", "check_suggested_checks"}:
         return ("run_suggested_checks", getattr(value, "max_commands", None))
     if kind in {"run_focused_test_commands", "check_focused_test_commands"}:
-        paths = tuple(getattr(value, "paths", None) or ())
-        if not paths:
-            paths = tuple(getattr(value, "target_paths", None) or ())
         return (
             "run_focused_test_commands",
-            paths,
+            focused_test_preview_paths(value),
             getattr(value, "max_paths", None),
             getattr(value, "max_candidates", None),
             getattr(value, "max_commands", None),
@@ -195,3 +192,13 @@ def git_stash_preview_message(value: object) -> str:
     if isinstance(message, str) and message.strip():
         return message.strip()
     return "vibeagent stash"
+
+
+def focused_test_preview_paths(value: object) -> tuple[str, ...]:
+    paths = getattr(value, "paths", None)
+    if paths is not None:
+        return tuple(paths)
+    requested_paths = getattr(value, "requested_paths", None)
+    if requested_paths is not None:
+        return tuple(requested_paths)
+    return tuple(getattr(value, "target_paths", None) or ())

@@ -276,6 +276,7 @@ def check_focused_test_commands_observation(
             message=f"Preflighted {len(checks)}/{int(metadata['total'])} focused test command(s); {failed_count} failed.",
             max_paths=action.max_paths,
             max_candidates=action.max_candidates,
+            requested_paths=list(action.paths or []),
         )
     except ValueError as error:
         return CheckFocusedTestCommandsObservation(
@@ -291,6 +292,7 @@ def check_focused_test_commands_observation(
             message=str(error),
             max_paths=action.max_paths,
             max_candidates=action.max_candidates,
+            requested_paths=list(action.paths or []),
         )
 
 
@@ -344,6 +346,7 @@ def run_focused_test_commands_observation(
             ),
             max_paths=action.max_paths,
             max_candidates=action.max_candidates,
+            requested_paths=list(action.paths or []),
         )
     except ValueError as error:
         return RunFocusedTestCommandsObservation(
@@ -361,6 +364,7 @@ def run_focused_test_commands_observation(
             message=str(error),
             max_paths=action.max_paths,
             max_candidates=action.max_candidates,
+            requested_paths=list(action.paths or []),
         )
 
 

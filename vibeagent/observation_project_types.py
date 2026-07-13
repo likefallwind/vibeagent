@@ -149,6 +149,7 @@ class CheckFocusedTestCommandsObservation:
     message: str
     max_paths: int = 100
     max_candidates: int = 200
+    requested_paths: list[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -167,6 +168,7 @@ class RunFocusedTestCommandsObservation:
     message: str
     max_paths: int = 100
     max_candidates: int = 200
+    requested_paths: list[str] | None = None
 
 
 @dataclass(frozen=True)

@@ -11502,6 +11502,7 @@ class AgentTests(unittest.TestCase):
             message="Preflighted 0/0 focused test command(s); 0 failed.",
             max_paths=5,
             max_candidates=20,
+            requested_paths=["vibeagent/agent.py"],
         )
         preview = agent_module.approval_preview_summary(
             types_module.RunFocusedTestCommandsAction(
@@ -11537,6 +11538,45 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Preflighted 0/0", preview or "")
         self.assertIsNone(mismatched_candidates_preview)
         self.assertIsNone(mismatched_paths_preview)
+
+    def test_approval_preview_summary_matches_auto_focused_test_requested_paths(self) -> None:
+        preview_observation = CheckFocusedTestCommandsObservation(
+            kind="check_focused_test_commands",
+            ok=True,
+            checks=[],
+            focused_commands=[],
+            target_paths=["vibeagent/agent.py"],
+            total=0,
+            truncated=False,
+            max_commands=3,
+            related_tests_total=0,
+            message="Preflighted 0/0 focused test command(s); 0 failed.",
+            max_paths=5,
+            max_candidates=20,
+            requested_paths=[],
+        )
+        preview = agent_module.approval_preview_summary(
+            types_module.RunFocusedTestCommandsAction(
+                type="run_focused_test_commands",
+                max_paths=5,
+                max_candidates=20,
+                max_commands=3,
+            ),
+            [preview_observation],
+        )
+        explicit_path_preview = agent_module.approval_preview_summary(
+            types_module.RunFocusedTestCommandsAction(
+                type="run_focused_test_commands",
+                paths=["vibeagent/agent.py"],
+                max_paths=5,
+                max_candidates=20,
+                max_commands=3,
+            ),
+            [preview_observation],
+        )
+
+        self.assertIn("Preflighted 0/0", preview or "")
+        self.assertIsNone(explicit_path_preview)
 
     def test_approval_preview_mapping_covers_approval_required_tools(self) -> None:
         tool_names = {tool["name"] for tool in AGENT_TOOL_DEFINITIONS}
