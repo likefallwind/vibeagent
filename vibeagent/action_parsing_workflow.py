@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .action_parsing_helpers import ActionParseError, parse_plan_items
+from .action_parsing_helpers import ActionParseError, normalize_plan_item_status, parse_plan_items
 from .types import AskUserAction, FinishAction, PlanItem, UpdatePlanAction
 
 
@@ -83,10 +83,10 @@ def parse_todo_items(value: Any, raw: str) -> list[PlanItem]:
         if not isinstance(item, dict):
             raise ActionParseError(f"todo_write item {index} must be an object.", raw)
         content = item.get("content")
-        status = item.get("status")
+        status = normalize_plan_item_status(item.get("status"))
         if not isinstance(content, str) or not content.strip():
             raise ActionParseError(f"todo_write item {index} requires non-empty content.", raw)
-        if status not in {"pending", "in_progress", "completed"}:
+        if status is None:
             raise ActionParseError(f"todo_write item {index} has an invalid status.", raw)
         if status == "in_progress":
             in_progress_count += 1

@@ -16,6 +16,18 @@ from .types import (
 )
 
 
+PLAN_ITEM_STATUS_ALIASES = {
+    "complete": "completed",
+    "completed": "completed",
+    "done": "completed",
+    "in-progress": "in_progress",
+    "in_progress": "in_progress",
+    "pending": "pending",
+    "todo": "pending",
+}
+PLAN_ITEM_STATUS_VALUES = set(PLAN_ITEM_STATUS_ALIASES)
+
+
 class ActionParseError(ValueError):
     def __init__(self, message: str, raw: str):
         super().__init__(message)
@@ -58,10 +70,10 @@ def parse_plan_items(value: Any, raw: str) -> list[PlanItem]:
         if not isinstance(item, dict):
             raise ActionParseError(f"update_plan item {index} must be an object.", raw)
         step = item.get("step")
-        status = item.get("status")
+        status = normalize_plan_item_status(item.get("status"))
         if not isinstance(step, str) or not step.strip():
             raise ActionParseError(f"update_plan item {index} requires a non-empty step.", raw)
-        if status not in {"pending", "in_progress", "completed"}:
+        if status is None:
             raise ActionParseError(f"update_plan item {index} has an invalid status.", raw)
         if status == "in_progress":
             in_progress_count += 1
@@ -70,6 +82,12 @@ def parse_plan_items(value: Any, raw: str) -> list[PlanItem]:
     if in_progress_count > 1:
         raise ActionParseError("update_plan action allows at most one in_progress item.", raw)
     return items
+
+
+def normalize_plan_item_status(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    return PLAN_ITEM_STATUS_ALIASES.get(value.strip().lower())
 
 
 def parse_read_file_paths(value: Any, raw: str) -> list[str]:
@@ -406,4 +424,3 @@ def summarize_plan_update(action: UpdatePlanAction) -> str:
     if action.explanation and action.explanation.strip():
         return f"Plan updated. {action.explanation.strip()}"
     return "Plan updated."
-

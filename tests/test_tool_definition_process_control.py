@@ -56,6 +56,13 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         self.assertIs(todo_write["input_schema"]["properties"]["todos"]["items"], TODO_ITEM_SCHEMA)
         self.assertIs(todo_write["input_schema"]["anyOf"][1]["properties"]["todos"]["items"], TODO_ITEM_SCHEMA)
 
+    def test_task_control_status_schemas_accept_aliases(self) -> None:
+        self.assertEqual(
+            PLAN_ITEM_SCHEMA["properties"]["status"]["enum"],
+            ["complete", "completed", "done", "in-progress", "in_progress", "pending", "todo"],
+        )
+        self.assertIs(TODO_ITEM_SCHEMA["properties"]["status"]["enum"], PLAN_ITEM_SCHEMA["properties"]["status"]["enum"])
+
 
 if __name__ == "__main__":
     unittest.main()

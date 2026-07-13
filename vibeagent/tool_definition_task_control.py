@@ -2,12 +2,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from .action_parsing_helpers import PLAN_ITEM_STATUS_VALUES
+
+
+PLAN_ITEM_STATUS_ENUM = sorted(PLAN_ITEM_STATUS_VALUES)
 
 PLAN_ITEM_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "step": {"type": "string"},
-        "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
+        "status": {
+            "type": "string",
+            "enum": PLAN_ITEM_STATUS_ENUM,
+            "description": "Status is normalized internally to pending, in_progress, or completed.",
+        },
     },
     "required": ["step", "status"],
     "additionalProperties": False,
@@ -17,7 +25,11 @@ TODO_ITEM_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "content": {"type": "string"},
-        "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
+        "status": {
+            "type": "string",
+            "enum": PLAN_ITEM_STATUS_ENUM,
+            "description": "Status is normalized internally to pending, in_progress, or completed.",
+        },
         "activeForm": {"type": "string"},
     },
     "required": ["content", "status"],
