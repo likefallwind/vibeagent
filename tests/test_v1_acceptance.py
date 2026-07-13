@@ -16,6 +16,7 @@ DOGFOOD_TESTS = {
     "test_v1_agent_can_complete_repair_with_claude_code_tool_aliases",
     "test_v1_agent_can_create_new_file_with_claude_write_and_commit",
     "test_v1_agent_can_edit_notebook_with_claude_tools_and_commit",
+    "test_v1_agent_can_use_claude_mcp_tool_before_repair_and_commit",
     "test_v1_agent_can_manage_claude_background_process_before_repair",
     "test_v1_agent_can_use_web_fetch_before_repair",
     "test_v1_agent_reviews_git_diff_before_commit",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 import uuid
@@ -108,6 +109,82 @@ def init_broken_notebook_repo(root: Path) -> None:
         stderr=subprocess.PIPE,
     )
     subprocess.run(["git", "commit", "-m", "initial broken notebook"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+MCP_ECHO_SERVER_SOURCE = r'''
+import json
+import sys
+
+for raw in sys.stdin:
+    message = json.loads(raw)
+    method = message.get("method")
+    if method == "initialize":
+        result = {
+            "protocolVersion": "2025-11-25",
+            "capabilities": {"tools": {}},
+            "serverInfo": {"name": "v1-dogfood-server", "version": "1.0"},
+        }
+    elif method == "tools/list":
+        result = {
+            "tools": [
+                {
+                    "name": "echo",
+                    "title": "Echo",
+                    "description": "Echo JSON arguments for deterministic coding evidence.",
+                    "inputSchema": {"type": "object"},
+                }
+            ]
+        }
+    elif method == "tools/call":
+        params = message.get("params", {})
+        result = {
+            "content": [{"type": "text", "text": json.dumps(params.get("arguments", {}), sort_keys=True)}],
+            "isError": False,
+        }
+    else:
+        continue
+    print(json.dumps({"jsonrpc": "2.0", "id": message["id"], "result": result}), flush=True)
+'''
+
+
+def init_mcp_calculator_repo(root: Path) -> None:
+    (root / "tests").mkdir()
+    (root / "calc.py").write_text("def add(left, right):\n    return left - right\n", encoding="utf-8")
+    (root / ".gitignore").write_text(".vibeagent/\n__pycache__/\n", encoding="utf-8")
+    (root / "tests" / "test_calc.py").write_text(
+        "import unittest\n\n"
+        "from calc import add\n\n\n"
+        "class CalculatorTests(unittest.TestCase):\n"
+        "    def test_adds_two_numbers(self):\n"
+        "        self.assertEqual(add(2, 3), 5)\n",
+        encoding="utf-8",
+    )
+    (root / "mcp_server.py").write_text(MCP_ECHO_SERVER_SOURCE, encoding="utf-8")
+    (root / ".mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "test": {
+                        "command": sys.executable,
+                        "args": ["mcp_server.py"],
+                        "cwd": ".",
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+    subprocess.run(
+        ["git", "add", ".gitignore", ".mcp.json", "calc.py", "mcp_server.py", "tests/test_calc.py"],
+        cwd=root,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    subprocess.run(["git", "commit", "-m", "initial broken mcp calculator"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 def git_worktree_status(root: Path) -> str:
@@ -708,6 +785,154 @@ def claude_notebook_dogfood_responses() -> list[list[ContentBlock]]:
             }
         ],
         [{"type": "text", "text": "Patched the notebook cell, verified the regression test, reviewed, committed, and reran session verification."}],
+    ]
+
+
+def claude_mcp_dogfood_responses() -> list[list[ContentBlock]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-1",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Discover MCP calculator guidance", "status": "in_progress"},
+                        {"content": "Inspect and fix calculator code", "status": "pending"},
+                        {"content": "Verify and review", "status": "pending"},
+                        {"content": "Commit MCP-guided fix", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "mcp-tools-1",
+                "name": "mcp_tools",
+                "input": {"server": "test", "timeout_ms": 2_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "mcp-call-1",
+                "name": "mcp__test__echo",
+                "input": {"guidance": "calculator add should sum both operands"},
+            }
+        ],
+        [
+            {"type": "tool_call", "id": "read-1", "name": "Read", "input": {"file_path": "calc.py"}},
+            {"type": "tool_call", "id": "read-2", "name": "Read", "input": {"file_path": "tests/test_calc.py"}},
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-1",
+                "name": "Bash",
+                "input": {"command": "python -m unittest discover -s tests", "timeout": 10_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-2",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Discover MCP calculator guidance", "status": "completed"},
+                        {"content": "Inspect and fix calculator code", "status": "in_progress"},
+                        {"content": "Verify and review", "status": "pending"},
+                        {"content": "Commit MCP-guided fix", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "edit-1",
+                "name": "Edit",
+                "input": {
+                    "file_path": "calc.py",
+                    "old_string": "return left - right",
+                    "new_string": "return left + right  # MCP-guided sum",
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-3",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Discover MCP calculator guidance", "status": "completed"},
+                        {"content": "Inspect and fix calculator code", "status": "completed"},
+                        {"content": "Verify and review", "status": "in_progress"},
+                        {"content": "Commit MCP-guided fix", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-2",
+                "name": "Bash",
+                "input": {"command": "python -m unittest discover -s tests", "timeout": 10_000},
+            }
+        ],
+        [{"type": "tool_call", "id": "review-1", "name": "final_review", "input": {}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-4",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Discover MCP calculator guidance", "status": "completed"},
+                        {"content": "Inspect and fix calculator code", "status": "completed"},
+                        {"content": "Verify and review", "status": "completed"},
+                        {"content": "Commit MCP-guided fix", "status": "in_progress"},
+                    ]
+                },
+            }
+        ],
+        [{"type": "tool_call", "id": "stage-1", "name": "git_stage", "input": {"paths": ["calc.py"]}}],
+        [{"type": "tool_call", "id": "commit-1", "name": "git_commit", "input": {"message": "Fix calculator add with MCP evidence"}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "suggested-1",
+                "name": "run_suggested_checks",
+                "input": {"timeout_ms": 10_000, "max_checks": 5},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-5",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Discover MCP calculator guidance", "status": "completed"},
+                        {"content": "Inspect and fix calculator code", "status": "completed"},
+                        {"content": "Verify and review", "status": "completed"},
+                        {"content": "Commit MCP-guided fix", "status": "completed"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "verify-1",
+                "name": "run_session_verification",
+                "input": {"include_pending": True, "include_failed": True, "timeout_ms": 10_000},
+            }
+        ],
+        [{"type": "text", "text": "Used MCP guidance, fixed the calculator, verified tests, reviewed, committed, and reran session verification."}],
     ]
 
 
@@ -2424,6 +2649,67 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertLess(observation_kinds.index("notebook_edit"), observation_kinds.index("final_review"))
         self.assertLess(observation_kinds.index("final_review"), observation_kinds.index("git_stage"))
         self.assertLess(observation_kinds.index("git_stage"), observation_kinds.index("git_commit"))
+        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
+
+    def test_v1_agent_can_use_claude_mcp_tool_before_repair_and_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-mcp-dogfood-") as base:
+            root = Path(base)
+            init_mcp_calculator_repo(root)
+            client = DogfoodClient(claude_mcp_dogfood_responses())
+
+            result = run_agent(
+                "Use the configured MCP tool for calculator guidance, fix the failing test, verify, and commit.",
+                base_dir=root,
+                client=client,
+                max_iterations=17,
+                approval_handler=approve_all,
+            )
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events_text = events_path.read_text(encoding="utf-8")
+
+        observation_kinds = [item.kind for item in result.observations]
+        run_commands = [item for item in result.observations if item.kind == "run_command"]
+        mcp_tools = next(item for item in result.observations if item.kind == "mcp_tools")
+        mcp_call = next(item for item in result.observations if item.kind == "mcp_call")
+        third_turn_names = {str(tool["name"]) for tool in client.tools[2]}
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_message, "Fix calculator add with MCP evidence")
+        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        self.assertTrue(mcp_tools.ok)
+        self.assertEqual(mcp_tools.server, "test")
+        self.assertEqual(mcp_tools.tools[0].name, "echo")
+        self.assertIn("mcp__test__echo", third_turn_names)
+        self.assertTrue(mcp_call.ok)
+        self.assertEqual(mcp_call.server, "test")
+        self.assertEqual(mcp_call.name, "echo")
+        self.assertIn("calculator add should sum both operands", mcp_call.output)
+        self.assertEqual(len(run_commands), 2)
+        self.assertNotEqual(run_commands[0].result.exit_code, 0)
+        self.assertEqual(run_commands[1].result.exit_code, 0)
+        self.assertIn("edit_file", observation_kinds)
+        self.assertIn("final_review", observation_kinds)
+        self.assertIn("git_stage", observation_kinds)
+        self.assertIn("git_commit", observation_kinds)
+        self.assertIn("run_suggested_checks", observation_kinds)
+        self.assertIn("run_session_verification", observation_kinds)
+        self.assertIn('"name": "mcp_tools"', events_text)
+        self.assertIn('"name": "mcp__test__echo"', events_text)
+        self.assertLess(observation_kinds.index("mcp_tools"), observation_kinds.index("mcp_call"))
+        self.assertLess(observation_kinds.index("mcp_call"), observation_kinds.index("read_file"))
+        self.assertLess(observation_kinds.index("read_file"), observation_kinds.index("run_command"))
+        self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("edit_file"))
+        self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("final_review"))
+        self.assertLess(observation_kinds.index("final_review"), observation_kinds.index("git_commit"))
+        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_suggested_checks"))
+        self.assertLess(observation_kinds.index("run_suggested_checks"), observation_kinds.index("run_session_verification"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
 
     def test_v1_agent_can_manage_claude_background_process_before_repair(self) -> None:

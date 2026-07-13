@@ -42,6 +42,10 @@ local changes when asked, and resume from recorded session context.
   reads and edits a project notebook through Claude-compatible `NotebookRead`
   and `NotebookEdit`, reruns a regression test, final-reviews, commits, and
   verifies the recorded session.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_use_claude_mcp_tool_before_repair_and_commit`
+  discovers a configured local MCP server through `mcp_tools`, calls its
+  dynamic Claude-style `mcp__server__tool` alias for bounded external evidence,
+  then fixes, tests, final-reviews, commits, and verifies the session.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_manage_claude_background_process_before_repair`
   starts a Claude-style background `Bash`, inspects it through `BashOutput`,
   stops it through `KillBash`, then fixes, verifies, final-reviews, and commits.
