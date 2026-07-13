@@ -121,6 +121,20 @@ def completion_blocker_labels(latest: Observation) -> list[str]:
         for blocker in getattr(latest, "latest_completion_blockers", [])
         if str(blocker).strip()
     )
+    detail_attrs = (
+        "latest_completion_pending_verification_checks",
+        "latest_completion_failed_verification_checks",
+        "latest_completion_final_review_issues",
+        "latest_completion_tool_errors",
+        "latest_completion_checkpoint_failures",
+        "latest_completion_active_background_processes",
+        "latest_completion_denied_approvals",
+    )
+    for attr in detail_attrs:
+        values = getattr(latest, attr, [])
+        if not isinstance(values, list):
+            continue
+        labels.extend(str(value).strip() for value in values if isinstance(value, str) and value.strip())
     if labels:
         return labels
     return audit_section_items(

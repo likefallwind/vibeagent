@@ -6293,7 +6293,7 @@ class ActionTests(unittest.TestCase):
                 '{"type":"tool_result","iteration":3,"name":"run_command","result":{"kind":"run_command","result":{"command":"python3 -m unittest","exit_code":1,"stdout":"failure line","stderr":"AssertionError","timed_out":false,"signal":null,"cwd":"."}}}\n'
                 '{"type":"tool_result","iteration":3,"name":"start_command","result":{"kind":"start_command","ok":true,"process_id":"bg-1","pid":1234,"command":"npm run dev","cwd":"web"}}\n'
                 '{"type":"completion_blocked","blockers":["1 suggested verification check(s) are still pending after the latest project change."]}\n'
-                '{"type":"result","success":false,"status":"blocked","iterations":3,"message":"Needs verification.","completion_ready":false,"completion_blockers":["Task plan still has unfinished item(s): 1 in_progress."],"verification_checks":["pytest tests/test_one.py","pytest tests/test_two.py"],"pending_verification_checks":["npm test","npm run build"],"failed_verification_checks":["ruff check (exit=1)","mypy . (exit=1)"]}\n',
+                '{"type":"result","success":false,"status":"blocked","iterations":3,"message":"Needs verification.","completion_ready":false,"completion_blockers":["Task plan still has unfinished item(s): 1 in_progress."],"completion_details":{"pendingVerificationChecks":["npm test"],"failedVerificationChecks":["ruff check (exit=1)"],"toolErrors":["read_file: Tool execution failed: boom"],"deniedApprovals":["write_file note.txt: Denied by policy."]},"verification_checks":["pytest tests/test_one.py","pytest tests/test_two.py"],"pending_verification_checks":["npm test","npm run build"],"failed_verification_checks":["ruff check (exit=1)","mypy . (exit=1)"]}\n',
                 encoding="utf-8",
             )
 
@@ -6324,6 +6324,7 @@ class ActionTests(unittest.TestCase):
             )
             missing = execute_action(workspace, SessionHandoffAction(type="session_handoff", run_id="missing"))
             invalid = execute_action(workspace, SessionHandoffAction(type="session_handoff", run_id="../bad"))
+            feedback = format_session_observation(1, observation)
 
         self.assertEqual(observation.kind, "session_handoff")
         self.assertTrue(observation.ok)
@@ -6363,6 +6364,12 @@ class ActionTests(unittest.TestCase):
             observation.latest_completion_blockers,
             ["1 suggested verification check(s) are still pending after the latest project change."],
         )
+        self.assertEqual(observation.latest_completion_pending_verification_checks, ["npm test"])
+        self.assertEqual(observation.latest_completion_failed_verification_checks, ["ruff check (exit=1)"])
+        self.assertEqual(observation.latest_completion_tool_errors, ["read_file: Tool execution failed: boom"])
+        self.assertEqual(observation.latest_completion_denied_approvals, ["write_file note.txt: Denied by policy."])
+        self.assertIn("latestCompletionToolError: read_file: Tool execution failed: boom", feedback or "")
+        self.assertIn("latestCompletionDeniedApproval: write_file note.txt: Denied by policy.", feedback or "")
         self.assertIn("Session handoff:", observation.handoff)
         self.assertIn("summary:", observation.handoff)
         self.assertIn("readiness:", observation.handoff)

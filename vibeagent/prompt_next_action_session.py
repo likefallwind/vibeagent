@@ -169,7 +169,7 @@ def _session_audit_next_action_instruction(base: str, latest: Observation) -> st
         completion_details = completion_blockers or blockers
         return (
             f"{base} Session audit is not ready because completion blocker(s) remain. "
-            f"Fix completion blocker(s): {format_next_action_items(completion_details)}. "
+            f"Fix completion blocker(s): {format_next_action_items(completion_details, max_items=6)}. "
             "Use session_plan for unfinished task-plan blockers, "
             "session_verification or run_session_verification for verification blockers, "
             "and session_failures or session_output_diagnostics for failure blockers; "
@@ -247,7 +247,7 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
         completion_details = completion_blockers or blockers
         return (
             f"{base} Session handoff reports completion blocker(s). "
-            f"Fix completion blocker(s): {format_next_action_items(completion_details)}. "
+            f"Fix completion blocker(s): {format_next_action_items(completion_details, max_items=6)}. "
             "Use session_plan for unfinished task-plan blockers, "
             "session_verification or run_session_verification for verification blockers, "
             "and session_failures or session_output_diagnostics for failure blockers before finishing."

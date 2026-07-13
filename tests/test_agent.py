@@ -6618,6 +6618,8 @@ class AgentTests(unittest.TestCase):
             latest_completion_blockers=[
                 "1 suggested verification check(s) are still pending after the latest project change."
             ],
+            latest_completion_tool_errors=["read_file: Tool execution failed: boom"],
+            latest_completion_denied_approvals=["write_file note.txt: Denied by policy."],
         )
 
         instruction = get_next_action_instruction("resume and finish task", [observation])
@@ -6625,6 +6627,8 @@ class AgentTests(unittest.TestCase):
         self.assertIn("completion blocker(s) remain", instruction)
         self.assertIn("Task plan still has unfinished item(s): 1 in_progress.", instruction)
         self.assertIn("1 suggested verification check(s) are still pending", instruction)
+        self.assertIn("read_file: Tool execution failed: boom", instruction)
+        self.assertIn("write_file note.txt: Denied by policy.", instruction)
         self.assertIn("session_plan", instruction)
         self.assertIn("run_session_verification", instruction)
         self.assertIn("session_output_diagnostics", instruction)
@@ -6810,6 +6814,9 @@ class AgentTests(unittest.TestCase):
             latest_completion_blockers=[
                 "1 suggested verification check(s) are still pending after the latest project change."
             ],
+            latest_completion_failed_verification_checks=["npm test (exit=1)"],
+            latest_completion_tool_errors=["read_file: Tool execution failed: boom"],
+            latest_completion_denied_approvals=["write_file note.txt: Denied by policy."],
         )
 
         instruction = get_next_action_instruction("resume and finish task", [observation])
@@ -6817,6 +6824,9 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Session handoff reports completion blocker(s)", instruction)
         self.assertIn("Task plan still has unfinished item(s): 1 in_progress.", instruction)
         self.assertIn("1 suggested verification check(s) are still pending", instruction)
+        self.assertIn("npm test (exit=1)", instruction)
+        self.assertIn("read_file: Tool execution failed: boom", instruction)
+        self.assertIn("write_file note.txt: Denied by policy.", instruction)
         self.assertIn("session_plan", instruction)
         self.assertIn("run_session_verification", instruction)
         self.assertIn("session_output_diagnostics", instruction)

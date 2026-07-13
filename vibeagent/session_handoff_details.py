@@ -30,6 +30,14 @@ class SessionHandoffDetails:
     completion_ready: bool | None = None
     completion_blockers: list[str] = field(default_factory=list)
     latest_completion_blockers: list[str] = field(default_factory=list)
+    latest_completion_pending_verification_checks: list[str] = field(default_factory=list)
+    latest_completion_failed_verification_checks: list[str] = field(default_factory=list)
+    latest_completion_final_review_issues: list[str] = field(default_factory=list)
+    latest_completion_final_review_changed_files: list[str] = field(default_factory=list)
+    latest_completion_tool_errors: list[str] = field(default_factory=list)
+    latest_completion_checkpoint_failures: list[str] = field(default_factory=list)
+    latest_completion_active_background_processes: list[str] = field(default_factory=list)
+    latest_completion_denied_approvals: list[str] = field(default_factory=list)
 
 
 def empty_session_handoff_details(status: str = "invalid", ready: bool | None = False) -> SessionHandoffDetails:
@@ -45,6 +53,17 @@ def _verification_group(audit: dict[str, object], name: str) -> tuple[list[dict[
     if isinstance(raw_commands, list):
         commands = [item for item in raw_commands if isinstance(item, dict)]
     return commands, total if isinstance(total, int) else len(commands)
+
+
+def _string_list(section: dict[str, object], key: str) -> list[str]:
+    values = section.get(key)
+    if not isinstance(values, list):
+        return []
+    return [
+        str(value).strip()
+        for value in values
+        if isinstance(value, str) and value.strip()
+    ]
 
 
 def _file_references(audit: dict[str, object]) -> tuple[list[dict[str, Any]], int, int, bool]:
@@ -136,16 +155,16 @@ def extract_session_handoff_details(report: dict[str, object]) -> SessionHandoff
     pending_plan_items, pending_plan_count, plan_items_count, plan_in_progress = _pending_plan_items(audit)
     completion = audit.get("completion") if isinstance(audit.get("completion"), dict) else {}
     completion_ready = completion.get("ready") if isinstance(completion.get("ready"), bool) else None
-    completion_blockers = [
-        str(blocker).strip()
-        for blocker in completion.get("blockers", [])
-        if isinstance(blocker, str) and blocker.strip()
-    ]
-    latest_completion_blockers = [
-        str(blocker).strip()
-        for blocker in completion.get("latestBlockers", [])
-        if isinstance(blocker, str) and blocker.strip()
-    ]
+    completion_blockers = _string_list(completion, "blockers")
+    latest_completion_blockers = _string_list(completion, "latestBlockers")
+    latest_completion_pending_verification_checks = _string_list(completion, "latestPendingVerificationChecks")
+    latest_completion_failed_verification_checks = _string_list(completion, "latestFailedVerificationChecks")
+    latest_completion_final_review_issues = _string_list(completion, "latestFinalReviewBlockingIssues")
+    latest_completion_final_review_changed_files = _string_list(completion, "latestFinalReviewChangedFiles")
+    latest_completion_tool_errors = _string_list(completion, "latestToolErrors")
+    latest_completion_checkpoint_failures = _string_list(completion, "latestCheckpointFailures")
+    latest_completion_active_background_processes = _string_list(completion, "latestActiveBackgroundProcesses")
+    latest_completion_denied_approvals = _string_list(completion, "latestDeniedApprovals")
     return SessionHandoffDetails(
         ready=ready,
         status=status,
@@ -169,4 +188,12 @@ def extract_session_handoff_details(report: dict[str, object]) -> SessionHandoff
         completion_ready=completion_ready,
         completion_blockers=completion_blockers,
         latest_completion_blockers=latest_completion_blockers,
+        latest_completion_pending_verification_checks=latest_completion_pending_verification_checks,
+        latest_completion_failed_verification_checks=latest_completion_failed_verification_checks,
+        latest_completion_final_review_issues=latest_completion_final_review_issues,
+        latest_completion_final_review_changed_files=latest_completion_final_review_changed_files,
+        latest_completion_tool_errors=latest_completion_tool_errors,
+        latest_completion_checkpoint_failures=latest_completion_checkpoint_failures,
+        latest_completion_active_background_processes=latest_completion_active_background_processes,
+        latest_completion_denied_approvals=latest_completion_denied_approvals,
     )
