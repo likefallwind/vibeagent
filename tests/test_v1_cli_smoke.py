@@ -29,6 +29,7 @@ from tests.test_v1_dogfood import (
     profiled_delegated_dogfood_responses,
     resumed_dogfood_responses,
     session_handoff_dogfood_responses,
+    skill_dogfood_responses,
     v1_dogfood_responses,
     web_fetch_dogfood_responses,
 )
@@ -363,6 +364,53 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn("arithmetic sum", next_turn_payload)
         self.assertIn("Extract the expected behavior for calc.add.", next_turn_payload)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add using fetched contract")
+
+    def test_v1_cli_json_can_load_project_skill_before_repair_and_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-skill-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            skill_dir = root / ".claude" / "skills" / "calculator-repair"
+            skill_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text(
+                "---\n"
+                "name: calculator-repair\n"
+                "description: Repair calculator behavior safely\n"
+                "---\n\n"
+                "SKILL_CALCULATOR_REPAIR_INSTRUCTION: inspect calc.py and tests, make the smallest fix, run unittest, final-review before commit.\n",
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "add", ".claude/skills/calculator-repair/SKILL.md"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "add calculator repair skill"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            client = DogfoodClient(skill_dogfood_responses())
+            exit_code, payload = _run_json_cli(
+                client,
+                [
+                    "--output-format",
+                    "json",
+                    "--approval",
+                    "allow",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "17",
+                    "Use a relevant project skill to fix the calculator test failure and commit.",
+                ],
+            )
+            events = _session_events(root, payload["runId"])
+            events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            initial_prompt = _initial_prompt(client)
+            after_skill_prompt = "\n".join(str(message.content) for message in client.messages[2])
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload)
+        self.assertIn('"name": "project_skills"', events_text)
+        self.assertIn('"name": "skill"', events_text)
+        self.assertIn('"name": "calculator-repair"', events_text)
+        self.assertIn("Repair calculator behavior safely", events_text)
+        self.assertNotIn("SKILL_CALCULATOR_REPAIR_INSTRUCTION", initial_prompt)
+        self.assertIn("SKILL_CALCULATOR_REPAIR_INSTRUCTION", after_skill_prompt)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add with project skill")
 
     def test_v1_cli_json_runs_project_hooks_around_claude_edit_and_commits(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-hooks-smoke-") as base:

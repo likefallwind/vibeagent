@@ -43,6 +43,7 @@ CLI_SMOKE_TESTS = {
     "test_v1_cli_json_can_delegate_code_subagent_repair_and_commit",
     "test_v1_cli_json_can_delegate_read_only_investigation_before_repair_and_commit",
     "test_v1_cli_json_can_delegate_with_project_agent_profile_before_repair_and_commit",
+    "test_v1_cli_json_can_load_project_skill_before_repair_and_commit",
     "test_v1_cli_json_can_manage_background_process_before_repair_and_commit",
     "test_v1_cli_json_runs_project_hooks_around_claude_edit_and_commits",
     "test_v1_cli_json_can_use_strict_mcp_config_before_repair_and_commit",
