@@ -4,6 +4,9 @@ from collections.abc import Callable
 import re
 from typing import Any
 
+from .action_tool_alias_search import normalize_search_input
+from .action_tool_alias_utils import rename_fields
+
 
 ToolInputNormalizer = Callable[[dict[str, Any]], dict[str, Any]]
 
@@ -177,12 +180,7 @@ def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, d
 
 
 def _rename_fields(value: dict[str, Any], aliases: dict[str, str]) -> dict[str, Any]:
-    normalized = dict(value)
-    for source, target in aliases.items():
-        if source in normalized and target not in normalized:
-            normalized[target] = normalized[source]
-        normalized.pop(source, None)
-    return normalized
+    return rename_fields(value, aliases)
 
 
 def _drop_fields(value: dict[str, Any], fields: set[str]) -> dict[str, Any]:
@@ -209,30 +207,6 @@ def _normalize_multi_edit_input(value: dict[str, Any]) -> dict[str, Any]:
             for edit in edits
         ]
     return normalized
-
-
-def _normalize_search_input(value: dict[str, Any]) -> dict[str, Any]:
-    normalized = _rename_fields(value, {"pattern": "query", "head_limit": "max_matches", "glob": "file_glob"})
-    if normalized.pop("-i", False) is True and "case_sensitive" not in normalized:
-        normalized["case_sensitive"] = False
-    _normalize_search_context_aliases(normalized)
-    if normalized.get("output_mode") == "content" and "context_lines" not in normalized:
-        normalized["context_lines"] = 2
-    return normalized
-
-
-def _normalize_search_context_aliases(value: dict[str, Any]) -> None:
-    context = value.pop("-C", None)
-    after = value.pop("-A", None)
-    before = value.pop("-B", None)
-    if "context_lines" in value:
-        return
-    if type(context) is int:
-        value["context_lines"] = context
-        return
-    directional = [item for item in (after, before) if type(item) is int]
-    if directional:
-        value["context_lines"] = max(directional)
 
 
 def _normalize_glob_input(value: dict[str, Any]) -> dict[str, Any]:
@@ -329,7 +303,7 @@ _ACTION_INPUT_NORMALIZERS: dict[str, ToolInputNormalizer] = {
     "multi_edit_file": _normalize_multi_edit_input,
     "read_file": _normalize_read_file_input,
     "read_process": _normalize_process_alias_input,
-    "search": _normalize_search_input,
+    "search": normalize_search_input,
     "stop_process": _normalize_process_alias_input,
     "write_file": _normalize_path_alias_input,
 }
