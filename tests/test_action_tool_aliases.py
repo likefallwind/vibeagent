@@ -12,6 +12,7 @@ from vibeagent.types import (
     ReadFileAction,
     RegexReplaceAction,
     RunCommandAction,
+    SearchAction,
     StartCommandAction,
     WebFetchObservation,
 )
@@ -151,6 +152,25 @@ class ActionToolAliasTests(unittest.TestCase):
         formatted = format_observations([observation])
         self.assertIn("prompt: Extract install commands.", formatted)
         self.assertIn("Install Python.", formatted)
+
+    def test_claude_grep_i_maps_to_case_insensitive_search(self) -> None:
+        action = parse_tool_action("Grep", {"pattern": "needle", "-i": True})
+
+        self.assertIsInstance(action, SearchAction)
+        self.assertFalse(action.case_sensitive)
+
+    def test_claude_grep_i_executes_case_insensitive_search(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-alias-") as base:
+            root = Path(base)
+            (root / "app.py").write_text("Needle\n", encoding="utf-8")
+            action = parse_tool_action("Grep", {"pattern": "needle", "-i": True})
+
+            observation = execute_action(create_run_workspace(root), action)
+
+        self.assertEqual(observation.kind, "search")
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.total, 1)
+        self.assertFalse(observation.case_sensitive)
 
 
 if __name__ == "__main__":

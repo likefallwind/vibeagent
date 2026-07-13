@@ -213,6 +213,8 @@ def _normalize_multi_edit_input(value: dict[str, Any]) -> dict[str, Any]:
 
 def _normalize_search_input(value: dict[str, Any]) -> dict[str, Any]:
     normalized = _rename_fields(value, {"pattern": "query", "head_limit": "max_matches"})
+    if normalized.pop("-i", False) is True and "case_sensitive" not in normalized:
+        normalized["case_sensitive"] = False
     if normalized.get("output_mode") == "content" and "context_lines" not in normalized:
         normalized["context_lines"] = 2
     return normalized
