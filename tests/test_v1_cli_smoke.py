@@ -18,6 +18,7 @@ from tests.test_v1_dogfood import (
     claude_hook_dogfood_responses,
     claude_mcp_dogfood_responses,
     claude_notebook_dogfood_responses,
+    code_delegated_dogfood_responses,
     delegated_dogfood_responses,
     init_broken_calculator_repo,
     init_hooked_calculator_repo,
@@ -510,6 +511,41 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn("Profiled review", events_text)
         self.assertIn("PROFILED_CALC_REVIEWER_INSTRUCTION", first_subagent_prompt)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add after profiled delegation")
+
+    def test_v1_cli_json_can_delegate_code_subagent_repair_and_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-code-delegate-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(code_delegated_dogfood_responses())
+            exit_code, payload = _run_json_cli(
+                client,
+                [
+                    "--output-format",
+                    "json",
+                    "--approval",
+                    "allow",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "9",
+                    "Delegate a code subagent to fix the calculator test failure and commit.",
+                ],
+            )
+            events = _session_events(root, payload["runId"])
+            events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload)
+        self.assertIn('"name": "Task"', events_text)
+        self.assertIn('"mode": "code"', events_text)
+        self.assertIn('"type": "subagent_tool_call"', events_text)
+        self.assertIn('"name": "Edit"', events_text)
+        self.assertIn('"name": "git_commit"', events_text)
+        self.assertIn('"name": "run_suggested_checks"', events_text)
+        self.assertIn('"name": "run_session_verification"', events_text)
+        self.assertIn("Code subagent fixed calc.py", events_text)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add from code subagent")
 
     def test_v1_cli_json_can_create_and_check_checkpoint_before_commit(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-checkpoint-smoke-") as base:

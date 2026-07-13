@@ -146,6 +146,10 @@ local changes when asked, and resume from recorded session context.
   `.claude/agents` profile, confirming profile instructions and tool limits are
   injected into the subagent prompt before the parent repairs, verifies, and
   commits.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_delegate_code_subagent_repair_and_commit`
+  runs the real CLI JSON path through a code-mode `Task` subagent that reads,
+  tests, edits, commits, reruns suggested checks, verifies the session, and
+  returns a parent-auditable summary.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_create_and_check_checkpoint_before_commit`
   runs the real CLI JSON path through checkpoint creation, listing, status, and
   restore preflight before repair, verification, review, and commit, confirming
