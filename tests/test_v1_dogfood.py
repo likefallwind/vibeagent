@@ -235,6 +235,25 @@ def git_head_subject(root: Path) -> str:
     ).stdout.strip()
 
 
+def assert_v1_clean_commit(
+    testcase: unittest.TestCase,
+    result,
+    git_status: str,
+    head_message: str,
+    expected_head_message: str,
+    plan_items: int | None = None,
+) -> None:
+    testcase.assertTrue(result.success)
+    testcase.assertTrue(result.completion_ready)
+    testcase.assertEqual(result.completion_blockers, [])
+    testcase.assertEqual(result.pending_verification_checks, [])
+    testcase.assertEqual(result.failed_verification_checks, [])
+    testcase.assertEqual(git_status, "")
+    testcase.assertEqual(head_message, expected_head_message)
+    if plan_items is not None:
+        testcase.assertEqual([item.status for item in result.plan], ["completed"] * plan_items)
+
+
 def v1_dogfood_responses() -> list[list[ContentBlock]]:
     return [
         [
@@ -2570,14 +2589,7 @@ class V1DogfoodTests(unittest.TestCase):
             git_status = git_worktree_status(root)
             head_message = git_head_subject(root)
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 5)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add", 5)
 
         observation_kinds = [item.kind for item in result.observations]
         self.assertIn("project_overview", observation_kinds)
@@ -2641,13 +2653,7 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertIn("run_command", interrupted_observations)
         self.assertIn("Previous session context:", initial_resumed_prompt)
         self.assertIn("python -B -m unittest discover -s tests", initial_resumed_prompt)
-        self.assertTrue(resumed.success)
-        self.assertTrue(resumed.completion_ready)
-        self.assertEqual(resumed.completion_blockers, [])
-        self.assertEqual(resumed.pending_verification_checks, [])
-        self.assertEqual(resumed.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add after resume")
+        assert_v1_clean_commit(self, resumed, git_status, head_message, "Fix calculator add after resume")
         self.assertIn("run_session_verification", resumed_observations)
         self.assertLess(resumed_observations.index("write_file"), resumed_observations.index("git_commit"))
 
@@ -2671,14 +2677,7 @@ class V1DogfoodTests(unittest.TestCase):
 
         observation_kinds = [item.kind for item in result.observations]
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add via Claude aliases")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add via Claude aliases", 4)
         self.assertGreaterEqual(observation_kinds.count("update_plan"), 4)
         self.assertIn("list_tree", observation_kinds)
         self.assertIn("glob", observation_kinds)
@@ -2726,17 +2725,10 @@ class V1DogfoodTests(unittest.TestCase):
         observation_kinds = [item.kind for item in result.observations]
         run_commands = [item for item in result.observations if item.kind == "run_command"]
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add with helper")
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add with helper", 4)
         self.assertEqual(helper_text, "def safe_add(left, right):\n    return left + right\n")
         self.assertIn("from math_helpers import safe_add", calc_text)
         self.assertIn("return safe_add(left, right)", calc_text)
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
         self.assertEqual(len(run_commands), 2)
         self.assertNotEqual(run_commands[0].result.exit_code, 0)
         self.assertEqual(run_commands[1].result.exit_code, 0)
@@ -2780,14 +2772,7 @@ class V1DogfoodTests(unittest.TestCase):
         notebook_read = next(item for item in result.observations if item.kind == "notebook_read")
         notebook_edit = next(item for item in result.observations if item.kind == "notebook_edit")
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix notebook analysis formula")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix notebook analysis formula", 4)
         self.assertTrue(notebook_read.ok)
         self.assertEqual(notebook_read.total_cells, 2)
         self.assertTrue(notebook_edit.ok)
@@ -2833,14 +2818,7 @@ class V1DogfoodTests(unittest.TestCase):
         mcp_call = next(item for item in result.observations if item.kind == "mcp_call")
         third_turn_names = {str(tool["name"]) for tool in client.tools[2]}
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add with MCP evidence")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add with MCP evidence", 4)
         self.assertTrue(mcp_tools.ok)
         self.assertEqual(mcp_tools.server, "test")
         self.assertEqual(mcp_tools.tools[0].name, "echo")
@@ -2892,15 +2870,8 @@ class V1DogfoodTests(unittest.TestCase):
         observation_kinds = [item.kind for item in result.observations]
         run_commands = [item for item in result.observations if item.kind == "run_command"]
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add through hooks")
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add through hooks", 4)
         self.assertEqual(hook_log.splitlines(), ["PreToolUse:Edit", "PostToolUse:Edit"])
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
         self.assertEqual(len(run_commands), 2)
         self.assertNotEqual(run_commands[0].result.exit_code, 0)
         self.assertEqual(run_commands[1].result.exit_code, 0)
@@ -2945,14 +2916,7 @@ class V1DogfoodTests(unittest.TestCase):
         run_command_positions = [index for index, kind in enumerate(observation_kinds) if kind == "run_command"]
         read_process = next(item for item in result.observations if item.kind == "read_process")
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add after background probe")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add after background probe", 4)
         self.assertIn("start_command", observation_kinds)
         self.assertIn("read_process", observation_kinds)
         self.assertIn("stop_process", observation_kinds)
@@ -3011,14 +2975,7 @@ class V1DogfoodTests(unittest.TestCase):
         web_fetch = next(item for item in result.observations if item.kind == "web_fetch")
         next_turn_payload = str(client.messages[2][-1].content)
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add using fetched contract")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add using fetched contract", 4)
         fetch_public_document.assert_called_once_with(
             "https://docs.example.com/calculator-contract",
             timeout_ms=10_000,
@@ -3063,14 +3020,7 @@ class V1DogfoodTests(unittest.TestCase):
         status_observation = next(item for item in result.observations if item.kind == "git_status")
         diff_observation = next(item for item in result.observations if item.kind == "git_diff")
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add after diff review")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add after diff review", 4)
         self.assertIn("calc.py", status_observation.status)
         self.assertEqual(diff_observation.path, "calc.py")
         self.assertIn("-    return left - right", diff_observation.diff)
@@ -3117,14 +3067,7 @@ class V1DogfoodTests(unittest.TestCase):
         repo_map = next(item for item in result.observations if item.kind == "repo_map")
         after_context_prompt = "\n".join(str(message.content) for message in client.messages[2])
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add after project context")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add after project context", 4)
         self.assertTrue(instructions.ok)
         self.assertIn("AGENTS.md", [source.path for source in instructions.files])
         self.assertIn("keep calculator fixes scoped to calc.py", instructions.text)
@@ -3169,14 +3112,7 @@ class V1DogfoodTests(unittest.TestCase):
         focused = next(item for item in result.observations if item.kind == "focused_test_commands")
         run_focused = next(item for item in result.observations if item.kind == "run_focused_test_commands")
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add after focused tests")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add after focused tests", 4)
         self.assertTrue(related.ok)
         self.assertIn("tests/test_calc.py", [candidate.test_path for candidate in related.candidates])
         self.assertTrue(focused.ok)
@@ -3221,14 +3157,7 @@ class V1DogfoodTests(unittest.TestCase):
         status = next(item for item in result.observations if item.kind == "checkpoint_status")
         restore_check = next(item for item in result.observations if item.kind == "check_checkpoint_restore")
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add with checkpoint safety")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add with checkpoint safety", 4)
         self.assertGreaterEqual(len(created_checkpoints), 1)
         self.assertIn("before calculator edit", [item.checkpoint.label for item in created_checkpoints if item.checkpoint])
         self.assertTrue(listed.ok)
@@ -3282,14 +3211,7 @@ class V1DogfoodTests(unittest.TestCase):
         observation_kinds = [item.kind for item in result.observations]
         handoff = next(item for item in result.observations if item.kind == "session_handoff")
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add before handoff")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add before handoff", 4)
         self.assertTrue(handoff.ok)
         self.assertEqual(handoff.run_id, result.run_id)
         self.assertFalse(handoff.ready)
@@ -3338,14 +3260,7 @@ class V1DogfoodTests(unittest.TestCase):
         ask_observation = next(item for item in result.observations if item.kind == "ask_user")
         second_turn_payload = str(client.messages[2][-1].content)
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add after clarification")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 3)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add after clarification", 3)
         self.assertEqual(len(user_questions), 1)
         self.assertIn("calc.add add numbers", user_questions[0].question)
         self.assertEqual(user_questions[0].options, ["addition", "subtraction"])
@@ -3399,14 +3314,7 @@ class V1DogfoodTests(unittest.TestCase):
         observation_kinds = [item.kind for item in result.observations]
         skill_observation = next(item for item in result.observations if item.kind == "skill")
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add with project skill")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add with project skill", 4)
         self.assertIn("project_skills", observation_kinds)
         self.assertIn("skill", observation_kinds)
         self.assertEqual(skill_observation.name, "calculator-repair")
@@ -3445,13 +3353,7 @@ class V1DogfoodTests(unittest.TestCase):
         observation_kinds = [item.kind for item in result.observations]
         delegated = next(item for item in result.observations if item.kind == "delegate_task")
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add after delegation")
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add after delegation")
         self.assertTrue(delegated.ok)
         self.assertEqual(delegated.mode, "explore")
         self.assertEqual(delegated.tool_calls, ["Read", "Read"])
@@ -3501,14 +3403,7 @@ class V1DogfoodTests(unittest.TestCase):
         observation_kinds = [item.kind for item in result.observations]
         delegated = next(item for item in result.observations if item.kind == "delegate_task")
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add after profiled delegation")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 3)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add after profiled delegation", 3)
         self.assertTrue(delegated.ok)
         self.assertEqual(delegated.mode, "explore")
         self.assertEqual(delegated.agent, "calc-reviewer")
@@ -3549,14 +3444,7 @@ class V1DogfoodTests(unittest.TestCase):
         observation_kinds = [item.kind for item in result.observations]
         delegated = next(item for item in result.observations if item.kind == "delegate_task")
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add from code subagent")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 2)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add from code subagent", 2)
         self.assertIn("return left + right", calc_text)
         self.assertTrue(delegated.ok)
         self.assertEqual(delegated.mode, "code")
@@ -3649,14 +3537,7 @@ class V1DogfoodTests(unittest.TestCase):
 
         observation_kinds = [item.kind for item in result.observations]
 
-        self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
-        self.assertEqual(result.completion_blockers, [])
-        self.assertEqual(result.pending_verification_checks, [])
-        self.assertEqual(result.failed_verification_checks, [])
-        self.assertEqual(git_status, "")
-        self.assertEqual(head_message, "Fix calculator add with MultiEdit")
-        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add with MultiEdit", 4)
         self.assertIn('"""Return the arithmetic sum."""', calc_text)
         self.assertIn("return left + right", calc_text)
         self.assertGreaterEqual(observation_kinds.count("read_file"), 2)
