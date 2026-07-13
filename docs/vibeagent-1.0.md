@@ -44,6 +44,10 @@ local changes when asked, and resume from recorded session context.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_reviews_git_diff_before_commit`
   verifies a commit path that explicitly reads `git_status` and a scoped
   `git_diff` after tests pass and before final review, staging, and commit.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_loads_project_instructions_and_repo_map_before_repair`
+  explicitly loads project instruction files through `project_instructions` and
+  a bounded repository map through `repo_map` before reading, editing, testing,
+  final-reviewing, and committing.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_clarify_then_repair_verify_and_commit`
   uses the Claude-compatible `AskUserQuestion` alias to ask one blocking
   clarification, returns the selected answer to the model, then reads, edits,
