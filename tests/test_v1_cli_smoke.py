@@ -25,10 +25,13 @@ from tests.test_v1_dogfood import (
     init_broken_notebook_repo,
     interrupted_dogfood_responses,
     resumed_dogfood_responses,
+    session_handoff_dogfood_responses,
     v1_dogfood_responses,
     web_fetch_dogfood_responses,
 )
 from vibeagent.cli import main
+from vibeagent.session_commands import get_session_handoff_report
+from vibeagent.session_handoff_details import extract_session_handoff_details
 from vibeagent.types import WebFetchObservation
 
 
@@ -490,6 +493,51 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn("before calculator edit", events_text)
         self.assertIn('"can_restore": true', events_text)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add with checkpoint safety")
+
+    def test_v1_cli_json_generates_ready_session_handoff_after_verified_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-handoff-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(session_handoff_dogfood_responses())
+            exit_code, payload = _run_json_cli(
+                client,
+                [
+                    "--output-format",
+                    "json",
+                    "--approval",
+                    "allow",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "18",
+                    "Fix the calculator test failure, commit it, and generate a session handoff.",
+                ],
+            )
+            events = _session_events(root, payload["runId"])
+            events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            handoff_report = get_session_handoff_report(
+                root,
+                str(payload["runId"]),
+                max_files=10,
+                max_commands=10,
+                max_checks=20,
+                max_text=800,
+            )
+            handoff = extract_session_handoff_details(handoff_report)
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload)
+        self.assertIn('"name": "session_handoff"', events_text)
+        self.assertIn("Session handoff:", events_text)
+        self.assertIn("python -m unittest discover -s tests", events_text)
+        self.assertTrue(handoff.ready)
+        self.assertEqual(handoff.status, "ready")
+        self.assertEqual(handoff.blockers, [])
+        self.assertEqual(handoff.pending_count, 0)
+        self.assertEqual(handoff.failed_count, 0)
+        self.assertGreaterEqual(handoff.verified_count, 1)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add before handoff")
 
     def test_v1_cli_stream_json_input_format_can_repair_verify_commit_and_report_ready(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-input-stream-smoke-") as base:

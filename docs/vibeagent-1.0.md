@@ -145,6 +145,10 @@ local changes when asked, and resume from recorded session context.
   runs the real CLI JSON path through checkpoint creation, listing, status, and
   restore preflight before repair, verification, review, and commit, confirming
   a rollback point is available before workspace mutation.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_generates_ready_session_handoff_after_verified_commit`
+  runs the real CLI JSON path through a verified commit and `session_handoff`,
+  then reloads the persisted run's handoff report to confirm it is ready for
+  continuation or compaction.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_resume_interrupted_run_and_commit`
   runs an interrupted deterministic repair dogfood through the real CLI
   `main()` JSON path, then resumes it through `--resume <runId>`, confirming
