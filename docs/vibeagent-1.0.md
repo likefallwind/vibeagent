@@ -28,6 +28,9 @@ local changes when asked, and resume from recorded session context.
   covers the same repair workflow split across two runs: the first run records a
   failing verification before interruption, `get_resume_context` reloads that
   evidence, and the resumed run fixes, verifies, and commits.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
+  runs the repair workflow through Claude-compatible tool names and fields:
+  `TodoWrite`, `Read`, `Bash`, `Edit`, and `TodoRead`, then verifies and commits.
 - `tests.test_agent.AgentTests.test_run_agent_repairs_a_failing_script_and_finishes`
   covers write -> failed command -> repair -> successful command.
 - `tests.test_agent.AgentTests.test_run_agent_continues_after_pending_suggested_check_is_run`
