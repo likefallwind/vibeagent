@@ -38,11 +38,18 @@ from .workspace_hooks import ProjectHooks
 from .workspace_permissions import ProjectPermissions
 
 
+READ_ONLY_CLAUDE_DELEGATE_TOOL_NAMES = frozenset({"Glob", "Grep", "LS", "NotebookRead", "Read"})
 DELEGATE_TOOL_DEFINITIONS = [
     tool
     for tool in AGENT_TOOL_DEFINITIONS
-    if tool["name"] in DELEGATE_TOOL_NAMES or tool["name"] == "finish"
+    if (
+        tool["name"] in DELEGATE_TOOL_NAMES
+        or tool["name"] in READ_ONLY_CLAUDE_DELEGATE_TOOL_NAMES
+        or tool["name"] == "finish"
+    )
 ]
+
+
 @dataclass(frozen=True)
 class DelegateToolCallExecution:
     observation: Observation | None

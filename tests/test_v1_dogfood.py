@@ -366,6 +366,115 @@ def claude_compat_dogfood_responses() -> list[list[ContentBlock]]:
     ]
 
 
+def delegated_dogfood_responses() -> list[list[ContentBlock]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "delegate-1",
+                "name": "Task",
+                "input": {
+                    "prompt": "Inspect calc.py and its test to identify the failing behavior.",
+                    "description": "Read-only investigation before the parent edits.",
+                    "max_iterations": 2,
+                },
+            }
+        ],
+        [
+            {"type": "tool_call", "id": "read-1", "name": "Read", "input": {"file_path": "calc.py"}},
+            {"type": "tool_call", "id": "read-2", "name": "Read", "input": {"file_path": "tests/test_calc.py"}},
+        ],
+        [{"type": "text", "text": "The test expects add(2, 3) == 5, but calc.py subtracts on line 2."}],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-1",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Use delegated investigation", "status": "completed"},
+                        {"content": "Reproduce the failing test", "status": "in_progress"},
+                        {"content": "Patch add implementation", "status": "pending"},
+                        {"content": "Verify and commit", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-1",
+                "name": "Bash",
+                "input": {
+                    "command": "PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests",
+                    "timeout": 10_000,
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "edit-1",
+                "name": "Edit",
+                "input": {
+                    "file_path": "calc.py",
+                    "old_string": "return left - right",
+                    "new_string": "return left + right",
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-2",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Use delegated investigation", "status": "completed"},
+                        {"content": "Reproduce the failing test", "status": "completed"},
+                        {"content": "Patch add implementation", "status": "completed"},
+                        {"content": "Verify and commit", "status": "in_progress"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-2",
+                "name": "Bash",
+                "input": {"command": "python -m unittest discover -s tests", "timeout": 10_000},
+            }
+        ],
+        [{"type": "tool_call", "id": "stage-1", "name": "git_stage", "input": {"paths": ["calc.py"]}}],
+        [{"type": "tool_call", "id": "commit-1", "name": "git_commit", "input": {"message": "Fix calculator add after delegation"}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-3",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Use delegated investigation", "status": "completed"},
+                        {"content": "Reproduce the failing test", "status": "completed"},
+                        {"content": "Patch add implementation", "status": "completed"},
+                        {"content": "Verify and commit", "status": "completed"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "verify-1",
+                "name": "run_session_verification",
+                "input": {"include_pending": True, "include_failed": True, "timeout_ms": 10_000},
+            }
+        ],
+        [{"type": "text", "text": "Delegated the investigation, fixed the implementation, verified tests, and committed."}],
+    ]
+
+
 class V1DogfoodTests(unittest.TestCase):
     def test_v1_agent_can_read_repair_verify_commit_and_finish(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-dogfood-") as base:
@@ -546,6 +655,60 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertIn('"name": "Edit"', events_text)
         self.assertIn('"name": "TodoRead"', events_text)
         self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("edit_file"))
+        self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("git_commit"))
+        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
+
+    def test_v1_agent_can_delegate_read_only_investigation_before_repair(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-delegate-dogfood-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(delegated_dogfood_responses())
+
+            result = run_agent(
+                "Delegate the initial investigation, then fix the calculator test failure and commit.",
+                base_dir=root,
+                client=client,
+                max_iterations=14,
+                approval_handler=approve_all,
+            )
+            git_status = subprocess.run(
+                ["git", "status", "--short"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout
+            head_message = subprocess.run(
+                ["git", "log", "-1", "--pretty=%s"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout.strip()
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events_text = events_path.read_text(encoding="utf-8")
+
+        observation_kinds = [item.kind for item in result.observations]
+        delegated = next(item for item in result.observations if item.kind == "delegate_task")
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_message, "Fix calculator add after delegation")
+        self.assertTrue(delegated.ok)
+        self.assertEqual(delegated.mode, "explore")
+        self.assertEqual(delegated.tool_calls, ["Read", "Read"])
+        self.assertIn("calc.py subtracts", delegated.summary)
+        self.assertIn("run_session_verification", observation_kinds)
+        self.assertIn('"name": "Task"', events_text)
+        self.assertIn('"type": "subagent_tool_call"', events_text)
+        self.assertIn('"name": "Read"', events_text)
+        self.assertLess(observation_kinds.index("delegate_task"), observation_kinds.index("edit_file"))
         self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("git_commit"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
 

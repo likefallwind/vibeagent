@@ -16,6 +16,7 @@ local changes when asked, and resume from recorded session context.
 | VA1-REVIEW | Block premature completion after changes | `final_review`, completion blockers, and suggested verification checks prevent finishing until changed-file review and relevant checks are complete. |
 | VA1-COMMIT | Commit verified local work when requested | `check_git_stage`, `git_stage`, `check_git_commit`, and `git_commit` can stage explicit paths and create a local commit after approval. |
 | VA1-RESUME | Recover useful session context | `session_summary`, `session_verification`, `run_session_verification`, `session_handoff`, `--resume`, and `--compact` preserve enough context to continue work. |
+| VA1-DELEGATE | Split bounded investigation into a subagent | `delegate_task`, `Task`, and `Agent` can run isolated read-only investigations whose summaries return to the parent agent before edits. |
 | VA1-SAFETY | Enforce workspace and command safety | Workspace path guards, protected files, approval policy, project permissions, hooks, sandbox support, and hard command blocks prevent unsafe side effects. |
 
 ## Current Evidence
@@ -31,6 +32,10 @@ local changes when asked, and resume from recorded session context.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `Read`, `Bash`, `Edit`, and `TodoRead`, then verifies and commits.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_delegate_read_only_investigation_before_repair`
+  delegates the first investigation through the Claude-compatible `Task` alias,
+  lets the read-only subagent use `Read`, then the parent fixes, verifies, and
+  commits the change.
 - `tests.test_agent.AgentTests.test_run_agent_repairs_a_failing_script_and_finishes`
   covers write -> failed command -> repair -> successful command.
 - `tests.test_agent.AgentTests.test_run_agent_continues_after_pending_suggested_check_is_run`
@@ -39,6 +44,8 @@ local changes when asked, and resume from recorded session context.
   covers plan -> edit -> test -> stage -> commit -> final review.
 - `tests.test_agent.AgentTests.test_run_agent_uses_existing_session_verification_on_resume`
   covers resume-time verification reuse.
+- `tests.test_delegation.DelegationTests.test_parent_agent_receives_subagent_summary_as_tool_result`
+  covers parent/subagent message flow and safe subagent lifecycle events.
 - `tests.test_project_permissions`, `tests.test_workspace`, and
   `tests.test_command_sandbox` cover the main workspace and safety boundaries.
 

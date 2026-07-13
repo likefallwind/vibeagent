@@ -14,6 +14,7 @@ DOGFOOD_TESTS = {
     "test_v1_agent_can_read_repair_verify_commit_and_finish",
     "test_v1_agent_can_resume_after_interrupted_failure_and_commit",
     "test_v1_agent_can_complete_repair_with_claude_code_tool_aliases",
+    "test_v1_agent_can_delegate_read_only_investigation_before_repair",
 }
 
 EXPECTED_GATES = {
@@ -44,6 +45,10 @@ EXPECTED_GATES = {
     "VA1-RESUME": {
         "tools": {"session_summary", "session_verification", "run_session_verification", "session_handoff"},
         "tests": {"test_run_agent_uses_existing_session_verification_on_resume"},
+    },
+    "VA1-DELEGATE": {
+        "tools": {"delegate_task", "Task", "Agent"},
+        "tests": {"test_parent_agent_receives_subagent_summary_as_tool_result"},
     },
     "VA1-SAFETY": {
         "tools": {"command_check", "final_review", "check_git_push"},

@@ -75,11 +75,17 @@ class DelegationTests(unittest.TestCase):
 
         self.assertIn("read_file", names)
         self.assertIn("search", names)
+        self.assertIn("Read", names)
+        self.assertIn("Grep", names)
+        self.assertIn("Glob", names)
+        self.assertIn("LS", names)
         self.assertIn("finish", names)
         self.assertNotIn("delegate_task", names)
         self.assertNotIn("ask_user", names)
         self.assertNotIn("write_file", names)
+        self.assertNotIn("Write", names)
         self.assertNotIn("run_command", names)
+        self.assertNotIn("Bash", names)
         self.assertNotIn("git_commit", names)
 
     def test_code_delegate_tool_catalog_uses_shared_visibility_policy(self) -> None:
