@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .action_parsing_helpers import (
@@ -70,6 +71,19 @@ def _parse_optional_command_output_chars(value: Any, raw: str) -> int | None:
     if max_output_chars is not None and max_output_chars < 1_000:
         raise ActionParseError("max_output_chars must be at least 1000.", raw)
     return max_output_chars
+
+
+def _parse_optional_output_filter(value: Any, raw: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ActionParseError("output_filter must be a non-empty string when provided.", raw)
+    pattern = value.strip()
+    try:
+        re.compile(pattern)
+    except re.error as error:
+        raise ActionParseError(f"output_filter must be a valid regex: {error}.", raw) from error
+    return pattern
 
 
 def _parse_bounded_output_chars(value: Any, raw: str, maximum: int) -> int:
@@ -164,6 +178,7 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
             type="read_process",
             process_id=_parse_process_id(value.get("process_id"), raw, "read_process"),
             max_output_chars=_parse_optional_command_output_chars(value.get("max_output_chars"), raw),
+            output_filter=_parse_optional_output_filter(value.get("output_filter"), raw),
         )
 
     if action_type == "process_output_contexts":

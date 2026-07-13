@@ -1978,6 +1978,12 @@ class ActionTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionParseError, "max_output_chars must be at least 1000"):
             parse_tool_action("read_process", {"process_id": "abc123", "max_output_chars": 999})
 
+        with self.assertRaisesRegex(ActionParseError, "output_filter must be a non-empty string"):
+            parse_tool_action("read_process", {"process_id": "abc123", "output_filter": ""})
+
+        with self.assertRaisesRegex(ActionParseError, "output_filter must be a valid regex"):
+            parse_tool_action("read_process", {"process_id": "abc123", "output_filter": "["})
+
         with self.assertRaisesRegex(ActionParseError, "process_output_contexts action requires a non-empty process_id"):
             parse_tool_action("process_output_contexts", {})
 
@@ -8865,6 +8871,48 @@ class ActionTests(unittest.TestCase):
                 self.assertTrue(stop.ok)
                 self.assertEqual(stop.pid, start.pid)
                 self.assertIsNotNone(stop.exit_code)
+            finally:
+                if start.kind == "start_command" and start.process_id:
+                    execute_action(workspace, StopProcessAction(type="stop_process", process_id=start.process_id))
+
+    def test_read_background_process_filters_output_lines(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            start = execute_action(
+                workspace,
+                StartCommandAction(
+                    type="start_command",
+                    command=(
+                        "python3 -c \"import sys, time; "
+                        "print('keep stdout', flush=True); "
+                        "print('drop stdout', flush=True); "
+                        "print('keep stderr', file=sys.stderr, flush=True); "
+                        "print('drop stderr', file=sys.stderr, flush=True); "
+                        "time.sleep(5)\""
+                    ),
+                ),
+            )
+            try:
+                self.assertEqual(start.kind, "start_command")
+                self.assertTrue(start.process_id)
+                time.sleep(0.2)
+
+                read = execute_action(
+                    workspace,
+                    ReadProcessAction(
+                        type="read_process",
+                        process_id=start.process_id,
+                        max_output_chars=2000,
+                        output_filter="keep",
+                    ),
+                )
+
+                self.assertEqual(read.kind, "read_process")
+                self.assertTrue(read.ok)
+                self.assertIn("keep stdout", read.stdout)
+                self.assertNotIn("drop stdout", read.stdout)
+                self.assertIn("keep stderr", read.stderr)
+                self.assertNotIn("drop stderr", read.stderr)
             finally:
                 if start.kind == "start_command" and start.process_id:
                     execute_action(workspace, StopProcessAction(type="stop_process", process_id=start.process_id))

@@ -10,6 +10,7 @@ from vibeagent.action_parsing import parse_tool_action
 from vibeagent.prompts import format_observations
 from vibeagent.types import (
     ReadFileAction,
+    ReadProcessAction,
     RegexReplaceAction,
     RunCommandAction,
     SearchAction,
@@ -113,6 +114,17 @@ class ActionToolAliasTests(unittest.TestCase):
 
         self.assertIsInstance(action, StartCommandAction)
         self.assertEqual(action.command, "python -m http.server")
+
+    def test_claude_bash_output_filter_maps_to_read_process_output_filter(self) -> None:
+        action = parse_tool_action(
+            "BashOutput",
+            {"bash_id": "proc-1", "filter": "error|warning", "max_output_chars": 4_000},
+        )
+
+        self.assertIsInstance(action, ReadProcessAction)
+        self.assertEqual(action.process_id, "proc-1")
+        self.assertEqual(action.output_filter, "error|warning")
+        self.assertEqual(action.max_output_chars, 4_000)
 
     def test_claude_web_fetch_preserves_prompt_intent(self) -> None:
         action = parse_tool_action(

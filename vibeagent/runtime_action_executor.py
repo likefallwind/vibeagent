@@ -184,7 +184,12 @@ def execute_runtime_action(
     if isinstance(action, ReadProcessAction):
         return attach_output_analysis_to_process_observation(
             workspace,
-            read_background_process(workspace.root, action.process_id, max_output_chars=action.max_output_chars or 4_000),
+            read_background_process(
+                workspace.root,
+                action.process_id,
+                max_output_chars=action.max_output_chars or 4_000,
+                output_filter=action.output_filter,
+            ),
         )
 
     if isinstance(action, ProcessOutputContextsAction):

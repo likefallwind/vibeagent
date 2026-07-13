@@ -112,6 +112,7 @@ class ReadProcessAction:
     type: Literal["read_process"]
     process_id: str
     max_output_chars: int | None = None
+    output_filter: str | None = None
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import subprocess
 import sys
 from typing import Any
@@ -27,15 +28,27 @@ def _background_processes() -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def read_background_process(root: Path, process_id: str, max_output_chars: int = 4_000) -> ReadProcessObservation:
+def _filter_output_lines(text: str, pattern: str | None) -> str:
+    if pattern is None:
+        return text
+    regex = re.compile(pattern)
+    return "".join(line for line in text.splitlines(keepends=True) if regex.search(line))
+
+
+def read_background_process(
+    root: Path,
+    process_id: str,
+    max_output_chars: int = 4_000,
+    output_filter: str | None = None,
+) -> ReadProcessObservation:
     background = _background_processes().get(process_id)
     if background is None:
         record = read_persistent_process_record(root, process_id)
         if record is not None:
             running = persistent_process_running(record)
             exit_code = None if running else read_persistent_process_exit_code(record)
-            stdout = read_text_tail(record.stdout_path, max_output_chars)
-            stderr = read_text_tail(record.stderr_path, max_output_chars)
+            stdout = _filter_output_lines(read_text_tail(record.stdout_path, max_output_chars), output_filter)
+            stderr = _filter_output_lines(read_text_tail(record.stderr_path, max_output_chars), output_filter)
             state = "running" if running else "exited or unavailable"
             return ReadProcessObservation(
                 kind="read_process",
@@ -68,8 +81,8 @@ def read_background_process(root: Path, process_id: str, max_output_chars: int =
     running = exit_code is None
     if not running:
         close_background_handles(background)
-    stdout = read_text_tail(background.stdout_path, max_output_chars)
-    stderr = read_text_tail(background.stderr_path, max_output_chars)
+    stdout = _filter_output_lines(read_text_tail(background.stdout_path, max_output_chars), output_filter)
+    stderr = _filter_output_lines(read_text_tail(background.stderr_path, max_output_chars), output_filter)
     return ReadProcessObservation(
         kind="read_process",
         process_id=process_id,

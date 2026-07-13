@@ -225,7 +225,7 @@ def _normalize_task_input(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def _normalize_process_alias_input(value: dict[str, Any]) -> dict[str, Any]:
-    return _rename_fields(value, {"bash_id": "process_id"})
+    return _rename_fields(value, {"bash_id": "process_id", "filter": "output_filter"})
 
 
 def _normalize_ask_user_input(value: dict[str, Any]) -> dict[str, Any]:

@@ -17,6 +17,10 @@ PROCESS_OUTPUT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "maximum": 50000,
                     "description": "Optional maximum characters to keep for each output stream. Defaults to 4000.",
                 },
+                "output_filter": {
+                    "type": "string",
+                    "description": "Optional regex used to keep only matching output lines.",
+                },
             },
             "required": ["process_id"],
             "additionalProperties": False,
