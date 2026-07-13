@@ -87,13 +87,13 @@ def search_project_result(
             lines = path.read_text(encoding="utf-8").splitlines()
         except UnicodeDecodeError:
             continue
-        file_matches = search_file_line_matches(lines, pattern, needle, case_sensitive)
         if output_mode == "files_with_matches":
-            if file_matches:
+            if search_file_has_match(lines, pattern, needle, case_sensitive):
                 total += 1
                 if len(matches) < max_matches:
                     matches.append(relative)
             continue
+        file_matches = search_file_line_matches(lines, pattern, needle, case_sensitive)
         if output_mode == "count":
             if file_matches:
                 total += 1
@@ -127,6 +127,20 @@ def search_file_line_matches(
         if found:
             matches.append((line_number, line))
     return matches
+
+
+def search_file_has_match(
+    lines: list[str],
+    pattern: re.Pattern[str] | None,
+    needle: str,
+    case_sensitive: bool,
+) -> bool:
+    for line in lines:
+        haystack = line if case_sensitive else line.lower()
+        found = bool(pattern.search(line)) if pattern else needle in haystack
+        if found:
+            return True
+    return False
 
 
 def search_project_contexts_result(
