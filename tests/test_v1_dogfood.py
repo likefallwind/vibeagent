@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from vibeagent.agent import run_agent
 from vibeagent.session_commands import get_resume_context
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, ContentBlock
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, ContentBlock, WebFetchObservation
 
 
 class DogfoodClient:
@@ -514,6 +514,118 @@ def background_process_dogfood_responses() -> list[list[ContentBlock]]:
             }
         ],
         [{"type": "text", "text": "Started and inspected the background probe, stopped it, fixed the calculator, verified, reviewed, and committed."}],
+    ]
+
+
+def web_fetch_dogfood_responses() -> list[list[ContentBlock]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-1",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Fetch the external calculator contract", "status": "in_progress"},
+                        {"content": "Inspect local implementation and tests", "status": "pending"},
+                        {"content": "Patch and verify implementation", "status": "pending"},
+                        {"content": "Review and commit", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "fetch-1",
+                "name": "WebFetch",
+                "input": {
+                    "url": "https://docs.example.com/calculator-contract",
+                    "prompt": "Extract the expected behavior for calc.add.",
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-2",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Fetch the external calculator contract", "status": "completed"},
+                        {"content": "Inspect local implementation and tests", "status": "in_progress"},
+                        {"content": "Patch and verify implementation", "status": "pending"},
+                        {"content": "Review and commit", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {"type": "tool_call", "id": "read-1", "name": "Read", "input": {"file_path": "calc.py"}},
+            {"type": "tool_call", "id": "read-2", "name": "Read", "input": {"file_path": "tests/test_calc.py"}},
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "edit-1",
+                "name": "Edit",
+                "input": {
+                    "file_path": "calc.py",
+                    "old_string": "return left - right",
+                    "new_string": "return left + right",
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-1",
+                "name": "Bash",
+                "input": {"command": "python -m unittest discover -s tests", "timeout": 10_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-3",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Fetch the external calculator contract", "status": "completed"},
+                        {"content": "Inspect local implementation and tests", "status": "completed"},
+                        {"content": "Patch and verify implementation", "status": "completed"},
+                        {"content": "Review and commit", "status": "in_progress"},
+                    ]
+                },
+            }
+        ],
+        [{"type": "tool_call", "id": "review-1", "name": "final_review", "input": {}}],
+        [{"type": "tool_call", "id": "stage-1", "name": "git_stage", "input": {"paths": ["calc.py"]}}],
+        [{"type": "tool_call", "id": "commit-1", "name": "git_commit", "input": {"message": "Fix calculator add using fetched contract"}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-4",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Fetch the external calculator contract", "status": "completed"},
+                        {"content": "Inspect local implementation and tests", "status": "completed"},
+                        {"content": "Patch and verify implementation", "status": "completed"},
+                        {"content": "Review and commit", "status": "completed"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "verify-1",
+                "name": "run_session_verification",
+                "input": {"include_pending": True, "include_failed": True, "timeout_ms": 10_000},
+            }
+        ],
+        [{"type": "text", "text": "Fetched the calculator contract, fixed add, verified, reviewed, and committed."}],
     ]
 
 
@@ -1447,6 +1559,87 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertLess(observation_kinds.index("edit_file"), run_command_positions[-1])
         self.assertLess(run_command_positions[-1], observation_kinds.index("stop_process"))
         self.assertLess(observation_kinds.index("stop_process"), observation_kinds.index("final_review"))
+        self.assertLess(observation_kinds.index("final_review"), observation_kinds.index("git_commit"))
+        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
+
+    def test_v1_agent_can_use_web_fetch_before_repair(self) -> None:
+        fetched_contract = WebFetchObservation(
+            kind="web_fetch",
+            ok=True,
+            url="https://docs.example.com/calculator-contract",
+            final_url="https://docs.example.com/calculator-contract",
+            status=200,
+            content_type="text/html",
+            title="Calculator Contract",
+            text="The calc.add(left, right) function must return the arithmetic sum of both arguments.",
+            text_truncated=False,
+            max_text_chars=20_000,
+            error=None,
+            message="Fetched public document.",
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-webfetch-dogfood-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(web_fetch_dogfood_responses())
+
+            with patch("vibeagent.runtime_action_executor.fetch_public_document", return_value=fetched_contract) as fetch_public_document:
+                result = run_agent(
+                    "Fetch the external calculator contract, then fix and commit the verified implementation.",
+                    base_dir=root,
+                    client=client,
+                    max_iterations=15,
+                    approval_handler=approve_all,
+                )
+            git_status = subprocess.run(
+                ["git", "status", "--short"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout
+            head_message = subprocess.run(
+                ["git", "log", "-1", "--pretty=%s"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout.strip()
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events_text = events_path.read_text(encoding="utf-8")
+
+        observation_kinds = [item.kind for item in result.observations]
+        web_fetch = next(item for item in result.observations if item.kind == "web_fetch")
+        next_turn_payload = str(client.messages[2][-1].content)
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_message, "Fix calculator add using fetched contract")
+        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        fetch_public_document.assert_called_once_with(
+            "https://docs.example.com/calculator-contract",
+            timeout_ms=10_000,
+            max_text_chars=20_000,
+        )
+        self.assertEqual(web_fetch.prompt, "Extract the expected behavior for calc.add.")
+        self.assertIn("arithmetic sum", web_fetch.text)
+        self.assertIn("arithmetic sum", next_turn_payload)
+        self.assertIn("Extract the expected behavior for calc.add.", next_turn_payload)
+        self.assertIn("read_file", observation_kinds)
+        self.assertIn("edit_file", observation_kinds)
+        self.assertIn("run_command", observation_kinds)
+        self.assertIn("final_review", observation_kinds)
+        self.assertIn("run_session_verification", observation_kinds)
+        self.assertIn('"name": "WebFetch"', events_text)
+        self.assertLess(observation_kinds.index("web_fetch"), observation_kinds.index("read_file"))
+        self.assertLess(observation_kinds.index("read_file"), observation_kinds.index("edit_file"))
+        self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("run_command"))
+        self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("final_review"))
         self.assertLess(observation_kinds.index("final_review"), observation_kinds.index("git_commit"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
 

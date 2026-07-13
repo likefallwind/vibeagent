@@ -37,6 +37,10 @@ local changes when asked, and resume from recorded session context.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_manage_claude_background_process_before_repair`
   starts a Claude-style background `Bash`, inspects it through `BashOutput`,
   stops it through `KillBash`, then fixes, verifies, final-reviews, and commits.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_use_web_fetch_before_repair`
+  fetches an external technical contract through the Claude-compatible
+  `WebFetch` alias before reading, editing, testing, final-reviewing, and
+  committing the local repair.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_clarify_then_repair_verify_and_commit`
   uses the Claude-compatible `AskUserQuestion` alias to ask one blocking
   clarification, returns the selected answer to the model, then reads, edits,
