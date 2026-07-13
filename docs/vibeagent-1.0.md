@@ -41,6 +41,9 @@ local changes when asked, and resume from recorded session context.
   fetches an external technical contract through the Claude-compatible
   `WebFetch` alias before reading, editing, testing, final-reviewing, and
   committing the local repair.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_reviews_git_diff_before_commit`
+  verifies a commit path that explicitly reads `git_status` and a scoped
+  `git_diff` after tests pass and before final review, staging, and commit.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_clarify_then_repair_verify_and_commit`
   uses the Claude-compatible `AskUserQuestion` alias to ask one blocking
   clarification, returns the selected answer to the model, then reads, edits,
