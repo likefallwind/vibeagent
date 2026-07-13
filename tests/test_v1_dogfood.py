@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from vibeagent.agent import run_agent
+from vibeagent.agent_result import AgentResult
 from vibeagent.session_commands import get_resume_context, get_session_handoff_report
 from vibeagent.session_handoff_details import extract_session_handoff_details
 from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, ContentBlock, WebFetchObservation
@@ -233,6 +234,41 @@ def git_head_subject(root: Path) -> str:
         stderr=subprocess.PIPE,
         text=True,
     ).stdout.strip()
+
+
+def v1_commit_state(root: Path) -> tuple[str, str]:
+    return git_worktree_status(root), git_head_subject(root)
+
+
+def run_v1_dogfood_agent(
+    task: str,
+    *,
+    root: Path,
+    client: DogfoodClient,
+    max_iterations: int,
+    **kwargs,
+) -> AgentResult:
+    if "approval_handler" not in kwargs and "approval_policy" not in kwargs:
+        kwargs["approval_handler"] = approve_all
+    return run_agent(
+        task,
+        base_dir=root,
+        client=client,
+        max_iterations=max_iterations,
+        **kwargs,
+    )
+
+
+def collect_observation_kinds(result: AgentResult) -> list[str]:
+    return [item.kind for item in result.observations]
+
+
+def run_command_observations(result: AgentResult) -> list[object]:
+    return [item for item in result.observations if item.kind == "run_command"]
+
+
+def session_events_text(root: Path, result: AgentResult) -> str:
+    return (root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl").read_text(encoding="utf-8")
 
 
 def assert_v1_clean_commit(
@@ -2579,22 +2615,20 @@ class V1DogfoodTests(unittest.TestCase):
             init_broken_calculator_repo(root)
             client = DogfoodClient(v1_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Fix the calculator test failure and commit the verified fix.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=14,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
+            git_status, head_message = v1_commit_state(root)
 
         assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add", 5)
 
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
         self.assertIn("project_overview", observation_kinds)
         self.assertGreaterEqual(observation_kinds.count("read_file"), 2)
-        run_commands = [item for item in result.observations if item.kind == "run_command"]
+        run_commands = run_command_observations(result)
         self.assertEqual(len(run_commands), 2)
         self.assertNotEqual(run_commands[0].result.exit_code, 0)
         self.assertEqual(run_commands[1].result.exit_code, 0)
@@ -2612,12 +2646,11 @@ class V1DogfoodTests(unittest.TestCase):
             init_broken_calculator_repo(root)
             interrupted_client = DogfoodClient(interrupted_dogfood_responses())
 
-            interrupted = run_agent(
+            interrupted = run_v1_dogfood_agent(
                 "Fix the calculator test failure and commit the verified fix.",
-                base_dir=root,
+                root=root,
                 client=interrupted_client,
                 max_iterations=3,
-                approval_handler=approve_all,
             )
             selected_run_id, prior_context, resume_message = get_resume_context(
                 interrupted.run_id,
@@ -2634,20 +2667,18 @@ class V1DogfoodTests(unittest.TestCase):
             self.assertIn("python -B -m unittest discover -s tests", prior_context)
 
             resumed_client = DogfoodClient(resumed_dogfood_responses())
-            resumed = run_agent(
+            resumed = run_v1_dogfood_agent(
                 "Continue from the previous VibeAgent session and commit the verified fix.",
-                base_dir=root,
+                root=root,
                 client=resumed_client,
                 max_iterations=12,
-                approval_handler=approve_all,
                 prior_context=prior_context,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
+            git_status, head_message = v1_commit_state(root)
 
         initial_resumed_prompt = "\n".join(str(message.content) for message in resumed_client.messages[0])
-        interrupted_observations = [item.kind for item in interrupted.observations]
-        resumed_observations = [item.kind for item in resumed.observations]
+        interrupted_observations = collect_observation_kinds(interrupted)
+        resumed_observations = collect_observation_kinds(resumed)
 
         self.assertFalse(interrupted.success)
         self.assertIn("run_command", interrupted_observations)
@@ -2663,19 +2694,16 @@ class V1DogfoodTests(unittest.TestCase):
             init_broken_calculator_repo(root)
             client = DogfoodClient(claude_compat_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Fix the calculator test failure using Claude-style tools and commit the verified fix.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=14,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            git_status, head_message = v1_commit_state(root)
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
 
         assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add via Claude aliases", 4)
         self.assertGreaterEqual(observation_kinds.count("update_plan"), 4)
@@ -2708,22 +2736,19 @@ class V1DogfoodTests(unittest.TestCase):
             init_broken_calculator_repo(root)
             client = DogfoodClient(claude_write_new_file_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Fix the calculator by creating a helper module with Claude Write, verify it, and commit.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=16,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
+            git_status, head_message = v1_commit_state(root)
             helper_text = (root / "math_helpers.py").read_text(encoding="utf-8")
             calc_text = (root / "calc.py").read_text(encoding="utf-8")
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
-        run_commands = [item for item in result.observations if item.kind == "run_command"]
+        observation_kinds = collect_observation_kinds(result)
+        run_commands = run_command_observations(result)
 
         assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add with helper", 4)
         self.assertEqual(helper_text, "def safe_add(left, right):\n    return left + right\n")
@@ -2754,21 +2779,18 @@ class V1DogfoodTests(unittest.TestCase):
             init_broken_notebook_repo(root)
             client = DogfoodClient(claude_notebook_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Fix the failing notebook regression by editing the notebook, verify it, and commit.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=15,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
+            git_status, head_message = v1_commit_state(root)
             notebook = json.loads((root / "analysis.ipynb").read_text(encoding="utf-8"))
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
-        run_commands = [item for item in result.observations if item.kind == "run_command"]
+        observation_kinds = collect_observation_kinds(result)
+        run_commands = run_command_observations(result)
         notebook_read = next(item for item in result.observations if item.kind == "notebook_read")
         notebook_edit = next(item for item in result.observations if item.kind == "notebook_edit")
 
@@ -2800,20 +2822,17 @@ class V1DogfoodTests(unittest.TestCase):
             init_mcp_calculator_repo(root)
             client = DogfoodClient(claude_mcp_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Use the configured MCP tool for calculator guidance, fix the failing test, verify, and commit.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=17,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            git_status, head_message = v1_commit_state(root)
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
-        run_commands = [item for item in result.observations if item.kind == "run_command"]
+        observation_kinds = collect_observation_kinds(result)
+        run_commands = run_command_observations(result)
         mcp_tools = next(item for item in result.observations if item.kind == "mcp_tools")
         mcp_call = next(item for item in result.observations if item.kind == "mcp_call")
         third_turn_names = {str(tool["name"]) for tool in client.tools[2]}
@@ -2854,21 +2873,18 @@ class V1DogfoodTests(unittest.TestCase):
             init_hooked_calculator_repo(root)
             client = DogfoodClient(claude_hook_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Fix the calculator through the configured project hooks, verify it, and commit.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=17,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
+            git_status, head_message = v1_commit_state(root)
             hook_log = (root / ".vibeagent" / "hook.log").read_text(encoding="utf-8")
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
-        run_commands = [item for item in result.observations if item.kind == "run_command"]
+        observation_kinds = collect_observation_kinds(result)
+        run_commands = run_command_observations(result)
 
         assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add through hooks", 4)
         self.assertEqual(hook_log.splitlines(), ["PreToolUse:Edit", "PostToolUse:Edit"])
@@ -2900,19 +2916,16 @@ class V1DogfoodTests(unittest.TestCase):
             fixed_process_uuid = uuid.UUID("11111111-1111-2222-2222-222222222222")
 
             with patch("vibeagent.process_runtime.uuid.uuid4", return_value=fixed_process_uuid):
-                result = run_agent(
+                result = run_v1_dogfood_agent(
                     "Start a background readiness probe, inspect it, then fix the calculator test failure and commit.",
-                    base_dir=root,
+                    root=root,
                     client=client,
                     max_iterations=17,
-                    approval_handler=approve_all,
                 )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            git_status, head_message = v1_commit_state(root)
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
         run_command_positions = [index for index, kind in enumerate(observation_kinds) if kind == "run_command"]
         read_process = next(item for item in result.observations if item.kind == "read_process")
 
@@ -2959,19 +2972,16 @@ class V1DogfoodTests(unittest.TestCase):
             client = DogfoodClient(web_fetch_dogfood_responses())
 
             with patch("vibeagent.runtime_action_executor.fetch_public_document", return_value=fetched_contract) as fetch_public_document:
-                result = run_agent(
+                result = run_v1_dogfood_agent(
                     "Fetch the external calculator contract, then fix and commit the verified implementation.",
-                    base_dir=root,
+                    root=root,
                     client=client,
                     max_iterations=15,
-                    approval_handler=approve_all,
                 )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            git_status, head_message = v1_commit_state(root)
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
         web_fetch = next(item for item in result.observations if item.kind == "web_fetch")
         next_turn_payload = str(client.messages[2][-1].content)
 
@@ -3004,19 +3014,16 @@ class V1DogfoodTests(unittest.TestCase):
             init_broken_calculator_repo(root)
             client = DogfoodClient(diff_review_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Fix the calculator test failure, review the git diff, then commit the verified fix.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=15,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            git_status, head_message = v1_commit_state(root)
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
         status_observation = next(item for item in result.observations if item.kind == "git_status")
         diff_observation = next(item for item in result.observations if item.kind == "git_diff")
 
@@ -3050,19 +3057,16 @@ class V1DogfoodTests(unittest.TestCase):
             subprocess.run(["git", "commit", "-m", "add project instructions"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             client = DogfoodClient(project_context_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Load project instructions and repo map, then fix the calculator test failure and commit.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=15,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            git_status, head_message = v1_commit_state(root)
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
         instructions = next(item for item in result.observations if item.kind == "project_instructions")
         repo_map = next(item for item in result.observations if item.kind == "repo_map")
         after_context_prompt = "\n".join(str(message.content) for message in client.messages[2])
@@ -3095,19 +3099,16 @@ class V1DogfoodTests(unittest.TestCase):
             init_broken_calculator_repo(root)
             client = DogfoodClient(focused_tests_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Fix the calculator test failure, find focused tests, run them, and commit.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=16,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            git_status, head_message = v1_commit_state(root)
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
         related = next(item for item in result.observations if item.kind == "related_tests")
         focused = next(item for item in result.observations if item.kind == "focused_test_commands")
         run_focused = next(item for item in result.observations if item.kind == "run_focused_test_commands")
@@ -3139,19 +3140,16 @@ class V1DogfoodTests(unittest.TestCase):
             init_broken_calculator_repo(root)
             client = DogfoodClient(checkpoint_safety_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Create a rollback checkpoint, fix the calculator test failure, verify checkpoint safety, and commit.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=17,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            git_status, head_message = v1_commit_state(root)
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
         created_checkpoints = [item for item in result.observations if item.kind == "checkpoint_create" and item.checkpoint]
         listed = next(item for item in result.observations if item.kind == "checkpoint_list")
         status = next(item for item in result.observations if item.kind == "checkpoint_status")
@@ -3187,17 +3185,14 @@ class V1DogfoodTests(unittest.TestCase):
             init_broken_calculator_repo(root)
             client = DogfoodClient(session_handoff_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Fix the calculator test failure, commit it, and generate a session handoff.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=17,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            git_status, head_message = v1_commit_state(root)
+            events_text = session_events_text(root, result)
             completed_handoff_report = get_session_handoff_report(
                 root,
                 result.run_id,
@@ -3208,7 +3203,7 @@ class V1DogfoodTests(unittest.TestCase):
             )
             completed_handoff = extract_session_handoff_details(completed_handoff_report)
 
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
         handoff = next(item for item in result.observations if item.kind == "session_handoff")
 
         assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add before handoff", 4)
@@ -3243,20 +3238,17 @@ class V1DogfoodTests(unittest.TestCase):
             init_broken_calculator_repo(root)
             client = DogfoodClient(clarification_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Clarify the expected calculator behavior if needed, then fix and commit.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=14,
-                approval_handler=approve_all,
                 user_input_handler=lambda request: user_questions.append(request) or "addition",
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            git_status, head_message = v1_commit_state(root)
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
         ask_observation = next(item for item in result.observations if item.kind == "ask_user")
         second_turn_payload = str(client.messages[2][-1].content)
 
@@ -3297,21 +3289,18 @@ class V1DogfoodTests(unittest.TestCase):
             subprocess.run(["git", "commit", "-m", "add calculator repair skill"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             client = DogfoodClient(skill_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Use a relevant project skill to fix the calculator test failure and commit.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=16,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            git_status, head_message = v1_commit_state(root)
+            events_text = session_events_text(root, result)
 
         initial_prompt = "\n".join(str(message.content) for message in client.messages[0])
         after_skill_prompt = "\n".join(str(message.content) for message in client.messages[2])
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
         skill_observation = next(item for item in result.observations if item.kind == "skill")
 
         assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add with project skill", 4)
@@ -3338,19 +3327,16 @@ class V1DogfoodTests(unittest.TestCase):
             init_broken_calculator_repo(root)
             client = DogfoodClient(delegated_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Delegate the initial investigation, then fix the calculator test failure and commit.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=14,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            git_status, head_message = v1_commit_state(root)
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
         delegated = next(item for item in result.observations if item.kind == "delegate_task")
 
         assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add after delegation")
@@ -3387,20 +3373,17 @@ class V1DogfoodTests(unittest.TestCase):
             subprocess.run(["git", "commit", "-m", "add calc reviewer profile"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             client = DogfoodClient(profiled_delegated_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Delegate the initial investigation to the calc-reviewer profile, then fix and commit.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=14,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            git_status, head_message = v1_commit_state(root)
+            events_text = session_events_text(root, result)
 
         first_subagent_prompt = str(client.messages[1][0].content)
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
         delegated = next(item for item in result.observations if item.kind == "delegate_task")
 
         assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add after profiled delegation", 3)
@@ -3428,20 +3411,17 @@ class V1DogfoodTests(unittest.TestCase):
             init_broken_calculator_repo(root)
             client = DogfoodClient(code_delegated_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Delegate a code subagent to fix the calculator test failure and commit.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=8,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
+            git_status, head_message = v1_commit_state(root)
             calc_text = (root / "calc.py").read_text(encoding="utf-8")
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
         delegated = next(item for item in result.observations if item.kind == "delegate_task")
 
         assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add from code subagent", 2)
@@ -3486,9 +3466,9 @@ class V1DogfoodTests(unittest.TestCase):
             init_broken_calculator_repo(root)
             client = DogfoodClient(plan_mode_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Plan the calculator repair without changing files or running commands.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=4,
                 approval_policy="plan",
@@ -3498,7 +3478,7 @@ class V1DogfoodTests(unittest.TestCase):
 
         initial_prompt = "\n".join(str(message.content) for message in client.messages[0])
         exposed_names = {str(tool["name"]) for tools in client.tools for tool in tools}
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
 
         self.assertTrue(result.success)
         self.assertTrue(result.completion_ready)
@@ -3522,20 +3502,17 @@ class V1DogfoodTests(unittest.TestCase):
             init_broken_calculator_repo(root)
             client = DogfoodClient(multi_edit_dogfood_responses())
 
-            result = run_agent(
+            result = run_v1_dogfood_agent(
                 "Fix the calculator test failure using Claude MultiEdit and commit the verified fix.",
-                base_dir=root,
+                root=root,
                 client=client,
                 max_iterations=13,
-                approval_handler=approve_all,
             )
-            git_status = git_worktree_status(root)
-            head_message = git_head_subject(root)
+            git_status, head_message = v1_commit_state(root)
             calc_text = (root / "calc.py").read_text(encoding="utf-8")
-            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
-            events_text = events_path.read_text(encoding="utf-8")
+            events_text = session_events_text(root, result)
 
-        observation_kinds = [item.kind for item in result.observations]
+        observation_kinds = collect_observation_kinds(result)
 
         assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add with MultiEdit", 4)
         self.assertIn('"""Return the arithmetic sum."""', calc_text)
