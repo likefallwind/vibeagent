@@ -84,6 +84,27 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "AskUserQuestion",
+        "description": "Claude-compatible alias for asking one blocking clarification question.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "minLength": 1, "maxLength": 1000},
+                "options": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "uniqueItems": True,
+                    "items": {"type": "string", "minLength": 1, "maxLength": 200},
+                },
+                "allow_free_text": {"type": "boolean"},
+            },
+            "required": ["prompt"],
+            "dependentRequired": {"allow_free_text": ["options"]},
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "update_plan",
         "description": "Replace the current task plan with a concise checklist of remaining work.",
         "input_schema": {

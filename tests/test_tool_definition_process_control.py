@@ -36,7 +36,17 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         )
         self.assertEqual(
             [tool["name"] for tool in TASK_CONTROL_TOOL_DEFINITIONS],
-            ["ask_user", "update_plan", "todo_write", "todo_read", "TodoRead", "TodoWrite", "ExitPlanMode", "finish"],
+            [
+                "ask_user",
+                "AskUserQuestion",
+                "update_plan",
+                "todo_write",
+                "todo_read",
+                "TodoRead",
+                "TodoWrite",
+                "ExitPlanMode",
+                "finish",
+            ],
         )
         self.assertEqual(
             [tool["name"] for tool in CLAUDE_PROCESS_TOOL_DEFINITIONS],

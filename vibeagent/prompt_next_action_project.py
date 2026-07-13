@@ -4,6 +4,9 @@ from .types import Observation
 
 
 PROJECT_NEXT_ACTION_KINDS = {
+    "Agent",
+    "Task",
+    "WebFetch",
     "delegate_task",
     "suggest_checks",
     "check_suggested_checks",

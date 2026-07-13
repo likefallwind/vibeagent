@@ -98,10 +98,21 @@ class ToolCatalogTests(unittest.TestCase):
         report = get_tools_report()
         by_name = {str(tool["name"]): tool for tool in report["tools"] if isinstance(tool, dict)}
 
-        for name in ["TodoRead", "TodoWrite", "ExitPlanMode"]:
+        for name in ["AskUserQuestion", "TodoRead", "TodoWrite", "ExitPlanMode"]:
             self.assertIn(name, by_name)
             self.assertFalse(tool_requires_approval(name, ""))
             self.assertEqual(by_name[name]["category"], "session")
+
+    def test_claude_project_aliases_are_cataloged_with_approval_semantics(self) -> None:
+        report = get_tools_report()
+        by_name = {str(tool["name"]): tool for tool in report["tools"] if isinstance(tool, dict)}
+
+        for name in ["Agent", "Task", "WebFetch"]:
+            self.assertIn(name, by_name)
+            self.assertEqual(by_name[name]["category"], "project")
+        self.assertFalse(tool_requires_approval("Agent", ""))
+        self.assertFalse(tool_requires_approval("Task", ""))
+        self.assertTrue(tool_requires_approval("WebFetch", ""))
 
 
 if __name__ == "__main__":

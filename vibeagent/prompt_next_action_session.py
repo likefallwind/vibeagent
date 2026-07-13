@@ -385,6 +385,7 @@ def _session_files_next_action_instruction(base: str, latest: Observation) -> st
 
 
 SESSION_NEXT_ACTION_KINDS = {
+    "AskUserQuestion",
     "ExitPlanMode",
     "session_summary",
     "session_transcript",

@@ -14,6 +14,7 @@ from .workspace_core import RunWorkspace
 CORE_AGENT_TOOL_NAMES = frozenset(
     {
         "ask_user",
+        "AskUserQuestion",
         "Bash",
         "BashOutput",
         "check_edit_file",
@@ -60,6 +61,8 @@ CORE_AGENT_TOOL_NAMES = frozenset(
         "tool_search",
         "update_plan",
         "ExitPlanMode",
+        "Task",
+        "WebFetch",
         "web_fetch",
         "write_file",
         "Write",

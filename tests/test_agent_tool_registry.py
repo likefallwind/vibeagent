@@ -65,6 +65,7 @@ class AgentToolRegistryTests(unittest.TestCase):
         names = {str(tool["name"]) for tool in definitions}
 
         self.assertIn("read_file", names)
+        self.assertIn("AskUserQuestion", names)
         self.assertIn("Read", names)
         self.assertIn("LS", names)
         self.assertIn("Glob", names)
@@ -73,18 +74,20 @@ class AgentToolRegistryTests(unittest.TestCase):
         self.assertIn("TodoRead", names)
         self.assertIn("TodoWrite", names)
         self.assertIn("ExitPlanMode", names)
+        self.assertIn("Task", names)
         self.assertIn("BashOutput", names)
         self.assertNotIn("Bash", names)
         self.assertNotIn("Edit", names)
         self.assertNotIn("KillBash", names)
         self.assertNotIn("MultiEdit", names)
         self.assertNotIn("web_fetch", names)
+        self.assertNotIn("WebFetch", names)
         self.assertNotIn("Write", names)
         self.assertTrue(names.isdisjoint(APPROVAL_REQUIRED_TOOL_NAMES))
         self.assertEqual(
             activate_agent_tool_names(
                 active,
-                ["Bash", "Edit", "Read", "Write", "git_push", "python_dependencies"],
+                ["Bash", "Edit", "Read", "WebFetch", "Write", "git_push", "python_dependencies"],
                 "plan",
             ),
             ["python_dependencies"],
@@ -115,6 +118,9 @@ class AgentToolRegistryTests(unittest.TestCase):
             "TodoRead",
             "TodoWrite",
             "ExitPlanMode",
+            "AskUserQuestion",
+            "Task",
+            "WebFetch",
         ]:
             self.assertIn(name, names)
 

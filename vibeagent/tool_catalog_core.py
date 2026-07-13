@@ -77,7 +77,10 @@ def categorize_tools() -> dict[str, list[str]]:
 def tool_category(name: str) -> str:
     if name in {"delegate_task", "mcp_call", "mcp_servers", "mcp_tools", "web_fetch"}:
         return "project"
+    if name in {"Agent", "Task", "WebFetch"}:
+        return "project"
     if name in {
+        "AskUserQuestion",
         "ask_user",
         "ExitPlanMode",
         "todo_read",

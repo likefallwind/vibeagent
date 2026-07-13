@@ -107,4 +107,17 @@ RUNTIME_NETWORK_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "WebFetch",
+        "description": "Claude-compatible alias for fetching readable text from a public HTTP(S) technical document after approval.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Public HTTP or HTTPS document URL."},
+                "prompt": {"type": "string", "description": "Optional extraction or question prompt."},
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    },
 ]

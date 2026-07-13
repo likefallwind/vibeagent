@@ -19,7 +19,7 @@ class CommandRuntimeToolDefinitionTests(unittest.TestCase):
         self.assertEqual(COMMAND_SEQUENCE_TOOL_DEFINITIONS[0]["name"], "command_check")
         self.assertEqual(COMMAND_SEQUENCE_TOOL_DEFINITIONS[-1]["name"], "run_commands")
         self.assertEqual(RUNTIME_NETWORK_TOOL_DEFINITIONS[0]["name"], "port_check")
-        self.assertEqual(RUNTIME_NETWORK_TOOL_DEFINITIONS[-1]["name"], "web_fetch")
+        self.assertEqual(RUNTIME_NETWORK_TOOL_DEFINITIONS[-1]["name"], "WebFetch")
         self.assertEqual(ENVIRONMENT_RUNTIME_TOOL_DEFINITIONS[0]["name"], "environment_info")
 
     def test_command_runtime_tool_names_remain_in_original_order(self) -> None:
@@ -33,6 +33,7 @@ class CommandRuntimeToolDefinitionTests(unittest.TestCase):
                 "http_check",
                 "http_fetch",
                 "web_fetch",
+                "WebFetch",
                 "environment_info",
             ],
         )
