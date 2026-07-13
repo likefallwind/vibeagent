@@ -670,7 +670,9 @@ python -m vibeagent --json --doctor --cwd ../my-project
 Use `/help` to list local commands, `/model` to inspect the configured provider,
 model, base URL, and API key source, `/config` to inspect resolved provider,
 execution, project config, and cost-rate settings, `/status` to inspect local mode, approval,
-and resume state, `/tools` to inspect the model tool catalog, `/tool <name>` to
+and resume state, `/agents [--max-agents N]` to inspect project agent profile
+metadata, `/skills [--max-skills N]` to inspect project skill metadata,
+`/tools` to inspect the model tool catalog, `/tool <name>` to
 inspect one tool's description and input schema,
 `/tool-search [--max N] [--category CATEGORY] [--approval any|yes|no] <query>`
 to search tools by name, description, category, approval state, or input fields, `/permissions` to inspect
@@ -1222,7 +1224,9 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   `$ARGUMENTS`, `$1`-`$9`, and `${1}`-`${9}` into a normal coding task, so any
   resulting model actions still use the current approval policy. Optional
   frontmatter fields `description` and `argument-hint` populate the command
-  catalog without exposing template bodies.
+  catalog without exposing template bodies. `/agents` and `/skills` list only
+  project metadata; profile prompts and skill bodies are loaded only through the
+  corresponding model tools.
 - `vibeagent/agent.py`: orchestrates the ReAct loop. It creates a run
   session, builds model prompts, executes optional tool calls, records events,
   tracks the model's latest task plan, and stops on a plain text answer, a

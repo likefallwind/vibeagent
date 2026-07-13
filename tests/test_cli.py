@@ -53,9 +53,11 @@ class CliTests(unittest.TestCase):
         self.assertIn("parse_local_command", cli_command_namespace.__all__)
 
     def test_cli_command_namespace_uses_public_command_exports_only(self) -> None:
-        self.assertEqual(len(commands_module.__all__), 554)
+        self.assertEqual(len(commands_module.__all__), 556)
         self.assertEqual(command_export_names(commands_module), commands_module.__all__)
         self.assertEqual(command_export_names(commands_module), cli_command_namespace.__all__)
+        self.assertIn("get_agents_text", cli_command_namespace.__all__)
+        self.assertIn("get_skills_text", cli_command_namespace.__all__)
         self.assertNotIn("format_tool_property", cli_command_namespace.__all__)
         self.assertNotIn("get_blocked_command_reason", cli_command_namespace.__all__)
 
@@ -13873,6 +13875,62 @@ class CliTests(unittest.TestCase):
         self.assertIn("--max-files must be a positive integer.", output)
         self.assertIn("Unknown option: --unknown", output)
         get_commands_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_agents_and_skills_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/agents --max-agents 2",
+                    "/skills --max-skills=3",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_agents_text", return_value="Available project agent profiles:\n- reviewer") as get_agents_text,
+            patch("vibeagent.cli.get_skills_text", return_value="Available project skills:\n- testing") as get_skills_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Available project agent profiles:", output)
+        self.assertIn("Available project skills:", output)
+        get_agents_text.assert_called_once_with(max_agents=2)
+        get_skills_text.assert_called_once_with(max_skills=3)
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_agents_and_skills_option_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/agents --max-agents 0",
+                    "/skills --unknown 1",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_agents_text") as get_agents_text,
+            patch("vibeagent.cli.get_skills_text") as get_skills_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /agents [--max-agents N]", output)
+        self.assertIn("--max-agents must be a positive integer.", output)
+        self.assertIn("Usage: /skills [--max-skills N]", output)
+        self.assertIn("Unknown option: --unknown", output)
+        get_agents_text.assert_not_called()
+        get_skills_text.assert_not_called()
         create_chat_client.assert_not_called()
 
     def test_main_parses_interactive_manifests_options(self) -> None:

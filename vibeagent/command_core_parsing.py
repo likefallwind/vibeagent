@@ -14,6 +14,10 @@ def parse_core_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("config", None)
     if trimmed == "/custom-commands":
         return make_local_command("custom_commands", None)
+    if trimmed == "/agents" or trimmed.startswith("/agents "):
+        return make_local_command("agents", trimmed[7:].strip() or None)
+    if trimmed == "/skills" or trimmed.startswith("/skills "):
+        return make_local_command("skills", trimmed[7:].strip() or None)
     if trimmed == "/clear":
         return make_local_command("clear", None)
     if trimmed == "/usage":

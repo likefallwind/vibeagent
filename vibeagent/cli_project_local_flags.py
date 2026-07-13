@@ -347,6 +347,22 @@ def run_interactive_project_command(
         return commands["get_config_text"]()
     if command.type == "custom_commands":
         return commands["get_custom_commands_text"]()
+    if command.type == "agents":
+        return _option_limited_text(
+            command,
+            commands,
+            "Usage: /agents [--max-agents N]",
+            {"--max-agents": "max_agents"},
+            "get_agents_text",
+        )
+    if command.type == "skills":
+        return _option_limited_text(
+            command,
+            commands,
+            "Usage: /skills [--max-skills N]",
+            {"--max-skills": "max_skills"},
+            "get_skills_text",
+        )
     if command.type == "tools":
         return commands["get_tools_text"]()
     if command.type == "tool":
