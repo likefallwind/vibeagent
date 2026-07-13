@@ -385,7 +385,10 @@ def parse_edit_operations(value: Any, raw: str, action_type: str = "multi_edit_f
             raise ActionParseError(f"{action_type} edit {index} requires non-empty string old.", raw)
         if not isinstance(new, str):
             raise ActionParseError(f"{action_type} edit {index} requires string new.", raw)
-        edits.append(EditOperation(old=old, new=new))
+        replace_all = edit.get("replace_all", False)
+        if type(replace_all) is not bool:
+            raise ActionParseError(f"{action_type} edit {index} requires boolean replace_all.", raw)
+        edits.append(EditOperation(old=old, new=new, replace_all=replace_all))
     return edits
 
 

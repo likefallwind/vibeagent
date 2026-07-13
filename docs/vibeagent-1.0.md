@@ -33,6 +33,9 @@ local changes when asked, and resume from recorded session context.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `Read`, `Bash`, `Edit`, and `TodoRead`, then verifies and commits.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_apply_claude_multi_edit_and_commit`
+  applies a two-step Claude-compatible `MultiEdit`, including a `replace_all`
+  edit entry, then reruns tests, commits, and verifies the recorded session.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_delegate_read_only_investigation_before_repair`
   delegates the first investigation through the Claude-compatible `Task` alias,
   lets the read-only subagent use `Read`, then the parent fixes, verifies, and

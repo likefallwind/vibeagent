@@ -11,6 +11,7 @@ from vibeagent.prompts import format_observations
 from vibeagent.types import (
     ReadFileAction,
     ReadProcessAction,
+    MultiEditAction,
     RegexReplaceAction,
     RunCommandAction,
     SearchAction,
@@ -85,6 +86,31 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertEqual(observation.kind, "regex_replace")
         self.assertTrue(observation.ok)
         self.assertEqual(observation.replacements, 2)
+
+    def test_claude_multi_edit_replace_all_executes_global_entry_replacement(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-alias-") as base:
+            root = Path(base)
+            (root / "app.py").write_text("name = 'old'\nprint(name)\nprint(name)\n", encoding="utf-8")
+            action = parse_tool_action(
+                "MultiEdit",
+                {
+                    "file_path": "app.py",
+                    "edits": [
+                        {"old_string": "print(name)", "new_string": "log(name)", "replace_all": True},
+                        {"old_string": "'old'", "new_string": "'new'"},
+                    ],
+                },
+            )
+
+            observation = execute_action(create_run_workspace(root), action)
+
+            self.assertIsInstance(action, MultiEditAction)
+            self.assertTrue(action.edits[0].replace_all)
+            self.assertFalse(action.edits[1].replace_all)
+            self.assertEqual((root / "app.py").read_text(encoding="utf-8"), "name = 'new'\nlog(name)\nlog(name)\n")
+
+        self.assertEqual(observation.kind, "multi_edit_file")
+        self.assertTrue(observation.ok)
 
     def test_claude_bash_timeout_maps_to_run_command_timeout_ms(self) -> None:
         action = parse_tool_action(

@@ -1278,6 +1278,9 @@ class ActionTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionParseError, "edit 1 requires string new"):
             parse_tool_action("multi_edit_file", {"path": "app.py", "edits": [{"old": "a"}]})
 
+        with self.assertRaisesRegex(ActionParseError, "edit 1 requires boolean replace_all"):
+            parse_tool_action("multi_edit_file", {"path": "app.py", "edits": [{"old": "a", "new": "b", "replace_all": "yes"}]})
+
         with self.assertRaisesRegex(ActionParseError, "check_replace_lines action requires start_line"):
             parse_tool_action("check_replace_lines", {"path": "app.py", "end_line": 2, "content": "new\n"})
 

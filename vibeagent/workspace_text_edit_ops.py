@@ -104,18 +104,21 @@ def build_edit_file(workspace: RunWorkspace, relative_path: str, old: str, new: 
     return target, updated, build_simple_diff(relative_path, content, updated)
 
 
-def multi_edit_project_file(workspace: RunWorkspace, relative_path: str, edits: list[tuple[str, str]]) -> tuple[Path, str]:
+EditSpec = tuple[str, str] | tuple[str, str, bool]
+
+
+def multi_edit_project_file(workspace: RunWorkspace, relative_path: str, edits: list[EditSpec]) -> tuple[Path, str]:
     target, updated, diff = build_multi_edit(workspace, relative_path, edits)
     target.write_text(updated, encoding="utf-8")
     return target, diff
 
 
-def preview_multi_edit_project_file(workspace: RunWorkspace, relative_path: str, edits: list[tuple[str, str]]) -> tuple[Path, str]:
+def preview_multi_edit_project_file(workspace: RunWorkspace, relative_path: str, edits: list[EditSpec]) -> tuple[Path, str]:
     target, _updated, diff = build_multi_edit(workspace, relative_path, edits)
     return target, diff
 
 
-def build_multi_edit(workspace: RunWorkspace, relative_path: str, edits: list[tuple[str, str]]) -> tuple[Path, str, str]:
+def build_multi_edit(workspace: RunWorkspace, relative_path: str, edits: list[EditSpec]) -> tuple[Path, str, str]:
     target = resolve_mutation_path(workspace.root, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
@@ -124,12 +127,14 @@ def build_multi_edit(workspace: RunWorkspace, relative_path: str, edits: list[tu
 
     content = read_utf8_text_file(target, relative_path)
     updated = content
-    for index, (old, new) in enumerate(edits, start=1):
+    for index, edit in enumerate(edits, start=1):
+        old, new = edit[0], edit[1]
+        replace_all = len(edit) > 2 and edit[2]
         if old == "":
             raise ValueError(f"Edit {index} old text must not be empty.")
         if old not in updated:
             raise ValueError(f"Edit {index} old text was not found in {relative_path}")
-        updated = updated.replace(old, new, 1)
+        updated = updated.replace(old, new) if replace_all else updated.replace(old, new, 1)
 
     if updated == content:
         raise ValueError(f"Edits made no changes to {relative_path}")

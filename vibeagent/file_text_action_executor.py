@@ -110,7 +110,7 @@ def execute_text_file_action(workspace: RunWorkspace, action: object) -> Observa
             _, diff = preview_multi_edit_project_file(
                 workspace,
                 action.path,
-                [(edit.old, edit.new) for edit in action.edits],
+                [(edit.old, edit.new, edit.replace_all) for edit in action.edits],
             )
             ok = True
             message = f"Multi-edit can apply {len(action.edits)} edit(s) to {action.path}."
@@ -131,7 +131,7 @@ def execute_text_file_action(workspace: RunWorkspace, action: object) -> Observa
             _, diff = multi_edit_project_file(
                 workspace,
                 action.path,
-                [(edit.old, edit.new) for edit in action.edits],
+                [(edit.old, edit.new, edit.replace_all) for edit in action.edits],
             )
             ok = True
             message = f"Applied {len(action.edits)} edit(s) to {action.path}."

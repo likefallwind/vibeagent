@@ -135,6 +135,7 @@ CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "properties": {
                             "old_string": {"type": "string"},
                             "new_string": {"type": "string"},
+                            "replace_all": {"type": "boolean"},
                         },
                         "required": ["old_string", "new_string"],
                         "additionalProperties": False,

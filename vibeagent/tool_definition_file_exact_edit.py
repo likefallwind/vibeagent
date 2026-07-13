@@ -48,6 +48,7 @@ FILE_EXACT_EDIT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "properties": {
                             "old": {"type": "string"},
                             "new": {"type": "string"},
+                            "replace_all": {"type": "boolean"},
                         },
                         "required": ["old", "new"],
                         "additionalProperties": False,
@@ -74,6 +75,7 @@ FILE_EXACT_EDIT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "properties": {
                             "old": {"type": "string"},
                             "new": {"type": "string"},
+                            "replace_all": {"type": "boolean"},
                         },
                         "required": ["old", "new"],
                         "additionalProperties": False,

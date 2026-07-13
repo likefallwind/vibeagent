@@ -24,6 +24,7 @@ class CheckEditFileAction:
 class EditOperation:
     old: str
     new: str
+    replace_all: bool = False
 
 
 @dataclass(frozen=True)

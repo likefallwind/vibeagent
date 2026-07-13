@@ -16,6 +16,7 @@ DOGFOOD_TESTS = {
     "test_v1_agent_can_complete_repair_with_claude_code_tool_aliases",
     "test_v1_agent_can_delegate_read_only_investigation_before_repair",
     "test_v1_agent_plan_mode_inspects_without_mutating",
+    "test_v1_agent_can_apply_claude_multi_edit_and_commit",
 }
 
 EXPECTED_GATES = {
