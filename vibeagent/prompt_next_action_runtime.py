@@ -30,6 +30,9 @@ from .types import Observation
 
 
 RUNTIME_NEXT_ACTION_KINDS = {
+    "Bash",
+    "BashOutput",
+    "KillBash",
     "run_command",
     "start_command",
     "read_process",

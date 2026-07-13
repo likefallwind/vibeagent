@@ -5,7 +5,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from .agent_runtime_utils import append_session_event
-from .tool_catalog_core import APPROVAL_REQUIRED_TOOL_NAMES
+from .tool_catalog_core import tool_name_requires_approval
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
 from .types import ApprovalPolicy, Observation, ToolSearchAction
 from .workspace_core import RunWorkspace
@@ -14,6 +14,8 @@ from .workspace_core import RunWorkspace
 CORE_AGENT_TOOL_NAMES = frozenset(
     {
         "ask_user",
+        "Bash",
+        "BashOutput",
         "check_edit_file",
         "check_patch",
         "check_write_file",
@@ -29,6 +31,7 @@ CORE_AGENT_TOOL_NAMES = frozenset(
         "git_diff",
         "git_status",
         "glob",
+        "KillBash",
         "list_files",
         "list_tree",
         "mcp_servers",
@@ -66,7 +69,7 @@ class ToolVisibilityPolicy:
 
     def allows(self, name: str) -> bool:
         return name not in self.excluded_names and (
-            self.approval_policy != "plan" or name not in APPROVAL_REQUIRED_TOOL_NAMES
+            self.approval_policy != "plan" or not tool_name_requires_approval(name)
         )
 
 

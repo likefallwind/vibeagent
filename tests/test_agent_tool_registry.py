@@ -66,13 +66,29 @@ class AgentToolRegistryTests(unittest.TestCase):
 
         self.assertIn("read_file", names)
         self.assertIn("update_plan", names)
+        self.assertIn("BashOutput", names)
+        self.assertNotIn("Bash", names)
+        self.assertNotIn("KillBash", names)
         self.assertNotIn("web_fetch", names)
         self.assertTrue(names.isdisjoint(APPROVAL_REQUIRED_TOOL_NAMES))
         self.assertEqual(
-            activate_agent_tool_names(active, ["git_push", "python_dependencies"], "plan"),
+            activate_agent_tool_names(active, ["Bash", "BashOutput", "git_push", "python_dependencies"], "plan"),
             ["python_dependencies"],
         )
+        self.assertIn("BashOutput", active)
+        self.assertEqual(
+            activate_agent_tool_names(active, ["git_push"], "plan"),
+            [],
+        )
         self.assertNotIn("git_push", active)
+
+    def test_initial_tools_expose_claude_process_aliases_in_ask_mode(self) -> None:
+        definitions = agent_tool_definitions(initial_agent_tool_names())
+        names = {str(tool["name"]) for tool in definitions}
+
+        self.assertIn("Bash", names)
+        self.assertIn("BashOutput", names)
+        self.assertIn("KillBash", names)
 
     def test_visibility_policy_excludes_tools_from_schema_and_activation(self) -> None:
         active = initial_agent_tool_names()

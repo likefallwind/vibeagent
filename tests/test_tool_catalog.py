@@ -6,6 +6,8 @@ from vibeagent import tool_catalog, tool_catalog_core, tool_catalog_search
 from vibeagent.tool_catalog import (
     format_tool_search_report_text,
     get_tool_search_report,
+    get_tools_report,
+    tool_requires_approval,
     valid_tool_categories,
 )
 from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
@@ -65,6 +67,19 @@ class ToolCatalogTests(unittest.TestCase):
 
         self.assertEqual(report["matches"][0]["category"], "session")
         self.assertFalse(report["matches"][0]["approvalRequired"])
+
+    def test_claude_process_aliases_are_cataloged_with_approval_semantics(self) -> None:
+        report = get_tools_report()
+        by_name = {str(tool["name"]): tool for tool in report["tools"] if isinstance(tool, dict)}
+
+        self.assertIn("Bash", by_name)
+        self.assertIn("BashOutput", by_name)
+        self.assertIn("KillBash", by_name)
+        self.assertTrue(tool_requires_approval("Bash", ""))
+        self.assertFalse(tool_requires_approval("BashOutput", ""))
+        self.assertTrue(tool_requires_approval("KillBash", ""))
+        self.assertEqual(by_name["Bash"]["category"], "command")
+        self.assertEqual(by_name["BashOutput"]["category"], "command")
 
 
 if __name__ == "__main__":

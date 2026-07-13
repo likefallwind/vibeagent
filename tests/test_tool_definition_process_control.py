@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+from vibeagent.tool_definition_claude_process import CLAUDE_PROCESS_TOOL_DEFINITIONS
 from vibeagent.tool_definition_process_control import PROCESS_CONTROL_TOOL_DEFINITIONS
 from vibeagent.tool_definition_process_io import PROCESS_IO_TOOL_DEFINITIONS
 from vibeagent.tool_definition_process_output import PROCESS_OUTPUT_TOOL_DEFINITIONS
@@ -18,7 +19,8 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
             + PROCESS_OUTPUT_TOOL_DEFINITIONS
             + PROCESS_IO_TOOL_DEFINITIONS
             + PROCESS_STOP_TOOL_DEFINITIONS
-            + TASK_CONTROL_TOOL_DEFINITIONS,
+            + TASK_CONTROL_TOOL_DEFINITIONS
+            + CLAUDE_PROCESS_TOOL_DEFINITIONS,
         )
 
     def test_process_control_definition_boundaries_match_runtime_domains(self) -> None:
@@ -35,6 +37,10 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         self.assertEqual(
             [tool["name"] for tool in TASK_CONTROL_TOOL_DEFINITIONS],
             ["ask_user", "update_plan", "todo_write", "todo_read", "finish"],
+        )
+        self.assertEqual(
+            [tool["name"] for tool in CLAUDE_PROCESS_TOOL_DEFINITIONS],
+            ["Bash", "BashOutput", "KillBash"],
         )
 
     def test_todo_write_schema_accepts_plan_or_todos(self) -> None:

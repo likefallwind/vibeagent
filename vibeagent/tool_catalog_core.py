@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .action_tool_aliases import profile_tool_names
 from .tool_categories import TOOL_CATEGORIES
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
 
@@ -102,6 +103,9 @@ def tool_category(name: str) -> str:
     if name.startswith("git_") or name.startswith("check_git_"):
         return "git"
     if name in {
+        "Bash",
+        "BashOutput",
+        "KillBash",
         "command_check",
         "check_run_commands",
         "check_suggested_checks",
@@ -192,8 +196,14 @@ def tool_category(name: str) -> str:
     return "other"
 
 
-def tool_requires_approval(name: str, description: str) -> bool:
+def tool_name_requires_approval(name: str) -> bool:
     if name in APPROVAL_REQUIRED_TOOL_NAMES:
+        return True
+    return bool(profile_tool_names(name) & APPROVAL_REQUIRED_TOOL_NAMES)
+
+
+def tool_requires_approval(name: str, description: str) -> bool:
+    if tool_name_requires_approval(name):
         return True
     lowered = description.lower()
     return "requires approval" in lowered or "after approval" in lowered
