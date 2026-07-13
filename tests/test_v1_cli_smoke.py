@@ -12,9 +12,11 @@ from unittest.mock import patch
 from tests.test_v1_dogfood import (
     DogfoodClient,
     claude_compat_dogfood_responses,
+    claude_hook_dogfood_responses,
     claude_mcp_dogfood_responses,
     claude_notebook_dogfood_responses,
     init_broken_calculator_repo,
+    init_hooked_calculator_repo,
     init_mcp_calculator_repo,
     init_broken_notebook_repo,
     interrupted_dogfood_responses,
@@ -351,6 +353,40 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn("arithmetic sum", next_turn_payload)
         self.assertIn("Extract the expected behavior for calc.add.", next_turn_payload)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add using fetched contract")
+
+    def test_v1_cli_json_runs_project_hooks_around_claude_edit_and_commits(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-hooks-smoke-") as base:
+            root = Path(base)
+            init_hooked_calculator_repo(root)
+            client = DogfoodClient(claude_hook_dogfood_responses())
+            exit_code, payload = _run_json_cli(
+                client,
+                [
+                    "--output-format",
+                    "json",
+                    "--approval",
+                    "allow",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "17",
+                    "Fix the calculator through the configured project hooks, verify it, and commit.",
+                ],
+            )
+            events = _session_events(root, payload["runId"])
+            events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            hook_log = (root / ".vibeagent" / "hook.log").read_text(encoding="utf-8")
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload)
+        self.assertEqual(hook_log.splitlines(), ["PreToolUse:Edit", "PostToolUse:Edit"])
+        self.assertIn('"type": "hooks_loaded"', events_text)
+        self.assertIn('"type": "hook_completed"', events_text)
+        self.assertIn('"event": "PreToolUse"', events_text)
+        self.assertIn('"event": "PostToolUse"', events_text)
+        self.assertIn('"name": "Edit"', events_text)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add through hooks")
 
     def test_v1_cli_stream_json_input_format_can_repair_verify_commit_and_report_ready(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-input-stream-smoke-") as base:
