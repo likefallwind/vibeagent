@@ -34,6 +34,9 @@ local changes when asked, and resume from recorded session context.
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `LS`, `Glob`, `Grep`, `Read`, `Bash`, `Edit`, and `TodoRead`,
   then verifies and commits.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_manage_claude_background_process_before_repair`
+  starts a Claude-style background `Bash`, inspects it through `BashOutput`,
+  stops it through `KillBash`, then fixes, verifies, final-reviews, and commits.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_clarify_then_repair_verify_and_commit`
   uses the Claude-compatible `AskUserQuestion` alias to ask one blocking
   clarification, returns the selected answer to the model, then reads, edits,

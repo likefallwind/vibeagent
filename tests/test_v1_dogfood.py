@@ -3,7 +3,9 @@ from __future__ import annotations
 import subprocess
 import tempfile
 import unittest
+import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 from vibeagent.agent import run_agent
 from vibeagent.session_commands import get_resume_context
@@ -381,6 +383,137 @@ def claude_compat_dogfood_responses() -> list[list[ContentBlock]]:
             }
         ],
         [{"type": "text", "text": "Fixed with Claude-compatible tools, verified tests, and committed."}],
+    ]
+
+
+def background_process_dogfood_responses() -> list[list[ContentBlock]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-1",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Start and inspect a background probe", "status": "in_progress"},
+                        {"content": "Inspect calculator files", "status": "pending"},
+                        {"content": "Patch and verify implementation", "status": "pending"},
+                        {"content": "Stop probe, review, and commit", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bg-1",
+                "name": "Bash",
+                "input": {
+                    "command": "python -u -c \"import time; print('ready', flush=True); time.sleep(30)\"",
+                    "run_in_background": True,
+                    "timeout": 10_000,
+                    "max_output_chars": 1_000,
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "sleep-1",
+                "name": "Bash",
+                "input": {"command": "python -c \"import time; time.sleep(0.2)\"", "timeout": 10_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "out-1",
+                "name": "BashOutput",
+                "input": {"bash_id": "111111111111", "filter": "ready", "max_output_chars": 2_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-2",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Start and inspect a background probe", "status": "completed"},
+                        {"content": "Inspect calculator files", "status": "in_progress"},
+                        {"content": "Patch and verify implementation", "status": "pending"},
+                        {"content": "Stop probe, review, and commit", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {"type": "tool_call", "id": "read-1", "name": "Read", "input": {"file_path": "calc.py"}},
+            {"type": "tool_call", "id": "read-2", "name": "Read", "input": {"file_path": "tests/test_calc.py"}},
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "edit-1",
+                "name": "Edit",
+                "input": {
+                    "file_path": "calc.py",
+                    "old_string": "return left - right",
+                    "new_string": "return left + right",
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-1",
+                "name": "Bash",
+                "input": {"command": "python -m unittest discover -s tests", "timeout": 10_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-3",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Start and inspect a background probe", "status": "completed"},
+                        {"content": "Inspect calculator files", "status": "completed"},
+                        {"content": "Patch and verify implementation", "status": "completed"},
+                        {"content": "Stop probe, review, and commit", "status": "in_progress"},
+                    ]
+                },
+            }
+        ],
+        [{"type": "tool_call", "id": "stop-1", "name": "KillBash", "input": {"bash_id": "111111111111"}}],
+        [{"type": "tool_call", "id": "review-1", "name": "final_review", "input": {}}],
+        [{"type": "tool_call", "id": "stage-1", "name": "git_stage", "input": {"paths": ["calc.py"]}}],
+        [{"type": "tool_call", "id": "commit-1", "name": "git_commit", "input": {"message": "Fix calculator add after background probe"}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-4",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Start and inspect a background probe", "status": "completed"},
+                        {"content": "Inspect calculator files", "status": "completed"},
+                        {"content": "Patch and verify implementation", "status": "completed"},
+                        {"content": "Stop probe, review, and commit", "status": "completed"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "verify-1",
+                "name": "run_session_verification",
+                "input": {"include_pending": True, "include_failed": True, "timeout_ms": 10_000},
+            }
+        ],
+        [{"type": "text", "text": "Started and inspected the background probe, stopped it, fixed the calculator, verified, reviewed, and committed."}],
     ]
 
 
@@ -1248,6 +1381,73 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertLess(observation_kinds.index("search"), observation_kinds.index("read_file"))
         self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("edit_file"))
         self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("git_commit"))
+        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
+
+    def test_v1_agent_can_manage_claude_background_process_before_repair(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-background-dogfood-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(background_process_dogfood_responses())
+            fixed_process_uuid = uuid.UUID("11111111-1111-2222-2222-222222222222")
+
+            with patch("vibeagent.process_runtime.uuid.uuid4", return_value=fixed_process_uuid):
+                result = run_agent(
+                    "Start a background readiness probe, inspect it, then fix the calculator test failure and commit.",
+                    base_dir=root,
+                    client=client,
+                    max_iterations=17,
+                    approval_handler=approve_all,
+                )
+            git_status = subprocess.run(
+                ["git", "status", "--short"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout
+            head_message = subprocess.run(
+                ["git", "log", "-1", "--pretty=%s"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout.strip()
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events_text = events_path.read_text(encoding="utf-8")
+
+        observation_kinds = [item.kind for item in result.observations]
+        run_command_positions = [index for index, kind in enumerate(observation_kinds) if kind == "run_command"]
+        read_process = next(item for item in result.observations if item.kind == "read_process")
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_message, "Fix calculator add after background probe")
+        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        self.assertIn("start_command", observation_kinds)
+        self.assertIn("read_process", observation_kinds)
+        self.assertIn("stop_process", observation_kinds)
+        self.assertIn("edit_file", observation_kinds)
+        self.assertIn("run_command", observation_kinds)
+        self.assertIn("final_review", observation_kinds)
+        self.assertIn("run_session_verification", observation_kinds)
+        self.assertEqual(read_process.process_id, "111111111111")
+        self.assertIn("ready", read_process.stdout)
+        self.assertIn('"name": "Bash"', events_text)
+        self.assertIn('"name": "BashOutput"', events_text)
+        self.assertIn('"name": "KillBash"', events_text)
+        self.assertLess(observation_kinds.index("start_command"), observation_kinds.index("read_process"))
+        self.assertLess(observation_kinds.index("read_process"), observation_kinds.index("read_file"))
+        self.assertLess(observation_kinds.index("read_file"), observation_kinds.index("edit_file"))
+        self.assertLess(observation_kinds.index("edit_file"), run_command_positions[-1])
+        self.assertLess(run_command_positions[-1], observation_kinds.index("stop_process"))
+        self.assertLess(observation_kinds.index("stop_process"), observation_kinds.index("final_review"))
+        self.assertLess(observation_kinds.index("final_review"), observation_kinds.index("git_commit"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
 
     def test_v1_agent_can_clarify_then_repair_verify_and_commit(self) -> None:
