@@ -32,6 +32,11 @@ READING_PROJECT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "maximum": 1000,
                     "description": "Maximum entries to return. Defaults to 200.",
                 },
+                "ignore": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional glob patterns to omit from the tree, such as node_modules, *.pyc, or dist/**.",
+                },
             },
             "additionalProperties": False,
         },

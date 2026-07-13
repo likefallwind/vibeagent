@@ -48,6 +48,7 @@ class ListTreeAction:
     path: str | None = None
     max_depth: int = 3
     max_entries: int = 200
+    ignore: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

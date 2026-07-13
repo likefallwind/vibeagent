@@ -61,6 +61,7 @@ def execute_read_action(workspace, action: AgentAction) -> Observation | None:
                 action.path,
                 max_depth=action.max_depth,
                 max_entries=action.max_entries,
+                ignore=action.ignore,
             )
             truncated = len(entries) < total
             entry_word = "entry" if total == 1 else "entries"
@@ -83,6 +84,7 @@ def execute_read_action(workspace, action: AgentAction) -> Observation | None:
             max_depth=action.max_depth,
             ok=ok,
             message=message,
+            ignore=action.ignore,
         )
 
     if isinstance(action, RepoMapAction):

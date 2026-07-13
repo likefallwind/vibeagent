@@ -342,6 +342,7 @@ def list_project_tree(
     relative_path: str | None = None,
     max_depth: int = 3,
     max_entries: int = 200,
+    ignore: tuple[str, ...] = (),
 ) -> tuple[list[str], int]:
     if max_depth < 1:
         raise ValueError("max_depth must be at least 1.")
@@ -351,6 +352,7 @@ def list_project_tree(
         raise ValueError("max_entries must be at least 1.")
     if max_entries > 1000:
         raise ValueError("max_entries must be at most 1000.")
+    ignore_globs = normalize_list_tree_ignore(ignore)
 
     root = workspace.root.resolve()
     base = resolve_inside_run(root, relative_path or ".")
@@ -380,12 +382,44 @@ def list_project_tree(
             if should_ignore_path(root, resolved):
                 continue
             suffix = "/" if resolved.is_dir() else ""
-            entries.append(f"{resolved.relative_to(root).as_posix()}{suffix}")
+            relative = f"{resolved.relative_to(root).as_posix()}{suffix}"
+            if list_tree_entry_matches_ignore(relative, ignore_globs):
+                continue
+            entries.append(relative)
             if resolved.is_dir():
                 walk(resolved, depth + 1)
 
     walk(base, 1)
     return entries[:max_entries], len(entries)
+
+
+def normalize_list_tree_ignore(ignore: tuple[str, ...]) -> tuple[str, ...]:
+    normalized: list[str] = []
+    for pattern in ignore:
+        item = pattern.strip().replace("\\", "/")
+        if not item:
+            raise ValueError("ignore patterns must not be empty.")
+        normalized.append(item)
+    return tuple(normalized)
+
+
+def list_tree_entry_matches_ignore(relative_path: str, ignore_globs: tuple[str, ...]) -> bool:
+    if not ignore_globs:
+        return False
+    normalized_path = relative_path.strip("/").replace("\\", "/")
+    basename = Path(normalized_path).name
+    for pattern in ignore_globs:
+        normalized_pattern = pattern.strip("/").replace("\\", "/")
+        if not normalized_pattern:
+            continue
+        if normalized_pattern.endswith("/**"):
+            prefix = normalized_pattern[:-3].rstrip("/")
+            if normalized_path == prefix or normalized_path.startswith(f"{prefix}/"):
+                return True
+        target = normalized_path if "/" in normalized_pattern else basename
+        if fnmatch.fnmatchcase(target, normalized_pattern):
+            return True
+    return False
 
 
 def build_repo_map(

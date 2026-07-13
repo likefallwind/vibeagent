@@ -24,6 +24,7 @@ class ListTreeObservation:
     max_depth: int
     ok: bool
     message: str
+    ignore: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

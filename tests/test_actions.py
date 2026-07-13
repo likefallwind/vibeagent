@@ -881,6 +881,12 @@ class ActionTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionParseError, "max_entries must be at most 1000"):
             parse_tool_action("list_tree", {"max_entries": 1001})
 
+        with self.assertRaisesRegex(ActionParseError, "list_tree action ignore must be a list of strings"):
+            parse_tool_action("list_tree", {"ignore": "*.py"})
+
+        with self.assertRaisesRegex(ActionParseError, "list_tree action ignore must be a list of non-empty strings"):
+            parse_tool_action("list_tree", {"ignore": ["*.py", ""]})
+
         with self.assertRaisesRegex(ActionParseError, "repo_map action path must be a string"):
             parse_tool_action("repo_map", {"path": 1})
 
@@ -2306,7 +2312,7 @@ class ActionTests(unittest.TestCase):
                 ],
             },
         )
-        ls_action = parse_tool_action("LS", {"path": "src"})
+        ls_action = parse_tool_action("LS", {"path": "src", "ignore": ["*.pyc", "__pycache__"]})
         glob_action = parse_tool_action("Glob", {"pattern": "**/*.py", "path": "src"})
         grep_action = parse_tool_action("Grep", {"pattern": "needle", "path": "src", "head_limit": 7, "output_mode": "content"})
         todo_write_action = parse_tool_action("TodoWrite", {"todos": [{"content": "Plan", "status": "completed"}]})
@@ -2355,6 +2361,7 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(multi_edit_action.path, "app.py")
         self.assertEqual([(edit.old, edit.new) for edit in multi_edit_action.edits], [("old", "new"), ("second old", "second new")])
         self.assertEqual(ls_action.type, "list_tree")
+        self.assertEqual(ls_action.ignore, ("*.pyc", "__pycache__"))
         self.assertEqual(glob_action.type, "glob")
         self.assertEqual(glob_action.pattern, "src/**/*.py")
         self.assertEqual(grep_action.type, "search")
@@ -7679,6 +7686,25 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(invalid.kind, "list_tree")
         self.assertFalse(invalid.ok)
         self.assertIn("escapes", invalid.message)
+
+    def test_execute_list_tree_action_applies_ignore_globs(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            write_run_file(workspace, "src/app.py", "print('app')\n")
+            write_run_file(workspace, "src/app.pyc", "compiled\n")
+            write_run_file(workspace, "src/pkg/mod.py", "value = 1\n")
+            write_run_file(workspace, "src/pkg/cache/data.txt", "cached\n")
+
+            observation = execute_action(
+                workspace,
+                ListTreeAction(type="list_tree", path="src", max_depth=4, ignore=("*.pyc", "src/pkg/cache/**")),
+            )
+
+        self.assertEqual(observation.kind, "list_tree")
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.ignore, ("*.pyc", "src/pkg/cache/**"))
+        self.assertEqual(observation.entries, ["src/app.py", "src/pkg/", "src/pkg/mod.py"])
+        self.assertEqual(observation.total, 3)
 
     def test_execute_repo_map_action_reports_overview_and_invalid_paths(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:

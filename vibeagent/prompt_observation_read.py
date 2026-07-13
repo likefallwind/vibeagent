@@ -16,7 +16,8 @@ def format_read_observation(index: int, observation: object) -> str | None:
             [
                 (
                     f"{index}. list_tree {observation.path}: {observation.message} "
-                    f"maxDepth={observation.max_depth} truncated={str(observation.truncated).lower()}"
+                    f"maxDepth={observation.max_depth} truncated={str(observation.truncated).lower()} "
+                    f"ignore={list(observation.ignore)}"
                 ),
                 *observation.entries[:160],
             ]

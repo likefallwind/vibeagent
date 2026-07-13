@@ -70,11 +70,23 @@ def parse_read_action(action_type: object, value: dict[str, Any], raw: str) -> o
         path = value.get("path")
         max_depth = value.get("max_depth", 3)
         max_entries = value.get("max_entries", 200)
+        ignore = value.get("ignore", ())
         if path is not None and not isinstance(path, str):
             raise ActionParseError("list_tree action path must be a string when provided.", raw)
+        if not isinstance(ignore, (list, tuple)):
+            raise ActionParseError("list_tree action ignore must be a list of strings when provided.", raw)
+        ignore_patterns = tuple(item.strip() for item in ignore if isinstance(item, str) and item.strip())
+        if len(ignore_patterns) != len(ignore):
+            raise ActionParseError("list_tree action ignore must be a list of non-empty strings.", raw)
         max_depth = parse_optional_positive_int(max_depth, "max_depth", raw, maximum=10) or 3
         max_entries = parse_optional_positive_int(max_entries, "max_entries", raw, maximum=1000) or 200
-        return ListTreeAction(type="list_tree", path=path, max_depth=max_depth, max_entries=max_entries)
+        return ListTreeAction(
+            type="list_tree",
+            path=path,
+            max_depth=max_depth,
+            max_entries=max_entries,
+            ignore=ignore_patterns,
+        )
 
     if action_type == "repo_map":
         path = value.get("path")
