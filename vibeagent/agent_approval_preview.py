@@ -139,6 +139,20 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
         )
     if kind in {"patch_files", "check_patches"}:
         return ("patch_files",)
+    git_key = git_preview_key(kind, value)
+    if git_key is not None:
+        return git_key
+    if kind in {"checkpoint_restore", "check_checkpoint_restore", "checkpoint_delete", "check_checkpoint_delete"}:
+        return (kind.replace("check_", ""), getattr(value, "checkpoint_id", ""))
+    if kind in {"checkpoint_prune", "check_checkpoint_prune"}:
+        return ("checkpoint_prune", getattr(value, "keep_last", None))
+    run_key = run_preview_key(kind, value)
+    if run_key is not None:
+        return run_key
+    return (kind,)
+
+
+def git_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
     if kind in {"git_fetch", "check_git_fetch"}:
         return ("git_fetch", getattr(value, "remote", None) or "default remote")
     if kind in {"git_pull", "check_git_pull", "git_push", "check_git_push"}:
@@ -151,10 +165,10 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
         return ("git_stash", git_stash_preview_message(value), getattr(value, "include_untracked", False))
     if kind in {"git_stash_apply", "check_git_stash_apply", "git_stash_drop", "check_git_stash_drop"}:
         return (kind.replace("check_", ""), getattr(value, "stash_ref", ""))
-    if kind in {"checkpoint_restore", "check_checkpoint_restore", "checkpoint_delete", "check_checkpoint_delete"}:
-        return (kind.replace("check_", ""), getattr(value, "checkpoint_id", ""))
-    if kind in {"checkpoint_prune", "check_checkpoint_prune"}:
-        return ("checkpoint_prune", getattr(value, "keep_last", None))
+    return None
+
+
+def run_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
     if kind in {"run_command", "command_check", "start_command", "check_start_command"}:
         normalized = "run_command" if kind == "command_check" else kind.replace("check_", "")
         return (normalized, getattr(value, "command", ""), getattr(value, "cwd", None) or ".")
@@ -181,7 +195,7 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
         return ("stop_process", getattr(value, "process_id", ""))
     if kind in {"stop_all_processes", "check_stop_all_processes"}:
         return ("stop_all_processes",)
-    return (kind,)
+    return None
 
 
 def git_stash_preview_message(value: object) -> str:
