@@ -467,6 +467,8 @@ class CodeResultPayloadTests(unittest.TestCase):
 
         self.assertTrue(payload["pendingUserInput"])
         self.assertTrue(payload["pending_user_input"])
+        self.assertEqual(payload["stopReason"], "user_input")
+        self.assertEqual(payload["stop_reason"], "user_input")
         self.assertEqual(
             payload["userInputRequests"],
             [
@@ -505,6 +507,7 @@ class CodeResultPayloadTests(unittest.TestCase):
         payload = build_code_result_payload(result, prior_context=OneShotPriorContext(source="none"))
 
         self.assertFalse(payload["pendingUserInput"])
+        self.assertEqual(payload["stopReason"], "completed")
         self.assertEqual(payload["userInputRequests"][0]["answer"], "PostgreSQL")
         self.assertFalse(payload["userInputRequests"][0]["cancelled"])
 
@@ -512,6 +515,29 @@ class CodeResultPayloadTests(unittest.TestCase):
         root = Path("/tmp/vibeagent-result")
 
         self.assertEqual(code_result_stop_reason(_result(root)), "completed")
+        self.assertEqual(
+            code_result_stop_reason(
+                AgentResult(
+                    success=True,
+                    message="Need input",
+                    run_dir=root,
+                    run_id="run-1",
+                    iterations=1,
+                    observations=[
+                        UserInputObservation(
+                            kind="ask_user",
+                            question="Which database?",
+                            options=[],
+                            answer=None,
+                            cancelled=True,
+                            message="User input is unavailable.",
+                        )
+                    ],
+                    steps=[],
+                )
+            ),
+            "user_input",
+        )
         self.assertEqual(
             code_result_stop_reason(
                 AgentResult(

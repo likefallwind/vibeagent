@@ -38,9 +38,9 @@ class JsonEventStream:
 
 
 def build_code_result_payload(result: AgentResult, prior_context: object) -> dict[str, object]:
-    stop_reason = code_result_stop_reason(result)
     user_input_requests = code_result_user_input_requests(result)
-    pending_user_input = any(bool(request["cancelled"]) for request in user_input_requests)
+    pending_user_input = code_result_has_pending_user_input(result)
+    stop_reason = code_result_stop_reason(result)
     return {
         "kind": "code",
         "success": result.success,
@@ -93,11 +93,20 @@ def add_duration_fields(payload: dict[str, object], duration_ms: int) -> None:
 
 
 def code_result_stop_reason(result: AgentResult) -> str:
+    if code_result_has_pending_user_input(result):
+        return "user_input"
     if result.success and result.completion_ready:
         return "completed"
     if result.success and not result.completion_ready:
         return "blocked"
     return "failed"
+
+
+def code_result_has_pending_user_input(result: AgentResult) -> bool:
+    return any(
+        getattr(observation, "kind", None) == "ask_user" and bool(getattr(observation, "cancelled", False))
+        for observation in result.observations
+    )
 
 
 def code_result_user_input_requests(result: AgentResult) -> list[dict[str, object]]:
@@ -121,6 +130,7 @@ __all__ = [
     "JsonEventStream",
     "add_duration_fields",
     "build_code_result_payload",
+    "code_result_has_pending_user_input",
     "code_result_stop_reason",
     "code_result_user_input_requests",
     "error_result_payload",

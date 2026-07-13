@@ -384,6 +384,8 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "code")
         self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["stopReason"], "user_input")
+        self.assertEqual(payload["stop_reason"], "user_input")
         self.assertTrue(payload["success"])
         self.assertTrue(payload["pendingUserInput"])
         self.assertTrue(payload["pending_user_input"])
