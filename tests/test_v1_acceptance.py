@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import unittest
 from pathlib import Path
@@ -76,6 +77,14 @@ class V1AcceptanceTests(unittest.TestCase):
 
         self.assertIn(DOGFOOD_TEST, plan)
         self.assertIn(f"def {DOGFOOD_TEST}", dogfood_source)
+
+    def test_package_exposes_fast_v1_acceptance_script(self) -> None:
+        package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            package["scripts"]["test:v1"],
+            "python3 -m unittest tests.test_v1_acceptance tests.test_v1_dogfood -q",
+        )
 
     def test_readme_links_to_v1_acceptance_plan(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

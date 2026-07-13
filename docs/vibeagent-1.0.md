@@ -37,6 +37,7 @@ local changes when asked, and resume from recorded session context.
 
 ## 1.0 Exit Criteria
 
+- `npm run test:v1` passes from a clean worktree.
 - The full unit suite passes from a clean worktree.
 - A dedicated 1.0 acceptance test confirms every gate above maps to concrete
   tools and regression tests.

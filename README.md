@@ -1561,4 +1561,5 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
 ```sh
 python -m unittest discover -s tests
 npm test
+npm run test:v1
 ```
