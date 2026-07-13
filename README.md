@@ -136,7 +136,7 @@ and prints only the final text in normal text output, `-r` is an alias for
 session for a one-shot task,
 `--permission-mode` maps to `--approval`, accepting both VibeAgent values
 (`ask`, `allow`, `deny`, `plan`) and Claude-style values (`default` -> `ask`,
-`acceptEdits` -> `ask` plus an automatic `Edit` allow rule,
+`acceptEdits` -> `ask` plus automatic `Edit` and `NotebookEdit` allow rules,
 `bypassPermissions` -> `allow`), and `--max-turns` maps to `--max-iterations`.
 One-shot code tasks can invoke project prompt commands from
 `.claude/commands/**/*.md` or `.agents/commands/**/*.md`, for example:
