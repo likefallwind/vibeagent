@@ -21,12 +21,14 @@ def build_action_target(action: object) -> str:
             t.EditFileAction,
             t.CheckMultiEditAction,
             t.MultiEditAction,
+            t.NotebookEditAction,
             t.CheckReplaceLinesAction,
             t.CheckPatchAction,
             t.PatchFileAction,
             t.CheckDeleteFileAction,
             t.DeleteFileAction,
             t.ReadFileAction,
+            t.NotebookReadAction,
         ),
     ):
         return action.path

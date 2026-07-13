@@ -39,6 +39,13 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             target=action.path,
             risk="This will apply multiple exact replacements to an existing file in the active project.",
         )
+    if isinstance(action, t.NotebookEditAction):
+        target = f"{action.path} cell {action.cell_id or action.cell_number}"
+        return t.ApprovalRequest(
+            action_type="notebook_edit",
+            target=target,
+            risk="This will modify a notebook cell in the active project.",
+        )
     if isinstance(action, t.ReplacePythonDefinitionAction):
         return t.ApprovalRequest(
             action_type="replace_python_definition",

@@ -138,6 +138,10 @@ from .observation_git_types import (
     GitSwitchObservation,
     GitUnstageObservation,
 )
+from .observation_notebook_types import (
+    NotebookEditObservation,
+    NotebookReadObservation,
+)
 from .observation_mcp_types import McpCallObservation, McpServersObservation, McpToolsObservation
 from .observation_process_types import (
     CheckRunCommandsObservation,
@@ -238,6 +242,7 @@ Observation: TypeAlias = (
     | ListFilesObservation
     | ListTreeObservation
     | RepoMapObservation
+    | NotebookReadObservation
     | ReadFileObservation
     | ReadFileContextObservation
     | ReadFileContextsObservation
@@ -366,6 +371,7 @@ Observation: TypeAlias = (
     | CheckpointPruneObservation
     | CheckEditFileObservation
     | EditFileObservation
+    | NotebookEditObservation
     | MultiEditObservation
     | CheckMultiEditObservation
     | CheckReplacePythonDefinitionObservation

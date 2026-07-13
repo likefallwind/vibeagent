@@ -122,6 +122,10 @@ from .action_git_types import (
     GitSwitchAction,
     GitUnstageAction,
 )
+from .action_notebook_types import (
+    NotebookEditAction,
+    NotebookReadAction,
+)
 from .action_json_types import (
     CheckJsonPatchAction,
     CheckJsonRemoveAction,

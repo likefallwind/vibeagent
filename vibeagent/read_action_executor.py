@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .output_conversion import output_context_results_from_dicts, output_diagnostics_from_dicts
+from .notebook_action_executor import execute_notebook_action
 from .read_action_file_observations import execute_read_file_action
 from .types import (
     AgentAction,
@@ -32,6 +33,10 @@ def execute_read_action(workspace, action: AgentAction) -> Observation | None:
     file_observation = execute_read_file_action(workspace, action)
     if file_observation is not None:
         return file_observation
+
+    notebook_observation = execute_notebook_action(workspace, action)
+    if notebook_observation is not None:
+        return notebook_observation
 
     if isinstance(action, ListFilesAction):
         try:

@@ -42,6 +42,7 @@ APPROVAL_REQUIRED_TOOL_NAMES = {
     "move_file",
     "move_files",
     "multi_edit_file",
+    "notebook_edit",
     "patch_file",
     "patch_files",
     "python_rename",
@@ -145,6 +146,7 @@ def tool_category(name: str) -> str:
         "Grep",
         "LS",
         "NotebookRead",
+        "notebook_read",
         "Read",
         "list_files",
         "list_tree",
@@ -186,6 +188,7 @@ def tool_category(name: str) -> str:
     edit_keywords = (
         "Edit",
         "MultiEdit",
+        "notebook_edit",
         "NotebookEdit",
         "Write",
         "append",

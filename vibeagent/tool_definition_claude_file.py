@@ -20,7 +20,7 @@ CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "NotebookRead",
-        "description": "Claude-compatible alias for reading one project notebook file as project text.",
+        "description": "Claude-compatible alias for reading a project notebook as structured cell summaries.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -28,7 +28,7 @@ CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "offset": {"type": "integer", "minimum": 0},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 2000},
             },
-            "required": ["notebook_path"],
+            "required": ["notebook_path", "cell_number", "new_source"],
             "additionalProperties": False,
         },
     },
@@ -106,16 +106,20 @@ CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "NotebookEdit",
-        "description": "Claude-compatible alias for editing one project notebook file after approval.",
+        "description": "Claude-compatible alias for editing one project notebook cell after approval. Also accepts old_string/new_string for legacy raw-text notebook edits.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "notebook_path": {"type": "string"},
+                "cell_id": {"type": "string"},
+                "cell_number": {"type": "integer", "minimum": 1},
+                "new_source": {"type": "string"},
+                "cell_type": {"type": "string", "enum": ["code", "markdown", "raw"]},
                 "old_string": {"type": "string"},
                 "new_string": {"type": "string"},
                 "replace_all": {"type": "boolean"},
             },
-            "required": ["notebook_path", "old_string", "new_string"],
+            "required": ["notebook_path", "cell_number", "new_source"],
             "additionalProperties": False,
         },
     },

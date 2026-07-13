@@ -25,8 +25,8 @@ CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
     "KillBash": "stop_process",
     "LS": "list_tree",
     "MultiEdit": "multi_edit_file",
-    "NotebookEdit": "edit_file",
-    "NotebookRead": "read_file",
+    "NotebookEdit": "notebook_edit",
+    "NotebookRead": "notebook_read",
     "Read": "read_file",
     "Task": "delegate_task",
     "TodoRead": "todo_read",
@@ -126,8 +126,8 @@ CLAUDE_TOOL_ALIASES = {
     "KillBash": frozenset({"stop_process"}),
     "LS": frozenset({"list_tree"}),
     "MultiEdit": frozenset({"multi_edit_file"}),
-    "NotebookEdit": FILE_EDIT_TOOL_NAMES,
-    "NotebookRead": FILE_READ_TOOL_NAMES,
+    "NotebookEdit": FILE_EDIT_TOOL_NAMES | frozenset({"notebook_edit"}),
+    "NotebookRead": FILE_READ_TOOL_NAMES | frozenset({"notebook_read"}),
     "Read": FILE_READ_TOOL_NAMES,
     "Task": frozenset({"delegate_task"}),
     "TodoRead": frozenset({"session_plan"}),
@@ -188,7 +188,11 @@ def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, d
             dict(tool_input),
             {"run_in_background", "timeout", "timeout_ms", "max_output_chars"},
         )
-    if name in {"Edit", "NotebookEdit"} and tool_input.get("replace_all") is True:
+    if name == "NotebookEdit" and "old_string" in tool_input and "new_string" in tool_input:
+        if tool_input.get("replace_all") is True:
+            return "regex_replace", _normalize_edit_replace_all_input(tool_input)
+        return "edit_file", _normalize_edit_file_input(tool_input)
+    if name == "Edit" and tool_input.get("replace_all") is True:
         return "regex_replace", _normalize_edit_replace_all_input(tool_input)
 
     normalizer = _NAME_INPUT_NORMALIZERS.get(name) or _ACTION_INPUT_NORMALIZERS.get(action_type)
@@ -270,6 +274,16 @@ def _normalize_claude_read_file_input(value: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+def _normalize_claude_notebook_read_input(value: dict[str, Any]) -> dict[str, Any]:
+    normalized = _rename_fields(
+        value,
+        {"notebook_path": "path", "offset": "start_cell", "limit": "cell_count"},
+    )
+    if normalized.get("start_cell") == 0:
+        normalized["start_cell"] = 1
+    return normalized
+
+
 def _normalize_path_alias_input(value: dict[str, Any]) -> dict[str, Any]:
     return _rename_fields(value, {"file_path": "path"})
 
@@ -278,6 +292,13 @@ def _normalize_edit_file_input(value: dict[str, Any]) -> dict[str, Any]:
     return _rename_fields(
         value,
         {"file_path": "path", "notebook_path": "path", "old_string": "old", "new_string": "new"},
+    )
+
+
+def _normalize_notebook_edit_input(value: dict[str, Any]) -> dict[str, Any]:
+    return _rename_fields(
+        value,
+        {"notebook_path": "path"},
     )
 
 
@@ -307,8 +328,9 @@ def _normalize_claude_mcp_tool_action(name: str, tool_input: dict[str, Any]) -> 
 _NAME_INPUT_NORMALIZERS: dict[str, ToolInputNormalizer] = {
     "Bash": _normalize_bash_input,
     "ExitPlanMode": _normalize_exit_plan_mode_input,
-    "NotebookRead": _normalize_claude_read_file_input,
+    "NotebookRead": _normalize_claude_notebook_read_input,
     "Read": _normalize_claude_read_file_input,
+    "NotebookEdit": _normalize_notebook_edit_input,
 }
 
 

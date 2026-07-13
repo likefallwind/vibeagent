@@ -12,6 +12,7 @@ from vibeagent.types import (
     ReadFileAction,
     ReadProcessAction,
     MultiEditAction,
+    NotebookReadAction,
     RegexReplaceAction,
     RunCommandAction,
     SearchAction,
@@ -32,9 +33,9 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertIsInstance(action, ReadFileAction)
         self.assertEqual(action.start_line, 1)
         self.assertEqual(action.line_count, 5)
-        self.assertIsInstance(notebook_action, ReadFileAction)
-        self.assertEqual(notebook_action.start_line, 1)
-        self.assertEqual(notebook_action.line_count, 3)
+        self.assertIsInstance(notebook_action, NotebookReadAction)
+        self.assertEqual(notebook_action.start_cell, 1)
+        self.assertEqual(notebook_action.cell_count, 3)
 
     def test_claude_edit_replace_all_maps_to_literal_regex_replace(self) -> None:
         action = parse_tool_action(

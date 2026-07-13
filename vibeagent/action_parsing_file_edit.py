@@ -56,6 +56,7 @@ from .types import (
     MoveDirectoryAction,
     MoveDirectoriesAction,
     MultiEditAction,
+    NotebookEditAction,
     PatchFileAction,
     PatchFilesAction,
     RegexReplaceAction,
@@ -69,6 +70,7 @@ from .types import (
 FILE_EDIT_ACTION_TYPES = {
     "check_edit_file",
     "edit_file",
+    "notebook_edit",
     "check_multi_edit_file",
     "multi_edit_file",
     "check_replace_lines",
@@ -199,6 +201,28 @@ def parse_file_edit_action(action_type: object, value: dict[str, Any], raw: str)
         old = _parse_string_field(value.get("old"), raw, "edit_file action requires string old.")
         new = _parse_string_field(value.get("new"), raw, "edit_file action requires string new.")
         return EditFileAction(type="edit_file", path=path, old=old, new=new)
+
+    if action_type == "notebook_edit":
+        path = _parse_string_field(value.get("path"), raw, "notebook_edit action requires a string path.")
+        new_source = _parse_string_field(value.get("new_source"), raw, "notebook_edit action requires string new_source.")
+        cell_id = value.get("cell_id")
+        cell_number = value.get("cell_number")
+        cell_type = value.get("cell_type")
+        if cell_id is not None and not isinstance(cell_id, str):
+            raise ActionParseError("notebook_edit action cell_id must be a string when provided.", raw)
+        parsed_cell_number = parse_optional_positive_int(cell_number, "cell_number", raw, maximum=1_000_000)
+        if cell_id is None and parsed_cell_number is None:
+            raise ActionParseError("notebook_edit action requires cell_id or cell_number.", raw)
+        if cell_type is not None and not isinstance(cell_type, str):
+            raise ActionParseError("notebook_edit action cell_type must be a string when provided.", raw)
+        return NotebookEditAction(
+            type="notebook_edit",
+            path=path,
+            new_source=new_source,
+            cell_id=cell_id,
+            cell_number=parsed_cell_number,
+            cell_type=cell_type,
+        )
 
     if action_type == "check_multi_edit_file":
         path = _parse_string_field(value.get("path"), raw, "check_multi_edit_file action requires a string path.")

@@ -36,6 +36,26 @@ def format_read_observation(index: int, observation: object) -> str | None:
                 f"content:\n{truncate(observation.content)}",
             ]
         )
+    if observation.kind == "notebook_read":
+        parts = [
+            (
+                f"{index}. notebook_read {observation.path}: {observation.message} "
+                f"ok={str(observation.ok).lower()} "
+                f"cells={len(observation.cells)}/{observation.total_cells} "
+                f"startCell={observation.start_cell} cellCount={observation.cell_count} "
+                f"truncated={str(observation.truncated).lower()}"
+            )
+        ]
+        for cell in observation.cells:
+            parts.append(
+                (
+                    f"cell {cell.cell_number} id={cell.cell_id or 'none'} type={cell.cell_type} "
+                    f"executionCount={cell.execution_count if cell.execution_count is not None else 'none'} "
+                    f"outputs={cell.output_count} sourceTruncated={str(cell.source_truncated).lower()}"
+                )
+            )
+            parts.append(f"source:\n{truncate(cell.source)}")
+        return "\n".join(parts)
     if observation.kind == "read_file_context":
         return "\n".join(
             [

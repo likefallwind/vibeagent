@@ -129,6 +129,10 @@ from .action_json_types import (
     JsonRemoveAction,
     JsonSetAction,
 )
+from .action_notebook_types import (
+    NotebookEditAction,
+    NotebookReadAction,
+)
 from .action_mcp_types import McpCallAction, McpServersAction, McpToolsAction
 from .action_process_types import (
     CheckRunCommandsAction,
@@ -225,6 +229,7 @@ AgentAction: TypeAlias = (
     | ListFilesAction
     | ListTreeAction
     | RepoMapAction
+    | NotebookReadAction
     | ReadFileAction
     | ReadFileContextAction
     | ReadFileContextsAction
@@ -355,6 +360,7 @@ AgentAction: TypeAlias = (
     | CheckpointPruneAction
     | CheckEditFileAction
     | EditFileAction
+    | NotebookEditAction
     | MultiEditAction
     | CheckMultiEditAction
     | CheckReplaceLinesAction

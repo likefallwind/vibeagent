@@ -19,6 +19,7 @@ from .types import (
     ViewImageAction,
     ListFilesAction,
     ListTreeAction,
+    NotebookReadAction,
     OutputContextsAction,
     OutputDiagnosticsAction,
     PythonCheckAction,
@@ -38,6 +39,7 @@ READ_ACTION_TYPES = {
     "list_tree",
     "repo_map",
     "read_file",
+    "notebook_read",
     "read_file_context",
     "read_file_contexts",
     "output_contexts",
@@ -127,6 +129,19 @@ def parse_read_action(action_type: object, value: dict[str, Any], raw: str) -> o
             line_count=line_count,
             max_bytes=max_bytes,
             show_line_numbers=show_line_numbers,
+        )
+
+    if action_type == "notebook_read":
+        path = value.get("path")
+        if not isinstance(path, str):
+            raise ActionParseError("notebook_read action requires a string path.", raw)
+        return NotebookReadAction(
+            type="notebook_read",
+            path=path,
+            start_cell=parse_optional_positive_int(value.get("start_cell"), "start_cell", raw, maximum=10_000) or 1,
+            cell_count=parse_optional_positive_int(value.get("cell_count"), "cell_count", raw, maximum=200) or 50,
+            include_outputs=value.get("include_outputs") is True,
+            max_source_chars=parse_optional_positive_int(value.get("max_source_chars"), "max_source_chars", raw, maximum=20_000) or 2_000,
         )
 
     if action_type == "read_file_context":

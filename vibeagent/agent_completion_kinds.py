@@ -6,6 +6,7 @@ PROJECT_CHANGE_OBSERVATION_KINDS = {
     "write_files",
     "edit_file",
     "multi_edit_file",
+    "notebook_edit",
     "replace_python_definition",
     "code_rename",
     "python_rename",

@@ -34,6 +34,10 @@ def observation_failed(observation: Observation) -> bool:
         return not observation.ok
     if observation.kind == "multi_edit_file":
         return not observation.ok
+    if observation.kind == "notebook_read":
+        return not observation.ok
+    if observation.kind == "notebook_edit":
+        return not observation.ok
     if observation.kind == "check_replace_python_definition":
         return not observation.ok
     if observation.kind == "replace_python_definition":

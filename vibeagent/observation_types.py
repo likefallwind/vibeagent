@@ -279,6 +279,11 @@ from .observation_git_types import (
     GitUnstageObservation,
     UntrackedFilePreview,
 )
+from .observation_notebook_types import (
+    NotebookCellSummary,
+    NotebookEditObservation,
+    NotebookReadObservation,
+)
 from .observation_mcp_types import (
     McpCallObservation,
     McpServerInfo,
