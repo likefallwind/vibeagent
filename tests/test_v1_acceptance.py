@@ -18,6 +18,7 @@ DOGFOOD_TESTS = {
     "test_v1_agent_can_use_web_fetch_before_repair",
     "test_v1_agent_reviews_git_diff_before_commit",
     "test_v1_agent_loads_project_instructions_and_repo_map_before_repair",
+    "test_v1_agent_finds_and_runs_focused_tests_before_commit",
     "test_v1_agent_can_clarify_then_repair_verify_and_commit",
     "test_v1_agent_can_load_project_skill_then_repair_verify_and_commit",
     "test_v1_agent_can_delegate_read_only_investigation_before_repair",
