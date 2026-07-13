@@ -11,6 +11,7 @@ from .session import (
 )
 from .session_action_helpers import select_session_run_id, session_file_references
 from .session_audit_formatting import format_session_handoff_report_text
+from .session_completion_detail_fields import completion_detail_kwargs_from_object
 from .session_handoff_details import empty_session_handoff_details, extract_session_handoff_details
 from .types import (
     SessionAuditAction,
@@ -47,14 +48,7 @@ def execute_session_audit_action(workspace: RunWorkspace, action: SessionAuditAc
         completion_ready: bool | None = None
         completion_blockers: list[str] = []
         latest_completion_blockers: list[str] = []
-        latest_completion_pending_verification_checks: list[str] = []
-        latest_completion_failed_verification_checks: list[str] = []
-        latest_completion_final_review_issues: list[str] = []
-        latest_completion_final_review_changed_files: list[str] = []
-        latest_completion_tool_errors: list[str] = []
-        latest_completion_checkpoint_failures: list[str] = []
-        latest_completion_active_background_processes: list[str] = []
-        latest_completion_denied_approvals: list[str] = []
+        completion_detail_kwargs: dict[str, list[str]] = {}
         if ok:
             summary = summarize_session(workspace.root, run_id)
             events = read_session_events(workspace.root, run_id)
@@ -68,14 +62,7 @@ def execute_session_audit_action(workspace: RunWorkspace, action: SessionAuditAc
             completion_ready = summary.completion_ready
             completion_blockers = list(summary.completion_blockers)
             latest_completion_blockers = list(summary.latest_completion_blockers)
-            latest_completion_pending_verification_checks = list(summary.latest_completion_pending_verification_checks)
-            latest_completion_failed_verification_checks = list(summary.latest_completion_failed_verification_checks)
-            latest_completion_final_review_issues = list(summary.latest_completion_final_review_issues)
-            latest_completion_final_review_changed_files = list(summary.latest_completion_final_review_changed_files)
-            latest_completion_tool_errors = list(summary.latest_completion_tool_errors)
-            latest_completion_checkpoint_failures = list(summary.latest_completion_checkpoint_failures)
-            latest_completion_active_background_processes = list(summary.latest_completion_active_background_processes)
-            latest_completion_denied_approvals = list(summary.latest_completion_denied_approvals)
+            completion_detail_kwargs = completion_detail_kwargs_from_object(summary)
             active_background_processes = [
                 SessionAuditProcess(
                     process_id=process.process_id,
@@ -100,14 +87,7 @@ def execute_session_audit_action(workspace: RunWorkspace, action: SessionAuditAc
         completion_ready = None
         completion_blockers = []
         latest_completion_blockers = []
-        latest_completion_pending_verification_checks = []
-        latest_completion_failed_verification_checks = []
-        latest_completion_final_review_issues = []
-        latest_completion_final_review_changed_files = []
-        latest_completion_tool_errors = []
-        latest_completion_checkpoint_failures = []
-        latest_completion_active_background_processes = []
-        latest_completion_denied_approvals = []
+        completion_detail_kwargs = {}
         message = str(error)
     return SessionAuditObservation(
         kind="session_audit",
@@ -126,14 +106,7 @@ def execute_session_audit_action(workspace: RunWorkspace, action: SessionAuditAc
         completion_ready=completion_ready,
         completion_blockers=completion_blockers,
         latest_completion_blockers=latest_completion_blockers,
-        latest_completion_pending_verification_checks=latest_completion_pending_verification_checks,
-        latest_completion_failed_verification_checks=latest_completion_failed_verification_checks,
-        latest_completion_final_review_issues=latest_completion_final_review_issues,
-        latest_completion_final_review_changed_files=latest_completion_final_review_changed_files,
-        latest_completion_tool_errors=latest_completion_tool_errors,
-        latest_completion_checkpoint_failures=latest_completion_checkpoint_failures,
-        latest_completion_active_background_processes=latest_completion_active_background_processes,
-        latest_completion_denied_approvals=latest_completion_denied_approvals,
+        **completion_detail_kwargs,
     )
 
 
@@ -188,12 +161,5 @@ def execute_session_handoff_action(workspace: RunWorkspace, action: SessionHando
         completion_ready=details.completion_ready,
         completion_blockers=details.completion_blockers,
         latest_completion_blockers=details.latest_completion_blockers,
-        latest_completion_pending_verification_checks=details.latest_completion_pending_verification_checks,
-        latest_completion_failed_verification_checks=details.latest_completion_failed_verification_checks,
-        latest_completion_final_review_issues=details.latest_completion_final_review_issues,
-        latest_completion_final_review_changed_files=details.latest_completion_final_review_changed_files,
-        latest_completion_tool_errors=details.latest_completion_tool_errors,
-        latest_completion_checkpoint_failures=details.latest_completion_checkpoint_failures,
-        latest_completion_active_background_processes=details.latest_completion_active_background_processes,
-        latest_completion_denied_approvals=details.latest_completion_denied_approvals,
+        **completion_detail_kwargs_from_object(details),
     )

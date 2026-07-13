@@ -7,6 +7,7 @@ from .prompt_observation_output import (
     format_session_output_diagnostics_observation,
 )
 from .prompt_observation_utils import truncate
+from .session_completion_detail_fields import completion_detail_prompt_lines
 
 
 def format_verification_command_lines(label: str, commands: list[dict[str, object]], total: int) -> list[str]:
@@ -69,30 +70,6 @@ def format_file_reference_lines(
             suffix = f" uses={','.join(uses)}" if uses else ""
             file_lines.append(f"file: {path}{suffix}")
     return file_lines
-
-
-def format_completion_detail_lines(observation: object, max_items: int = 20) -> list[str]:
-    fields = (
-        ("latest_completion_pending_verification_checks", "latestCompletionPendingCheck"),
-        ("latest_completion_failed_verification_checks", "latestCompletionFailedCheck"),
-        ("latest_completion_final_review_issues", "latestCompletionFinalReviewIssue"),
-        ("latest_completion_final_review_changed_files", "latestCompletionFinalReviewChangedFile"),
-        ("latest_completion_tool_errors", "latestCompletionToolError"),
-        ("latest_completion_checkpoint_failures", "latestCompletionCheckpointFailure"),
-        ("latest_completion_active_background_processes", "latestCompletionActiveProcess"),
-        ("latest_completion_denied_approvals", "latestCompletionDeniedApproval"),
-    )
-    lines: list[str] = []
-    for attr, label in fields:
-        values = getattr(observation, attr, [])
-        if not isinstance(values, list):
-            continue
-        lines.extend(
-            f"{label}: {value}"
-            for value in values[:max_items]
-            if isinstance(value, str) and value.strip()
-        )
-    return lines
 
 
 def format_session_observation(index: int, observation: object) -> str | None:
@@ -254,7 +231,7 @@ def format_session_observation(index: int, observation: object) -> str | None:
         completion_lines.extend(
             f"latestCompletionBlocker: {blocker}" for blocker in observation.latest_completion_blockers[:20]
         )
-        completion_lines.extend(format_completion_detail_lines(observation))
+        completion_lines.extend(completion_detail_prompt_lines(observation))
         file_lines = format_file_reference_lines(
             getattr(observation, "file_references", []),
             int(getattr(observation, "file_count", 0) or 0),
@@ -345,7 +322,7 @@ def format_session_observation(index: int, observation: object) -> str | None:
             f"latestCompletionBlocker: {blocker}"
             for blocker in getattr(observation, "latest_completion_blockers", [])[:20]
         )
-        completion_lines.extend(format_completion_detail_lines(observation))
+        completion_lines.extend(completion_detail_prompt_lines(observation))
         return "\n".join(
             [
                 f"{index}. session_handoff {observation.run_id}: {observation.message}",
