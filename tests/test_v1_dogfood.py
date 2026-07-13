@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -55,6 +56,31 @@ def init_broken_calculator_repo(root: Path) -> None:
         stderr=subprocess.PIPE,
     )
     subprocess.run(["git", "commit", "-m", "initial broken calculator"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+def init_hooked_calculator_repo(root: Path) -> None:
+    init_broken_calculator_repo(root)
+    hook_script = (
+        "import os,pathlib; "
+        "pathlib.Path('.vibeagent').mkdir(exist_ok=True); "
+        "pathlib.Path('.vibeagent/hook.log').open('a', encoding='utf-8').write("
+        "os.environ['VIBEAGENT_HOOK_EVENT'] + ':' + os.environ['VIBEAGENT_TOOL_NAME'] + '\\n')"
+    )
+    hook_command = f"{shlex.quote(sys.executable)} -c {shlex.quote(hook_script)}"
+    (root / ".vibeagent").mkdir(exist_ok=True)
+    (root / ".vibeagent" / "hooks.json").write_text(
+        json.dumps(
+            {
+                "PreToolUse": [
+                    {"matcher": "Edit", "hooks": [{"type": "command", "command": hook_command, "timeout_ms": 10_000}]}
+                ],
+                "PostToolUse": [
+                    {"matcher": "Edit", "hooks": [{"type": "command", "command": hook_command, "timeout_ms": 10_000}]}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def init_broken_notebook_repo(root: Path) -> None:
@@ -933,6 +959,138 @@ def claude_mcp_dogfood_responses() -> list[list[ContentBlock]]:
             }
         ],
         [{"type": "text", "text": "Used MCP guidance, fixed the calculator, verified tests, reviewed, committed, and reran session verification."}],
+    ]
+
+
+def claude_hook_dogfood_responses() -> list[list[ContentBlock]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-1",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect hooked calculator failure", "status": "in_progress"},
+                        {"content": "Patch through Claude Edit hook path", "status": "pending"},
+                        {"content": "Verify and review hook-protected change", "status": "pending"},
+                        {"content": "Commit verified hooked change", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {"type": "tool_call", "id": "read-1", "name": "Read", "input": {"file_path": "calc.py"}},
+            {"type": "tool_call", "id": "read-2", "name": "Read", "input": {"file_path": "tests/test_calc.py"}},
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-1",
+                "name": "Bash",
+                "input": {"command": "python -m unittest discover -s tests", "timeout": 10_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-2",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect hooked calculator failure", "status": "completed"},
+                        {"content": "Patch through Claude Edit hook path", "status": "in_progress"},
+                        {"content": "Verify and review hook-protected change", "status": "pending"},
+                        {"content": "Commit verified hooked change", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "edit-1",
+                "name": "Edit",
+                "input": {
+                    "file_path": "calc.py",
+                    "old_string": "return left - right",
+                    "new_string": "return left + right  # hook-verified sum",
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-3",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect hooked calculator failure", "status": "completed"},
+                        {"content": "Patch through Claude Edit hook path", "status": "completed"},
+                        {"content": "Verify and review hook-protected change", "status": "in_progress"},
+                        {"content": "Commit verified hooked change", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-2",
+                "name": "Bash",
+                "input": {"command": "python -m unittest discover -s tests", "timeout": 10_000},
+            }
+        ],
+        [{"type": "tool_call", "id": "review-1", "name": "final_review", "input": {}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-4",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect hooked calculator failure", "status": "completed"},
+                        {"content": "Patch through Claude Edit hook path", "status": "completed"},
+                        {"content": "Verify and review hook-protected change", "status": "completed"},
+                        {"content": "Commit verified hooked change", "status": "in_progress"},
+                    ]
+                },
+            }
+        ],
+        [{"type": "tool_call", "id": "stage-1", "name": "git_stage", "input": {"paths": ["calc.py"]}}],
+        [{"type": "tool_call", "id": "commit-1", "name": "git_commit", "input": {"message": "Fix calculator add through hooks"}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "suggested-1",
+                "name": "run_suggested_checks",
+                "input": {"timeout_ms": 10_000, "max_checks": 5},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-5",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect hooked calculator failure", "status": "completed"},
+                        {"content": "Patch through Claude Edit hook path", "status": "completed"},
+                        {"content": "Verify and review hook-protected change", "status": "completed"},
+                        {"content": "Commit verified hooked change", "status": "completed"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "verify-1",
+                "name": "run_session_verification",
+                "input": {"include_pending": True, "include_failed": True, "timeout_ms": 10_000},
+            }
+        ],
+        [{"type": "text", "text": "Patched through project hooks, verified tests, reviewed, committed, and reran session verification."}],
     ]
 
 
@@ -2711,6 +2869,57 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_suggested_checks"))
         self.assertLess(observation_kinds.index("run_suggested_checks"), observation_kinds.index("run_session_verification"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
+
+    def test_v1_agent_runs_project_hooks_around_claude_edit_and_commits(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-hooks-dogfood-") as base:
+            root = Path(base)
+            init_hooked_calculator_repo(root)
+            client = DogfoodClient(claude_hook_dogfood_responses())
+
+            result = run_agent(
+                "Fix the calculator through the configured project hooks, verify it, and commit.",
+                base_dir=root,
+                client=client,
+                max_iterations=17,
+                approval_handler=approve_all,
+            )
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
+            hook_log = (root / ".vibeagent" / "hook.log").read_text(encoding="utf-8")
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events_text = events_path.read_text(encoding="utf-8")
+
+        observation_kinds = [item.kind for item in result.observations]
+        run_commands = [item for item in result.observations if item.kind == "run_command"]
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_message, "Fix calculator add through hooks")
+        self.assertEqual(hook_log.splitlines(), ["PreToolUse:Edit", "PostToolUse:Edit"])
+        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        self.assertEqual(len(run_commands), 2)
+        self.assertNotEqual(run_commands[0].result.exit_code, 0)
+        self.assertEqual(run_commands[1].result.exit_code, 0)
+        self.assertIn("edit_file", observation_kinds)
+        self.assertIn("final_review", observation_kinds)
+        self.assertIn("git_stage", observation_kinds)
+        self.assertIn("git_commit", observation_kinds)
+        self.assertIn("run_suggested_checks", observation_kinds)
+        self.assertIn("run_session_verification", observation_kinds)
+        self.assertIn('"type": "hooks_loaded"', events_text)
+        self.assertIn('"type": "hook_completed"', events_text)
+        self.assertIn('"event": "PreToolUse"', events_text)
+        self.assertIn('"event": "PostToolUse"', events_text)
+        self.assertIn('"name": "Edit"', events_text)
+        self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("edit_file"))
+        self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("final_review"))
+        self.assertLess(observation_kinds.index("final_review"), observation_kinds.index("git_commit"))
+        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_suggested_checks"))
+        self.assertLess(observation_kinds.index("run_suggested_checks"), observation_kinds.index("run_session_verification"))
 
     def test_v1_agent_can_manage_claude_background_process_before_repair(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-background-dogfood-") as base:

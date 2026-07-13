@@ -46,6 +46,10 @@ local changes when asked, and resume from recorded session context.
   discovers a configured local MCP server through `mcp_tools`, calls its
   dynamic Claude-style `mcp__server__tool` alias for bounded external evidence,
   then fixes, tests, final-reviews, commits, and verifies the session.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_runs_project_hooks_around_claude_edit_and_commits`
+  runs configured project `PreToolUse` and `PostToolUse` hooks around a
+  Claude-compatible `Edit`, keeps hook output in local runtime state, then
+  verifies, final-reviews, commits, and reruns session verification.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_manage_claude_background_process_before_repair`
   starts a Claude-style background `Bash`, inspects it through `BashOutput`,
   stops it through `KillBash`, then fixes, verifies, final-reviews, and commits.
