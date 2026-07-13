@@ -38,6 +38,7 @@ CLI_SMOKE_TESTS = {
     "test_v1_cli_json_can_create_and_check_checkpoint_before_commit",
     "test_v1_cli_json_generates_ready_session_handoff_after_verified_commit",
     "test_v1_cli_json_input_format_can_repair_verify_commit_and_report_ready",
+    "test_v1_cli_json_plan_mode_inspects_without_mutating",
     "test_v1_cli_json_can_compact_interrupted_run_and_commit",
     "test_v1_cli_json_can_delegate_read_only_investigation_before_repair_and_commit",
     "test_v1_cli_json_can_manage_background_process_before_repair_and_commit",

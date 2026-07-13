@@ -24,6 +24,7 @@ from tests.test_v1_dogfood import (
     init_mcp_calculator_repo,
     init_broken_notebook_repo,
     interrupted_dogfood_responses,
+    plan_mode_dogfood_responses,
     resumed_dogfood_responses,
     session_handoff_dogfood_responses,
     v1_dogfood_responses,
@@ -538,6 +539,45 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertEqual(handoff.failed_count, 0)
         self.assertGreaterEqual(handoff.verified_count, 1)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add before handoff")
+
+    def test_v1_cli_json_plan_mode_inspects_without_mutating(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-plan-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(plan_mode_dogfood_responses())
+            exit_code, payload = _run_json_cli(
+                client,
+                [
+                    "--output-format",
+                    "json",
+                    "--approval",
+                    "plan",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "5",
+                    "Plan the calculator repair without changing files or running commands.",
+                ],
+            )
+            events = _session_events(root, payload["runId"])
+            events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            initial_prompt = _initial_prompt(client)
+            exposed_names = {str(tool["name"]) for tools in client.tools for tool in tools}
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload)
+        self.assertIn("Plan mode is active", initial_prompt)
+        self.assertIn('"name": "project_overview"', events_text)
+        self.assertIn('"name": "read_file"', events_text)
+        self.assertIn('"name": "ExitPlanMode"', events_text)
+        self.assertTrue({"write_file", "edit_file", "run_command", "git_commit"}.isdisjoint(exposed_names))
+        self.assertIn("ExitPlanMode", exposed_names)
+        self.assertIn("ExitPlanMode", str(payload["message"]))
+        git_status, head_subject, calc_text = commit_state
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_subject, "initial broken calculator")
+        self.assertIn("return left - right", calc_text)
 
     def test_v1_cli_stream_json_input_format_can_repair_verify_commit_and_report_ready(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-input-stream-smoke-") as base:
