@@ -165,6 +165,15 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertIsInstance(action, SearchAction)
         self.assertEqual(action.file_glob, "*.py")
 
+    def test_claude_grep_type_maps_to_file_glob(self) -> None:
+        action = parse_tool_action("Grep", {"pattern": "needle", "type": "python"})
+        explicit_glob = parse_tool_action("Grep", {"pattern": "needle", "type": "py", "glob": "*.pyi"})
+
+        self.assertIsInstance(action, SearchAction)
+        self.assertEqual(action.file_glob, "*.py")
+        self.assertIsInstance(explicit_glob, SearchAction)
+        self.assertEqual(explicit_glob.file_glob, "*.pyi")
+
     def test_claude_grep_context_flag_maps_to_context_lines(self) -> None:
         action = parse_tool_action("Grep", {"pattern": "needle", "-C": 3})
 
@@ -200,6 +209,21 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertEqual(observation.total, 1)
         self.assertEqual(observation.matches, ["src/app.py:1: needle"])
         self.assertIn("fileGlob=*.py", format_observations([observation]))
+
+    def test_claude_grep_type_executes_filtered_search(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-alias-") as base:
+            root = Path(base)
+            (root / "app.py").write_text("needle\n", encoding="utf-8")
+            (root / "notes.md").write_text("needle\n", encoding="utf-8")
+            action = parse_tool_action("Grep", {"pattern": "needle", "type": "py"})
+
+            observation = execute_action(create_run_workspace(root), action)
+
+        self.assertEqual(observation.kind, "search")
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.file_glob, "*.py")
+        self.assertEqual(observation.total, 1)
+        self.assertEqual(observation.matches, ["app.py:1: needle"])
 
     def test_claude_grep_directional_context_flags_execute_with_symmetric_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-alias-") as base:
