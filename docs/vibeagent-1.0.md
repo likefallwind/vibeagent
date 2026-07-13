@@ -108,6 +108,12 @@ local changes when asked, and resume from recorded session context.
   runs the deterministic repair dogfood through the real CLI `main()` one-shot
   JSON path, confirming argument parsing, provider creation, completion-ready
   machine output, workspace repair, verification, and local commit.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_stream_json_can_repair_with_allowed_tools_and_report_events`
+  runs the deterministic repair dogfood through the real CLI `main()` one-shot
+  `stream-json` path with per-run `--allowed-tools` overrides, confirming
+  ordered event streaming, trusted permission source reporting,
+  Claude-compatible `Bash` and `Edit` tool aliases, completion-ready machine
+  output, workspace repair, verification, and local commit.
 - `tests.test_project_prompt_commands.ProjectPromptCommandCliTests.test_one_shot_custom_command_expands_to_code_task_with_metadata`
   covers Claude-style project slash commands in one-shot code mode: a
   `.claude/commands/*.md` template expands before the agent run, while command

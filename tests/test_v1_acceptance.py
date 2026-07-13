@@ -35,6 +35,7 @@ DOGFOOD_TESTS = {
 }
 CLI_SMOKE_TESTS = {
     "test_v1_cli_json_can_repair_verify_commit_and_report_ready",
+    "test_v1_cli_stream_json_can_repair_with_allowed_tools_and_report_events",
 }
 PROJECT_COMMAND_TESTS = {
     "test_one_shot_custom_command_expands_to_code_task_with_metadata",
