@@ -280,6 +280,16 @@ def claude_compat_dogfood_responses() -> list[list[ContentBlock]]:
             }
         ],
         [
+            {"type": "tool_call", "id": "ls-1", "name": "LS", "input": {"path": ".", "max_depth": 2}},
+            {"type": "tool_call", "id": "glob-1", "name": "Glob", "input": {"pattern": "*.py"}},
+            {
+                "type": "tool_call",
+                "id": "grep-1",
+                "name": "Grep",
+                "input": {"pattern": "assertEqual", "glob": "*.py"},
+            },
+        ],
+        [
             {"type": "tool_call", "id": "read-1", "name": "Read", "input": {"file_path": "calc.py"}},
             {"type": "tool_call", "id": "read-2", "name": "Read", "input": {"file_path": "tests/test_calc.py"}},
         ],
@@ -991,16 +1001,25 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertEqual(head_message, "Fix calculator add via Claude aliases")
         self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
         self.assertGreaterEqual(observation_kinds.count("update_plan"), 4)
+        self.assertIn("list_tree", observation_kinds)
+        self.assertIn("glob", observation_kinds)
+        self.assertIn("search", observation_kinds)
         self.assertGreaterEqual(observation_kinds.count("read_file"), 2)
         self.assertEqual(observation_kinds.count("run_command"), 2)
         self.assertIn("edit_file", observation_kinds)
         self.assertIn("session_plan", observation_kinds)
         self.assertIn("run_session_verification", observation_kinds)
         self.assertIn('"name": "TodoWrite"', events_text)
+        self.assertIn('"name": "LS"', events_text)
+        self.assertIn('"name": "Glob"', events_text)
+        self.assertIn('"name": "Grep"', events_text)
         self.assertIn('"name": "Read"', events_text)
         self.assertIn('"name": "Bash"', events_text)
         self.assertIn('"name": "Edit"', events_text)
         self.assertIn('"name": "TodoRead"', events_text)
+        self.assertLess(observation_kinds.index("list_tree"), observation_kinds.index("read_file"))
+        self.assertLess(observation_kinds.index("glob"), observation_kinds.index("read_file"))
+        self.assertLess(observation_kinds.index("search"), observation_kinds.index("read_file"))
         self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("edit_file"))
         self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("git_commit"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
