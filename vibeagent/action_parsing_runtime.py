@@ -116,11 +116,15 @@ def parse_runtime_action(action_type: object, value: dict[str, Any], raw: str) -
         max_text_chars = parse_optional_positive_int(
             value.get("max_text_chars"), "max_text_chars", raw, maximum=100_000
         )
+        prompt = value.get("prompt")
+        if prompt is not None and (not isinstance(prompt, str) or not prompt.strip()):
+            raise ActionParseError("web_fetch action prompt must be a non-empty string when provided.", raw)
         return WebFetchAction(
             type="web_fetch",
             url=url,
             timeout_ms=_parse_timeout_ms(value.get("timeout_ms"), raw),
             max_text_chars=max_text_chars,
+            prompt=prompt.strip() if isinstance(prompt, str) else None,
         )
 
     if action_type == "environment_info":

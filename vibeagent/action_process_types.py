@@ -70,6 +70,7 @@ class WebFetchAction:
     url: str
     timeout_ms: int | None = None
     max_text_chars: int | None = None
+    prompt: str | None = None
 
 
 @dataclass(frozen=True)

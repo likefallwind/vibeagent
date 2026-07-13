@@ -3,10 +3,18 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from vibeagent.actions import execute_action
 from vibeagent.action_parsing import parse_tool_action
-from vibeagent.types import ReadFileAction, RegexReplaceAction, RunCommandAction, StartCommandAction
+from vibeagent.prompts import format_observations
+from vibeagent.types import (
+    ReadFileAction,
+    RegexReplaceAction,
+    RunCommandAction,
+    StartCommandAction,
+    WebFetchObservation,
+)
 from vibeagent.workspace import create_run_workspace
 
 
@@ -104,6 +112,45 @@ class ActionToolAliasTests(unittest.TestCase):
 
         self.assertIsInstance(action, StartCommandAction)
         self.assertEqual(action.command, "python -m http.server")
+
+    def test_claude_web_fetch_preserves_prompt_intent(self) -> None:
+        action = parse_tool_action(
+            "WebFetch",
+            {"url": "https://docs.python.org/3/", "prompt": "Extract install commands."},
+        )
+
+        self.assertEqual(action.type, "web_fetch")
+        self.assertEqual(action.prompt, "Extract install commands.")
+
+    def test_web_fetch_observation_includes_prompt_for_next_model_step(self) -> None:
+        fetched = WebFetchObservation(
+            kind="web_fetch",
+            ok=True,
+            url="https://docs.python.org/3/",
+            final_url="https://docs.python.org/3/",
+            status=200,
+            content_type="text/html",
+            title="Python docs",
+            text="Install Python.",
+            text_truncated=False,
+            max_text_chars=20_000,
+            error=None,
+            message="Fetched public document.",
+        )
+        action = parse_tool_action(
+            "WebFetch",
+            {"url": "https://docs.python.org/3/", "prompt": "Extract install commands."},
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-alias-") as base, patch(
+            "vibeagent.runtime_action_executor.fetch_public_document",
+            return_value=fetched,
+        ):
+            observation = execute_action(create_run_workspace(Path(base)), action)
+
+        self.assertEqual(observation.prompt, "Extract install commands.")
+        formatted = format_observations([observation])
+        self.assertIn("prompt: Extract install commands.", formatted)
+        self.assertIn("Install Python.", formatted)
 
 
 if __name__ == "__main__":

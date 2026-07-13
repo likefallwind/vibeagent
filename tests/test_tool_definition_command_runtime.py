@@ -37,6 +37,12 @@ class CommandRuntimeToolDefinitionTests(unittest.TestCase):
             ],
         )
 
+    def test_web_fetch_schema_exposes_optional_prompt(self) -> None:
+        web_fetch = next(tool for tool in RUNTIME_NETWORK_TOOL_DEFINITIONS if tool["name"] == "web_fetch")
+
+        self.assertIn("prompt", web_fetch["input_schema"]["properties"])
+        self.assertNotIn("prompt", web_fetch["input_schema"]["required"])
+
 
 if __name__ == "__main__":
     unittest.main()

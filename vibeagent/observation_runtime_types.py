@@ -81,6 +81,7 @@ class WebFetchObservation:
     max_text_chars: int
     error: str | None
     message: str
+    prompt: str | None = None
 
 
 @dataclass(frozen=True)

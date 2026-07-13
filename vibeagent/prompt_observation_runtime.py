@@ -99,6 +99,8 @@ def format_runtime_observation(index: int, observation: object) -> str | None:
             f"maxTextChars: {observation.max_text_chars}",
             f"error: {observation.error or 'none'}",
         ]
+        if observation.prompt:
+            parts.append(f"prompt: {observation.prompt}")
         if observation.text:
             parts.append(f"text:\n{observation.text}")
         return "\n".join(parts)

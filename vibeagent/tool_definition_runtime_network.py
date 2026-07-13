@@ -98,6 +98,10 @@ RUNTIME_NETWORK_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "maximum": 100000,
                     "description": "Maximum readable text characters to return. Defaults to 20000.",
                 },
+                "prompt": {
+                    "type": "string",
+                    "description": "Optional extraction or question prompt to carry alongside the fetched text for the next model step.",
+                },
             },
             "required": ["url"],
             "additionalProperties": False,

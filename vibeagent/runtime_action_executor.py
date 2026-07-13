@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from .process_runtime import (
     attach_output_analysis_to_process_observation,
     check_stop_all_background_processes,
@@ -118,7 +120,8 @@ def execute_runtime_action(
     if isinstance(action, WebFetchAction):
         timeout_ms = action.timeout_ms if action.timeout_ms is not None else 10_000
         max_text_chars = action.max_text_chars if action.max_text_chars is not None else 20_000
-        return fetch_public_document(action.url, timeout_ms=timeout_ms, max_text_chars=max_text_chars)
+        observation = fetch_public_document(action.url, timeout_ms=timeout_ms, max_text_chars=max_text_chars)
+        return replace(observation, prompt=action.prompt)
 
     if isinstance(action, EnvironmentInfoAction):
         try:
