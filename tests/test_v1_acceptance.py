@@ -38,6 +38,7 @@ CLI_SMOKE_TESTS = {
     "test_v1_cli_json_input_format_can_repair_verify_commit_and_report_ready",
     "test_v1_cli_json_can_compact_interrupted_run_and_commit",
     "test_v1_cli_json_can_use_strict_mcp_config_before_repair_and_commit",
+    "test_v1_cli_json_can_use_web_fetch_before_repair_and_commit",
     "test_v1_cli_json_can_repair_verify_commit_and_report_ready",
     "test_v1_cli_json_can_resume_interrupted_run_and_commit",
     "test_v1_cli_json_reports_pending_user_input_for_machine_callers",

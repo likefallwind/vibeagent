@@ -123,6 +123,10 @@ local changes when asked, and resume from recorded session context.
   --strict-mcp-config`, confirming an explicit MCP configuration can expose a
   Claude-style dynamic `mcp__server__tool` call before the agent repairs,
   verifies, reports, and commits.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_use_web_fetch_before_repair_and_commit`
+  runs the real CLI JSON path through the Claude-compatible `WebFetch` alias,
+  confirming fetched external evidence is fed into the next model turn before
+  the agent repairs, verifies, reports, and commits.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_resume_interrupted_run_and_commit`
   runs an interrupted deterministic repair dogfood through the real CLI
   `main()` JSON path, then resumes it through `--resume <runId>`, confirming

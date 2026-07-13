@@ -20,8 +20,10 @@ from tests.test_v1_dogfood import (
     interrupted_dogfood_responses,
     resumed_dogfood_responses,
     v1_dogfood_responses,
+    web_fetch_dogfood_responses,
 )
 from vibeagent.cli import main
+from vibeagent.types import WebFetchObservation
 
 
 def _run_cli(client: DogfoodClient, args: list[str]) -> tuple[int, str]:
@@ -298,6 +300,57 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn('"name": "mcp__test__echo"', events_text)
         self.assertIn("calculator add should sum both operands", events_text)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add with MCP evidence")
+
+    def test_v1_cli_json_can_use_web_fetch_before_repair_and_commit(self) -> None:
+        fetched_contract = WebFetchObservation(
+            kind="web_fetch",
+            ok=True,
+            url="https://docs.example.com/calculator-contract",
+            final_url="https://docs.example.com/calculator-contract",
+            status=200,
+            content_type="text/html",
+            title="Calculator Contract",
+            text="The calc.add(left, right) function must return the arithmetic sum of both arguments.",
+            text_truncated=False,
+            max_text_chars=20_000,
+            error=None,
+            message="Fetched public document.",
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-webfetch-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(web_fetch_dogfood_responses())
+            with patch("vibeagent.runtime_action_executor.fetch_public_document", return_value=fetched_contract) as fetch_public_document:
+                exit_code, payload = _run_json_cli(
+                    client,
+                    [
+                        "--output-format",
+                        "json",
+                        "--approval",
+                        "allow",
+                        "--cwd",
+                        str(root),
+                        "--max-iterations",
+                        "15",
+                        "Fetch the external calculator contract, then fix and commit the verified implementation.",
+                    ],
+                )
+            events = _session_events(root, payload["runId"])
+            events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            next_turn_payload = str(client.messages[2][-1].content)
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload)
+        fetch_public_document.assert_called_once_with(
+            "https://docs.example.com/calculator-contract",
+            timeout_ms=10_000,
+            max_text_chars=20_000,
+        )
+        self.assertIn('"name": "WebFetch"', events_text)
+        self.assertIn("arithmetic sum", next_turn_payload)
+        self.assertIn("Extract the expected behavior for calc.add.", next_turn_payload)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add using fetched contract")
 
     def test_v1_cli_stream_json_input_format_can_repair_verify_commit_and_report_ready(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-input-stream-smoke-") as base:
