@@ -6,6 +6,7 @@ from typing import Any
 
 from .actions import ActionParseError, execute_action, parse_tool_action
 from .agent_model import complete_with_retries
+from .agent_model_turn import handle_no_tool_call_response, record_model_turn
 from .agent_multimodal import build_tool_result_block, strip_consumed_tool_images
 from .agent_result import AgentResult
 from .redaction import redact_jsonable_payload
@@ -50,8 +51,6 @@ from .agent_observation_utils import observation_failed, summarize
 from .agent_runtime_utils import (
     append_session_event,
     compact_agent_message_history,
-    content_blocks_to_text,
-    normalize_assistant_content,
     summarize_command,
     to_jsonable,
     tool_error_observation,
@@ -156,56 +155,27 @@ def run_agent(
                 logger=logger,
             )
         strip_consumed_tool_images(messages)
-        assistant_content = normalize_assistant_content(response.content if hasattr(response, "content") else response)
-        model_event: dict[str, Any] = {"iteration": iteration, "content": assistant_content}
-        response_usage = response.usage if hasattr(response, "usage") else None
-        if response_usage is not None:
-            model_event["usage"] = to_jsonable(response_usage)
-        append_session_event(current_workspace.session_dir, "model", model_event)
-        messages.append(ChatMessage(role="assistant", content=assistant_content))
-
-        tool_calls = [block for block in assistant_content if block.get("type") == "tool_call"]
+        model_turn = record_model_turn(current_workspace, messages, response, iteration)
+        assistant_content = model_turn.assistant_content
+        tool_calls = model_turn.tool_calls
         if not tool_calls:
-            text = content_blocks_to_text(assistant_content).strip()
-            if text:
-                feedback = completion_blocked_feedback_if_needed(
-                    current_workspace,
-                    success=True,
-                    message=text,
-                    iteration=iteration,
-                    max_iterations=max_iterations,
-                    observations=observations,
-                    plan=plan,
-                    command_timeout_ms=command_timeout_ms,
-                    logger=logger,
-                )
-                if feedback is not None:
-                    messages.append(ChatMessage(role="user", content=feedback))
-                    continue
-                if logger:
-                    logger("finished", text)
-                return finish_agent_run(
-                    current_workspace,
-                    success=True,
-                    message=text,
-                    iterations=iteration,
-                    observations=observations,
-                    steps=steps,
-                    plan=plan,
-                    command_timeout_ms=command_timeout_ms,
-                    logger=logger,
-                )
-            return finish_agent_run(
+            no_tool_result = handle_no_tool_call_response(
                 current_workspace,
-                success=False,
-                message="Model response did not include text or a tool call.",
-                iterations=iteration,
+                messages,
+                assistant_content,
+                iteration=iteration,
+                max_iterations=max_iterations,
                 observations=observations,
                 steps=steps,
                 plan=plan,
                 command_timeout_ms=command_timeout_ms,
                 logger=logger,
+                completion_blocked_feedback_if_needed_func=completion_blocked_feedback_if_needed,
+                finish_agent_run_func=finish_agent_run,
             )
+            if no_tool_result.should_continue:
+                continue
+            return no_tool_result.result
 
         activate_tools_for_run(
             current_workspace,
