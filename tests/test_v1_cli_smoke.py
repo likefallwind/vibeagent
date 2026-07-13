@@ -109,6 +109,24 @@ def pending_user_input_responses() -> list[list[dict[str, object]]]:
     ]
 
 
+def disallowed_edit_responses() -> list[list[dict[str, object]]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "edit-1",
+                "name": "Edit",
+                "input": {
+                    "file_path": "calc.py",
+                    "old_string": "return left - right",
+                    "new_string": "return left + right",
+                },
+            }
+        ],
+        [{"type": "text", "text": "The CLI deny rule blocked the edit."}],
+    ]
+
+
 def _assert_completed_code_result(
     testcase: unittest.TestCase,
     result: dict[str, object],
@@ -476,6 +494,66 @@ class V1CliSmokeTests(unittest.TestCase):
             )
         )
         _assert_clean_notebook_commit(self, commit_state, expected_subject="Fix notebook analysis formula")
+
+    def test_v1_cli_stream_json_disallowed_tools_override_accept_edits(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-deny-edit-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(disallowed_edit_responses())
+            exit_code, records = _run_stream_json_cli(
+                client,
+                [
+                    "--output-format",
+                    "stream-json",
+                    "--permission-mode",
+                    "acceptEdits",
+                    "--disallowed-tools",
+                    "Edit",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "2",
+                    "Try to edit calc.py even though this run denies edits.",
+                ],
+            )
+            event_records = [record for record in records if record["type"] == "event"]
+            event_types = [record["event"]["type"] for record in event_records]
+            permission_evaluations = [
+                record["event"]
+                for record in event_records
+                if record["event"]["type"] == "permission_rule_evaluated"
+            ]
+            permissions = next(record["event"] for record in event_records if record["event"]["type"] == "permissions_loaded")
+            final = records[-1]
+            state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(final["type"], "result")
+        self.assertEqual(final["kind"], "code")
+        self.assertEqual(final["status"], "blocked")
+        self.assertEqual(final["stopReason"], "blocked")
+        self.assertTrue(final["success"])
+        self.assertIn("1 approval request(s) were denied.", final["completionBlockers"])
+        self.assertIn("Denied by project permission rule Edit", final["latestCompletionDeniedApprovals"][0])
+        self.assertIn("permissions_loaded", event_types)
+        self.assertIn("permission_rule_evaluated", event_types)
+        self.assertNotIn("approval_requested", event_types)
+        self.assertEqual(permissions["count"], 3)
+        self.assertIn("<cli --permission-mode acceptEdits>", permissions["sources"])
+        self.assertIn("<cli --disallowed-tools>", permissions["sources"])
+        self.assertTrue(
+            any(
+                event["tool"] == "Edit"
+                and event["effect"] == "deny"
+                and event["rule"] == "Edit"
+                and event["source"] == "<cli --disallowed-tools>"
+                and event["subjects"] == ["calc.py"]
+                for event in permission_evaluations
+            )
+        )
+        self.assertEqual(state[0], "")
+        self.assertEqual(state[1], "initial broken calculator")
+        self.assertIn("return left - right", state[2])
 
     def test_v1_cli_dangerously_skip_permissions_can_repair_with_claude_aliases(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-skip-perms-smoke-") as base:

@@ -134,6 +134,11 @@ local changes when asked, and resume from recorded session context.
   acceptEdits` and without an explicit `NotebookEdit` allowed-tool override,
   confirming notebook cell edits are covered by the same Claude-compatible edit
   permission mode.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_stream_json_disallowed_tools_override_accept_edits`
+  runs a real CLI `stream-json` path with both `--permission-mode acceptEdits`
+  and `--disallowed-tools Edit`, confirming the per-run deny rule takes
+  precedence over the automatic edit allow rule and leaves the workspace
+  unchanged.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_dangerously_skip_permissions_can_repair_with_claude_aliases`
   runs the deterministic Claude-compatible repair dogfood through the real CLI
   `main()` one-shot JSON path with `--dangerously-skip-permissions`, confirming
