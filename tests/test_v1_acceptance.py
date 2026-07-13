@@ -9,6 +9,7 @@ from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAN_PATH = ROOT / "docs" / "vibeagent-1.0.md"
+DOGFOOD_TEST = "test_v1_agent_can_read_repair_verify_commit_and_finish"
 
 EXPECTED_GATES = {
     "VA1-READ": {
@@ -68,6 +69,13 @@ class V1AcceptanceTests(unittest.TestCase):
             missing = {name for name in evidence["tests"] if f"def {name}" not in test_sources}
             with self.subTest(gate=gate):
                 self.assertEqual(missing, set())
+
+    def test_acceptance_plan_names_the_dedicated_dogfood_test(self) -> None:
+        plan = PLAN_PATH.read_text(encoding="utf-8")
+        dogfood_source = (ROOT / "tests" / "test_v1_dogfood.py").read_text(encoding="utf-8")
+
+        self.assertIn(DOGFOOD_TEST, plan)
+        self.assertIn(f"def {DOGFOOD_TEST}", dogfood_source)
 
     def test_readme_links_to_v1_acceptance_plan(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

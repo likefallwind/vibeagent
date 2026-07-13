@@ -20,6 +20,10 @@ local changes when asked, and resume from recorded session context.
 
 ## Current Evidence
 
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_read_repair_verify_commit_and_finish`
+  is the dedicated deterministic 1.0 dogfood scenario: project overview,
+  file reads, failing test reproduction, fix, passing test rerun, local commit,
+  final review, and session verification recovery without real provider calls.
 - `tests.test_agent.AgentTests.test_run_agent_repairs_a_failing_script_and_finishes`
   covers write -> failed command -> repair -> successful command.
 - `tests.test_agent.AgentTests.test_run_agent_continues_after_pending_suggested_check_is_run`

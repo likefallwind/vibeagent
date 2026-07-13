@@ -1,0 +1,210 @@
+from __future__ import annotations
+
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+from vibeagent.agent import run_agent
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, ContentBlock
+
+
+class DogfoodClient:
+    def __init__(self, responses: list[list[ContentBlock]]) -> None:
+        self.responses = responses
+        self.messages: list[list[ChatMessage]] = []
+
+    def complete(self, messages, tools=None, max_tokens=4096, temperature=0.2, timeout_ms=120_000):
+        self.messages.append(list(messages))
+        content = self.responses[len(self.messages) - 1]
+        return AssistantResponse(content=content, raw={"content": content})
+
+
+def approve_all(_request: ApprovalRequest) -> ApprovalDecision:
+    return ApprovalDecision(approved=True, message="approved")
+
+
+def init_broken_calculator_repo(root: Path) -> None:
+    (root / "tests").mkdir()
+    (root / "calc.py").write_text("def add(left, right):\n    return left - right\n", encoding="utf-8")
+    (root / ".gitignore").write_text(".vibeagent/\n__pycache__/\n", encoding="utf-8")
+    (root / "tests" / "test_calc.py").write_text(
+        "import unittest\n\n"
+        "from calc import add\n\n\n"
+        "class CalculatorTests(unittest.TestCase):\n"
+        "    def test_adds_two_numbers(self):\n"
+        "        self.assertEqual(add(2, 3), 5)\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+    subprocess.run(
+        ["git", "add", ".gitignore", "calc.py", "tests/test_calc.py"],
+        cwd=root,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    subprocess.run(["git", "commit", "-m", "initial broken calculator"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+def v1_dogfood_responses() -> list[list[ContentBlock]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "overview-1",
+                "name": "project_overview",
+                "input": {"max_files": 20, "max_commands": 10, "max_checks": 10},
+            }
+        ],
+        [
+            {"type": "tool_call", "id": "read-1", "name": "read_file", "input": {"path": "calc.py"}},
+            {"type": "tool_call", "id": "read-2", "name": "read_file", "input": {"path": "tests/test_calc.py"}},
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "test-1",
+                "name": "run_command",
+                "input": {"command": "python -B -m unittest discover -s tests", "timeout_ms": 10_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "plan-1",
+                "name": "update_plan",
+                "input": {
+                    "plan": [
+                        {"step": "Inspect calculator code and tests", "status": "completed"},
+                        {"step": "Reproduce the failing test", "status": "completed"},
+                        {"step": "Fix add implementation", "status": "in_progress"},
+                        {"step": "Rerun unit tests", "status": "pending"},
+                        {"step": "Commit verified fix", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "write-1",
+                "name": "write_file",
+                "input": {"path": "calc.py", "content": "def add(left, right):\n    return left + right\n"},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "test-2",
+                "name": "run_command",
+                "input": {"command": "python -B -m unittest discover -s tests", "timeout_ms": 10_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "plan-2",
+                "name": "update_plan",
+                "input": {
+                    "plan": [
+                        {"step": "Inspect calculator code and tests", "status": "completed"},
+                        {"step": "Reproduce the failing test", "status": "completed"},
+                        {"step": "Fix add implementation", "status": "completed"},
+                        {"step": "Rerun unit tests", "status": "completed"},
+                        {"step": "Commit verified fix", "status": "in_progress"},
+                    ]
+                },
+            }
+        ],
+        [{"type": "tool_call", "id": "stage-1", "name": "git_stage", "input": {"paths": ["calc.py"]}}],
+        [{"type": "tool_call", "id": "commit-1", "name": "git_commit", "input": {"message": "Fix calculator add"}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "plan-3",
+                "name": "update_plan",
+                "input": {
+                    "plan": [
+                        {"step": "Inspect calculator code and tests", "status": "completed"},
+                        {"step": "Reproduce the failing test", "status": "completed"},
+                        {"step": "Fix add implementation", "status": "completed"},
+                        {"step": "Rerun unit tests", "status": "completed"},
+                        {"step": "Commit verified fix", "status": "completed"},
+                    ]
+                },
+            }
+        ],
+        [{"type": "text", "text": "Fixed calculator addition, verified tests pass, and committed the change."}],
+        [
+            {
+                "type": "tool_call",
+                "id": "verify-1",
+                "name": "run_session_verification",
+                "input": {"include_pending": True, "include_failed": True, "timeout_ms": 10_000},
+            }
+        ],
+        [{"type": "text", "text": "Verified the recorded checks, committed the fix, and the workspace is clean."}],
+    ]
+
+
+class V1DogfoodTests(unittest.TestCase):
+    def test_v1_agent_can_read_repair_verify_commit_and_finish(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-dogfood-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(v1_dogfood_responses())
+
+            result = run_agent(
+                "Fix the calculator test failure and commit the verified fix.",
+                base_dir=root,
+                client=client,
+                max_iterations=14,
+                approval_handler=approve_all,
+            )
+            git_status = subprocess.run(
+                ["git", "status", "--short"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout
+            head_message = subprocess.run(
+                ["git", "log", "-1", "--pretty=%s"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout.strip()
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_message, "Fix calculator add")
+        self.assertEqual([item.status for item in result.plan], ["completed"] * 5)
+
+        observation_kinds = [item.kind for item in result.observations]
+        self.assertIn("project_overview", observation_kinds)
+        self.assertGreaterEqual(observation_kinds.count("read_file"), 2)
+        run_commands = [item for item in result.observations if item.kind == "run_command"]
+        self.assertEqual(len(run_commands), 2)
+        self.assertNotEqual(run_commands[0].result.exit_code, 0)
+        self.assertEqual(run_commands[1].result.exit_code, 0)
+        self.assertIn("run_session_verification", observation_kinds)
+        self.assertIn("checkpoint_create", observation_kinds)
+        self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("write_file"))
+        self.assertLess(observation_kinds.index("write_file"), observation_kinds.index("git_stage"))
+        self.assertLess(observation_kinds.index("git_stage"), observation_kinds.index("git_commit"))
+        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
+        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("final_review"))
+
+
+if __name__ == "__main__":
+    unittest.main()
