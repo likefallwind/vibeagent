@@ -24,7 +24,7 @@ from .cli_output import (
 )
 from .cli_permission_overrides import build_permission_overrides
 from .cli_stream_output import JsonEventStream, add_duration_fields, build_code_result_payload, error_result_payload
-from .commands import get_compact_context, get_resume_context
+from .commands import get_compact_context, get_resume_context, parse_local_command
 from .config import resolve_cost_rates, resolve_execution_config
 from .providers import create_chat_client
 from .project_trust import is_project_permissions_trusted
@@ -32,6 +32,7 @@ from .session_event_observers import observe_session_events
 from .session_usage import build_run_cost_report, build_run_usage_report
 from .types import ApprovalPolicy
 from .workspace_core import create_run_workspace
+from .workspace_prompt_commands import expand_project_prompt_command
 
 
 def resolve_task_text(parts: Sequence[str], input_format: str = "text") -> str:
@@ -161,6 +162,12 @@ def run_one_shot(
         if not task.strip():
             return emit_error("No task provided.")
         project_root = resolve_project_root(base_dir) or Path.cwd()
+        task_metadata: dict[str, object] | None = None
+        if request_mode == "code":
+            try:
+                task, task_metadata = expand_one_shot_project_command(project_root, task)
+            except ValueError as error:
+                return emit_error(str(error), exit_code=2)
         try:
             resolved_mcp_config_paths = resolve_mcp_config_paths(project_root, mcp_config_paths)
         except ValueError as error:
@@ -269,6 +276,7 @@ def run_one_shot(
             "prior_context": merged_prior_context,
             "system_prompt": system_prompt,
             "append_system_prompt": append_system_prompt,
+            "task_metadata": task_metadata,
         }
         if stream_workspace is not None:
             run_kwargs["workspace"] = stream_workspace
@@ -301,6 +309,22 @@ def run_one_shot(
 
 def elapsed_milliseconds(started_at: float) -> int:
     return max(0, round((monotonic() - started_at) * 1000))
+
+
+def expand_one_shot_project_command(project_root: Path, task: str) -> tuple[str, dict[str, object] | None]:
+    stripped = task.strip()
+    if not stripped.startswith("/") or parse_local_command(stripped) is not None:
+        return task, None
+    custom_command = expand_project_prompt_command(project_root, stripped)
+    if custom_command is None:
+        return task, None
+    metadata = {
+        "source": "project_command",
+        "name": custom_command["name"],
+        "path": custom_command["path"],
+        "arguments": custom_command["arguments"],
+    }
+    return str(custom_command["prompt"]), metadata
 
 
 def merge_stream_system_prompt(

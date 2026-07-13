@@ -116,6 +116,68 @@ class ProjectPromptCommandTests(unittest.TestCase):
 
 
 class ProjectPromptCommandCliTests(unittest.TestCase):
+    def test_one_shot_custom_command_expands_to_code_task_with_metadata(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            _write_command(root, ".claude/commands", "fix", "Fix $1 in $2")
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=root,
+                run_id="run-1",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", base, '/fix "login bug" app.py'])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.args[0], "Fix login bug in app.py")
+        self.assertEqual(
+            run_agent.call_args.kwargs["task_metadata"],
+            {
+                "source": "project_command",
+                "name": "fix",
+                "path": ".claude/commands/fix.md",
+                "arguments": '"login bug" app.py',
+            },
+        )
+        self.assertIn("done", stdout.getvalue())
+
+    def test_one_shot_builtin_slash_task_takes_precedence_over_custom_command(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
+            root = Path(base)
+            _write_command(root, ".claude/commands", "help", "This must not replace built-in help.")
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=root,
+                run_id="run-1",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", base, "/help"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.args[0], "/help")
+        self.assertIsNone(run_agent.call_args.kwargs["task_metadata"])
+
     def test_interactive_custom_command_expands_to_code_task_from_chat_mode(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
