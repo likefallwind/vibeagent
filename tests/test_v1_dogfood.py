@@ -14,9 +14,11 @@ class DogfoodClient:
     def __init__(self, responses: list[list[ContentBlock]]) -> None:
         self.responses = responses
         self.messages: list[list[ChatMessage]] = []
+        self.tools: list[list[dict]] = []
 
     def complete(self, messages, tools=None, max_tokens=4096, temperature=0.2, timeout_ms=120_000):
         self.messages.append(list(messages))
+        self.tools.append(list(tools or []))
         content = self.responses[len(self.messages) - 1]
         return AssistantResponse(content=content, raw={"content": content})
 
@@ -475,6 +477,32 @@ def delegated_dogfood_responses() -> list[list[ContentBlock]]:
     ]
 
 
+def plan_mode_dogfood_responses() -> list[list[ContentBlock]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "overview-1",
+                "name": "project_overview",
+                "input": {"max_files": 20, "max_commands": 10, "max_checks": 10},
+            }
+        ],
+        [
+            {"type": "tool_call", "id": "read-1", "name": "read_file", "input": {"path": "calc.py"}},
+            {"type": "tool_call", "id": "read-2", "name": "read_file", "input": {"path": "tests/test_calc.py"}},
+        ],
+        [
+            {
+                "type": "text",
+                "text": (
+                    "Plan: change calc.py so add returns left + right, then verify with "
+                    "python -B -m unittest discover -s tests. Risk: keep the change scoped to calc.py."
+                ),
+            }
+        ],
+    ]
+
+
 class V1DogfoodTests(unittest.TestCase):
     def test_v1_agent_can_read_repair_verify_commit_and_finish(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-dogfood-") as base:
@@ -711,6 +739,46 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertLess(observation_kinds.index("delegate_task"), observation_kinds.index("edit_file"))
         self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("git_commit"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
+
+    def test_v1_agent_plan_mode_inspects_without_mutating(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-plan-dogfood-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(plan_mode_dogfood_responses())
+
+            result = run_agent(
+                "Plan the calculator repair without changing files or running commands.",
+                base_dir=root,
+                client=client,
+                max_iterations=3,
+                approval_policy="plan",
+            )
+            git_status = subprocess.run(
+                ["git", "status", "--short"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout
+            calc_text = (root / "calc.py").read_text(encoding="utf-8")
+
+        initial_prompt = "\n".join(str(message.content) for message in client.messages[0])
+        exposed_names = {str(tool["name"]) for tools in client.tools for tool in tools}
+        observation_kinds = [item.kind for item in result.observations]
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.completion_ready)
+        self.assertIn("Plan mode is active", initial_prompt)
+        self.assertIn("project_overview", observation_kinds)
+        self.assertGreaterEqual(observation_kinds.count("read_file"), 2)
+        self.assertNotIn("write_file", observation_kinds)
+        self.assertNotIn("edit_file", observation_kinds)
+        self.assertNotIn("run_command", observation_kinds)
+        self.assertTrue({"write_file", "edit_file", "run_command", "git_commit"}.isdisjoint(exposed_names))
+        self.assertIn("return left - right", calc_text)
+        self.assertEqual(git_status, "")
+        self.assertIn("Plan:", result.message)
 
 
 if __name__ == "__main__":
