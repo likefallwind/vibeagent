@@ -13,6 +13,8 @@ from tests.test_v1_dogfood import (
     DogfoodClient,
     claude_compat_dogfood_responses,
     init_broken_calculator_repo,
+    interrupted_dogfood_responses,
+    resumed_dogfood_responses,
     v1_dogfood_responses,
 )
 from vibeagent.cli import main
@@ -76,6 +78,99 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertTrue(payload["runId"])
         self.assertEqual(git_status, "")
         self.assertEqual(head_message, "Fix calculator add")
+        self.assertIn("return left + right", calc_text)
+
+    def test_v1_cli_json_can_resume_interrupted_run_and_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-resume-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            interrupted_client = DogfoodClient(interrupted_dogfood_responses())
+            interrupted_stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=interrupted_client),
+                redirect_stdout(interrupted_stdout),
+            ):
+                interrupted_exit_code = main(
+                    [
+                        "--output-format",
+                        "json",
+                        "--approval",
+                        "allow",
+                        "--cwd",
+                        str(root),
+                        "--max-iterations",
+                        "3",
+                        "Fix the calculator test failure and commit the verified fix.",
+                    ]
+                )
+
+            interrupted_payload = json.loads(interrupted_stdout.getvalue())
+            resumed_client = DogfoodClient(resumed_dogfood_responses())
+            resumed_stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=resumed_client),
+                redirect_stdout(resumed_stdout),
+            ):
+                resumed_exit_code = main(
+                    [
+                        "--output-format",
+                        "json",
+                        "--approval",
+                        "allow",
+                        "--cwd",
+                        str(root),
+                        "--resume",
+                        interrupted_payload["runId"],
+                        "--max-iterations",
+                        "12",
+                        "Continue from the previous VibeAgent session and commit the verified fix.",
+                    ]
+                )
+
+            resumed_payload = json.loads(resumed_stdout.getvalue())
+            initial_resumed_prompt = "\n".join(str(message.content) for message in resumed_client.messages[0])
+            git_status = subprocess.run(
+                ["git", "status", "--short"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout
+            head_message = subprocess.run(
+                ["git", "log", "-1", "--pretty=%s"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout.strip()
+            calc_text = (root / "calc.py").read_text(encoding="utf-8")
+
+        self.assertEqual(interrupted_exit_code, 1)
+        self.assertEqual(interrupted_payload["kind"], "code")
+        self.assertFalse(interrupted_payload["success"])
+        self.assertEqual(interrupted_payload["status"], "failed")
+        self.assertTrue(interrupted_payload["runId"])
+        self.assertEqual(resumed_exit_code, 0)
+        self.assertEqual(resumed_payload["kind"], "code")
+        self.assertEqual(resumed_payload["status"], "completed")
+        self.assertEqual(resumed_payload["stopReason"], "completed")
+        self.assertTrue(resumed_payload["success"])
+        self.assertTrue(resumed_payload["completionReady"])
+        self.assertEqual(resumed_payload["completionBlockers"], [])
+        self.assertEqual(resumed_payload["pendingVerificationChecks"], [])
+        self.assertEqual(resumed_payload["failedVerificationChecks"], [])
+        self.assertEqual(resumed_payload["priorContext"], {
+            "loaded": True,
+            "source": "resume",
+            "runId": interrupted_payload["runId"],
+        })
+        self.assertIn("Previous session context:", initial_resumed_prompt)
+        self.assertIn("python -B -m unittest discover -s tests", initial_resumed_prompt)
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_message, "Fix calculator add after resume")
         self.assertIn("return left + right", calc_text)
 
     def test_v1_cli_stream_json_can_repair_with_allowed_tools_and_report_events(self) -> None:

@@ -108,6 +108,11 @@ local changes when asked, and resume from recorded session context.
   runs the deterministic repair dogfood through the real CLI `main()` one-shot
   JSON path, confirming argument parsing, provider creation, completion-ready
   machine output, workspace repair, verification, and local commit.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_resume_interrupted_run_and_commit`
+  runs an interrupted deterministic repair dogfood through the real CLI
+  `main()` JSON path, then resumes it through `--resume <runId>`, confirming
+  prior-context loading, resume prompt injection, workspace repair,
+  verification, and local commit.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_stream_json_can_repair_with_allowed_tools_and_report_events`
   runs the deterministic repair dogfood through the real CLI `main()` one-shot
   `stream-json` path with per-run `--allowed-tools` overrides, confirming
