@@ -24,6 +24,10 @@ local changes when asked, and resume from recorded session context.
   is the dedicated deterministic 1.0 dogfood scenario: project overview,
   file reads, failing test reproduction, fix, passing test rerun, local commit,
   final review, and session verification recovery without real provider calls.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_resume_after_interrupted_failure_and_commit`
+  covers the same repair workflow split across two runs: the first run records a
+  failing verification before interruption, `get_resume_context` reloads that
+  evidence, and the resumed run fixes, verifies, and commits.
 - `tests.test_agent.AgentTests.test_run_agent_repairs_a_failing_script_and_finishes`
   covers write -> failed command -> repair -> successful command.
 - `tests.test_agent.AgentTests.test_run_agent_continues_after_pending_suggested_check_is_run`
@@ -41,6 +45,6 @@ local changes when asked, and resume from recorded session context.
 - The full unit suite passes from a clean worktree.
 - A dedicated 1.0 acceptance test confirms every gate above maps to concrete
   tools and regression tests.
-- At least one deterministic dogfood scenario exercises read, edit, run, repair,
-  review, and commit behavior without real provider calls.
+- Deterministic dogfood scenarios exercise read, edit, run, repair, review,
+  commit, and resume behavior without real provider calls.
 - `README.md` points contributors to this 1.0 acceptance plan.

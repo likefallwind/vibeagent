@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from vibeagent.agent import run_agent
+from vibeagent.session_commands import get_resume_context
 from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, ContentBlock
 
 
@@ -150,6 +151,109 @@ def v1_dogfood_responses() -> list[list[ContentBlock]]:
     ]
 
 
+def interrupted_dogfood_responses() -> list[list[ContentBlock]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "overview-1",
+                "name": "project_overview",
+                "input": {"max_files": 20, "max_commands": 10, "max_checks": 10},
+            }
+        ],
+        [
+            {"type": "tool_call", "id": "read-1", "name": "read_file", "input": {"path": "calc.py"}},
+            {"type": "tool_call", "id": "read-2", "name": "read_file", "input": {"path": "tests/test_calc.py"}},
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "test-1",
+                "name": "run_command",
+                "input": {"command": "python -B -m unittest discover -s tests", "timeout_ms": 10_000},
+            }
+        ],
+    ]
+
+
+def resumed_dogfood_responses() -> list[list[ContentBlock]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "plan-1",
+                "name": "update_plan",
+                "input": {
+                    "plan": [
+                        {"step": "Use resumed context to confirm the previous failing test", "status": "completed"},
+                        {"step": "Fix add implementation", "status": "in_progress"},
+                        {"step": "Rerun unit tests", "status": "pending"},
+                        {"step": "Commit verified fix", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "write-1",
+                "name": "write_file",
+                "input": {"path": "calc.py", "content": "def add(left, right):\n    return left + right\n"},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "test-2",
+                "name": "run_command",
+                "input": {"command": "python -B -m unittest discover -s tests", "timeout_ms": 10_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "plan-2",
+                "name": "update_plan",
+                "input": {
+                    "plan": [
+                        {"step": "Use resumed context to confirm the previous failing test", "status": "completed"},
+                        {"step": "Fix add implementation", "status": "completed"},
+                        {"step": "Rerun unit tests", "status": "completed"},
+                        {"step": "Commit verified fix", "status": "in_progress"},
+                    ]
+                },
+            }
+        ],
+        [{"type": "tool_call", "id": "stage-1", "name": "git_stage", "input": {"paths": ["calc.py"]}}],
+        [{"type": "tool_call", "id": "commit-1", "name": "git_commit", "input": {"message": "Fix calculator add after resume"}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "plan-3",
+                "name": "update_plan",
+                "input": {
+                    "plan": [
+                        {"step": "Use resumed context to confirm the previous failing test", "status": "completed"},
+                        {"step": "Fix add implementation", "status": "completed"},
+                        {"step": "Rerun unit tests", "status": "completed"},
+                        {"step": "Commit verified fix", "status": "completed"},
+                    ]
+                },
+            }
+        ],
+        [{"type": "text", "text": "Resumed from the previous failed test, fixed the code, verified tests, and committed."}],
+        [
+            {
+                "type": "tool_call",
+                "id": "verify-1",
+                "name": "run_session_verification",
+                "input": {"include_pending": True, "include_failed": True, "timeout_ms": 10_000},
+            }
+        ],
+        [{"type": "text", "text": "Session verification is clean after resume and the fix is committed."}],
+    ]
+
+
 class V1DogfoodTests(unittest.TestCase):
     def test_v1_agent_can_read_repair_verify_commit_and_finish(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-dogfood-") as base:
@@ -204,6 +308,77 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertLess(observation_kinds.index("git_stage"), observation_kinds.index("git_commit"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("final_review"))
+
+    def test_v1_agent_can_resume_after_interrupted_failure_and_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-resume-dogfood-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            interrupted_client = DogfoodClient(interrupted_dogfood_responses())
+
+            interrupted = run_agent(
+                "Fix the calculator test failure and commit the verified fix.",
+                base_dir=root,
+                client=interrupted_client,
+                max_iterations=3,
+                approval_handler=approve_all,
+            )
+            selected_run_id, prior_context, resume_message = get_resume_context(
+                interrupted.run_id,
+                root,
+                max_files=20,
+                max_commands=5,
+                max_checks=10,
+                max_output_chars=1_000,
+                max_text=4_000,
+            )
+            self.assertEqual(selected_run_id, interrupted.run_id)
+            self.assertIsNotNone(prior_context, resume_message)
+            assert prior_context is not None
+            self.assertIn("python -B -m unittest discover -s tests", prior_context)
+
+            resumed_client = DogfoodClient(resumed_dogfood_responses())
+            resumed = run_agent(
+                "Continue from the previous VibeAgent session and commit the verified fix.",
+                base_dir=root,
+                client=resumed_client,
+                max_iterations=12,
+                approval_handler=approve_all,
+                prior_context=prior_context,
+            )
+            git_status = subprocess.run(
+                ["git", "status", "--short"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout
+            head_message = subprocess.run(
+                ["git", "log", "-1", "--pretty=%s"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout.strip()
+
+        initial_resumed_prompt = "\n".join(str(message.content) for message in resumed_client.messages[0])
+        interrupted_observations = [item.kind for item in interrupted.observations]
+        resumed_observations = [item.kind for item in resumed.observations]
+
+        self.assertFalse(interrupted.success)
+        self.assertIn("run_command", interrupted_observations)
+        self.assertIn("Previous session context:", initial_resumed_prompt)
+        self.assertIn("python -B -m unittest discover -s tests", initial_resumed_prompt)
+        self.assertTrue(resumed.success)
+        self.assertTrue(resumed.completion_ready)
+        self.assertEqual(resumed.completion_blockers, [])
+        self.assertEqual(resumed.pending_verification_checks, [])
+        self.assertEqual(resumed.failed_verification_checks, [])
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_message, "Fix calculator add after resume")
+        self.assertIn("run_session_verification", resumed_observations)
+        self.assertLess(resumed_observations.index("write_file"), resumed_observations.index("git_commit"))
 
 
 if __name__ == "__main__":

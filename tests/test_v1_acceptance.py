@@ -10,7 +10,10 @@ from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAN_PATH = ROOT / "docs" / "vibeagent-1.0.md"
-DOGFOOD_TEST = "test_v1_agent_can_read_repair_verify_commit_and_finish"
+DOGFOOD_TESTS = {
+    "test_v1_agent_can_read_repair_verify_commit_and_finish",
+    "test_v1_agent_can_resume_after_interrupted_failure_and_commit",
+}
 
 EXPECTED_GATES = {
     "VA1-READ": {
@@ -71,12 +74,14 @@ class V1AcceptanceTests(unittest.TestCase):
             with self.subTest(gate=gate):
                 self.assertEqual(missing, set())
 
-    def test_acceptance_plan_names_the_dedicated_dogfood_test(self) -> None:
+    def test_acceptance_plan_names_the_dedicated_dogfood_tests(self) -> None:
         plan = PLAN_PATH.read_text(encoding="utf-8")
         dogfood_source = (ROOT / "tests" / "test_v1_dogfood.py").read_text(encoding="utf-8")
 
-        self.assertIn(DOGFOOD_TEST, plan)
-        self.assertIn(f"def {DOGFOOD_TEST}", dogfood_source)
+        for test_name in DOGFOOD_TESTS:
+            with self.subTest(test_name=test_name):
+                self.assertIn(test_name, plan)
+                self.assertIn(f"def {test_name}", dogfood_source)
 
     def test_package_exposes_fast_v1_acceptance_script(self) -> None:
         package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
