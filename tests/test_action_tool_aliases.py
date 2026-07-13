@@ -3,10 +3,24 @@ from __future__ import annotations
 import unittest
 
 from vibeagent.action_parsing import parse_tool_action
-from vibeagent.types import RunCommandAction, StartCommandAction
+from vibeagent.types import ReadFileAction, RunCommandAction, StartCommandAction
 
 
 class ActionToolAliasTests(unittest.TestCase):
+    def test_claude_read_zero_offset_maps_to_first_line(self) -> None:
+        action = parse_tool_action("Read", {"file_path": "app.py", "offset": 0, "limit": 5})
+        notebook_action = parse_tool_action(
+            "NotebookRead",
+            {"notebook_path": "analysis.ipynb", "offset": 0, "limit": 3},
+        )
+
+        self.assertIsInstance(action, ReadFileAction)
+        self.assertEqual(action.start_line, 1)
+        self.assertEqual(action.line_count, 5)
+        self.assertIsInstance(notebook_action, ReadFileAction)
+        self.assertEqual(notebook_action.start_line, 1)
+        self.assertEqual(notebook_action.line_count, 3)
+
     def test_claude_bash_timeout_maps_to_run_command_timeout_ms(self) -> None:
         action = parse_tool_action(
             "Bash",

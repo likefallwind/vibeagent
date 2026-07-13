@@ -251,6 +251,8 @@ def _normalize_read_file_input(value: dict[str, Any]) -> dict[str, Any]:
 
 def _normalize_claude_read_file_input(value: dict[str, Any]) -> dict[str, Any]:
     normalized = _normalize_read_file_input(value)
+    if normalized.get("start_line") == 0:
+        normalized["start_line"] = 1
     if "line_count" in normalized and "start_line" not in normalized:
         normalized["start_line"] = 1
     return normalized
