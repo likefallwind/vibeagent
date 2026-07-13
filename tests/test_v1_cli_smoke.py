@@ -5,12 +5,14 @@ import json
 import subprocess
 import tempfile
 import unittest
+import uuid
 from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
 from tests.test_v1_dogfood import (
     DogfoodClient,
+    background_process_dogfood_responses,
     claude_compat_dogfood_responses,
     claude_hook_dogfood_responses,
     claude_mcp_dogfood_responses,
@@ -387,6 +389,40 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn('"event": "PostToolUse"', events_text)
         self.assertIn('"name": "Edit"', events_text)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add through hooks")
+
+    def test_v1_cli_json_can_manage_background_process_before_repair_and_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-background-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(background_process_dogfood_responses())
+            fixed_process_uuid = uuid.UUID("11111111-1111-2222-2222-222222222222")
+            with patch("vibeagent.process_runtime.uuid.uuid4", return_value=fixed_process_uuid):
+                exit_code, payload = _run_json_cli(
+                    client,
+                    [
+                        "--output-format",
+                        "json",
+                        "--approval",
+                        "allow",
+                        "--cwd",
+                        str(root),
+                        "--max-iterations",
+                        "18",
+                        "Start a background readiness probe, inspect it, then fix the calculator test failure and commit.",
+                    ],
+                )
+            events = _session_events(root, payload["runId"])
+            events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload)
+        self.assertIn('"name": "Bash"', events_text)
+        self.assertIn('"name": "BashOutput"', events_text)
+        self.assertIn('"name": "KillBash"', events_text)
+        self.assertIn('"process_id": "111111111111"', events_text)
+        self.assertIn("ready", events_text)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add after background probe")
 
     def test_v1_cli_stream_json_input_format_can_repair_verify_commit_and_report_ready(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-input-stream-smoke-") as base:

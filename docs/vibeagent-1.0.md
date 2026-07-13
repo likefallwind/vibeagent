@@ -131,6 +131,11 @@ local changes when asked, and resume from recorded session context.
   runs the real CLI JSON path with configured project `PreToolUse` and
   `PostToolUse` hooks around a Claude-compatible `Edit`, confirming hooks fire
   before and after the edit before the agent verifies, reports, and commits.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_manage_background_process_before_repair_and_commit`
+  runs the real CLI JSON path through Claude-compatible background `Bash`,
+  `BashOutput`, and `KillBash` aliases, confirming a long-running process can
+  be started, inspected, stopped, and kept out of the way before repair,
+  verification, review, and commit.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_resume_interrupted_run_and_commit`
   runs an interrupted deterministic repair dogfood through the real CLI
   `main()` JSON path, then resumes it through `--resume <runId>`, confirming
