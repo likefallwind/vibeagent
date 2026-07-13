@@ -11485,8 +11485,89 @@ class AgentTests(unittest.TestCase):
 
         self.assertIn("Can stash 1", preview or "")
         self.assertIn("diffChars=", preview or "")
+        self.assertIn("diffSha256=", preview or "")
         self.assertIn("Can stash 1", default_preview or "")
         self.assertIsNone(mismatched_preview)
+
+    def test_approval_preview_summary_fingerprints_diff_content(self) -> None:
+        first = agent_module.summarize_preview_observation(
+            types_module.CheckGitStashObservation(
+                kind="check_git_stash",
+                ok=True,
+                message_text="save work",
+                include_untracked=False,
+                status=" M app.py\n",
+                diff="abc",
+                message="Can stash 1 path(s).",
+            )
+        )
+        second = agent_module.summarize_preview_observation(
+            types_module.CheckGitStashObservation(
+                kind="check_git_stash",
+                ok=True,
+                message_text="save work",
+                include_untracked=False,
+                status=" M app.py\n",
+                diff="xyz",
+                message="Can stash 1 path(s).",
+            )
+        )
+
+        self.assertIn("diffChars=3", first)
+        self.assertIn("diffChars=3", second)
+        self.assertIn("diffSha256=", first)
+        self.assertIn("diffSha256=", second)
+        self.assertNotEqual(first, second)
+
+    def test_approval_preview_summary_fingerprints_command_checks(self) -> None:
+        first = agent_module.summarize_preview_observation(
+            CheckRunCommandsObservation(
+                kind="check_run_commands",
+                ok=True,
+                checks=[
+                    CommandCheckObservation(
+                        kind="command_check",
+                        ok=True,
+                        command="python -m unittest",
+                        cwd=".",
+                        cwd_ok=True,
+                        blocked=False,
+                        block_reason=None,
+                        executable_available=True,
+                        missing_tool=None,
+                        message="Command can run.",
+                    )
+                ],
+                message="Preflighted 1 command.",
+            )
+        )
+        second = agent_module.summarize_preview_observation(
+            CheckRunCommandsObservation(
+                kind="check_run_commands",
+                ok=True,
+                checks=[
+                    CommandCheckObservation(
+                        kind="command_check",
+                        ok=True,
+                        command="npm test",
+                        cwd=".",
+                        cwd_ok=True,
+                        blocked=False,
+                        block_reason=None,
+                        executable_available=True,
+                        missing_tool=None,
+                        message="Command can run.",
+                    )
+                ],
+                message="Preflighted 1 command.",
+            )
+        )
+
+        self.assertIn("commands=1", first)
+        self.assertIn("commands=1", second)
+        self.assertIn("commandsSha256=", first)
+        self.assertIn("commandsSha256=", second)
+        self.assertNotEqual(first, second)
 
     def test_approval_preview_summary_matches_focused_test_selection_limits(self) -> None:
         preview_observation = CheckFocusedTestCommandsObservation(

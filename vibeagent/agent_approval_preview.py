@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import replace
 from typing import Any
 
@@ -102,10 +104,31 @@ def summarize_preview_observation(observation: object) -> str:
     diff = getattr(observation, "diff", None)
     if isinstance(diff, str) and diff:
         parts.append(f"diffChars={len(diff)}")
+        parts.append(f"diffSha256={preview_digest(diff)}")
     checks = getattr(observation, "checks", None)
     if isinstance(checks, list):
         parts.append(f"commands={len(checks)}")
+        if checks:
+            parts.append(f"commandsSha256={preview_digest(command_check_fingerprint_payload(checks))}")
     return "; ".join(parts)
+
+
+def preview_digest(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+
+
+def command_check_fingerprint_payload(checks: list[object]) -> str:
+    payload = [
+        {
+            "command": str(getattr(check, "command", "") or ""),
+            "cwd": str(getattr(check, "cwd", ".") or "."),
+            "ok": bool(getattr(check, "ok", False)),
+            "blocked": bool(getattr(check, "blocked", False)),
+            "missing_tool": getattr(check, "missing_tool", None),
+        }
+        for check in checks
+    ]
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def approval_preview_key(value: object) -> tuple[Any, ...]:
