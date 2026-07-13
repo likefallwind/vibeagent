@@ -12,8 +12,10 @@ from unittest.mock import patch
 from tests.test_v1_dogfood import (
     DogfoodClient,
     claude_compat_dogfood_responses,
+    claude_mcp_dogfood_responses,
     claude_notebook_dogfood_responses,
     init_broken_calculator_repo,
+    init_mcp_calculator_repo,
     init_broken_notebook_repo,
     interrupted_dogfood_responses,
     resumed_dogfood_responses,
@@ -253,6 +255,49 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn("Structured input assistant messages:", initial_prompt)
         self.assertIn("calculator tests are failing", initial_prompt)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add")
+
+    def test_v1_cli_json_can_use_strict_mcp_config_before_repair_and_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-mcp-smoke-") as base:
+            root = Path(base)
+            init_mcp_calculator_repo(root)
+            explicit_config = root / "explicit.mcp.json"
+            (root / ".mcp.json").replace(explicit_config)
+            subprocess.run(["git", "add", "-A"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(
+                ["git", "commit", "-m", "use explicit mcp config"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            client = DogfoodClient(claude_mcp_dogfood_responses())
+            exit_code, payload = _run_json_cli(
+                client,
+                [
+                    "--output-format",
+                    "json",
+                    "--approval",
+                    "allow",
+                    "--cwd",
+                    str(root),
+                    "--mcp-config",
+                    "explicit.mcp.json",
+                    "--strict-mcp-config",
+                    "--max-iterations",
+                    "17",
+                    "Use the configured MCP server for calculator guidance, then fix and commit.",
+                ],
+            )
+            events = _session_events(root, payload["runId"])
+            events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload)
+        self.assertIn('"name": "mcp_tools"', events_text)
+        self.assertIn('"name": "mcp__test__echo"', events_text)
+        self.assertIn("calculator add should sum both operands", events_text)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add with MCP evidence")
 
     def test_v1_cli_stream_json_input_format_can_repair_verify_commit_and_report_ready(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-input-stream-smoke-") as base:
