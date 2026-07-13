@@ -33,8 +33,25 @@ def _run_cli(client: DogfoodClient, args: list[str]) -> tuple[int, str]:
     return exit_code, stdout.getvalue()
 
 
+def _run_cli_with_stdin(client: DogfoodClient, args: list[str], stdin_text: str) -> tuple[int, str]:
+    stdout = io.StringIO()
+    with (
+        patch("sys.stdin", io.StringIO(stdin_text)),
+        patch("vibeagent.cli.create_chat_client", return_value=client),
+        redirect_stdout(stdout),
+    ):
+        exit_code = main(args)
+
+    return exit_code, stdout.getvalue()
+
+
 def _run_json_cli(client: DogfoodClient, args: list[str]) -> tuple[int, dict[str, object]]:
     exit_code, output = _run_cli(client, args)
+    return exit_code, json.loads(output)
+
+
+def _run_json_cli_with_stdin(client: DogfoodClient, args: list[str], stdin_text: str) -> tuple[int, dict[str, object]]:
+    exit_code, output = _run_cli_with_stdin(client, args, stdin_text)
     return exit_code, json.loads(output)
 
 
@@ -194,6 +211,47 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         _assert_completed_code_result(self, payload, num_turns=13)
         self.assertTrue(payload["runId"])
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add")
+
+    def test_v1_cli_json_input_format_can_repair_verify_commit_and_report_ready(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-input-json-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(v1_dogfood_responses())
+            stdin_payload = json.dumps(
+                {
+                    "messages": [
+                        {"role": "system", "content": "Prefer focused checks before broad suites."},
+                        {"role": "assistant", "content": "Previous context: calculator tests are failing."},
+                        {"role": "user", "content": "Fix the calculator test failure and commit the verified fix."},
+                    ]
+                }
+            )
+            exit_code, payload = _run_json_cli_with_stdin(
+                client,
+                [
+                    "--output-format",
+                    "json",
+                    "--input-format",
+                    "json",
+                    "--approval",
+                    "allow",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "14",
+                    "-",
+                ],
+                stdin_payload,
+            )
+            initial_prompt = _initial_prompt(client)
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload, num_turns=13)
+        self.assertIn("Prefer focused checks before broad suites.", initial_prompt)
+        self.assertIn("Structured input assistant messages:", initial_prompt)
+        self.assertIn("calculator tests are failing", initial_prompt)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add")
 
     def test_v1_cli_json_can_resume_interrupted_run_and_commit(self) -> None:
