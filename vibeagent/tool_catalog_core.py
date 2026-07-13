@@ -75,6 +75,8 @@ def categorize_tools() -> dict[str, list[str]]:
 
 
 def tool_category(name: str) -> str:
+    if name.startswith("mcp__"):
+        return "project"
     if name in {"delegate_task", "mcp_call", "mcp_servers", "mcp_tools", "web_fetch"}:
         return "project"
     if name in {"Agent", "Task", "WebFetch"}:
@@ -212,6 +214,8 @@ def tool_category(name: str) -> str:
 
 
 def tool_name_requires_approval(name: str) -> bool:
+    if name.startswith("mcp__"):
+        return True
     if name in APPROVAL_REQUIRED_TOOL_NAMES:
         return True
     return bool(profile_tool_names(name) & APPROVAL_REQUIRED_TOOL_NAMES)

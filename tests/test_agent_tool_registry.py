@@ -16,6 +16,7 @@ from vibeagent.agent_tool_registry import (
     ToolVisibilityPolicy,
     activate_agent_tool_names,
     activate_tools_for_run,
+    mcp_tools_activation_names,
     agent_tool_definitions,
     initial_agent_tool_names,
     tool_search_activation_names,
@@ -25,7 +26,7 @@ from vibeagent.session_timeline_reports import format_session_event_timeline_ite
 from vibeagent.session_types import SessionEvent
 from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
 from vibeagent.tool_catalog_core import APPROVAL_REQUIRED_TOOL_NAMES
-from vibeagent.types import AssistantResponse, ChatMessage, ContentBlock, ToolSearchObservation
+from vibeagent.types import AssistantResponse, ChatMessage, ContentBlock, McpToolInfo, McpToolsObservation, ToolSearchObservation
 from vibeagent.workspace import create_run_workspace
 
 
@@ -197,6 +198,44 @@ class AgentToolRegistryTests(unittest.TestCase):
         self.assertEqual(
             tool_search_activation_names(observation),
             ["python_dependencies", "code_dependencies"],
+        )
+
+    def test_mcp_tools_observation_registers_claude_style_dynamic_tools(self) -> None:
+        observation = McpToolsObservation(
+            kind="mcp_tools",
+            ok=True,
+            server="docs",
+            tools=[
+                McpToolInfo(
+                    name="search",
+                    title="Search",
+                    description="Search documentation.",
+                    input_schema={"type": "object", "properties": {"query": {"type": "string"}}},
+                )
+            ],
+            total=1,
+            truncated=False,
+            timeout_ms=1000,
+            error=None,
+            message="Listed tools.",
+        )
+        active = initial_agent_tool_names()
+
+        self.assertEqual(mcp_tools_activation_names(observation), ["mcp__docs__search"])
+        self.assertEqual(
+            activate_agent_tool_names(active, ["mcp__docs__search"], "plan"),
+            [],
+        )
+        self.assertEqual(
+            activate_agent_tool_names(active, ["mcp__docs__search"]),
+            ["mcp__docs__search"],
+        )
+
+        definitions = {str(tool["name"]): tool for tool in agent_tool_definitions(active)}
+        self.assertEqual(definitions["mcp__docs__search"]["description"], "Search documentation.")
+        self.assertEqual(
+            definitions["mcp__docs__search"]["input_schema"],
+            {"type": "object", "properties": {"query": {"type": "string"}}},
         )
 
     def test_tool_search_activates_matching_schemas_on_next_model_turn(self) -> None:

@@ -10,7 +10,7 @@ from vibeagent.agent import run_agent
 from vibeagent.agent_approval import build_approval_request
 from vibeagent.mcp_config import read_mcp_server_configs
 from vibeagent.redaction import redact_jsonable_payload
-from vibeagent.types import AssistantResponse, ChatMessage, ContentBlock, McpCallAction, McpToolsAction
+from vibeagent.types import ApprovalDecision, AssistantResponse, ChatMessage, ContentBlock, McpCallAction, McpToolsAction
 from vibeagent.workspace import create_run_workspace
 
 
@@ -57,8 +57,10 @@ class _Client:
     def __init__(self, responses: list[list[ContentBlock]]) -> None:
         self.responses = responses
         self.calls = 0
+        self.tools: list[list[dict]] = []
 
     def complete(self, messages: list[ChatMessage], tools=None, max_tokens=4096, temperature=0.2, timeout_ms=120_000):
+        self.tools.append(list(tools or []))
         response = self.responses[self.calls]
         self.calls += 1
         return AssistantResponse(content=response, raw={"content": response})
@@ -287,15 +289,62 @@ class McpRuntimeTests(unittest.TestCase):
         self.assertEqual(result.observations[0].kind, "approval_denied")
         self.assertEqual(result.observations[0].action_type, "mcp_call")
 
+    def test_agent_exposes_listed_mcp_tools_as_claude_style_dynamic_tools(self) -> None:
+        client = _Client(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "tools-1",
+                        "name": "mcp_tools",
+                        "input": {"server": "test", "timeout_ms": 2000},
+                    }
+                ],
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "call-1",
+                        "name": "mcp__test__echo",
+                        "input": {"message": "hello"},
+                    }
+                ],
+                [{"type": "text", "text": "MCP tool completed."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
+            root = Path(base)
+            _write_mcp_project(root)
+            with patch.dict("os.environ", {"MCP_TEST_SOURCE": "expanded"}):
+                result = run_agent(
+                    "List then call MCP",
+                    base_dir=root,
+                    client=client,
+                    max_iterations=3,
+                    approval_handler=lambda request: ApprovalDecision(approved=True, message="approved"),
+                )
+
+        second_turn_names = {str(tool["name"]) for tool in client.tools[1]}
+        self.assertIn("mcp__test__echo", second_turn_names)
+        self.assertEqual([observation.kind for observation in result.observations], ["mcp_tools", "mcp_call"])
+        self.assertTrue(result.observations[1].ok)
+        self.assertEqual(result.observations[1].server, "test")
+        self.assertEqual(result.observations[1].name, "echo")
+        self.assertIn('"message": "hello"', result.observations[1].output)
+
 
 class McpParsingTests(unittest.TestCase):
     def test_parses_bounded_actions(self) -> None:
         tools = parse_tool_action("mcp_tools", {"server": "docs", "max_tools": 5, "timeout_ms": 500})
         call = parse_tool_action("mcp_call", {"server": "docs", "name": "search", "arguments": {"q": "api"}})
+        alias_call = parse_tool_action("mcp__docs__search", {"q": "api"})
 
         self.assertEqual(tools.server, "docs")
         self.assertEqual(tools.max_tools, 5)
         self.assertEqual(call.arguments, {"q": "api"})
+        self.assertEqual(alias_call.type, "mcp_call")
+        self.assertEqual(alias_call.server, "docs")
+        self.assertEqual(alias_call.name, "search")
+        self.assertEqual(alias_call.arguments, {"q": "api"})
 
     def test_key_redaction_hides_credentials_without_redacting_usage_counts(self) -> None:
         payload = redact_jsonable_payload(

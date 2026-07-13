@@ -15,6 +15,7 @@ TOOL_DEFINITION_BY_NAME = {
     str(tool["name"]): tool
     for tool in AGENT_TOOL_DEFINITIONS
 }
+_DYNAMIC_TOOL_DEFINITION_BY_NAME: dict[str, dict[str, Any]] = {}
 
 
 @dataclass(frozen=True)
@@ -82,12 +83,18 @@ def agent_tool_definitions(
     excluded_names: frozenset[str] = frozenset(),
 ) -> list[dict[str, Any]]:
     policy = _visibility_policy(approval_policy, excluded_names)
-    return [
+    definitions = [
         tool
         for tool in AGENT_TOOL_DEFINITIONS
         if str(tool["name"]) in active_names
         and policy.allows(str(tool["name"]))
     ]
+    definitions.extend(
+        tool
+        for name, tool in sorted(_DYNAMIC_TOOL_DEFINITION_BY_NAME.items())
+        if name in active_names and policy.allows(name)
+    )
+    return definitions
 
 
 def activate_agent_tool_names(
@@ -101,7 +108,7 @@ def activate_agent_tool_names(
     for name in requested_names:
         if (
             name in active_names
-            or name not in TOOL_DEFINITION_BY_NAME
+            or _tool_definition_for_name(name) is None
             or not policy.allows(name)
         ):
             continue
@@ -123,6 +130,24 @@ def tool_search_activation_names(observation: object) -> list[str]:
         name = match.get("name")
         if isinstance(name, str) and name in TOOL_DEFINITION_BY_NAME:
             names.append(name)
+    return names
+
+
+def mcp_tools_activation_names(observation: object) -> list[str]:
+    if getattr(observation, "kind", None) != "mcp_tools" or not getattr(observation, "ok", False):
+        return []
+    server = getattr(observation, "server", None)
+    tools = getattr(observation, "tools", None)
+    if not isinstance(server, str) or not isinstance(tools, list):
+        return []
+    names: list[str] = []
+    for tool in tools:
+        tool_name = getattr(tool, "name", None)
+        if not isinstance(tool_name, str) or not tool_name:
+            continue
+        name = f"mcp__{server}__{tool_name}"
+        _DYNAMIC_TOOL_DEFINITION_BY_NAME[name] = _mcp_tool_definition(server, tool)
+        names.append(name)
     return names
 
 
@@ -160,19 +185,55 @@ def activate_tools_from_observations(
     approval_policy: ApprovalPolicy = "ask",
     excluded_names: frozenset[str] = frozenset(),
 ) -> list[str]:
+    activated: list[str] = []
     requested_names: list[str] = []
     for observation in observations:
         requested_names.extend(tool_search_activation_names(observation))
-    return activate_tools_for_run(
-        workspace,
-        active_names,
-        requested_names,
-        iteration,
-        source="tool_search",
-        approval_policy=approval_policy,
-        excluded_names=excluded_names,
+    activated.extend(
+        activate_tools_for_run(
+            workspace,
+            active_names,
+            requested_names,
+            iteration,
+            source="tool_search",
+            approval_policy=approval_policy,
+            excluded_names=excluded_names,
+        )
     )
+
+    requested_names = []
+    for observation in observations:
+        requested_names.extend(mcp_tools_activation_names(observation))
+    activated.extend(
+        activate_tools_for_run(
+            workspace,
+            active_names,
+            requested_names,
+            iteration,
+            source="mcp_tools",
+            approval_policy=approval_policy,
+            excluded_names=excluded_names,
+        )
+    )
+    return sorted(activated)
 
 
 def validate_core_agent_tools() -> list[str]:
     return sorted(CORE_AGENT_TOOL_NAMES - TOOL_DEFINITION_BY_NAME.keys())
+
+
+def _tool_definition_for_name(name: str) -> dict[str, Any] | None:
+    return TOOL_DEFINITION_BY_NAME.get(name) or _DYNAMIC_TOOL_DEFINITION_BY_NAME.get(name)
+
+
+def _mcp_tool_definition(server: str, tool: object) -> dict[str, Any]:
+    tool_name = str(getattr(tool, "name", ""))
+    description = str(getattr(tool, "description", "") or "")
+    schema = getattr(tool, "input_schema", {"type": "object"})
+    if not isinstance(schema, dict):
+        schema = {"type": "object"}
+    return {
+        "name": f"mcp__{server}__{tool_name}",
+        "description": description or f"Claude-compatible MCP tool alias for {server}/{tool_name}. Requires approval.",
+        "input_schema": dict(schema),
+    }

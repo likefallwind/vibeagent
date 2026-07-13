@@ -114,6 +114,10 @@ class ToolCatalogTests(unittest.TestCase):
         self.assertFalse(tool_requires_approval("Task", ""))
         self.assertTrue(tool_requires_approval("WebFetch", ""))
 
+    def test_claude_mcp_dynamic_alias_names_are_project_tools_requiring_approval(self) -> None:
+        self.assertEqual(tool_catalog_core.tool_category("mcp__docs__search"), "project")
+        self.assertTrue(tool_requires_approval("mcp__docs__search", ""))
+
 
 if __name__ == "__main__":
     unittest.main()
