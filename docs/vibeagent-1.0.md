@@ -49,6 +49,10 @@ local changes when asked, and resume from recorded session context.
   files, records the implementation plan through the Claude-compatible
   `ExitPlanMode` alias, and verifies no edits, commands, or commits were
   attempted.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_repair_verify_commit_and_report_ready`
+  runs the deterministic repair dogfood through the real CLI `main()` one-shot
+  JSON path, confirming argument parsing, provider creation, completion-ready
+  machine output, workspace repair, verification, and local commit.
 - `tests.test_agent.AgentTests.test_run_agent_repairs_a_failing_script_and_finishes`
   covers write -> failed command -> repair -> successful command.
 - `tests.test_agent.AgentTests.test_run_agent_continues_after_pending_suggested_check_is_run`

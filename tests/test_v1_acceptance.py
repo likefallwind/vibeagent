@@ -19,6 +19,9 @@ DOGFOOD_TESTS = {
     "test_v1_agent_plan_mode_inspects_without_mutating",
     "test_v1_agent_can_apply_claude_multi_edit_and_commit",
 }
+CLI_SMOKE_TESTS = {
+    "test_v1_cli_json_can_repair_verify_commit_and_report_ready",
+}
 
 EXPECTED_GATES = {
     "VA1-READ": {
@@ -101,8 +104,17 @@ class V1AcceptanceTests(unittest.TestCase):
 
         self.assertEqual(
             package["scripts"]["test:v1"],
-            "python3 -m unittest tests.test_v1_acceptance tests.test_v1_dogfood -q",
+            "python3 -m unittest tests.test_v1_acceptance tests.test_v1_dogfood tests.test_v1_cli_smoke -q",
         )
+
+    def test_acceptance_plan_names_the_dedicated_cli_smoke_tests(self) -> None:
+        plan = PLAN_PATH.read_text(encoding="utf-8")
+        smoke_source = (ROOT / "tests" / "test_v1_cli_smoke.py").read_text(encoding="utf-8")
+
+        for test_name in CLI_SMOKE_TESTS:
+            with self.subTest(test_name=test_name):
+                self.assertIn(test_name, plan)
+                self.assertIn(f"def {test_name}", smoke_source)
 
     def test_readme_links_to_v1_acceptance_plan(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
