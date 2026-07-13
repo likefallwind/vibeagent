@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 
+from vibeagent.actions import execute_action
 from vibeagent.action_parsing import parse_tool_action
-from vibeagent.types import ReadFileAction, RunCommandAction, StartCommandAction
+from vibeagent.types import ReadFileAction, RegexReplaceAction, RunCommandAction, StartCommandAction
+from vibeagent.workspace import create_run_workspace
 
 
 class ActionToolAliasTests(unittest.TestCase):
@@ -20,6 +24,57 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertIsInstance(notebook_action, ReadFileAction)
         self.assertEqual(notebook_action.start_line, 1)
         self.assertEqual(notebook_action.line_count, 3)
+
+    def test_claude_edit_replace_all_maps_to_literal_regex_replace(self) -> None:
+        action = parse_tool_action(
+            "Edit",
+            {
+                "file_path": "app.py",
+                "old_string": "a.b",
+                "new_string": r"C:\tmp",
+                "replace_all": True,
+            },
+        )
+        notebook_action = parse_tool_action(
+            "NotebookEdit",
+            {
+                "notebook_path": "analysis.ipynb",
+                "old_string": "x+y",
+                "new_string": "z",
+                "replace_all": True,
+            },
+        )
+
+        self.assertIsInstance(action, RegexReplaceAction)
+        self.assertEqual(action.path, "app.py")
+        self.assertEqual(action.pattern, r"a\.b")
+        self.assertEqual(action.replacement, r"C:\\tmp")
+        self.assertEqual(action.count, 0)
+        self.assertIsInstance(notebook_action, RegexReplaceAction)
+        self.assertEqual(notebook_action.path, "analysis.ipynb")
+        self.assertEqual(notebook_action.pattern, r"x\+y")
+
+    def test_claude_edit_replace_all_executes_literal_global_replacement(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-alias-") as base:
+            root = Path(base)
+            (root / "app.py").write_text("a.b aab a.b\n", encoding="utf-8")
+            action = parse_tool_action(
+                "Edit",
+                {
+                    "file_path": "app.py",
+                    "old_string": "a.b",
+                    "new_string": "x",
+                    "replace_all": True,
+                },
+            )
+
+            observation = execute_action(create_run_workspace(root), action)
+
+            self.assertEqual((root / "app.py").read_text(encoding="utf-8"), "x aab x\n")
+
+        self.assertEqual(observation.kind, "regex_replace")
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.replacements, 2)
 
     def test_claude_bash_timeout_maps_to_run_command_timeout_ms(self) -> None:
         action = parse_tool_action(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import re
 from typing import Any
 
 
@@ -166,6 +167,8 @@ def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, d
             dict(tool_input),
             {"run_in_background", "timeout", "timeout_ms", "max_output_chars"},
         )
+    if name in {"Edit", "NotebookEdit"} and tool_input.get("replace_all") is True:
+        return "regex_replace", _normalize_edit_replace_all_input(tool_input)
 
     normalizer = _NAME_INPUT_NORMALIZERS.get(name) or _ACTION_INPUT_NORMALIZERS.get(action_type)
     if normalizer is not None:
@@ -267,6 +270,21 @@ def _normalize_edit_file_input(value: dict[str, Any]) -> dict[str, Any]:
         value,
         {"file_path": "path", "notebook_path": "path", "old_string": "old", "new_string": "new"},
     )
+
+
+def _normalize_edit_replace_all_input(value: dict[str, Any]) -> dict[str, Any]:
+    normalized = _normalize_edit_file_input(value)
+    old = normalized.get("old")
+    new = normalized.get("new")
+    if isinstance(old, str):
+        normalized["pattern"] = re.escape(old)
+    if isinstance(new, str):
+        normalized["replacement"] = new.replace("\\", "\\\\")
+    normalized.pop("old", None)
+    normalized.pop("new", None)
+    normalized.pop("replace_all", None)
+    normalized.setdefault("count", 0)
+    return normalized
 
 
 def _normalize_claude_mcp_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
