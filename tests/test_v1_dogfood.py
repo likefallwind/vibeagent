@@ -54,6 +54,28 @@ def init_broken_calculator_repo(root: Path) -> None:
     subprocess.run(["git", "commit", "-m", "initial broken calculator"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
+def git_worktree_status(root: Path) -> str:
+    return subprocess.run(
+        ["git", "status", "--short"],
+        cwd=root,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    ).stdout
+
+
+def git_head_subject(root: Path) -> str:
+    return subprocess.run(
+        ["git", "log", "-1", "--pretty=%s"],
+        cwd=root,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    ).stdout.strip()
+
+
 def v1_dogfood_responses() -> list[list[ContentBlock]]:
     return [
         [
@@ -1317,22 +1339,8 @@ class V1DogfoodTests(unittest.TestCase):
                 max_iterations=14,
                 approval_handler=approve_all,
             )
-            git_status = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout
-            head_message = subprocess.run(
-                ["git", "log", "-1", "--pretty=%s"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout.strip()
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
 
         self.assertTrue(result.success)
         self.assertTrue(result.completion_ready)
@@ -1394,22 +1402,8 @@ class V1DogfoodTests(unittest.TestCase):
                 approval_handler=approve_all,
                 prior_context=prior_context,
             )
-            git_status = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout
-            head_message = subprocess.run(
-                ["git", "log", "-1", "--pretty=%s"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout.strip()
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
 
         initial_resumed_prompt = "\n".join(str(message.content) for message in resumed_client.messages[0])
         interrupted_observations = [item.kind for item in interrupted.observations]
@@ -1442,22 +1436,8 @@ class V1DogfoodTests(unittest.TestCase):
                 max_iterations=14,
                 approval_handler=approve_all,
             )
-            git_status = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout
-            head_message = subprocess.run(
-                ["git", "log", "-1", "--pretty=%s"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout.strip()
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
             events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
             events_text = events_path.read_text(encoding="utf-8")
 
@@ -1510,22 +1490,8 @@ class V1DogfoodTests(unittest.TestCase):
                     max_iterations=17,
                     approval_handler=approve_all,
                 )
-            git_status = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout
-            head_message = subprocess.run(
-                ["git", "log", "-1", "--pretty=%s"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout.strip()
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
             events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
             events_text = events_path.read_text(encoding="utf-8")
 
@@ -1590,22 +1556,8 @@ class V1DogfoodTests(unittest.TestCase):
                     max_iterations=15,
                     approval_handler=approve_all,
                 )
-            git_status = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout
-            head_message = subprocess.run(
-                ["git", "log", "-1", "--pretty=%s"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout.strip()
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
             events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
             events_text = events_path.read_text(encoding="utf-8")
 
@@ -1658,22 +1610,8 @@ class V1DogfoodTests(unittest.TestCase):
                 approval_handler=approve_all,
                 user_input_handler=lambda request: user_questions.append(request) or "addition",
             )
-            git_status = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout
-            head_message = subprocess.run(
-                ["git", "log", "-1", "--pretty=%s"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout.strip()
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
             events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
             events_text = events_path.read_text(encoding="utf-8")
 
@@ -1732,22 +1670,8 @@ class V1DogfoodTests(unittest.TestCase):
                 max_iterations=16,
                 approval_handler=approve_all,
             )
-            git_status = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout
-            head_message = subprocess.run(
-                ["git", "log", "-1", "--pretty=%s"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout.strip()
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
             events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
             events_text = events_path.read_text(encoding="utf-8")
 
@@ -1794,22 +1718,8 @@ class V1DogfoodTests(unittest.TestCase):
                 max_iterations=14,
                 approval_handler=approve_all,
             )
-            git_status = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout
-            head_message = subprocess.run(
-                ["git", "log", "-1", "--pretty=%s"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout.strip()
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
             events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
             events_text = events_path.read_text(encoding="utf-8")
 
@@ -1863,22 +1773,8 @@ class V1DogfoodTests(unittest.TestCase):
                 max_iterations=14,
                 approval_handler=approve_all,
             )
-            git_status = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout
-            head_message = subprocess.run(
-                ["git", "log", "-1", "--pretty=%s"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout.strip()
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
             events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
             events_text = events_path.read_text(encoding="utf-8")
 
@@ -1925,22 +1821,8 @@ class V1DogfoodTests(unittest.TestCase):
                 max_iterations=8,
                 approval_handler=approve_all,
             )
-            git_status = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout
-            head_message = subprocess.run(
-                ["git", "log", "-1", "--pretty=%s"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout.strip()
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
             calc_text = (root / "calc.py").read_text(encoding="utf-8")
             events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
             events_text = events_path.read_text(encoding="utf-8")
@@ -2004,14 +1886,7 @@ class V1DogfoodTests(unittest.TestCase):
                 max_iterations=4,
                 approval_policy="plan",
             )
-            git_status = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout
+            git_status = git_worktree_status(root)
             calc_text = (root / "calc.py").read_text(encoding="utf-8")
 
         initial_prompt = "\n".join(str(message.content) for message in client.messages[0])
@@ -2047,22 +1922,8 @@ class V1DogfoodTests(unittest.TestCase):
                 max_iterations=13,
                 approval_handler=approve_all,
             )
-            git_status = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout
-            head_message = subprocess.run(
-                ["git", "log", "-1", "--pretty=%s"],
-                cwd=root,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            ).stdout.strip()
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
             calc_text = (root / "calc.py").read_text(encoding="utf-8")
             events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
             events_text = events_path.read_text(encoding="utf-8")
