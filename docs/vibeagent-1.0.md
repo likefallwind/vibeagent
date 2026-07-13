@@ -55,6 +55,10 @@ local changes when asked, and resume from recorded session context.
   creates an explicit rollback checkpoint before editing, confirms checkpoint
   status and restore preflight after the edit, then verifies, final-reviews, and
   commits.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_generates_session_handoff_after_verified_commit`
+  finishes a verified local commit, reruns recorded session verification, and
+  then emits a structured `session_handoff` and confirms the completed run's
+  handoff is ready for continuation or compaction.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_clarify_then_repair_verify_and_commit`
   uses the Claude-compatible `AskUserQuestion` alias to ask one blocking
   clarification, returns the selected answer to the model, then reads, edits,

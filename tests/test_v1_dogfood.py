@@ -8,7 +8,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from vibeagent.agent import run_agent
-from vibeagent.session_commands import get_resume_context
+from vibeagent.session_commands import get_resume_context, get_session_handoff_report
+from vibeagent.session_handoff_details import extract_session_handoff_details
 from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, ContentBlock, WebFetchObservation
 
 
@@ -1081,6 +1082,115 @@ def checkpoint_safety_dogfood_responses() -> list[list[ContentBlock]]:
             }
         ],
         [{"type": "text", "text": "Created a rollback checkpoint, patched and verified the calculator, checked checkpoint safety, reviewed, and committed."}],
+    ]
+
+
+def session_handoff_dogfood_responses() -> list[list[ContentBlock]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-1",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect calculator code and test", "status": "in_progress"},
+                        {"content": "Patch and verify implementation", "status": "pending"},
+                        {"content": "Review and commit", "status": "pending"},
+                        {"content": "Generate session handoff", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {"type": "tool_call", "id": "read-1", "name": "Read", "input": {"file_path": "calc.py"}},
+            {"type": "tool_call", "id": "read-2", "name": "Read", "input": {"file_path": "tests/test_calc.py"}},
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "edit-1",
+                "name": "Edit",
+                "input": {
+                    "file_path": "calc.py",
+                    "old_string": "return left - right",
+                    "new_string": "return left + right",
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-1",
+                "name": "Bash",
+                "input": {"command": "python -m unittest discover -s tests", "timeout": 10_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-2",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect calculator code and test", "status": "completed"},
+                        {"content": "Patch and verify implementation", "status": "completed"},
+                        {"content": "Review and commit", "status": "in_progress"},
+                        {"content": "Generate session handoff", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [{"type": "tool_call", "id": "review-1", "name": "final_review", "input": {}}],
+        [{"type": "tool_call", "id": "stage-1", "name": "git_stage", "input": {"paths": ["calc.py"]}}],
+        [{"type": "tool_call", "id": "commit-1", "name": "git_commit", "input": {"message": "Fix calculator add before handoff"}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-3",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect calculator code and test", "status": "completed"},
+                        {"content": "Patch and verify implementation", "status": "completed"},
+                        {"content": "Review and commit", "status": "completed"},
+                        {"content": "Generate session handoff", "status": "in_progress"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "verify-1",
+                "name": "run_session_verification",
+                "input": {"include_pending": True, "include_failed": True, "timeout_ms": 10_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-4",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect calculator code and test", "status": "completed"},
+                        {"content": "Patch and verify implementation", "status": "completed"},
+                        {"content": "Review and commit", "status": "completed"},
+                        {"content": "Generate session handoff", "status": "completed"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "handoff-1",
+                "name": "session_handoff",
+                "input": {"max_files": 10, "max_commands": 10, "max_checks": 20, "max_text": 800},
+            }
+        ],
+        [{"type": "text", "text": "Fixed, verified, reviewed, committed, and generated a session handoff."}],
     ]
 
 
@@ -2238,6 +2348,68 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("final_review"))
         self.assertLess(observation_kinds.index("final_review"), observation_kinds.index("git_commit"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
+
+    def test_v1_agent_generates_session_handoff_after_verified_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-handoff-dogfood-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(session_handoff_dogfood_responses())
+
+            result = run_agent(
+                "Fix the calculator test failure, commit it, and generate a session handoff.",
+                base_dir=root,
+                client=client,
+                max_iterations=17,
+                approval_handler=approve_all,
+            )
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events_text = events_path.read_text(encoding="utf-8")
+            completed_handoff_report = get_session_handoff_report(
+                root,
+                result.run_id,
+                max_files=10,
+                max_commands=10,
+                max_checks=20,
+                max_text=800,
+            )
+            completed_handoff = extract_session_handoff_details(completed_handoff_report)
+
+        observation_kinds = [item.kind for item in result.observations]
+        handoff = next(item for item in result.observations if item.kind == "session_handoff")
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_message, "Fix calculator add before handoff")
+        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        self.assertTrue(handoff.ok)
+        self.assertEqual(handoff.run_id, result.run_id)
+        self.assertFalse(handoff.ready)
+        self.assertEqual(handoff.blockers, ["session status is incomplete"])
+        self.assertEqual(handoff.pending_count, 0)
+        self.assertEqual(handoff.failed_count, 0)
+        self.assertGreaterEqual(handoff.verified_count, 1)
+        self.assertTrue(completed_handoff.ready)
+        self.assertEqual(completed_handoff.status, "ready")
+        self.assertEqual(completed_handoff.blockers, [])
+        self.assertEqual(completed_handoff.pending_count, 0)
+        self.assertEqual(completed_handoff.failed_count, 0)
+        self.assertGreaterEqual(completed_handoff.verified_count, 1)
+        self.assertIn("Session handoff:", handoff.handoff)
+        self.assertIn("python -m unittest discover -s tests", handoff.handoff)
+        self.assertIn("run_session_verification", observation_kinds)
+        self.assertIn("final_review", observation_kinds)
+        self.assertIn('"name": "session_handoff"', events_text)
+        self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("run_command"))
+        self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("final_review"))
+        self.assertLess(observation_kinds.index("final_review"), observation_kinds.index("git_commit"))
+        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
+        self.assertLess(observation_kinds.index("run_session_verification"), observation_kinds.index("session_handoff"))
 
     def test_v1_agent_can_clarify_then_repair_verify_and_commit(self) -> None:
         user_questions = []
