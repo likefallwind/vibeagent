@@ -141,6 +141,11 @@ local changes when asked, and resume from recorded session context.
   confirming a read-only subagent can inspect project files and return a
   bounded summary before the parent agent repairs, verifies, reports, and
   commits.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_delegate_with_project_agent_profile_before_repair_and_commit`
+  runs the real CLI JSON path through `Task` `subagent_type` with a
+  `.claude/agents` profile, confirming profile instructions and tool limits are
+  injected into the subagent prompt before the parent repairs, verifies, and
+  commits.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_create_and_check_checkpoint_before_commit`
   runs the real CLI JSON path through checkpoint creation, listing, status, and
   restore preflight before repair, verification, review, and commit, confirming

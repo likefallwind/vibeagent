@@ -25,6 +25,7 @@ from tests.test_v1_dogfood import (
     init_broken_notebook_repo,
     interrupted_dogfood_responses,
     plan_mode_dogfood_responses,
+    profiled_delegated_dogfood_responses,
     resumed_dogfood_responses,
     session_handoff_dogfood_responses,
     v1_dogfood_responses,
@@ -461,6 +462,54 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn('"name": "Read"', events_text)
         self.assertIn("calc.py subtracts", events_text)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add after delegation")
+
+    def test_v1_cli_json_can_delegate_with_project_agent_profile_before_repair_and_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-profiled-delegate-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            agent_dir = root / ".claude" / "agents"
+            agent_dir.mkdir(parents=True)
+            (agent_dir / "calc-reviewer.md").write_text(
+                "---\n"
+                "name: calc-reviewer\n"
+                "description: Reviews calculator failures\n"
+                "mode: explore\n"
+                "tools: Read\n"
+                "---\n\n"
+                "PROFILED_CALC_REVIEWER_INSTRUCTION: inspect calculator code and test evidence only.\n",
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "add", ".claude/agents/calc-reviewer.md"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "commit", "-m", "add calc reviewer profile"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            client = DogfoodClient(profiled_delegated_dogfood_responses())
+            exit_code, payload = _run_json_cli(
+                client,
+                [
+                    "--output-format",
+                    "json",
+                    "--approval",
+                    "allow",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "15",
+                    "Delegate the initial investigation to the calc-reviewer profile, then fix and commit.",
+                ],
+            )
+            events = _session_events(root, payload["runId"])
+            events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            first_subagent_prompt = str(client.messages[1][0].content)
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload)
+        self.assertIn('"agent": "calc-reviewer"', events_text)
+        self.assertIn('"name": "Task"', events_text)
+        self.assertIn('"type": "subagent_tool_call"', events_text)
+        self.assertIn('"name": "Read"', events_text)
+        self.assertIn("Profiled review", events_text)
+        self.assertIn("PROFILED_CALC_REVIEWER_INSTRUCTION", first_subagent_prompt)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add after profiled delegation")
 
     def test_v1_cli_json_can_create_and_check_checkpoint_before_commit(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-checkpoint-smoke-") as base:
