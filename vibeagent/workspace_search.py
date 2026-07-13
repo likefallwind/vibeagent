@@ -122,9 +122,7 @@ def search_file_line_matches(
 ) -> list[tuple[int, str]]:
     matches: list[tuple[int, str]] = []
     for line_number, line in enumerate(lines, start=1):
-        haystack = line if case_sensitive else line.lower()
-        found = bool(pattern.search(line)) if pattern else needle in haystack
-        if found:
+        if search_line_matches(line, pattern, needle, case_sensitive):
             matches.append((line_number, line))
     return matches
 
@@ -136,11 +134,21 @@ def search_file_has_match(
     case_sensitive: bool,
 ) -> bool:
     for line in lines:
-        haystack = line if case_sensitive else line.lower()
-        found = bool(pattern.search(line)) if pattern else needle in haystack
-        if found:
+        if search_line_matches(line, pattern, needle, case_sensitive):
             return True
     return False
+
+
+def search_line_matches(
+    line: str,
+    pattern: re.Pattern[str] | None,
+    needle: str,
+    case_sensitive: bool,
+) -> bool:
+    if pattern is not None:
+        return bool(pattern.search(line))
+    haystack = line if case_sensitive else line.lower()
+    return needle in haystack
 
 
 def search_project_contexts_result(
