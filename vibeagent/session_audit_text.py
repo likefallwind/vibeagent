@@ -78,12 +78,14 @@ def format_session_handoff_readiness(
     if summary.completion_blockers:
         lines.append("  completionBlockers:")
         lines.extend(f"    - {compact(blocker, max_text)}" for blocker in summary.completion_blockers)
+    latest_detail_lines = format_latest_completion_detail_lines(summary, indent="  ", max_text=max_text)
     if summary.completion_blocked_count:
         lines.append(f"  completionBlocked: {summary.completion_blocked_count}")
         if summary.latest_completion_blockers:
             lines.append("  latestCompletionBlockers:")
             lines.extend(f"    - {compact(blocker, max_text)}" for blocker in summary.latest_completion_blockers)
-        lines.extend(format_latest_completion_detail_lines(summary, indent="  ", max_text=max_text))
+    if latest_detail_lines:
+        lines.extend(latest_detail_lines)
     if summary.completion_warnings:
         lines.append("  completionWarnings:")
         lines.extend(f"    - {compact(warning, max_text)}" for warning in summary.completion_warnings)
@@ -176,12 +178,14 @@ def format_session_audit_from_parts(
     if summary.completion_blockers:
         lines.append("  completionBlockers:")
         lines.extend(f"    - {compact(blocker, max_text)}" for blocker in summary.completion_blockers)
+    latest_detail_lines = format_latest_completion_detail_lines(summary, indent="  ", max_text=max_text)
     if summary.completion_blocked_count:
         lines.append(f"  completionBlocked: {summary.completion_blocked_count}")
         if summary.latest_completion_blockers:
             lines.append("  latestCompletionBlockers:")
             lines.extend(f"    - {compact(blocker, max_text)}" for blocker in summary.latest_completion_blockers)
-        lines.extend(format_latest_completion_detail_lines(summary, indent="  ", max_text=max_text))
+    if latest_detail_lines:
+        lines.extend(latest_detail_lines)
 
     if summary.completion_warnings:
         lines.append("  completionWarnings:")

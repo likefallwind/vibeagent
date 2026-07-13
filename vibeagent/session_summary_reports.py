@@ -255,12 +255,14 @@ def format_session_summary(summary: SessionSummary) -> str:
     if summary.completion_blockers:
         lines.append("  completionBlockers:")
         lines.extend(f"    - {compact(blocker, 160)}" for blocker in summary.completion_blockers)
+    latest_detail_lines = format_latest_completion_detail_lines(summary, indent="  ", max_text=160)
     if summary.completion_blocked_count:
         lines.append(f"  completionBlocked: {summary.completion_blocked_count}")
         if summary.latest_completion_blockers:
             lines.append("  latestCompletionBlockers:")
             lines.extend(f"    - {compact(blocker, 160)}" for blocker in summary.latest_completion_blockers)
-        lines.extend(format_latest_completion_detail_lines(summary, indent="  ", max_text=160))
+    if latest_detail_lines:
+        lines.extend(latest_detail_lines)
     if summary.completion_warnings:
         lines.append("  completionWarnings:")
         lines.extend(f"    - {compact(warning, 160)}" for warning in summary.completion_warnings)
