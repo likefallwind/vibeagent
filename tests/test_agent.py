@@ -11569,6 +11569,60 @@ class AgentTests(unittest.TestCase):
         self.assertIn("commandsSha256=", second)
         self.assertNotEqual(first, second)
 
+    def test_approval_preview_summary_fingerprints_preview_file_diffs(self) -> None:
+        first = agent_module.summarize_preview_observation(
+            types_module.CodeRenamePreviewObservation(
+                kind="code_rename_preview",
+                symbol="runAgent",
+                new_name="executeAgent",
+                path=None,
+                files=[
+                    types_module.CodeRenamePreviewFile(
+                        path="src/app.ts",
+                        language="typescript",
+                        replacements=[],
+                        diff="abc",
+                        truncated=False,
+                    )
+                ],
+                total_replacements=1,
+                total_files=1,
+                truncated=False,
+                ok=True,
+                errors=[],
+                message="Found 1 code rename replacement(s) across 1 file(s).",
+            )
+        )
+        second = agent_module.summarize_preview_observation(
+            types_module.CodeRenamePreviewObservation(
+                kind="code_rename_preview",
+                symbol="runAgent",
+                new_name="executeAgent",
+                path=None,
+                files=[
+                    types_module.CodeRenamePreviewFile(
+                        path="src/app.ts",
+                        language="typescript",
+                        replacements=[],
+                        diff="xyz",
+                        truncated=False,
+                    )
+                ],
+                total_replacements=1,
+                total_files=1,
+                truncated=False,
+                ok=True,
+                errors=[],
+                message="Found 1 code rename replacement(s) across 1 file(s).",
+            )
+        )
+
+        self.assertIn("fileDiffs=1", first)
+        self.assertIn("fileDiffs=1", second)
+        self.assertIn("fileDiffsSha256=", first)
+        self.assertIn("fileDiffsSha256=", second)
+        self.assertNotEqual(first, second)
+
     def test_approval_preview_summary_matches_focused_test_selection_limits(self) -> None:
         preview_observation = CheckFocusedTestCommandsObservation(
             kind="check_focused_test_commands",

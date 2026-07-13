@@ -110,6 +110,10 @@ def summarize_preview_observation(observation: object) -> str:
         parts.append(f"commands={len(checks)}")
         if checks:
             parts.append(f"commandsSha256={preview_digest(command_check_fingerprint_payload(checks))}")
+    file_diffs = preview_file_diffs(getattr(observation, "files", None))
+    if file_diffs:
+        parts.append(f"fileDiffs={len(file_diffs)}")
+        parts.append(f"fileDiffsSha256={preview_digest(file_diff_fingerprint_payload(file_diffs))}")
     return "; ".join(parts)
 
 
@@ -127,6 +131,24 @@ def command_check_fingerprint_payload(checks: list[object]) -> str:
             "missing_tool": getattr(check, "missing_tool", None),
         }
         for check in checks
+    ]
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def preview_file_diffs(files: object) -> list[object]:
+    if not isinstance(files, list):
+        return []
+    return [file for file in files if isinstance(getattr(file, "diff", None), str) and getattr(file, "diff")]
+
+
+def file_diff_fingerprint_payload(files: list[object]) -> str:
+    payload = [
+        {
+            "path": str(getattr(file, "path", "") or ""),
+            "diff": str(getattr(file, "diff", "") or ""),
+            "truncated": bool(getattr(file, "truncated", False)),
+        }
+        for file in files
     ]
     return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
