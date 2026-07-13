@@ -23,6 +23,7 @@ def search_project(
     max_matches: int = 80,
     relative_path: str | None = None,
     file_glob: str | None = None,
+    output_mode: str = "lines",
     regex: bool = False,
     case_sensitive: bool = True,
     context_lines: int = 0,
@@ -34,6 +35,7 @@ def search_project(
             max_matches=max_matches,
             relative_path=relative_path,
             file_glob=file_glob,
+            output_mode=output_mode,
             regex=regex,
             case_sensitive=case_sensitive,
             context_lines=context_lines,
@@ -47,6 +49,7 @@ def search_project_result(
     max_matches: int = 80,
     relative_path: str | None = None,
     file_glob: str | None = None,
+    output_mode: str = "lines",
     regex: bool = False,
     case_sensitive: bool = True,
     context_lines: int = 0,
@@ -61,6 +64,8 @@ def search_project_result(
         raise ValueError("context_lines must be at least 0.")
     if context_lines > 5:
         raise ValueError("context_lines must be at most 5.")
+    if output_mode not in {"lines", "content", "files_with_matches"}:
+        raise ValueError("output_mode must be lines, content, or files_with_matches.")
     normalized_file_glob = normalize_search_file_glob(file_glob)
 
     pattern = None
@@ -82,16 +87,24 @@ def search_project_result(
             lines = path.read_text(encoding="utf-8").splitlines()
         except UnicodeDecodeError:
             continue
+        file_matches = False
         for line_number, line in enumerate(lines, start=1):
             haystack = line if case_sensitive else line.lower()
             found = bool(pattern.search(line)) if pattern else needle in haystack
             if found:
+                if output_mode == "files_with_matches":
+                    file_matches = True
+                    break
                 total += 1
                 if len(matches) < max_matches:
                     if context_lines:
                         matches.append(format_search_context(relative, lines, line_number, context_lines))
                     else:
                         matches.append(f"{relative}:{line_number}: {line.strip()}")
+        if file_matches:
+            total += 1
+            if len(matches) < max_matches:
+                matches.append(relative)
     return {
         "matches": matches,
         "total": total,
