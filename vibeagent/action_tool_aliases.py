@@ -164,7 +164,7 @@ def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, d
     if name == "Bash" and tool_input.get("run_in_background") is True:
         return "start_command", _drop_fields(
             dict(tool_input),
-            {"run_in_background", "timeout_ms", "max_output_chars"},
+            {"run_in_background", "timeout", "timeout_ms", "max_output_chars"},
         )
 
     normalizer = _NAME_INPUT_NORMALIZERS.get(name) or _ACTION_INPUT_NORMALIZERS.get(action_type)
@@ -238,6 +238,10 @@ def _normalize_ask_user_input(value: dict[str, Any]) -> dict[str, Any]:
     return _rename_fields(value, {"prompt": "question"})
 
 
+def _normalize_bash_input(value: dict[str, Any]) -> dict[str, Any]:
+    return _rename_fields(value, {"timeout": "timeout_ms"})
+
+
 def _normalize_read_file_input(value: dict[str, Any]) -> dict[str, Any]:
     return _rename_fields(
         value,
@@ -272,6 +276,7 @@ def _normalize_claude_mcp_tool_action(name: str, tool_input: dict[str, Any]) -> 
 
 
 _NAME_INPUT_NORMALIZERS: dict[str, ToolInputNormalizer] = {
+    "Bash": _normalize_bash_input,
     "ExitPlanMode": _normalize_exit_plan_mode_input,
     "NotebookRead": _normalize_claude_read_file_input,
     "Read": _normalize_claude_read_file_input,
