@@ -15,6 +15,7 @@ DOGFOOD_TESTS = {
     "test_v1_agent_can_resume_after_interrupted_failure_and_commit",
     "test_v1_agent_can_complete_repair_with_claude_code_tool_aliases",
     "test_v1_agent_can_delegate_read_only_investigation_before_repair",
+    "test_v1_agent_can_delegate_code_subagent_repair_and_commit",
     "test_v1_agent_plan_mode_inspects_without_mutating",
     "test_v1_agent_can_apply_claude_multi_edit_and_commit",
 }
