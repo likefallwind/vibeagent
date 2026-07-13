@@ -124,6 +124,11 @@ local changes when asked, and resume from recorded session context.
   ordered event streaming, trusted permission source reporting,
   Claude-compatible `Bash` and `Edit` tool aliases, completion-ready machine
   output, workspace repair, verification, and local commit.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_stream_json_accept_edits_auto_allows_claude_edit`
+  runs the same real CLI `stream-json` path with `--permission-mode
+  acceptEdits` and without an explicit `Edit` allowed-tool override, confirming
+  the Claude-compatible edit is approved by the `acceptEdits` permission source
+  while other side-effecting tools still require explicit trusted rules.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_dangerously_skip_permissions_can_repair_with_claude_aliases`
   runs the deterministic Claude-compatible repair dogfood through the real CLI
   `main()` one-shot JSON path with `--dangerously-skip-permissions`, confirming

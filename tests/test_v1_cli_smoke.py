@@ -324,6 +324,71 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertTrue(all(record["runId"] == final["runId"] for record in event_records))
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add via Claude aliases")
 
+    def test_v1_cli_stream_json_accept_edits_auto_allows_claude_edit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-accept-edits-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(claude_compat_dogfood_responses())
+            exit_code, records = _run_stream_json_cli(
+                client,
+                [
+                    "--output-format",
+                    "stream-json",
+                    "--permission-mode",
+                    "acceptEdits",
+                    "--allowed-tools",
+                    "Read",
+                    "--allowed-tools",
+                    "Bash(*)",
+                    "--allowed-tools",
+                    "TodoRead",
+                    "--allowed-tools",
+                    "TodoWrite",
+                    "--allowed-tools",
+                    "git_stage",
+                    "--allowed-tools",
+                    "git_commit",
+                    "--allowed-tools",
+                    "run_session_verification",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "14",
+                    "Fix the calculator test failure using acceptEdits and commit the verified fix.",
+                ],
+            )
+            event_records = [record for record in records if record["type"] == "event"]
+            event_types = [record["event"]["type"] for record in event_records]
+            permission_evaluations = [
+                record["event"]
+                for record in event_records
+                if record["event"]["type"] == "permission_rule_evaluated"
+            ]
+            permissions = next(record["event"] for record in event_records if record["event"]["type"] == "permissions_loaded")
+            final = records[-1]
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, final)
+        self.assertIn("permissions_loaded", event_types)
+        self.assertIn("permission_rule_evaluated", event_types)
+        self.assertNotIn("approval_requested", event_types)
+        self.assertEqual(permissions["count"], 9)
+        self.assertIn("<cli --allowed-tools>", permissions["sources"])
+        self.assertIn("<cli --permission-mode acceptEdits>", permissions["sources"])
+        self.assertIn("<cli --permission-mode acceptEdits>", permissions["trusted_allow_sources"])
+        self.assertTrue(
+            any(
+                event["tool"] == "Edit"
+                and event["effect"] == "allow"
+                and event["rule"] == "Edit"
+                and event["source"] == "<cli --permission-mode acceptEdits>"
+                and event["subjects"] == ["calc.py"]
+                for event in permission_evaluations
+            )
+        )
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add via Claude aliases")
+
     def test_v1_cli_dangerously_skip_permissions_can_repair_with_claude_aliases(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-skip-perms-smoke-") as base:
             root = Path(base)
