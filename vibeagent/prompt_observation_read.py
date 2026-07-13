@@ -130,7 +130,8 @@ def format_read_observation(index: int, observation: object) -> str | None:
                     f"ok={str(observation.ok).lower()} "
                     f"shown={len(observation.matches)}/{observation.total} "
                     f"truncated={str(observation.truncated).lower()} "
-                    f"path={observation.path or '.'} regex={str(observation.regex).lower()} "
+                    f"path={observation.path or '.'} fileGlob={observation.file_glob or '*'} "
+                    f"regex={str(observation.regex).lower()} "
                     f"caseSensitive={str(observation.case_sensitive).lower()} "
                     f"contextLines={observation.context_lines}"
                 ),
@@ -144,7 +145,8 @@ def format_read_observation(index: int, observation: object) -> str | None:
                 f"ok={str(observation.ok).lower()} "
                 f"shown={len(observation.contexts)}/{observation.total} "
                 f"truncated={str(observation.truncated).lower()} "
-                f"path={observation.path or '.'} regex={str(observation.regex).lower()} "
+                f"path={observation.path or '.'} fileGlob={observation.file_glob or '*'} "
+                f"regex={str(observation.regex).lower()} "
                 f"caseSensitive={str(observation.case_sensitive).lower()} "
                 f"contextLines={observation.context_lines}"
             )

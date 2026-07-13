@@ -12,6 +12,10 @@ SEARCH_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "properties": {
                 "query": {"type": "string"},
                 "path": {"type": "string", "description": "Optional project-relative file or directory to search."},
+                "file_glob": {
+                    "type": "string",
+                    "description": "Optional file glob filter, such as *.py or src/**/*.py.",
+                },
                 "regex": {"type": "boolean", "description": "Treat query as a regular expression."},
                 "case_sensitive": {"type": "boolean", "description": "Whether matching is case-sensitive. Defaults to true."},
                 "max_matches": {
@@ -39,6 +43,10 @@ SEARCH_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "properties": {
                 "query": {"type": "string"},
                 "path": {"type": "string", "description": "Optional project-relative file or directory to search."},
+                "file_glob": {
+                    "type": "string",
+                    "description": "Optional file glob filter, such as *.py or src/**/*.py.",
+                },
                 "regex": {"type": "boolean", "description": "Treat query as a regular expression."},
                 "case_sensitive": {"type": "boolean", "description": "Whether matching is case-sensitive. Defaults to true."},
                 "max_matches": {

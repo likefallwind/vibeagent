@@ -14,6 +14,7 @@ class SearchObservation:
     truncated: bool
     message: str
     path: str | None = None
+    file_glob: str | None = None
     regex: bool = False
     case_sensitive: bool = True
     context_lines: int = 0
@@ -44,6 +45,7 @@ class SearchContextsObservation:
     truncated: bool
     message: str
     path: str | None = None
+    file_glob: str | None = None
     regex: bool = False
     case_sensitive: bool = True
     context_lines: int = 3

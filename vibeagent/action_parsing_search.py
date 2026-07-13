@@ -23,12 +23,15 @@ def parse_search_action(action_type: object, value: dict[str, Any], raw: str) ->
         if not isinstance(query, str) or not query.strip():
             raise ActionParseError("search action requires a non-empty query.", raw)
         path = value.get("path")
+        file_glob = value.get("file_glob")
         regex = value.get("regex", False)
         case_sensitive = value.get("case_sensitive", True)
         max_matches = value.get("max_matches", 80)
         context_lines = value.get("context_lines", 0)
         if path is not None and not isinstance(path, str):
             raise ActionParseError("search action path must be a string when provided.", raw)
+        if file_glob is not None and (not isinstance(file_glob, str) or not file_glob.strip()):
+            raise ActionParseError("search action file_glob must be a non-empty string when provided.", raw)
         if type(regex) is not bool:
             raise ActionParseError("search action regex must be a boolean when provided.", raw)
         if type(case_sensitive) is not bool:
@@ -39,6 +42,7 @@ def parse_search_action(action_type: object, value: dict[str, Any], raw: str) ->
             type="search",
             query=query,
             path=path,
+            file_glob=file_glob.strip() if isinstance(file_glob, str) else None,
             regex=regex,
             case_sensitive=case_sensitive,
             max_matches=max_matches,
@@ -50,6 +54,7 @@ def parse_search_action(action_type: object, value: dict[str, Any], raw: str) ->
         if not isinstance(query, str) or not query.strip():
             raise ActionParseError("search_contexts action requires a non-empty query.", raw)
         path = value.get("path")
+        file_glob = value.get("file_glob")
         regex = value.get("regex", False)
         case_sensitive = value.get("case_sensitive", True)
         max_matches = value.get("max_matches", 20)
@@ -57,6 +62,8 @@ def parse_search_action(action_type: object, value: dict[str, Any], raw: str) ->
         max_bytes_per_context = value.get("max_bytes_per_context", 20_000)
         if path is not None and not isinstance(path, str):
             raise ActionParseError("search_contexts action path must be a string when provided.", raw)
+        if file_glob is not None and (not isinstance(file_glob, str) or not file_glob.strip()):
+            raise ActionParseError("search_contexts action file_glob must be a non-empty string when provided.", raw)
         if type(regex) is not bool:
             raise ActionParseError("search_contexts action regex must be a boolean when provided.", raw)
         if type(case_sensitive) is not bool:
@@ -70,6 +77,7 @@ def parse_search_action(action_type: object, value: dict[str, Any], raw: str) ->
             type="search_contexts",
             query=query,
             path=path,
+            file_glob=file_glob.strip() if isinstance(file_glob, str) else None,
             regex=regex,
             case_sensitive=case_sensitive,
             max_matches=max_matches,

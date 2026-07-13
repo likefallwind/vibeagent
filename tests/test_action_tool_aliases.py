@@ -159,6 +159,12 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertIsInstance(action, SearchAction)
         self.assertFalse(action.case_sensitive)
 
+    def test_claude_grep_glob_maps_to_file_glob(self) -> None:
+        action = parse_tool_action("Grep", {"pattern": "needle", "glob": "*.py"})
+
+        self.assertIsInstance(action, SearchAction)
+        self.assertEqual(action.file_glob, "*.py")
+
     def test_claude_grep_i_executes_case_insensitive_search(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-alias-") as base:
             root = Path(base)
@@ -171,6 +177,23 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertTrue(observation.ok)
         self.assertEqual(observation.total, 1)
         self.assertFalse(observation.case_sensitive)
+
+    def test_claude_grep_glob_executes_filtered_search(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-alias-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            (root / "src" / "app.py").write_text("needle\n", encoding="utf-8")
+            (root / "src" / "notes.txt").write_text("needle\n", encoding="utf-8")
+            action = parse_tool_action("Grep", {"pattern": "needle", "path": "src", "glob": "*.py"})
+
+            observation = execute_action(create_run_workspace(root), action)
+
+        self.assertEqual(observation.kind, "search")
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.file_glob, "*.py")
+        self.assertEqual(observation.total, 1)
+        self.assertEqual(observation.matches, ["src/app.py:1: needle"])
+        self.assertIn("fileGlob=*.py", format_observations([observation]))
 
 
 if __name__ == "__main__":

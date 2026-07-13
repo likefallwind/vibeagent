@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import re
 from pathlib import Path
 
@@ -21,6 +22,7 @@ def search_project(
     query: str,
     max_matches: int = 80,
     relative_path: str | None = None,
+    file_glob: str | None = None,
     regex: bool = False,
     case_sensitive: bool = True,
     context_lines: int = 0,
@@ -31,6 +33,7 @@ def search_project(
             query,
             max_matches=max_matches,
             relative_path=relative_path,
+            file_glob=file_glob,
             regex=regex,
             case_sensitive=case_sensitive,
             context_lines=context_lines,
@@ -43,6 +46,7 @@ def search_project_result(
     query: str,
     max_matches: int = 80,
     relative_path: str | None = None,
+    file_glob: str | None = None,
     regex: bool = False,
     case_sensitive: bool = True,
     context_lines: int = 0,
@@ -57,6 +61,7 @@ def search_project_result(
         raise ValueError("context_lines must be at least 0.")
     if context_lines > 5:
         raise ValueError("context_lines must be at most 5.")
+    normalized_file_glob = normalize_search_file_glob(file_glob)
 
     pattern = None
     needle = query if case_sensitive else query.lower()
@@ -70,6 +75,8 @@ def search_project_result(
     matches: list[str] = []
     total = 0
     for relative in list_search_files(workspace, relative_path):
+        if not search_file_matches_glob(relative, normalized_file_glob):
+            continue
         path = resolve_inside_run(workspace.root, relative)
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
@@ -97,6 +104,7 @@ def search_project_contexts_result(
     query: str,
     max_matches: int = 20,
     relative_path: str | None = None,
+    file_glob: str | None = None,
     regex: bool = False,
     case_sensitive: bool = True,
     context_lines: int = 3,
@@ -116,6 +124,7 @@ def search_project_contexts_result(
         raise ValueError("max_bytes_per_context must be at least 1000.")
     if max_bytes_per_context > 200_000:
         raise ValueError("max_bytes_per_context must be at most 200000.")
+    normalized_file_glob = normalize_search_file_glob(file_glob)
 
     pattern = None
     needle = query if case_sensitive else query.lower()
@@ -129,6 +138,8 @@ def search_project_contexts_result(
     contexts: list[dict[str, object]] = []
     total = 0
     for relative in list_search_files(workspace, relative_path):
+        if not search_file_matches_glob(relative, normalized_file_glob):
+            continue
         path = resolve_inside_run(workspace.root, relative)
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
@@ -169,6 +180,23 @@ def search_project_contexts_result(
         "total": total,
         "truncated": total > len(contexts),
     }
+
+
+def normalize_search_file_glob(file_glob: str | None) -> str | None:
+    if file_glob is None:
+        return None
+    normalized = file_glob.strip().replace("\\", "/")
+    if not normalized:
+        raise ValueError("file_glob must not be empty.")
+    return normalized
+
+
+def search_file_matches_glob(relative_path: str, file_glob: str | None) -> bool:
+    if file_glob is None:
+        return True
+    normalized_path = relative_path.replace("\\", "/")
+    target = normalized_path if "/" in file_glob else Path(normalized_path).name
+    return fnmatch.fnmatchcase(target, file_glob)
 
 
 def find_project_files_result(

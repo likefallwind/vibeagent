@@ -165,6 +165,7 @@ class SearchAction:
     type: Literal["search"]
     query: str
     path: str | None = None
+    file_glob: str | None = None
     regex: bool = False
     case_sensitive: bool = True
     max_matches: int = 80
@@ -176,6 +177,7 @@ class SearchContextsAction:
     type: Literal["search_contexts"]
     query: str
     path: str | None = None
+    file_glob: str | None = None
     regex: bool = False
     case_sensitive: bool = True
     max_matches: int = 20
