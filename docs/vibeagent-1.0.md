@@ -229,9 +229,13 @@ local changes when asked, and resume from recorded session context.
 ## 1.0 Exit Criteria
 
 - `npm run test:v1` passes from a clean worktree.
+- `npm run test:v1:full` passes from a clean worktree.
 - The full unit suite passes from a clean worktree.
 - A dedicated 1.0 acceptance test confirms every gate above maps to concrete
   tools and regression tests.
 - Deterministic dogfood scenarios exercise read, edit, run, repair, review,
   commit, and resume behavior without real provider calls.
 - `README.md` points contributors to this 1.0 acceptance plan.
+- [`docs/vibeagent-1.0-readiness.md`](vibeagent-1.0-readiness.md) documents
+  the current release decision and the live-provider dogfood gate that must pass
+  before 1.0 is declared complete.

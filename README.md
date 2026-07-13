@@ -9,7 +9,9 @@ includes a daily conversation mode for normal chat that does not write files or
 run commands.
 
 The current 1.0 usability scope and acceptance gates are tracked in
-[`docs/vibeagent-1.0.md`](docs/vibeagent-1.0.md).
+[`docs/vibeagent-1.0.md`](docs/vibeagent-1.0.md), with release readiness and
+the required live-provider dogfood gate tracked in
+[`docs/vibeagent-1.0-readiness.md`](docs/vibeagent-1.0-readiness.md).
 
 ## Setup
 

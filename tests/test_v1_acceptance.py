@@ -10,6 +10,7 @@ from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAN_PATH = ROOT / "docs" / "vibeagent-1.0.md"
+READINESS_PATH = ROOT / "docs" / "vibeagent-1.0-readiness.md"
 DOGFOOD_TESTS = {
     "test_v1_agent_can_read_repair_verify_commit_and_finish",
     "test_v1_agent_can_resume_after_interrupted_failure_and_commit",
@@ -145,6 +146,14 @@ class V1AcceptanceTests(unittest.TestCase):
             "python3 -m unittest tests.test_v1_acceptance tests.test_v1_dogfood tests.test_v1_cli_smoke tests.test_project_prompt_commands -q",
         )
 
+    def test_package_exposes_full_v1_readiness_script(self) -> None:
+        package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            package["scripts"]["test:v1:full"],
+            "npm run test:v1 && python3 -m unittest discover -s tests -q",
+        )
+
     def test_acceptance_plan_names_the_dedicated_cli_smoke_tests(self) -> None:
         plan = PLAN_PATH.read_text(encoding="utf-8")
         smoke_source = (ROOT / "tests" / "test_v1_cli_smoke.py").read_text(encoding="utf-8")
@@ -167,6 +176,21 @@ class V1AcceptanceTests(unittest.TestCase):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
         self.assertIn("docs/vibeagent-1.0.md", readme)
+        self.assertIn("docs/vibeagent-1.0-readiness.md", readme)
+
+    def test_acceptance_plan_links_to_readiness_audit(self) -> None:
+        plan = PLAN_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("docs/vibeagent-1.0-readiness.md", plan)
+        self.assertIn("npm run test:v1:full", plan)
+
+    def test_readiness_audit_names_automated_and_live_provider_gates(self) -> None:
+        readiness = READINESS_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("npm run test:v1:full", readiness)
+        self.assertIn("Live Provider Gate", readiness)
+        self.assertIn("Status: `not-complete-for-release`", readiness)
+        self.assertIn("python3 -m vibeagent --cwd /tmp/vibeagent-live-dogfood", readiness)
 
     def test_readme_documents_accept_edits_file_permission_scope(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
