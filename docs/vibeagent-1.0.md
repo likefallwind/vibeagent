@@ -46,8 +46,9 @@ local changes when asked, and resume from recorded session context.
   and returns its summary for the parent to audit.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_plan_mode_inspects_without_mutating`
   runs a read-only planning pass that inspects the project, reads the target
-  files, returns an implementation plan, and verifies no edits, commands, or
-  commits were attempted.
+  files, records the implementation plan through the Claude-compatible
+  `ExitPlanMode` alias, and verifies no edits, commands, or commits were
+  attempted.
 - `tests.test_agent.AgentTests.test_run_agent_repairs_a_failing_script_and_finishes`
   covers write -> failed command -> repair -> successful command.
 - `tests.test_agent.AgentTests.test_run_agent_continues_after_pending_suggested_check_is_run`

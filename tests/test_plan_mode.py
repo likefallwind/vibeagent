@@ -119,6 +119,43 @@ class PlanModeTests(unittest.TestCase):
         self.assertFalse(search.approval_required)
         self.assertTrue(all(not match["approvalRequired"] for match in search.matches))
 
+    def test_plan_mode_allows_exit_plan_mode_alias_without_mutation(self) -> None:
+        client = RecordingClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "exit-plan-1",
+                        "name": "ExitPlanMode",
+                        "input": {"plan": "Change calc.py, then run python -m unittest discover -s tests."},
+                    }
+                ],
+                [{"type": "text", "text": "Plan recorded without changing the workspace."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-plan-") as base:
+            root = Path(base)
+            result = run_agent(
+                "Plan a file change",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_policy="plan",
+            )
+
+            self.assertEqual(list(root.iterdir()), [root / ".vibeagent"])
+
+        exposed_names = {str(tool["name"]) for tools in client.tools for tool in tools}
+        observation_kinds = [observation.kind for observation in result.observations]
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.completion_ready)
+        self.assertIn("ExitPlanMode", exposed_names)
+        self.assertEqual(observation_kinds, ["update_plan"])
+        self.assertEqual(len(result.plan), 1)
+        self.assertEqual(result.plan[0].status, "completed")
+        self.assertIn("Change calc.py", result.plan[0].step)
+
     def test_permissions_report_describes_plan_mode(self) -> None:
         report = get_permissions_report("plan")
 

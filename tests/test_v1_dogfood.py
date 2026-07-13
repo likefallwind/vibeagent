@@ -615,13 +615,18 @@ def plan_mode_dogfood_responses() -> list[list[ContentBlock]]:
         ],
         [
             {
-                "type": "text",
-                "text": (
-                    "Plan: change calc.py so add returns left + right, then verify with "
-                    "python -B -m unittest discover -s tests. Risk: keep the change scoped to calc.py."
-                ),
+                "type": "tool_call",
+                "id": "exit-plan-1",
+                "name": "ExitPlanMode",
+                "input": {
+                    "plan": (
+                        "Change calc.py so add returns left + right, then verify with "
+                        "python -B -m unittest discover -s tests. Keep the change scoped to calc.py."
+                    )
+                },
             }
         ],
+        [{"type": "text", "text": "Plan recorded with ExitPlanMode; no files, commands, or commits were changed."}],
     ]
 
 
@@ -1043,7 +1048,7 @@ class V1DogfoodTests(unittest.TestCase):
                 "Plan the calculator repair without changing files or running commands.",
                 base_dir=root,
                 client=client,
-                max_iterations=3,
+                max_iterations=4,
                 approval_policy="plan",
             )
             git_status = subprocess.run(
@@ -1069,9 +1074,12 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertNotIn("edit_file", observation_kinds)
         self.assertNotIn("run_command", observation_kinds)
         self.assertTrue({"write_file", "edit_file", "run_command", "git_commit"}.isdisjoint(exposed_names))
+        self.assertIn("ExitPlanMode", exposed_names)
+        self.assertIn("update_plan", observation_kinds)
+        self.assertEqual([item.status for item in result.plan], ["completed"])
         self.assertIn("return left - right", calc_text)
         self.assertEqual(git_status, "")
-        self.assertIn("Plan:", result.message)
+        self.assertIn("ExitPlanMode", result.message)
 
     def test_v1_agent_can_apply_claude_multi_edit_and_commit(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-multiedit-dogfood-") as base:
