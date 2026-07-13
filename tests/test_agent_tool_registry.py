@@ -240,6 +240,75 @@ class AgentToolRegistryTests(unittest.TestCase):
             {"type": "object", "properties": {"query": {"type": "string"}}},
         )
 
+    def test_mcp_tools_observation_skips_invalid_claude_style_dynamic_names(self) -> None:
+        observation = McpToolsObservation(
+            kind="mcp_tools",
+            ok=True,
+            server="docs",
+            tools=[
+                McpToolInfo(
+                    name="search",
+                    title="Search",
+                    description="Search documentation.",
+                    input_schema={"type": "object"},
+                ),
+                McpToolInfo(
+                    name="bad name",
+                    title=None,
+                    description="Invalid because tool names cannot contain spaces.",
+                    input_schema={"type": "object"},
+                ),
+                McpToolInfo(
+                    name="a" * 65,
+                    title=None,
+                    description="Invalid because tool names are capped at 64 characters.",
+                    input_schema={"type": "object"},
+                ),
+            ],
+            total=3,
+            truncated=False,
+            timeout_ms=1000,
+            error=None,
+            message="Listed tools.",
+        )
+        invalid_server_observation = McpToolsObservation(
+            kind="mcp_tools",
+            ok=True,
+            server="bad server",
+            tools=[
+                McpToolInfo(
+                    name="search",
+                    title="Search",
+                    description="Search documentation.",
+                    input_schema={"type": "object"},
+                )
+            ],
+            total=1,
+            truncated=False,
+            timeout_ms=1000,
+            error=None,
+            message="Listed tools.",
+        )
+
+        try:
+            self.assertEqual(mcp_tools_activation_names(observation), ["mcp__docs__search"])
+            self.assertEqual(mcp_tools_activation_names(invalid_server_observation), [])
+            definitions = {
+                str(tool["name"]): tool
+                for tool in agent_tool_definitions(
+                    {
+                        "mcp__docs__search",
+                        "mcp__docs__bad name",
+                        f"mcp__docs__{'a' * 65}",
+                        "mcp__bad server__search",
+                    }
+                )
+            }
+
+            self.assertEqual(set(definitions), {"mcp__docs__search"})
+        finally:
+            clear_dynamic_tool_definitions()
+
     def test_new_agent_run_clears_dynamic_mcp_tool_definitions(self) -> None:
         observation = McpToolsObservation(
             kind="mcp_tools",

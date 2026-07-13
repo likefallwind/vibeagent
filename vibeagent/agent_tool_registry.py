@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from typing import Any
 
+from .action_tool_aliases import CLAUDE_MCP_TOOL_NAME_PATTERN
 from .agent_core_tools import CORE_AGENT_TOOL_NAMES
 from .agent_runtime_utils import append_session_event
 from .tool_catalog_core import tool_name_requires_approval
@@ -151,6 +152,8 @@ def mcp_tools_activation_names(observation: object) -> list[str]:
         if not isinstance(tool_name, str) or not tool_name:
             continue
         name = f"mcp__{server}__{tool_name}"
+        if not CLAUDE_MCP_TOOL_NAME_PATTERN.fullmatch(name):
+            continue
         _DYNAMIC_TOOL_DEFINITION_BY_NAME[name] = _mcp_tool_definition(server, tool)
         names.append(name)
     return names
