@@ -19,6 +19,20 @@ CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "NotebookRead",
+        "description": "Claude-compatible alias for reading one project notebook file as project text.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "notebook_path": {"type": "string"},
+                "offset": {"type": "integer", "minimum": 0},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 2000},
+            },
+            "required": ["notebook_path"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "LS",
         "description": "Claude-compatible alias for listing a project directory.",
         "input_schema": {
@@ -87,6 +101,21 @@ CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "replace_all": {"type": "boolean"},
             },
             "required": ["file_path", "old_string", "new_string"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "NotebookEdit",
+        "description": "Claude-compatible alias for editing one project notebook file after approval.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "notebook_path": {"type": "string"},
+                "old_string": {"type": "string"},
+                "new_string": {"type": "string"},
+                "replace_all": {"type": "boolean"},
+            },
+            "required": ["notebook_path", "old_string", "new_string"],
             "additionalProperties": False,
         },
     },

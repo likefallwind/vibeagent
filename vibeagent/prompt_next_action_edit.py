@@ -38,6 +38,7 @@ EDIT_CHECK_NEXT_ACTION_KINDS = {
 EDIT_APPLY_NEXT_ACTION_KINDS = {
     "Edit",
     "MultiEdit",
+    "NotebookEdit",
     "Write",
     "write_file",
     "write_files",

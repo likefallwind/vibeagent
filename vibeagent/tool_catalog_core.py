@@ -142,6 +142,7 @@ def tool_category(name: str) -> str:
         "Glob",
         "Grep",
         "LS",
+        "NotebookRead",
         "Read",
         "list_files",
         "list_tree",
@@ -183,6 +184,7 @@ def tool_category(name: str) -> str:
     edit_keywords = (
         "Edit",
         "MultiEdit",
+        "NotebookEdit",
         "Write",
         "append",
         "copy",

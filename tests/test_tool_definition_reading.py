@@ -49,7 +49,7 @@ class ReadingToolDefinitionTests(unittest.TestCase):
         )
         self.assertEqual(
             [tool["name"] for tool in CLAUDE_FILE_TOOL_DEFINITIONS],
-            ["Read", "LS", "Glob", "Grep", "Write", "Edit", "MultiEdit"],
+            ["Read", "NotebookRead", "LS", "Glob", "Grep", "Write", "Edit", "NotebookEdit", "MultiEdit"],
         )
 
 

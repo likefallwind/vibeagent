@@ -85,12 +85,12 @@ class ToolCatalogTests(unittest.TestCase):
         report = get_tools_report()
         by_name = {str(tool["name"]): tool for tool in report["tools"] if isinstance(tool, dict)}
 
-        for name in ["Read", "LS", "Glob", "Grep", "Write", "Edit", "MultiEdit"]:
+        for name in ["Read", "NotebookRead", "LS", "Glob", "Grep", "Write", "Edit", "NotebookEdit", "MultiEdit"]:
             self.assertIn(name, by_name)
-        for name in ["Read", "LS", "Glob", "Grep"]:
+        for name in ["Read", "NotebookRead", "LS", "Glob", "Grep"]:
             self.assertFalse(tool_requires_approval(name, ""))
             self.assertEqual(by_name[name]["category"], "project")
-        for name in ["Write", "Edit", "MultiEdit"]:
+        for name in ["Write", "Edit", "NotebookEdit", "MultiEdit"]:
             self.assertTrue(tool_requires_approval(name, ""))
             self.assertEqual(by_name[name]["category"], "edit")
 
