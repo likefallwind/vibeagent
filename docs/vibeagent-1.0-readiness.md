@@ -75,6 +75,11 @@ After the live run completes, audit local outcomes with:
 python3 scripts/live_dogfood_v1.py --audit --run-id <run-id>
 ```
 
+The audit checks both repository state and session transcript evidence: ask-mode
+approval policy, inspection before side effects, approval requests and approved
+decisions, agent-run failing and passing unittest verification, ready final
+review, ready completion, and ready session handoff.
+
 ## Current Decision
 
 Status: `not-complete-for-release`.

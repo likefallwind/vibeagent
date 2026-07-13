@@ -220,6 +220,15 @@ local changes when asked, and resume from recorded session context.
   covers the helper's local post-run audit logic without calling a provider,
   confirming the script rejects the initial broken repo and accepts a clean
   repaired commit.
+- `tests.test_v1_live_dogfood.V1LiveDogfoodScriptTests.test_audit_session_events_requires_live_gate_evidence`
+  covers the helper's session transcript gate, confirming a live dogfood cannot
+  pass without ask-mode approval, read-before-write evidence, agent-run
+  failing and passing verification, final review readiness, and completion
+  readiness.
+- `tests.test_v1_live_dogfood.V1LiveDogfoodScriptTests.test_audit_session_events_accepts_complete_live_gate_evidence`
+  covers the positive transcript audit path for a complete ask-mode run with
+  inspection, approved edit and test actions, ready final review, and ready
+  completion.
 - `tests.test_agent.AgentTests.test_run_agent_repairs_a_failing_script_and_finishes`
   covers write -> failed command -> repair -> successful command.
 - `tests.test_agent.AgentTests.test_run_agent_continues_after_pending_suggested_check_is_run`
