@@ -53,6 +53,10 @@ local changes when asked, and resume from recorded session context.
   runs the deterministic repair dogfood through the real CLI `main()` one-shot
   JSON path, confirming argument parsing, provider creation, completion-ready
   machine output, workspace repair, verification, and local commit.
+- `tests.test_project_prompt_commands.ProjectPromptCommandCliTests.test_one_shot_custom_command_expands_to_code_task_with_metadata`
+  covers Claude-style project slash commands in one-shot code mode: a
+  `.claude/commands/*.md` template expands before the agent run, while command
+  provenance is recorded in task metadata.
 - `tests.test_agent.AgentTests.test_run_agent_repairs_a_failing_script_and_finishes`
   covers write -> failed command -> repair -> successful command.
 - `tests.test_agent.AgentTests.test_run_agent_continues_after_pending_suggested_check_is_run`

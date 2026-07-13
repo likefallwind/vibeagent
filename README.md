@@ -138,6 +138,16 @@ session for a one-shot task,
 (`ask`, `allow`, `deny`, `plan`) and Claude-style values (`default` -> `ask`,
 `acceptEdits` -> `ask` plus an automatic `Edit` allow rule,
 `bypassPermissions` -> `allow`), and `--max-turns` maps to `--max-iterations`.
+One-shot code tasks can invoke project prompt commands from
+`.claude/commands/**/*.md` or `.agents/commands/**/*.md`, for example:
+
+```bash
+python -m vibeagent --cwd ../my-project '/fix "login bug" src/app.py'
+```
+
+Built-in slash commands keep precedence. Project command templates expand
+`$ARGUMENTS`, `$1`-`$9`, and `${1}`-`${9}` before the agent run, and the session
+records the template name, path, and arguments as task metadata.
 `--dangerously-skip-permissions` maps to
 `--approval allow` for one-shot coding tasks and cannot be combined with
 `--approval` or `--permission-mode`. `--input-format json` reads one JSON object

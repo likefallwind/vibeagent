@@ -9,7 +9,7 @@
     "build": "python3 -m compileall -q vibeagent",
     "dev": "python3 -m vibeagent",
     "test": "python3 -m unittest discover -s tests",
-    "test:v1": "python3 -m unittest tests.test_v1_acceptance tests.test_v1_dogfood tests.test_v1_cli_smoke -q",
+    "test:v1": "python3 -m unittest tests.test_v1_acceptance tests.test_v1_dogfood tests.test_v1_cli_smoke tests.test_project_prompt_commands -q",
     "start": "python3 -m vibeagent"
   }
 }

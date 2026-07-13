@@ -22,6 +22,9 @@ DOGFOOD_TESTS = {
 CLI_SMOKE_TESTS = {
     "test_v1_cli_json_can_repair_verify_commit_and_report_ready",
 }
+PROJECT_COMMAND_TESTS = {
+    "test_one_shot_custom_command_expands_to_code_task_with_metadata",
+}
 
 EXPECTED_GATES = {
     "VA1-READ": {
@@ -104,7 +107,7 @@ class V1AcceptanceTests(unittest.TestCase):
 
         self.assertEqual(
             package["scripts"]["test:v1"],
-            "python3 -m unittest tests.test_v1_acceptance tests.test_v1_dogfood tests.test_v1_cli_smoke -q",
+            "python3 -m unittest tests.test_v1_acceptance tests.test_v1_dogfood tests.test_v1_cli_smoke tests.test_project_prompt_commands -q",
         )
 
     def test_acceptance_plan_names_the_dedicated_cli_smoke_tests(self) -> None:
@@ -115,6 +118,15 @@ class V1AcceptanceTests(unittest.TestCase):
             with self.subTest(test_name=test_name):
                 self.assertIn(test_name, plan)
                 self.assertIn(f"def {test_name}", smoke_source)
+
+    def test_acceptance_plan_names_project_command_compat_tests(self) -> None:
+        plan = PLAN_PATH.read_text(encoding="utf-8")
+        source = (ROOT / "tests" / "test_project_prompt_commands.py").read_text(encoding="utf-8")
+
+        for test_name in PROJECT_COMMAND_TESTS:
+            with self.subTest(test_name=test_name):
+                self.assertIn(test_name, plan)
+                self.assertIn(f"def {test_name}", source)
 
     def test_readme_links_to_v1_acceptance_plan(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
