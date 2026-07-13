@@ -180,8 +180,10 @@ written as a `type: "event"` record with a monotonically increasing `sequence`,
 `runId`, matching `sessionId` and `session_id`, and the redacted event payload,
 followed by exactly one `type: "result"` record containing the normal code or
 chat result, with final text available as both `message` and `result`. Every
-line is flushed immediately for CI and process supervisors. Stream mode never
-opens
+`permissions_loaded` event includes the loaded rule count, sources, and trusted
+allow sources so CI logs can audit per-run overrides such as `acceptEdits`.
+Every line is flushed immediately for CI and process supervisors. Stream mode
+never opens
 interactive approval or user-input prompts; with the default `--approval ask`,
 side-effecting tools are denied unless a trusted permission rule or complete
 sandbox auto-approval applies. Use `--approval allow` or

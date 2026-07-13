@@ -249,6 +249,32 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertIn("<cli --allowed-tools>", loaded["sources"])
         self.assertIn("<cli --allowed-tools>", loaded["trusted_allow_sources"])
 
+    def test_stream_json_accept_edits_permission_source_is_streamed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-stream-") as base:
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=TextClient()),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--output-format",
+                        "stream-json",
+                        "--permission-mode",
+                        "acceptEdits",
+                        "--cwd",
+                        base,
+                        "inspect",
+                    ]
+                )
+
+        records = [json.loads(line) for line in stdout.getvalue().splitlines()]
+        loaded = next(record["event"] for record in records if record["type"] == "event" and record["event"]["type"] == "permissions_loaded")
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(loaded["count"], 1)
+        self.assertIn("<cli --permission-mode acceptEdits>", loaded["sources"])
+        self.assertIn("<cli --permission-mode acceptEdits>", loaded["trusted_allow_sources"])
+
     def test_stream_json_strict_mcp_config_marks_stream_workspace(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-stream-") as base:
             root = Path(base)
