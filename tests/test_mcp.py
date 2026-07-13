@@ -8,6 +8,7 @@ from unittest.mock import patch
 from vibeagent.actions import execute_action, parse_tool_action
 from vibeagent.agent import run_agent
 from vibeagent.agent_approval import build_approval_request
+from vibeagent.agent_delegate import execute_delegate_task_action
 from vibeagent.mcp_config import read_mcp_server_configs
 from vibeagent.redaction import redact_jsonable_payload
 from vibeagent.types import ApprovalDecision, AssistantResponse, ChatMessage, ContentBlock, McpCallAction, McpToolsAction
@@ -330,6 +331,57 @@ class McpRuntimeTests(unittest.TestCase):
         self.assertEqual(result.observations[1].server, "test")
         self.assertEqual(result.observations[1].name, "echo")
         self.assertIn('"message": "hello"', result.observations[1].output)
+
+    def test_code_subagent_exposes_listed_mcp_tools_as_dynamic_tools(self) -> None:
+        client = _Client(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "tools-1",
+                        "name": "mcp_tools",
+                        "input": {"server": "test", "timeout_ms": 2000},
+                    }
+                ],
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "call-1",
+                        "name": "mcp__test__echo",
+                        "input": {"message": "from subagent"},
+                    }
+                ],
+                [{"type": "text", "text": "Subagent MCP call completed."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
+            root = Path(base)
+            _write_mcp_project(root)
+            workspace = create_run_workspace(root, "run-1")
+            action = parse_tool_action(
+                "delegate_task",
+                {"task": "List and call MCP", "mode": "code", "max_iterations": 3},
+            )
+            with patch.dict("os.environ", {"MCP_TEST_SOURCE": "expanded"}):
+                observation = execute_delegate_task_action(
+                    workspace,
+                    action,
+                    client,
+                    parent_iteration=1,
+                    subagent_id="delegate-1-1",
+                    max_output_tokens=2048,
+                    model_retries=0,
+                    model_retry_delay_ms=0,
+                    model_timeout_ms=10_000,
+                    command_timeout_ms=10_000,
+                    logger=None,
+                    approval_handler=lambda request: ApprovalDecision(approved=True, message="approved"),
+                )
+
+        second_turn_names = {str(tool["name"]) for tool in client.tools[1]}
+        self.assertIn("mcp__test__echo", second_turn_names)
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.tool_calls, ["mcp_tools", "mcp__test__echo"])
 
 
 class McpParsingTests(unittest.TestCase):

@@ -19,6 +19,7 @@ from .agent_tool_registry import (
     activate_agent_tool_names,
     agent_tool_definitions,
     initial_agent_tool_names,
+    mcp_tools_activation_names,
     prepare_action_for_policy,
     tool_search_activation_names,
 )
@@ -155,7 +156,7 @@ def execute_delegate_tool_call(
     if mode == "code":
         activate_agent_tool_names(
             active_tool_names,
-            _allowed_requested_names(tool_search_activation_names(observation), allowed_tool_names),
+            _allowed_requested_names(_activation_names_for_observation(observation), allowed_tool_names),
             approval_policy,
             CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
         )
@@ -180,6 +181,10 @@ def _allowed_requested_names(
     if allowed_tool_names is None:
         return requested_names
     return [name for name in requested_names if name in allowed_tool_names]
+
+
+def _activation_names_for_observation(observation: Observation) -> list[str]:
+    return tool_search_activation_names(observation) + mcp_tools_activation_names(observation)
 
 
 def execute_delegate_action(
