@@ -34,6 +34,7 @@ DOGFOOD_TESTS = {
     "test_v1_agent_can_apply_claude_multi_edit_and_commit",
 }
 CLI_SMOKE_TESTS = {
+    "test_v1_cli_dangerously_skip_permissions_can_repair_with_claude_aliases",
     "test_v1_cli_json_can_repair_verify_commit_and_report_ready",
     "test_v1_cli_stream_json_can_repair_with_allowed_tools_and_report_events",
 }

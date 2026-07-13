@@ -171,6 +171,73 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertEqual(head_message, "Fix calculator add via Claude aliases")
         self.assertIn("return left + right", calc_text)
 
+    def test_v1_cli_dangerously_skip_permissions_can_repair_with_claude_aliases(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-skip-perms-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(claude_compat_dogfood_responses())
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=client),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--output-format",
+                        "json",
+                        "--dangerously-skip-permissions",
+                        "--cwd",
+                        str(root),
+                        "--max-iterations",
+                        "14",
+                        "Fix the calculator test failure using Claude-style tools and commit the verified fix.",
+                    ]
+                )
+
+            payload = json.loads(stdout.getvalue())
+            git_status = subprocess.run(
+                ["git", "status", "--short"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout
+            head_message = subprocess.run(
+                ["git", "log", "-1", "--pretty=%s"],
+                cwd=root,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ).stdout.strip()
+            calc_text = (root / "calc.py").read_text(encoding="utf-8")
+            events_path = root / ".vibeagent" / "sessions" / payload["runId"] / "events.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+            events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            approval_decisions = [event["decision"] for event in events if event["type"] == "approval_decision"]
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "code")
+        self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["stopReason"], "completed")
+        self.assertTrue(payload["success"])
+        self.assertTrue(payload["completionReady"])
+        self.assertEqual(payload["completionBlockers"], [])
+        self.assertEqual(payload["pendingVerificationChecks"], [])
+        self.assertEqual(payload["failedVerificationChecks"], [])
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_message, "Fix calculator add via Claude aliases")
+        self.assertIn("return left + right", calc_text)
+        self.assertIn('"name": "Bash"', events_text)
+        self.assertIn('"name": "Edit"', events_text)
+        self.assertIn('"name": "git_commit"', events_text)
+        self.assertEqual(events[0]["approval_policy"], "allow")
+        self.assertGreaterEqual(len(approval_decisions), 1)
+        self.assertTrue(all(decision["approved"] for decision in approval_decisions))
+        self.assertTrue(all("Approved by policy" in decision["message"] for decision in approval_decisions))
+
 
 if __name__ == "__main__":
     unittest.main()
