@@ -1332,6 +1332,7 @@ class CommandTests(unittest.TestCase):
         self.assertIn("cmd.exe /c \"start .\"", text)
         self.assertIn("cmd.exe /k \"start http://127.0.0.1:5173\"", text)
         self.assertIn("cmd.exe /c start \"\" notepad.exe", text)
+        self.assertIn("cmd.exe /c start \"Editor\" notepad.exe", text)
         self.assertIn("cmd.exe /c start chrome http://127.0.0.1:5173", text)
         self.assertIn("rundll32 url.dll,FileProtocolHandler .", text)
         self.assertIn("/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command Start-Process .", text)
@@ -1423,6 +1424,7 @@ class CommandTests(unittest.TestCase):
         self.assertTrue(any(check["command"] == "cmd.exe /c \"start .\"" and check["active"] for check in hard_blocks["checks"]))
         self.assertTrue(any(check["command"] == "cmd.exe /k \"start http://127.0.0.1:5173\"" and check["active"] for check in hard_blocks["checks"]))
         self.assertTrue(any(check["command"] == "cmd.exe /c start \"\" notepad.exe" and check["active"] for check in hard_blocks["checks"]))
+        self.assertTrue(any(check["command"] == "cmd.exe /c start \"Editor\" notepad.exe" and check["active"] for check in hard_blocks["checks"]))
         self.assertTrue(any(check["command"] == "cmd.exe /c start chrome http://127.0.0.1:5173" and check["active"] for check in hard_blocks["checks"]))
         self.assertTrue(any(check["command"] == "rundll32 url.dll,FileProtocolHandler ." and check["active"] for check in hard_blocks["checks"]))
         self.assertTrue(

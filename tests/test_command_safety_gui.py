@@ -31,6 +31,9 @@ class CommandSafetyGuiTests(unittest.TestCase):
     def test_blocks_windows_start_for_gui_executables(self) -> None:
         commands = [
             'cmd.exe /c start "" notepad.exe',
+            'cmd.exe /c start "Editor" notepad.exe',
+            'cmd.exe /c start "Browser" /wait chrome http://127.0.0.1:5173',
+            'cmd.exe /c start "" /d . msedge.exe http://127.0.0.1:5173',
             "cmd.exe /c start chrome http://127.0.0.1:5173",
             "cmd.exe /c start msedge.exe http://127.0.0.1:5173",
             "powershell -Command start notepad.exe",
@@ -42,6 +45,7 @@ class CommandSafetyGuiTests(unittest.TestCase):
 
     def test_allows_windows_start_for_non_gui_executables(self) -> None:
         self.assertIsNone(get_blocked_command_reason("cmd.exe /c start npm test"))
+        self.assertIsNone(get_blocked_command_reason("cmd.exe /c start /wait npm test"))
 
 
 if __name__ == "__main__":

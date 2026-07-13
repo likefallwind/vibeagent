@@ -68,6 +68,25 @@ GUI_LAUNCHER_EXECUTABLES = {
     "write.exe",
 }
 
+WINDOWS_START_VALUE_OPTIONS = {"d", "node"}
+WINDOWS_START_FLAG_OPTIONS = {
+    "abovenormal",
+    "affinity",
+    "b",
+    "belownormal",
+    "high",
+    "i",
+    "low",
+    "machine",
+    "max",
+    "min",
+    "normal",
+    "realtime",
+    "separate",
+    "shared",
+    "wait",
+}
+
 
 def command_launches_gui_application(lowered_command: str) -> bool:
     if command_segments_launch_gui_application(lowered_command):
@@ -86,7 +105,13 @@ def command_launches_gui_application(lowered_command: str) -> bool:
         r"chromium|chromium-browser|microsoft-edge)\b"
     )
     file_protocol_handler = r"rundll32(?:\.exe)?\s+url\.dll,fileprotocolhandler\b"
-    bare_start_gui = r"start\b\s+(?:\"[^\"]*\"\s+)?(?:\.|~|/|[a-z]:[\\/]|https?://|file:)"
+    bare_start_flag_options = "|".join(sorted(WINDOWS_START_FLAG_OPTIONS))
+    bare_start_value_options = "|".join(sorted(WINDOWS_START_VALUE_OPTIONS))
+    bare_start_option = (
+        rf"/(?:{bare_start_flag_options})(?:\s+|$)"
+        rf"|/(?:{bare_start_value_options})\s+\S+\s+"
+    )
+    bare_start_gui = rf"start\b\s+(?:\"[^\"]*\"\s+)?(?:(?:{bare_start_option})*)?(?:\.|~|[a-z]:[\\/]|https?://|file:)"
     cmd_option = r"/[a-z]"
     cmd_shell_gui = rf"{executable_path}cmd(?:\.exe)?\s+(?:{cmd_option}\s+)*/[ck]\s+\"?(?:{bare_start_gui}|explorer(?:\.exe)?\b|{file_protocol_handler})"
     powershell_gui = (
@@ -170,13 +195,33 @@ def rundll32_invocation_launches_gui(args: list[str]) -> bool:
 
 
 def start_invocation_launches_gui(args: list[str]) -> bool:
-    remaining = list(args)
-    if remaining and remaining[0] == "":
-        remaining = remaining[1:]
+    remaining = windows_start_target_candidates(args)
     if not remaining:
         return False
-    target = remaining[0]
-    if bool(re.match(r"(?:\.|~|/|[a-z]:[\\/]|https?://|file:)", target)):
+    return any(windows_start_target_launches_gui(target) for target in remaining)
+
+
+def windows_start_target_candidates(args: list[str]) -> list[str]:
+    remaining = list(args)
+    candidates: list[str] = []
+    while remaining:
+        token = remaining.pop(0)
+        if token == "":
+            continue
+        if token.startswith("/"):
+            option = token.lstrip("/")
+            if option in WINDOWS_START_VALUE_OPTIONS and remaining:
+                remaining.pop(0)
+            continue
+        candidates.append(token)
+        # Windows start treats the first quoted argument as a window title.
+        # The shell parser drops quote metadata, so keep scanning for a GUI
+        # target after a non-GUI first token instead of trusting only token 0.
+    return candidates
+
+
+def windows_start_target_launches_gui(target: str) -> bool:
+    if bool(re.match(r"(?:\.|~|[a-z]:[\\/]|https?://|file:)", target)):
         return True
     return shell_token_basename(target) in GUI_LAUNCHER_EXECUTABLES
 
