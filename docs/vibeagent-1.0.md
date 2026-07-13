@@ -34,6 +34,10 @@ local changes when asked, and resume from recorded session context.
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `LS`, `Glob`, `Grep`, `Read`, `Bash`, `Edit`, and `TodoRead`,
   then verifies and commits.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_create_new_file_with_claude_write_and_commit`
+  creates a new helper source file through the Claude-compatible `Write` alias,
+  edits existing code to call it, reruns tests, final-reviews, stages both
+  files, commits, and verifies the recorded session.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_manage_claude_background_process_before_repair`
   starts a Claude-style background `Bash`, inspects it through `BashOutput`,
   stops it through `KillBash`, then fixes, verifies, final-reviews, and commits.

@@ -409,6 +409,138 @@ def claude_compat_dogfood_responses() -> list[list[ContentBlock]]:
     ]
 
 
+def claude_write_new_file_dogfood_responses() -> list[list[ContentBlock]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-1",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect failing calculator code", "status": "in_progress"},
+                        {"content": "Create helper module and wire implementation", "status": "pending"},
+                        {"content": "Verify tests and review changes", "status": "pending"},
+                        {"content": "Commit new helper-based fix", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {"type": "tool_call", "id": "read-1", "name": "Read", "input": {"file_path": "calc.py"}},
+            {"type": "tool_call", "id": "read-2", "name": "Read", "input": {"file_path": "tests/test_calc.py"}},
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-1",
+                "name": "Bash",
+                "input": {"command": "python -m unittest discover -s tests", "timeout": 10_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-2",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect failing calculator code", "status": "completed"},
+                        {"content": "Create helper module and wire implementation", "status": "in_progress"},
+                        {"content": "Verify tests and review changes", "status": "pending"},
+                        {"content": "Commit new helper-based fix", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "write-1",
+                "name": "Write",
+                "input": {"file_path": "math_helpers.py", "content": "def safe_add(left, right):\n    return left + right\n"},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "edit-1",
+                "name": "Edit",
+                "input": {
+                    "file_path": "calc.py",
+                    "old_string": "def add(left, right):\n    return left - right\n",
+                    "new_string": "from math_helpers import safe_add\n\n\ndef add(left, right):\n    return safe_add(left, right)\n",
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-3",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect failing calculator code", "status": "completed"},
+                        {"content": "Create helper module and wire implementation", "status": "completed"},
+                        {"content": "Verify tests and review changes", "status": "in_progress"},
+                        {"content": "Commit new helper-based fix", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-2",
+                "name": "Bash",
+                "input": {"command": "python -m unittest discover -s tests", "timeout": 10_000},
+            }
+        ],
+        [{"type": "tool_call", "id": "review-1", "name": "final_review", "input": {}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-4",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect failing calculator code", "status": "completed"},
+                        {"content": "Create helper module and wire implementation", "status": "completed"},
+                        {"content": "Verify tests and review changes", "status": "completed"},
+                        {"content": "Commit new helper-based fix", "status": "in_progress"},
+                    ]
+                },
+            }
+        ],
+        [{"type": "tool_call", "id": "stage-1", "name": "git_stage", "input": {"paths": ["calc.py", "math_helpers.py"]}}],
+        [{"type": "tool_call", "id": "commit-1", "name": "git_commit", "input": {"message": "Fix calculator add with helper"}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-5",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect failing calculator code", "status": "completed"},
+                        {"content": "Create helper module and wire implementation", "status": "completed"},
+                        {"content": "Verify tests and review changes", "status": "completed"},
+                        {"content": "Commit new helper-based fix", "status": "completed"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "verify-1",
+                "name": "run_session_verification",
+                "input": {"include_pending": True, "include_failed": True, "timeout_ms": 10_000},
+            }
+        ],
+        [{"type": "text", "text": "Created a helper module with Write, wired the fix, verified tests, reviewed, and committed."}],
+    ]
+
+
 def background_process_dogfood_responses() -> list[list[ContentBlock]]:
     return [
         [
@@ -2016,6 +2148,59 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertLess(observation_kinds.index("search"), observation_kinds.index("read_file"))
         self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("edit_file"))
         self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("git_commit"))
+        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
+
+    def test_v1_agent_can_create_new_file_with_claude_write_and_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-write-dogfood-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(claude_write_new_file_dogfood_responses())
+
+            result = run_agent(
+                "Fix the calculator by creating a helper module with Claude Write, verify it, and commit.",
+                base_dir=root,
+                client=client,
+                max_iterations=16,
+                approval_handler=approve_all,
+            )
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
+            helper_text = (root / "math_helpers.py").read_text(encoding="utf-8")
+            calc_text = (root / "calc.py").read_text(encoding="utf-8")
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events_text = events_path.read_text(encoding="utf-8")
+
+        observation_kinds = [item.kind for item in result.observations]
+        run_commands = [item for item in result.observations if item.kind == "run_command"]
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_message, "Fix calculator add with helper")
+        self.assertEqual(helper_text, "def safe_add(left, right):\n    return left + right\n")
+        self.assertIn("from math_helpers import safe_add", calc_text)
+        self.assertIn("return safe_add(left, right)", calc_text)
+        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        self.assertEqual(len(run_commands), 2)
+        self.assertNotEqual(run_commands[0].result.exit_code, 0)
+        self.assertEqual(run_commands[1].result.exit_code, 0)
+        self.assertIn("write_file", observation_kinds)
+        self.assertIn("edit_file", observation_kinds)
+        self.assertIn("final_review", observation_kinds)
+        self.assertIn("git_stage", observation_kinds)
+        self.assertIn("git_commit", observation_kinds)
+        self.assertIn("run_session_verification", observation_kinds)
+        self.assertIn('"name": "Write"', events_text)
+        self.assertIn('"name": "Edit"', events_text)
+        self.assertIn('"paths": ["calc.py", "math_helpers.py"]', events_text)
+        self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("write_file"))
+        self.assertLess(observation_kinds.index("write_file"), observation_kinds.index("edit_file"))
+        self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("final_review"))
+        self.assertLess(observation_kinds.index("final_review"), observation_kinds.index("git_stage"))
+        self.assertLess(observation_kinds.index("git_stage"), observation_kinds.index("git_commit"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
 
     def test_v1_agent_can_manage_claude_background_process_before_repair(self) -> None:
