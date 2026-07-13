@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 import unittest
@@ -53,6 +54,60 @@ def init_broken_calculator_repo(root: Path) -> None:
         stderr=subprocess.PIPE,
     )
     subprocess.run(["git", "commit", "-m", "initial broken calculator"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+def init_broken_notebook_repo(root: Path) -> None:
+    (root / "tests").mkdir()
+    (root / ".gitignore").write_text(".vibeagent/\n__pycache__/\n", encoding="utf-8")
+    (root / "analysis.ipynb").write_text(
+        json.dumps(
+            {
+                "cells": [
+                    {
+                        "cell_type": "markdown",
+                        "id": "intro",
+                        "metadata": {},
+                        "source": ["# Calculator analysis\n"],
+                    },
+                    {
+                        "cell_type": "code",
+                        "execution_count": None,
+                        "id": "calc",
+                        "metadata": {},
+                        "outputs": [],
+                        "source": ["value = 1 + 1\n", "value\n"],
+                    },
+                ],
+                "metadata": {},
+                "nbformat": 4,
+                "nbformat_minor": 5,
+            },
+            indent=1,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (root / "tests" / "test_notebook.py").write_text(
+        "import json\n"
+        "import unittest\n"
+        "from pathlib import Path\n\n\n"
+        "class NotebookTests(unittest.TestCase):\n"
+        "    def test_analysis_cell_uses_expected_formula(self):\n"
+        "        notebook = json.loads(Path('analysis.ipynb').read_text(encoding='utf-8'))\n"
+        "        self.assertEqual(notebook['cells'][1]['source'], ['value = 2 + 3\\n', 'value\\n'])\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
+    subprocess.run(
+        ["git", "add", ".gitignore", "analysis.ipynb", "tests/test_notebook.py"],
+        cwd=root,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    subprocess.run(["git", "commit", "-m", "initial broken notebook"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 def git_worktree_status(root: Path) -> str:
@@ -538,6 +593,121 @@ def claude_write_new_file_dogfood_responses() -> list[list[ContentBlock]]:
             }
         ],
         [{"type": "text", "text": "Created a helper module with Write, wired the fix, verified tests, reviewed, and committed."}],
+    ]
+
+
+def claude_notebook_dogfood_responses() -> list[list[ContentBlock]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-1",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect notebook and regression test", "status": "in_progress"},
+                        {"content": "Reproduce notebook failure", "status": "pending"},
+                        {"content": "Patch notebook cell", "status": "pending"},
+                        {"content": "Verify, review, and commit", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "notebook-read-1",
+                "name": "NotebookRead",
+                "input": {"notebook_path": "analysis.ipynb", "offset": 0, "limit": 3},
+            },
+            {"type": "tool_call", "id": "read-1", "name": "Read", "input": {"file_path": "tests/test_notebook.py"}},
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-1",
+                "name": "Bash",
+                "input": {"command": "python -m unittest discover -s tests", "timeout": 10_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-2",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect notebook and regression test", "status": "completed"},
+                        {"content": "Reproduce notebook failure", "status": "completed"},
+                        {"content": "Patch notebook cell", "status": "in_progress"},
+                        {"content": "Verify, review, and commit", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "notebook-edit-1",
+                "name": "NotebookEdit",
+                "input": {
+                    "notebook_path": "analysis.ipynb",
+                    "cell_id": "calc",
+                    "new_source": "value = 2 + 3\nvalue\n",
+                    "cell_type": "code",
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-3",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect notebook and regression test", "status": "completed"},
+                        {"content": "Reproduce notebook failure", "status": "completed"},
+                        {"content": "Patch notebook cell", "status": "completed"},
+                        {"content": "Verify, review, and commit", "status": "in_progress"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-2",
+                "name": "Bash",
+                "input": {"command": "python -m unittest discover -s tests", "timeout": 10_000},
+            }
+        ],
+        [{"type": "tool_call", "id": "review-1", "name": "final_review", "input": {}}],
+        [{"type": "tool_call", "id": "stage-1", "name": "git_stage", "input": {"paths": ["analysis.ipynb"]}}],
+        [{"type": "tool_call", "id": "commit-1", "name": "git_commit", "input": {"message": "Fix notebook analysis formula"}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-4",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Inspect notebook and regression test", "status": "completed"},
+                        {"content": "Reproduce notebook failure", "status": "completed"},
+                        {"content": "Patch notebook cell", "status": "completed"},
+                        {"content": "Verify, review, and commit", "status": "completed"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "verify-1",
+                "name": "run_session_verification",
+                "input": {"include_pending": True, "include_failed": True, "timeout_ms": 10_000},
+            }
+        ],
+        [{"type": "text", "text": "Patched the notebook cell, verified the regression test, reviewed, committed, and reran session verification."}],
     ]
 
 
@@ -2199,6 +2369,59 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("write_file"))
         self.assertLess(observation_kinds.index("write_file"), observation_kinds.index("edit_file"))
         self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("final_review"))
+        self.assertLess(observation_kinds.index("final_review"), observation_kinds.index("git_stage"))
+        self.assertLess(observation_kinds.index("git_stage"), observation_kinds.index("git_commit"))
+        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
+
+    def test_v1_agent_can_edit_notebook_with_claude_tools_and_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-notebook-dogfood-") as base:
+            root = Path(base)
+            init_broken_notebook_repo(root)
+            client = DogfoodClient(claude_notebook_dogfood_responses())
+
+            result = run_agent(
+                "Fix the failing notebook regression by editing the notebook, verify it, and commit.",
+                base_dir=root,
+                client=client,
+                max_iterations=15,
+                approval_handler=approve_all,
+            )
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
+            notebook = json.loads((root / "analysis.ipynb").read_text(encoding="utf-8"))
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events_text = events_path.read_text(encoding="utf-8")
+
+        observation_kinds = [item.kind for item in result.observations]
+        run_commands = [item for item in result.observations if item.kind == "run_command"]
+        notebook_read = next(item for item in result.observations if item.kind == "notebook_read")
+        notebook_edit = next(item for item in result.observations if item.kind == "notebook_edit")
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_message, "Fix notebook analysis formula")
+        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        self.assertTrue(notebook_read.ok)
+        self.assertEqual(notebook_read.total_cells, 2)
+        self.assertTrue(notebook_edit.ok)
+        self.assertEqual(notebook_edit.cell_id, "calc")
+        self.assertEqual(notebook["cells"][1]["source"], ["value = 2 + 3\n", "value\n"])
+        self.assertEqual(len(run_commands), 2)
+        self.assertNotEqual(run_commands[0].result.exit_code, 0)
+        self.assertEqual(run_commands[1].result.exit_code, 0)
+        self.assertIn("final_review", observation_kinds)
+        self.assertIn("git_stage", observation_kinds)
+        self.assertIn("git_commit", observation_kinds)
+        self.assertIn("run_session_verification", observation_kinds)
+        self.assertIn('"name": "NotebookRead"', events_text)
+        self.assertIn('"name": "NotebookEdit"', events_text)
+        self.assertLess(observation_kinds.index("notebook_read"), observation_kinds.index("run_command"))
+        self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("notebook_edit"))
+        self.assertLess(observation_kinds.index("notebook_edit"), observation_kinds.index("final_review"))
         self.assertLess(observation_kinds.index("final_review"), observation_kinds.index("git_stage"))
         self.assertLess(observation_kinds.index("git_stage"), observation_kinds.index("git_commit"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))

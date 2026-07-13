@@ -38,6 +38,10 @@ local changes when asked, and resume from recorded session context.
   creates a new helper source file through the Claude-compatible `Write` alias,
   edits existing code to call it, reruns tests, final-reviews, stages both
   files, commits, and verifies the recorded session.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_edit_notebook_with_claude_tools_and_commit`
+  reads and edits a project notebook through Claude-compatible `NotebookRead`
+  and `NotebookEdit`, reruns a regression test, final-reviews, commits, and
+  verifies the recorded session.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_manage_claude_background_process_before_repair`
   starts a Claude-style background `Bash`, inspects it through `BashOutput`,
   stops it through `KillBash`, then fixes, verifies, final-reviews, and commits.
