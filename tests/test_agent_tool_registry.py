@@ -70,6 +70,9 @@ class AgentToolRegistryTests(unittest.TestCase):
         self.assertIn("Glob", names)
         self.assertIn("Grep", names)
         self.assertIn("update_plan", names)
+        self.assertIn("TodoRead", names)
+        self.assertIn("TodoWrite", names)
+        self.assertIn("ExitPlanMode", names)
         self.assertIn("BashOutput", names)
         self.assertNotIn("Bash", names)
         self.assertNotIn("Edit", names)
@@ -98,7 +101,21 @@ class AgentToolRegistryTests(unittest.TestCase):
         definitions = agent_tool_definitions(initial_agent_tool_names())
         names = {str(tool["name"]) for tool in definitions}
 
-        for name in ["Bash", "BashOutput", "KillBash", "Read", "LS", "Glob", "Grep", "Write", "Edit", "MultiEdit"]:
+        for name in [
+            "Bash",
+            "BashOutput",
+            "KillBash",
+            "Read",
+            "LS",
+            "Glob",
+            "Grep",
+            "Write",
+            "Edit",
+            "MultiEdit",
+            "TodoRead",
+            "TodoWrite",
+            "ExitPlanMode",
+        ]:
             self.assertIn(name, names)
 
     def test_visibility_policy_excludes_tools_from_schema_and_activation(self) -> None:

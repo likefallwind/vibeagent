@@ -385,6 +385,7 @@ def _session_files_next_action_instruction(base: str, latest: Observation) -> st
 
 
 SESSION_NEXT_ACTION_KINDS = {
+    "ExitPlanMode",
     "session_summary",
     "session_transcript",
     "session_search",
@@ -394,6 +395,9 @@ SESSION_NEXT_ACTION_KINDS = {
     "session_handoff",
     "session_plan",
     "todo_read",
+    "TodoRead",
+    "TodoWrite",
+    "update_plan",
     "session_failures",
     "session_files",
 }

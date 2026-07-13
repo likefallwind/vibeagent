@@ -151,6 +151,51 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "TodoRead",
+        "description": "Claude-compatible alias for reading the latest task plan.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "TodoWrite",
+        "description": "Claude-compatible alias for replacing the current task plan.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "todos": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "content": {"type": "string"},
+                            "status": {"type": "string", "enum": PLAN_ITEM_STATUS_ENUM},
+                            "activeForm": {"type": "string"},
+                        },
+                        "required": ["content", "status"],
+                        "additionalProperties": True,
+                    },
+                }
+            },
+            "required": ["todos"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "ExitPlanMode",
+        "description": "Claude-compatible alias for replacing the current task plan from plan-mode output.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"plan": {"type": "string"}},
+            "required": ["plan"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "finish",
         "description": "Finish the task with a concise summary for the user.",
         "input_schema": {

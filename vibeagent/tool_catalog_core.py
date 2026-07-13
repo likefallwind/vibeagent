@@ -79,8 +79,11 @@ def tool_category(name: str) -> str:
         return "project"
     if name in {
         "ask_user",
+        "ExitPlanMode",
         "todo_read",
+        "TodoRead",
         "todo_write",
+        "TodoWrite",
         "update_plan",
         "finish",
         "session_summary",

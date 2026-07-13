@@ -94,6 +94,15 @@ class ToolCatalogTests(unittest.TestCase):
             self.assertTrue(tool_requires_approval(name, ""))
             self.assertEqual(by_name[name]["category"], "edit")
 
+    def test_claude_task_aliases_are_cataloged_as_read_only_session_tools(self) -> None:
+        report = get_tools_report()
+        by_name = {str(tool["name"]): tool for tool in report["tools"] if isinstance(tool, dict)}
+
+        for name in ["TodoRead", "TodoWrite", "ExitPlanMode"]:
+            self.assertIn(name, by_name)
+            self.assertFalse(tool_requires_approval(name, ""))
+            self.assertEqual(by_name[name]["category"], "session")
+
 
 if __name__ == "__main__":
     unittest.main()
