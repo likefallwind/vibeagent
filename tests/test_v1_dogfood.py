@@ -979,6 +979,111 @@ def focused_tests_dogfood_responses() -> list[list[ContentBlock]]:
     ]
 
 
+def checkpoint_safety_dogfood_responses() -> list[list[ContentBlock]]:
+    return [
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-1",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Create a rollback checkpoint", "status": "in_progress"},
+                        {"content": "Patch calculator behavior", "status": "pending"},
+                        {"content": "Inspect checkpoint safety and verify", "status": "pending"},
+                        {"content": "Review and commit", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [{"type": "tool_call", "id": "checkpoint-1", "name": "checkpoint_create", "input": {"label": "before calculator edit"}}],
+        [{"type": "tool_call", "id": "checkpoint-list-1", "name": "checkpoint_list", "input": {"max_entries": 5}}],
+        [
+            {"type": "tool_call", "id": "read-1", "name": "Read", "input": {"file_path": "calc.py"}},
+            {"type": "tool_call", "id": "read-2", "name": "Read", "input": {"file_path": "tests/test_calc.py"}},
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "edit-1",
+                "name": "Edit",
+                "input": {
+                    "file_path": "calc.py",
+                    "old_string": "return left - right",
+                    "new_string": "return left + right",
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-2",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Create a rollback checkpoint", "status": "completed"},
+                        {"content": "Patch calculator behavior", "status": "completed"},
+                        {"content": "Inspect checkpoint safety and verify", "status": "in_progress"},
+                        {"content": "Review and commit", "status": "pending"},
+                    ]
+                },
+            }
+        ],
+        [{"type": "tool_call", "id": "checkpoint-status-1", "name": "checkpoint_status", "input": {"checkpoint_id": "latest"}}],
+        [{"type": "tool_call", "id": "checkpoint-restore-check-1", "name": "check_checkpoint_restore", "input": {"checkpoint_id": "latest"}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "bash-1",
+                "name": "Bash",
+                "input": {"command": "python -m unittest discover -s tests", "timeout": 10_000},
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-3",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Create a rollback checkpoint", "status": "completed"},
+                        {"content": "Patch calculator behavior", "status": "completed"},
+                        {"content": "Inspect checkpoint safety and verify", "status": "completed"},
+                        {"content": "Review and commit", "status": "in_progress"},
+                    ]
+                },
+            }
+        ],
+        [{"type": "tool_call", "id": "review-1", "name": "final_review", "input": {}}],
+        [{"type": "tool_call", "id": "stage-1", "name": "git_stage", "input": {"paths": ["calc.py"]}}],
+        [{"type": "tool_call", "id": "commit-1", "name": "git_commit", "input": {"message": "Fix calculator add with checkpoint safety"}}],
+        [
+            {
+                "type": "tool_call",
+                "id": "todo-4",
+                "name": "TodoWrite",
+                "input": {
+                    "todos": [
+                        {"content": "Create a rollback checkpoint", "status": "completed"},
+                        {"content": "Patch calculator behavior", "status": "completed"},
+                        {"content": "Inspect checkpoint safety and verify", "status": "completed"},
+                        {"content": "Review and commit", "status": "completed"},
+                    ]
+                },
+            }
+        ],
+        [
+            {
+                "type": "tool_call",
+                "id": "verify-1",
+                "name": "run_session_verification",
+                "input": {"include_pending": True, "include_failed": True, "timeout_ms": 10_000},
+            }
+        ],
+        [{"type": "text", "text": "Created a rollback checkpoint, patched and verified the calculator, checked checkpoint safety, reviewed, and committed."}],
+    ]
+
+
 def clarification_dogfood_responses() -> list[list[ContentBlock]]:
     return [
         [
@@ -2076,6 +2181,61 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertLess(observation_kinds.index("related_tests"), observation_kinds.index("focused_test_commands"))
         self.assertLess(observation_kinds.index("focused_test_commands"), observation_kinds.index("run_focused_test_commands"))
         self.assertLess(observation_kinds.index("run_focused_test_commands"), observation_kinds.index("final_review"))
+        self.assertLess(observation_kinds.index("final_review"), observation_kinds.index("git_commit"))
+        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
+
+    def test_v1_agent_creates_and_checks_checkpoint_before_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-checkpoint-dogfood-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(checkpoint_safety_dogfood_responses())
+
+            result = run_agent(
+                "Create a rollback checkpoint, fix the calculator test failure, verify checkpoint safety, and commit.",
+                base_dir=root,
+                client=client,
+                max_iterations=17,
+                approval_handler=approve_all,
+            )
+            git_status = git_worktree_status(root)
+            head_message = git_head_subject(root)
+            events_path = root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            events_text = events_path.read_text(encoding="utf-8")
+
+        observation_kinds = [item.kind for item in result.observations]
+        created_checkpoints = [item for item in result.observations if item.kind == "checkpoint_create" and item.checkpoint]
+        listed = next(item for item in result.observations if item.kind == "checkpoint_list")
+        status = next(item for item in result.observations if item.kind == "checkpoint_status")
+        restore_check = next(item for item in result.observations if item.kind == "check_checkpoint_restore")
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.completion_ready)
+        self.assertEqual(result.completion_blockers, [])
+        self.assertEqual(result.pending_verification_checks, [])
+        self.assertEqual(result.failed_verification_checks, [])
+        self.assertEqual(git_status, "")
+        self.assertEqual(head_message, "Fix calculator add with checkpoint safety")
+        self.assertEqual([item.status for item in result.plan], ["completed"] * 4)
+        self.assertGreaterEqual(len(created_checkpoints), 1)
+        self.assertIn("before calculator edit", [item.checkpoint.label for item in created_checkpoints if item.checkpoint])
+        self.assertTrue(listed.ok)
+        self.assertGreaterEqual(listed.total, 1)
+        self.assertFalse(status.matches)
+        self.assertGreaterEqual(status.current_changed_files, 1)
+        self.assertTrue(restore_check.can_restore)
+        self.assertTrue(restore_check.ok)
+        self.assertIn("run_command", observation_kinds)
+        self.assertIn("final_review", observation_kinds)
+        self.assertIn("run_session_verification", observation_kinds)
+        self.assertIn('"name": "checkpoint_create"', events_text)
+        self.assertIn('"name": "checkpoint_list"', events_text)
+        self.assertIn('"name": "checkpoint_status"', events_text)
+        self.assertIn('"name": "check_checkpoint_restore"', events_text)
+        self.assertLess(observation_kinds.index("checkpoint_create"), observation_kinds.index("edit_file"))
+        self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("checkpoint_status"))
+        self.assertLess(observation_kinds.index("checkpoint_status"), observation_kinds.index("check_checkpoint_restore"))
+        self.assertLess(observation_kinds.index("check_checkpoint_restore"), observation_kinds.index("run_command"))
+        self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("final_review"))
         self.assertLess(observation_kinds.index("final_review"), observation_kinds.index("git_commit"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
 

@@ -51,6 +51,10 @@ local changes when asked, and resume from recorded session context.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_finds_and_runs_focused_tests_before_commit`
   finds related tests for a changed source file, turns them into focused test
   commands, runs those commands, then final-reviews and commits.
+- `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_creates_and_checks_checkpoint_before_commit`
+  creates an explicit rollback checkpoint before editing, confirms checkpoint
+  status and restore preflight after the edit, then verifies, final-reviews, and
+  commits.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_clarify_then_repair_verify_and_commit`
   uses the Claude-compatible `AskUserQuestion` alias to ask one blocking
   clarification, returns the selected answer to the model, then reads, edits,
