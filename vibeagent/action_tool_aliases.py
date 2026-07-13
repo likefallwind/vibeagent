@@ -11,6 +11,8 @@ from .action_tool_alias_utils import rename_fields
 ToolInputNormalizer = Callable[[dict[str, Any]], dict[str, Any]]
 
 
+CLAUDE_MCP_TOOL_NAME_PATTERN = re.compile(r"^mcp__[A-Za-z0-9][A-Za-z0-9._-]{0,63}__[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
 CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
     "AskUserQuestion": "ask_user",
     "Agent": "delegate_task",
@@ -153,6 +155,8 @@ def tool_name_candidates(tool_name: str, action: object | None = None) -> tuple[
 
 
 def profile_tool_names(name: str) -> frozenset[str]:
+    if CLAUDE_MCP_TOOL_NAME_PATTERN.fullmatch(name):
+        return frozenset({"mcp_tools", name})
     expanded = PROFILE_TOOL_ALIAS_EXPANSIONS.get(name)
     if expanded is not None:
         return expanded
@@ -311,6 +315,7 @@ _ACTION_INPUT_NORMALIZERS: dict[str, ToolInputNormalizer] = {
 
 __all__ = [
     "BASH_TOOL_NAMES",
+    "CLAUDE_MCP_TOOL_NAME_PATTERN",
     "CLAUDE_TOOL_ACTION_ALIASES",
     "CLAUDE_TOOL_ALIASES",
     "FILE_EDIT_TOOL_NAMES",

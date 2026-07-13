@@ -346,6 +346,37 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertEqual(result["action_type"], "web_fetch")
         self.assertEqual(approvals, ["web_fetch"])
 
+    def test_code_profile_accepts_claude_mcp_tool_alias_allowlist(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            _write_agent(
+                root,
+                ".claude/agents",
+                "docs-searcher",
+                "Searches docs MCP",
+                "Use the docs MCP search tool.",
+                mode="code",
+                tools="mcp__docs__search",
+            )
+            _write_agent(
+                root,
+                ".claude/agents",
+                "bad-mcp",
+                "Bad MCP",
+                "Bad profile.",
+                mode="code",
+                tools="mcp__docs",
+            )
+            workspace = create_run_workspace(root, "run-1")
+
+            catalog = read_project_agents(workspace)
+            loaded = read_project_agent(workspace, "docs-searcher")
+
+        messages = {str(agent["name"]): str(agent["message"]) for agent in catalog["agents"]}
+        self.assertEqual(loaded["tools"], ["mcp__docs__search", "mcp_tools"])
+        self.assertEqual(messages["docs-searcher"], "Available.")
+        self.assertIn("unknown tool", messages["bad-mcp"])
+
     def test_explore_profile_todoread_alias_allows_claude_tool_call(self) -> None:
         client = ProfileClient(
             [

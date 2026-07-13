@@ -16,8 +16,10 @@ from vibeagent.agent_tool_registry import (
     ToolVisibilityPolicy,
     activate_agent_tool_names,
     activate_tools_for_run,
+    clear_dynamic_tool_definitions,
     mcp_tools_activation_names,
     agent_tool_definitions,
+    initialize_agent_tools,
     initial_agent_tool_names,
     tool_search_activation_names,
     validate_core_agent_tools,
@@ -237,6 +239,38 @@ class AgentToolRegistryTests(unittest.TestCase):
             definitions["mcp__docs__search"]["input_schema"],
             {"type": "object", "properties": {"query": {"type": "string"}}},
         )
+
+    def test_new_agent_run_clears_dynamic_mcp_tool_definitions(self) -> None:
+        observation = McpToolsObservation(
+            kind="mcp_tools",
+            ok=True,
+            server="docs",
+            tools=[
+                McpToolInfo(
+                    name="search",
+                    title="Search",
+                    description="Search documentation.",
+                    input_schema={"type": "object"},
+                )
+            ],
+            total=1,
+            truncated=False,
+            timeout_ms=1000,
+            error=None,
+            message="Listed tools.",
+        )
+
+        try:
+            self.assertEqual(mcp_tools_activation_names(observation), ["mcp__docs__search"])
+            active = {"mcp__docs__search"}
+            self.assertIn("mcp__docs__search", {str(tool["name"]) for tool in agent_tool_definitions(active)})
+
+            with tempfile.TemporaryDirectory(prefix="vibeagent-tools-") as base:
+                initialize_agent_tools(create_run_workspace(Path(base)))
+
+            self.assertEqual(agent_tool_definitions(active), [])
+        finally:
+            clear_dynamic_tool_definitions()
 
     def test_tool_search_activates_matching_schemas_on_next_model_turn(self) -> None:
         client = ToolLoadingClient(

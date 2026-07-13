@@ -60,7 +60,7 @@ def code_delegate_initial_tool_names(
         excluded_names=CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
     )
     source_names = allowed_tool_names if allowed_tool_names is not None else initial_agent_tool_names()
-    return {name for name in source_names if policy.allows(name)}
+    return {name for name in source_names if not name.startswith("mcp__") and policy.allows(name)}
 
 
 def delegate_tool_definitions(

@@ -103,6 +103,18 @@ def _write_mcp_config(path: Path, server_name: str, *, cwd: str = ".") -> None:
     )
 
 
+def _write_agent(root: Path, name: str, tools: str) -> None:
+    path = root / ".claude" / "agents" / f"{name}.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        (
+            f"---\nname: {name}\ndescription: Uses MCP tools\n"
+            f"mode: code\ntools: {tools}\n---\n\nUse only the scoped MCP tool.\n"
+        ),
+        encoding="utf-8",
+    )
+
+
 class McpRuntimeTests(unittest.TestCase):
     def test_lists_config_without_exposing_environment_values(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
@@ -380,6 +392,59 @@ class McpRuntimeTests(unittest.TestCase):
 
         second_turn_names = {str(tool["name"]) for tool in client.tools[1]}
         self.assertIn("mcp__test__echo", second_turn_names)
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.tool_calls, ["mcp_tools", "mcp__test__echo"])
+
+    def test_code_profile_can_scope_subagent_to_specific_mcp_alias(self) -> None:
+        client = _Client(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "tools-1",
+                        "name": "mcp_tools",
+                        "input": {"server": "test", "timeout_ms": 2000},
+                    }
+                ],
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "call-1",
+                        "name": "mcp__test__echo",
+                        "input": {"message": "profile scoped"},
+                    }
+                ],
+                [{"type": "text", "text": "Profile-scoped MCP call completed."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
+            root = Path(base)
+            _write_mcp_project(root)
+            _write_agent(root, "mcp-runner", "mcp__test__echo")
+            workspace = create_run_workspace(root, "run-1")
+            action = parse_tool_action(
+                "delegate_task",
+                {"task": "Use scoped MCP", "agent": "mcp-runner", "max_iterations": 3},
+            )
+            with patch.dict("os.environ", {"MCP_TEST_SOURCE": "expanded"}):
+                observation = execute_delegate_task_action(
+                    workspace,
+                    action,
+                    client,
+                    parent_iteration=1,
+                    subagent_id="delegate-1-1",
+                    max_output_tokens=2048,
+                    model_retries=0,
+                    model_retry_delay_ms=0,
+                    model_timeout_ms=10_000,
+                    command_timeout_ms=10_000,
+                    logger=None,
+                    approval_handler=lambda request: ApprovalDecision(approved=True, message="approved"),
+                )
+
+        first_turn_names = {str(tool["name"]) for tool in client.tools[0]}
+        self.assertEqual(first_turn_names, {"finish", "mcp_tools"})
+        self.assertIn("mcp__test__echo", {str(tool["name"]) for tool in client.tools[1]})
         self.assertTrue(observation.ok)
         self.assertEqual(observation.tool_calls, ["mcp_tools", "mcp__test__echo"])
 

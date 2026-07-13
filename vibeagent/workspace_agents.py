@@ -5,7 +5,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from .action_tool_aliases import profile_tool_names
+from .action_tool_aliases import CLAUDE_MCP_TOOL_NAME_PATTERN, profile_tool_names
 from .agent_delegate_policy import CODE_DELEGATE_EXCLUDED_TOOL_NAMES, DELEGATE_TOOL_NAMES
 from .tool_catalog_core import APPROVAL_REQUIRED_TOOL_NAMES
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
@@ -194,7 +194,11 @@ def _parse_tool_names(value: object) -> frozenset[str] | None:
 def _validate_agent_tools(mode: str, tools: frozenset[str] | None) -> None:
     if tools is None:
         return
-    unknown = sorted(tools - KNOWN_TOOL_NAMES)
+    unknown = sorted(
+        name
+        for name in tools
+        if name not in KNOWN_TOOL_NAMES and not CLAUDE_MCP_TOOL_NAME_PATTERN.fullmatch(name)
+    )
     if unknown:
         raise ValueError(f"Agent profile references unknown tool(s): {', '.join(unknown)}.")
     forbidden = sorted(tools & CODE_DELEGATE_EXCLUDED_TOOL_NAMES)

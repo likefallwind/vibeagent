@@ -18,6 +18,10 @@ TOOL_DEFINITION_BY_NAME = {
 _DYNAMIC_TOOL_DEFINITION_BY_NAME: dict[str, dict[str, Any]] = {}
 
 
+def clear_dynamic_tool_definitions() -> None:
+    _DYNAMIC_TOOL_DEFINITION_BY_NAME.clear()
+
+
 @dataclass(frozen=True)
 class ToolVisibilityPolicy:
     approval_policy: ApprovalPolicy = "ask"
@@ -59,6 +63,7 @@ def initialize_agent_tools(
     approval_policy: ApprovalPolicy = "ask",
     excluded_names: frozenset[str] = frozenset(),
 ) -> set[str]:
+    clear_dynamic_tool_definitions()
     policy = _visibility_policy(approval_policy, excluded_names)
     active_names = {
         name for name in initial_agent_tool_names()
