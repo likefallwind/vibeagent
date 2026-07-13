@@ -1,0 +1,552 @@
+import io
+import json
+import tempfile
+import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
+from unittest.mock import Mock, patch
+
+from vibeagent.agent import AgentResult
+from vibeagent.cli import main
+from vibeagent.types import ApprovalRequest, PlanItem, TaskStep
+
+
+class CliOneShotTests(unittest.TestCase):
+    def test_main_runs_one_shot_code_task_from_args(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            stdout = io.StringIO()
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--approval",
+                        "allow",
+                        "--cwd",
+                        base,
+                        "--max-iterations",
+                        "7",
+                        "--command-timeout-ms",
+                        "1234",
+                        "--max-output-tokens",
+                        "8192",
+                        "--model-retries",
+                        "2",
+                        "--model-retry-delay-ms",
+                        "25",
+                        "--model-timeout-ms",
+                        "45000",
+                        "fix",
+                        "the",
+                        "test",
+                    ]
+                )
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("done", output)
+        self.assertNotIn("VibeAgent v0.1", output)
+        self.assertEqual(run_agent.call_args.args[0], "fix the test")
+        self.assertEqual(run_agent.call_args.kwargs["base_dir"], Path(base).resolve())
+        self.assertEqual(run_agent.call_args.kwargs["max_iterations"], 7)
+        self.assertEqual(run_agent.call_args.kwargs["command_timeout_ms"], 1234)
+        self.assertEqual(run_agent.call_args.kwargs["max_output_tokens"], 8192)
+        self.assertEqual(run_agent.call_args.kwargs["model_retries"], 2)
+        self.assertEqual(run_agent.call_args.kwargs["model_retry_delay_ms"], 25)
+        self.assertEqual(run_agent.call_args.kwargs["model_timeout_ms"], 45000)
+        self.assertIsNone(run_agent.call_args.kwargs["prior_context"])
+        self.assertEqual(run_agent.call_args.kwargs["approval_policy"], "allow")
+        handler = run_agent.call_args.kwargs["approval_handler"]
+        self.assertTrue(handler(ApprovalRequest(action_type="write_file", target="note.txt", risk="write")).approved)
+
+    def test_main_one_shot_code_task_exits_nonzero_when_completion_is_blocked(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+                completion_ready=False,
+                completion_blockers=["Final review did not report ready."],
+            )
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", return_value=result),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["fix", "the", "test"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("done", stdout.getvalue())
+        self.assertIn("Completion blockers:", stdout.getvalue())
+        self.assertIn("Final review did not report ready.", stdout.getvalue())
+
+    def test_main_print_mode_outputs_only_final_code_message(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+                completion_ready=False,
+                completion_blockers=["Final review did not report ready."],
+                final_review_changed_files=["M app.py"],
+            )
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", return_value=result),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["-p", "--cwd", base, "fix", "the", "test"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(stdout.getvalue(), "done\n")
+
+    def test_main_print_mode_keeps_json_machine_result(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", return_value=result),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["-p", "--json", "--cwd", base, "fix", "the", "test"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "code")
+        self.assertEqual(payload["message"], "done")
+        self.assertEqual(payload["result"], "done")
+
+    def test_main_runs_one_shot_code_task_with_json_output(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=2,
+                observations=[],
+                steps=[TaskStep(id=1, label="Read file", action_type="read_file", target="app.py", status="completed")],
+                plan=[
+                    PlanItem(step="Inspect failure", status="completed"),
+                    PlanItem(step="Run verification", status="pending"),
+                ],
+                completion_ready=False,
+                completion_blockers=["1 suggested verification check(s) are still pending after the latest project change."],
+                completion_warnings=["Suggested verification checks are still pending after the latest project change."],
+                verification_checks=["python -m unittest discover -s tests"],
+                pending_verification_checks=["npm test"],
+                failed_verification_checks=["npm test (exit=1)"],
+                completion_blocked_count=1,
+                latest_completion_blockers=["Final review did not report ready."],
+                latest_completion_pending_verification_checks=["npm test"],
+                latest_completion_failed_verification_checks=["npm run build (exit=1)"],
+                latest_completion_final_review_issues=["Changed Python files have syntax errors."],
+                latest_completion_final_review_changed_files=["M app.py"],
+                latest_completion_tool_errors=["read_file: Tool execution failed: boom"],
+                latest_completion_checkpoint_failures=["checkpoint_create: git diff failed."],
+                latest_completion_active_background_processes=["bg-1: pid=123, cwd=web, command=npm run dev"],
+                latest_completion_denied_approvals=["write_file note.txt: denied"],
+                final_review_changed_files=["M app.py"],
+            )
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.get_compact_context", return_value=(None, None, "No sessions found.")),
+                patch("vibeagent.cli.run_agent", return_value=result),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "fix", "the", "test"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(payload["kind"], "code")
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["status"], "blocked")
+        self.assertEqual(payload["stopReason"], "blocked")
+        self.assertEqual(payload["stop_reason"], "blocked")
+        self.assertEqual(payload["message"], "done")
+        self.assertEqual(payload["result"], "done")
+        self.assertEqual(payload["runId"], "one-shot")
+        self.assertEqual(payload["sessionId"], "one-shot")
+        self.assertEqual(payload["session_id"], "one-shot")
+        self.assertEqual(payload["iterations"], 2)
+        self.assertEqual(payload["numTurns"], 2)
+        self.assertEqual(payload["num_turns"], 2)
+        self.assertEqual(payload["steps"], 1)
+        self.assertEqual(payload["priorContext"], {"loaded": False, "source": "auto_compact", "runId": None})
+        self.assertEqual(
+            payload["plan"],
+            [
+                {"status": "completed", "step": "Inspect failure"},
+                {"status": "pending", "step": "Run verification"},
+            ],
+        )
+        self.assertFalse(payload["completionReady"])
+        self.assertEqual(payload["completionBlockers"], ["1 suggested verification check(s) are still pending after the latest project change."])
+        self.assertEqual(payload["completionWarnings"], ["Suggested verification checks are still pending after the latest project change."])
+        self.assertEqual(payload["completionBlockedCount"], 1)
+        self.assertEqual(payload["latestCompletionBlockers"], ["Final review did not report ready."])
+        self.assertEqual(payload["latestCompletionPendingChecks"], ["npm test"])
+        self.assertEqual(payload["latestCompletionFailedChecks"], ["npm run build (exit=1)"])
+        self.assertEqual(payload["latestCompletionFinalReviewIssues"], ["Changed Python files have syntax errors."])
+        self.assertEqual(payload["latestCompletionFinalReviewChangedFiles"], ["M app.py"])
+        self.assertEqual(payload["latestCompletionToolErrors"], ["read_file: Tool execution failed: boom"])
+        self.assertEqual(payload["latestCompletionCheckpointFailures"], ["checkpoint_create: git diff failed."])
+        self.assertEqual(payload["latestCompletionActiveProcesses"], ["bg-1: pid=123, cwd=web, command=npm run dev"])
+        self.assertEqual(payload["latestCompletionDeniedApprovals"], ["write_file note.txt: denied"])
+        self.assertEqual(payload["changedFiles"], ["M app.py"])
+        self.assertEqual(payload["verificationChecks"], ["python -m unittest discover -s tests"])
+        self.assertEqual(payload["pendingVerificationChecks"], ["npm test"])
+        self.assertEqual(payload["failedVerificationChecks"], ["npm test (exit=1)"])
+
+    def test_main_one_shot_code_task_handles_keyboard_interrupt(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", side_effect=KeyboardInterrupt),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", base, "fix", "the", "test"])
+
+        self.assertEqual(exit_code, 130)
+        self.assertEqual(stdout.getvalue().strip(), "Interrupted.")
+
+    def test_main_one_shot_code_task_handles_keyboard_interrupt_with_json_output(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", side_effect=KeyboardInterrupt),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--cwd", base, "fix", "the", "test"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 130)
+        self.assertEqual(payload["kind"], "interrupted")
+        self.assertFalse(payload["success"])
+        self.assertEqual(payload["status"], "interrupted")
+        self.assertEqual(payload["error"], "Interrupted.")
+
+    def test_main_local_flag_handles_keyboard_interrupt(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("vibeagent.cli.get_review_report", side_effect=KeyboardInterrupt),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--review"])
+
+        self.assertEqual(exit_code, 130)
+        self.assertEqual(stdout.getvalue().strip(), "Interrupted.")
+
+    def test_main_one_shot_code_task_uses_provider_overrides(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()) as create_chat_client,
+                patch("vibeagent.cli.run_agent", return_value=result),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--provider",
+                        "minimax",
+                        "--model",
+                        "MiniMax-custom",
+                        "--base-url",
+                        "https://minimax.example",
+                        "--api-key",
+                        "secret-key",
+                        "fix",
+                    ]
+                )
+
+        provider_env = create_chat_client.call_args.args[0]
+        self.assertEqual(exit_code, 0)
+        self.assertIn("done", stdout.getvalue())
+        self.assertEqual(provider_env["VIBEAGENT_PROVIDER"], "minimax")
+        self.assertEqual(provider_env["MINIMAX_MODEL"], "MiniMax-custom")
+        self.assertEqual(provider_env["MINIMAX_BASE_URL"], "https://minimax.example")
+        self.assertEqual(provider_env["MINIMAX_API_KEY"], "secret-key")
+
+    def test_main_one_shot_code_task_uses_project_provider_config(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            config_dir = Path(base) / ".vibeagent"
+            config_dir.mkdir()
+            (config_dir / "config.json").write_text(
+                json.dumps(
+                    {
+                        "provider": "deepseek",
+                        "model": "deepseek-reasoner",
+                        "base_url": "https://deepseek.example",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+
+            with (
+                patch.dict("vibeagent.cli.os.environ", {}, clear=True),
+                patch("vibeagent.cli.create_chat_client", return_value=object()) as create_chat_client,
+                patch("vibeagent.cli.run_agent", return_value=result),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", base, "fix"])
+
+        provider_env = create_chat_client.call_args.args[0]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(provider_env["VIBEAGENT_PROVIDER"], "deepseek")
+        self.assertEqual(provider_env["VIBEAGENT_MODEL"], "deepseek-reasoner")
+        self.assertEqual(provider_env["VIBEAGENT_BASE_URL"], "https://deepseek.example")
+
+    def test_main_one_shot_code_task_uses_current_project_provider_config(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            config_dir = Path(base) / ".vibeagent"
+            config_dir.mkdir()
+            (config_dir / "config.json").write_text(
+                json.dumps({"provider": "deepseek", "model": "deepseek-reasoner"}),
+                encoding="utf-8",
+            )
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+
+            with (
+                patch.dict("vibeagent.cli.os.environ", {}, clear=True),
+                patch("vibeagent.cli.Path.cwd", return_value=Path(base).resolve()),
+                patch("vibeagent.cli.create_chat_client", return_value=object()) as create_chat_client,
+                patch("vibeagent.cli.run_agent", return_value=result),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["fix"])
+
+        provider_env = create_chat_client.call_args.args[0]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(provider_env["VIBEAGENT_PROVIDER"], "deepseek")
+        self.assertEqual(provider_env["VIBEAGENT_MODEL"], "deepseek-reasoner")
+
+    def test_main_one_shot_code_task_uses_project_execution_config(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            config_dir = Path(base) / ".vibeagent"
+            config_dir.mkdir()
+            (config_dir / "config.json").write_text(
+                json.dumps(
+                    {
+                        "max_iterations": 9,
+                        "command_timeout_ms": 45000,
+                        "max_output_tokens": 8192,
+                        "model_retries": 0,
+                        "model_retry_delay_ms": 0,
+                        "model_timeout_ms": 45000,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", base, "fix"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.kwargs["max_iterations"], 9)
+        self.assertEqual(run_agent.call_args.kwargs["command_timeout_ms"], 45000)
+        self.assertEqual(run_agent.call_args.kwargs["max_output_tokens"], 8192)
+        self.assertEqual(run_agent.call_args.kwargs["model_retries"], 0)
+        self.assertEqual(run_agent.call_args.kwargs["model_retry_delay_ms"], 0)
+        self.assertEqual(run_agent.call_args.kwargs["model_timeout_ms"], 45000)
+
+    def test_main_one_shot_code_task_cli_execution_flags_win_over_project_config(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            config_dir = Path(base) / ".vibeagent"
+            config_dir.mkdir()
+            (config_dir / "config.json").write_text(
+                json.dumps(
+                    {
+                        "max_iterations": 9,
+                        "command_timeout_ms": 45000,
+                        "max_output_tokens": 8192,
+                        "model_retries": 0,
+                        "model_retry_delay_ms": 0,
+                        "model_timeout_ms": 45000,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(
+                    [
+                        "--cwd",
+                        base,
+                        "--max-iterations",
+                        "4",
+                        "--command-timeout-ms",
+                        "1000",
+                        "--max-output-tokens",
+                        "2048",
+                        "--model-retries",
+                        "3",
+                        "--model-retry-delay-ms",
+                        "50",
+                        "--model-timeout-ms",
+                        "60000",
+                        "fix",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.kwargs["max_iterations"], 4)
+        self.assertEqual(run_agent.call_args.kwargs["command_timeout_ms"], 1000)
+        self.assertEqual(run_agent.call_args.kwargs["max_output_tokens"], 2048)
+        self.assertEqual(run_agent.call_args.kwargs["model_retries"], 3)
+        self.assertEqual(run_agent.call_args.kwargs["model_retry_delay_ms"], 50)
+        self.assertEqual(run_agent.call_args.kwargs["model_timeout_ms"], 60000)
+
+    def test_main_cli_provider_override_wins_over_project_provider_config(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            config_dir = Path(base) / ".vibeagent"
+            config_dir.mkdir()
+            (config_dir / "config.json").write_text(
+                json.dumps({"provider": "deepseek", "model": "deepseek-reasoner"}),
+                encoding="utf-8",
+            )
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+
+            with (
+                patch.dict("vibeagent.cli.os.environ", {}, clear=True),
+                patch("vibeagent.cli.create_chat_client", return_value=object()) as create_chat_client,
+                patch("vibeagent.cli.run_agent", return_value=result),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", base, "--provider", "minimax", "--model-name", "MiniMax-custom", "fix"])
+
+        provider_env = create_chat_client.call_args.args[0]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(provider_env["VIBEAGENT_PROVIDER"], "minimax")
+        self.assertEqual(provider_env["MINIMAX_MODEL"], "MiniMax-custom")
+        self.assertEqual(provider_env["VIBEAGENT_MODEL"], "deepseek-reasoner")
+
+    def test_main_model_alias_sets_one_shot_provider_model(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+
+            with (
+                patch.dict("vibeagent.cli.os.environ", {}, clear=True),
+                patch("vibeagent.cli.create_chat_client", return_value=object()) as create_chat_client,
+                patch("vibeagent.cli.run_agent", return_value=result),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", base, "--provider", "minimax", "--model", "MiniMax-custom", "fix"])
+
+        provider_env = create_chat_client.call_args.args[0]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(provider_env["VIBEAGENT_PROVIDER"], "minimax")
+        self.assertEqual(provider_env["MINIMAX_MODEL"], "MiniMax-custom")
+
