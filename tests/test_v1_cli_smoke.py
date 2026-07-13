@@ -17,6 +17,7 @@ from tests.test_v1_dogfood import (
     claude_hook_dogfood_responses,
     claude_mcp_dogfood_responses,
     claude_notebook_dogfood_responses,
+    delegated_dogfood_responses,
     init_broken_calculator_repo,
     init_hooked_calculator_repo,
     init_mcp_calculator_repo,
@@ -423,6 +424,38 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn('"process_id": "111111111111"', events_text)
         self.assertIn("ready", events_text)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add after background probe")
+
+    def test_v1_cli_json_can_delegate_read_only_investigation_before_repair_and_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-delegate-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(delegated_dogfood_responses())
+            exit_code, payload = _run_json_cli(
+                client,
+                [
+                    "--output-format",
+                    "json",
+                    "--approval",
+                    "allow",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "15",
+                    "Delegate the initial investigation, then fix the calculator test failure and commit.",
+                ],
+            )
+            events = _session_events(root, payload["runId"])
+            events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload)
+        self.assertIn('"name": "Task"', events_text)
+        self.assertIn('"kind": "delegate_task"', events_text)
+        self.assertIn('"type": "subagent_tool_call"', events_text)
+        self.assertIn('"name": "Read"', events_text)
+        self.assertIn("calc.py subtracts", events_text)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add after delegation")
 
     def test_v1_cli_stream_json_input_format_can_repair_verify_commit_and_report_ready(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-input-stream-smoke-") as base:

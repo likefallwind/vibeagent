@@ -136,6 +136,11 @@ local changes when asked, and resume from recorded session context.
   `BashOutput`, and `KillBash` aliases, confirming a long-running process can
   be started, inspected, stopped, and kept out of the way before repair,
   verification, review, and commit.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_delegate_read_only_investigation_before_repair_and_commit`
+  runs the real CLI JSON path through the Claude-compatible `Task` alias,
+  confirming a read-only subagent can inspect project files and return a
+  bounded summary before the parent agent repairs, verifies, reports, and
+  commits.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_resume_interrupted_run_and_commit`
   runs an interrupted deterministic repair dogfood through the real CLI
   `main()` JSON path, then resumes it through `--resume <runId>`, confirming
