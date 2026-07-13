@@ -7,6 +7,7 @@ from typing import Any
 from .actions import ActionParseError, execute_action, parse_tool_action
 from .agent_model import complete_with_retries
 from .agent_model_turn import handle_no_tool_call_response, record_model_turn
+from .agent_message_flow import append_tool_results_and_compact
 from .agent_multimodal import build_tool_result_block, strip_consumed_tool_images
 from .agent_result import AgentResult
 from .redaction import redact_jsonable_payload
@@ -50,7 +51,6 @@ from .agent_run_completion import (
 from .agent_observation_utils import observation_failed, summarize
 from .agent_runtime_utils import (
     append_session_event,
-    compact_agent_message_history,
     summarize_command,
     to_jsonable,
     tool_error_observation,
@@ -214,15 +214,15 @@ def run_agent(
                 approval_policy,
             )
         if handled_tool_calls == len(tool_calls):
-            messages.append(ChatMessage(role="user", content=tool_results))
-            messages = compact_agent_message_history(
-                task,
-                current_workspace,
-                messages,
-                observations,
-                plan,
-                original_prior_context,
-                iteration,
+            messages = append_tool_results_and_compact(
+                task=task,
+                workspace=current_workspace,
+                messages=messages,
+                tool_results=tool_results,
+                observations=observations,
+                plan=plan,
+                original_prior_context=original_prior_context,
+                iteration=iteration,
                 approval_policy=approval_policy,
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
@@ -355,15 +355,15 @@ def run_agent(
             messages.append(ChatMessage(role="user", content=blocked_completion_feedback))
             continue
 
-        messages.append(ChatMessage(role="user", content=tool_results))
-        messages = compact_agent_message_history(
-            task,
-            current_workspace,
-            messages,
-            observations,
-            plan,
-            original_prior_context,
-            iteration,
+        messages = append_tool_results_and_compact(
+            task=task,
+            workspace=current_workspace,
+            messages=messages,
+            tool_results=tool_results,
+            observations=observations,
+            plan=plan,
+            original_prior_context=original_prior_context,
+            iteration=iteration,
             approval_policy=approval_policy,
             system_prompt=system_prompt,
             append_system_prompt=append_system_prompt,
