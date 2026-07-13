@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from vibeagent import process_commands
+from vibeagent import process_commands, process_output_runtime, process_runtime
 from vibeagent.process_output_commands import (
     format_process_output_contexts_report_text,
     format_process_output_diagnostics_report_text,
@@ -25,6 +25,16 @@ class ProcessOutputCommandModuleTests(unittest.TestCase):
         self.assertIs(process_commands.get_process_output_diagnostics_text, get_process_output_diagnostics_text)
         self.assertIs(process_commands.format_process_output_diagnostics_report_text, format_process_output_diagnostics_report_text)
         self.assertIs(process_commands.parse_process_request, parse_process_request)
+
+    def test_process_runtime_reexports_output_runtime_helpers(self) -> None:
+        self.assertIs(
+            process_runtime.read_background_process_output_contexts,
+            process_output_runtime.read_background_process_output_contexts,
+        )
+        self.assertIs(
+            process_runtime.read_background_process_output_diagnostics,
+            process_output_runtime.read_background_process_output_diagnostics,
+        )
 
     def test_text_helpers_resolve_compatibility_patch_targets(self) -> None:
         root = Path(".").resolve()
