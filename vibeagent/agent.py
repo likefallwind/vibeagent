@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
 from pathlib import Path
 import time
 from typing import Any
@@ -9,11 +8,11 @@ from .actions import ActionParseError, execute_action, parse_tool_action
 from .agent_model import complete_with_retries
 from .agent_multimodal import build_tool_result_block, strip_consumed_tool_images
 from .agent_result import AgentResult
-from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .agent_action_logging import log_action
 from .agent_delegate import execute_delegate_task_action
 from .agent_hooks import run_hooks_around_tool
+from .agent_run_setup import prepare_agent_run
 from .agent_execution_support import (
     create_auto_checkpoint_before_action as _shared_create_auto_checkpoint_before_action,
     execute_action_safely as _shared_execute_action_safely,
@@ -54,7 +53,6 @@ from .agent_run_completion import (
 from .agent_observation_utils import observation_failed, summarize
 from .agent_runtime_utils import (
     append_session_event,
-    compact_session_context,
     compact_agent_message_history,
     content_blocks_to_text,
     normalize_assistant_content,
@@ -78,15 +76,8 @@ from .types import (
     TaskStep,
     UserInputHandler,
 )
-from .workspace_core import RunWorkspace, create_run_workspace
-from .workspace_hooks import read_project_hooks
-from .workspace_permissions import (
-    ProjectPermissions,
-    format_permissions_for_prompt,
-    merge_project_permissions,
-    read_project_permissions,
-)
-from .workspace_sandbox import read_workspace_sandbox
+from .workspace_core import RunWorkspace
+from .workspace_permissions import ProjectPermissions
 
 
 def run_agent(
@@ -113,86 +104,30 @@ def run_agent(
     system_prompt: str | None = None,
     append_system_prompt: str | None = None,
 ) -> AgentResult:
-    # Start with an isolated run workspace for one task execution.
-    current_workspace = workspace or create_run_workspace(
-        base_dir,
-        mcp_config_paths=mcp_config_paths,
-        strict_mcp_config=strict_mcp_config,
-    )
-    if workspace is not None and mcp_config_paths and not workspace.mcp_config_paths:
-        absolute_mcp_paths = tuple(path if path.is_absolute() else current_workspace.root / path for path in mcp_config_paths)
-        current_workspace = replace(workspace, mcp_config_paths=absolute_mcp_paths)
-    if workspace is not None and strict_mcp_config != current_workspace.strict_mcp_config:
-        current_workspace = replace(current_workspace, strict_mcp_config=strict_mcp_config)
-    if trust_project_permissions and not current_workspace.project_config_trusted:
-        current_workspace = replace(current_workspace, project_config_trusted=True)
-    project_permissions = read_project_permissions(current_workspace)
-    project_permissions = merge_project_permissions(project_permissions, permission_overrides)
-    if current_workspace.project_config_trusted:
-        project_permissions = replace(project_permissions, allow_rules_trusted=True)
     observations: list[Observation] = []
     steps: list[TaskStep] = []
     plan: list[PlanItem] = []
-    messages = build_messages(
+    setup = prepare_agent_run(
         task,
-        current_workspace,
+        base_dir=base_dir,
+        workspace=workspace,
         prior_context=prior_context,
         approval_policy=approval_policy,
-        permission_summary=format_permissions_for_prompt(project_permissions),
+        task_metadata=task_metadata,
+        trust_project_permissions=trust_project_permissions,
+        permission_overrides=permission_overrides,
+        mcp_config_paths=mcp_config_paths,
+        strict_mcp_config=strict_mcp_config,
         system_prompt=system_prompt,
         append_system_prompt=append_system_prompt,
     )
+    current_workspace = setup.workspace
+    messages = setup.messages
+    active_tool_names = setup.active_tool_names
+    project_hooks = setup.project_hooks
+    project_permissions = setup.project_permissions
     original_prior_context = prior_context
     auto_checkpoint_attempted = False
-    task_event: dict[str, object] = {
-        "task": task,
-        "approval_policy": approval_policy,
-        "prior_context": compact_session_context(prior_context) if prior_context else None,
-    }
-    if task_metadata:
-        task_event["metadata"] = redact_jsonable_payload(task_metadata)
-    append_session_event(current_workspace.session_dir, "task", task_event)
-    project_hooks = read_project_hooks(current_workspace)
-    if project_hooks.enabled:
-        append_session_event(
-            current_workspace.session_dir,
-            "hooks_loaded",
-            {
-                "sources": list(project_hooks.sources),
-                "count": len(project_hooks.hooks),
-                "error": project_hooks.error,
-            },
-        )
-    if project_permissions.enabled:
-        append_session_event(
-            current_workspace.session_dir,
-            "permissions_loaded",
-            {
-                "sources": list(project_permissions.sources),
-                "count": len(project_permissions.rules),
-                "error": project_permissions.error,
-                "allow_rules_trusted": project_permissions.allow_rules_trusted,
-                "trusted_allow_sources": list(project_permissions.trusted_allow_sources),
-            },
-        )
-    sandbox_config = read_workspace_sandbox(current_workspace)
-    if sandbox_config.enabled or sandbox_config.sources or sandbox_config.error is not None:
-        append_session_event(
-            current_workspace.session_dir,
-            "sandbox_loaded",
-            {
-                "enabled": sandbox_config.enabled,
-                "active": sandbox_config.active,
-                "available": sandbox_config.available,
-                "network_disabled": sandbox_config.network_disabled,
-                "network_available": sandbox_config.network_available,
-                "fail_if_unavailable": sandbox_config.fail_if_unavailable,
-                "auto_allow_bash_if_sandboxed": sandbox_config.auto_allow_bash_if_sandboxed,
-                "sources": list(sandbox_config.sources),
-                "error": sandbox_config.error,
-            },
-        )
-    active_tool_names = initialize_agent_tools(current_workspace, approval_policy)
 
     for iteration in range(1, max_iterations + 1):
         # Tool loop: provider-neutral tool_call blocks -> local execution -> tool_result blocks.
