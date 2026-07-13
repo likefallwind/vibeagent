@@ -254,6 +254,45 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn("calculator tests are failing", initial_prompt)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add")
 
+    def test_v1_cli_stream_json_input_format_can_repair_verify_commit_and_report_ready(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-input-stream-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(v1_dogfood_responses())
+            stdin_payload = "\n".join(
+                [
+                    json.dumps({"type": "system", "text": "Prefer focused checks before broad suites."}),
+                    json.dumps({"type": "assistant", "text": "Previous context: calculator tests are failing."}),
+                    json.dumps({"type": "user", "text": "Fix the calculator test failure and commit the verified fix."}),
+                ]
+            )
+            exit_code, payload = _run_json_cli_with_stdin(
+                client,
+                [
+                    "--output-format",
+                    "json",
+                    "--input-format",
+                    "stream-json",
+                    "--approval",
+                    "allow",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "14",
+                    "-",
+                ],
+                stdin_payload,
+            )
+            initial_prompt = _initial_prompt(client)
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload, num_turns=13)
+        self.assertIn("Prefer focused checks before broad suites.", initial_prompt)
+        self.assertIn("Structured input assistant messages:", initial_prompt)
+        self.assertIn("calculator tests are failing", initial_prompt)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add")
+
     def test_v1_cli_json_can_resume_interrupted_run_and_commit(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-resume-smoke-") as base:
             root = Path(base)

@@ -113,6 +113,11 @@ local changes when asked, and resume from recorded session context.
   stdin path, confirming structured automation input can supply the user task,
   system prompt, and assistant prior context before the agent repairs, verifies,
   reports JSON status, and commits.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_stream_json_input_format_can_repair_verify_commit_and_report_ready`
+  runs the same repair dogfood through the real CLI `--input-format
+  stream-json -` stdin path, confirming newline-delimited automation input can
+  supply the same task, system prompt, and assistant prior context before the
+  agent repairs, verifies, reports JSON status, and commits.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_resume_interrupted_run_and_commit`
   runs an interrupted deterministic repair dogfood through the real CLI
   `main()` JSON path, then resumes it through `--resume <runId>`, confirming
