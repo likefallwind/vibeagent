@@ -133,6 +133,10 @@ def tool_category(name: str) -> str:
     }:
         return "command"
     if name in {
+        "Glob",
+        "Grep",
+        "LS",
+        "Read",
         "list_files",
         "list_tree",
         "repo_map",
@@ -171,6 +175,9 @@ def tool_category(name: str) -> str:
     }:
         return "project"
     edit_keywords = (
+        "Edit",
+        "MultiEdit",
+        "Write",
         "append",
         "copy",
         "create",

@@ -4,6 +4,10 @@ from .types import Observation
 
 
 READ_NEXT_ACTION_KINDS = {
+    "Glob",
+    "Grep",
+    "LS",
+    "Read",
     "read_file",
     "read_file_context",
     "read_file_contexts",

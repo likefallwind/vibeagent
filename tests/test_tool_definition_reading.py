@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+from vibeagent.tool_definition_claude_file import CLAUDE_FILE_TOOL_DEFINITIONS
 from vibeagent.tool_definition_reading import READING_TOOL_DEFINITIONS
 from vibeagent.tool_definition_reading_batch import READING_BATCH_TOOL_DEFINITIONS
 from vibeagent.tool_definition_reading_context import READING_CONTEXT_TOOL_DEFINITIONS
@@ -20,7 +21,8 @@ class ReadingToolDefinitionTests(unittest.TestCase):
             + READING_OUTPUT_TOOL_DEFINITIONS
             + READING_BATCH_TOOL_DEFINITIONS
             + READING_INSPECTION_TOOL_DEFINITIONS
-            + READING_SOURCE_TOOL_DEFINITIONS,
+            + READING_SOURCE_TOOL_DEFINITIONS
+            + CLAUDE_FILE_TOOL_DEFINITIONS,
         )
 
     def test_reading_definition_boundaries_match_reading_domains(self) -> None:
@@ -44,6 +46,10 @@ class ReadingToolDefinitionTests(unittest.TestCase):
         self.assertEqual(
             [tool["name"] for tool in READING_SOURCE_TOOL_DEFINITIONS],
             ["python_symbols", "code_outline", "python_check", "config_check"],
+        )
+        self.assertEqual(
+            [tool["name"] for tool in CLAUDE_FILE_TOOL_DEFINITIONS],
+            ["Read", "LS", "Glob", "Grep", "Write", "Edit", "MultiEdit"],
         )
 
 

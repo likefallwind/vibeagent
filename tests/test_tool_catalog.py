@@ -81,6 +81,19 @@ class ToolCatalogTests(unittest.TestCase):
         self.assertEqual(by_name["Bash"]["category"], "command")
         self.assertEqual(by_name["BashOutput"]["category"], "command")
 
+    def test_claude_file_aliases_are_cataloged_with_approval_semantics(self) -> None:
+        report = get_tools_report()
+        by_name = {str(tool["name"]): tool for tool in report["tools"] if isinstance(tool, dict)}
+
+        for name in ["Read", "LS", "Glob", "Grep", "Write", "Edit", "MultiEdit"]:
+            self.assertIn(name, by_name)
+        for name in ["Read", "LS", "Glob", "Grep"]:
+            self.assertFalse(tool_requires_approval(name, ""))
+            self.assertEqual(by_name[name]["category"], "project")
+        for name in ["Write", "Edit", "MultiEdit"]:
+            self.assertTrue(tool_requires_approval(name, ""))
+            self.assertEqual(by_name[name]["category"], "edit")
+
 
 if __name__ == "__main__":
     unittest.main()
