@@ -64,8 +64,8 @@ def search_project_result(
         raise ValueError("context_lines must be at least 0.")
     if context_lines > 5:
         raise ValueError("context_lines must be at most 5.")
-    if output_mode not in {"lines", "content", "files_with_matches"}:
-        raise ValueError("output_mode must be lines, content, or files_with_matches.")
+    if output_mode not in {"lines", "content", "files_with_matches", "count"}:
+        raise ValueError("output_mode must be lines, content, files_with_matches, or count.")
     normalized_file_glob = normalize_search_file_glob(file_glob)
 
     pattern = None
@@ -88,6 +88,7 @@ def search_project_result(
         except UnicodeDecodeError:
             continue
         file_matches = False
+        file_match_count = 0
         for line_number, line in enumerate(lines, start=1):
             haystack = line if case_sensitive else line.lower()
             found = bool(pattern.search(line)) if pattern else needle in haystack
@@ -95,6 +96,9 @@ def search_project_result(
                 if output_mode == "files_with_matches":
                     file_matches = True
                     break
+                if output_mode == "count":
+                    file_match_count += 1
+                    continue
                 total += 1
                 if len(matches) < max_matches:
                     if context_lines:
@@ -105,6 +109,10 @@ def search_project_result(
             total += 1
             if len(matches) < max_matches:
                 matches.append(relative)
+        elif file_match_count:
+            total += 1
+            if len(matches) < max_matches:
+                matches.append(f"{relative}: {file_match_count}")
     return {
         "matches": matches,
         "total": total,

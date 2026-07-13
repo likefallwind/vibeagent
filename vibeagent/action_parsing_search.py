@@ -33,8 +33,8 @@ def parse_search_action(action_type: object, value: dict[str, Any], raw: str) ->
             raise ActionParseError("search action path must be a string when provided.", raw)
         if file_glob is not None and (not isinstance(file_glob, str) or not file_glob.strip()):
             raise ActionParseError("search action file_glob must be a non-empty string when provided.", raw)
-        if output_mode not in {"lines", "content", "files_with_matches"}:
-            raise ActionParseError("search action output_mode must be lines, content, or files_with_matches.", raw)
+        if output_mode not in {"lines", "content", "files_with_matches", "count"}:
+            raise ActionParseError("search action output_mode must be lines, content, files_with_matches, or count.", raw)
         if type(regex) is not bool:
             raise ActionParseError("search action regex must be a boolean when provided.", raw)
         if type(case_sensitive) is not bool:

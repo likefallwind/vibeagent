@@ -180,6 +180,12 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertIsInstance(action, SearchAction)
         self.assertEqual(action.output_mode, "files_with_matches")
 
+    def test_claude_grep_count_preserves_output_mode(self) -> None:
+        action = parse_tool_action("Grep", {"pattern": "needle", "output_mode": "count"})
+
+        self.assertIsInstance(action, SearchAction)
+        self.assertEqual(action.output_mode, "count")
+
     def test_claude_grep_context_flag_maps_to_context_lines(self) -> None:
         action = parse_tool_action("Grep", {"pattern": "needle", "-C": 3})
 
@@ -246,6 +252,23 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertEqual(observation.total, 2)
         self.assertEqual(observation.matches, ["app.py", "notes.md"])
         self.assertIn("outputMode=files_with_matches", format_observations([observation]))
+
+    def test_claude_grep_count_executes_per_file_count_search(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-alias-") as base:
+            root = Path(base)
+            (root / "app.py").write_text("needle\nneedle again\n", encoding="utf-8")
+            (root / "notes.md").write_text("needle\n", encoding="utf-8")
+            action = parse_tool_action("Grep", {"pattern": "needle", "output_mode": "count"})
+
+            observation = execute_action(create_run_workspace(root), action)
+
+        self.assertEqual(observation.kind, "search")
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.output_mode, "count")
+        self.assertEqual(observation.total, 2)
+        self.assertEqual(observation.matches, ["app.py: 2", "notes.md: 1"])
+        self.assertIn("Found matches in 2 file(s).", observation.message)
+        self.assertIn("outputMode=count", format_observations([observation]))
 
     def test_claude_grep_directional_context_flags_execute_with_symmetric_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-alias-") as base:

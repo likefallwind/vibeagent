@@ -1714,8 +1714,8 @@ class ActionTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionParseError, "search action regex must be a boolean"):
             parse_tool_action("search", {"query": "needle", "regex": "true"})
 
-        with self.assertRaisesRegex(ActionParseError, "search action output_mode must be lines, content, or files_with_matches"):
-            parse_tool_action("search", {"query": "needle", "output_mode": "count"})
+        with self.assertRaisesRegex(ActionParseError, "search action output_mode must be lines, content, files_with_matches, or count"):
+            parse_tool_action("search", {"query": "needle", "output_mode": "summary"})
 
         with self.assertRaisesRegex(ActionParseError, "max_matches must be at most 500"):
             parse_tool_action("search", {"query": "needle", "max_matches": 501})

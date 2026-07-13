@@ -167,7 +167,7 @@ class SearchAction:
     query: str
     path: str | None = None
     file_glob: str | None = None
-    output_mode: Literal["lines", "content", "files_with_matches"] = "lines"
+    output_mode: Literal["lines", "content", "files_with_matches", "count"] = "lines"
     regex: bool = False
     case_sensitive: bool = True
     max_matches: int = 80

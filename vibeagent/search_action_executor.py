@@ -49,7 +49,12 @@ def search_observation(workspace: RunWorkspace, action: SearchAction) -> SearchO
         matches = list(result["matches"])
         total = int(result["total"])
         truncated = bool(result["truncated"])
-        message = f"Found {total} match(es)."
+        if action.output_mode == "files_with_matches":
+            message = f"Found {total} file(s) with matches."
+        elif action.output_mode == "count":
+            message = f"Found matches in {total} file(s)."
+        else:
+            message = f"Found {total} match(es)."
         if truncated:
             message += f" Showing {len(matches)}."
         ok = True

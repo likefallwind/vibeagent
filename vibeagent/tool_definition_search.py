@@ -18,8 +18,8 @@ SEARCH_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
                 "output_mode": {
                     "type": "string",
-                    "enum": ["lines", "content", "files_with_matches"],
-                    "description": "Whether to return matching lines, contextual content, or only files with matches. Defaults to lines.",
+                    "enum": ["lines", "content", "files_with_matches", "count"],
+                    "description": "Whether to return matching lines, contextual content, only files with matches, or per-file match counts. Defaults to lines.",
                 },
                 "regex": {"type": "boolean", "description": "Treat query as a regular expression."},
                 "case_sensitive": {"type": "boolean", "description": "Whether matching is case-sensitive. Defaults to true."},
