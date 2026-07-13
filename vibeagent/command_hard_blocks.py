@@ -50,6 +50,8 @@ BLOCKED_COMMAND_EXAMPLES: tuple[str, ...] = (
     "cmd.exe /S /C start \"\" .",
     "cmd.exe /c \"start .\"",
     "cmd.exe /k \"start http://127.0.0.1:5173\"",
+    "cmd.exe /c start \"\" notepad.exe",
+    "cmd.exe /c start chrome http://127.0.0.1:5173",
     "rundll32 url.dll,FileProtocolHandler .",
     "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command Start-Process .",
     "pwsh -Command ii .",

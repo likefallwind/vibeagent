@@ -46,6 +46,7 @@ GUI_LAUNCHER_EXECUTABLES = {
     "www-browser",
     "gnome-www-browser",
     "google-chrome",
+    "chrome",
     "google-chrome-stable",
     "brave-browser",
     "vivaldi",
@@ -55,6 +56,16 @@ GUI_LAUNCHER_EXECUTABLES = {
     "chromium",
     "chromium-browser",
     "microsoft-edge",
+    "msedge",
+    "msedge.exe",
+    "notepad",
+    "notepad.exe",
+    "mspaint",
+    "mspaint.exe",
+    "wordpad",
+    "wordpad.exe",
+    "write",
+    "write.exe",
 }
 
 
@@ -165,7 +176,9 @@ def start_invocation_launches_gui(args: list[str]) -> bool:
     if not remaining:
         return False
     target = remaining[0]
-    return bool(re.match(r"(?:\.|~|/|[a-z]:[\\/]|https?://|file:)", target))
+    if bool(re.match(r"(?:\.|~|/|[a-z]:[\\/]|https?://|file:)", target)):
+        return True
+    return shell_token_basename(target) in GUI_LAUNCHER_EXECUTABLES
 
 
 def shell_token_basename(token: str) -> str:
