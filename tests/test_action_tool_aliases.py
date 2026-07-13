@@ -165,6 +165,12 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertIsInstance(action, SearchAction)
         self.assertEqual(action.file_glob, "*.py")
 
+    def test_claude_grep_context_flag_maps_to_context_lines(self) -> None:
+        action = parse_tool_action("Grep", {"pattern": "needle", "-C": 3})
+
+        self.assertIsInstance(action, SearchAction)
+        self.assertEqual(action.context_lines, 3)
+
     def test_claude_grep_i_executes_case_insensitive_search(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-alias-") as base:
             root = Path(base)
@@ -194,6 +200,22 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertEqual(observation.total, 1)
         self.assertEqual(observation.matches, ["src/app.py:1: needle"])
         self.assertIn("fileGlob=*.py", format_observations([observation]))
+
+    def test_claude_grep_directional_context_flags_execute_with_symmetric_context(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-alias-") as base:
+            root = Path(base)
+            (root / "app.py").write_text("before 1\nbefore 2\nneedle\nafter 1\nafter 2\n", encoding="utf-8")
+            action = parse_tool_action("Grep", {"pattern": "needle", "-A": 2, "-B": 1})
+
+            observation = execute_action(create_run_workspace(root), action)
+
+        self.assertEqual(observation.kind, "search")
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.context_lines, 2)
+        self.assertEqual(
+            observation.matches,
+            ["app.py:1:  before 1\napp.py:2:  before 2\napp.py:3:> needle\napp.py:4:  after 1\napp.py:5:  after 2"],
+        )
 
 
 if __name__ == "__main__":
