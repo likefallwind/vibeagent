@@ -13,18 +13,24 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from vibeagent.session import summarize_session
+from vibeagent.session import get_last_session_id, summarize_session
 from vibeagent.session_commands import get_session_handoff_report
 from vibeagent.session_handoff_details import extract_session_handoff_details
 
 
 DEFAULT_ROOT = Path("/tmp/vibeagent-live-dogfood")
-DOGFOOD_TASK = "inspect this repo, fix the failing test, verify, review, and commit"
+DOGFOOD_TASK = (
+    "Inspect this repo with read-only tools, run `python -m unittest discover -s tests` "
+    "to observe the failing test before editing, fix the failure, rerun unittest until it passes, "
+    "review, commit, rerun any final suggested checks, and finish only when final_review is ready."
+)
 READ_TOOL_NAMES = {
     "project_overview",
     "repo_map",
     "read_file",
+    "read_files",
     "read_file_context",
+    "read_file_contexts",
     "search",
     "git_status",
     "git_diff",
@@ -57,6 +63,15 @@ class CheckResult:
     detail: str
 
 
+@dataclass(frozen=True)
+class LiveRunResult:
+    command: list[str]
+    returncode: int
+    stdout: str
+    stderr: str
+    run_id: str | None
+
+
 def run_command(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(args, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -77,6 +92,7 @@ def prepare_repo(root: Path, *, force: bool = False) -> None:
                 child.unlink()
     root.mkdir(parents=True, exist_ok=True)
     (root / "tests").mkdir(exist_ok=True)
+    (root / ".gitignore").write_text(".vibeagent/\n__pycache__/\n", encoding="utf-8")
     (root / "calc.py").write_text("def add(left, right):\n    return left - right\n", encoding="utf-8")
     (root / "tests" / "test_calc.py").write_text(
         "import unittest\n\n"
@@ -106,6 +122,26 @@ def dogfood_command(root: Path) -> list[str]:
         "20",
         DOGFOOD_TASK,
     ]
+
+
+def run_live_dogfood(root: Path, *, approval_count: int = 20, timeout_ms: int = 600_000) -> LiveRunResult:
+    command = dogfood_command(root)
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        input="y\n" * approval_count,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=timeout_ms / 1000,
+    )
+    return LiveRunResult(
+        command=command,
+        returncode=result.returncode,
+        stdout=result.stdout,
+        stderr=result.stderr,
+        run_id=get_last_session_id(root),
+    )
 
 
 def load_session_events(root: Path, run_id: str) -> list[dict[str, object]]:
@@ -255,21 +291,52 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=DEFAULT_ROOT, help="Throwaway dogfood repository path.")
     parser.add_argument("--force", action="store_true", help="Recreate --root if it already contains files.")
     parser.add_argument("--prepare", action="store_true", help="Create the throwaway broken calculator repository.")
+    parser.add_argument("--run", action="store_true", help="Run the live-provider VibeAgent dogfood command.")
     parser.add_argument("--print-command", action="store_true", help="Print the live-provider VibeAgent command.")
     parser.add_argument("--audit", action="store_true", help="Audit a completed dogfood run.")
+    parser.add_argument("--audit-after-run", action="store_true", help="Audit the run id produced by --run.")
+    parser.add_argument("--approval-count", type=int, default=20, help="Number of yes approvals to feed to the ask-mode CLI during --run.")
+    parser.add_argument("--run-timeout-ms", type=int, default=600_000, help="Timeout for --run in milliseconds.")
     parser.add_argument("--run-id", help="Completed VibeAgent run id for session handoff audit.")
     args = parser.parse_args(argv)
 
-    if not (args.prepare or args.print_command or args.audit):
-        parser.error("choose at least one of --prepare, --print-command, or --audit")
+    if not (args.prepare or args.print_command or args.run or args.audit):
+        parser.error("choose at least one of --prepare, --print-command, --run, or --audit")
+    if args.audit_after_run and not args.run:
+        parser.error("--audit-after-run requires --run")
+    if args.approval_count < 0:
+        parser.error("--approval-count must be non-negative")
+    if args.run_timeout_ms < 1000:
+        parser.error("--run-timeout-ms must be at least 1000")
 
     try:
         if args.prepare:
             prepare_repo(args.root, force=args.force)
         if args.print_command:
             print_command(args.root)
+        run_id = args.run_id
+        if args.run:
+            run = run_live_dogfood(args.root, approval_count=args.approval_count, timeout_ms=args.run_timeout_ms)
+            if run.stdout:
+                print(run.stdout, end="")
+            if run.stderr:
+                print(run.stderr, end="", file=sys.stderr)
+            run_id = run.run_id
+            print(f"run-id: {run_id or 'missing'}")
+            if run.returncode != 0 and not args.audit_after_run:
+                return run.returncode
         if args.audit:
-            checks = audit_repo(args.root, run_id=args.run_id)
+            checks = audit_repo(args.root, run_id=run_id)
+            for check in checks:
+                marker = "ok" if check.ok else "fail"
+                print(f"{marker}: {check.name}: {check.detail}")
+            if not all(check.ok for check in checks):
+                return 1
+        if args.audit_after_run:
+            if not run_id:
+                print("fail: run id missing after --run", file=sys.stderr)
+                return 1
+            checks = audit_repo(args.root, run_id=run_id)
             for check in checks:
                 marker = "ok" if check.ok else "fail"
                 print(f"{marker}: {check.name}: {check.detail}")

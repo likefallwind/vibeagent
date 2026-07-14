@@ -216,6 +216,10 @@ local changes when asked, and resume from recorded session context.
 - `tests.test_v1_live_dogfood.V1LiveDogfoodScriptTests.test_prepare_repo_creates_broken_calculator_and_command`
   covers the live-provider dogfood helper's throwaway repository setup and
   command generation, keeping the final manual gate reproducible.
+- `tests.test_v1_live_dogfood.V1LiveDogfoodScriptTests.test_run_live_dogfood_feeds_ask_mode_approvals_and_reports_run_id`
+  covers the helper's executable live path: it launches the ask-mode CLI, feeds
+  bounded yes approvals through stdin, and reports the resulting session id for
+  audit.
 - `tests.test_v1_live_dogfood.V1LiveDogfoodScriptTests.test_audit_repo_fails_before_repair_and_passes_after_commit`
   covers the helper's local post-run audit logic without calling a provider,
   confirming the script rejects the initial broken repo and accepts a clean

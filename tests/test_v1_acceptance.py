@@ -63,6 +63,7 @@ PROJECT_COMMAND_TESTS = {
 }
 LIVE_DOGFOOD_TESTS = {
     "test_prepare_repo_creates_broken_calculator_and_command",
+    "test_run_live_dogfood_feeds_ask_mode_approvals_and_reports_run_id",
     "test_audit_repo_fails_before_repair_and_passes_after_commit",
     "test_audit_session_events_requires_live_gate_evidence",
     "test_audit_session_events_accepts_complete_live_gate_evidence",

@@ -54,7 +54,7 @@ python3 scripts/live_dogfood_v1.py --prepare --force --print-command
 Minimum command shape printed by the script:
 
 ```sh
-python3 -m vibeagent --cwd /tmp/vibeagent-live-dogfood --approval ask --max-iterations 20 "inspect this repo, fix the failing test, verify, review, and commit"
+python3 -m vibeagent --cwd /tmp/vibeagent-live-dogfood --approval ask --max-iterations 20 "Inspect this repo with read-only tools, run `python -m unittest discover -s tests` to observe the failing test before editing, fix the failure, rerun unittest until it passes, review, commit, rerun any final suggested checks, and finish only when final_review is ready."
 ```
 
 The live dogfood is passing only if all of these are true:
@@ -73,6 +73,12 @@ After the live run completes, audit local outcomes with:
 
 ```sh
 python3 scripts/live_dogfood_v1.py --audit --run-id <run-id>
+```
+
+To run and audit in one reproducible command, use:
+
+```sh
+python3 scripts/live_dogfood_v1.py --prepare --force --run --audit-after-run
 ```
 
 The audit checks both repository state and session transcript evidence: ask-mode

@@ -1413,6 +1413,11 @@ class ActionTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionParseError, "git_diff action staged must be a boolean"):
             parse_tool_action("git_diff", {"staged": "false"})
 
+        self.assertEqual(parse_tool_action("git_stage", {"paths": "app.py"}).paths, ["app.py"])
+        self.assertEqual(parse_tool_action("git_stage", {"path": "app.py"}).paths, ["app.py"])
+        self.assertEqual(parse_tool_action("check_git_unstage", {"path": "app.py"}).paths, ["app.py"])
+        self.assertEqual(parse_tool_action("git_restore", {"path": "app.py"}).paths, ["app.py"])
+
         with self.assertRaisesRegex(ActionParseError, "check_git_stage action requires a non-empty paths list"):
             parse_tool_action("check_git_stage", {"paths": []})
 

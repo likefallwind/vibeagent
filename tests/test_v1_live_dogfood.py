@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,8 +40,33 @@ class V1LiveDogfoodScriptTests(unittest.TestCase):
             self.assertEqual(command[:3], ["python3", "-m", "vibeagent"])
             self.assertIn("--approval", command)
             self.assertIn("ask", command)
-            self.assertIn("inspect this repo, fix the failing test, verify, review, and commit", command)
+            self.assertIn("observe the failing test before editing", command[-1])
+            self.assertIn("finish only when final_review is ready", command[-1])
             self.assertIn("return left - right", (root / "calc.py").read_text(encoding="utf-8"))
+            self.assertIn(".vibeagent/", (root / ".gitignore").read_text(encoding="utf-8"))
+            self.assertIn("__pycache__/", (root / ".gitignore").read_text(encoding="utf-8"))
+
+    def test_run_live_dogfood_feeds_ask_mode_approvals_and_reports_run_id(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-live-dogfood-run-") as base:
+            root = Path(base) / "repo"
+            root.mkdir()
+
+            def fake_run(*args, **kwargs):
+                write_session_events(root, "run-live-1", [{"type": "task", "task": "fix", "approval_policy": "ask"}])
+                return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="done\n", stderr="")
+
+            with patch.object(live_dogfood_v1.subprocess, "run", side_effect=fake_run) as run:
+                result = live_dogfood_v1.run_live_dogfood(root, approval_count=3, timeout_ms=12_000)
+
+        self.assertEqual(result.command[:3], ["python3", "-m", "vibeagent"])
+        self.assertIn("--approval", result.command)
+        self.assertIn("ask", result.command)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "done\n")
+        self.assertEqual(result.run_id, "run-live-1")
+        self.assertEqual(run.call_args.kwargs["cwd"], live_dogfood_v1.ROOT)
+        self.assertEqual(run.call_args.kwargs["input"], "y\ny\ny\n")
+        self.assertEqual(run.call_args.kwargs["timeout"], 12)
 
     def test_audit_repo_fails_before_repair_and_passes_after_commit(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-live-dogfood-audit-") as base:

@@ -79,6 +79,15 @@ GIT_ACTION_TYPES = {
 }
 
 
+def parse_git_path_list(value: dict[str, Any], raw: str, action_name: str) -> list[str]:
+    paths = value.get("paths")
+    if paths is None and "path" in value:
+        paths = value.get("path")
+    if isinstance(paths, str):
+        paths = [paths]
+    return parse_path_list(paths, raw, action_name, maximum=100)
+
+
 def parse_git_action(action_type: object, value: dict[str, Any], raw: str) -> object | None:
     if action_type not in GIT_ACTION_TYPES:
         return None
@@ -255,22 +264,22 @@ def parse_git_action(action_type: object, value: dict[str, Any], raw: str) -> ob
         return GitSwitchAction(type="git_switch", branch=branch.strip(), create=create)
 
     if action_type == "check_git_stage":
-        return CheckGitStageAction(type="check_git_stage", paths=parse_path_list(value.get("paths"), raw, "check_git_stage", maximum=100))
+        return CheckGitStageAction(type="check_git_stage", paths=parse_git_path_list(value, raw, "check_git_stage"))
 
     if action_type == "git_stage":
-        return GitStageAction(type="git_stage", paths=parse_path_list(value.get("paths"), raw, "git_stage", maximum=100))
+        return GitStageAction(type="git_stage", paths=parse_git_path_list(value, raw, "git_stage"))
 
     if action_type == "check_git_unstage":
-        return CheckGitUnstageAction(type="check_git_unstage", paths=parse_path_list(value.get("paths"), raw, "check_git_unstage", maximum=100))
+        return CheckGitUnstageAction(type="check_git_unstage", paths=parse_git_path_list(value, raw, "check_git_unstage"))
 
     if action_type == "git_unstage":
-        return GitUnstageAction(type="git_unstage", paths=parse_path_list(value.get("paths"), raw, "git_unstage", maximum=100))
+        return GitUnstageAction(type="git_unstage", paths=parse_git_path_list(value, raw, "git_unstage"))
 
     if action_type == "check_git_restore":
-        return CheckGitRestoreAction(type="check_git_restore", paths=parse_path_list(value.get("paths"), raw, "check_git_restore", maximum=100))
+        return CheckGitRestoreAction(type="check_git_restore", paths=parse_git_path_list(value, raw, "check_git_restore"))
 
     if action_type == "git_restore":
-        return GitRestoreAction(type="git_restore", paths=parse_path_list(value.get("paths"), raw, "git_restore", maximum=100))
+        return GitRestoreAction(type="git_restore", paths=parse_git_path_list(value, raw, "git_restore"))
 
     if action_type == "git_stashes":
         max_entries = parse_optional_positive_int(value.get("max_entries", 20), "max_entries", raw, maximum=100) or 20

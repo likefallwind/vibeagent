@@ -64,11 +64,15 @@ def auto_final_review_reason(success: bool, observations: list[Observation]) -> 
     if command_index is not None:
         if final_review_index is None:
             return "Command execution completed without final_review"
-        if command_index > final_review_index and not finite_command_matches_final_review_check(
-            observations[command_index],
-            observations[final_review_index],
-        ):
-            return "Command execution completed after final_review"
+        if command_index > final_review_index:
+            command_matches_review_check = finite_command_matches_final_review_check(
+                observations[command_index],
+                observations[final_review_index],
+            )
+            if not command_matches_review_check:
+                return "Command execution completed after final_review"
+            if getattr(observations[final_review_index], "ready", None) is False:
+                return "Final review refreshed after verification"
     return None
 
 def should_auto_run_final_review(success: bool, observations: list[Observation]) -> bool:
