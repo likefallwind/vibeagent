@@ -3,6 +3,7 @@ from __future__ import annotations
 import shlex
 
 from .cli_parse_core import (
+    parse_interactive_max_chars_option,
     parse_interactive_positive_option,
     parse_interactive_timeout_option,
 )
@@ -32,16 +33,6 @@ def parse_interactive_wait_process_argument(
             return None, {}, f"{usage}\n  error: {error}", True
         return None, {}, None, False
 
-    uses_named_options = "--" in parts
-    if not uses_named_options:
-        for part in parts:
-            flag = part.split("=", 1)[0] if part.startswith("--") else part
-            if part.startswith("--") or flag in recognized_flags:
-                uses_named_options = True
-                break
-    if not uses_named_options:
-        return None, {}, None, False
-
     kwargs: dict[str, int | str | bool] = {}
     positional: list[str] = []
     index = 0
@@ -67,6 +58,8 @@ def parse_interactive_wait_process_argument(
                 index += 2
             if value_type == "timeout":
                 value, error = parse_interactive_timeout_option(flag, raw_value)
+            elif keyword == "max_output_chars":
+                value, error = parse_interactive_max_chars_option(flag, raw_value)
             elif value_type == "positive":
                 value, error = parse_interactive_positive_option(flag, raw_value)
             else:
@@ -96,7 +89,7 @@ def parse_interactive_wait_process_argument(
             return None, {}, f"{usage}\n  error: invalid timeout ms: {positional[1]}", True
         kwargs["timeout_ms"] = int(value)
     if len(positional) == 3:
-        value, error = parse_interactive_positive_option("[chars]", positional[2])
+        value, error = parse_interactive_max_chars_option("[chars]", positional[2])
         if error:
             return None, {}, f"{usage}\n  error: invalid max chars: {positional[2]}", True
         kwargs["max_output_chars"] = int(value)

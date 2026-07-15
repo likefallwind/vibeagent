@@ -4,6 +4,8 @@ import argparse
 from collections.abc import Sequence
 import json
 
+from .process_request_parsing import validate_max_output_chars
+
 
 def parse_executable_flag_values(values: Sequence[str], flag: str) -> tuple[str, str | None]:
     if len(values) not in (1, 2):
@@ -71,6 +73,17 @@ def parse_interactive_positive_option(flag: str, value: str | None) -> tuple[int
         return positive_int(value), None
     except argparse.ArgumentTypeError as error:
         return None, f"{flag} {error}."
+
+
+def parse_interactive_max_chars_option(flag: str, value: str | None) -> tuple[int | None, str | None]:
+    parsed, error = parse_interactive_positive_option(flag, value)
+    if error or parsed is None:
+        return parsed, error
+    try:
+        validate_max_output_chars(parsed)
+    except ValueError as validation_error:
+        return None, str(validation_error)
+    return parsed, None
 
 
 def parse_interactive_nonnegative_option(flag: str, value: str | None) -> tuple[int | None, str | None]:

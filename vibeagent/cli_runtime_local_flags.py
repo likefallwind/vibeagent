@@ -139,36 +139,32 @@ def run_runtime_local_flag(
 
 
 def _process_output_contexts(command: Any, commands: dict[str, Any]) -> str:
-    if command.argument and "--" in command.argument:
-        process_id, kwargs, error = commands["parse_interactive_process_output_argument"](
-            command.argument,
-            "Usage: /process-output-contexts <id> [chars] [--max-chars N] [--context-lines N] [--max-contexts N] [--max-bytes N]",
-            {
-                "--max-chars": ("max_output_chars", False),
-                "--context-lines": ("context_lines", True),
-                "--max-contexts": ("max_contexts", False),
-                "--max-bytes": ("max_bytes_per_context", False),
-            },
-        )
-        return error if error else commands["get_process_output_contexts_text"](process_id=process_id, **kwargs)
-    return commands["get_process_output_contexts_text"](argument=command.argument)
+    process_id, kwargs, error = commands["parse_interactive_process_output_argument"](
+        command.argument,
+        "Usage: /process-output-contexts <id> [chars] [--max-chars N] [--context-lines N] [--max-contexts N] [--max-bytes N]",
+        {
+            "--max-chars": ("max_output_chars", False),
+            "--context-lines": ("context_lines", True),
+            "--max-contexts": ("max_contexts", False),
+            "--max-bytes": ("max_bytes_per_context", False),
+        },
+    )
+    return error if error else commands["get_process_output_contexts_text"](process_id=process_id, **kwargs)
 
 
 def _process_output_diagnostics(command: Any, commands: dict[str, Any]) -> str:
-    if command.argument and "--" in command.argument:
-        process_id, kwargs, error = commands["parse_interactive_process_output_argument"](
-            command.argument,
-            "Usage: /process-output-diagnostics <id> [chars] [--max-chars N] [--context-lines N] [--max-diagnostics N] [--max-contexts N] [--max-bytes N]",
-            {
-                "--max-chars": ("max_output_chars", False),
-                "--context-lines": ("context_lines", True),
-                "--max-diagnostics": ("max_diagnostics", False),
-                "--max-contexts": ("max_contexts", False),
-                "--max-bytes": ("max_bytes_per_context", False),
-            },
-        )
-        return error if error else commands["get_process_output_diagnostics_text"](process_id=process_id, **kwargs)
-    return commands["get_process_output_diagnostics_text"](argument=command.argument)
+    process_id, kwargs, error = commands["parse_interactive_process_output_argument"](
+        command.argument,
+        "Usage: /process-output-diagnostics <id> [chars] [--max-chars N] [--context-lines N] [--max-diagnostics N] [--max-contexts N] [--max-bytes N]",
+        {
+            "--max-chars": ("max_output_chars", False),
+            "--context-lines": ("context_lines", True),
+            "--max-diagnostics": ("max_diagnostics", False),
+            "--max-contexts": ("max_contexts", False),
+            "--max-bytes": ("max_bytes_per_context", False),
+        },
+    )
+    return error if error else commands["get_process_output_diagnostics_text"](process_id=process_id, **kwargs)
 
 
 def _wait_process(command: Any, commands: dict[str, Any]) -> str:

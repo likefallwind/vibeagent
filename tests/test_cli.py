@@ -13800,9 +13800,9 @@ class CliTests(unittest.TestCase):
         get_env_text.assert_called_once_with()
         get_processes_text.assert_called_once_with()
         get_process_text.assert_called_once_with(argument="bg-1 2000")
-        get_process_output_contexts_text.assert_called_once_with(argument="bg-1 2000")
-        get_process_output_diagnostics_text.assert_called_once_with(argument="bg-1 2000")
-        get_wait_process_text.assert_called_once_with(argument="bg-1 5000 2000")
+        get_process_output_contexts_text.assert_called_once_with(process_id="bg-1", max_output_chars=2000)
+        get_process_output_diagnostics_text.assert_called_once_with(process_id="bg-1", max_output_chars=2000)
+        get_wait_process_text.assert_called_once_with(process_id="bg-1", timeout_ms=5000, max_output_chars=2000)
         get_check_write_process_text.assert_called_once_with(argument="bg-1 hello\\n")
         get_write_process_text.assert_called_once_with(argument="bg-1 hello\\n")
         get_check_stop_process_text.assert_called_once_with(process_id="bg-1")
@@ -14575,8 +14575,8 @@ class CliTests(unittest.TestCase):
             patch(
                 "builtins.input",
                 side_effect=[
-                    "/process-output-contexts bg-1 --max-chars 120 --context-lines 0 --max-contexts 3 --max-bytes 1000",
-                    "/process-output-diagnostics bg-1 140 --context-lines 1 --max-diagnostics 4 --max-contexts 5 --max-bytes 1200",
+                    "/process-output-contexts bg-1 --max-chars 1200 --context-lines 0 --max-contexts 3 --max-bytes 1000",
+                    "/process-output-diagnostics bg-1 1400 --context-lines 1 --max-diagnostics 4 --max-contexts 5 --max-bytes 1200",
                     "/exit",
                 ],
             ),
@@ -14593,14 +14593,14 @@ class CliTests(unittest.TestCase):
         self.assertIn("Process output diagnostics:", output)
         get_process_output_contexts_text.assert_called_once_with(
             process_id="bg-1",
-            max_output_chars=120,
+            max_output_chars=1200,
             context_lines=0,
             max_contexts=3,
             max_bytes_per_context=1000,
         )
         get_process_output_diagnostics_text.assert_called_once_with(
             process_id="bg-1",
-            max_output_chars=140,
+            max_output_chars=1400,
             context_lines=1,
             max_diagnostics=4,
             max_contexts=5,
@@ -14618,6 +14618,8 @@ class CliTests(unittest.TestCase):
                     "/process-output-contexts --context-lines -1 bg-1",
                     "/process-output-diagnostics bg-1 --max-diagnostics 0",
                     "/process-output-contexts bg-1 --max-diagnostics 2",
+                    "/process-output-contexts bg-1 --max-chars 999",
+                    "/process-output-diagnostics bg-1 999",
                     "/exit",
                 ],
             ),
@@ -14635,6 +14637,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("Usage: /process-output-diagnostics <id> [chars]", output)
         self.assertIn("--max-diagnostics must be a positive integer.", output)
         self.assertIn("Unknown option: --max-diagnostics", output)
+        self.assertIn("max chars must be at least 1000.", output)
+        self.assertIn("invalid max chars: 999", output)
         get_process_output_contexts_text.assert_not_called()
         get_process_output_diagnostics_text.assert_not_called()
         create_chat_client.assert_not_called()
@@ -15716,6 +15720,8 @@ class CliTests(unittest.TestCase):
                     "/wait-process bg-1 --stdout",
                     "/wait-process --stdout ready",
                     "/wait-process bg-1 --unknown 1",
+                    "/wait-process bg-1 --max-chars 999",
+                    "/wait-process bg-1 5000 999",
                     "/exit",
                 ],
             ),
@@ -15732,6 +15738,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("--stdout requires a value.", output)
         self.assertIn("process id is required.", output)
         self.assertIn("Unknown option: --unknown", output)
+        self.assertIn("max chars must be at least 1000.", output)
+        self.assertIn("invalid max chars: 999", output)
         get_wait_process_text.assert_not_called()
         create_chat_client.assert_not_called()
 

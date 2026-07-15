@@ -3,6 +3,7 @@ from __future__ import annotations
 import shlex
 
 from .cli_parse_core import (
+    parse_interactive_max_chars_option,
     parse_interactive_nonnegative_option,
     parse_interactive_positive_option,
     parse_interactive_timeout_option,
@@ -35,7 +36,10 @@ def parse_interactive_process_output_argument(
             else:
                 raw_value = parts[index + 1] if index + 1 < len(parts) else None
                 index += 2
-            parser = parse_interactive_nonnegative_option if allow_zero else parse_interactive_positive_option
+            if keyword == "max_output_chars":
+                parser = parse_interactive_max_chars_option
+            else:
+                parser = parse_interactive_nonnegative_option if allow_zero else parse_interactive_positive_option
             value, error = parser(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
@@ -48,7 +52,7 @@ def parse_interactive_process_output_argument(
             index += 1
             continue
         if legacy_max_chars is None:
-            value, error = parse_interactive_positive_option("[chars]", part)
+            value, error = parse_interactive_max_chars_option("[chars]", part)
             if error:
                 return None, {}, f"{usage}\n  error: invalid max chars: {part}"
             legacy_max_chars = int(value)
