@@ -34,8 +34,13 @@ def build_run_suggested_kwargs(args: argparse.Namespace) -> dict[str, object]:
     }
 
 
+def kwargs_without_keys(kwargs: dict[str, object], *excluded: str) -> dict[str, object]:
+    excluded_keys = set(excluded)
+    return {key: value for key, value in kwargs.items() if key not in excluded_keys}
+
+
 def kwargs_without_argument(kwargs: dict[str, object]) -> dict[str, object]:
-    return {key: value for key, value in kwargs.items() if key != "argument"}
+    return kwargs_without_keys(kwargs, "argument")
 
 
 def build_focused_tests_local_kwargs(args: argparse.Namespace, values: list[str]) -> dict[str, object]:
@@ -58,6 +63,53 @@ def build_run_focused_tests_kwargs(args: argparse.Namespace) -> dict[str, object
         }
     )
     return focused_kwargs
+
+
+def build_project_commands_kwargs(args: argparse.Namespace) -> dict[str, int]:
+    kwargs: dict[str, int] = {}
+    if args.commands_max_commands is not None:
+        kwargs["max_commands"] = args.commands_max_commands
+    if args.commands_max_files is not None:
+        kwargs["max_files"] = args.commands_max_files
+    return kwargs
+
+
+def build_related_tests_local_kwargs(args: argparse.Namespace) -> dict[str, object]:
+    kwargs: dict[str, object] = {}
+    if args.related_tests_max_paths is not None:
+        kwargs["max_paths"] = args.related_tests_max_paths
+    if args.related_tests_max_candidates is not None:
+        kwargs["max_candidates"] = args.related_tests_max_candidates
+    kwargs["argument"] = shlex.join(args.related_tests) if args.related_tests else None
+    return kwargs
+
+
+def build_manifests_kwargs(args: argparse.Namespace) -> dict[str, int]:
+    kwargs: dict[str, int] = {}
+    if args.manifests_max_files is not None:
+        kwargs["max_files"] = args.manifests_max_files
+    if args.manifests_max_items is not None:
+        kwargs["max_items"] = args.manifests_max_items
+    return kwargs
+
+
+def build_instructions_kwargs(args: argparse.Namespace) -> dict[str, int]:
+    kwargs: dict[str, int] = {}
+    if args.instructions_max_files is not None:
+        kwargs["max_files"] = args.instructions_max_files
+    if args.instructions_max_bytes is not None:
+        kwargs["max_bytes"] = args.instructions_max_bytes
+    return kwargs
+
+
+def build_todos_kwargs(args: argparse.Namespace) -> dict[str, object]:
+    kwargs: dict[str, object] = {}
+    if args.todos_max_items is not None:
+        kwargs["max_items"] = args.todos_max_items
+    if args.todos_max_files is not None:
+        kwargs["max_files"] = args.todos_max_files
+    kwargs["path"] = args.todos or None
+    return kwargs
 
 
 def run_project_local_flag(
@@ -202,11 +254,7 @@ def run_project_local_flag(
             ),
         )
     if args.commands:
-        commands_kwargs = {}
-        if args.commands_max_commands is not None:
-            commands_kwargs["max_commands"] = args.commands_max_commands
-        if args.commands_max_files is not None:
-            commands_kwargs["max_files"] = args.commands_max_files
+        commands_kwargs = build_project_commands_kwargs(args)
         return local_text_or_report(
             args,
             "projectCommands",
@@ -215,18 +263,17 @@ def run_project_local_flag(
             lambda: commands["get_commands_text"](root, **commands_kwargs),
         )
     if args.related_tests is not None:
-        related_kwargs = {}
-        if args.related_tests_max_paths is not None:
-            related_kwargs["max_paths"] = args.related_tests_max_paths
-        if args.related_tests_max_candidates is not None:
-            related_kwargs["max_candidates"] = args.related_tests_max_candidates
-        related_argument = shlex.join(args.related_tests) if args.related_tests else None
+        related_kwargs = build_related_tests_local_kwargs(args)
         return local_text_or_report(
             args,
             "relatedTests",
-            lambda: commands["get_related_tests_report"](root, argument=related_argument, **related_kwargs),
+            lambda: commands["get_related_tests_report"](root, **related_kwargs),
             commands["format_related_tests_report_text"],
-            lambda: commands["get_related_tests_text"](root, related_argument, **related_kwargs),
+            lambda: commands["get_related_tests_text"](
+                root,
+                related_kwargs["argument"],
+                **kwargs_without_argument(related_kwargs),
+            ),
         )
     if args.focused_tests is not None:
         focused_kwargs = build_focused_tests_local_kwargs(args, args.focused_tests)
@@ -268,11 +315,7 @@ def run_project_local_flag(
             ),
         )
     if args.manifests:
-        manifests_kwargs = {}
-        if args.manifests_max_files is not None:
-            manifests_kwargs["max_files"] = args.manifests_max_files
-        if args.manifests_max_items is not None:
-            manifests_kwargs["max_items"] = args.manifests_max_items
+        manifests_kwargs = build_manifests_kwargs(args)
         return local_text_or_report(
             args,
             "manifests",
@@ -281,11 +324,7 @@ def run_project_local_flag(
             lambda: commands["get_manifests_text"](root, **manifests_kwargs),
         )
     if args.instructions:
-        instructions_kwargs = {}
-        if args.instructions_max_files is not None:
-            instructions_kwargs["max_files"] = args.instructions_max_files
-        if args.instructions_max_bytes is not None:
-            instructions_kwargs["max_bytes"] = args.instructions_max_bytes
+        instructions_kwargs = build_instructions_kwargs(args)
         return local_text_or_report(
             args,
             "instructions",
@@ -294,18 +333,17 @@ def run_project_local_flag(
             lambda: commands["get_instructions_text"](root, **instructions_kwargs),
         )
     if args.todos is not None:
-        todos_kwargs = {}
-        if args.todos_max_items is not None:
-            todos_kwargs["max_items"] = args.todos_max_items
-        if args.todos_max_files is not None:
-            todos_kwargs["max_files"] = args.todos_max_files
-        todos_argument = args.todos or None
+        todos_kwargs = build_todos_kwargs(args)
         return local_text_or_report(
             args,
             "todos",
-            lambda: commands["get_todos_report"](root, path=todos_argument, **todos_kwargs),
+            lambda: commands["get_todos_report"](root, **todos_kwargs),
             commands["format_todos_report_text"],
-            lambda: commands["get_todos_text"](root, todos_argument, **todos_kwargs),
+            lambda: commands["get_todos_text"](
+                root,
+                todos_kwargs["path"],
+                **kwargs_without_keys(todos_kwargs, "path"),
+            ),
         )
     return None
 

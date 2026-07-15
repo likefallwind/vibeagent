@@ -44,9 +44,15 @@ from vibeagent.cli_parse_tool_search import parse_interactive_tool_search_argume
 from vibeagent.cli_project_local_flags import (
     build_check_suggested_kwargs,
     build_focused_tests_local_kwargs,
+    build_instructions_kwargs,
+    build_manifests_kwargs,
+    build_project_commands_kwargs,
+    build_related_tests_local_kwargs,
     build_run_focused_tests_kwargs,
     build_run_suggested_kwargs,
+    build_todos_kwargs,
     kwargs_without_argument,
+    kwargs_without_keys,
 )
 
 
@@ -128,6 +134,7 @@ class CliParseModuleTests(unittest.TestCase):
             },
         )
         self.assertEqual(kwargs_without_argument({"argument": "pytest", "max_checks": 5}), {"max_checks": 5})
+        self.assertEqual(kwargs_without_keys({"argument": "pytest", "path": "src", "max_checks": 5}, "argument", "path"), {"max_checks": 5})
 
     def test_project_focused_test_kwargs_preserve_cli_defaults(self) -> None:
         args = argparse.Namespace(
@@ -171,6 +178,31 @@ class CliParseModuleTests(unittest.TestCase):
                 "max_bytes_per_context": 700,
             },
         )
+
+    def test_project_metadata_kwargs_preserve_cli_limits(self) -> None:
+        args = argparse.Namespace(
+            commands_max_commands=4,
+            commands_max_files=None,
+            related_tests=["src/app.py", "tests/test_app.py"],
+            related_tests_max_paths=None,
+            related_tests_max_candidates=5,
+            manifests_max_files=6,
+            manifests_max_items=None,
+            instructions_max_files=None,
+            instructions_max_bytes=2048,
+            todos="src",
+            todos_max_items=7,
+            todos_max_files=None,
+        )
+
+        self.assertEqual(build_project_commands_kwargs(args), {"max_commands": 4})
+        self.assertEqual(
+            build_related_tests_local_kwargs(args),
+            {"argument": "src/app.py tests/test_app.py", "max_candidates": 5},
+        )
+        self.assertEqual(build_manifests_kwargs(args), {"max_files": 6})
+        self.assertEqual(build_instructions_kwargs(args), {"max_bytes": 2048})
+        self.assertEqual(build_todos_kwargs(args), {"path": "src", "max_items": 7})
 
     def test_session_arg_helpers_register_limits_and_local_flags(self) -> None:
         parser = argparse.ArgumentParser()
