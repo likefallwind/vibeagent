@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import unittest
 
-from vibeagent.tool_definition_claude_file import CLAUDE_FILE_TOOL_DEFINITIONS
+from vibeagent.tool_definition_claude_file import (
+    CLAUDE_EDIT_TOOL_DEFINITIONS,
+    CLAUDE_FILE_TOOL_DEFINITIONS,
+    CLAUDE_READ_TOOL_DEFINITIONS,
+    CLAUDE_SEARCH_TOOL_DEFINITIONS,
+)
 from vibeagent.tool_definition_reading import READING_TOOL_DEFINITIONS
 from vibeagent.tool_definition_reading_batch import READING_BATCH_TOOL_DEFINITIONS
 from vibeagent.tool_definition_reading_context import READING_CONTEXT_TOOL_DEFINITIONS
@@ -50,6 +55,15 @@ class ReadingToolDefinitionTests(unittest.TestCase):
         self.assertEqual(
             [tool["name"] for tool in CLAUDE_FILE_TOOL_DEFINITIONS],
             ["Read", "NotebookRead", "LS", "Glob", "Grep", "Write", "Edit", "NotebookEdit", "MultiEdit"],
+        )
+
+    def test_claude_file_definition_groups_preserve_domain_order(self) -> None:
+        self.assertEqual([tool["name"] for tool in CLAUDE_READ_TOOL_DEFINITIONS], ["Read", "NotebookRead"])
+        self.assertEqual([tool["name"] for tool in CLAUDE_SEARCH_TOOL_DEFINITIONS], ["LS", "Glob", "Grep"])
+        self.assertEqual([tool["name"] for tool in CLAUDE_EDIT_TOOL_DEFINITIONS], ["Write", "Edit", "NotebookEdit", "MultiEdit"])
+        self.assertEqual(
+            CLAUDE_FILE_TOOL_DEFINITIONS,
+            CLAUDE_READ_TOOL_DEFINITIONS + CLAUDE_SEARCH_TOOL_DEFINITIONS + CLAUDE_EDIT_TOOL_DEFINITIONS,
         )
 
     def test_claude_notebook_schemas_match_supported_parser_shapes(self) -> None:

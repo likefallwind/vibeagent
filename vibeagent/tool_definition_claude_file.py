@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 
-CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
+CLAUDE_READ_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "Read",
         "description": "Claude-compatible alias for reading one project file.",
@@ -43,6 +43,10 @@ CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+]
+
+
+CLAUDE_SEARCH_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "LS",
         "description": "Claude-compatible alias for listing a project directory.",
@@ -100,6 +104,10 @@ CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+]
+
+
+CLAUDE_EDIT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "Write",
         "description": "Claude-compatible alias for writing one project file after approval.",
@@ -177,3 +185,8 @@ CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
 ]
+
+
+CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = (
+    CLAUDE_READ_TOOL_DEFINITIONS + CLAUDE_SEARCH_TOOL_DEFINITIONS + CLAUDE_EDIT_TOOL_DEFINITIONS
+)
