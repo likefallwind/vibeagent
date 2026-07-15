@@ -11,6 +11,12 @@ from .agent_observation_utils import summarize
 from . import types as t
 
 
+def _described_command_target(action: object) -> str:
+    target = command_target(getattr(action, "command"), getattr(action, "cwd", None))
+    description = getattr(action, "description", None)
+    return f"{description}: {target}" if description else target
+
+
 def build_action_target(action: object) -> str:
     if isinstance(
         action,
@@ -122,13 +128,13 @@ def build_action_target(action: object) -> str:
     if isinstance(action, (t.CheckSetExecutableAction, t.SetExecutableAction)):
         return action.path
     if isinstance(action, t.RunCommandAction):
-        return command_target(action.command, action.cwd)
+        return _described_command_target(action)
     if isinstance(action, t.RunCommandsAction):
         return command_batch_target(action.commands)
     if isinstance(action, t.RunSessionVerificationAction):
         return session_verification_target(action.run_id, action.include_failed, action.include_pending)
     if isinstance(action, t.StartCommandAction):
-        return command_target(action.command, action.cwd)
+        return _described_command_target(action)
     if isinstance(action, (t.ReadProcessAction, t.StopProcessAction)):
         return action.process_id
     if isinstance(action, (t.ListProcessesAction, t.CheckStopAllProcessesAction, t.StopAllProcessesAction)):
@@ -246,7 +252,7 @@ def build_action_target(action: object) -> str:
     if isinstance(action, (t.CheckGitCommitAction, t.GitCommitAction)):
         return summarize(action.message, 80)
     if isinstance(action, (t.RunCommandAction, t.CheckStartCommandAction, t.StartCommandAction)):
-        return command_target(action.command, action.cwd)
+        return _described_command_target(action)
     if isinstance(action, (t.CheckRunCommandsAction, t.RunCommandsAction)):
         return command_batch_target(action.commands)
     if isinstance(action, (t.CheckSuggestedChecksAction, t.RunSuggestedChecksAction)):

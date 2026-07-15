@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from vibeagent.actions import execute_action
 from vibeagent.agent_action_labels import build_step_label
+from vibeagent.agent_action_targets import build_action_target
 from vibeagent.agent_approval import build_approval_request
 from vibeagent.action_parsing import parse_tool_action
 from vibeagent.action_parsing_helpers import ActionParseError
@@ -178,6 +179,7 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertIsInstance(action, RunCommandAction)
         self.assertEqual(action.description, "Run the focused unit tests")
         self.assertEqual(build_step_label(action), "Run: Run the focused unit tests")
+        self.assertEqual(build_action_target(action), "Run the focused unit tests: python -m unittest (cwd: .)")
         approval = build_approval_request(action)
         self.assertIsNotNone(approval)
         assert approval is not None
@@ -185,6 +187,10 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertIsInstance(background_action, StartCommandAction)
         self.assertEqual(background_action.description, "Start the local documentation server")
         self.assertEqual(build_step_label(background_action), "Start: Start the local documentation server")
+        self.assertEqual(
+            build_action_target(background_action),
+            "Start the local documentation server: python -m http.server (cwd: .)",
+        )
         background_approval = build_approval_request(background_action)
         self.assertIsNotNone(background_approval)
         assert background_approval is not None
