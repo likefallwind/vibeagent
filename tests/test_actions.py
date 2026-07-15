@@ -1783,6 +1783,12 @@ class ActionTests(unittest.TestCase):
             parse_tool_action("run_command", {"command": "python3 test.py", "timeout_ms": "1_000ms"})
 
         with self.assertRaisesRegex(ActionParseError, "timeout_ms must be a positive integer"):
+            parse_tool_action("run_command", {"command": "python3 test.py", "timeout_ms": "1,,000"})
+
+        with self.assertRaisesRegex(ActionParseError, "timeout_ms must be a positive integer"):
+            parse_tool_action("run_command", {"command": "python3 test.py", "timeout_ms": "1__000"})
+
+        with self.assertRaisesRegex(ActionParseError, "timeout_ms must be a positive integer"):
             parse_tool_action("run_command", {"command": "python3 test.py", "timeout_ms": 1000.5})
 
         with self.assertRaisesRegex(ActionParseError, "timeout_ms must be a positive integer"):

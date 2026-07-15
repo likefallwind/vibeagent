@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from typing import Any
 
 from .types import (
@@ -49,6 +50,7 @@ PLAN_ITEM_STATUS_ALIASES = {
 }
 PLAN_ITEM_STATUS_VALUES = set(PLAN_ITEM_STATUS_ALIASES)
 PLAN_ITEM_SCHEMA_STATUS_VALUES = ("complete", "completed", "done", "in-progress", "in_progress", "pending", "todo")
+INT_STRING_PATTERN = re.compile(r"^\d+(?:[_,]\d+)*(?:\.0+)?$")
 
 
 class ActionParseError(ValueError):
@@ -422,13 +424,13 @@ def _coerce_int(value: Any) -> int | None:
         return int(value)
     if isinstance(value, str):
         stripped = value.strip()
+        if not INT_STRING_PATTERN.fullmatch(stripped):
+            return None
         normalized = stripped.replace("_", "").replace(",", "")
         if normalized.isdigit():
             return int(normalized)
-        if normalized.count(".") == 1:
-            whole, fraction = normalized.split(".", 1)
-            if whole.isdigit() and fraction and set(fraction) == {"0"}:
-                return int(whole)
+        whole, _fraction = normalized.split(".", 1)
+        return int(whole)
     return None
 
 
