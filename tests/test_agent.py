@@ -900,6 +900,7 @@ class AgentTests(unittest.TestCase):
                             "input": {
                                 "todos": [
                                     {"content": "Inspect files", "status": "finished"},
+                                    {"content": "Wait for review", "status": "waiting"},
                                     {"content": "Run tests", "status": "not_started"},
                                 ]
                             },
@@ -913,7 +914,7 @@ class AgentTests(unittest.TestCase):
 
         self.assertTrue(result.success)
         self.assertEqual(result.status, "blocked")
-        self.assertEqual([item.status for item in result.plan], ["completed", "pending"])
+        self.assertEqual([item.status for item in result.plan], ["completed", "pending", "pending"])
         self.assertEqual(result.observations[0].kind, "update_plan")
         self.assertIn("Task plan still has unfinished item(s)", result.completion_blockers[0])
 

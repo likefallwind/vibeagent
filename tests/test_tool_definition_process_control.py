@@ -75,29 +75,7 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
     def test_task_control_status_schemas_accept_aliases(self) -> None:
         self.assertEqual(
             PLAN_ITEM_SCHEMA["properties"]["status"]["enum"],
-            [
-                "active",
-                "complete",
-                "completed",
-                "doing",
-                "done",
-                "finished",
-                "in-progress",
-                "in_progress",
-                "not started",
-                "not-started",
-                "not_started",
-                "open",
-                "pending",
-                "queued",
-                "started",
-                "succeeded",
-                "success",
-                "to do",
-                "to-do",
-                "to_do",
-                "todo",
-            ],
+            ["complete", "completed", "done", "in-progress", "in_progress", "pending", "todo"],
         )
         self.assertIs(TODO_ITEM_SCHEMA["properties"]["status"]["enum"], PLAN_ITEM_SCHEMA["properties"]["status"]["enum"])
 

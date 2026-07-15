@@ -19,8 +19,11 @@ from .types import (
 PLAN_ITEM_STATUS_ALIASES = {
     "complete": "completed",
     "completed": "completed",
+    "cancelled": "completed",
+    "canceled": "completed",
     "done": "completed",
     "finished": "completed",
+    "skipped": "completed",
     "success": "completed",
     "succeeded": "completed",
     "active": "in_progress",
@@ -36,8 +39,12 @@ PLAN_ITEM_STATUS_ALIASES = {
     "not-started": "pending",
     "not started": "pending",
     "not_started": "pending",
+    "blocked": "pending",
+    "deferred": "pending",
     "open": "pending",
+    "paused": "pending",
     "queued": "pending",
+    "waiting": "pending",
 }
 PLAN_ITEM_STATUS_VALUES = set(PLAN_ITEM_STATUS_ALIASES)
 

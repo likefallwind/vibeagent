@@ -2261,11 +2261,16 @@ class ActionTests(unittest.TestCase):
                     {"step": "Inspect files", "status": "finished"},
                     {"step": "Implement change", "status": "doing"},
                     {"step": "Run tests", "status": "not_started"},
+                    {"step": "Wait for review", "status": "blocked"},
+                    {"step": "Drop obsolete task", "status": "skipped"},
                 ],
             },
         )
 
-        self.assertEqual([item.status for item in alias_action.plan], ["completed", "in_progress", "pending"])
+        self.assertEqual(
+            [item.status for item in alias_action.plan],
+            ["completed", "in_progress", "pending", "pending", "completed"],
+        )
 
         with self.assertRaisesRegex(ActionParseError, "non-empty plan list"):
             parse_tool_action("update_plan", {"plan": []})

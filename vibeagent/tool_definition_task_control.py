@@ -2,10 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .action_parsing_helpers import PLAN_ITEM_STATUS_VALUES
-
-
-PLAN_ITEM_STATUS_ENUM = sorted(PLAN_ITEM_STATUS_VALUES)
+PLAN_ITEM_STATUS_ENUM = ["complete", "completed", "done", "in-progress", "in_progress", "pending", "todo"]
 
 PLAN_ITEM_SCHEMA: dict[str, Any] = {
     "type": "object",
