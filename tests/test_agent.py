@@ -7117,7 +7117,7 @@ class AgentTests(unittest.TestCase):
             kind="session_plan",
             run_id="run-1",
             ok=True,
-            plan="1. [ ] Run final checks\n2. [x] Read code",
+            plan="☐ Run final checks\n✅ Read code",
             message="Read session plan for run-1.",
         )
 

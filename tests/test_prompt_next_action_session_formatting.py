@@ -29,6 +29,8 @@ class PromptNextActionSessionFormattingTests(unittest.TestCase):
         self.assertTrue(session_plan_has_unfinished_work("- [ ] finish tests"))
         self.assertTrue(session_plan_has_unfinished_work("1. [ ] finish tests"))
         self.assertTrue(session_plan_has_unfinished_work("2) [ ] review changes"))
+        self.assertTrue(session_plan_has_unfinished_work("- ☐ finish tests"))
+        self.assertTrue(session_plan_has_unfinished_work("☐ finish tests"))
         self.assertTrue(session_plan_has_unfinished_work("- [not done] finish tests"))
         self.assertTrue(session_plan_has_unfinished_work("- [undone] review changes"))
         self.assertTrue(session_plan_has_unfinished_work("- [to-do] run final checks"))
@@ -39,6 +41,8 @@ class PromptNextActionSessionFormattingTests(unittest.TestCase):
         self.assertTrue(session_plan_appears_complete("* [X] run tests"))
         self.assertTrue(session_plan_appears_complete("+ [x] run tests"))
         self.assertTrue(session_plan_appears_complete("1. [x] run tests"))
+        self.assertTrue(session_plan_appears_complete("- ☑ run tests"))
+        self.assertTrue(session_plan_appears_complete("✅ run tests"))
         self.assertTrue(session_plan_appears_complete("- [completed] run tests"))
 
     def test_verification_command_labels_include_cwd_and_reason(self) -> None:

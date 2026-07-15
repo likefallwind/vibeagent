@@ -6,6 +6,10 @@ from .session_completion_detail_fields import completion_blocker_detail_values
 from .types import Observation
 
 
+_MARKDOWN_CHECKBOX_PATTERN = re.compile(r"^(?:[-*+]|\d+[.)])\s+\[([ x])\]")
+_UNICODE_CHECKBOX_PATTERN = re.compile(r"^(?:(?:[-*+]|\d+[.)])\s+)?([☐☑☒✅])(?:\s|$)")
+
+
 def format_next_action_items(items: list[str], max_items: int = 3) -> str:
     shown = items[:max_items]
     suffix = "" if len(items) <= max_items else f"; +{len(items) - max_items} more"
@@ -24,9 +28,13 @@ def _session_plan_lines(plan: object) -> list[str]:
 def _session_plan_checkbox_states(plan: object) -> list[str]:
     states: list[str] = []
     for line in _session_plan_lines(plan):
-        match = re.match(r"^(?:[-*+]|\d+[.)])\s+\[([ x])\]", line)
-        if match:
-            states.append(match.group(1))
+        markdown_match = _MARKDOWN_CHECKBOX_PATTERN.match(line)
+        if markdown_match:
+            states.append(markdown_match.group(1))
+            continue
+        unicode_match = _UNICODE_CHECKBOX_PATTERN.match(line)
+        if unicode_match:
+            states.append(" " if unicode_match.group(1) == "☐" else "x")
     return states
 
 
