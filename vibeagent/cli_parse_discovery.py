@@ -5,6 +5,33 @@ import shlex
 from .cli_parse_core import parse_interactive_nonnegative_option, parse_interactive_positive_option
 
 
+def _option_flag(part: str) -> str:
+    return part.split("=", 1)[0] if part.startswith("--") else part
+
+
+def _split_named_parts(
+    argument: str | None,
+    *,
+    usage: str,
+    recognized_flags: set[str],
+) -> tuple[list[str] | None, str | None, bool]:
+    if not argument:
+        return None, None, False
+    try:
+        parts = shlex.split(argument)
+    except ValueError as error:
+        if any(flag in argument for flag in recognized_flags):
+            return None, f"{usage}\n  error: {error}", True
+        return None, None, False
+
+    uses_named_options = "--" in parts
+    if not uses_named_options:
+        uses_named_options = any(part.startswith("--") or _option_flag(part) in recognized_flags for part in parts)
+    if not uses_named_options:
+        return None, None, False
+    return parts, None, True
+
+
 def parse_interactive_search_argument(
     argument: str | None,
     *,
@@ -32,22 +59,10 @@ def parse_interactive_search_argument(
         "--case-sensitive": ("case_sensitive", True),
     }
     recognized_flags = set(value_options) | set(bool_options)
-    try:
-        parts = shlex.split(argument)
-    except ValueError as error:
-        if any(flag in argument for flag in recognized_flags):
-            return None, {}, f"{usage}\n  error: {error}", True
-        return None, {}, None, False
-
-    uses_named_options = "--" in parts
-    if not uses_named_options:
-        for part in parts:
-            flag = part.split("=", 1)[0] if part.startswith("--") else part
-            if part.startswith("--") or flag in recognized_flags:
-                uses_named_options = True
-                break
-    if not uses_named_options:
-        return None, {}, None, False
+    parts, error, handled = _split_named_parts(argument, usage=usage, recognized_flags=recognized_flags)
+    if error or not handled:
+        return None, {}, error, handled
+    assert parts is not None
 
     kwargs: dict[str, int | str | bool] = {}
     query_parts: list[str] = []
@@ -57,7 +72,7 @@ def parse_interactive_search_argument(
         if part == "--":
             query_parts.extend(parts[index + 1 :])
             break
-        flag = part.split("=", 1)[0] if part.startswith("--") else part
+        flag = _option_flag(part)
         if flag in bool_options:
             if "=" in part:
                 return None, {}, f"{usage}\n  error: {flag} does not take a value.", True
@@ -116,22 +131,10 @@ def parse_interactive_find_files_argument(
         "--include-dirs": ("include_dirs", True),
     }
     recognized_flags = set(value_options) | set(bool_options)
-    try:
-        parts = shlex.split(argument)
-    except ValueError as error:
-        if any(flag in argument for flag in recognized_flags):
-            return None, {}, f"{usage}\n  error: {error}", True
-        return None, {}, None, False
-
-    uses_named_options = "--" in parts
-    if not uses_named_options:
-        for part in parts:
-            flag = part.split("=", 1)[0] if part.startswith("--") else part
-            if part.startswith("--") or flag in recognized_flags:
-                uses_named_options = True
-                break
-    if not uses_named_options:
-        return None, {}, None, False
+    parts, error, handled = _split_named_parts(argument, usage=usage, recognized_flags=recognized_flags)
+    if error or not handled:
+        return None, {}, error, handled
+    assert parts is not None
 
     kwargs: dict[str, int | str | bool] = {}
     query_parts: list[str] = []
@@ -141,7 +144,7 @@ def parse_interactive_find_files_argument(
         if part == "--":
             query_parts.extend(parts[index + 1 :])
             break
-        flag = part.split("=", 1)[0] if part.startswith("--") else part
+        flag = _option_flag(part)
         if flag in bool_options:
             if "=" in part:
                 return None, {}, f"{usage}\n  error: {flag} does not take a value.", True
@@ -192,22 +195,10 @@ def parse_interactive_overview_argument(
         "--max-commands": "max_commands",
         "--max-checks": "max_checks",
     }
-    try:
-        parts = shlex.split(argument)
-    except ValueError as error:
-        if any(flag in argument for flag in option_specs):
-            return {}, f"{usage}\n  error: {error}", True
-        return {}, None, False
-
-    uses_named_options = "--" in parts
-    if not uses_named_options:
-        for part in parts:
-            flag = part.split("=", 1)[0] if part.startswith("--") else part
-            if part.startswith("--") or flag in option_specs:
-                uses_named_options = True
-                break
-    if not uses_named_options:
-        return {}, None, False
+    parts, error, handled = _split_named_parts(argument, usage=usage, recognized_flags=set(option_specs))
+    if error or not handled:
+        return {}, error, handled
+    assert parts is not None
 
     kwargs: dict[str, int] = {}
     index = 0
@@ -217,7 +208,7 @@ def parse_interactive_overview_argument(
             if parts[index + 1 :]:
                 return {}, usage, True
             break
-        flag = part.split("=", 1)[0] if part.startswith("--") else part
+        flag = _option_flag(part)
         if flag in option_specs:
             if "=" in part:
                 raw_value = part.split("=", 1)[1]
@@ -247,22 +238,10 @@ def parse_interactive_repo_map_argument(
         "--max-files": ("max_files", "positive"),
         "--max-symbols": ("max_symbols", "positive"),
     }
-    try:
-        parts = shlex.split(argument)
-    except ValueError as error:
-        if any(flag in argument for flag in option_specs):
-            return None, {}, f"{usage}\n  error: {error}", True
-        return None, {}, None, False
-
-    uses_named_options = "--" in parts
-    if not uses_named_options:
-        for part in parts:
-            flag = part.split("=", 1)[0] if part.startswith("--") else part
-            if part.startswith("--") or flag in option_specs:
-                uses_named_options = True
-                break
-    if not uses_named_options:
-        return None, {}, None, False
+    parts, error, handled = _split_named_parts(argument, usage=usage, recognized_flags=set(option_specs))
+    if error or not handled:
+        return None, {}, error, handled
+    assert parts is not None
 
     kwargs: dict[str, int] = {}
     path_parts: list[str] = []
@@ -272,7 +251,7 @@ def parse_interactive_repo_map_argument(
         if part == "--":
             path_parts.extend(parts[index + 1 :])
             break
-        flag = part.split("=", 1)[0] if part.startswith("--") else part
+        flag = _option_flag(part)
         if flag in option_specs:
             keyword, value_type = option_specs[flag]
             if "=" in part:
@@ -308,22 +287,14 @@ def parse_interactive_glob_argument(
         return None, {}, None, False
     option_specs = {"--max-matches": "max_matches"}
     boolean_options = {"--include-dirs": "include_dirs"}
-    try:
-        parts = shlex.split(argument)
-    except ValueError as error:
-        if any(flag in argument for flag in option_specs | boolean_options):
-            return None, {}, f"{usage}\n  error: {error}", True
-        return None, {}, None, False
-
-    uses_named_options = "--" in parts
-    if not uses_named_options:
-        for part in parts:
-            flag = part.split("=", 1)[0] if part.startswith("--") else part
-            if part.startswith("--") or flag in option_specs or flag in boolean_options:
-                uses_named_options = True
-                break
-    if not uses_named_options:
-        return None, {}, None, False
+    parts, error, handled = _split_named_parts(
+        argument,
+        usage=usage,
+        recognized_flags=set(option_specs) | set(boolean_options),
+    )
+    if error or not handled:
+        return None, {}, error, handled
+    assert parts is not None
 
     kwargs: dict[str, int | bool] = {}
     pattern_parts: list[str] = []
@@ -333,7 +304,7 @@ def parse_interactive_glob_argument(
         if part == "--":
             pattern_parts.extend(parts[index + 1 :])
             break
-        flag = part.split("=", 1)[0] if part.startswith("--") else part
+        flag = _option_flag(part)
         if flag in boolean_options:
             if "=" in part:
                 raw_value = part.split("=", 1)[1].strip().lower()
@@ -377,22 +348,10 @@ def parse_interactive_todos_argument(
         "--max-items": "max_items",
         "--max-files": "max_files",
     }
-    try:
-        parts = shlex.split(argument)
-    except ValueError as error:
-        if any(flag in argument for flag in option_specs):
-            return None, {}, f"{usage}\n  error: {error}", True
-        return None, {}, None, False
-
-    uses_named_options = "--" in parts
-    if not uses_named_options:
-        for part in parts:
-            flag = part.split("=", 1)[0] if part.startswith("--") else part
-            if part.startswith("--") or flag in option_specs:
-                uses_named_options = True
-                break
-    if not uses_named_options:
-        return None, {}, None, False
+    parts, error, handled = _split_named_parts(argument, usage=usage, recognized_flags=set(option_specs))
+    if error or not handled:
+        return None, {}, error, handled
+    assert parts is not None
 
     kwargs: dict[str, int] = {}
     path_parts: list[str] = []
@@ -402,7 +361,7 @@ def parse_interactive_todos_argument(
         if part == "--":
             path_parts.extend(parts[index + 1 :])
             break
-        flag = part.split("=", 1)[0] if part.startswith("--") else part
+        flag = _option_flag(part)
         if flag in option_specs:
             if "=" in part:
                 raw_value = part.split("=", 1)[1]
