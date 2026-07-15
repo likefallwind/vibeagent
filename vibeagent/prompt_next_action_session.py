@@ -307,6 +307,9 @@ def _session_plan_next_action_instruction(base: str, latest: Observation) -> str
         "pending",
         "todo",
         "not started",
+        "not complete",
+        "not completed",
+        "incomplete",
         "blocked",
     )
     if any(marker in plan_lower for marker in unfinished_markers):
