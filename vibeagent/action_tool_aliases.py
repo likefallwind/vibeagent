@@ -5,7 +5,7 @@ import re
 from typing import Any
 
 from .action_tool_alias_search import normalize_search_input
-from .action_tool_alias_utils import rename_fields
+from .action_tool_alias_utils import rename_fields, truthy_alias_bool
 
 
 ToolInputNormalizer = Callable[[dict[str, Any]], dict[str, Any]]
@@ -183,16 +183,16 @@ def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, d
         return mcp_action
 
     action_type = CLAUDE_TOOL_ACTION_ALIASES.get(name, name)
-    if name == "Bash" and _is_truthy_alias_bool(tool_input.get("run_in_background")):
+    if name == "Bash" and truthy_alias_bool(tool_input.get("run_in_background")):
         return "start_command", _drop_fields(
             dict(tool_input),
             {"run_in_background", "timeout", "timeout_ms", "max_output_chars"},
         )
     if name == "NotebookEdit" and "old_string" in tool_input and "new_string" in tool_input:
-        if _is_truthy_alias_bool(tool_input.get("replace_all")):
+        if truthy_alias_bool(tool_input.get("replace_all")):
             return "regex_replace", _normalize_edit_replace_all_input(tool_input)
         return "edit_file", _normalize_edit_file_input(tool_input)
-    if name == "Edit" and _is_truthy_alias_bool(tool_input.get("replace_all")):
+    if name == "Edit" and truthy_alias_bool(tool_input.get("replace_all")):
         return "regex_replace", _normalize_edit_replace_all_input(tool_input)
 
     normalizer = _NAME_INPUT_NORMALIZERS.get(name) or _ACTION_INPUT_NORMALIZERS.get(action_type)
@@ -209,12 +209,6 @@ def _drop_fields(value: dict[str, Any], fields: set[str]) -> dict[str, Any]:
     for field in fields:
         value.pop(field, None)
     return value
-
-
-def _is_truthy_alias_bool(value: Any) -> bool:
-    if value is True:
-        return True
-    return isinstance(value, str) and value.strip().lower() in {"1", "true", "yes"}
 
 
 def _normalize_exit_plan_mode_input(value: dict[str, Any]) -> dict[str, Any]:

@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from vibeagent.actions import execute_action
 from vibeagent.action_parsing import parse_tool_action
+from vibeagent.action_tool_alias_utils import truthy_alias_bool
 from vibeagent.prompts import format_observations
 from vibeagent.types import (
     ReadFileAction,
@@ -23,6 +24,16 @@ from vibeagent.workspace import create_run_workspace
 
 
 class ActionToolAliasTests(unittest.TestCase):
+    def test_truthy_alias_bool_accepts_common_string_values(self) -> None:
+        self.assertTrue(truthy_alias_bool(True))
+        self.assertTrue(truthy_alias_bool("true"))
+        self.assertTrue(truthy_alias_bool(" YES "))
+        self.assertTrue(truthy_alias_bool("1"))
+        self.assertFalse(truthy_alias_bool(False))
+        self.assertFalse(truthy_alias_bool("false"))
+        self.assertFalse(truthy_alias_bool("0"))
+        self.assertFalse(truthy_alias_bool(1))
+
     def test_claude_read_zero_offset_maps_to_first_line(self) -> None:
         action = parse_tool_action("Read", {"file_path": "app.py", "offset": 0, "limit": 5})
         notebook_action = parse_tool_action(
