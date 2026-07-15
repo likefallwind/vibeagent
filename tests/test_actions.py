@@ -2254,6 +2254,19 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(action.plan[1].step, "Implement change")
         self.assertEqual(action.plan[1].status, "in_progress")
 
+        alias_action = parse_tool_action(
+            "update_plan",
+            {
+                "plan": [
+                    {"step": "Inspect files", "status": "finished"},
+                    {"step": "Implement change", "status": "doing"},
+                    {"step": "Run tests", "status": "not_started"},
+                ],
+            },
+        )
+
+        self.assertEqual([item.status for item in alias_action.plan], ["completed", "in_progress", "pending"])
+
         with self.assertRaisesRegex(ActionParseError, "non-empty plan list"):
             parse_tool_action("update_plan", {"plan": []})
 

@@ -888,6 +888,35 @@ class AgentTests(unittest.TestCase):
         self.assertIn("TodoWrite", [event.get("name") for event in events if event["type"] == "tool_call"])
         self.assertIn("TodoWrite", [event.get("name") for event in events if event["type"] == "tool_result"])
 
+    def test_run_agent_normalizes_plan_status_aliases(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "todo-1",
+                            "name": "TodoWrite",
+                            "input": {
+                                "todos": [
+                                    {"content": "Inspect files", "status": "finished"},
+                                    {"content": "Run tests", "status": "not_started"},
+                                ]
+                            },
+                        }
+                    ],
+                    [{"type": "text", "text": "Plan is recorded."}],
+                ]
+            )
+
+            result = run_agent("make a todo list", base_dir=Path(base), client=client, max_iterations=2)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.status, "blocked")
+        self.assertEqual([item.status for item in result.plan], ["completed", "pending"])
+        self.assertEqual(result.observations[0].kind, "update_plan")
+        self.assertIn("Task plan still has unfinished item(s)", result.completion_blockers[0])
+
     def test_run_agent_continues_when_text_finish_has_completion_blockers(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             client = MockClient(
