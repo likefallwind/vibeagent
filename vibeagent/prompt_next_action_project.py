@@ -53,6 +53,19 @@ def _available_command_labels(values: object) -> list[str]:
     return labels
 
 
+def _available_skill_names(values: object) -> list[str]:
+    names: list[str] = []
+    if not isinstance(values, list):
+        return names
+    for value in values:
+        if not getattr(value, "available", False):
+            continue
+        name = str(getattr(value, "name", "") or "").strip()
+        if name:
+            names.append(name)
+    return names
+
+
 def _command_label(value: object) -> str | None:
     command = str(getattr(value, "command", "") or "").strip()
     if not command:
@@ -359,6 +372,7 @@ def _project_overview_next_action_instruction(base: str, latest: Observation) ->
     checks = _available_command_labels(getattr(latest, "suggested_checks", []))
     instructions = _instruction_paths(getattr(latest, "instruction_sources", []))
     todos = _todo_labels(getattr(latest, "todos", []))
+    skills = _available_skill_names(getattr(latest, "skills", []))
     instruction_detail = (
         f" Project instructions are present in {_format_next_action_items(instructions)}; use project_instructions before editing if their content is needed."
         if instructions
@@ -369,12 +383,18 @@ def _project_overview_next_action_instruction(base: str, latest: Observation) ->
         if todos
         else ""
     )
+    skill_detail = (
+        f" Project skills are available: {_format_next_action_items(skills)}; use project_skills and skill if one applies before editing."
+        if skills
+        else ""
+    )
     if commands or checks:
         return (
             f"{base} Project overview found runnable project context. "
             f"Use project_commands or suggest_checks for: {_format_next_action_items(commands + checks)}."
             f"{instruction_detail}"
             f"{todo_detail}"
+            f"{skill_detail}"
         )
 
     if str(getattr(latest, "git_status", "") or "").strip():
@@ -382,8 +402,9 @@ def _project_overview_next_action_instruction(base: str, latest: Observation) ->
             f"{base} Project overview shows existing git changes. Inspect git_diff or review_changes before editing, "
             f"then continue with the requested task.{instruction_detail}"
             f"{todo_detail}"
+            f"{skill_detail}"
         )
-    return f"{base} Project overview is available. Use the tree, manifests, files, instruction sources, and TODO markers to choose the next targeted inspection or edit.{instruction_detail}{todo_detail}"
+    return f"{base} Project overview is available. Use the tree, manifests, files, instruction sources, TODO markers, and skills to choose the next targeted inspection or edit.{instruction_detail}{todo_detail}{skill_detail}"
 
 
 def _environment_info_next_action_instruction(base: str, latest: Observation) -> str:

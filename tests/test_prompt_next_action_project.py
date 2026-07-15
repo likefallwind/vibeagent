@@ -3,7 +3,12 @@ from __future__ import annotations
 import unittest
 from types import SimpleNamespace
 
-from vibeagent.prompt_next_action_project import _available_command_labels, _blocked_check_labels, _command_labels
+from vibeagent.prompt_next_action_project import (
+    _available_command_labels,
+    _blocked_check_labels,
+    _command_labels,
+    _project_overview_next_action_instruction,
+)
 
 
 class PromptNextActionProjectTests(unittest.TestCase):
@@ -40,6 +45,29 @@ class PromptNextActionProjectTests(unittest.TestCase):
         )
 
         self.assertEqual(labels, ["code .: GUI launch blocked", "pytest: pytest", "command invalid"])
+
+    def test_project_overview_instruction_guides_available_skills(self) -> None:
+        instruction = _project_overview_next_action_instruction(
+            "Next.",
+            SimpleNamespace(
+                ok=True,
+                commands=[],
+                suggested_checks=[],
+                instruction_sources=[],
+                todos=[],
+                git_status="",
+                skills=[
+                    SimpleNamespace(name="release-checklist", available=True),
+                    SimpleNamespace(name="draft-helper", available=False),
+                ],
+            ),
+        )
+
+        self.assertIn("Project skills are available", instruction)
+        self.assertIn("release-checklist", instruction)
+        self.assertIn("project_skills", instruction)
+        self.assertIn("skill", instruction)
+        self.assertNotIn("draft-helper", instruction)
 
 
 if __name__ == "__main__":
