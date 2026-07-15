@@ -41,7 +41,7 @@ from vibeagent.cli_parse_session import (
 )
 from vibeagent.cli_session_args import add_session_limit_arguments, add_session_local_arguments
 from vibeagent.cli_parse_tool_search import parse_interactive_tool_search_argument
-from vibeagent.cli_project_local_flags import build_check_suggested_kwargs, build_run_suggested_kwargs
+from vibeagent.cli_project_local_flags import build_check_suggested_kwargs, build_run_suggested_kwargs, kwargs_without_argument
 
 
 class CliParseModuleTests(unittest.TestCase):
@@ -121,6 +121,7 @@ class CliParseModuleTests(unittest.TestCase):
                 "max_bytes_per_context": 500,
             },
         )
+        self.assertEqual(kwargs_without_argument({"argument": "pytest", "max_checks": 5}), {"max_checks": 5})
 
     def test_session_arg_helpers_register_limits_and_local_flags(self) -> None:
         parser = argparse.ArgumentParser()

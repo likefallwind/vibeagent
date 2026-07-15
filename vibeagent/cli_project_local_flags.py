@@ -33,6 +33,10 @@ def build_run_suggested_kwargs(args: argparse.Namespace) -> dict[str, object]:
     }
 
 
+def kwargs_without_argument(kwargs: dict[str, object]) -> dict[str, object]:
+    return {key: value for key, value in kwargs.items() if key != "argument"}
+
+
 def run_project_local_flag(
     args: argparse.Namespace,
     project_root: Path | None,
@@ -158,7 +162,7 @@ def run_project_local_flag(
             lambda: commands["get_check_suggested_checks_text"](
                 root,
                 check_suggested_kwargs["argument"],
-                max_checks=args.check_suggested_checks_max,
+                **kwargs_without_argument(check_suggested_kwargs),
             ),
         )
     if args.run_suggested_checks is not None:
@@ -171,16 +175,7 @@ def run_project_local_flag(
             lambda: commands["get_run_suggested_checks_text"](
                 root,
                 run_suggested_kwargs["argument"],
-                max_checks=args.run_suggested_checks_max,
-                timeout_ms=args.run_timeout_ms,
-                max_output_chars=args.run_max_chars,
-                stop_on_failure=not args.run_continue_on_failure,
-                extract_output_contexts=args.run_output_contexts,
-                extract_output_diagnostics=args.run_output_diagnostics,
-                context_lines=args.run_output_context_lines,
-                max_diagnostics=args.run_output_diagnostic_max,
-                max_contexts=args.run_output_context_max,
-                max_bytes_per_context=args.run_output_context_max_bytes,
+                **kwargs_without_argument(run_suggested_kwargs),
             ),
         )
     if args.commands:
@@ -218,7 +213,11 @@ def run_project_local_flag(
             "focusedTests",
             lambda: commands["get_focused_test_commands_report"](root, **focused_kwargs),
             commands["format_focused_test_commands_report_text"],
-            lambda: commands["get_focused_test_commands_text"](root, focused_kwargs["argument"], **{k: v for k, v in focused_kwargs.items() if k != "argument"}),
+            lambda: commands["get_focused_test_commands_text"](
+                root,
+                focused_kwargs["argument"],
+                **kwargs_without_argument(focused_kwargs),
+            ),
         )
     if args.check_focused_tests is not None:
         focused_kwargs = commands["build_focused_tests_kwargs"](args)
@@ -231,7 +230,7 @@ def run_project_local_flag(
             lambda: commands["get_check_focused_test_commands_text"](
                 root,
                 focused_kwargs["argument"],
-                **{k: v for k, v in focused_kwargs.items() if k != "argument"},
+                **kwargs_without_argument(focused_kwargs),
             ),
         )
     if args.run_focused_tests is not None:
@@ -258,7 +257,7 @@ def run_project_local_flag(
             lambda: commands["get_run_focused_test_commands_text"](
                 root,
                 focused_kwargs["argument"],
-                **{k: v for k, v in focused_kwargs.items() if k != "argument"},
+                **kwargs_without_argument(focused_kwargs),
             ),
         )
     if args.manifests:
