@@ -11,6 +11,7 @@ from .action_parsing_helpers import (
     parse_read_file_paths,
     parse_read_file_ranges,
 )
+from .action_tool_alias_utils import truthy_alias_bool
 from .types import (
     CodeOutlineAction,
     ConfigCheckAction,
@@ -140,7 +141,7 @@ def parse_read_action(action_type: object, value: dict[str, Any], raw: str) -> o
             path=path,
             start_cell=parse_optional_positive_int(value.get("start_cell"), "start_cell", raw, maximum=10_000) or 1,
             cell_count=parse_optional_positive_int(value.get("cell_count"), "cell_count", raw, maximum=200) or 50,
-            include_outputs=value.get("include_outputs") is True,
+            include_outputs=truthy_alias_bool(value.get("include_outputs")),
             max_source_chars=parse_optional_positive_int(value.get("max_source_chars"), "max_source_chars", raw, maximum=20_000) or 2_000,
         )
 

@@ -38,7 +38,11 @@ class ActionToolAliasTests(unittest.TestCase):
         action = parse_tool_action("Read", {"file_path": "app.py", "offset": 0, "limit": 5})
         notebook_action = parse_tool_action(
             "NotebookRead",
-            {"notebook_path": "analysis.ipynb", "offset": 0, "limit": 3},
+            {"notebook_path": "analysis.ipynb", "offset": 0, "limit": 3, "include_outputs": "true"},
+        )
+        notebook_without_outputs = parse_tool_action(
+            "NotebookRead",
+            {"notebook_path": "analysis.ipynb", "include_outputs": "false"},
         )
 
         self.assertIsInstance(action, ReadFileAction)
@@ -47,6 +51,8 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertIsInstance(notebook_action, NotebookReadAction)
         self.assertEqual(notebook_action.start_cell, 1)
         self.assertEqual(notebook_action.cell_count, 3)
+        self.assertTrue(notebook_action.include_outputs)
+        self.assertFalse(notebook_without_outputs.include_outputs)
 
     def test_claude_edit_replace_all_maps_to_literal_regex_replace(self) -> None:
         action = parse_tool_action(
