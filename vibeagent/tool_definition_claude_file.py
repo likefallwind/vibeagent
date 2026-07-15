@@ -89,7 +89,7 @@ CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "path": {"type": "string"},
                 "glob": {"type": "string"},
                 "type": {"type": "string"},
-                "output_mode": {"type": "string", "enum": ["content", "files_with_matches", "count"]},
+                "output_mode": {"type": "string", "enum": ["lines", "content", "files_with_matches", "count"]},
                 "head_limit": {"type": "integer", "minimum": 1, "maximum": 500},
                 "-i": {"type": "boolean"},
                 "-C": {"type": "integer", "minimum": 0, "maximum": 5},

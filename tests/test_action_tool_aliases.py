@@ -307,6 +307,12 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertIsInstance(action, SearchAction)
         self.assertEqual(action.output_mode, "files_with_matches")
 
+    def test_claude_grep_lines_preserves_output_mode(self) -> None:
+        action = parse_tool_action("Grep", {"pattern": "needle", "output_mode": "lines"})
+
+        self.assertIsInstance(action, SearchAction)
+        self.assertEqual(action.output_mode, "lines")
+
     def test_claude_grep_count_preserves_output_mode(self) -> None:
         action = parse_tool_action("Grep", {"pattern": "needle", "output_mode": "count"})
 

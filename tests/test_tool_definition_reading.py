@@ -81,6 +81,15 @@ class ReadingToolDefinitionTests(unittest.TestCase):
         self.assertNotIn("max_matches", glob_schema["required"])
         self.assertNotIn("include_dirs", glob_schema["required"])
 
+    def test_claude_grep_schema_exposes_all_supported_output_modes(self) -> None:
+        tools = {tool["name"]: tool for tool in CLAUDE_FILE_TOOL_DEFINITIONS}
+        grep_schema = tools["Grep"]["input_schema"]
+
+        self.assertEqual(
+            grep_schema["properties"]["output_mode"]["enum"],
+            ["lines", "content", "files_with_matches", "count"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
