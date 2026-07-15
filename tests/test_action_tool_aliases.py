@@ -6,7 +6,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 from vibeagent.actions import execute_action
+from vibeagent.agent_action_labels import build_step_label
+from vibeagent.agent_approval import build_approval_request
 from vibeagent.action_parsing import parse_tool_action
+from vibeagent.action_parsing_helpers import ActionParseError
 from vibeagent.action_tool_alias_utils import truthy_alias_bool
 from vibeagent.prompts import format_observations
 from vibeagent.types import (
@@ -154,6 +157,41 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertIsInstance(action, RunCommandAction)
         self.assertEqual(action.timeout_ms, 10_000)
         self.assertEqual(action.max_output_chars, 4_000)
+
+    def test_claude_bash_description_is_preserved_for_labels_and_approval(self) -> None:
+        action = parse_tool_action(
+            "Bash",
+            {
+                "command": "python -m unittest",
+                "description": "Run the focused unit tests",
+            },
+        )
+        background_action = parse_tool_action(
+            "Bash",
+            {
+                "command": "python -m http.server",
+                "description": "Start the local documentation server",
+                "run_in_background": True,
+            },
+        )
+
+        self.assertIsInstance(action, RunCommandAction)
+        self.assertEqual(action.description, "Run the focused unit tests")
+        self.assertEqual(build_step_label(action), "Run: Run the focused unit tests")
+        approval = build_approval_request(action)
+        self.assertIsNotNone(approval)
+        assert approval is not None
+        self.assertIn("Purpose: Run the focused unit tests", approval.risk)
+        self.assertIsInstance(background_action, StartCommandAction)
+        self.assertEqual(background_action.description, "Start the local documentation server")
+        self.assertEqual(build_step_label(background_action), "Start: Start the local documentation server")
+        background_approval = build_approval_request(background_action)
+        self.assertIsNotNone(background_approval)
+        assert background_approval is not None
+        self.assertIn("Purpose: Start the local documentation server", background_approval.risk)
+
+        with self.assertRaisesRegex(ActionParseError, "description must be a non-empty string"):
+            parse_tool_action("Bash", {"command": "python -m unittest", "description": "  "})
 
     def test_claude_bash_background_ignores_sync_only_options(self) -> None:
         action = parse_tool_action(

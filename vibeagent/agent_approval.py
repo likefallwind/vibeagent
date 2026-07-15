@@ -14,6 +14,12 @@ from .redaction import redact_jsonable_payload
 from . import types as t
 
 
+def _with_command_description(risk: str, description: str | None) -> str:
+    if not description:
+        return risk
+    return f"{risk} Purpose: {description}"
+
+
 def build_approval_request(action: object) -> t.ApprovalRequest | None:
     if isinstance(action, t.WriteFileAction):
         return t.ApprovalRequest(
@@ -297,7 +303,10 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
         return t.ApprovalRequest(
             action_type="run_command",
             target=command_target(action.command, action.cwd),
-            risk="This will run a shell command from the active project directory.",
+            risk=_with_command_description(
+                "This will run a shell command from the active project directory.",
+                action.description,
+            ),
         )
     if isinstance(action, t.RunCommandsAction):
         return t.ApprovalRequest(
@@ -327,7 +336,10 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
         return t.ApprovalRequest(
             action_type="start_command",
             target=command_target(action.command, action.cwd),
-            risk="This will start a background shell command from the active project directory.",
+            risk=_with_command_description(
+                "This will start a background shell command from the active project directory.",
+                action.description,
+            ),
         )
     if isinstance(action, t.WriteProcessAction):
         return t.ApprovalRequest(

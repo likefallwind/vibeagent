@@ -91,6 +91,7 @@ class RunCommandAction:
     max_diagnostics: int = 50
     max_contexts: int = 20
     max_bytes_per_context: int = 20_000
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -105,6 +106,7 @@ class StartCommandAction:
     type: Literal["start_command"]
     command: str
     cwd: str | None = None
+    description: str | None = None
 
 
 @dataclass(frozen=True)

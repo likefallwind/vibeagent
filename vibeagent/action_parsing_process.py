@@ -53,6 +53,14 @@ def _parse_command(value: Any, raw: str, action_type: str) -> str:
     return value
 
 
+def _parse_optional_description(value: Any, raw: str, action_type: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ActionParseError(f"{action_type} action description must be a non-empty string when provided.", raw)
+    return value.strip()
+
+
 def _parse_process_id(value: Any, raw: str, action_type: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ActionParseError(f"{action_type} action requires a non-empty process_id.", raw)
@@ -140,6 +148,7 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
             command=command,
             timeout_ms=_parse_timeout_ms(value.get("timeout_ms"), raw),
             cwd=cwd,
+            description=_parse_optional_description(value.get("description"), raw, "run_command"),
             max_output_chars=_parse_optional_command_output_chars(value.get("max_output_chars"), raw),
             extract_output_contexts=extract_output_contexts,
             extract_output_diagnostics=extract_output_diagnostics,
@@ -171,7 +180,12 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
         cwd = value.get("cwd")
         if cwd is not None and not isinstance(cwd, str):
             raise ActionParseError("start_command action cwd must be a string when provided.", raw)
-        return StartCommandAction(type="start_command", command=command, cwd=cwd)
+        return StartCommandAction(
+            type="start_command",
+            command=command,
+            cwd=cwd,
+            description=_parse_optional_description(value.get("description"), raw, "start_command"),
+        )
 
     if action_type == "read_process":
         return ReadProcessAction(
