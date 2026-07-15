@@ -213,7 +213,7 @@ def execute_runtime_action(
                 stdout_contains=action.stdout_contains,
                 stderr_contains=action.stderr_contains,
                 regex=action.regex,
-                max_output_chars=action.max_output_chars or 4_000,
+                max_output_chars=action.max_output_chars,
             ),
         )
 

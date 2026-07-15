@@ -108,20 +108,22 @@ def wait_background_process(
     stdout_contains: str | None = None,
     stderr_contains: str | None = None,
     regex: bool = False,
-    max_output_chars: int = 4_000,
+    max_output_chars: int | None = None,
 ) -> WaitProcessObservation:
     background = _background_processes().get(process_id)
     if background is None:
         record = read_persistent_process_record(root, process_id)
         if record is not None:
+            resolved_max_output_chars = max_output_chars or record.max_output_chars or 4_000
             return wait_persistent_process(
                 record,
                 timeout_ms=timeout_ms,
                 stdout_contains=stdout_contains,
                 stderr_contains=stderr_contains,
                 regex=regex,
-                max_output_chars=max_output_chars,
+                max_output_chars=resolved_max_output_chars,
             )
+        resolved_max_output_chars = max_output_chars or 4_000
         return WaitProcessObservation(
             kind="wait_process",
             process_id=process_id,
@@ -137,10 +139,11 @@ def wait_background_process(
             signal=None,
             stdout="",
             stderr="",
-            max_output_chars=max_output_chars,
+            max_output_chars=resolved_max_output_chars,
             message="Unknown background process id.",
         )
 
+    resolved_max_output_chars = max_output_chars or getattr(background, "max_output_chars", None) or 4_000
     wait_for_output = stdout_contains is not None or stderr_contains is not None
     if wait_for_output:
         return wait_background_process_output(
@@ -149,7 +152,7 @@ def wait_background_process(
             stdout_contains=stdout_contains,
             stderr_contains=stderr_contains,
             regex=regex,
-            max_output_chars=max_output_chars,
+            max_output_chars=resolved_max_output_chars,
         )
 
     timed_out = False
@@ -162,8 +165,8 @@ def wait_background_process(
     running = exit_code is None
     if not running:
         close_background_handles(background)
-    stdout = read_text_tail(background.stdout_path, max_output_chars)
-    stderr = read_text_tail(background.stderr_path, max_output_chars)
+    stdout = read_text_tail(background.stdout_path, resolved_max_output_chars)
+    stderr = read_text_tail(background.stderr_path, resolved_max_output_chars)
     state = "still running" if running else "exited"
     timeout_note = " after timeout" if timed_out else ""
     return WaitProcessObservation(
@@ -181,7 +184,7 @@ def wait_background_process(
         signal=signal_name(exit_code) if exit_code and exit_code < 0 else None,
         stdout=stdout,
         stderr=stderr,
-        max_output_chars=max_output_chars,
+        max_output_chars=resolved_max_output_chars,
         message=f"Process {process_id} is {state}{timeout_note}.",
     )
 
