@@ -104,10 +104,10 @@ def powershell_start_process_target(args: list[str]) -> str:
     index = 0
     while index < len(args):
         token = args[index]
-        option, separator, inline_value = token.partition(":")
+        option, separator, _ = split_powershell_option_token(token)
         normalized = normalize_powershell_option(option, preserve_slash=False)
         if normalized == "-filepath":
-            return inline_value.strip() if separator else args[index + 1].strip() if index + 1 < len(args) else ""
+            return powershell_option_value(args, index)
         if normalized in POWERSHELL_START_PROCESS_VALUE_OPTIONS:
             index += 2 if not separator else 1
             continue
@@ -137,10 +137,10 @@ POWERSHELL_ENCODED_COMMAND_OPTIONS = {"-e", "-ec", "-enc", "-encodedcommand"}
 
 def powershell_encoded_command_payload(args: list[str]) -> str:
     for index, token in enumerate(args):
-        option, separator, inline_value = token.partition(":")
+        option, _, _ = split_powershell_option_token(token)
         if normalize_powershell_option(option, preserve_slash=False) not in POWERSHELL_ENCODED_COMMAND_OPTIONS:
             continue
-        encoded = inline_value.strip() if separator else args[index + 1].strip() if index + 1 < len(args) else ""
+        encoded = powershell_option_value(args, index)
         if not encoded:
             return ""
         try:
@@ -198,7 +198,7 @@ def powershell_expression_payload_launches_gui(
 def powershell_command_payload(args: list[str]) -> str:
     command_options = {"-c", "-command", "/c", "/command"}
     for index, token in enumerate(args):
-        option, separator, inline_value = token.partition(":")
+        option, separator, inline_value = split_powershell_option_token(token)
         normalized_option = normalize_powershell_option(option, preserve_slash=True)
         if normalized_option in command_options:
             return (
@@ -208,6 +208,20 @@ def powershell_command_payload(args: list[str]) -> str:
             )
     if args and args[0].lower() not in {"-file", "/file"} and not args[0].startswith("-"):
         return " ".join(args).strip()
+    return ""
+
+
+def split_powershell_option_token(token: str) -> tuple[str, bool, str]:
+    option, separator, inline_value = token.partition(":")
+    return option, bool(separator), inline_value
+
+
+def powershell_option_value(args: list[str], index: int) -> str:
+    _, has_inline_value, inline_value = split_powershell_option_token(args[index])
+    if has_inline_value:
+        return inline_value.strip()
+    if index + 1 < len(args):
+        return args[index + 1].strip()
     return ""
 
 
