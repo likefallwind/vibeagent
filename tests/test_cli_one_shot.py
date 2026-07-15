@@ -235,6 +235,44 @@ class CliOneShotTests(unittest.TestCase):
         self.assertEqual(payload["pendingVerificationChecks"], ["npm test"])
         self.assertEqual(payload["failedVerificationChecks"], ["npm test (exit=1)"])
 
+    def test_main_resumes_from_structured_input_run_id_alias(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="one-shot",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            stdin_payload = json.dumps(
+                {
+                    "runId": "previous-run",
+                    "input": [{"role": "user", "content": "continue the fix"}],
+                }
+            )
+            stdout = io.StringIO()
+            run_agent = Mock(return_value=result)
+            get_resume_context = Mock(return_value=("previous-run", "Previous session context.", "Resume loaded."))
+
+            with (
+                patch("sys.stdin", io.StringIO(stdin_payload)),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.get_resume_context", get_resume_context),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--json", "--input-format", "json", "--cwd", base, "-"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["priorContext"], {"loaded": True, "source": "resume", "runId": "previous-run"})
+        get_resume_context.assert_called_once()
+        self.assertEqual(get_resume_context.call_args.args[:2], ("previous-run", Path(base).resolve()))
+        self.assertEqual(run_agent.call_args.args[0], "continue the fix")
+        self.assertEqual(run_agent.call_args.kwargs["prior_context"], "Previous session context.")
+
     def test_main_one_shot_code_task_handles_keyboard_interrupt(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
@@ -549,4 +587,3 @@ class CliOneShotTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(provider_env["VIBEAGENT_PROVIDER"], "minimax")
         self.assertEqual(provider_env["MINIMAX_MODEL"], "MiniMax-custom")
-

@@ -17,6 +17,10 @@ class StreamJsonTaskInput:
     session_id: str | None = None
 
 
+SESSION_ID_KEYS = ("session_id", "sessionId", "run_id", "runId")
+NON_TASK_RECORD_TYPES = {"event", "result"}
+
+
 def resolve_stream_json_task_text(raw: str) -> str:
     return resolve_stream_json_task_input(raw).task
 
@@ -95,6 +99,8 @@ def _role_text_chunks_from_record(record: object) -> _RoleTextChunks:
 
 def _role_text_chunks_from_message(message: object) -> _RoleTextChunks:
     if not isinstance(message, dict):
+        return _RoleTextChunks()
+    if _is_non_task_machine_record(message):
         return _RoleTextChunks()
     role = _record_role(message)
     text = _message_text_chunks(message)
@@ -197,7 +203,16 @@ def _text_from_content(content: object) -> tuple[str, ...]:
 
 def _allows_task_text(record: dict[str, object]) -> bool:
     role = _record_role(record)
+    if _is_non_task_machine_record(record):
+        return False
     return role is None or role == "user"
+
+
+def _is_non_task_machine_record(record: dict[str, object]) -> bool:
+    if _record_role(record) is not None:
+        return False
+    record_type = record.get("type")
+    return isinstance(record_type, str) and record_type.strip().lower() in NON_TASK_RECORD_TYPES
 
 
 def _record_role(record: dict[str, object]) -> str | None:
@@ -215,7 +230,7 @@ def _record_role(record: dict[str, object]) -> str | None:
 def _session_id_from_record(record: object) -> str | None:
     if not isinstance(record, dict):
         return None
-    for key in ("session_id", "sessionId"):
+    for key in SESSION_ID_KEYS:
         value = record.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()

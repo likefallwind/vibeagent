@@ -72,6 +72,19 @@ class CliInputFormatTests(unittest.TestCase):
         self.assertEqual(parsed.task, "continue")
         self.assertEqual(parsed.session_id, "run-1")
 
+    def test_stream_json_extracts_run_id_alias_from_result_records(self) -> None:
+        raw = "\n".join(
+            [
+                json.dumps({"type": "result", "runId": "run-previous", "message": "done"}),
+                json.dumps({"type": "user", "text": "continue"}),
+            ]
+        )
+
+        parsed = resolve_stream_json_task_input(raw)
+
+        self.assertEqual(parsed.task, "continue")
+        self.assertEqual(parsed.session_id, "run-previous")
+
     def test_stream_json_supports_wrapped_role_message(self) -> None:
         raw = json.dumps(
             {
@@ -140,6 +153,21 @@ class CliInputFormatTests(unittest.TestCase):
         self.assertEqual(parsed.system_prompt, "Prefer tests.")
         self.assertEqual(parsed.assistant_context, "Previous context.")
         self.assertEqual(parsed.session_id, "run-1")
+
+    def test_json_extracts_run_id_alias(self) -> None:
+        raw = json.dumps(
+            {
+                "run_id": "run-json",
+                "input": [
+                    {"role": "user", "content": "continue task"},
+                ],
+            }
+        )
+
+        parsed = resolve_json_task_input(raw)
+
+        self.assertEqual(parsed.task, "continue task")
+        self.assertEqual(parsed.session_id, "run-json")
 
     def test_json_extracts_responses_style_input_messages(self) -> None:
         raw = json.dumps(
