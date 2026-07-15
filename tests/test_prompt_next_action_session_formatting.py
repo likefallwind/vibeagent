@@ -28,6 +28,7 @@ class PromptNextActionSessionFormattingTests(unittest.TestCase):
     def test_session_plan_status_helpers_prioritize_unfinished_markers(self) -> None:
         self.assertTrue(session_plan_has_unfinished_work("- [not done] finish tests"))
         self.assertTrue(session_plan_has_unfinished_work("- [undone] review changes"))
+        self.assertFalse(session_plan_appears_complete("- [not done] finish tests"))
         self.assertFalse(session_plan_appears_complete("- [pending] run tests"))
         self.assertTrue(session_plan_appears_complete("- [completed] run tests"))
 

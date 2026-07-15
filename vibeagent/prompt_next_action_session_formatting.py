@@ -34,6 +34,8 @@ def session_plan_has_unfinished_work(plan: object) -> bool:
 
 
 def session_plan_appears_complete(plan: object) -> bool:
+    if session_plan_has_unfinished_work(plan):
+        return False
     plan_lower = str(plan or "").lower()
     complete_markers = ("completed", "complete", "done")
     return any(marker in plan_lower for marker in complete_markers)
