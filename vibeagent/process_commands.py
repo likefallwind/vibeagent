@@ -10,8 +10,8 @@ from .process_output_commands import (
     get_process_output_contexts_text,
     get_process_output_diagnostics_report,
     get_process_output_diagnostics_text,
-    parse_process_request,
 )
+from .process_request_parsing import parse_process_request
 from .process_stop_commands import (
     format_check_stop_all_processes_report_text,
     format_check_stop_process_report_text,

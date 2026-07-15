@@ -14,6 +14,7 @@ from vibeagent.process_output_commands import (
     get_process_output_diagnostics_text,
     parse_process_request,
 )
+from vibeagent.process_request_parsing import parse_process_request as shared_parse_process_request
 
 
 class ProcessOutputCommandModuleTests(unittest.TestCase):
@@ -25,6 +26,7 @@ class ProcessOutputCommandModuleTests(unittest.TestCase):
         self.assertIs(process_commands.get_process_output_diagnostics_text, get_process_output_diagnostics_text)
         self.assertIs(process_commands.format_process_output_diagnostics_report_text, format_process_output_diagnostics_report_text)
         self.assertIs(process_commands.parse_process_request, parse_process_request)
+        self.assertIs(process_commands.parse_process_request, shared_parse_process_request)
 
     def test_process_runtime_reexports_output_runtime_helpers(self) -> None:
         self.assertIs(
