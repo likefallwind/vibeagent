@@ -414,32 +414,45 @@ def parse_edit_operations(value: Any, raw: str, action_type: str = "multi_edit_f
     return edits
 
 
+def _coerce_int(value: Any) -> int | None:
+    if type(value) is int:
+        return value
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.isdigit():
+            return int(stripped)
+    return None
+
+
 def parse_optional_positive_int(value: Any, name: str, raw: str, maximum: int | None) -> int | None:
     if value is None:
         return None
-    if type(value) is not int or value < 1:
+    parsed = _coerce_int(value)
+    if parsed is None or parsed < 1:
         raise ActionParseError(f"{name} must be a positive integer.", raw)
-    if maximum is not None and value > maximum:
+    if maximum is not None and parsed > maximum:
         raise ActionParseError(f"{name} must be at most {maximum}.", raw)
-    return value
+    return parsed
 
 
 def parse_optional_nonnegative_int(value: Any, name: str, raw: str, maximum: int | None) -> int | None:
     if value is None:
         return None
-    if type(value) is not int or value < 0:
+    parsed = _coerce_int(value)
+    if parsed is None or parsed < 0:
         raise ActionParseError(f"{name} must be a non-negative integer.", raw)
-    if maximum is not None and value > maximum:
+    if maximum is not None and parsed > maximum:
         raise ActionParseError(f"{name} must be at most {maximum}.", raw)
-    return value
+    return parsed
 
 
 def parse_nonnegative_int(value: Any, name: str, raw: str, maximum: int | None) -> int:
-    if type(value) is not int or value < 0:
+    parsed = _coerce_int(value)
+    if parsed is None or parsed < 0:
         raise ActionParseError(f"{name} must be a non-negative integer.", raw)
-    if maximum is not None and value > maximum:
+    if maximum is not None and parsed > maximum:
         raise ActionParseError(f"{name} must be at most {maximum}.", raw)
-    return value
+    return parsed
 
 
 def summarize_plan_update(action: UpdatePlanAction) -> str:

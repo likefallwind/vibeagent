@@ -1776,6 +1776,9 @@ class ActionTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionParseError, "timeout_ms must be at least 100"):
             parse_tool_action("run_command", {"command": "python3 test.py", "timeout_ms": 99})
 
+        with self.assertRaisesRegex(ActionParseError, "timeout_ms must be a positive integer"):
+            parse_tool_action("run_command", {"command": "python3 test.py", "timeout_ms": "soon"})
+
         with self.assertRaisesRegex(ActionParseError, "timeout_ms must be at most 600000"):
             parse_tool_action("run_command", {"command": "python3 test.py", "timeout_ms": 600001})
 
@@ -2318,7 +2321,7 @@ class ActionTests(unittest.TestCase):
 
     def test_parse_tool_action_accepts_claude_tool_name_aliases(self) -> None:
         read_action = parse_tool_action("Read", {"file_path": "app.py", "offset": 2, "limit": 5})
-        bash_action = parse_tool_action("Bash", {"command": "python3 -m unittest"})
+        bash_action = parse_tool_action("Bash", {"command": "python3 -m unittest", "timeout": "1000"})
         background_bash_action = parse_tool_action("Bash", {"command": "npm run dev", "run_in_background": True})
         bash_output_action = parse_tool_action("BashOutput", {"bash_id": "proc-1", "max_output_chars": 2000})
         kill_bash_action = parse_tool_action("KillBash", {"bash_id": "proc-1"})
@@ -2358,6 +2361,7 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(read_action.start_line, 2)
         self.assertEqual(read_action.line_count, 5)
         self.assertEqual(bash_action.type, "run_command")
+        self.assertEqual(bash_action.timeout_ms, 1000)
         self.assertEqual(background_bash_action.type, "start_command")
         self.assertEqual(background_bash_action.command, "npm run dev")
         self.assertEqual(bash_output_action.type, "read_process")
@@ -2419,7 +2423,7 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(action.timeout_ms, 30_000)
 
     def test_parse_tool_action_accepts_claude_read_limit_without_offset(self) -> None:
-        action = parse_tool_action("Read", {"file_path": "README.md", "limit": 2})
+        action = parse_tool_action("Read", {"file_path": "README.md", "limit": "2"})
 
         self.assertEqual(action.type, "read_file")
         self.assertEqual(action.path, "README.md")
