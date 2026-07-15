@@ -2336,10 +2336,11 @@ class ActionTests(unittest.TestCase):
         exit_plan_action = parse_tool_action("ExitPlanMode", {"plan": "Implement the selected fix"})
         write_action = parse_tool_action("Write", {"file_path": "out.txt", "content": "ok\n"})
         edit_action = parse_tool_action("Edit", {"file_path": "app.py", "old_string": "old", "new_string": "new"})
+        edit_replace_all_action = parse_tool_action("Edit", {"file_path": "app.py", "old_string": "old", "new_string": "new", "replace_all": "true"})
         notebook_read_action = parse_tool_action("NotebookRead", {"notebook_path": "analysis.ipynb", "offset": 3, "limit": 4})
         notebook_edit_action = parse_tool_action(
             "NotebookEdit",
-            {"notebook_path": "analysis.ipynb", "old_string": '"old"', "new_string": '"new"'},
+            {"notebook_path": "analysis.ipynb", "old_string": '"old"', "new_string": '"new"', "replace_all": "false"},
         )
         multi_edit_action = parse_tool_action(
             "MultiEdit",
@@ -2391,6 +2392,9 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(edit_action.type, "edit_file")
         self.assertEqual(edit_action.old, "old")
         self.assertEqual(edit_action.new, "new")
+        self.assertEqual(edit_replace_all_action.type, "regex_replace")
+        self.assertEqual(edit_replace_all_action.pattern, "old")
+        self.assertEqual(edit_replace_all_action.replacement, "new")
         self.assertEqual(notebook_read_action.type, "notebook_read")
         self.assertEqual(notebook_read_action.path, "analysis.ipynb")
         self.assertEqual(notebook_read_action.start_cell, 3)

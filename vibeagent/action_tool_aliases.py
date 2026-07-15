@@ -189,10 +189,10 @@ def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, d
             {"run_in_background", "timeout", "timeout_ms", "max_output_chars"},
         )
     if name == "NotebookEdit" and "old_string" in tool_input and "new_string" in tool_input:
-        if tool_input.get("replace_all") is True:
+        if _is_truthy_alias_bool(tool_input.get("replace_all")):
             return "regex_replace", _normalize_edit_replace_all_input(tool_input)
         return "edit_file", _normalize_edit_file_input(tool_input)
-    if name == "Edit" and tool_input.get("replace_all") is True:
+    if name == "Edit" and _is_truthy_alias_bool(tool_input.get("replace_all")):
         return "regex_replace", _normalize_edit_replace_all_input(tool_input)
 
     normalizer = _NAME_INPUT_NORMALIZERS.get(name) or _ACTION_INPUT_NORMALIZERS.get(action_type)
