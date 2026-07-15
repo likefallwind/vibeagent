@@ -347,52 +347,30 @@ def format_latest_completion_detail_lines(
     max_text: int = 160,
 ) -> list[str]:
     lines: list[str] = []
-    if summary.latest_completion_pending_verification_checks:
-        lines.append(f"{indent}latestCompletionPendingChecks:")
-        lines.extend(
-            f"{indent}  - {compact(check, max_text)}"
-            for check in summary.latest_completion_pending_verification_checks
-        )
-    if summary.latest_completion_failed_verification_checks:
-        lines.append(f"{indent}latestCompletionFailedChecks:")
-        lines.extend(
-            f"{indent}  - {compact(check, max_text)}"
-            for check in summary.latest_completion_failed_verification_checks
-        )
-    if summary.latest_completion_final_review_issues:
-        lines.append(f"{indent}latestCompletionFinalReviewIssues:")
-        lines.extend(
-            f"{indent}  - {compact(issue, max_text)}"
-            for issue in summary.latest_completion_final_review_issues
-        )
-    if summary.latest_completion_final_review_changed_files:
-        lines.append(f"{indent}latestCompletionFinalReviewChangedFiles:")
-        lines.extend(
-            f"{indent}  - {compact(path, max_text)}"
-            for path in summary.latest_completion_final_review_changed_files
-        )
-    if summary.latest_completion_tool_errors:
-        lines.append(f"{indent}latestCompletionToolErrors:")
-        lines.extend(
-            f"{indent}  - {compact(error, max_text)}"
-            for error in summary.latest_completion_tool_errors
-        )
-    if summary.latest_completion_checkpoint_failures:
-        lines.append(f"{indent}latestCompletionCheckpointFailures:")
-        lines.extend(
-            f"{indent}  - {compact(failure, max_text)}"
-            for failure in summary.latest_completion_checkpoint_failures
-        )
-    if summary.latest_completion_active_background_processes:
-        lines.append(f"{indent}latestCompletionActiveProcesses:")
-        lines.extend(
-            f"{indent}  - {compact(process, max_text)}"
-            for process in summary.latest_completion_active_background_processes
-        )
-    if summary.latest_completion_denied_approvals:
-        lines.append(f"{indent}latestCompletionDeniedApprovals:")
-        lines.extend(
-            f"{indent}  - {compact(approval, max_text)}"
-            for approval in summary.latest_completion_denied_approvals
-        )
+    sections = [
+        ("latestCompletionPendingChecks", summary.latest_completion_pending_verification_checks),
+        ("latestCompletionFailedChecks", summary.latest_completion_failed_verification_checks),
+        ("latestCompletionFinalReviewIssues", summary.latest_completion_final_review_issues),
+        ("latestCompletionFinalReviewChangedFiles", summary.latest_completion_final_review_changed_files),
+        ("latestCompletionToolErrors", summary.latest_completion_tool_errors),
+        ("latestCompletionCheckpointFailures", summary.latest_completion_checkpoint_failures),
+        ("latestCompletionActiveProcesses", summary.latest_completion_active_background_processes),
+        ("latestCompletionDeniedApprovals", summary.latest_completion_denied_approvals),
+    ]
+    for title, items in sections:
+        append_bulleted_section(lines, title, items, indent=indent, max_text=max_text)
     return lines
+
+
+def append_bulleted_section(
+    lines: list[str],
+    title: str,
+    items: list[str],
+    *,
+    indent: str,
+    max_text: int,
+) -> None:
+    if not items:
+        return
+    lines.append(f"{indent}{title}:")
+    lines.extend(f"{indent}  - {compact(item, max_text)}" for item in items)
