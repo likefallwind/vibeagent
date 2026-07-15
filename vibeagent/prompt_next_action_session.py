@@ -7,6 +7,7 @@ from .prompt_next_action_session_formatting import (
     has_completion_blocker_signal,
     plan_item_labels,
     session_audit_process_labels,
+    text_reports_ready,
     verification_command_labels,
 )
 from .types import Observation
@@ -14,7 +15,6 @@ from .types import Observation
 
 def _session_summary_next_action_instruction(base: str, latest: Observation) -> str:
     summary = str(getattr(latest, "summary", "") or "")
-    summary_lower = summary.lower()
 
     if not getattr(latest, "ok", False):
         return (
@@ -22,7 +22,7 @@ def _session_summary_next_action_instruction(base: str, latest: Observation) -> 
             "then continue with the next useful action before finishing."
         )
 
-    if "ready: yes" in summary_lower or "status: ready" in summary_lower:
+    if text_reports_ready(summary):
         return (
             f"{base} Session summary reports the recovered session is ready. "
             "Confirm any requested deliverable is present, or answer directly if the task is complete."
@@ -271,7 +271,6 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
         )
 
     handoff = str(getattr(latest, "handoff", "") or "")
-    handoff_lower = handoff.lower()
 
     if not getattr(latest, "ok", False):
         return (
@@ -279,7 +278,7 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
             "then continue the next useful action before finishing."
         )
 
-    if "ready: yes" in handoff_lower or "status: ready" in handoff_lower:
+    if text_reports_ready(handoff):
         return (
             f"{base} Session handoff reports the recovered session is ready. "
             "Use its plan and verification sections to continue any remaining requested work, "

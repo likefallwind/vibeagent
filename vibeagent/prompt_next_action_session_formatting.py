@@ -10,6 +10,11 @@ def format_next_action_items(items: list[str], max_items: int = 3) -> str:
     return "; ".join(shown) + suffix
 
 
+def text_reports_ready(text: object) -> bool:
+    lowered = str(text or "").lower()
+    return "ready: yes" in lowered or "status: ready" in lowered
+
+
 def session_audit_process_labels(values: object) -> list[str]:
     labels: list[str] = []
     if not isinstance(values, list):

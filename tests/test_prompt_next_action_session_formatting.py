@@ -9,6 +9,7 @@ from vibeagent.prompt_next_action_session_formatting import (
     has_completion_blocker_signal,
     plan_item_labels,
     session_audit_process_labels,
+    text_reports_ready,
     verification_command_labels,
 )
 
@@ -16,6 +17,11 @@ from vibeagent.prompt_next_action_session_formatting import (
 class PromptNextActionSessionFormattingTests(unittest.TestCase):
     def test_format_next_action_items_limits_output(self) -> None:
         self.assertEqual(format_next_action_items(["one", "two", "three", "four"]), "one; two; three; +1 more")
+
+    def test_text_reports_ready_matches_summary_readiness_markers(self) -> None:
+        self.assertTrue(text_reports_ready("Session summary:\n  ready: yes"))
+        self.assertTrue(text_reports_ready("Session handoff:\n  status: READY"))
+        self.assertFalse(text_reports_ready("Session summary:\n  status: active"))
 
     def test_verification_command_labels_include_cwd_and_reason(self) -> None:
         labels = verification_command_labels(
