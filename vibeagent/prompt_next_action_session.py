@@ -7,6 +7,8 @@ from .prompt_next_action_session_formatting import (
     has_completion_blocker_signal,
     plan_item_labels,
     session_audit_process_labels,
+    session_plan_appears_complete,
+    session_plan_has_unfinished_work,
     text_reports_ready,
     verification_command_labels,
 )
@@ -293,7 +295,6 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
 
 def _session_plan_next_action_instruction(base: str, latest: Observation) -> str:
     plan = str(getattr(latest, "plan", "") or "")
-    plan_lower = plan.lower()
 
     if not getattr(latest, "ok", False):
         return (
@@ -301,26 +302,14 @@ def _session_plan_next_action_instruction(base: str, latest: Observation) -> str
             "then continue with the next useful action before finishing."
         )
 
-    unfinished_markers = (
-        "in_progress",
-        "in progress",
-        "pending",
-        "todo",
-        "not started",
-        "not complete",
-        "not completed",
-        "incomplete",
-        "blocked",
-    )
-    if any(marker in plan_lower for marker in unfinished_markers):
+    if session_plan_has_unfinished_work(plan):
         return (
             f"{base} Session plan shows unfinished work. "
             "Continue the in-progress or next pending plan item, update_plan if the plan changed, "
             "then run session_verification or session_audit before finishing."
         )
 
-    complete_markers = ("completed", "complete", "done")
-    if any(marker in plan_lower for marker in complete_markers):
+    if session_plan_appears_complete(plan):
         return (
             f"{base} Session plan appears complete. "
             "Confirm readiness with session_verification or session_audit, "

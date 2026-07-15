@@ -7097,12 +7097,12 @@ class AgentTests(unittest.TestCase):
         self.assertIn("session_audit", instruction)
         self.assertIn("answer directly", instruction)
 
-    def test_next_action_instruction_treats_not_complete_session_plan_as_unfinished(self) -> None:
+    def test_next_action_instruction_treats_not_done_session_plan_as_unfinished(self) -> None:
         observation = SessionPlanObservation(
             kind="session_plan",
             run_id="run-1",
             ok=True,
-            plan="- [not complete] Finish retry loop\n- [done] Read code",
+            plan="- [not done] Finish retry loop\n- [done] Read code",
             message="Read session plan for run-1.",
         )
 

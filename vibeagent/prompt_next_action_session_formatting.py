@@ -15,6 +15,30 @@ def text_reports_ready(text: object) -> bool:
     return "ready: yes" in lowered or "status: ready" in lowered
 
 
+def session_plan_has_unfinished_work(plan: object) -> bool:
+    plan_lower = str(plan or "").lower()
+    unfinished_markers = (
+        "in_progress",
+        "in progress",
+        "pending",
+        "todo",
+        "not started",
+        "not complete",
+        "not completed",
+        "incomplete",
+        "not done",
+        "undone",
+        "blocked",
+    )
+    return any(marker in plan_lower for marker in unfinished_markers)
+
+
+def session_plan_appears_complete(plan: object) -> bool:
+    plan_lower = str(plan or "").lower()
+    complete_markers = ("completed", "complete", "done")
+    return any(marker in plan_lower for marker in complete_markers)
+
+
 def session_audit_process_labels(values: object) -> list[str]:
     labels: list[str] = []
     if not isinstance(values, list):

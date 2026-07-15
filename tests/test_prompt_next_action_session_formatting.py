@@ -9,6 +9,8 @@ from vibeagent.prompt_next_action_session_formatting import (
     has_completion_blocker_signal,
     plan_item_labels,
     session_audit_process_labels,
+    session_plan_appears_complete,
+    session_plan_has_unfinished_work,
     text_reports_ready,
     verification_command_labels,
 )
@@ -22,6 +24,12 @@ class PromptNextActionSessionFormattingTests(unittest.TestCase):
         self.assertTrue(text_reports_ready("Session summary:\n  ready: yes"))
         self.assertTrue(text_reports_ready("Session handoff:\n  status: READY"))
         self.assertFalse(text_reports_ready("Session summary:\n  status: active"))
+
+    def test_session_plan_status_helpers_prioritize_unfinished_markers(self) -> None:
+        self.assertTrue(session_plan_has_unfinished_work("- [not done] finish tests"))
+        self.assertTrue(session_plan_has_unfinished_work("- [undone] review changes"))
+        self.assertFalse(session_plan_appears_complete("- [pending] run tests"))
+        self.assertTrue(session_plan_appears_complete("- [completed] run tests"))
 
     def test_verification_command_labels_include_cwd_and_reason(self) -> None:
         labels = verification_command_labels(
