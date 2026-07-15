@@ -20,6 +20,7 @@ class PersistentProcessRecord:
     stderr_path: Path
     exit_code_path: Path | None = None
     start_ticks: int | None = None
+    max_output_chars: int | None = None
 
 
 def process_registry_dir(root: Path) -> Path:
@@ -46,6 +47,7 @@ def write_persistent_process_record(workspace: RunWorkspace, record: PersistentP
         "stderr_path": relative_process_log_path(workspace.root, record.stderr_path),
         "exit_code_path": relative_process_log_path(workspace.root, record.exit_code_path) if record.exit_code_path else None,
         "start_ticks": record.start_ticks,
+        "max_output_chars": record.max_output_chars,
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -107,6 +109,7 @@ def parse_persistent_process_record(root: Path, payload: object) -> PersistentPr
     stderr_text = payload.get("stderr_path")
     exit_code_text = payload.get("exit_code_path")
     start_ticks = payload.get("start_ticks")
+    max_output_chars = payload.get("max_output_chars")
     if not isinstance(process_id, str) or not process_id.strip() or Path(process_id).name != process_id:
         return None
     if not isinstance(command, str) or not isinstance(cwd, str):
@@ -129,6 +132,9 @@ def parse_persistent_process_record(root: Path, payload: object) -> PersistentPr
         stderr_path=stderr_path,
         exit_code_path=exit_code_path,
         start_ticks=start_ticks if isinstance(start_ticks, int) else None,
+        max_output_chars=(
+            max_output_chars if isinstance(max_output_chars, int) and 1_000 <= max_output_chars <= 50_000 else None
+        ),
     )
 
 

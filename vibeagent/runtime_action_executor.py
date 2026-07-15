@@ -179,7 +179,12 @@ def execute_runtime_action(
         )
 
     if isinstance(action, StartCommandAction):
-        return start_background_command(workspace, action.command, action.cwd)
+        return start_background_command(
+            workspace,
+            action.command,
+            action.cwd,
+            max_output_chars=action.max_output_chars or 4_000,
+        )
 
     if isinstance(action, ReadProcessAction):
         return attach_output_analysis_to_process_observation(
@@ -187,7 +192,7 @@ def execute_runtime_action(
             read_background_process(
                 workspace.root,
                 action.process_id,
-                max_output_chars=action.max_output_chars or 4_000,
+                max_output_chars=action.max_output_chars,
                 output_filter=action.output_filter,
             ),
         )

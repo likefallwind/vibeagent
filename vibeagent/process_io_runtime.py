@@ -38,17 +38,18 @@ def _filter_output_lines(text: str, pattern: str | None) -> str:
 def read_background_process(
     root: Path,
     process_id: str,
-    max_output_chars: int = 4_000,
+    max_output_chars: int | None = None,
     output_filter: str | None = None,
 ) -> ReadProcessObservation:
     background = _background_processes().get(process_id)
     if background is None:
         record = read_persistent_process_record(root, process_id)
         if record is not None:
+            resolved_max_output_chars = max_output_chars or record.max_output_chars or 4_000
             running = persistent_process_running(record)
             exit_code = None if running else read_persistent_process_exit_code(record)
-            stdout = _filter_output_lines(read_text_tail(record.stdout_path, max_output_chars), output_filter)
-            stderr = _filter_output_lines(read_text_tail(record.stderr_path, max_output_chars), output_filter)
+            stdout = _filter_output_lines(read_text_tail(record.stdout_path, resolved_max_output_chars), output_filter)
+            stderr = _filter_output_lines(read_text_tail(record.stderr_path, resolved_max_output_chars), output_filter)
             state = "running" if running else "exited or unavailable"
             return ReadProcessObservation(
                 kind="read_process",
@@ -60,9 +61,10 @@ def read_background_process(
                 signal=process_signal_name(exit_code),
                 stdout=stdout,
                 stderr=stderr,
-                max_output_chars=max_output_chars,
+                max_output_chars=resolved_max_output_chars,
                 message=f"Process {process_id} is {state}.",
             )
+        resolved_max_output_chars = max_output_chars or 4_000
         return ReadProcessObservation(
             kind="read_process",
             process_id=process_id,
@@ -73,16 +75,17 @@ def read_background_process(
             signal=None,
             stdout="",
             stderr="",
-            max_output_chars=max_output_chars,
+            max_output_chars=resolved_max_output_chars,
             message="Unknown background process id.",
         )
 
+    resolved_max_output_chars = max_output_chars or getattr(background, "max_output_chars", None) or 4_000
     exit_code = background.process.poll()
     running = exit_code is None
     if not running:
         close_background_handles(background)
-    stdout = _filter_output_lines(read_text_tail(background.stdout_path, max_output_chars), output_filter)
-    stderr = _filter_output_lines(read_text_tail(background.stderr_path, max_output_chars), output_filter)
+    stdout = _filter_output_lines(read_text_tail(background.stdout_path, resolved_max_output_chars), output_filter)
+    stderr = _filter_output_lines(read_text_tail(background.stderr_path, resolved_max_output_chars), output_filter)
     return ReadProcessObservation(
         kind="read_process",
         process_id=process_id,
@@ -93,7 +96,7 @@ def read_background_process(
         signal=signal_name(exit_code) if exit_code and exit_code < 0 else None,
         stdout=stdout,
         stderr=stderr,
-        max_output_chars=max_output_chars,
+        max_output_chars=resolved_max_output_chars,
         message=f"Process {process_id} is {'running' if running else 'exited'}.",
     )
 

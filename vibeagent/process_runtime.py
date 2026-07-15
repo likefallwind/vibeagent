@@ -70,6 +70,7 @@ class BackgroundProcess:
     stdout_path: Path
     stderr_path: Path
     exit_code_path: Path
+    max_output_chars: int
     stdout_handle: Any
     stderr_handle: Any
 
@@ -193,7 +194,12 @@ def execute_run_command_item(
     return attach_output_analysis_to_command_result(workspace, action, result)
 
 
-def start_background_command(workspace: RunWorkspace, command: str, cwd: str | None = None) -> StartCommandObservation:
+def start_background_command(
+    workspace: RunWorkspace,
+    command: str,
+    cwd: str | None = None,
+    max_output_chars: int = 4_000,
+) -> StartCommandObservation:
     blocked = get_blocked_command_reason(command)
     if blocked:
         return StartCommandObservation(
@@ -284,6 +290,7 @@ def start_background_command(workspace: RunWorkspace, command: str, cwd: str | N
         stdout_path=stdout_path,
         stderr_path=stderr_path,
         exit_code_path=exit_code_path,
+        max_output_chars=max_output_chars,
         stdout_handle=stdout_handle,
         stderr_handle=stderr_handle,
     )
@@ -298,6 +305,7 @@ def start_background_command(workspace: RunWorkspace, command: str, cwd: str | N
             stderr_path=stderr_path,
             exit_code_path=exit_code_path,
             start_ticks=read_process_start_ticks(process.pid),
+            max_output_chars=max_output_chars,
         ),
     )
     return StartCommandObservation(

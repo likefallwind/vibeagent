@@ -9459,6 +9459,37 @@ class ActionTests(unittest.TestCase):
                 if start.kind == "start_command" and start.process_id:
                     execute_action(workspace, StopProcessAction(type="stop_process", process_id=start.process_id))
 
+    def test_execute_read_process_uses_start_command_output_limit_by_default(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            start = execute_action(
+                workspace,
+                StartCommandAction(
+                    type="start_command",
+                    command="python3 -c \"import time; print('A' * 3000, flush=True); time.sleep(5)\"",
+                    max_output_chars=1000,
+                ),
+            )
+            try:
+                self.assertEqual(start.kind, "start_command")
+                self.assertTrue(start.ok)
+                time.sleep(0.2)
+
+                read = execute_action(workspace, ReadProcessAction(type="read_process", process_id=start.process_id))
+                explicit = execute_action(
+                    workspace,
+                    ReadProcessAction(type="read_process", process_id=start.process_id, max_output_chars=2000),
+                )
+
+                self.assertEqual(read.kind, "read_process")
+                self.assertEqual(read.max_output_chars, 1000)
+                self.assertLessEqual(len(read.stdout.encode("utf-8")), 1000)
+                self.assertEqual(explicit.max_output_chars, 2000)
+                self.assertGreater(len(explicit.stdout), len(read.stdout))
+            finally:
+                if start.kind == "start_command" and start.process_id:
+                    execute_action(workspace, StopProcessAction(type="stop_process", process_id=start.process_id))
+
     def test_execute_process_output_contexts_reads_referenced_source_lines(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             root = Path(base)
