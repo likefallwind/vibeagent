@@ -228,11 +228,18 @@ class ActionToolAliasTests(unittest.TestCase):
     def test_claude_web_fetch_preserves_prompt_intent(self) -> None:
         action = parse_tool_action(
             "WebFetch",
-            {"url": "https://docs.python.org/3/", "prompt": "Extract install commands."},
+            {
+                "url": "https://docs.python.org/3/",
+                "prompt": "Extract install commands.",
+                "timeout_ms": 1_500,
+                "max_text_chars": 4_000,
+            },
         )
 
         self.assertEqual(action.type, "web_fetch")
         self.assertEqual(action.prompt, "Extract install commands.")
+        self.assertEqual(action.timeout_ms, 1_500)
+        self.assertEqual(action.max_text_chars, 4_000)
 
     def test_web_fetch_observation_includes_prompt_for_next_model_step(self) -> None:
         fetched = WebFetchObservation(

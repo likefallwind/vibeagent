@@ -114,6 +114,18 @@ RUNTIME_NETWORK_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "url": {"type": "string", "description": "Public HTTP or HTTPS document URL."},
+                "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 10000,
+                    "description": "Optional request timeout in milliseconds. Defaults to 10000.",
+                },
+                "max_text_chars": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000,
+                    "description": "Maximum readable text characters to return. Defaults to 20000.",
+                },
                 "prompt": {"type": "string", "description": "Optional extraction or question prompt."},
             },
             "required": ["url"],

@@ -44,6 +44,15 @@ class CommandRuntimeToolDefinitionTests(unittest.TestCase):
         self.assertIn("prompt", web_fetch["input_schema"]["properties"])
         self.assertNotIn("prompt", web_fetch["input_schema"]["required"])
 
+    def test_claude_web_fetch_schema_exposes_supported_limits(self) -> None:
+        web_fetch = next(tool for tool in RUNTIME_NETWORK_TOOL_DEFINITIONS if tool["name"] == "WebFetch")
+        properties = web_fetch["input_schema"]["properties"]
+
+        self.assertIn("timeout_ms", properties)
+        self.assertIn("max_text_chars", properties)
+        self.assertNotIn("timeout_ms", web_fetch["input_schema"]["required"])
+        self.assertNotIn("max_text_chars", web_fetch["input_schema"]["required"])
+
 
 if __name__ == "__main__":
     unittest.main()
