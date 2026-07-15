@@ -12,6 +12,10 @@ POWERSHELL_SCRIPT_BLOCK_PATTERN = re.compile(
     r"\b(?P<launcher>start-job|start-threadjob|threadjob)\b[^{]*\{(?P<body>[^{}]+)\}",
     re.IGNORECASE,
 )
+POWERSHELL_SCRIPTBLOCK_CREATE_PATTERN = re.compile(
+    r"\[\s*scriptblock\s*\]\s*::\s*create\s*\(\s*(?P<quote>['\"])(?P<body>.*?)(?P=quote)\s*\)",
+    re.IGNORECASE,
+)
 
 
 def powershell_invocation_launches_gui(
@@ -41,6 +45,7 @@ def powershell_payload_launches_gui(
         nested_command_launches_gui(payload)
         or powershell_expression_payload_launches_gui(payload, nested_command_launches_gui)
         or powershell_script_block_payload_launches_gui(payload, nested_command_launches_gui)
+        or powershell_scriptblock_create_payload_launches_gui(payload, nested_command_launches_gui)
     )
 
 
@@ -70,6 +75,17 @@ def powershell_script_block_payload_launches_gui(
         launcher = match.group("launcher").lower()
         if launcher not in POWERSHELL_SCRIPT_BLOCK_LAUNCHERS:
             continue
+        body = match.group("body").strip()
+        if body and nested_command_launches_gui(body):
+            return True
+    return False
+
+
+def powershell_scriptblock_create_payload_launches_gui(
+    payload: str,
+    nested_command_launches_gui: Callable[[str], bool],
+) -> bool:
+    for match in POWERSHELL_SCRIPTBLOCK_CREATE_PATTERN.finditer(payload):
         body = match.group("body").strip()
         if body and nested_command_launches_gui(body):
             return True
