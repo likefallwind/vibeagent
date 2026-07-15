@@ -59,6 +59,14 @@ class ProcessWaitWriteCommandModuleTests(unittest.TestCase):
         get_check.assert_called_once_with(root, "bg-1 hello\\n", None, None)
         format_check.assert_called_once_with(check_report)
 
+    def test_parse_wait_process_request_preserves_unspecified_max_chars(self) -> None:
+        self.assertEqual(parse_wait_process_request("bg-1"), ("bg-1", 5_000, None))
+        self.assertEqual(parse_wait_process_request("bg-1 2000 3000"), ("bg-1", 2_000, 3_000))
+        self.assertEqual(
+            parse_wait_process_request(process_id="bg-1", timeout_ms=1500, max_output_chars=2500),
+            ("bg-1", 1_500, 2_500),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

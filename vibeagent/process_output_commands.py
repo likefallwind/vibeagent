@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-import shlex
 import sys
 
 from .actions import execute_action as _default_execute_action
 from .output_serialization import serialize_output_context_result, serialize_output_diagnostic
+from .process_request_parsing import parse_process_request
 from .process_report_helpers import (
     format_process_output_contexts_report_text,
     format_process_output_diagnostics_report_text,
@@ -247,37 +247,6 @@ def get_process_output_diagnostics_report(
         "contextsTruncated": observation.contexts_truncated,
         "message": observation.message,
     }
-
-
-def parse_process_request(
-    argument: str | None = None,
-    process_id: str | None = None,
-    max_output_chars: int | None = None,
-) -> tuple[str, int | None]:
-    selected_process_id = process_id.strip() if process_id else None
-    selected_max = max_output_chars
-    if argument and argument.strip():
-        if process_id is not None:
-            raise ValueError("process argument cannot be combined with explicit process_id.")
-        try:
-            parts = shlex.split(argument)
-        except ValueError as error:
-            raise ValueError(str(error)) from error
-        if len(parts) > 2:
-            raise ValueError("expected process id and optional max chars.")
-        if parts:
-            selected_process_id = parts[0]
-        if len(parts) == 2:
-            if not parts[1].isdigit():
-                raise ValueError(f"invalid max chars: {parts[1]}")
-            selected_max = int(parts[1])
-    if not selected_process_id:
-        raise ValueError("process id is required.")
-    if selected_max is not None and selected_max < 1_000:
-        raise ValueError("max chars must be at least 1000.")
-    if selected_max is not None and selected_max > 50_000:
-        raise ValueError("max chars must be at most 50000.")
-    return selected_process_id, selected_max
 
 
 def _validate_process_output_context_limits(

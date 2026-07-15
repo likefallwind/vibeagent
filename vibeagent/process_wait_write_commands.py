@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-import shlex
 import sys
 
 from .actions import execute_action as _default_execute_action
+from .process_request_parsing import parse_positive_decimal, split_process_argument, validate_max_output_chars
 from .process_report_helpers import (
     format_structured_command_output_analysis_lines,
     indent_block as _indent_block,
@@ -35,7 +35,7 @@ def get_wait_process_text(
     argument: str | None = None,
     process_id: str | None = None,
     timeout_ms: int = 5_000,
-    max_output_chars: int = 4_000,
+    max_output_chars: int | None = None,
     stdout_contains: str | None = None,
     stderr_contains: str | None = None,
     regex: bool = False,
@@ -61,7 +61,7 @@ def get_wait_process_report(
     argument: str | None = None,
     process_id: str | None = None,
     timeout_ms: int = 5_000,
-    max_output_chars: int = 4_000,
+    max_output_chars: int | None = None,
     stdout_contains: str | None = None,
     stderr_contains: str | None = None,
     regex: bool = False,
@@ -193,40 +193,31 @@ def parse_wait_process_request(
     argument: str | None = None,
     process_id: str | None = None,
     timeout_ms: int = 5_000,
-    max_output_chars: int = 4_000,
-) -> tuple[str, int, int]:
+    max_output_chars: int | None = None,
+) -> tuple[str, int, int | None]:
     selected_process_id = process_id.strip() if process_id else None
     selected_timeout = timeout_ms
     selected_max = max_output_chars
-    if argument and argument.strip():
+    parts = split_process_argument(
+        argument,
+        max_parts=3,
+        too_many_message="expected process id, optional timeout ms, and optional max chars.",
+    )
+    if parts:
         if process_id is not None:
             raise ValueError("wait-process argument cannot be combined with explicit process_id.")
-        try:
-            parts = shlex.split(argument)
-        except ValueError as error:
-            raise ValueError(str(error)) from error
-        if len(parts) > 3:
-            raise ValueError("expected process id, optional timeout ms, and optional max chars.")
-        if parts:
-            selected_process_id = parts[0]
+        selected_process_id = parts[0]
         if len(parts) >= 2:
-            if not parts[1].isdigit():
-                raise ValueError(f"invalid timeout ms: {parts[1]}")
-            selected_timeout = int(parts[1])
+            selected_timeout = parse_positive_decimal(parts[1], "timeout ms")
         if len(parts) == 3:
-            if not parts[2].isdigit():
-                raise ValueError(f"invalid max chars: {parts[2]}")
-            selected_max = int(parts[2])
+            selected_max = parse_positive_decimal(parts[2], "max chars")
     if not selected_process_id:
         raise ValueError("process id is required.")
     if selected_timeout < 100:
         raise ValueError("timeout ms must be at least 100.")
     if selected_timeout > 600_000:
         raise ValueError("timeout ms must be at most 600000.")
-    if selected_max < 1_000:
-        raise ValueError("max chars must be at least 1000.")
-    if selected_max > 50_000:
-        raise ValueError("max chars must be at most 50000.")
+    validate_max_output_chars(selected_max)
     return selected_process_id, selected_timeout, selected_max
 
 

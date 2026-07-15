@@ -10298,6 +10298,30 @@ class CliTests(unittest.TestCase):
         )
         create_chat_client.assert_not_called()
 
+    def test_main_runs_wait_process_local_flag_inherits_process_output_limit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_wait_process_text", return_value="Wait process:\n  ok: no") as get_wait_process_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", base, "--wait-process", "bg-1"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("Wait process:", stdout.getvalue())
+        get_wait_process_text.assert_called_once_with(
+            Path(base).resolve(),
+            process_id="bg-1",
+            timeout_ms=5000,
+            max_output_chars=None,
+            stdout_contains=None,
+            stderr_contains=None,
+            regex=False,
+        )
+        create_chat_client.assert_not_called()
+
     def test_main_wait_process_json_outputs_structured_payload(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
