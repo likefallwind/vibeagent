@@ -6166,6 +6166,34 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Active background processes:\n-", "\n".join(feedback_messages))
         self.assertTrue(any(command in message for message in feedback_messages))
 
+    def test_completion_blocks_legacy_final_review_without_ready_field(self) -> None:
+        review = FinalReviewObservation(
+            kind="final_review",
+            ok=True,
+            ready=None,
+            blocking_issues=[],
+            warnings=[],
+            running_processes=[],
+            files=[],
+            total_files=0,
+            suggested_checks=[],
+            suggested_checks_total=0,
+            suggested_checks_truncated=False,
+            diff_check="",
+            staged_diff_check="",
+            status="",
+            message="Legacy final_review without explicit readiness.",
+        )
+
+        self.assertEqual(
+            completion_module.build_completion_blockers(True, [review], []),
+            ["Final review did not report ready."],
+        )
+        self.assertEqual(
+            completion_module.build_completion_warnings(True, [review], []),
+            ["Final review did not report ready."],
+        )
+
     def test_run_agent_warns_when_suggested_checks_are_not_run_after_change(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)

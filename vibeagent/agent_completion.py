@@ -310,7 +310,7 @@ def final_review_has_active_completion_blocker(
     failed_verification_checks: list[str],
     pending_verification_checks: list[str],
 ) -> bool:
-    if final_review is None or getattr(final_review, "ready", None) is not False:
+    if final_review is None or getattr(final_review, "ready", None) is True:
         return False
     if failed_verification_checks or pending_verification_checks:
         return True
