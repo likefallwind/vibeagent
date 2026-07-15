@@ -194,6 +194,15 @@ class V1AcceptanceTests(unittest.TestCase):
         self.assertIn("docs/vibeagent-1.0.md", readme)
         self.assertIn("docs/vibeagent-1.0-readiness.md", readme)
 
+    def test_readme_distinguishes_sandbox_domains_from_webfetch_permissions(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn("sandbox network domain allowlists", readme)
+        self.assertIn("separate from project", readme)
+        self.assertIn("permission `WebFetch(domain:...)` rules", readme)
+        self.assertIn("WebFetch(domain:...)", readme)
+        self.assertIn("WebFetch(domain:*.python.org)", readme)
+
     def test_acceptance_plan_links_to_readiness_audit(self) -> None:
         plan = PLAN_PATH.read_text(encoding="utf-8")
 

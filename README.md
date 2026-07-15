@@ -1079,9 +1079,11 @@ finite checks, command batches, hooks, and background processes.
 External `allowWrite` paths and `excludedCommands` require explicit project
 configuration trust. `denyWrite` and `denyRead` mounts override the writable
 project mount. Sandbox paths must be exact; glob paths, `allowRead`, non-empty
-domain allowlists, and unsupported network options fail closed rather than
-claiming partial enforcement. Domain allowlists require a proxy and are not yet
-implemented. If Bubblewrap or network namespaces are unavailable,
+sandbox network domain allowlists, and unsupported network options fail closed
+rather than claiming partial enforcement. Sandbox network domain allowlists
+require a proxy and are not yet implemented; this is separate from project
+permission `WebFetch(domain:...)` rules, which match WebFetch request hosts
+before approval. If Bubblewrap or network namespaces are unavailable,
 `failIfUnavailable: true` blocks execution; otherwise VibeAgent records a
 warning and falls back to unsandboxed execution or filesystem-only isolation.
 Permission deny/ask rules and command hard blocks still apply; commands that do
