@@ -4380,7 +4380,7 @@ class ActionTests(unittest.TestCase):
         self.assertTrue(any("src/config.py:1 OPENAI_API_KEY (index)" in warning for warning in observation.warnings))
         self.assertNotIn(secret, "\n".join(observation.warnings))
 
-    def test_execute_final_review_action_warns_on_truncated_secret_file_scan(self) -> None:
+    def test_execute_final_review_action_blocks_truncated_secret_file_scan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             root = Path(base)
             subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -4392,10 +4392,11 @@ class ActionTests(unittest.TestCase):
 
         self.assertEqual(observation.kind, "final_review")
         self.assertTrue(observation.ok)
-        self.assertNotIn("Secret-like value scan was incomplete.", observation.blocking_issues)
+        self.assertFalse(observation.ready)
+        self.assertIn("Secret-like value scan was incomplete.", observation.blocking_issues)
         self.assertTrue(any("Secret scan inspected the first 100 bytes" in warning for warning in observation.warnings))
 
-    def test_execute_final_review_action_warns_on_truncated_secret_diff_scan(self) -> None:
+    def test_execute_final_review_action_blocks_truncated_secret_diff_scan(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             root = Path(base)
             subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -4412,7 +4413,8 @@ class ActionTests(unittest.TestCase):
 
         self.assertEqual(observation.kind, "final_review")
         self.assertTrue(observation.ok)
-        self.assertNotIn("Secret-like value scan was incomplete.", observation.blocking_issues)
+        self.assertFalse(observation.ready)
+        self.assertIn("Secret-like diff scan was incomplete.", observation.blocking_issues)
         self.assertTrue(any("Secret diff scan inspected the first 100 bytes" in warning for warning in observation.warnings))
 
     def test_execute_final_review_action_blocks_failed_secret_diff_scan(self) -> None:

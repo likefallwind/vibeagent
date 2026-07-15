@@ -102,7 +102,9 @@ def build_final_review_blocking_issues(inputs: FinalReviewReadinessInputs) -> li
         blocking_issues.append("Changed files include large artifacts.")
     if inputs.secret_findings_total or inputs.secret_diff_findings_total:
         blocking_issues.append("Changed files include secret-like values.")
-    if inputs.secret_diff_warnings:
+    if inputs.secret_scan_truncated:
+        blocking_issues.append("Secret-like value scan was incomplete.")
+    if inputs.secret_diff_truncated or inputs.secret_diff_warnings:
         blocking_issues.append("Secret-like diff scan was incomplete.")
     if inputs.nested_git_repo_total:
         blocking_issues.append("Project contains nested git repositories.")
