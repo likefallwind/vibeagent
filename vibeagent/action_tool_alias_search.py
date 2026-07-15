@@ -69,7 +69,7 @@ def _normalize_search_context_aliases(value: dict[str, Any]) -> None:
     before = value.pop("-B", None)
     if "context_lines" in value:
         return
-    if type(context) is int:
+    if context is not None:
         value["context_lines"] = context
         return
     directional = [item for item in (after, before) if type(item) is int]
