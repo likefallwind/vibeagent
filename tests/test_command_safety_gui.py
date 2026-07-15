@@ -1,3 +1,4 @@
+import base64
 import unittest
 
 from vibeagent.command_safety import get_blocked_command_reason
@@ -5,6 +6,10 @@ from vibeagent.command_safety_powershell_gui import powershell_invocation_launch
 
 
 class CommandSafetyGuiTests(unittest.TestCase):
+    def _powershell_encoded_command(self, payload: str) -> str:
+        encoded = base64.b64encode(payload.encode("utf-16le")).decode("ascii")
+        return f"powershell -EncodedCommand {encoded}"
+
     def test_blocks_powershell_start_alias_for_file_explorer_targets(self) -> None:
         commands = [
             "powershell.exe -NoProfile -Command start .",
@@ -55,6 +60,19 @@ class CommandSafetyGuiTests(unittest.TestCase):
 
     def test_allows_powershell_thread_job_non_gui_payload(self) -> None:
         self.assertIsNone(get_blocked_command_reason("powershell -Command \"Start-ThreadJob { python -V }\""))
+
+    def test_blocks_powershell_encoded_gui_targets(self) -> None:
+        commands = [
+            self._powershell_encoded_command("explorer.exe ."),
+            self._powershell_encoded_command("xdg-open ."),
+            self._powershell_encoded_command("Start-ThreadJob { xdg-open . }"),
+        ]
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertIn("GUI application launch", get_blocked_command_reason(command) or "")
+
+    def test_allows_powershell_encoded_non_gui_payload(self) -> None:
+        self.assertIsNone(get_blocked_command_reason(self._powershell_encoded_command("Write-Output ok")))
 
     def test_powershell_gui_detection_uses_nested_command_callback(self) -> None:
         calls: list[str] = []

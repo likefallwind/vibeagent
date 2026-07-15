@@ -89,9 +89,10 @@ WINDOWS_START_FLAG_OPTIONS = {
 }
 
 
-def command_launches_gui_application(lowered_command: str) -> bool:
-    if command_segments_launch_gui_application(lowered_command):
+def command_launches_gui_application(command: str) -> bool:
+    if command_segments_launch_gui_application(command):
         return True
+    lowered_command = command.lower()
     segment = r"(^|[;&|]\s*)"
     env_option = r"(?:(?:-u|--unset|--chdir|-C)\s+\S+|--|-[a-z0-9_-]+|[a-z_][a-z0-9_]*=\S+)"
     wrappers = rf"(?:(?:nohup|setsid)\s+|env\s+(?:{env_option}\s+)*)*"

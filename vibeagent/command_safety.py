@@ -140,7 +140,7 @@ def get_blocked_command_reason(command: str, _depth: int = 0) -> str | None:
         return RAW_DEVICE_WRITE_BLOCK_REASON
     if command_pipes_network_script_to_shell(lowered):
         return "network script piping is not allowed in project mode"
-    if command_launches_gui_application(lowered):
+    if command_launches_gui_application(compact):
         return "GUI application launch commands are not allowed in project mode"
     heredoc_blocked = interpreter_heredoc_blocked_command_reason(command, _depth)
     if heredoc_blocked:

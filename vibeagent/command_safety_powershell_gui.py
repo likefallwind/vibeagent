@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from collections.abc import Callable
 from pathlib import Path
 import re
@@ -23,14 +24,41 @@ def powershell_invocation_launches_gui(
     launchers = {"start-process", "saps", "invoke-item", "ii", "explorer", "explorer.exe"}
     if any(_shell_token_basename(token) in launchers for token in args):
         return True
+    encoded_payload = powershell_encoded_command_payload(args)
+    if encoded_payload:
+        return powershell_payload_launches_gui(encoded_payload, nested_command_launches_gui)
     payload = powershell_command_payload(args)
     if payload:
-        return (
-            nested_command_launches_gui(payload)
-            or powershell_expression_payload_launches_gui(payload, nested_command_launches_gui)
-            or powershell_script_block_payload_launches_gui(payload, nested_command_launches_gui)
-        )
+        return powershell_payload_launches_gui(payload, nested_command_launches_gui)
     return False
+
+
+def powershell_payload_launches_gui(
+    payload: str,
+    nested_command_launches_gui: Callable[[str], bool],
+) -> bool:
+    return (
+        nested_command_launches_gui(payload)
+        or powershell_expression_payload_launches_gui(payload, nested_command_launches_gui)
+        or powershell_script_block_payload_launches_gui(payload, nested_command_launches_gui)
+    )
+
+
+POWERSHELL_ENCODED_COMMAND_OPTIONS = {"-e", "-ec", "-enc", "-encodedcommand"}
+
+
+def powershell_encoded_command_payload(args: list[str]) -> str:
+    for index, token in enumerate(args[:-1]):
+        if token.lower() not in POWERSHELL_ENCODED_COMMAND_OPTIONS:
+            continue
+        encoded = args[index + 1].strip()
+        if not encoded:
+            return ""
+        try:
+            return base64.b64decode(encoded, validate=True).decode("utf-16le").strip()
+        except (ValueError, UnicodeDecodeError):
+            return ""
+    return ""
 
 
 def powershell_script_block_payload_launches_gui(
