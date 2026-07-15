@@ -34,6 +34,33 @@ class SessionSummaryCommandsTests(unittest.TestCase):
             session_summary_commands.format_session_search_report_text(search),
         )
 
+    def test_session_summary_report_formats_limited_completion_detail_sections(self) -> None:
+        report = {
+            "session": "run-1",
+            "exists": True,
+            "status": "blocked",
+            "events": {"total": 1, "iterations": 1},
+            "toolCalls": {"names": []},
+            "approvals": {},
+            "completion": {
+                "ready": False,
+                "blockers": [],
+                "warnings": [],
+                "blockedCount": 1,
+                "latestToolErrors": ["", "  ", *[f"tool error {index}" for index in range(12)]],
+            },
+        }
+
+        text = session_summary_commands.format_session_summary_report_text(report)
+
+        self.assertIn("  completion: ready=no, blockers=0, warnings=0, blockedAttempts=1", text)
+        self.assertIn("    latestCompletionToolErrors:", text)
+        self.assertIn("      - tool error 0", text)
+        self.assertIn("      - tool error 9", text)
+        self.assertIn("      - ... 2 more", text)
+        self.assertNotIn("tool error 10", text)
+        self.assertNotIn("tool error 11", text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -224,12 +224,24 @@ def _append_completion_detail_lines(
     for key, label in fields:
         values = completion.get(key)
         items = [item for item in values if isinstance(item, str) and item.strip()] if isinstance(values, list) else []
-        if not items:
-            continue
-        lines.append(f"{indent}{label}:")
-        lines.extend(f"{indent}  - {_clip(item, max_text)}" for item in items[:10])
-        if len(items) > 10:
-            lines.append(f"{indent}  - ... {len(items) - 10} more")
+        _append_limited_bullets(lines, label, items, indent=indent, max_text=max_text, limit=10)
+
+
+def _append_limited_bullets(
+    lines: list[str],
+    label: str,
+    items: list[str],
+    *,
+    indent: str,
+    max_text: int,
+    limit: int,
+) -> None:
+    if not items:
+        return
+    lines.append(f"{indent}{label}:")
+    lines.extend(f"{indent}  - {_clip(item, max_text)}" for item in items[:limit])
+    if len(items) > limit:
+        lines.append(f"{indent}  - ... {len(items) - limit} more")
 
 
 def get_last_session_text(project_root: str | Path = ".") -> str:
