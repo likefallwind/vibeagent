@@ -1,0 +1,83 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+from pathlib import Path
+import re
+import shlex
+
+
+POWERSHELL_SCRIPT_BLOCK_LAUNCHERS = {"start-job", "start-threadjob", "threadjob"}
+POWERSHELL_SCRIPT_BLOCK_PATTERN = re.compile(
+    r"\b(?P<launcher>start-job|start-threadjob|threadjob)\b[^{]*\{(?P<body>[^{}]+)\}",
+    re.IGNORECASE,
+)
+
+
+def powershell_invocation_launches_gui(
+    args: list[str],
+    nested_command_launches_gui: Callable[[str], bool],
+) -> bool:
+    joined = " ".join(args)
+    if "url.dll,fileprotocolhandler" in joined:
+        return True
+    launchers = {"start-process", "saps", "invoke-item", "ii", "explorer", "explorer.exe"}
+    if any(_shell_token_basename(token) in launchers for token in args):
+        return True
+    payload = powershell_command_payload(args)
+    if payload:
+        return (
+            nested_command_launches_gui(payload)
+            or powershell_expression_payload_launches_gui(payload, nested_command_launches_gui)
+            or powershell_script_block_payload_launches_gui(payload, nested_command_launches_gui)
+        )
+    return False
+
+
+def powershell_script_block_payload_launches_gui(
+    payload: str,
+    nested_command_launches_gui: Callable[[str], bool],
+) -> bool:
+    for match in POWERSHELL_SCRIPT_BLOCK_PATTERN.finditer(payload):
+        launcher = match.group("launcher").lower()
+        if launcher not in POWERSHELL_SCRIPT_BLOCK_LAUNCHERS:
+            continue
+        body = match.group("body").strip()
+        if body and nested_command_launches_gui(body):
+            return True
+    return False
+
+
+def powershell_expression_payload_launches_gui(
+    payload: str,
+    nested_command_launches_gui: Callable[[str], bool],
+) -> bool:
+    try:
+        parts = shlex.split(payload)
+    except ValueError:
+        return False
+    for index, token in enumerate(parts[:-1]):
+        if token.lower() not in {"iex", "invoke-expression"}:
+            continue
+        nested = " ".join(parts[index + 1 :]).strip()
+        if nested and nested_command_launches_gui(nested):
+            return True
+    return False
+
+
+def powershell_command_payload(args: list[str]) -> str:
+    command_options = {"-c", "-command", "/c", "/command"}
+    for index, token in enumerate(args):
+        if token.lower() in command_options:
+            return " ".join(args[index + 1 :]).strip()
+    if args and args[0].lower() not in {"-file", "/file"} and not args[0].startswith("-"):
+        return " ".join(args).strip()
+    return ""
+
+
+def _shell_token_basename(token: str) -> str:
+    return Path(token.replace("\\", "/")).name.lower()
+
+
+__all__ = [
+    "powershell_invocation_launches_gui",
+]

@@ -1,6 +1,7 @@
 import unittest
 
 from vibeagent.command_safety import get_blocked_command_reason
+from vibeagent.command_safety_powershell_gui import powershell_invocation_launches_gui
 
 
 class CommandSafetyGuiTests(unittest.TestCase):
@@ -54,6 +55,21 @@ class CommandSafetyGuiTests(unittest.TestCase):
 
     def test_allows_powershell_thread_job_non_gui_payload(self) -> None:
         self.assertIsNone(get_blocked_command_reason("powershell -Command \"Start-ThreadJob { python -V }\""))
+
+    def test_powershell_gui_detection_uses_nested_command_callback(self) -> None:
+        calls: list[str] = []
+
+        def nested_command_launches_gui(command: str) -> bool:
+            calls.append(command)
+            return command == "custom-gui ."
+
+        self.assertTrue(
+            powershell_invocation_launches_gui(
+                ["-Command", "Start-ThreadJob { custom-gui . }"],
+                nested_command_launches_gui,
+            )
+        )
+        self.assertEqual(calls, ["Start-ThreadJob { custom-gui . }", "custom-gui ."])
 
     def test_blocks_windows_start_for_gui_executables(self) -> None:
         commands = [

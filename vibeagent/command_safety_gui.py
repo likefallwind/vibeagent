@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-import shlex
 
+from .command_safety_powershell_gui import powershell_invocation_launches_gui
 from .command_safety_shell import shell_command_segments, unwrapped_shell_command_parts
 
 
@@ -154,7 +154,7 @@ def command_segment_launches_gui_application(parts: list[str]) -> bool:
     if executable in {"cmd", "cmd.exe"}:
         return cmd_invocation_launches_gui(args)
     if executable in {"powershell", "powershell.exe", "pwsh", "pwsh.exe"}:
-        return powershell_invocation_launches_gui(args)
+        return powershell_invocation_launches_gui(args, command_launches_gui_application)
     if re.fullmatch(r"python(?:3(?:\.\d+)?)?", executable):
         return args[:2] == ["-m", "webbrowser"]
     return False
@@ -166,65 +166,6 @@ def cmd_invocation_launches_gui(args: list[str]) -> bool:
             payload = " ".join(args[index + 1 :])
             return bool(payload and command_launches_gui_application(payload))
     return False
-
-
-def powershell_invocation_launches_gui(args: list[str]) -> bool:
-    joined = " ".join(args)
-    if "url.dll,fileprotocolhandler" in joined:
-        return True
-    launchers = {"start-process", "saps", "invoke-item", "ii", "explorer", "explorer.exe"}
-    if any(shell_token_basename(token) in launchers for token in args):
-        return True
-    payload = powershell_command_payload(args)
-    if payload:
-        return (
-            command_launches_gui_application(payload)
-            or powershell_expression_payload_launches_gui(payload)
-            or powershell_script_block_payload_launches_gui(payload)
-        )
-    return False
-
-
-POWERSHELL_SCRIPT_BLOCK_LAUNCHERS = {"start-job", "start-threadjob", "threadjob"}
-POWERSHELL_SCRIPT_BLOCK_PATTERN = re.compile(
-    r"\b(?P<launcher>start-job|start-threadjob|threadjob)\b[^{]*\{(?P<body>[^{}]+)\}",
-    re.IGNORECASE,
-)
-
-
-def powershell_script_block_payload_launches_gui(payload: str) -> bool:
-    for match in POWERSHELL_SCRIPT_BLOCK_PATTERN.finditer(payload):
-        launcher = match.group("launcher").lower()
-        if launcher not in POWERSHELL_SCRIPT_BLOCK_LAUNCHERS:
-            continue
-        body = match.group("body").strip()
-        if body and command_launches_gui_application(body):
-            return True
-    return False
-
-
-def powershell_expression_payload_launches_gui(payload: str) -> bool:
-    try:
-        parts = shlex.split(payload)
-    except ValueError:
-        return False
-    for index, token in enumerate(parts[:-1]):
-        if token.lower() not in {"iex", "invoke-expression"}:
-            continue
-        nested = " ".join(parts[index + 1 :]).strip()
-        if nested and command_launches_gui_application(nested):
-            return True
-    return False
-
-
-def powershell_command_payload(args: list[str]) -> str:
-    command_options = {"-c", "-command", "/c", "/command"}
-    for index, token in enumerate(args):
-        if token in command_options:
-            return " ".join(args[index + 1 :]).strip()
-    if args and args[0] not in {"-file", "/file"} and not args[0].startswith("-"):
-        return " ".join(args).strip()
-    return ""
 
 
 def rundll32_invocation_launches_gui(args: list[str]) -> bool:
