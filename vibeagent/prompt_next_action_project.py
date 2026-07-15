@@ -34,10 +34,9 @@ def _command_labels(values: object) -> list[str]:
     if not isinstance(values, list):
         return labels
     for value in values:
-        command = str(getattr(value, "command", "") or "").strip()
-        cwd = str(getattr(value, "cwd", ".") or ".").strip() or "."
-        if command:
-            labels.append(f"{command} (cwd={cwd})")
+        label = _command_label(value)
+        if label:
+            labels.append(label)
     return labels
 
 
@@ -48,11 +47,18 @@ def _available_command_labels(values: object) -> list[str]:
     for value in values:
         if not getattr(value, "available", True):
             continue
-        command = str(getattr(value, "command", "") or "").strip()
-        cwd = str(getattr(value, "cwd", ".") or ".").strip() or "."
-        if command:
-            labels.append(f"{command} (cwd={cwd})")
+        label = _command_label(value)
+        if label:
+            labels.append(label)
     return labels
+
+
+def _command_label(value: object) -> str | None:
+    command = str(getattr(value, "command", "") or "").strip()
+    if not command:
+        return None
+    cwd = str(getattr(value, "cwd", ".") or ".").strip() or "."
+    return f"{command} (cwd={cwd})"
 
 
 def _blocked_check_labels(values: object) -> list[str]:
