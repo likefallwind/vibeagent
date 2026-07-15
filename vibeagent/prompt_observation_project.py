@@ -3,6 +3,29 @@ from __future__ import annotations
 from .prompt_observation_utils import truncate
 
 
+def _format_command_metadata(
+    label: str,
+    command: object,
+    extra_fields: list[tuple[str, object]],
+    pre_availability_fields: list[tuple[str, object]] | None = None,
+) -> str:
+    parts = [
+        f"{label}:",
+        f"cwd={getattr(command, 'cwd')}",
+        f"command={getattr(command, 'command')}",
+    ]
+    if pre_availability_fields:
+        parts.extend(f"{name}={value}" for name, value in pre_availability_fields)
+    parts.extend(
+        [
+            f"available={str(getattr(command, 'available')).lower()}",
+            f"missingTool={getattr(command, 'missing_tool') or '.'}",
+        ]
+    )
+    parts.extend(f"{name}={value}" for name, value in extra_fields)
+    return " ".join(parts)
+
+
 def format_project_observation(index: int, observation: object) -> str | None:
     if observation.kind == "suggest_checks":
         return _format_suggest_checks(index, observation)
@@ -74,13 +97,7 @@ def _format_suggest_checks(index: int, observation: object) -> str:
         )
     ]
     for check in observation.checks:
-        parts.append(
-            (
-                f"check: cwd={check.cwd} command={check.command} "
-                f"available={str(check.available).lower()} missingTool={check.missing_tool or '.'} "
-                f"source={check.source} reason={check.reason}"
-            )
-        )
+        parts.append(_format_command_metadata("check", check, [("source", check.source), ("reason", check.reason)]))
     if observation.changed_files:
         parts.append("changed_files:\n" + "\n".join(observation.changed_files[:120]))
     return "\n".join(parts)
@@ -118,10 +135,10 @@ def _format_project_commands(index: int, observation: object) -> str:
     ]
     for command in observation.commands:
         parts.append(
-            (
-                f"command: cwd={command.cwd} command={command.command} "
-                f"available={str(command.available).lower()} missingTool={command.missing_tool or '.'} "
-                f"source={command.source} file={command.file} detail={command.detail}"
+            _format_command_metadata(
+                "command",
+                command,
+                [("source", command.source), ("file", command.file), ("detail", command.detail)],
             )
         )
     return "\n".join(parts)
@@ -199,10 +216,11 @@ def _format_focused_test_commands(index: int, observation: object) -> str:
         parts.append("target_paths:\n" + "\n".join(observation.target_paths[:120]))
     for command in observation.commands:
         parts.append(
-            (
-                f"command: cwd={command.cwd} command={command.command} "
-                f"test={command.test_path} available={str(command.available).lower()} "
-                f"missingTool={command.missing_tool or '.'} source={command.source} reason={command.reason}"
+            _format_command_metadata(
+                "command",
+                command,
+                [("source", command.source), ("reason", command.reason)],
+                pre_availability_fields=[("test", command.test_path)],
             )
         )
     return "\n".join(parts)
@@ -375,10 +393,10 @@ def _format_project_overview(index: int, observation: object) -> str:
         )
         for command in observation.commands[:40]:
             parts.append(
-                (
-                    f"command: cwd={command.cwd} command={command.command} "
-                    f"available={str(command.available).lower()} missingTool={command.missing_tool or '.'} "
-                    f"source={command.source} file={command.file}"
+                _format_command_metadata(
+                    "command",
+                    command,
+                    [("source", command.source), ("file", command.file)],
                 )
             )
     if observation.manifests:
@@ -427,13 +445,7 @@ def _format_project_overview(index: int, observation: object) -> str:
             )
         )
         for check in observation.suggested_checks[:20]:
-            parts.append(
-                (
-                    f"check: cwd={check.cwd} command={check.command} "
-                    f"available={str(check.available).lower()} missingTool={check.missing_tool or '.'} "
-                    f"reason={check.reason}"
-                )
-            )
+            parts.append(_format_command_metadata("check", check, [("reason", check.reason)]))
     if observation.skills:
         parts.append(
             f"skills shown={len(observation.skills)}/{observation.skills_total} "
