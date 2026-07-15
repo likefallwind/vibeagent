@@ -13,6 +13,16 @@ CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "file_path": {"type": "string"},
                 "offset": {"type": "integer", "minimum": 0},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 2000},
+                "max_bytes": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 200000,
+                    "description": "Maximum full-file characters to return when offset is not provided. Defaults to 20000.",
+                },
+                "show_line_numbers": {
+                    "type": "boolean",
+                    "description": "Prefix returned full-file lines with 1-based line numbers. Range reads already include line numbers.",
+                },
             },
             "required": ["file_path"],
             "additionalProperties": False,

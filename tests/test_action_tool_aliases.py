@@ -39,7 +39,10 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertFalse(truthy_alias_bool(1))
 
     def test_claude_read_zero_offset_maps_to_first_line(self) -> None:
-        action = parse_tool_action("Read", {"file_path": "app.py", "offset": 0, "limit": 5})
+        action = parse_tool_action(
+            "Read",
+            {"file_path": "app.py", "offset": 0, "limit": 5, "max_bytes": 4_000, "show_line_numbers": True},
+        )
         notebook_action = parse_tool_action(
             "NotebookRead",
             {"notebook_path": "analysis.ipynb", "offset": 0, "limit": 3, "include_outputs": "true"},
@@ -57,6 +60,8 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertIsInstance(action, ReadFileAction)
         self.assertEqual(action.start_line, 1)
         self.assertEqual(action.line_count, 5)
+        self.assertEqual(action.max_bytes, 4_000)
+        self.assertTrue(action.show_line_numbers)
         self.assertIsInstance(notebook_action, NotebookReadAction)
         self.assertEqual(notebook_action.start_cell, 1)
         self.assertEqual(notebook_action.cell_count, 3)
