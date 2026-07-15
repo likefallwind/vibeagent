@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from .session_completion_detail_fields import completion_blocker_detail_values
 from .types import Observation
 
@@ -19,9 +21,17 @@ def _session_plan_lines(plan: object) -> list[str]:
     return [line.strip().lower() for line in str(plan or "").splitlines() if line.strip()]
 
 
+def _session_plan_checkbox_states(plan: object) -> list[str]:
+    states: list[str] = []
+    for line in _session_plan_lines(plan):
+        match = re.match(r"^(?:[-*+]|\d+[.)])\s+\[([ x])\]", line)
+        if match:
+            states.append(match.group(1))
+    return states
+
+
 def session_plan_has_unfinished_work(plan: object) -> bool:
-    plan_lines = _session_plan_lines(plan)
-    if any(line.startswith(("- [ ]", "* [ ]")) for line in plan_lines):
+    if " " in _session_plan_checkbox_states(plan):
         return True
     plan_lower = str(plan or "").lower()
     unfinished_markers = (
@@ -45,7 +55,7 @@ def session_plan_has_unfinished_work(plan: object) -> bool:
 def session_plan_appears_complete(plan: object) -> bool:
     if session_plan_has_unfinished_work(plan):
         return False
-    if any(line.startswith(("- [x]", "* [x]")) for line in _session_plan_lines(plan)):
+    if "x" in _session_plan_checkbox_states(plan):
         return True
     plan_lower = str(plan or "").lower()
     complete_markers = ("completed", "complete", "done")
