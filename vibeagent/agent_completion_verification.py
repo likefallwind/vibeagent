@@ -17,28 +17,13 @@ from .verification_command_utils import (
 
 
 def build_verification_checks(success: bool, observations: list[Observation]) -> list[str]:
-    if not success:
+    verification_commands, scan_start_index = current_final_review_verification_window(success, observations)
+    if not verification_commands or scan_start_index is None:
         return []
-    final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
-    if final_review is None:
-        return []
-    verification_commands = final_review_verification_commands(final_review)
-    if not verification_commands:
-        return []
-    final_review_index = latest_observation_index(observations, {"final_review"})
-    last_change_index = latest_successful_verification_invalidating_change_index(observations)
-    if last_change_index is not None and final_review_index is not None and last_change_index > final_review_index:
-        return []
-    if last_change_index is None:
-        if int(getattr(final_review, "total_files", 0) or 0) <= 0:
-            return []
-        if final_review_index is None:
-            return []
-        last_change_index = final_review_index
 
     checks: list[str] = []
     seen: set[str] = set()
-    for observation in observations[last_change_index + 1 :]:
+    for observation in observations[scan_start_index + 1 :]:
         for label in successful_suggested_check_labels(observation, verification_commands):
             if label not in seen:
                 checks.append(label)
@@ -63,32 +48,42 @@ def suggested_check_statuses_after_latest_change(
     success: bool,
     observations: list[Observation],
 ) -> tuple[set[tuple[str, str]], dict[tuple[str, str], tuple[bool, str]]]:
-    if not success:
-        return set(), {}
-    final_review = next((observation for observation in reversed(observations) if observation.kind == "final_review"), None)
-    if final_review is None:
-        return set(), {}
-    verification_commands = final_review_verification_commands(final_review)
+    verification_commands, scan_start_index = current_final_review_verification_window(success, observations)
     if not verification_commands:
         return set(), {}
-    final_review_index = latest_observation_index(observations, {"final_review"})
-    last_change_index = latest_successful_verification_invalidating_change_index(observations)
-    if last_change_index is not None and final_review_index is not None and last_change_index > final_review_index:
-        return set(), {}
-    if last_change_index is None:
-        if int(getattr(final_review, "total_files", 0) or 0) <= 0:
-            return verification_commands, {}
-        if final_review_index is None:
-            return verification_commands, {}
-        last_change_index = final_review_index
+    if scan_start_index is None:
+        return verification_commands, {}
 
     statuses: dict[tuple[str, str], tuple[bool, str]] = {}
-    for observation in observations[last_change_index + 1 :]:
+    for observation in observations[scan_start_index + 1 :]:
         for command, cwd in successful_suggested_check_commands(observation, verification_commands):
             statuses[(command, cwd)] = (True, suggested_check_label(command, cwd))
         for command, cwd, label in failed_suggested_check_results(observation, verification_commands):
             statuses[(command, cwd)] = (False, label)
     return verification_commands, statuses
+
+
+def current_final_review_verification_window(
+    success: bool,
+    observations: list[Observation],
+) -> tuple[set[tuple[str, str]], int | None]:
+    if not success:
+        return set(), None
+    final_review_index = latest_observation_index(observations, {"final_review"})
+    if final_review_index is None:
+        return set(), None
+    final_review = observations[final_review_index]
+    verification_commands = final_review_verification_commands(final_review)
+    if not verification_commands:
+        return set(), None
+    last_change_index = latest_successful_verification_invalidating_change_index(observations)
+    if last_change_index is not None:
+        if last_change_index > final_review_index:
+            return set(), None
+        return verification_commands, last_change_index
+    if int(getattr(final_review, "total_files", 0) or 0) <= 0:
+        return verification_commands, None
+    return verification_commands, final_review_index
 
 
 def final_review_verification_commands(final_review: Observation) -> set[tuple[str, str]]:

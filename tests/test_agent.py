@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import vibeagent.agent_completion as completion_module
+import vibeagent.agent_completion_verification as completion_verification_module
 import vibeagent.agent as agent_module
 import vibeagent.types as types_module
 from vibeagent.actions import AGENT_TOOL_DEFINITIONS, execute_action
@@ -6432,6 +6433,39 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(completion_module.build_verification_checks(True, observations), [])
         self.assertEqual(completion_module.build_pending_verification_checks(True, observations), [])
         self.assertEqual(completion_module.build_failed_verification_checks(True, observations), [])
+
+    def test_current_final_review_verification_window_rejects_stale_review(self) -> None:
+        check = SuggestedCheck(
+            command="python -m unittest discover -s tests",
+            cwd=".",
+            source="tests",
+            reason="unit tests",
+        )
+        observations = [
+            FinalReviewObservation(
+                kind="final_review",
+                ok=True,
+                ready=False,
+                blocking_issues=[],
+                warnings=[],
+                running_processes=[],
+                files=[],
+                total_files=1,
+                suggested_checks=[check],
+                suggested_checks_total=1,
+                suggested_checks_truncated=False,
+                diff_check="",
+                staged_diff_check="",
+                status="",
+                message="Review needs verification.",
+            ),
+            WriteFileObservation(kind="write_file", path="src/app.py", ok=True, message="Wrote src/app.py."),
+        ]
+
+        commands, scan_start_index = completion_verification_module.current_final_review_verification_window(True, observations)
+
+        self.assertEqual(commands, set())
+        self.assertIsNone(scan_start_index)
 
     def test_completion_verification_treats_successful_check_with_output_diagnostics_as_failed(self) -> None:
         check = SuggestedCheck(
