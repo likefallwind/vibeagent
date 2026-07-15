@@ -64,6 +64,6 @@ def session_audit_denied_approval_blocker_count(summary: SessionSummary) -> int:
         return 0
     if summary.latest_completion_denied_approvals:
         return len(summary.latest_completion_denied_approvals)
-    if summary.completion_ready is False or not summary.completed:
+    if summary.completion_ready is False or not summary.completed or summary.approvals_denied:
         return summary.approvals_denied
     return 0

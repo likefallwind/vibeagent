@@ -1285,6 +1285,48 @@ class SessionTests(unittest.TestCase):
         self.assertNotIn("denied approval(s)", audit)
         self.assertEqual(report["blockers"]["items"], [])
 
+    def test_session_audit_blocks_legacy_completed_session_with_denied_approval(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(
+                root,
+                "run-legacy-denied-approval",
+                [
+                    {"type": "task", "task": "Recover from denied approval."},
+                    {
+                        "type": "approval_requested",
+                        "iteration": 1,
+                        "request": {"action_type": "write_file", "target": "note.txt"},
+                    },
+                    {
+                        "type": "approval_decision",
+                        "iteration": 1,
+                        "decision": {"approved": False, "message": "Denied by policy."},
+                    },
+                    {
+                        "type": "result",
+                        "success": True,
+                        "status": "completed",
+                        "iterations": 2,
+                        "message": "Legacy completion without readiness metadata.",
+                    },
+                ],
+            )
+
+            summary = summarize_session(root, "run-legacy-denied-approval")
+            audit = format_session_audit(root, "run-legacy-denied-approval")
+            handoff = format_session_handoff(root, "run-legacy-denied-approval")
+            report = build_session_audit_report(root, "run-legacy-denied-approval")
+
+        self.assertTrue(summary.completed)
+        self.assertIsNone(summary.completion_ready)
+        self.assertEqual(summary.approvals_denied, 1)
+        self.assertIn("ready: no", audit)
+        self.assertIn("1 denied approval(s)", audit)
+        self.assertIn("ready: no", handoff)
+        self.assertIn("1 denied approval(s)", handoff)
+        self.assertIn("1 denied approval(s)", report["blockers"]["items"])
+
     def test_session_audit_treats_completion_ready_as_resolved_final_review(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
             root = Path(base)
