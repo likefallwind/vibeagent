@@ -116,17 +116,12 @@ def command_launches_gui_application(command: str) -> bool:
     bare_start_gui = rf"start\b\s+(?:\"[^\"]*\"\s+)?(?:(?:{bare_start_option})*)?(?:\.|~|[a-z]:[\\/]|https?://|file:)"
     cmd_option = r"/[a-z]"
     cmd_shell_gui = rf"{executable_path}cmd(?:\.exe)?\s+(?:{cmd_option}\s+)*/[ck]\s+\"?(?:{bare_start_gui}|explorer(?:\.exe)?\b|{file_protocol_handler})"
-    powershell_gui = (
-        rf"{executable_path}(?:powershell|pwsh)(?:\.exe)?\b.*\b"
-        rf"(?:start-process|invoke-item|ii|explorer(?:\.exe)?|{file_protocol_handler})\b"
-    )
     python_webbrowser = r"python(?:3(?:\.\d+)?)?\s+-m\s+webbrowser\b"
     return bool(
         re.search(segment + wrappers + executable_path + launcher, lowered_command)
         or re.search(segment + wrappers + executable_path + file_protocol_handler, lowered_command)
         or re.search(segment + wrappers + bare_start_gui, lowered_command)
         or re.search(segment + wrappers + cmd_shell_gui, lowered_command)
-        or re.search(segment + wrappers + powershell_gui, lowered_command)
         or re.search(segment + wrappers + python_webbrowser, lowered_command)
     )
 

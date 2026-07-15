@@ -33,10 +33,24 @@ class CommandSafetyGuiTests(unittest.TestCase):
         commands = [
             "powershell -Command saps .",
             "pwsh -Command saps http://127.0.0.1:5173",
+            "powershell -Command \"Invoke-Item .\"",
+            "powershell -Command \"ii .\"",
+            "powershell -Command \"Start-Process explorer.exe .\"",
         ]
         for command in commands:
             with self.subTest(command=command):
                 self.assertIn("GUI application launch", get_blocked_command_reason(command) or "")
+
+    def test_allows_powershell_printing_gui_launcher_names(self) -> None:
+        commands = [
+            "powershell -Command \"Write-Output ii\"",
+            "powershell -Command \"Write-Output start-process\"",
+            "powershell -Command \"Write-Output explorer.exe\"",
+            "powershell -Command \"$msg = 'explorer.exe'; Write-Output $msg\"",
+        ]
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertIsNone(get_blocked_command_reason(command))
 
     def test_blocks_powershell_expression_gui_targets(self) -> None:
         commands = [

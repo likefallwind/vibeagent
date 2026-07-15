@@ -31,9 +31,6 @@ def powershell_invocation_launches_gui(
     joined = " ".join(args)
     if "url.dll,fileprotocolhandler" in joined:
         return True
-    launchers = {"start-process", "saps", "invoke-item", "ii", "explorer", "explorer.exe"}
-    if any(_shell_token_basename(token) in launchers for token in args):
-        return True
     encoded_payload = powershell_encoded_command_payload(args)
     if encoded_payload:
         return powershell_payload_launches_gui(encoded_payload, nested_command_launches_gui)
@@ -43,16 +40,53 @@ def powershell_invocation_launches_gui(
     return False
 
 
+POWERSHELL_DIRECT_GUI_LAUNCHERS = {
+    "explorer",
+    "explorer.exe",
+    "ii",
+    "invoke-item",
+    "saps",
+    "start-process",
+}
+
+
 def powershell_payload_launches_gui(
     payload: str,
     nested_command_launches_gui: Callable[[str], bool],
 ) -> bool:
     return (
         nested_command_launches_gui(payload)
+        or powershell_direct_payload_launches_gui(payload, nested_command_launches_gui)
         or powershell_expression_payload_launches_gui(payload, nested_command_launches_gui)
         or powershell_script_block_payload_launches_gui(payload, nested_command_launches_gui)
         or powershell_scriptblock_create_payload_launches_gui(payload, nested_command_launches_gui)
     )
+
+
+def powershell_direct_payload_launches_gui(
+    payload: str,
+    nested_command_launches_gui: Callable[[str], bool],
+) -> bool:
+    try:
+        parts = shlex.split(payload)
+    except ValueError:
+        return False
+    if not parts:
+        return False
+    launcher = _shell_token_basename(parts[0])
+    if launcher not in POWERSHELL_DIRECT_GUI_LAUNCHERS:
+        return False
+    if launcher in {"explorer", "explorer.exe"}:
+        return True
+    return nested_command_launches_gui(" ".join(parts[1:])) or any(
+        powershell_direct_target_launches_gui(part) for part in parts[1:] if not part.startswith("-")
+    )
+
+
+def powershell_direct_target_launches_gui(target: str) -> bool:
+    if re.match(r"(?:\.|~|[a-z]:[\\/]|https?://|file:)", target, re.IGNORECASE):
+        return True
+    return _shell_token_basename(target) in {"explorer", "explorer.exe"}
 
 
 POWERSHELL_ENCODED_COMMAND_OPTIONS = {"-e", "-ec", "-enc", "-encodedcommand"}
