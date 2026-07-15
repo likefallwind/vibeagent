@@ -25,11 +25,13 @@ def build_verification_checks(success: bool, observations: list[Observation]) ->
     verification_commands = final_review_verification_commands(final_review)
     if not verification_commands:
         return []
+    final_review_index = latest_observation_index(observations, {"final_review"})
     last_change_index = latest_successful_verification_invalidating_change_index(observations)
+    if last_change_index is not None and final_review_index is not None and last_change_index > final_review_index:
+        return []
     if last_change_index is None:
         if int(getattr(final_review, "total_files", 0) or 0) <= 0:
             return []
-        final_review_index = latest_observation_index(observations, {"final_review"})
         if final_review_index is None:
             return []
         last_change_index = final_review_index
@@ -69,11 +71,13 @@ def suggested_check_statuses_after_latest_change(
     verification_commands = final_review_verification_commands(final_review)
     if not verification_commands:
         return set(), {}
+    final_review_index = latest_observation_index(observations, {"final_review"})
     last_change_index = latest_successful_verification_invalidating_change_index(observations)
+    if last_change_index is not None and final_review_index is not None and last_change_index > final_review_index:
+        return set(), {}
     if last_change_index is None:
         if int(getattr(final_review, "total_files", 0) or 0) <= 0:
             return verification_commands, {}
-        final_review_index = latest_observation_index(observations, {"final_review"})
         if final_review_index is None:
             return verification_commands, {}
         last_change_index = final_review_index

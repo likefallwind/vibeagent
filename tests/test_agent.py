@@ -6401,6 +6401,38 @@ class AgentTests(unittest.TestCase):
             ["python -m unittest discover -s tests"],
         )
 
+    def test_completion_verification_ignores_stale_final_review_checks_after_change(self) -> None:
+        check = SuggestedCheck(
+            command="python -m unittest discover -s tests",
+            cwd=".",
+            source="tests",
+            reason="unit tests",
+        )
+        review = FinalReviewObservation(
+            kind="final_review",
+            ok=True,
+            ready=False,
+            blocking_issues=[],
+            warnings=[],
+            running_processes=[],
+            files=[],
+            total_files=1,
+            suggested_checks=[check],
+            suggested_checks_total=1,
+            suggested_checks_truncated=False,
+            diff_check="",
+            staged_diff_check="",
+            status="",
+            message="Review needs verification.",
+        )
+        change = WriteFileObservation(kind="write_file", path="src/app.py", ok=True, message="Wrote src/app.py.")
+
+        observations = [review, change]
+
+        self.assertEqual(completion_module.build_verification_checks(True, observations), [])
+        self.assertEqual(completion_module.build_pending_verification_checks(True, observations), [])
+        self.assertEqual(completion_module.build_failed_verification_checks(True, observations), [])
+
     def test_completion_verification_treats_successful_check_with_output_diagnostics_as_failed(self) -> None:
         check = SuggestedCheck(
             command="python -m unittest discover -s tests",
