@@ -857,6 +857,9 @@ class CliTests(unittest.TestCase):
                 verification_checks=["python -m unittest discover -s tests"],
                 pending_verification_checks=["npm test"],
                 failed_verification_checks=["npm test (exit=1)"],
+                latest_completion_blockers=["Latest attempt still has pending verification."],
+                latest_completion_pending_verification_checks=["npm run lint"],
+                latest_completion_failed_verification_checks=["npm run build (exit=2)"],
                 latest_completion_final_review_issues=["Changed Python files have syntax errors."],
                 latest_completion_final_review_changed_files=["M app.py"],
                 latest_completion_tool_errors=["read_file: Tool execution failed: boom"],
@@ -884,6 +887,12 @@ class CliTests(unittest.TestCase):
         self.assertIn("npm test", stdout.getvalue())
         self.assertIn("Failed checks:", stdout.getvalue())
         self.assertIn("npm test (exit=1)", stdout.getvalue())
+        self.assertIn("Latest completion blockers:", stdout.getvalue())
+        self.assertIn("Latest attempt still has pending verification.", stdout.getvalue())
+        self.assertIn("Latest completion pending checks:", stdout.getvalue())
+        self.assertIn("npm run lint", stdout.getvalue())
+        self.assertIn("Latest completion failed checks:", stdout.getvalue())
+        self.assertIn("npm run build (exit=2)", stdout.getvalue())
         self.assertIn("Latest final review issues:", stdout.getvalue())
         self.assertIn("Changed Python files have syntax errors.", stdout.getvalue())
         self.assertIn("Latest final review changed files:", stdout.getvalue())

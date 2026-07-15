@@ -61,54 +61,29 @@ def print_agent_result(result: AgentResult) -> None:
         print(f"\n{result.message}")
     elif not result.success:
         print("\nStopped")
-    if result.completion_blockers:
-        print("Completion blockers:")
-        for blocker in result.completion_blockers:
-            print(f"- {blocker}")
-    if result.completion_warnings:
-        print("Warnings:")
-        for warning in result.completion_warnings:
-            print(f"- {warning}")
-    if result.final_review_changed_files:
-        print("Changed files:")
-        for path in result.final_review_changed_files:
-            print(f"- {path}")
-    if result.verification_checks:
-        print("Verified:")
-        for check in result.verification_checks:
-            print(f"- {check}")
-    if result.pending_verification_checks:
-        print("Pending checks:")
-        for check in result.pending_verification_checks:
-            print(f"- {check}")
-    if result.failed_verification_checks:
-        print("Failed checks:")
-        for check in result.failed_verification_checks:
-            print(f"- {check}")
-    if result.latest_completion_final_review_issues:
-        print("Latest final review issues:")
-        for issue in result.latest_completion_final_review_issues:
-            print(f"- {issue}")
-    if result.latest_completion_final_review_changed_files:
-        print("Latest final review changed files:")
-        for path in result.latest_completion_final_review_changed_files:
-            print(f"- {path}")
-    if result.latest_completion_tool_errors:
-        print("Latest tool errors:")
-        for error in result.latest_completion_tool_errors:
-            print(f"- {error}")
-    if result.latest_completion_checkpoint_failures:
-        print("Latest checkpoint failures:")
-        for failure in result.latest_completion_checkpoint_failures:
-            print(f"- {failure}")
-    if result.latest_completion_active_background_processes:
-        print("Latest active processes:")
-        for process in result.latest_completion_active_background_processes:
-            print(f"- {process}")
-    if result.latest_completion_denied_approvals:
-        print("Latest denied approvals:")
-        for approval in result.latest_completion_denied_approvals:
-            print(f"- {approval}")
+    print_item_section("Completion blockers:", result.completion_blockers)
+    print_item_section("Warnings:", result.completion_warnings)
+    print_item_section("Changed files:", result.final_review_changed_files)
+    print_item_section("Verified:", result.verification_checks)
+    print_item_section("Pending checks:", result.pending_verification_checks)
+    print_item_section("Failed checks:", result.failed_verification_checks)
+    print_item_section("Latest completion blockers:", result.latest_completion_blockers)
+    print_item_section("Latest completion pending checks:", result.latest_completion_pending_verification_checks)
+    print_item_section("Latest completion failed checks:", result.latest_completion_failed_verification_checks)
+    print_item_section("Latest final review issues:", result.latest_completion_final_review_issues)
+    print_item_section("Latest final review changed files:", result.latest_completion_final_review_changed_files)
+    print_item_section("Latest tool errors:", result.latest_completion_tool_errors)
+    print_item_section("Latest checkpoint failures:", result.latest_completion_checkpoint_failures)
+    print_item_section("Latest active processes:", result.latest_completion_active_background_processes)
+    print_item_section("Latest denied approvals:", result.latest_completion_denied_approvals)
+
+
+def print_item_section(title: str, items: list[str]) -> None:
+    if not items:
+        return
+    print(title)
+    for item in items:
+        print(f"- {item}")
 
 
 def prompt_approval(request: ApprovalRequest) -> ApprovalDecision:
