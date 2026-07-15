@@ -1674,6 +1674,63 @@ class SessionTests(unittest.TestCase):
         self.assertIn("truncated: no", limited)
         self.assertIn("1 pending verification check(s)", audit)
 
+    def test_summarize_session_does_not_reuse_stale_final_review_checks_after_change(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "write_file",
+                        "result": {"kind": "write_file", "path": "src/app.py", "ok": True, "message": "Wrote src/app.py."},
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 2,
+                        "name": "final_review",
+                        "result": {
+                            "kind": "final_review",
+                            "ok": True,
+                            "ready": False,
+                            "blocking_issues": [],
+                            "warnings": [],
+                            "files": [],
+                            "total_files": 1,
+                            "suggested_checks": [
+                                {
+                                    "command": "python -m unittest discover -s tests",
+                                    "cwd": ".",
+                                    "source": "tests",
+                                    "reason": "unit tests",
+                                }
+                            ],
+                            "suggested_checks_total": 1,
+                            "message": "Review needs verification.",
+                        },
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 3,
+                        "name": "edit_file",
+                        "result": {"kind": "edit_file", "path": "src/app.py", "ok": True, "message": "Edited src/app.py."},
+                    },
+                ],
+            )
+
+            summary = summarize_session(root, "run-1")
+            verification = format_session_verification(summary)
+            audit = format_session_audit(root, "run-1")
+
+        self.assertEqual(summary.verification_checks, [])
+        self.assertEqual(summary.pending_verification_checks, [])
+        self.assertEqual(summary.failed_verification_checks, [])
+        self.assertIn("pendingChecks: none", verification)
+        self.assertIn("failedChecks: none", verification)
+        self.assertIn("final review is not ready", audit)
+
     def test_summarize_session_derives_pending_focused_tests_without_suggested_checks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
             root = Path(base)

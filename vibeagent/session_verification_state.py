@@ -22,6 +22,7 @@ SESSION_VERIFICATION_INVALIDATING_RESULT_KINDS = SESSION_PROJECT_CHANGE_RESULT_K
 def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[str], list[str], list[str]]:
     verification_commands: set[tuple[str, str]] = set()
     last_change_index: int | None = None
+    final_review_index: int | None = None
     for index, event in enumerate(events):
         if event.malformed or event.type != "tool_result":
             continue
@@ -31,11 +32,14 @@ def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[s
         kind = result.get("kind")
         if kind == "final_review":
             verification_commands = session_final_review_verification_commands(result)
+            final_review_index = index
         if kind in SESSION_VERIFICATION_INVALIDATING_RESULT_KINDS and result.get("ok") is not False:
             last_change_index = index
 
     if last_change_index is None:
         return [], [], []
+    if final_review_index is None or final_review_index < last_change_index:
+        verification_commands = set()
 
     statuses: dict[tuple[str, str], tuple[bool, str]] = {}
     for event in events[last_change_index + 1 :]:
