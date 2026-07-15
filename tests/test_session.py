@@ -1513,6 +1513,57 @@ class SessionTests(unittest.TestCase):
         self.assertTrue(audit_report["finalReview"]["resolvedByCompletion"])
         self.assertEqual(audit_report["blockers"]["items"], [])
 
+    def test_session_reports_do_not_resolve_final_review_on_failed_result(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(
+                root,
+                "run-failed-review",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "id": "review",
+                        "name": "final_review",
+                        "result": {
+                            "kind": "final_review",
+                            "ok": True,
+                            "ready": False,
+                            "blocking_issues": ["Suggested verification checks are still pending."],
+                            "warnings": [],
+                            "files": [],
+                            "suggested_checks": [],
+                            "message": "Needs verification.",
+                        },
+                    },
+                    {
+                        "type": "result",
+                        "success": False,
+                        "status": "failed",
+                        "iterations": 2,
+                        "message": "Provider failed after review.",
+                        "completion_ready": True,
+                        "completion_blockers": [],
+                    },
+                ],
+            )
+
+            summary = summarize_session(root, "run-failed-review")
+            summary_text = format_session_summary(summary)
+            summary_report = build_session_summary_report(summary)
+            audit = format_session_audit(root, "run-failed-review")
+            audit_report = build_session_audit_report(root, "run-failed-review")
+
+        self.assertFalse(summary.completed)
+        self.assertTrue(summary.failed)
+        self.assertTrue(summary.completion_ready)
+        self.assertFalse(summary.final_review_ready)
+        self.assertNotIn("resolvedByCompletion=yes", summary_text)
+        self.assertNotIn("resolvedByCompletion=yes", audit)
+        self.assertFalse(summary_report["finalReview"]["resolvedByCompletion"])
+        self.assertFalse(audit_report["finalReview"]["resolvedByCompletion"])
+        self.assertIn("session status is failed", audit_report["blockers"]["items"])
+
     def test_session_readiness_blocks_incomplete_session_without_failures(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
             root = Path(base)
