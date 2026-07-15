@@ -10,6 +10,10 @@ class CommandSafetyGuiTests(unittest.TestCase):
         encoded = base64.b64encode(payload.encode("utf-16le")).decode("ascii")
         return f"powershell -EncodedCommand {encoded}"
 
+    def _powershell_inline_encoded_command(self, option: str, payload: str) -> str:
+        encoded = base64.b64encode(payload.encode("utf-16le")).decode("ascii")
+        return f"powershell {option}:{encoded}"
+
     def test_blocks_powershell_start_alias_for_file_explorer_targets(self) -> None:
         commands = [
             "powershell.exe -NoProfile -Command start .",
@@ -73,6 +77,16 @@ class CommandSafetyGuiTests(unittest.TestCase):
 
     def test_allows_powershell_encoded_non_gui_payload(self) -> None:
         self.assertIsNone(get_blocked_command_reason(self._powershell_encoded_command("Write-Output ok")))
+
+    def test_blocks_powershell_inline_encoded_gui_targets(self) -> None:
+        commands = [
+            self._powershell_inline_encoded_command("-EncodedCommand", "explorer.exe ."),
+            self._powershell_inline_encoded_command("-enc", "xdg-open ."),
+            self._powershell_inline_encoded_command("/EncodedCommand", "Start-ThreadJob { xdg-open . }"),
+        ]
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertIn("GUI application launch", get_blocked_command_reason(command) or "")
 
     def test_powershell_gui_detection_uses_nested_command_callback(self) -> None:
         calls: list[str] = []

@@ -48,10 +48,12 @@ POWERSHELL_ENCODED_COMMAND_OPTIONS = {"-e", "-ec", "-enc", "-encodedcommand"}
 
 
 def powershell_encoded_command_payload(args: list[str]) -> str:
-    for index, token in enumerate(args[:-1]):
-        if token.lower() not in POWERSHELL_ENCODED_COMMAND_OPTIONS:
+    for index, token in enumerate(args):
+        option, separator, inline_value = token.partition(":")
+        normalized_option = "-" + option.lstrip("-/").lower()
+        if normalized_option not in POWERSHELL_ENCODED_COMMAND_OPTIONS:
             continue
-        encoded = args[index + 1].strip()
+        encoded = inline_value.strip() if separator else args[index + 1].strip() if index + 1 < len(args) else ""
         if not encoded:
             return ""
         try:
