@@ -320,7 +320,10 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(tool_name_candidates("write_file", action), ("write_file", "Edit", "NotebookEdit", "Write"))
 
     def test_profile_tool_names_expand_input_sensitive_claude_aliases(self) -> None:
-        self.assertEqual(profile_tool_names("Bash"), frozenset({"run_command", "start_command"}))
+        self.assertEqual(
+            profile_tool_names("Bash"),
+            frozenset({"read_process", "run_command", "start_command", "stop_process"}),
+        )
         self.assertEqual(profile_tool_names("TodoRead"), frozenset({"session_plan"}))
         self.assertEqual(profile_tool_names("Read"), frozenset({"read_file"}))
         self.assertEqual(profile_tool_names("write_file"), frozenset({"write_file"}))

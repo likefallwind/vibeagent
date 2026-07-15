@@ -137,7 +137,7 @@ CLAUDE_TOOL_ALIASES = {
     "Write": FILE_EDIT_TOOL_NAMES,
 }
 PROFILE_TOOL_ALIAS_EXPANSIONS = {
-    "Bash": frozenset({"run_command", "start_command"}),
+    "Bash": frozenset({"read_process", "run_command", "start_command", "stop_process"}),
     "TodoRead": frozenset({"session_plan"}),
 }
 

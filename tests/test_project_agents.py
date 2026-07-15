@@ -250,7 +250,23 @@ class ProjectAgentProfileTests(unittest.TestCase):
                         "input": {"command": "python3 -c \"print('ready')\"", "run_in_background": True},
                     }
                 ],
-                [{"type": "text", "text": "Started the command."}],
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "output-1",
+                        "name": "BashOutput",
+                        "input": {"bash_id": "missing-process"},
+                    }
+                ],
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "kill-1",
+                        "name": "KillBash",
+                        "input": {"bash_id": "missing-process"},
+                    }
+                ],
+                [{"type": "text", "text": "Checked and stopped the command."}],
             ]
         )
         with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
@@ -285,12 +301,16 @@ class ProjectAgentProfileTests(unittest.TestCase):
                 ),
             )
 
-        self.assertEqual(loaded["tools"], ["run_command", "start_command"])
+        self.assertEqual(loaded["tools"], ["read_process", "run_command", "start_command", "stop_process"])
         self.assertTrue(observation.ok)
-        self.assertEqual(set(client.tool_names[0]), {"finish", "run_command", "start_command"})
+        self.assertEqual(set(client.tool_names[0]), {"finish", "read_process", "run_command", "start_command", "stop_process"})
         result = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual(result["kind"], "start_command")
-        self.assertEqual(approvals, ["start_command"])
+        output_result = json.loads(client.messages[2][-1].content[0]["content"])
+        self.assertEqual(output_result["kind"], "read_process")
+        stop_result = json.loads(client.messages[3][-1].content[0]["content"])
+        self.assertEqual(stop_result["kind"], "stop_process")
+        self.assertEqual(approvals, ["start_command", "stop_process"])
 
     def test_code_profile_webfetch_alias_reaches_approval_boundary(self) -> None:
         approvals: list[str] = []
