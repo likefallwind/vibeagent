@@ -52,6 +52,17 @@ class ReadingToolDefinitionTests(unittest.TestCase):
             ["Read", "NotebookRead", "LS", "Glob", "Grep", "Write", "Edit", "NotebookEdit", "MultiEdit"],
         )
 
+    def test_claude_notebook_schemas_match_supported_parser_shapes(self) -> None:
+        tools = {tool["name"]: tool for tool in CLAUDE_FILE_TOOL_DEFINITIONS}
+        notebook_read_schema = tools["NotebookRead"]["input_schema"]
+        notebook_edit_schema = tools["NotebookEdit"]["input_schema"]
+
+        self.assertIn("include_outputs", notebook_read_schema["properties"])
+        self.assertEqual(notebook_edit_schema["required"], ["notebook_path"])
+        self.assertIn({"required": ["cell_id", "new_source"]}, notebook_edit_schema["anyOf"])
+        self.assertIn({"required": ["cell_number", "new_source"]}, notebook_edit_schema["anyOf"])
+        self.assertIn({"required": ["old_string", "new_string"]}, notebook_edit_schema["anyOf"])
+
 
 if __name__ == "__main__":
     unittest.main()

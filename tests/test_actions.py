@@ -225,15 +225,35 @@ from vibeagent.workspace import create_project_directory, create_run_workspace, 
 
 
 def minimal_schema_value(schema: dict[str, Any], property_name: str = "") -> Any:
-    if "oneOf" in schema:
-        return minimal_schema_value(schema["oneOf"][0], property_name=property_name)
-    if "anyOf" in schema:
-        return minimal_schema_value(schema["anyOf"][0], property_name=property_name)
     if "enum" in schema:
         return schema["enum"][0]
     schema_type = schema.get("type")
     if isinstance(schema_type, list):
         schema_type = next((item for item in schema_type if item != "null"), schema_type[0])
+    if "properties" in schema or (schema_type == "object" and "oneOf" not in schema and "anyOf" not in schema):
+        properties = schema.get("properties", {})
+        if not isinstance(properties, dict):
+            return {}
+        required_names: list[str] = []
+        required = schema.get("required", [])
+        if isinstance(required, list):
+            required_names.extend(str(item) for item in required)
+        for choice_key in ("oneOf", "anyOf"):
+            choices = schema.get(choice_key)
+            if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+                continue
+            choice_required = choices[0].get("required", [])
+            if isinstance(choice_required, list):
+                required_names.extend(str(item) for item in choice_required)
+        return {
+            key: minimal_schema_value(properties[key], property_name=key)
+            for key in dict.fromkeys(required_names)
+            if key in properties
+        }
+    if "oneOf" in schema:
+        return minimal_schema_value(schema["oneOf"][0], property_name=property_name)
+    if "anyOf" in schema:
+        return minimal_schema_value(schema["anyOf"][0], property_name=property_name)
     if property_name == "url":
         return "http://127.0.0.1:8000"
     if property_name == "pointer":
@@ -250,13 +270,6 @@ def minimal_schema_value(schema: dict[str, Any], property_name: str = "") -> Any
         return False
     if schema_type == "array":
         return [minimal_schema_value(schema.get("items", {"type": "string"}))]
-    if schema_type == "object" or "properties" in schema:
-        properties = schema.get("properties", {})
-        return {
-            key: minimal_schema_value(properties[key], property_name=key)
-            for key in schema.get("required", [])
-            if key in properties
-        }
     return "x"
 
 

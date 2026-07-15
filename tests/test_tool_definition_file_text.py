@@ -55,6 +55,14 @@ class FileTextToolDefinitionTests(unittest.TestCase):
             ],
         )
 
+    def test_check_notebook_edit_schema_allows_cell_id_or_cell_number(self) -> None:
+        tool = next(tool for tool in FILE_EXACT_EDIT_TOOL_DEFINITIONS if tool["name"] == "check_notebook_edit")
+        schema = tool["input_schema"]
+
+        self.assertEqual(schema["required"], ["path", "new_source"])
+        self.assertIn({"required": ["cell_id"]}, schema["anyOf"])
+        self.assertIn({"required": ["cell_number"]}, schema["anyOf"])
+
 
 if __name__ == "__main__":
     unittest.main()
