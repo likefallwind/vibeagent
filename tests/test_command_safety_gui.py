@@ -28,6 +28,20 @@ class CommandSafetyGuiTests(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertIn("GUI application launch", get_blocked_command_reason(command) or "")
 
+    def test_blocks_powershell_expression_gui_targets(self) -> None:
+        commands = [
+            "powershell -Command \"iex 'explorer.exe .'\"",
+            "powershell -Command \"Invoke-Expression 'xdg-open .'\"",
+            "pwsh -Command \"iex 'start .'\"",
+            "powershell -Command iex 'explorer.exe .'",
+        ]
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertIn("GUI application launch", get_blocked_command_reason(command) or "")
+
+    def test_allows_powershell_expression_non_gui_payload(self) -> None:
+        self.assertIsNone(get_blocked_command_reason("powershell -Command \"iex 'Write-Output ok'\""))
+
     def test_blocks_windows_start_for_gui_executables(self) -> None:
         commands = [
             'cmd.exe /c start "" notepad.exe',

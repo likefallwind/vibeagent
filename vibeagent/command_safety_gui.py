@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+import shlex
 
 from .command_safety_shell import shell_command_segments, unwrapped_shell_command_parts
 
@@ -176,7 +177,21 @@ def powershell_invocation_launches_gui(args: list[str]) -> bool:
         return True
     payload = powershell_command_payload(args)
     if payload:
-        return command_launches_gui_application(payload)
+        return command_launches_gui_application(payload) or powershell_expression_payload_launches_gui(payload)
+    return False
+
+
+def powershell_expression_payload_launches_gui(payload: str) -> bool:
+    try:
+        parts = shlex.split(payload)
+    except ValueError:
+        return False
+    for index, token in enumerate(parts[:-1]):
+        if token.lower() not in {"iex", "invoke-expression"}:
+            continue
+        nested = " ".join(parts[index + 1 :]).strip()
+        if nested and command_launches_gui_application(nested):
+            return True
     return False
 
 
