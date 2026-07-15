@@ -322,12 +322,12 @@ class ActionTests(unittest.TestCase):
     def test_profile_tool_names_expand_input_sensitive_claude_aliases(self) -> None:
         self.assertEqual(
             profile_tool_names("Bash"),
-            frozenset({"read_process", "run_command", "start_command", "stop_process"}),
+            frozenset({"Bash", "BashOutput", "KillBash", "read_process", "run_command", "start_command", "stop_process"}),
         )
-        self.assertEqual(profile_tool_names("Edit"), frozenset({"edit_file", "regex_replace"}))
-        self.assertEqual(profile_tool_names("NotebookEdit"), frozenset({"edit_file", "notebook_edit", "regex_replace"}))
-        self.assertEqual(profile_tool_names("TodoRead"), frozenset({"session_plan"}))
-        self.assertEqual(profile_tool_names("Read"), frozenset({"read_file"}))
+        self.assertEqual(profile_tool_names("Edit"), frozenset({"Edit", "edit_file", "regex_replace"}))
+        self.assertEqual(profile_tool_names("NotebookEdit"), frozenset({"NotebookEdit", "edit_file", "notebook_edit", "regex_replace"}))
+        self.assertEqual(profile_tool_names("TodoRead"), frozenset({"TodoRead", "session_plan"}))
+        self.assertEqual(profile_tool_names("Read"), frozenset({"Read", "read_file"}))
         self.assertEqual(profile_tool_names("write_file"), frozenset({"write_file"}))
 
     def test_parse_tool_action_accepts_project_actions(self) -> None:

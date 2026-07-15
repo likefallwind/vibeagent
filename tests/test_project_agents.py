@@ -71,7 +71,7 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertEqual(catalog["total"], 1)
         self.assertEqual(catalog["invalid"], 0)
         self.assertEqual(catalog["agents"][0]["mode"], "code")
-        self.assertEqual(catalog["agents"][0]["tools"], ["read_file", "write_file"])
+        self.assertEqual(catalog["agents"][0]["tools"], ["Read", "Write", "read_file", "write_file"])
         self.assertNotIn("prompt", catalog["agents"][0])
         self.assertIn("test-writer: Writes focused tests", formatted or "")
         self.assertNotIn("PRIVATE_AGENT_PROMPT", str(initial_messages[1].content))
@@ -188,7 +188,7 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertTrue(observation.ok)
         self.assertEqual(observation.mode, "code")
         self.assertEqual(observation.agent, "focused-writer")
-        self.assertEqual(set(client.tool_names[0]), {"finish", "write_file"})
+        self.assertEqual(set(client.tool_names[0]), {"Write", "finish", "write_file"})
         self.assertIn("PROFILE_SPECIAL_INSTRUCTION", str(client.messages[0][0].content))
 
     def test_code_profile_edit_alias_allows_replace_all_regex_path(self) -> None:
@@ -242,9 +242,9 @@ class ProjectAgentProfileTests(unittest.TestCase):
 
             self.assertEqual(root.joinpath("app.py").read_text(encoding="utf-8"), "new new\n")
 
-        self.assertEqual(loaded["tools"], ["edit_file", "regex_replace"])
+        self.assertEqual(loaded["tools"], ["Edit", "edit_file", "regex_replace"])
         self.assertTrue(observation.ok)
-        self.assertEqual(set(client.tool_names[0]), {"finish", "edit_file", "regex_replace"})
+        self.assertEqual(set(client.tool_names[0]), {"Edit", "finish", "edit_file", "regex_replace"})
         result = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual(result["kind"], "regex_replace")
         self.assertEqual(result["replacements"], 2)
@@ -291,7 +291,7 @@ class ProjectAgentProfileTests(unittest.TestCase):
             )
 
         self.assertTrue(observation.ok)
-        self.assertEqual(set(client.tool_names[0]), {"finish", "read_file"})
+        self.assertEqual(set(client.tool_names[0]), {"Read", "finish", "read_file"})
         result = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual(result["kind"], "read_file")
         self.assertEqual(result["path"], "README.md")
@@ -359,9 +359,15 @@ class ProjectAgentProfileTests(unittest.TestCase):
                 ),
             )
 
-        self.assertEqual(loaded["tools"], ["read_process", "run_command", "start_command", "stop_process"])
+        self.assertEqual(
+            loaded["tools"],
+            ["Bash", "BashOutput", "KillBash", "read_process", "run_command", "start_command", "stop_process"],
+        )
         self.assertTrue(observation.ok)
-        self.assertEqual(set(client.tool_names[0]), {"finish", "read_process", "run_command", "start_command", "stop_process"})
+        self.assertEqual(
+            set(client.tool_names[0]),
+            {"Bash", "BashOutput", "KillBash", "finish", "read_process", "run_command", "start_command", "stop_process"},
+        )
         result = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual(result["kind"], "start_command")
         output_result = json.loads(client.messages[2][-1].content[0]["content"])
@@ -417,8 +423,8 @@ class ProjectAgentProfileTests(unittest.TestCase):
                 ),
             )
 
-        self.assertEqual(loaded["tools"], ["web_fetch"])
-        self.assertEqual(set(client.tool_names[0]), {"finish", "web_fetch"})
+        self.assertEqual(loaded["tools"], ["WebFetch", "web_fetch"])
+        self.assertEqual(set(client.tool_names[0]), {"WebFetch", "finish", "web_fetch"})
         result = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual(result["kind"], "approval_denied")
         self.assertEqual(result["action_type"], "web_fetch")
@@ -494,9 +500,9 @@ class ProjectAgentProfileTests(unittest.TestCase):
                 logger=None,
             )
 
-        self.assertEqual(loaded["tools"], ["session_plan"])
+        self.assertEqual(loaded["tools"], ["TodoRead", "session_plan"])
         self.assertTrue(observation.ok)
-        self.assertEqual(set(client.tool_names[0]), {"finish", "session_plan"})
+        self.assertEqual(set(client.tool_names[0]), {"TodoRead", "finish", "session_plan"})
         result = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual(result["kind"], "session_plan")
         self.assertIn("completed: Inspect", result["plan"])

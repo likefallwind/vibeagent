@@ -8,4 +8,5 @@ DELEGATE_TOOL_NAMES = frozenset(
     for name in PARALLEL_SAFE_TOOL_NAMES
     if not name.startswith("check_") and name not in {"final_review"}
 )
+READ_ONLY_CLAUDE_DELEGATE_TOOL_NAMES = frozenset({"Glob", "Grep", "LS", "NotebookRead", "Read", "TodoRead"})
 CODE_DELEGATE_EXCLUDED_TOOL_NAMES = frozenset({"ask_user", "delegate_task", "todo_write", "update_plan"})

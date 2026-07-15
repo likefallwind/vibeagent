@@ -137,10 +137,22 @@ CLAUDE_TOOL_ALIASES = {
     "Write": FILE_EDIT_TOOL_NAMES,
 }
 PROFILE_TOOL_ALIAS_EXPANSIONS = {
-    "Bash": frozenset({"read_process", "run_command", "start_command", "stop_process"}),
-    "Edit": frozenset({"edit_file", "regex_replace"}),
-    "NotebookEdit": frozenset({"edit_file", "notebook_edit", "regex_replace"}),
-    "TodoRead": frozenset({"session_plan"}),
+    "Bash": frozenset(
+        {"Bash", "BashOutput", "KillBash", "read_process", "run_command", "start_command", "stop_process"}
+    ),
+    "Edit": frozenset({"Edit", "edit_file", "regex_replace"}),
+    "Glob": frozenset({"Glob", "glob"}),
+    "Grep": frozenset({"Grep", "search"}),
+    "LS": frozenset({"LS", "list_tree"}),
+    "MultiEdit": frozenset({"MultiEdit", "multi_edit_file"}),
+    "NotebookEdit": frozenset(
+        {"NotebookEdit", "edit_file", "notebook_edit", "regex_replace"}
+    ),
+    "NotebookRead": frozenset({"NotebookRead", "notebook_read"}),
+    "Read": frozenset({"Read", "read_file"}),
+    "TodoRead": frozenset({"TodoRead", "session_plan"}),
+    "WebFetch": frozenset({"WebFetch", "web_fetch"}),
+    "Write": frozenset({"Write", "write_file"}),
 }
 
 

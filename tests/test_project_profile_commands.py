@@ -38,7 +38,7 @@ class ProjectProfileCommandTests(unittest.TestCase):
             skills = get_skills_text(root)
 
         self.assertIn("reviewer: Reviews code changes", agents)
-        self.assertIn("tools=read_file", agents)
+        self.assertIn("tools=Read,read_file", agents)
         self.assertNotIn("PRIVATE_AGENT_PROMPT", agents)
         self.assertIn("testing: Run focused tests", skills)
         self.assertNotIn("PRIVATE_SKILL_BODY", skills)

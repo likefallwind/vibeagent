@@ -10,7 +10,11 @@ from .agent_execution_support import (
 )
 from .agent_hooks import HookRunResult
 from .agent_permissions import authorize_tool_action
-from .agent_delegate_policy import CODE_DELEGATE_EXCLUDED_TOOL_NAMES, DELEGATE_TOOL_NAMES
+from .agent_delegate_policy import (
+    CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
+    DELEGATE_TOOL_NAMES,
+    READ_ONLY_CLAUDE_DELEGATE_TOOL_NAMES,
+)
 from .agent_parallel_safety import is_parallel_safe_action
 from .agent_runtime_utils import tool_error_observation
 from .agent_tool_execution import execute_parsed_tool_action
@@ -38,7 +42,6 @@ from .workspace_hooks import ProjectHooks
 from .workspace_permissions import ProjectPermissions
 
 
-READ_ONLY_CLAUDE_DELEGATE_TOOL_NAMES = frozenset({"Glob", "Grep", "LS", "NotebookRead", "Read"})
 DELEGATE_TOOL_DEFINITIONS = [
     tool
     for tool in AGENT_TOOL_DEFINITIONS
@@ -213,7 +216,11 @@ def execute_delegate_action(
 ) -> tuple[Observation, bool, tuple[HookRunResult, ...]]:
     action_type = getattr(parsed, "type", None)
     if mode == "explore":
-        allowed_read_only_tool = tool_name in DELEGATE_TOOL_NAMES or action_type in DELEGATE_TOOL_NAMES
+        allowed_read_only_tool = (
+            tool_name in DELEGATE_TOOL_NAMES
+            or tool_name in READ_ONLY_CLAUDE_DELEGATE_TOOL_NAMES
+            or action_type in DELEGATE_TOOL_NAMES
+        )
         if not allowed_read_only_tool or not is_parallel_safe_action(parsed):
             return (
                 ToolErrorObservation(

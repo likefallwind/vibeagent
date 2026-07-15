@@ -6,7 +6,11 @@ from collections import Counter
 from pathlib import Path
 
 from .action_tool_aliases import CLAUDE_MCP_TOOL_NAME_PATTERN, profile_tool_names
-from .agent_delegate_policy import CODE_DELEGATE_EXCLUDED_TOOL_NAMES, DELEGATE_TOOL_NAMES
+from .agent_delegate_policy import (
+    CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
+    DELEGATE_TOOL_NAMES,
+    READ_ONLY_CLAUDE_DELEGATE_TOOL_NAMES,
+)
 from .tool_catalog_core import APPROVAL_REQUIRED_TOOL_NAMES
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
 from .workspace_core import RunWorkspace
@@ -210,6 +214,7 @@ def _validate_agent_tools(mode: str, tools: frozenset[str] | None) -> None:
             for name in tools
             if (
                 name not in DELEGATE_TOOL_NAMES and name != "finish"
+                and name not in READ_ONLY_CLAUDE_DELEGATE_TOOL_NAMES
             ) or name in APPROVAL_REQUIRED_TOOL_NAMES
         )
         if unavailable:
