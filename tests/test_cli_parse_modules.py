@@ -41,6 +41,7 @@ from vibeagent.cli_parse_session import (
 )
 from vibeagent.cli_session_args import add_session_limit_arguments, add_session_local_arguments
 from vibeagent.cli_parse_tool_search import parse_interactive_tool_search_argument
+from vibeagent.cli_project_local_flags import build_check_suggested_kwargs, build_run_suggested_kwargs
 
 
 class CliParseModuleTests(unittest.TestCase):
@@ -85,6 +86,41 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertEqual(parse_cli_json_value('{"ok": true}'), {"ok": True})
         self.assertEqual(timeout_ms("100"), 100)
         self.assertEqual(build_focused_tests_kwargs(args), {"max_paths": 2, "max_commands": 3})
+
+    def test_project_suggested_check_kwargs_preserve_cli_defaults(self) -> None:
+        args = argparse.Namespace(
+            check_suggested_checks="",
+            check_suggested_checks_max=4,
+            run_suggested_checks="pytest",
+            run_suggested_checks_max=5,
+            run_timeout_ms=30_000,
+            run_max_chars=12_000,
+            run_continue_on_failure=False,
+            run_output_contexts=True,
+            run_output_diagnostics=False,
+            run_output_context_lines=2,
+            run_output_diagnostic_max=3,
+            run_output_context_max=4,
+            run_output_context_max_bytes=500,
+        )
+
+        self.assertEqual(build_check_suggested_kwargs(args), {"argument": None, "max_checks": 4})
+        self.assertEqual(
+            build_run_suggested_kwargs(args),
+            {
+                "argument": "pytest",
+                "max_checks": 5,
+                "timeout_ms": 30_000,
+                "max_output_chars": 12_000,
+                "stop_on_failure": True,
+                "extract_output_contexts": True,
+                "extract_output_diagnostics": False,
+                "context_lines": 2,
+                "max_diagnostics": 3,
+                "max_contexts": 4,
+                "max_bytes_per_context": 500,
+            },
+        )
 
     def test_session_arg_helpers_register_limits_and_local_flags(self) -> None:
         parser = argparse.ArgumentParser()

@@ -10,6 +10,29 @@ from .cli_local_result import local_text_or_report
 from .tool_search_options import tool_search_approval_filter
 
 
+def build_check_suggested_kwargs(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "argument": args.check_suggested_checks or None,
+        "max_checks": args.check_suggested_checks_max,
+    }
+
+
+def build_run_suggested_kwargs(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "argument": args.run_suggested_checks or None,
+        "max_checks": args.run_suggested_checks_max,
+        "timeout_ms": args.run_timeout_ms,
+        "max_output_chars": args.run_max_chars,
+        "stop_on_failure": not args.run_continue_on_failure,
+        "extract_output_contexts": args.run_output_contexts,
+        "extract_output_diagnostics": args.run_output_diagnostics,
+        "context_lines": args.run_output_context_lines,
+        "max_diagnostics": args.run_output_diagnostic_max,
+        "max_contexts": args.run_output_context_max,
+        "max_bytes_per_context": args.run_output_context_max_bytes,
+    }
+
+
 def run_project_local_flag(
     args: argparse.Namespace,
     project_root: Path | None,
@@ -126,10 +149,7 @@ def run_project_local_flag(
             lambda: commands["get_checks_text"](root, max_checks=args.checks_max),
         )
     if args.check_suggested_checks is not None:
-        check_suggested_kwargs = {
-            "argument": args.check_suggested_checks or None,
-            "max_checks": args.check_suggested_checks_max,
-        }
+        check_suggested_kwargs = build_check_suggested_kwargs(args)
         return local_text_or_report(
             args,
             "checkSuggestedChecks",
@@ -142,19 +162,7 @@ def run_project_local_flag(
             ),
         )
     if args.run_suggested_checks is not None:
-        run_suggested_kwargs = {
-            "argument": args.run_suggested_checks or None,
-            "max_checks": args.run_suggested_checks_max,
-            "timeout_ms": args.run_timeout_ms,
-            "max_output_chars": args.run_max_chars,
-            "stop_on_failure": not args.run_continue_on_failure,
-            "extract_output_contexts": args.run_output_contexts,
-            "extract_output_diagnostics": args.run_output_diagnostics,
-            "context_lines": args.run_output_context_lines,
-            "max_diagnostics": args.run_output_diagnostic_max,
-            "max_contexts": args.run_output_context_max,
-            "max_bytes_per_context": args.run_output_context_max_bytes,
-        }
+        run_suggested_kwargs = build_run_suggested_kwargs(args)
         return local_text_or_report(
             args,
             "runSuggestedChecks",
