@@ -177,7 +177,29 @@ def powershell_invocation_launches_gui(args: list[str]) -> bool:
         return True
     payload = powershell_command_payload(args)
     if payload:
-        return command_launches_gui_application(payload) or powershell_expression_payload_launches_gui(payload)
+        return (
+            command_launches_gui_application(payload)
+            or powershell_expression_payload_launches_gui(payload)
+            or powershell_script_block_payload_launches_gui(payload)
+        )
+    return False
+
+
+POWERSHELL_SCRIPT_BLOCK_LAUNCHERS = {"start-job", "start-threadjob", "threadjob"}
+POWERSHELL_SCRIPT_BLOCK_PATTERN = re.compile(
+    r"\b(?P<launcher>start-job|start-threadjob|threadjob)\b[^{]*\{(?P<body>[^{}]+)\}",
+    re.IGNORECASE,
+)
+
+
+def powershell_script_block_payload_launches_gui(payload: str) -> bool:
+    for match in POWERSHELL_SCRIPT_BLOCK_PATTERN.finditer(payload):
+        launcher = match.group("launcher").lower()
+        if launcher not in POWERSHELL_SCRIPT_BLOCK_LAUNCHERS:
+            continue
+        body = match.group("body").strip()
+        if body and command_launches_gui_application(body):
+            return True
     return False
 
 

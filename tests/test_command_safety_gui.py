@@ -42,6 +42,19 @@ class CommandSafetyGuiTests(unittest.TestCase):
     def test_allows_powershell_expression_non_gui_payload(self) -> None:
         self.assertIsNone(get_blocked_command_reason("powershell -Command \"iex 'Write-Output ok'\""))
 
+    def test_blocks_powershell_thread_job_gui_targets(self) -> None:
+        commands = [
+            "powershell -Command \"Start-ThreadJob { xdg-open . }\"",
+            "pwsh -Command \"Start-ThreadJob -ScriptBlock { explorer.exe . }\"",
+            "powershell -Command \"ThreadJob { start . }\"",
+        ]
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertIn("GUI application launch", get_blocked_command_reason(command) or "")
+
+    def test_allows_powershell_thread_job_non_gui_payload(self) -> None:
+        self.assertIsNone(get_blocked_command_reason("powershell -Command \"Start-ThreadJob { python -V }\""))
+
     def test_blocks_windows_start_for_gui_executables(self) -> None:
         commands = [
             'cmd.exe /c start "" notepad.exe',
