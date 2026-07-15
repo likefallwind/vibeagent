@@ -13,6 +13,14 @@ CLAUDE_READ_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "file_path": {"type": "string"},
                 "offset": {"type": "integer", "minimum": 0},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 2000},
+                "read_range": {
+                    "description": "Inclusive line range: object, [start,end], or 'start-end'.",
+                    "oneOf": [
+                        {"type": "object"},
+                        {"type": "array", "minItems": 2, "maxItems": 2},
+                        {"type": "string"},
+                    ],
+                },
                 "max_bytes": {
                     "type": "integer",
                     "minimum": 1000,

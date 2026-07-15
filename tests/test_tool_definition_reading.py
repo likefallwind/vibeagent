@@ -81,8 +81,13 @@ class ReadingToolDefinitionTests(unittest.TestCase):
         tools = {tool["name"]: tool for tool in CLAUDE_FILE_TOOL_DEFINITIONS}
         read_schema = tools["Read"]["input_schema"]
 
+        read_range_schema = read_schema["properties"]["read_range"]
+
+        self.assertIn("read_range", read_schema["properties"])
+        self.assertEqual(len(read_range_schema["oneOf"]), 3)
         self.assertIn("max_bytes", read_schema["properties"])
         self.assertIn("show_line_numbers", read_schema["properties"])
+        self.assertNotIn("read_range", read_schema["required"])
         self.assertNotIn("max_bytes", read_schema["required"])
         self.assertNotIn("show_line_numbers", read_schema["required"])
 
