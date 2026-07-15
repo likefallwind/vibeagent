@@ -2406,6 +2406,10 @@ class ActionTests(unittest.TestCase):
             "Task",
             {"prompt": "Inspect failures", "description": "Focus on tests", "subagent_type": "test-writer"},
         )
+        generic_task_action = parse_tool_action(
+            "Task",
+            {"prompt": "Inspect broadly", "subagent_type": "general-purpose"},
+        )
         agent_action = parse_tool_action("Agent", {"prompt": "Map the repo", "description": "Read-only scan"})
         exit_plan_action = parse_tool_action("ExitPlanMode", {"plan": "Implement the selected fix"})
         write_action = parse_tool_action("Write", {"file_path": "out.txt", "content": "ok\n"})
@@ -2455,6 +2459,10 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(task_action.task, "Inspect failures")
         self.assertEqual(task_action.context, "Focus on tests")
         self.assertEqual(task_action.agent, "test-writer")
+        self.assertEqual(generic_task_action.type, "delegate_task")
+        self.assertEqual(generic_task_action.task, "Inspect broadly")
+        self.assertIsNone(generic_task_action.agent)
+        self.assertEqual(generic_task_action.mode, "explore")
         self.assertEqual(agent_action.type, "delegate_task")
         self.assertEqual(agent_action.task, "Map the repo")
         self.assertEqual(agent_action.context, "Read-only scan")
