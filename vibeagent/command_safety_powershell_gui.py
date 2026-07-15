@@ -78,9 +78,52 @@ def powershell_direct_payload_launches_gui(
         return False
     if launcher in {"explorer", "explorer.exe"}:
         return True
-    return nested_command_launches_gui(" ".join(parts[1:])) or any(
-        powershell_direct_target_launches_gui(part) for part in parts[1:] if not part.startswith("-")
-    )
+    if launcher in {"start-process", "saps"}:
+        target = powershell_start_process_target(parts[1:])
+        return bool(target and powershell_launch_target_is_gui(target, nested_command_launches_gui))
+    return any(powershell_direct_target_launches_gui(part) for part in parts[1:] if not part.startswith("-"))
+
+
+POWERSHELL_START_PROCESS_VALUE_OPTIONS = {
+    "-argumentlist",
+    "-credential",
+    "-filepath",
+    "-loaduserprofile",
+    "-redirectstandarderror",
+    "-redirectstandardinput",
+    "-redirectstandardoutput",
+    "-verb",
+    "-wait",
+    "-windowstyle",
+    "-workingdirectory",
+}
+
+
+def powershell_start_process_target(args: list[str]) -> str:
+    positional: list[str] = []
+    index = 0
+    while index < len(args):
+        token = args[index]
+        option, separator, inline_value = token.partition(":")
+        normalized = normalize_powershell_option(option, preserve_slash=False)
+        if normalized == "-filepath":
+            return inline_value.strip() if separator else args[index + 1].strip() if index + 1 < len(args) else ""
+        if normalized in POWERSHELL_START_PROCESS_VALUE_OPTIONS:
+            index += 2 if not separator else 1
+            continue
+        if token.startswith("-"):
+            index += 1
+            continue
+        positional.append(token)
+        index += 1
+    return positional[0] if positional else ""
+
+
+def powershell_launch_target_is_gui(
+    target: str,
+    nested_command_launches_gui: Callable[[str], bool],
+) -> bool:
+    return powershell_direct_target_launches_gui(target) or nested_command_launches_gui(target)
 
 
 def powershell_direct_target_launches_gui(target: str) -> bool:

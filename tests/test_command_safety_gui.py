@@ -36,10 +36,22 @@ class CommandSafetyGuiTests(unittest.TestCase):
             "powershell -Command \"Invoke-Item .\"",
             "powershell -Command \"ii .\"",
             "powershell -Command \"Start-Process explorer.exe .\"",
+            "powershell -Command \"Start-Process -FilePath xdg-open -ArgumentList .\"",
+            "powershell -Command \"Start-Process -FilePath code -ArgumentList .\"",
         ]
         for command in commands:
             with self.subTest(command=command):
                 self.assertIn("GUI application launch", get_blocked_command_reason(command) or "")
+
+    def test_allows_powershell_start_process_non_gui_targets(self) -> None:
+        commands = [
+            "powershell -Command \"Start-Process -FilePath python -ArgumentList .\"",
+            "powershell -Command \"Start-Process python .\"",
+            "powershell -Command \"Start-Process -FilePath npm -ArgumentList test\"",
+        ]
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertIsNone(get_blocked_command_reason(command))
 
     def test_allows_powershell_printing_gui_launcher_names(self) -> None:
         commands = [
