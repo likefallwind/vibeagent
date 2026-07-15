@@ -42,6 +42,7 @@ class CommandSafetyGuiTests(unittest.TestCase):
         commands = [
             "powershell -Command \"iex 'explorer.exe .'\"",
             "powershell -Command \"Invoke-Expression 'xdg-open .'\"",
+            "powershell -Command \"Invoke-Expression -Command 'xdg-open .'\"",
             "pwsh -Command \"iex 'start .'\"",
             "powershell -Command iex 'explorer.exe .'",
         ]
@@ -57,6 +58,7 @@ class CommandSafetyGuiTests(unittest.TestCase):
             "powershell -Command \"Start-ThreadJob { xdg-open . }\"",
             "pwsh -Command \"Start-ThreadJob -ScriptBlock { explorer.exe . }\"",
             "powershell -Command \"ThreadJob { start . }\"",
+            "powershell -Command \"Invoke-Command -ScriptBlock { xdg-open . }\"",
         ]
         for command in commands:
             with self.subTest(command=command):
@@ -64,6 +66,7 @@ class CommandSafetyGuiTests(unittest.TestCase):
 
     def test_allows_powershell_thread_job_non_gui_payload(self) -> None:
         self.assertIsNone(get_blocked_command_reason("powershell -Command \"Start-ThreadJob { python -V }\""))
+        self.assertIsNone(get_blocked_command_reason("powershell -Command \"Invoke-Command { python -V }\""))
 
     def test_blocks_powershell_scriptblock_create_gui_targets(self) -> None:
         commands = [

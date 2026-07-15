@@ -7,9 +7,15 @@ import re
 import shlex
 
 
-POWERSHELL_SCRIPT_BLOCK_LAUNCHERS = {"start-job", "start-threadjob", "threadjob"}
+POWERSHELL_SCRIPT_BLOCK_LAUNCHERS = {
+    "foreach-object",
+    "invoke-command",
+    "start-job",
+    "start-threadjob",
+    "threadjob",
+}
 POWERSHELL_SCRIPT_BLOCK_PATTERN = re.compile(
-    r"\b(?P<launcher>start-job|start-threadjob|threadjob)\b[^{]*\{(?P<body>[^{}]+)\}",
+    r"\b(?P<launcher>foreach-object|invoke-command|start-job|start-threadjob|threadjob)\b[^{]*\{(?P<body>[^{}]+)\}",
     re.IGNORECASE,
 )
 POWERSHELL_SCRIPTBLOCK_CREATE_PATTERN = re.compile(
@@ -103,7 +109,10 @@ def powershell_expression_payload_launches_gui(
     for index, token in enumerate(parts[:-1]):
         if token.lower() not in {"iex", "invoke-expression"}:
             continue
-        nested = " ".join(parts[index + 1 :]).strip()
+        nested_parts = parts[index + 1 :]
+        if nested_parts and nested_parts[0].lower() in {"-command", "/command"}:
+            nested_parts = nested_parts[1:]
+        nested = " ".join(nested_parts).strip()
         if nested and nested_command_launches_gui(nested):
             return True
     return False
