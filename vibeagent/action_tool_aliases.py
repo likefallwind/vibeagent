@@ -4,6 +4,7 @@ from collections.abc import Callable
 import re
 from typing import Any
 
+from .action_parsing_helpers import coerce_int
 from .action_tool_alias_search import normalize_search_input
 from .action_tool_alias_utils import rename_fields, truthy_alias_bool
 
@@ -265,9 +266,13 @@ def _normalize_read_file_input(value: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _is_zero_offset_alias(value: Any) -> bool:
+    return coerce_int(value) == 0
+
+
 def _normalize_claude_read_file_input(value: dict[str, Any]) -> dict[str, Any]:
     normalized = _normalize_read_file_input(value)
-    if normalized.get("start_line") == 0:
+    if _is_zero_offset_alias(normalized.get("start_line")):
         normalized["start_line"] = 1
     if "line_count" in normalized and "start_line" not in normalized:
         normalized["start_line"] = 1
@@ -279,7 +284,7 @@ def _normalize_claude_notebook_read_input(value: dict[str, Any]) -> dict[str, An
         value,
         {"notebook_path": "path", "offset": "start_cell", "limit": "cell_count"},
     )
-    if normalized.get("start_cell") == 0:
+    if _is_zero_offset_alias(normalized.get("start_cell")):
         normalized["start_cell"] = 1
     return normalized
 
