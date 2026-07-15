@@ -2377,9 +2377,16 @@ class ActionTests(unittest.TestCase):
             "todo_write",
             {"plan": [{"step": "Verify schema", "status": "completed"}]},
         )
+        claude_plan_write_action = parse_tool_action(
+            "TodoWrite",
+            {"plan": [{"step": "Verify Claude schema", "status": "done"}]},
+        )
         self.assertEqual(plan_write_action.type, "update_plan")
         self.assertEqual(plan_write_action.plan[0].step, "Verify schema")
         self.assertEqual(plan_write_action.plan[0].status, "completed")
+        self.assertEqual(claude_plan_write_action.type, "update_plan")
+        self.assertEqual(claude_plan_write_action.plan[0].step, "Verify Claude schema")
+        self.assertEqual(claude_plan_write_action.plan[0].status, "completed")
 
         with self.assertRaisesRegex(ActionParseError, "todo_write action requires a non-empty todos list"):
             parse_tool_action("todo_write", {})

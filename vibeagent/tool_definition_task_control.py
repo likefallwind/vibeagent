@@ -140,24 +140,8 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
             },
             "anyOf": [
-                {
-                    "type": "object",
-                    "properties": {
-                        "plan": {
-                            **TODO_PLAN_ARRAY_SCHEMA,
-                        }
-                    },
-                    "required": ["plan"],
-                },
-                {
-                    "type": "object",
-                    "properties": {
-                        "todos": {
-                            **TODO_ARRAY_SCHEMA,
-                        }
-                    },
-                    "required": ["todos"],
-                },
+                {"required": ["plan"]},
+                {"required": ["todos"]},
             ],
             "additionalProperties": False,
         },
@@ -182,27 +166,21 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "TodoWrite",
-        "description": "Claude-compatible alias for replacing the current task plan.",
+        "description": "Claude-compatible alias for replacing the current task plan. Accepts either a VibeAgent plan list or a Claude-style todos list.",
         "input_schema": {
             "type": "object",
             "properties": {
+                "plan": {
+                    **TODO_PLAN_ARRAY_SCHEMA,
+                },
                 "todos": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 20,
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "content": {"type": "string"},
-                            "status": {"type": "string", "enum": PLAN_ITEM_STATUS_ENUM},
-                            "activeForm": {"type": "string"},
-                        },
-                        "required": ["content", "status"],
-                        "additionalProperties": True,
-                    },
-                }
+                    **TODO_ARRAY_SCHEMA,
+                },
             },
-            "required": ["todos"],
+            "anyOf": [
+                {"required": ["plan"]},
+                {"required": ["todos"]},
+            ],
             "additionalProperties": False,
         },
     },

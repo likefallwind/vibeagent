@@ -56,22 +56,29 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
 
     def test_todo_write_schema_accepts_plan_or_todos(self) -> None:
         todo_write = next(tool for tool in TASK_CONTROL_TOOL_DEFINITIONS if tool["name"] == "todo_write")
+        claude_todo_write = next(tool for tool in TASK_CONTROL_TOOL_DEFINITIONS if tool["name"] == "TodoWrite")
         schema = todo_write["input_schema"]
+        claude_schema = claude_todo_write["input_schema"]
 
         self.assertNotIn("required", schema)
         self.assertEqual([branch["required"] for branch in schema["anyOf"]], [["plan"], ["todos"]])
-        self.assertIn("plan", schema["anyOf"][0]["properties"])
-        self.assertIn("todos", schema["anyOf"][1]["properties"])
+        self.assertIn("plan", schema["properties"])
+        self.assertIn("todos", schema["properties"])
+        self.assertNotIn("required", claude_schema)
+        self.assertEqual([branch["required"] for branch in claude_schema["anyOf"]], [["plan"], ["todos"]])
+        self.assertIn("plan", claude_schema["properties"])
+        self.assertIn("todos", claude_schema["properties"])
 
     def test_task_control_plan_and_todo_item_schemas_are_shared(self) -> None:
         update_plan = next(tool for tool in TASK_CONTROL_TOOL_DEFINITIONS if tool["name"] == "update_plan")
         todo_write = next(tool for tool in TASK_CONTROL_TOOL_DEFINITIONS if tool["name"] == "todo_write")
+        claude_todo_write = next(tool for tool in TASK_CONTROL_TOOL_DEFINITIONS if tool["name"] == "TodoWrite")
 
         self.assertIs(update_plan["input_schema"]["properties"]["plan"]["items"], PLAN_ITEM_SCHEMA)
         self.assertIs(todo_write["input_schema"]["properties"]["plan"]["items"], PLAN_ITEM_SCHEMA)
-        self.assertIs(todo_write["input_schema"]["anyOf"][0]["properties"]["plan"]["items"], PLAN_ITEM_SCHEMA)
         self.assertIs(todo_write["input_schema"]["properties"]["todos"]["items"], TODO_ITEM_SCHEMA)
-        self.assertIs(todo_write["input_schema"]["anyOf"][1]["properties"]["todos"]["items"], TODO_ITEM_SCHEMA)
+        self.assertIs(claude_todo_write["input_schema"]["properties"]["plan"]["items"], PLAN_ITEM_SCHEMA)
+        self.assertIs(claude_todo_write["input_schema"]["properties"]["todos"]["items"], TODO_ITEM_SCHEMA)
 
     def test_task_control_status_schemas_accept_aliases(self) -> None:
         self.assertEqual(
