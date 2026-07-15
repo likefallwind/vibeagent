@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .action_parsing_helpers import coerce_int
 from .action_tool_alias_utils import rename_fields, truthy_alias_bool
 
 
@@ -80,13 +81,8 @@ def _normalize_search_context_aliases(value: dict[str, Any]) -> None:
 def _max_directional_context(values: list[Any]) -> Any:
     numeric_values = []
     for value in values:
-        if type(value) is int:
-            numeric_values.append(value)
-            continue
-        if isinstance(value, str):
-            stripped = value.strip()
-            if stripped.isdigit():
-                numeric_values.append(int(stripped))
-                continue
-        return value
+        parsed = coerce_int(value)
+        if parsed is None:
+            return value
+        numeric_values.append(parsed)
     return max(numeric_values)

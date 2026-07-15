@@ -417,7 +417,7 @@ def parse_edit_operations(value: Any, raw: str, action_type: str = "multi_edit_f
     return edits
 
 
-def _coerce_int(value: Any) -> int | None:
+def coerce_int(value: Any) -> int | None:
     if type(value) is int:
         return value
     if type(value) is float and math.isfinite(value) and value.is_integer():
@@ -437,7 +437,7 @@ def _coerce_int(value: Any) -> int | None:
 def parse_optional_positive_int(value: Any, name: str, raw: str, maximum: int | None) -> int | None:
     if value is None:
         return None
-    parsed = _coerce_int(value)
+    parsed = coerce_int(value)
     if parsed is None or parsed < 1:
         raise ActionParseError(f"{name} must be a positive integer.", raw)
     if maximum is not None and parsed > maximum:
@@ -448,7 +448,7 @@ def parse_optional_positive_int(value: Any, name: str, raw: str, maximum: int | 
 def parse_optional_nonnegative_int(value: Any, name: str, raw: str, maximum: int | None) -> int | None:
     if value is None:
         return None
-    parsed = _coerce_int(value)
+    parsed = coerce_int(value)
     if parsed is None or parsed < 0:
         raise ActionParseError(f"{name} must be a non-negative integer.", raw)
     if maximum is not None and parsed > maximum:
@@ -457,7 +457,7 @@ def parse_optional_nonnegative_int(value: Any, name: str, raw: str, maximum: int
 
 
 def parse_nonnegative_int(value: Any, name: str, raw: str, maximum: int | None) -> int:
-    parsed = _coerce_int(value)
+    parsed = coerce_int(value)
     if parsed is None or parsed < 0:
         raise ActionParseError(f"{name} must be a non-negative integer.", raw)
     if maximum is not None and parsed > maximum:

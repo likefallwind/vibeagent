@@ -254,9 +254,11 @@ class ActionToolAliasTests(unittest.TestCase):
 
     def test_claude_grep_directional_context_flags_map_to_context_lines(self) -> None:
         action = parse_tool_action("Grep", {"pattern": "needle", "-A": "2", "-B": "4"})
+        float_string_action = parse_tool_action("Grep", {"pattern": "needle", "-A": "5.0", "-B": "3"})
 
         self.assertIsInstance(action, SearchAction)
         self.assertEqual(action.context_lines, 4)
+        self.assertEqual(float_string_action.context_lines, 5)
 
     def test_claude_grep_directional_context_rejects_invalid_string(self) -> None:
         with self.assertRaisesRegex(ValueError, "context_lines must be a non-negative integer"):
