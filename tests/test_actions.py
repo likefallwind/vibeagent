@@ -2431,7 +2431,10 @@ class ActionTests(unittest.TestCase):
             },
         )
         ls_action = parse_tool_action("LS", {"path": "src", "ignore": ["*.pyc", "__pycache__"]})
-        glob_action = parse_tool_action("Glob", {"pattern": "**/*.py", "path": "src"})
+        glob_action = parse_tool_action(
+            "Glob",
+            {"pattern": "**/*.py", "path": "src", "max_matches": 9, "include_dirs": True},
+        )
         grep_action = parse_tool_action("Grep", {"pattern": "needle", "path": "src", "head_limit": 7, "output_mode": "content"})
         todo_write_action = parse_tool_action("TodoWrite", {"todos": [{"content": "Plan", "status": "completed"}]})
         todo_read_action = parse_tool_action("TodoRead", {})
@@ -2492,6 +2495,8 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(ls_action.ignore, ("*.pyc", "__pycache__"))
         self.assertEqual(glob_action.type, "glob")
         self.assertEqual(glob_action.pattern, "src/**/*.py")
+        self.assertEqual(glob_action.max_matches, 9)
+        self.assertTrue(glob_action.include_dirs)
         self.assertEqual(grep_action.type, "search")
         self.assertEqual(grep_action.query, "needle")
         self.assertEqual(grep_action.max_matches, 7)

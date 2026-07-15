@@ -63,6 +63,15 @@ class ReadingToolDefinitionTests(unittest.TestCase):
         self.assertIn({"required": ["cell_number", "new_source"]}, notebook_edit_schema["anyOf"])
         self.assertIn({"required": ["old_string", "new_string"]}, notebook_edit_schema["anyOf"])
 
+    def test_claude_glob_schema_exposes_supported_limits(self) -> None:
+        tools = {tool["name"]: tool for tool in CLAUDE_FILE_TOOL_DEFINITIONS}
+        glob_schema = tools["Glob"]["input_schema"]
+
+        self.assertIn("max_matches", glob_schema["properties"])
+        self.assertIn("include_dirs", glob_schema["properties"])
+        self.assertNotIn("max_matches", glob_schema["required"])
+        self.assertNotIn("include_dirs", glob_schema["required"])
+
 
 if __name__ == "__main__":
     unittest.main()

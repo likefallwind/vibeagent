@@ -54,6 +54,16 @@ CLAUDE_FILE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "properties": {
                 "pattern": {"type": "string"},
                 "path": {"type": "string"},
+                "max_matches": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "Maximum match count to return. Defaults to 200.",
+                },
+                "include_dirs": {
+                    "type": "boolean",
+                    "description": "Whether directory matches should be returned with trailing slashes. Defaults to false.",
+                },
             },
             "required": ["pattern"],
             "additionalProperties": False,
