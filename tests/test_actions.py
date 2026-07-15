@@ -757,7 +757,11 @@ class ActionTests(unittest.TestCase):
                 "run_commands",
             ),
             ("check_start_command", {"command": "python3 -m http.server 8000", "cwd": "web"}, "check_start_command"),
-            ("start_command", {"command": "python3 -m http.server 8000", "cwd": "web"}, "start_command"),
+            (
+                "start_command",
+                {"command": "python3 -m http.server 8000", "cwd": "web", "max_output_chars": 2000},
+                "start_command",
+            ),
             ("read_process", {"process_id": "abc123", "max_output_chars": 2000}, "read_process"),
             (
                 "wait_process",
@@ -2055,6 +2059,9 @@ class ActionTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionParseError, "start_command action cwd must be a string"):
             parse_tool_action("start_command", {"command": "python3 -m http.server", "cwd": 1})
 
+        with self.assertRaisesRegex(ActionParseError, "max_output_chars must be at least 1000"):
+            parse_tool_action("start_command", {"command": "python3 -m http.server", "max_output_chars": 999})
+
         with self.assertRaisesRegex(ActionParseError, "read_process action requires a non-empty process_id"):
             parse_tool_action("read_process", {})
 
@@ -2401,7 +2408,10 @@ class ActionTests(unittest.TestCase):
     def test_parse_tool_action_accepts_claude_tool_name_aliases(self) -> None:
         read_action = parse_tool_action("Read", {"file_path": "app.py", "offset": 2, "limit": 5})
         bash_action = parse_tool_action("Bash", {"command": "python3 -m unittest", "timeout": 1000.0})
-        background_bash_action = parse_tool_action("Bash", {"command": "npm run dev", "run_in_background": "true"})
+        background_bash_action = parse_tool_action(
+            "Bash",
+            {"command": "npm run dev", "run_in_background": "true", "max_output_chars": 3000},
+        )
         foreground_bash_action = parse_tool_action("Bash", {"command": "npm test", "run_in_background": "false"})
         bash_output_action = parse_tool_action("BashOutput", {"bash_id": "proc-1", "max_output_chars": 2000})
         kill_bash_action = parse_tool_action("KillBash", {"bash_id": "proc-1"})
@@ -2452,6 +2462,7 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(bash_action.timeout_ms, 1000)
         self.assertEqual(background_bash_action.type, "start_command")
         self.assertEqual(background_bash_action.command, "npm run dev")
+        self.assertEqual(background_bash_action.max_output_chars, 3000)
         self.assertEqual(foreground_bash_action.type, "run_command")
         self.assertEqual(foreground_bash_action.command, "npm test")
         self.assertEqual(bash_output_action.type, "read_process")

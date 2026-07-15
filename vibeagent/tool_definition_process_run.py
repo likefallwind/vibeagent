@@ -62,6 +62,12 @@ PROCESS_RUN_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "string",
                     "description": "Optional project-relative directory to run in. Defaults to the project root.",
                 },
+                "max_output_chars": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 50000,
+                    "description": "Optional output tail size to preserve with the start request.",
+                },
             },
             "required": ["command"],
             "additionalProperties": False,

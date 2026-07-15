@@ -201,7 +201,7 @@ def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, d
     if name == "Bash" and truthy_alias_bool(tool_input.get("run_in_background")):
         return "start_command", _drop_fields(
             dict(tool_input),
-            {"run_in_background", "timeout", "timeout_ms", "max_output_chars"},
+            {"run_in_background", "timeout", "timeout_ms"},
         )
     if name == "NotebookEdit" and "old_string" in tool_input and "new_string" in tool_input:
         if truthy_alias_bool(tool_input.get("replace_all")):

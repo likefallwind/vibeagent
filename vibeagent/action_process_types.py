@@ -107,6 +107,7 @@ class StartCommandAction:
     type: Literal["start_command"]
     command: str
     cwd: str | None = None
+    max_output_chars: int | None = None
     description: str | None = None
 
 

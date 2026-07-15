@@ -184,6 +184,7 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
             type="start_command",
             command=command,
             cwd=cwd,
+            max_output_chars=_parse_optional_command_output_chars(value.get("max_output_chars"), raw),
             description=_parse_optional_description(value.get("description"), raw, "start_command"),
         )
 

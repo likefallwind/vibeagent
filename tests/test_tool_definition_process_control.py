@@ -89,6 +89,13 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         self.assertTrue(set(PLAN_ITEM_SCHEMA_STATUS_VALUES).issubset(PLAN_ITEM_STATUS_VALUES))
         self.assertIs(TODO_ITEM_SCHEMA["properties"]["status"]["enum"], PLAN_ITEM_SCHEMA["properties"]["status"]["enum"])
 
+    def test_start_command_schema_exposes_output_tail_limit(self) -> None:
+        start_command = next(tool for tool in PROCESS_RUN_TOOL_DEFINITIONS if tool["name"] == "start_command")
+        schema = start_command["input_schema"]
+
+        self.assertIn("max_output_chars", schema["properties"])
+        self.assertNotIn("max_output_chars", schema["required"])
+
 
 if __name__ == "__main__":
     unittest.main()
