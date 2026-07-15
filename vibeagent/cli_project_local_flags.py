@@ -5,6 +5,7 @@ from pathlib import Path
 import shlex
 from typing import Any
 
+from .cli_parse_core import build_focused_tests_kwargs
 from .cli_parse_tool_search import parse_interactive_tool_search_argument
 from .cli_local_result import local_text_or_report
 from .tool_search_options import tool_search_approval_filter
@@ -35,6 +36,28 @@ def build_run_suggested_kwargs(args: argparse.Namespace) -> dict[str, object]:
 
 def kwargs_without_argument(kwargs: dict[str, object]) -> dict[str, object]:
     return {key: value for key, value in kwargs.items() if key != "argument"}
+
+
+def build_focused_tests_local_kwargs(args: argparse.Namespace, values: list[str]) -> dict[str, object]:
+    return build_focused_tests_kwargs(args) | {"argument": shlex.join(values) if values else None}
+
+
+def build_run_focused_tests_kwargs(args: argparse.Namespace) -> dict[str, object]:
+    focused_kwargs = build_focused_tests_local_kwargs(args, args.run_focused_tests)
+    focused_kwargs.update(
+        {
+            "timeout_ms": args.run_timeout_ms,
+            "max_output_chars": args.run_max_chars,
+            "stop_on_failure": not args.run_continue_on_failure,
+            "extract_output_contexts": args.run_output_contexts,
+            "extract_output_diagnostics": args.run_output_diagnostics,
+            "context_lines": args.run_output_context_lines,
+            "max_diagnostics": args.run_output_diagnostic_max,
+            "max_contexts": args.run_output_context_max,
+            "max_bytes_per_context": args.run_output_context_max_bytes,
+        }
+    )
+    return focused_kwargs
 
 
 def run_project_local_flag(
@@ -206,8 +229,7 @@ def run_project_local_flag(
             lambda: commands["get_related_tests_text"](root, related_argument, **related_kwargs),
         )
     if args.focused_tests is not None:
-        focused_kwargs = commands["build_focused_tests_kwargs"](args)
-        focused_kwargs["argument"] = shlex.join(args.focused_tests) if args.focused_tests else None
+        focused_kwargs = build_focused_tests_local_kwargs(args, args.focused_tests)
         return local_text_or_report(
             args,
             "focusedTests",
@@ -220,8 +242,7 @@ def run_project_local_flag(
             ),
         )
     if args.check_focused_tests is not None:
-        focused_kwargs = commands["build_focused_tests_kwargs"](args)
-        focused_kwargs["argument"] = shlex.join(args.check_focused_tests) if args.check_focused_tests else None
+        focused_kwargs = build_focused_tests_local_kwargs(args, args.check_focused_tests)
         return local_text_or_report(
             args,
             "checkFocusedTests",
@@ -234,21 +255,7 @@ def run_project_local_flag(
             ),
         )
     if args.run_focused_tests is not None:
-        focused_kwargs = commands["build_focused_tests_kwargs"](args)
-        focused_kwargs.update(
-            {
-                "argument": shlex.join(args.run_focused_tests) if args.run_focused_tests else None,
-                "timeout_ms": args.run_timeout_ms,
-                "max_output_chars": args.run_max_chars,
-                "stop_on_failure": not args.run_continue_on_failure,
-                "extract_output_contexts": args.run_output_contexts,
-                "extract_output_diagnostics": args.run_output_diagnostics,
-                "context_lines": args.run_output_context_lines,
-                "max_diagnostics": args.run_output_diagnostic_max,
-                "max_contexts": args.run_output_context_max,
-                "max_bytes_per_context": args.run_output_context_max_bytes,
-            }
-        )
+        focused_kwargs = build_run_focused_tests_kwargs(args)
         return local_text_or_report(
             args,
             "runFocusedTests",

@@ -41,7 +41,13 @@ from vibeagent.cli_parse_session import (
 )
 from vibeagent.cli_session_args import add_session_limit_arguments, add_session_local_arguments
 from vibeagent.cli_parse_tool_search import parse_interactive_tool_search_argument
-from vibeagent.cli_project_local_flags import build_check_suggested_kwargs, build_run_suggested_kwargs, kwargs_without_argument
+from vibeagent.cli_project_local_flags import (
+    build_check_suggested_kwargs,
+    build_focused_tests_local_kwargs,
+    build_run_focused_tests_kwargs,
+    build_run_suggested_kwargs,
+    kwargs_without_argument,
+)
 
 
 class CliParseModuleTests(unittest.TestCase):
@@ -122,6 +128,49 @@ class CliParseModuleTests(unittest.TestCase):
             },
         )
         self.assertEqual(kwargs_without_argument({"argument": "pytest", "max_checks": 5}), {"max_checks": 5})
+
+    def test_project_focused_test_kwargs_preserve_cli_defaults(self) -> None:
+        args = argparse.Namespace(
+            focused_tests_max_paths=2,
+            focused_tests_max_candidates=None,
+            focused_tests_max_commands=3,
+            run_focused_tests=["tests/test_agent.py"],
+            run_timeout_ms=30_000,
+            run_max_chars=12_000,
+            run_continue_on_failure=True,
+            run_output_contexts=False,
+            run_output_diagnostics=True,
+            run_output_context_lines=4,
+            run_output_diagnostic_max=5,
+            run_output_context_max=6,
+            run_output_context_max_bytes=700,
+        )
+
+        self.assertEqual(
+            build_focused_tests_local_kwargs(args, ["src/app.py", "tests/test_app.py"]),
+            {
+                "argument": "src/app.py tests/test_app.py",
+                "max_paths": 2,
+                "max_commands": 3,
+            },
+        )
+        self.assertEqual(
+            build_run_focused_tests_kwargs(args),
+            {
+                "argument": "tests/test_agent.py",
+                "max_paths": 2,
+                "max_commands": 3,
+                "timeout_ms": 30_000,
+                "max_output_chars": 12_000,
+                "stop_on_failure": False,
+                "extract_output_contexts": False,
+                "extract_output_diagnostics": True,
+                "context_lines": 4,
+                "max_diagnostics": 5,
+                "max_contexts": 6,
+                "max_bytes_per_context": 700,
+            },
+        )
 
     def test_session_arg_helpers_register_limits_and_local_flags(self) -> None:
         parser = argparse.ArgumentParser()
