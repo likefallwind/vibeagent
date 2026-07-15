@@ -41,7 +41,7 @@ from vibeagent.cli_parse_session import (
 )
 from vibeagent.cli_session_args import add_session_limit_arguments, add_session_local_arguments
 from vibeagent.cli_parse_tool_search import parse_interactive_tool_search_argument
-from vibeagent.cli_project_local_flags import (
+from vibeagent.cli_project_kwargs import (
     build_check_suggested_kwargs,
     build_focused_tests_local_kwargs,
     build_instructions_kwargs,
