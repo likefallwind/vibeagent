@@ -22,6 +22,8 @@ def session_plan_has_unfinished_work(plan: object) -> bool:
         "in progress",
         "pending",
         "todo",
+        "to do",
+        "to-do",
         "not started",
         "not complete",
         "not completed",
