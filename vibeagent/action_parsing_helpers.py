@@ -47,6 +47,7 @@ PLAN_ITEM_STATUS_ALIASES = {
     "waiting": "pending",
 }
 PLAN_ITEM_STATUS_VALUES = set(PLAN_ITEM_STATUS_ALIASES)
+PLAN_ITEM_SCHEMA_STATUS_VALUES = ("complete", "completed", "done", "in-progress", "in_progress", "pending", "todo")
 
 
 class ActionParseError(ValueError):

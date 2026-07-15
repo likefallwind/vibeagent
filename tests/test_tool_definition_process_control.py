@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+from vibeagent.action_parsing_helpers import PLAN_ITEM_SCHEMA_STATUS_VALUES, PLAN_ITEM_STATUS_VALUES
 from vibeagent.tool_definition_claude_process import CLAUDE_PROCESS_TOOL_DEFINITIONS
 from vibeagent.tool_definition_process_control import PROCESS_CONTROL_TOOL_DEFINITIONS
 from vibeagent.tool_definition_process_io import PROCESS_IO_TOOL_DEFINITIONS
@@ -75,8 +76,10 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
     def test_task_control_status_schemas_accept_aliases(self) -> None:
         self.assertEqual(
             PLAN_ITEM_SCHEMA["properties"]["status"]["enum"],
-            ["complete", "completed", "done", "in-progress", "in_progress", "pending", "todo"],
+            list(PLAN_ITEM_SCHEMA_STATUS_VALUES),
         )
+        self.assertLess(len(PLAN_ITEM_SCHEMA_STATUS_VALUES), len(PLAN_ITEM_STATUS_VALUES))
+        self.assertTrue(set(PLAN_ITEM_SCHEMA_STATUS_VALUES).issubset(PLAN_ITEM_STATUS_VALUES))
         self.assertIs(TODO_ITEM_SCHEMA["properties"]["status"]["enum"], PLAN_ITEM_SCHEMA["properties"]["status"]["enum"])
 
 
