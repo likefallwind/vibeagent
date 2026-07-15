@@ -88,6 +88,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
 def code_result_snake_case_aliases(payload: dict[str, object]) -> dict[str, object]:
     alias_keys = {
         "priorContext": "prior_context",
+        "runDir": "run_dir",
         "completionReady": "completion_ready",
         "completionBlockers": "completion_blockers",
         "completionWarnings": "completion_warnings",

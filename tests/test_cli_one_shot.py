@@ -205,6 +205,7 @@ class CliOneShotTests(unittest.TestCase):
         self.assertEqual(payload["runId"], "one-shot")
         self.assertEqual(payload["sessionId"], "one-shot")
         self.assertEqual(payload["session_id"], "one-shot")
+        self.assertEqual(payload["run_dir"], payload["runDir"])
         self.assertEqual(payload["iterations"], 2)
         self.assertEqual(payload["numTurns"], 2)
         self.assertEqual(payload["num_turns"], 2)
