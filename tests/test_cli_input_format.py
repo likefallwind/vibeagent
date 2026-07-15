@@ -98,6 +98,23 @@ class CliInputFormatTests(unittest.TestCase):
 
         self.assertEqual(resolve_stream_json_task_text(raw), "inspect repo")
 
+    def test_stream_json_extracts_session_id_from_wrapped_message(self) -> None:
+        raw = json.dumps(
+            {
+                "type": "message",
+                "message": {
+                    "sessionId": "wrapped-run",
+                    "role": "user",
+                    "content": "continue wrapped task",
+                },
+            }
+        )
+
+        parsed = resolve_stream_json_task_input(raw)
+
+        self.assertEqual(parsed.task, "continue wrapped task")
+        self.assertEqual(parsed.session_id, "wrapped-run")
+
     def test_stream_json_keeps_legacy_text_records_without_roles(self) -> None:
         raw = "\n".join(
             [
@@ -168,6 +185,22 @@ class CliInputFormatTests(unittest.TestCase):
 
         self.assertEqual(parsed.task, "continue task")
         self.assertEqual(parsed.session_id, "run-json")
+
+    def test_json_extracts_run_id_from_input_messages(self) -> None:
+        raw = json.dumps(
+            {
+                "input": [
+                    {"role": "system", "content": "Use the session context."},
+                    {"runId": "input-run", "role": "user", "content": "continue task"},
+                ],
+            }
+        )
+
+        parsed = resolve_json_task_input(raw)
+
+        self.assertEqual(parsed.task, "continue task")
+        self.assertEqual(parsed.system_prompt, "Use the session context.")
+        self.assertEqual(parsed.session_id, "input-run")
 
     def test_json_extracts_responses_style_input_messages(self) -> None:
         raw = json.dumps(

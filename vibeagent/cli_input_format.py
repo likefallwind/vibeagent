@@ -230,6 +230,26 @@ def _record_role(record: dict[str, object]) -> str | None:
 def _session_id_from_record(record: object) -> str | None:
     if not isinstance(record, dict):
         return None
+    direct = _direct_session_id(record)
+    if direct is not None:
+        return direct
+    for key in ("message", "event"):
+        nested = record.get(key)
+        if isinstance(nested, dict):
+            nested_session_id = _session_id_from_record(nested)
+            if nested_session_id is not None:
+                return nested_session_id
+    for key in ("messages", "input"):
+        nested_sequence = record.get(key)
+        if isinstance(nested_sequence, list):
+            for item in nested_sequence:
+                nested_session_id = _session_id_from_record(item)
+                if nested_session_id is not None:
+                    return nested_session_id
+    return None
+
+
+def _direct_session_id(record: dict[str, object]) -> str | None:
     for key in SESSION_ID_KEYS:
         value = record.get(key)
         if isinstance(value, str) and value.strip():
