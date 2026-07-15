@@ -14,7 +14,12 @@ from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.cli import main
 from vibeagent.cli_args import parse_args
 from vibeagent.cli_context import OneShotPriorContext
-from vibeagent.cli_stream_output import build_code_result_payload, code_result_stop_reason
+from vibeagent.cli_stream_output import (
+    CODE_RESULT_SNAKE_CASE_ALIAS_KEYS,
+    build_code_result_payload,
+    code_result_snake_case_aliases,
+    code_result_stop_reason,
+)
 from vibeagent.observation_common_types import UserInputObservation
 from vibeagent.runtime_types import AssistantResponse
 from vibeagent.session_event_observers import observe_session_events
@@ -433,6 +438,32 @@ class SessionEventObserverTests(unittest.TestCase):
 
 
 class CodeResultPayloadTests(unittest.TestCase):
+    def test_code_result_snake_case_aliases_cover_machine_readable_fields(self) -> None:
+        payload = {
+            key: f"value-{index}"
+            for index, key in enumerate(CODE_RESULT_SNAKE_CASE_ALIAS_KEYS)
+        }
+
+        aliases = code_result_snake_case_aliases(payload)
+
+        self.assertEqual(
+            aliases,
+            {
+                alias: payload[key]
+                for key, alias in CODE_RESULT_SNAKE_CASE_ALIAS_KEYS.items()
+            },
+        )
+
+    def test_code_result_snake_case_aliases_do_not_overwrite_existing_aliases(self) -> None:
+        aliases = code_result_snake_case_aliases(
+            {
+                "completionReady": True,
+                "completion_ready": "existing",
+            }
+        )
+
+        self.assertEqual(aliases, {})
+
     def test_result_payload_includes_empty_user_input_requests_by_default(self) -> None:
         root = Path("/tmp/vibeagent-result")
         payload = build_code_result_payload(_result(root), prior_context=OneShotPriorContext(source="none"))

@@ -9,6 +9,31 @@ from typing import Any, TextIO
 from .agent_result import AgentResult
 
 
+CODE_RESULT_SNAKE_CASE_ALIAS_KEYS = {
+    "priorContext": "prior_context",
+    "runDir": "run_dir",
+    "completionReady": "completion_ready",
+    "completionBlockers": "completion_blockers",
+    "completionWarnings": "completion_warnings",
+    "completionBlockedCount": "completion_blocked_count",
+    "latestCompletionBlockers": "latest_completion_blockers",
+    "latestCompletionPendingChecks": "latest_completion_pending_checks",
+    "latestCompletionFailedChecks": "latest_completion_failed_checks",
+    "latestCompletionFinalReviewIssues": "latest_completion_final_review_issues",
+    "latestCompletionFinalReviewChangedFiles": "latest_completion_final_review_changed_files",
+    "latestCompletionToolErrors": "latest_completion_tool_errors",
+    "latestCompletionCheckpointFailures": "latest_completion_checkpoint_failures",
+    "latestCompletionActiveProcesses": "latest_completion_active_processes",
+    "latestCompletionDeniedApprovals": "latest_completion_denied_approvals",
+    "changedFiles": "changed_files",
+    "verificationChecks": "verification_checks",
+    "pendingVerificationChecks": "pending_verification_checks",
+    "failedVerificationChecks": "failed_verification_checks",
+    "pendingUserInput": "pending_user_input",
+    "userInputRequests": "user_input_requests",
+}
+
+
 class JsonEventStream:
     def __init__(self, output: TextIO | None = None) -> None:
         self.output = output if output is not None else sys.stdout
@@ -86,32 +111,9 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
 
 
 def code_result_snake_case_aliases(payload: dict[str, object]) -> dict[str, object]:
-    alias_keys = {
-        "priorContext": "prior_context",
-        "runDir": "run_dir",
-        "completionReady": "completion_ready",
-        "completionBlockers": "completion_blockers",
-        "completionWarnings": "completion_warnings",
-        "completionBlockedCount": "completion_blocked_count",
-        "latestCompletionBlockers": "latest_completion_blockers",
-        "latestCompletionPendingChecks": "latest_completion_pending_checks",
-        "latestCompletionFailedChecks": "latest_completion_failed_checks",
-        "latestCompletionFinalReviewIssues": "latest_completion_final_review_issues",
-        "latestCompletionFinalReviewChangedFiles": "latest_completion_final_review_changed_files",
-        "latestCompletionToolErrors": "latest_completion_tool_errors",
-        "latestCompletionCheckpointFailures": "latest_completion_checkpoint_failures",
-        "latestCompletionActiveProcesses": "latest_completion_active_processes",
-        "latestCompletionDeniedApprovals": "latest_completion_denied_approvals",
-        "changedFiles": "changed_files",
-        "verificationChecks": "verification_checks",
-        "pendingVerificationChecks": "pending_verification_checks",
-        "failedVerificationChecks": "failed_verification_checks",
-        "pendingUserInput": "pending_user_input",
-        "userInputRequests": "user_input_requests",
-    }
     return {
         alias: payload[key]
-        for key, alias in alias_keys.items()
+        for key, alias in CODE_RESULT_SNAKE_CASE_ALIAS_KEYS.items()
         if key in payload and alias not in payload
     }
 
@@ -160,6 +162,7 @@ def code_result_user_input_requests(result: AgentResult) -> list[dict[str, objec
 
 
 __all__ = [
+    "CODE_RESULT_SNAKE_CASE_ALIAS_KEYS",
     "JsonEventStream",
     "add_duration_fields",
     "build_code_result_payload",
