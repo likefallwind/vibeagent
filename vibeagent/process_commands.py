@@ -135,7 +135,7 @@ def get_process_text(
     project_root: str | Path = ".",
     argument: str | None = None,
     process_id: str | None = None,
-    max_output_chars: int = 4_000,
+    max_output_chars: int | None = None,
 ) -> str:
     return format_process_report_text(get_process_report(project_root, argument, process_id, max_output_chars))
 
@@ -144,7 +144,7 @@ def get_process_report(
     project_root: str | Path = ".",
     argument: str | None = None,
     process_id: str | None = None,
-    max_output_chars: int = 4_000,
+    max_output_chars: int | None = None,
 ) -> dict[str, object]:
     root = Path(project_root).resolve()
     try:

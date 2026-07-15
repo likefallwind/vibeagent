@@ -260,7 +260,7 @@ def validate_local_option_dependencies(args: argparse.Namespace) -> str | None:
     if args.git_switch_create and args.check_git_switch is None and args.git_switch is None:
         return "--git-switch-create can only be used with --check-git-switch or --git-switch."
     process_output_analysis = args.process_output_contexts is not None or args.process_output_diagnostics is not None
-    if args.process_max_chars != 4000 and args.process_output is None and not process_output_analysis:
+    if args.process_max_chars is not None and args.process_output is None and not process_output_analysis:
         return "--process-max-chars can only be used with --process-output, --process-output-contexts, or --process-output-diagnostics."
     if args.process_output_context_lines != 5 and not process_output_analysis:
         return "--process-output-context-lines can only be used with --process-output-contexts or --process-output-diagnostics."
@@ -272,7 +272,7 @@ def validate_local_option_dependencies(args: argparse.Namespace) -> str | None:
         return "--process-output-diagnostic-max can only be used with --process-output-diagnostics."
     if args.wait_timeout_ms != 5000 and args.wait_process is None:
         return "--wait-timeout-ms can only be used with --wait-process."
-    if args.wait_max_chars != 4000 and args.wait_process is None:
+    if args.wait_max_chars is not None and args.wait_process is None:
         return "--wait-max-chars can only be used with --wait-process."
     if args.wait_stdout and args.wait_process is None:
         return "--wait-stdout can only be used with --wait-process."

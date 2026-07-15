@@ -281,6 +281,18 @@ class CliTests(unittest.TestCase):
         self.assertEqual(override_args.model, "MiniMax-custom")
         self.assertFalse(cli_module.has_local_flag(override_args))
 
+    def test_process_and_wait_max_chars_default_to_runtime_process_limit(self) -> None:
+        default_args = cli_module.parse_args(["--process-output-contexts", "bg-1"])
+        process_override_args = cli_module.parse_args(
+            ["--process-output-contexts", "bg-1", "--process-max-chars", "2000"]
+        )
+        wait_override_args = cli_module.parse_args(["--wait-process", "bg-1", "--wait-max-chars", "3000"])
+
+        self.assertIsNone(default_args.process_max_chars)
+        self.assertIsNone(default_args.wait_max_chars)
+        self.assertEqual(process_override_args.process_max_chars, 2000)
+        self.assertEqual(wait_override_args.wait_max_chars, 3000)
+
     def test_normalize_task_bound_diff_args_moves_task_into_diff_argument(self) -> None:
         args = argparse.Namespace(
             diff_contexts="",
@@ -10240,7 +10252,7 @@ class CliTests(unittest.TestCase):
         get_process_output_contexts_report.assert_called_once_with(
             Path(base).resolve(),
             process_id="missing-proc",
-            max_output_chars=4000,
+            max_output_chars=None,
             context_lines=5,
             max_contexts=20,
             max_bytes_per_context=20000,

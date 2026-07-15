@@ -51,14 +51,41 @@ class ProcessOutputCommandModuleTests(unittest.TestCase):
                 "contexts rendered",
             )
             self.assertEqual(
+                get_process_output_contexts_text(root, "bg-2"),
+                "contexts rendered",
+            )
+            self.assertEqual(
                 get_process_output_diagnostics_text(root, "bg-1", max_output_chars=2_000),
                 "diagnostics rendered",
             )
+            self.assertEqual(
+                get_process_output_diagnostics_text(root, "bg-2"),
+                "diagnostics rendered",
+            )
 
-        get_contexts.assert_called_once_with(root, "bg-1", None, 2_000, 5, 20, 20_000)
-        format_contexts.assert_called_once_with(contexts_report)
-        get_diagnostics.assert_called_once_with(root, "bg-1", None, 2_000, 2, 50, 20, 20_000)
-        format_diagnostics.assert_called_once_with(diagnostics_report)
+        self.assertEqual(
+            get_contexts.call_args_list[0].args,
+            (root, "bg-1", None, 2_000, 5, 20, 20_000),
+        )
+        self.assertEqual(
+            get_contexts.call_args_list[1].args,
+            (root, "bg-2", None, None, 5, 20, 20_000),
+        )
+        self.assertEqual(format_contexts.call_count, 2)
+        self.assertEqual(
+            get_diagnostics.call_args_list[0].args,
+            (root, "bg-1", None, 2_000, 2, 50, 20, 20_000),
+        )
+        self.assertEqual(
+            get_diagnostics.call_args_list[1].args,
+            (root, "bg-2", None, None, 2, 50, 20, 20_000),
+        )
+        self.assertEqual(format_diagnostics.call_count, 2)
+
+    def test_parse_process_request_preserves_unspecified_max_chars(self) -> None:
+        self.assertEqual(parse_process_request("bg-1"), ("bg-1", None))
+        self.assertEqual(parse_process_request("bg-1 2000"), ("bg-1", 2000))
+        self.assertEqual(parse_process_request(process_id="bg-1", max_output_chars=3000), ("bg-1", 3000))
 
 
 if __name__ == "__main__":

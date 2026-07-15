@@ -34,7 +34,7 @@ def get_process_output_contexts_text(
     project_root: str | Path = ".",
     argument: str | None = None,
     process_id: str | None = None,
-    max_output_chars: int = 20_000,
+    max_output_chars: int | None = None,
     context_lines: int = 5,
     max_contexts: int = 20,
     max_bytes_per_context: int = 20_000,
@@ -61,7 +61,7 @@ def get_process_output_contexts_report(
     project_root: str | Path = ".",
     argument: str | None = None,
     process_id: str | None = None,
-    max_output_chars: int = 20_000,
+    max_output_chars: int | None = None,
     context_lines: int = 5,
     max_contexts: int = 20,
     max_bytes_per_context: int = 20_000,
@@ -129,7 +129,7 @@ def get_process_output_diagnostics_text(
     project_root: str | Path = ".",
     argument: str | None = None,
     process_id: str | None = None,
-    max_output_chars: int = 20_000,
+    max_output_chars: int | None = None,
     context_lines: int = 2,
     max_diagnostics: int = 50,
     max_contexts: int = 20,
@@ -158,7 +158,7 @@ def get_process_output_diagnostics_report(
     project_root: str | Path = ".",
     argument: str | None = None,
     process_id: str | None = None,
-    max_output_chars: int = 20_000,
+    max_output_chars: int | None = None,
     context_lines: int = 2,
     max_diagnostics: int = 50,
     max_contexts: int = 20,
@@ -252,8 +252,8 @@ def get_process_output_diagnostics_report(
 def parse_process_request(
     argument: str | None = None,
     process_id: str | None = None,
-    max_output_chars: int = 4_000,
-) -> tuple[str, int]:
+    max_output_chars: int | None = None,
+) -> tuple[str, int | None]:
     selected_process_id = process_id.strip() if process_id else None
     selected_max = max_output_chars
     if argument and argument.strip():
@@ -273,9 +273,9 @@ def parse_process_request(
             selected_max = int(parts[1])
     if not selected_process_id:
         raise ValueError("process id is required.")
-    if selected_max < 1_000:
+    if selected_max is not None and selected_max < 1_000:
         raise ValueError("max chars must be at least 1000.")
-    if selected_max > 50_000:
+    if selected_max is not None and selected_max > 50_000:
         raise ValueError("max chars must be at most 50000.")
     return selected_process_id, selected_max
 
@@ -332,7 +332,7 @@ def _validate_process_output_diagnostic_limits(
 def _process_output_contexts_usage_report(
     root: Path,
     process_id: str,
-    max_output_chars: int,
+    max_output_chars: int | None,
     message: str,
 ) -> dict[str, object]:
     return {
@@ -354,7 +354,7 @@ def _process_output_contexts_usage_report(
 def _process_output_diagnostics_usage_report(
     root: Path,
     process_id: str,
-    max_output_chars: int,
+    max_output_chars: int | None,
     context_lines: int,
     max_diagnostics: int,
     max_contexts: int,
