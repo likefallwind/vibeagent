@@ -205,9 +205,13 @@ class ActionToolAliasTests(unittest.TestCase):
 
     def test_claude_grep_i_maps_to_case_insensitive_search(self) -> None:
         action = parse_tool_action("Grep", {"pattern": "needle", "-i": True})
+        string_action = parse_tool_action("Grep", {"pattern": "needle", "-i": "true"})
+        false_action = parse_tool_action("Grep", {"pattern": "needle", "-i": "false"})
 
         self.assertIsInstance(action, SearchAction)
         self.assertFalse(action.case_sensitive)
+        self.assertFalse(string_action.case_sensitive)
+        self.assertTrue(false_action.case_sensitive)
 
     def test_claude_grep_glob_maps_to_file_glob(self) -> None:
         action = parse_tool_action("Grep", {"pattern": "needle", "glob": "*.py"})
