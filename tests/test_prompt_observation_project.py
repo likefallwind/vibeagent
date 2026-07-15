@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from types import SimpleNamespace
 
+from vibeagent.prompt_observation_mcp import format_mcp_observation
 from vibeagent.prompt_observation_project import _format_command_metadata
 
 
@@ -44,6 +45,35 @@ class PromptObservationProjectTests(unittest.TestCase):
                 "command: cwd=. command=python -m unittest tests.test_agent "
                 "test=tests/test_agent.py available=false missingTool=python "
                 "source=vibeagent/agent.py reason=related test"
+            ),
+        )
+
+    def test_format_mcp_call_includes_status_and_output(self) -> None:
+        text = format_mcp_observation(
+            3,
+            SimpleNamespace(
+                kind="mcp_call",
+                server="docs",
+                name="search",
+                message="completed",
+                ok=True,
+                is_error=False,
+                truncated=False,
+                max_output_chars=4000,
+                timeout_ms=2000,
+                error="",
+                output="result body",
+            ),
+        )
+
+        self.assertEqual(
+            text,
+            (
+                "3. mcp_call docs/search: completed\n"
+                "ok: true isError=false truncated=false maxOutputChars=4000 timeoutMs=2000\n"
+                "error: none\n"
+                "output:\n"
+                "result body"
             ),
         )
 
