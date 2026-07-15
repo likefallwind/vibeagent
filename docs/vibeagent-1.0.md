@@ -257,5 +257,5 @@ local changes when asked, and resume from recorded session context.
   commit, and resume behavior without real provider calls.
 - `README.md` points contributors to this 1.0 acceptance plan.
 - [`docs/vibeagent-1.0-readiness.md`](vibeagent-1.0-readiness.md) documents
-  the current release decision and the live-provider dogfood gate that must pass
-  before 1.0 is declared complete.
+  the current release decision and the live-provider dogfood evidence for the
+  1.0 release decision.

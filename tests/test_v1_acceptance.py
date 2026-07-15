@@ -205,7 +205,8 @@ class V1AcceptanceTests(unittest.TestCase):
 
         self.assertIn("npm run test:v1:full", readiness)
         self.assertIn("Live Provider Gate", readiness)
-        self.assertIn("Status: `not-complete-for-release`", readiness)
+        self.assertIn("Status: `complete-for-v1-release`", readiness)
+        self.assertIn("2026-07-15T01-46-18-965Z-7adb0ef6", readiness)
         self.assertIn("scripts/live_dogfood_v1.py", readiness)
         self.assertIn("python3 -m vibeagent --cwd /tmp/vibeagent-live-dogfood", readiness)
 

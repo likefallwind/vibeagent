@@ -1,7 +1,7 @@
 # VibeAgent 1.0 Readiness Audit
 
-This audit separates proven automated readiness from the live-provider dogfood
-still required before calling VibeAgent 1.0 complete.
+This audit records the automated readiness gate and the live-provider dogfood
+evidence for calling VibeAgent 1.0 complete.
 
 ## Automated Gate
 
@@ -88,9 +88,18 @@ review, ready completion, and ready session handoff.
 
 ## Current Decision
 
-Status: `not-complete-for-release`.
+Status: `complete-for-v1-release`.
 
-Reason: automated 1.0 gates are broad and passing, but live-provider dogfood on a
-non-fixture repository is still required. The project can continue using the
-automated gate for regression protection, but completion of the full coding
-agent goal remains unproven until the live-provider gate above passes.
+Reason: the automated 1.0 gate is broad and passing, and the live-provider
+dogfood gate passed on a non-fixture throwaway repository.
+
+Live provider evidence:
+
+- Date: 2026-07-15
+- Provider: MiniMax via `MINIMAX_API_KEY`
+- Throwaway repo: `/tmp/vibeagent-live-dogfood`
+- Session: `2026-07-15T01-46-18-965Z-7adb0ef6`
+- Command:
+  `python3 scripts/live_dogfood_v1.py --prepare --force --run --audit-after-run --approval-count 30 --run-timeout-ms 600000`
+- Audit result: all repository, approval, failing/passing unittest,
+  `final_review`, completion, and handoff checks passed.
