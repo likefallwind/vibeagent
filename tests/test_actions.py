@@ -2322,7 +2322,8 @@ class ActionTests(unittest.TestCase):
     def test_parse_tool_action_accepts_claude_tool_name_aliases(self) -> None:
         read_action = parse_tool_action("Read", {"file_path": "app.py", "offset": 2, "limit": 5})
         bash_action = parse_tool_action("Bash", {"command": "python3 -m unittest", "timeout": "1000"})
-        background_bash_action = parse_tool_action("Bash", {"command": "npm run dev", "run_in_background": True})
+        background_bash_action = parse_tool_action("Bash", {"command": "npm run dev", "run_in_background": "true"})
+        foreground_bash_action = parse_tool_action("Bash", {"command": "npm test", "run_in_background": "false"})
         bash_output_action = parse_tool_action("BashOutput", {"bash_id": "proc-1", "max_output_chars": 2000})
         kill_bash_action = parse_tool_action("KillBash", {"bash_id": "proc-1"})
         web_fetch_action = parse_tool_action("WebFetch", {"url": "https://docs.python.org/3/"})
@@ -2364,6 +2365,8 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(bash_action.timeout_ms, 1000)
         self.assertEqual(background_bash_action.type, "start_command")
         self.assertEqual(background_bash_action.command, "npm run dev")
+        self.assertEqual(foreground_bash_action.type, "run_command")
+        self.assertEqual(foreground_bash_action.command, "npm test")
         self.assertEqual(bash_output_action.type, "read_process")
         self.assertEqual(bash_output_action.process_id, "proc-1")
         self.assertEqual(bash_output_action.max_output_chars, 2000)

@@ -183,7 +183,7 @@ def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, d
         return mcp_action
 
     action_type = CLAUDE_TOOL_ACTION_ALIASES.get(name, name)
-    if name == "Bash" and tool_input.get("run_in_background") is True:
+    if name == "Bash" and _is_truthy_alias_bool(tool_input.get("run_in_background")):
         return "start_command", _drop_fields(
             dict(tool_input),
             {"run_in_background", "timeout", "timeout_ms", "max_output_chars"},
@@ -209,6 +209,12 @@ def _drop_fields(value: dict[str, Any], fields: set[str]) -> dict[str, Any]:
     for field in fields:
         value.pop(field, None)
     return value
+
+
+def _is_truthy_alias_bool(value: Any) -> bool:
+    if value is True:
+        return True
+    return isinstance(value, str) and value.strip().lower() in {"1", "true", "yes"}
 
 
 def _normalize_exit_plan_mode_input(value: dict[str, Any]) -> dict[str, Any]:
