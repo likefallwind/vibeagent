@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+from .prompt_next_action_project_formatting import (
+    available_command_labels,
+    available_skill_names,
+    blocked_check_labels,
+    command_labels,
+    format_next_action_items,
+    instruction_paths,
+    manifest_paths,
+    todo_labels,
+    tool_names,
+    unavailable_tool_names,
+)
 from .types import Observation
 
 
@@ -29,172 +41,21 @@ PROJECT_NEXT_ACTION_KINDS = {
 }
 
 
-def _command_labels(values: object) -> list[str]:
-    labels: list[str] = []
-    if not isinstance(values, list):
-        return labels
-    for value in values:
-        label = _command_label(value)
-        if label:
-            labels.append(label)
-    return labels
-
-
-def _available_command_labels(values: object) -> list[str]:
-    labels: list[str] = []
-    if not isinstance(values, list):
-        return labels
-    for value in values:
-        if not getattr(value, "available", True):
-            continue
-        label = _command_label(value)
-        if label:
-            labels.append(label)
-    return labels
-
-
-def _available_skill_names(values: object) -> list[str]:
-    names: list[str] = []
-    if not isinstance(values, list):
-        return names
-    for value in values:
-        if not getattr(value, "available", False):
-            continue
-        name = str(getattr(value, "name", "") or "").strip()
-        if name:
-            names.append(name)
-    return names
-
-
-def _command_label(value: object) -> str | None:
-    command = str(getattr(value, "command", "") or "").strip()
-    if not command:
-        return None
-    cwd = str(getattr(value, "cwd", ".") or ".").strip() or "."
-    return f"{command} (cwd={cwd})"
-
-
-def _blocked_check_labels(values: object) -> list[str]:
-    labels: list[str] = []
-    if not isinstance(values, list):
-        return labels
-    for value in values:
-        if getattr(value, "ok", False):
-            continue
-        label = _blocked_check_label(value)
-        if label:
-            labels.append(label)
-    return labels
-
-
-def _blocked_check_label(value: object) -> str | None:
-    command = str(getattr(value, "command", "") or "").strip()
-    reason = _blocked_check_reason(value)
-    if command and reason:
-        return f"{command}: {reason}"
-    return command or reason or None
-
-
-def _blocked_check_reason(value: object) -> str:
-    return str(
-        getattr(value, "block_reason", "")
-        or getattr(value, "missing_tool", "")
-        or getattr(value, "message", "")
-        or ""
-    ).strip()
-
-
-def _format_next_action_items(items: list[str], max_items: int = 3) -> str:
-    shown = items[:max_items]
-    suffix = "" if len(items) <= max_items else f"; +{len(items) - max_items} more"
-    return "; ".join(shown) + suffix
-
-
-def _tool_names(matches: object) -> list[str]:
-    names: list[str] = []
-    if not isinstance(matches, list):
-        return names
-    for match in matches:
-        if not isinstance(match, dict):
-            continue
-        name = str(match.get("name") or "").strip()
-        if name:
-            names.append(name)
-    return names
-
-
-def _manifest_paths(values: object) -> list[str]:
-    paths: list[str] = []
-    if not isinstance(values, list):
-        return paths
-    for value in values:
-        path = str(getattr(value, "path", "") or "").strip()
-        if path:
-            paths.append(path)
-    return paths
-
-
-def _instruction_paths(values: object) -> list[str]:
-    paths: list[str] = []
-    if not isinstance(values, list):
-        return paths
-    for value in values:
-        if not getattr(value, "included", False):
-            continue
-        path = str(getattr(value, "path", "") or "").strip()
-        if path:
-            paths.append(path)
-    return paths
-
-
-def _todo_labels(values: object) -> list[str]:
-    labels: list[str] = []
-    if not isinstance(values, list):
-        return labels
-    for value in values:
-        path = str(getattr(value, "path", "") or "").strip()
-        line = getattr(value, "line", None)
-        marker = str(getattr(value, "marker", "") or "").strip()
-        text = str(getattr(value, "text", "") or "").strip()
-        location = f"{path}:{line}" if path and isinstance(line, int) else path
-        label = location
-        if marker:
-            label = f"{label} [{marker}]" if label else f"[{marker}]"
-        if text:
-            label = f"{label} {text}" if label else text
-        if label:
-            labels.append(label)
-    return labels
-
-
-def _unavailable_tool_names(values: object) -> list[str]:
-    names: list[str] = []
-    if not isinstance(values, list):
-        return names
-    for value in values:
-        if getattr(value, "available", False):
-            continue
-        name = str(getattr(value, "name", "") or "").strip()
-        if name:
-            names.append(name)
-    return names
-
-
 def _tool_search_next_action_instruction(base: str, latest: Observation) -> str:
     if not getattr(latest, "ok", False):
         return f"{base} Tool search failed. Use the known tool catalog or choose the next concrete action manually."
 
-    names = _tool_names(getattr(latest, "matches", []))
+    names = tool_names(getattr(latest, "matches", []))
     if names:
         return (
-            f"{base} Tool search found matching tool(s): {_format_next_action_items(names)}. "
+            f"{base} Tool search found matching tool(s): {format_next_action_items(names)}. "
             "Use the most specific matching tool if it advances the current task; otherwise continue with the known workflow."
         )
 
     suggestions = [str(item).strip() for item in getattr(latest, "suggestions", []) if str(item).strip()]
     if suggestions:
         return (
-            f"{base} Tool search found no direct matches. Consider suggested tool names: {_format_next_action_items(suggestions)}."
+            f"{base} Tool search found no direct matches. Consider suggested tool names: {format_next_action_items(suggestions)}."
         )
     return f"{base} Tool search found no matches. Choose from the currently known tools or continue manually."
 
@@ -206,11 +67,11 @@ def _suggest_checks_next_action_instruction(base: str, latest: Observation) -> s
             "or continue with a known verification command."
         )
 
-    available = _available_command_labels(getattr(latest, "checks", []))
+    available = available_command_labels(getattr(latest, "checks", []))
     if available:
         return (
             f"{base} Suggested checks are available. Run run_suggested_checks or run_command for: "
-            f"{_format_next_action_items(available)}. Fix failures before finishing."
+            f"{format_next_action_items(available)}. Fix failures before finishing."
         )
 
     total = int(getattr(latest, "total", 0) or 0)
@@ -227,19 +88,19 @@ def _suggest_checks_next_action_instruction(base: str, latest: Observation) -> s
 
 def _check_suggested_checks_next_action_instruction(base: str, latest: Observation) -> str:
     if not getattr(latest, "ok", False):
-        blockers = _blocked_check_labels(getattr(latest, "checks", []))
+        blockers = blocked_check_labels(getattr(latest, "checks", []))
         if blockers:
             return (
-                f"{base} Suggested check dry-run found blocked command(s): {_format_next_action_items(blockers)}. "
+                f"{base} Suggested check dry-run found blocked command(s): {format_next_action_items(blockers)}. "
                 "Fix the command context or choose another verification path before running checks."
             )
         return f"{base} Suggested check dry-run failed. Inspect the message, then choose another verification path."
 
-    runnable = _command_labels(getattr(latest, "suggested_checks", []))
+    runnable = command_labels(getattr(latest, "suggested_checks", []))
     if runnable:
         return (
             f"{base} Suggested check dry-run passed. Run run_suggested_checks or run_command for: "
-            f"{_format_next_action_items(runnable)}."
+            f"{format_next_action_items(runnable)}."
         )
     return f"{base} Suggested check dry-run passed but no commands were listed. Continue with the next required check or answer directly."
 
@@ -250,11 +111,11 @@ def _project_commands_next_action_instruction(base: str, latest: Observation) ->
             f"{base} Project commands could not be collected. Inspect project_manifests or run a known check command if available."
         )
 
-    available = _available_command_labels(getattr(latest, "commands", []))
+    available = available_command_labels(getattr(latest, "commands", []))
     if available:
         return (
             f"{base} Project commands were found. Choose the relevant command and use command_check or run_command: "
-            f"{_format_next_action_items(available)}."
+            f"{format_next_action_items(available)}."
         )
 
     total = int(getattr(latest, "total", 0) or 0)
@@ -287,11 +148,11 @@ def _focused_test_commands_next_action_instruction(base: str, latest: Observatio
             f"{base} Focused test commands could not be collected. Use related_tests, suggest_checks, or project_commands for verification."
         )
 
-    available = _available_command_labels(getattr(latest, "commands", []))
+    available = available_command_labels(getattr(latest, "commands", []))
     if available:
         return (
             f"{base} Focused test commands are available. Run run_focused_test_commands or run_command for: "
-            f"{_format_next_action_items(available)}. Then run broader checks if the change needs them."
+            f"{format_next_action_items(available)}. Then run broader checks if the change needs them."
         )
 
     total = int(getattr(latest, "total", 0) or 0)
@@ -305,19 +166,19 @@ def _focused_test_commands_next_action_instruction(base: str, latest: Observatio
 
 def _check_focused_test_commands_next_action_instruction(base: str, latest: Observation) -> str:
     if not getattr(latest, "ok", False):
-        blockers = _blocked_check_labels(getattr(latest, "checks", []))
+        blockers = blocked_check_labels(getattr(latest, "checks", []))
         if blockers:
             return (
-                f"{base} Focused test dry-run found blocked command(s): {_format_next_action_items(blockers)}. "
+                f"{base} Focused test dry-run found blocked command(s): {format_next_action_items(blockers)}. "
                 "Fix the command context or choose another focused check before running tests."
             )
         return f"{base} Focused test dry-run failed. Inspect the message, then choose another verification path."
 
-    runnable = _command_labels(getattr(latest, "focused_commands", []))
+    runnable = command_labels(getattr(latest, "focused_commands", []))
     if runnable:
         return (
             f"{base} Focused test dry-run passed. Run run_focused_test_commands or run_command for: "
-            f"{_format_next_action_items(runnable)}."
+            f"{format_next_action_items(runnable)}."
         )
     return f"{base} Focused test dry-run passed but no commands were listed. Continue with the next required check or answer directly."
 
@@ -326,10 +187,10 @@ def _project_manifests_next_action_instruction(base: str, latest: Observation) -
     if not getattr(latest, "ok", False):
         return f"{base} Project manifests could not be read. Continue with project_commands or known repository conventions."
 
-    paths = _manifest_paths(getattr(latest, "manifests", []))
+    paths = manifest_paths(getattr(latest, "manifests", []))
     if paths:
         return (
-            f"{base} Project manifests were found: {_format_next_action_items(paths)}. "
+            f"{base} Project manifests were found: {format_next_action_items(paths)}. "
             "Use project_commands or suggest_checks to turn manifest metadata into runnable verification steps."
         )
     return f"{base} No project manifests were found. Use project_instructions, project_commands, or direct file inspection to understand the repo."
@@ -339,10 +200,10 @@ def _project_instructions_next_action_instruction(base: str, latest: Observation
     if not getattr(latest, "ok", False):
         return f"{base} Project instructions could not be read. Continue carefully with local code conventions and targeted inspection."
 
-    paths = _instruction_paths(getattr(latest, "files", []))
+    paths = instruction_paths(getattr(latest, "files", []))
     if paths:
         return (
-            f"{base} Project instructions were read from: {_format_next_action_items(paths)}. "
+            f"{base} Project instructions were read from: {format_next_action_items(paths)}. "
             "Follow those instructions for subsequent edits, then continue with the next concrete task step."
         )
 
@@ -355,10 +216,10 @@ def _project_todos_next_action_instruction(base: str, latest: Observation) -> st
     if not getattr(latest, "ok", False):
         return f"{base} Project TODO search failed. Narrow the path or continue with direct code inspection."
 
-    todos = _todo_labels(getattr(latest, "todos", []))
+    todos = todo_labels(getattr(latest, "todos", []))
     if todos:
         return (
-            f"{base} Project TODOs were found: {_format_next_action_items(todos)}. "
+            f"{base} Project TODOs were found: {format_next_action_items(todos)}. "
             "Inspect the relevant files before editing, or ignore them if they are unrelated to the current task."
         )
     return f"{base} No project TODOs were found. Continue with the current implementation or verification path."
@@ -368,30 +229,30 @@ def _project_overview_next_action_instruction(base: str, latest: Observation) ->
     if not getattr(latest, "ok", False):
         return f"{base} Project overview could not be read. Use targeted inspection such as list_files, project_commands, or git_status."
 
-    commands = _available_command_labels(getattr(latest, "commands", []))
-    checks = _available_command_labels(getattr(latest, "suggested_checks", []))
-    instructions = _instruction_paths(getattr(latest, "instruction_sources", []))
-    todos = _todo_labels(getattr(latest, "todos", []))
-    skills = _available_skill_names(getattr(latest, "skills", []))
+    commands = available_command_labels(getattr(latest, "commands", []))
+    checks = available_command_labels(getattr(latest, "suggested_checks", []))
+    instructions = instruction_paths(getattr(latest, "instruction_sources", []))
+    todos = todo_labels(getattr(latest, "todos", []))
+    skills = available_skill_names(getattr(latest, "skills", []))
     instruction_detail = (
-        f" Project instructions are present in {_format_next_action_items(instructions)}; use project_instructions before editing if their content is needed."
+        f" Project instructions are present in {format_next_action_items(instructions)}; use project_instructions before editing if their content is needed."
         if instructions
         else ""
     )
     todo_detail = (
-        f" Project TODO markers are present: {_format_next_action_items(todos)}; inspect them if they are relevant to the task."
+        f" Project TODO markers are present: {format_next_action_items(todos)}; inspect them if they are relevant to the task."
         if todos
         else ""
     )
     skill_detail = (
-        f" Project skills are available: {_format_next_action_items(skills)}; use project_skills and skill if one applies before editing."
+        f" Project skills are available: {format_next_action_items(skills)}; use project_skills and skill if one applies before editing."
         if skills
         else ""
     )
     if commands or checks:
         return (
             f"{base} Project overview found runnable project context. "
-            f"Use project_commands or suggest_checks for: {_format_next_action_items(commands + checks)}."
+            f"Use project_commands or suggest_checks for: {format_next_action_items(commands + checks)}."
             f"{instruction_detail}"
             f"{todo_detail}"
             f"{skill_detail}"
@@ -411,10 +272,10 @@ def _environment_info_next_action_instruction(base: str, latest: Observation) ->
     if not getattr(latest, "ok", False):
         return f"{base} Environment info could not be read. Continue with commands that are already known to work."
 
-    unavailable = _unavailable_tool_names(getattr(latest, "tools", []))
+    unavailable = unavailable_tool_names(getattr(latest, "tools", []))
     if unavailable:
         return (
-            f"{base} Environment info reports unavailable tool(s): {_format_next_action_items(unavailable)}. "
+            f"{base} Environment info reports unavailable tool(s): {format_next_action_items(unavailable)}. "
             "Choose commands that use available tools or inspect project_commands for alternatives."
         )
     return f"{base} Environment info is available. Use it to choose compatible commands, then continue with implementation or verification."
