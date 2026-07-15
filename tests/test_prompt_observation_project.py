@@ -4,7 +4,8 @@ import unittest
 from types import SimpleNamespace
 
 from vibeagent.prompt_observation_mcp import format_mcp_observation
-from vibeagent.prompt_observation_project import _format_command_metadata
+from vibeagent.prompt_observation_project import format_project_observation
+from vibeagent.prompt_observation_project_commands import format_command_metadata
 
 
 class PromptObservationProjectTests(unittest.TestCase):
@@ -19,7 +20,7 @@ class PromptObservationProjectTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            _format_command_metadata("check", command, [("source", command.source), ("reason", command.reason)]),
+            format_command_metadata("check", command, [("source", command.source), ("reason", command.reason)]),
             "check: cwd=. command=npm test available=true missingTool=. source=scripts.test reason=unit tests",
         )
 
@@ -35,7 +36,7 @@ class PromptObservationProjectTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            _format_command_metadata(
+            format_command_metadata(
                 "command",
                 command,
                 [("source", command.source), ("reason", command.reason)],
@@ -45,6 +46,36 @@ class PromptObservationProjectTests(unittest.TestCase):
                 "command: cwd=. command=python -m unittest tests.test_agent "
                 "test=tests/test_agent.py available=false missingTool=python "
                 "source=vibeagent/agent.py reason=related test"
+            ),
+        )
+
+    def test_project_observation_dispatches_command_observations(self) -> None:
+        text = format_project_observation(
+            2,
+            SimpleNamespace(
+                kind="suggest_checks",
+                message="checks found",
+                checks=[
+                    SimpleNamespace(
+                        cwd=".",
+                        command="python3 -m unittest",
+                        available=True,
+                        missing_tool="",
+                        source="unittest",
+                        reason="full suite",
+                    )
+                ],
+                total=1,
+                truncated=False,
+                changed_files=[],
+            ),
+        )
+
+        self.assertEqual(
+            text,
+            (
+                "2. suggest_checks: checks found shown=1/1 truncated=false\n"
+                "check: cwd=. command=python3 -m unittest available=true missingTool=. source=unittest reason=full suite"
             ),
         )
 
