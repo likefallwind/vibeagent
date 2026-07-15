@@ -13,7 +13,9 @@ def command_batch_target(commands: Iterable[object]) -> str:
         command = str(getattr(item, "command", "") or "").strip()
         if not command:
             continue
-        targets.append(command_target(command, str(getattr(item, "cwd", ".") or ".")))
+        target = command_target(command, str(getattr(item, "cwd", ".") or "."))
+        description = str(getattr(item, "description", "") or "").strip()
+        targets.append(f"{description}: {target}" if description else target)
     return ", ".join(targets)
 
 

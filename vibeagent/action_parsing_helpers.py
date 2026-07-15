@@ -241,6 +241,12 @@ def parse_run_command_items(value: Any, raw: str, action_type: str) -> list[RunC
         cwd = item.get("cwd")
         if cwd is not None and not isinstance(cwd, str):
             raise ActionParseError(f"{action_type} command {index} cwd must be a string when provided.", raw)
+        description = item.get("description")
+        if description is not None and (not isinstance(description, str) or not description.strip()):
+            raise ActionParseError(
+                f"{action_type} command {index} description must be a non-empty string when provided.",
+                raw,
+            )
         timeout_ms = parse_optional_positive_int(item.get("timeout_ms"), f"{action_type} command {index} timeout_ms", raw, maximum=600_000)
         if timeout_ms is not None and timeout_ms < 100:
             raise ActionParseError(f"{action_type} command {index} timeout_ms must be at least 100.", raw)
@@ -296,6 +302,7 @@ def parse_run_command_items(value: Any, raw: str, action_type: str) -> list[RunC
                 max_diagnostics=max_diagnostics,
                 max_contexts=max_contexts,
                 max_bytes_per_context=max_bytes_per_context,
+                description=description.strip() if isinstance(description, str) else None,
             )
         )
     return commands

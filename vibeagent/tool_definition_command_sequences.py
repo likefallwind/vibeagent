@@ -33,6 +33,7 @@ COMMAND_SEQUENCE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "type": "object",
                         "properties": {
                             "command": {"type": "string", "description": "Shell command to preflight without executing."},
+                            "description": {"type": "string", "description": "Short human-readable reason for this command."},
                             "cwd": {"type": "string", "description": "Optional project-relative directory to run from. Defaults to project root."},
                             "timeout_ms": {
                                 "type": "integer",
@@ -71,6 +72,7 @@ COMMAND_SEQUENCE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "type": "object",
                         "properties": {
                             "command": {"type": "string", "description": "Shell command to run."},
+                            "description": {"type": "string", "description": "Short human-readable reason for this command."},
                             "cwd": {"type": "string", "description": "Optional project-relative directory to run from. Defaults to project root."},
                             "timeout_ms": {
                                 "type": "integer",

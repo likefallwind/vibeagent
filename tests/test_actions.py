@@ -22,6 +22,8 @@ from vibeagent.actions import (
     save_checkpoint_untracked_files,
 )
 from vibeagent.action_tool_aliases import CLAUDE_TOOL_ACTION_ALIASES, profile_tool_names, tool_name_candidates
+from vibeagent.agent_approval import build_approval_request
+from vibeagent.agent_approval_targets import command_batch_target
 from vibeagent.prompt_observation_session import format_session_observation
 from vibeagent.types import (
     AppendFileAction,
@@ -737,6 +739,7 @@ class ActionTests(unittest.TestCase):
                     "commands": [
                         {
                             "command": "python3 test.py",
+                            "description": "Run focused tests",
                             "timeout_ms": 120000,
                             "extract_output_contexts": True,
                             "extract_output_diagnostics": True,
@@ -786,6 +789,27 @@ class ActionTests(unittest.TestCase):
         for name, tool_input, expected_type in cases:
             parsed = parse_tool_action(name, tool_input)
             self.assertEqual(parsed.type, expected_type)
+
+    def test_run_commands_preserves_item_descriptions_for_approval_targets(self) -> None:
+        action = parse_tool_action(
+            "run_commands",
+            {
+                "commands": [
+                    {"command": "python3 -m unittest", "description": "Run unit tests"},
+                    {"command": "npm run build", "description": "Compile package", "cwd": "web"},
+                ]
+            },
+        )
+
+        self.assertIsInstance(action, RunCommandsAction)
+        self.assertEqual(action.commands[0].description, "Run unit tests")
+        self.assertEqual(action.commands[1].description, "Compile package")
+        expected_target = "Run unit tests: python3 -m unittest (cwd: .), Compile package: npm run build (cwd: web)"
+        self.assertEqual(command_batch_target(action.commands), expected_target)
+        approval = build_approval_request(action)
+        self.assertIsNotNone(approval)
+        assert approval is not None
+        self.assertEqual(approval.target, expected_target)
 
     def test_tool_schemas_have_parser_compatible_minimal_inputs(self) -> None:
         failures: list[str] = []
@@ -863,6 +887,18 @@ class ActionTests(unittest.TestCase):
         for tool_name in shared_tools - {first_tool}:
             with self.subTest(shared_schema=tool_name):
                 self.assertEqual(output_extraction_schemas[first_tool], output_extraction_schemas[tool_name])
+
+    def test_run_command_item_schema_exposes_description(self) -> None:
+        schemas = {
+            str(tool["name"]): tool["input_schema"]
+            for tool in AGENT_TOOL_DEFINITIONS
+            if tool["name"] in {"check_run_commands", "run_commands"}
+        }
+
+        for tool_name, schema in schemas.items():
+            with self.subTest(tool=tool_name):
+                item_properties = schema["properties"]["commands"]["items"]["properties"]
+                self.assertIn("description", item_properties)
 
     def test_parse_tool_action_rejects_unsupported_action(self) -> None:
         with self.assertRaisesRegex(ActionParseError, "Unsupported action type"):
@@ -1938,6 +1974,9 @@ class ActionTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ActionParseError, "run_commands command 1 cwd must be a string"):
             parse_tool_action("run_commands", {"commands": [{"command": "python3 --version", "cwd": 1}]})
+
+        with self.assertRaisesRegex(ActionParseError, "run_commands command 1 description must be a non-empty string"):
+            parse_tool_action("run_commands", {"commands": [{"command": "python3 --version", "description": "  "}]})
 
         with self.assertRaisesRegex(ActionParseError, "run_commands command 1 extract_output_contexts must be a boolean"):
             parse_tool_action("run_commands", {"commands": [{"command": "python3 --version", "extract_output_contexts": "yes"}]})

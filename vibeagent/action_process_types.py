@@ -23,6 +23,7 @@ class RunCommandItem:
     max_diagnostics: int = 50
     max_contexts: int = 20
     max_bytes_per_context: int = 20_000
+    description: str | None = None
 
 
 @dataclass(frozen=True)
