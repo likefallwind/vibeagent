@@ -177,15 +177,18 @@ items,
 `completionReady`, `completionBlockers`, `completionWarnings`,
 `completionBlockedCount`,
 `latestCompletionBlockers`, `latestCompletionPendingChecks`,
-`latestCompletionFailedChecks`, `latestCompletionFinalReviewChangedFiles`,
-`changedFiles`, `verificationChecks`, `pendingVerificationChecks`, and
-`failedVerificationChecks` fields, plus `durationMs`, a `usage` report, and a
+`latestCompletionFailedChecks`, `latestCompletionFinalReviewIssues`,
+`latestCompletionFinalReviewChangedFiles`, `latestCompletionToolErrors`,
+`latestCompletionCheckpointFailures`, `latestCompletionActiveProcesses`,
+`latestCompletionDeniedApprovals`, `changedFiles`, `verificationChecks`,
+`pendingVerificationChecks`, and `failedVerificationChecks` fields, plus
+`durationMs`, a `usage` report, and a
 `cost` report for the current run, so automation can read the same final-review,
 blocked-attempt, changed-file, verification, timing, local token-usage, and
 configured cost estimate status shown in the text UI.
-Machine output also includes Claude-style snake_case aliases for key run
-fields: `session_id`, `num_turns`, `duration_ms`, and `stop_reason` where
-applicable.
+Machine output also includes Claude-style snake_case aliases for run status,
+prior context, completion, latest-completion, changed-file, verification,
+pending-user-input, and timing fields where applicable.
 `--output-format json` is equivalent to `--json`. `--output-format stream-json`
 emits newline-delimited JSON for one-shot tasks: each durable session event is
 written as a `type: "event"` record with a monotonically increasing `sequence`,

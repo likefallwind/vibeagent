@@ -210,6 +210,7 @@ class CliOneShotTests(unittest.TestCase):
         self.assertEqual(payload["num_turns"], 2)
         self.assertEqual(payload["steps"], 1)
         self.assertEqual(payload["priorContext"], {"loaded": False, "source": "auto_compact", "runId": None})
+        self.assertEqual(payload["prior_context"], payload["priorContext"])
         self.assertEqual(
             payload["plan"],
             [
@@ -218,22 +219,39 @@ class CliOneShotTests(unittest.TestCase):
             ],
         )
         self.assertFalse(payload["completionReady"])
+        self.assertEqual(payload["completion_ready"], payload["completionReady"])
         self.assertEqual(payload["completionBlockers"], ["1 suggested verification check(s) are still pending after the latest project change."])
+        self.assertEqual(payload["completion_blockers"], payload["completionBlockers"])
         self.assertEqual(payload["completionWarnings"], ["Suggested verification checks are still pending after the latest project change."])
+        self.assertEqual(payload["completion_warnings"], payload["completionWarnings"])
         self.assertEqual(payload["completionBlockedCount"], 1)
+        self.assertEqual(payload["completion_blocked_count"], payload["completionBlockedCount"])
         self.assertEqual(payload["latestCompletionBlockers"], ["Final review did not report ready."])
+        self.assertEqual(payload["latest_completion_blockers"], payload["latestCompletionBlockers"])
         self.assertEqual(payload["latestCompletionPendingChecks"], ["npm test"])
+        self.assertEqual(payload["latest_completion_pending_checks"], payload["latestCompletionPendingChecks"])
         self.assertEqual(payload["latestCompletionFailedChecks"], ["npm run build (exit=1)"])
+        self.assertEqual(payload["latest_completion_failed_checks"], payload["latestCompletionFailedChecks"])
         self.assertEqual(payload["latestCompletionFinalReviewIssues"], ["Changed Python files have syntax errors."])
+        self.assertEqual(payload["latest_completion_final_review_issues"], payload["latestCompletionFinalReviewIssues"])
         self.assertEqual(payload["latestCompletionFinalReviewChangedFiles"], ["M app.py"])
+        self.assertEqual(payload["latest_completion_final_review_changed_files"], payload["latestCompletionFinalReviewChangedFiles"])
         self.assertEqual(payload["latestCompletionToolErrors"], ["read_file: Tool execution failed: boom"])
+        self.assertEqual(payload["latest_completion_tool_errors"], payload["latestCompletionToolErrors"])
         self.assertEqual(payload["latestCompletionCheckpointFailures"], ["checkpoint_create: git diff failed."])
+        self.assertEqual(payload["latest_completion_checkpoint_failures"], payload["latestCompletionCheckpointFailures"])
         self.assertEqual(payload["latestCompletionActiveProcesses"], ["bg-1: pid=123, cwd=web, command=npm run dev"])
+        self.assertEqual(payload["latest_completion_active_processes"], payload["latestCompletionActiveProcesses"])
         self.assertEqual(payload["latestCompletionDeniedApprovals"], ["write_file note.txt: denied"])
+        self.assertEqual(payload["latest_completion_denied_approvals"], payload["latestCompletionDeniedApprovals"])
         self.assertEqual(payload["changedFiles"], ["M app.py"])
+        self.assertEqual(payload["changed_files"], payload["changedFiles"])
         self.assertEqual(payload["verificationChecks"], ["python -m unittest discover -s tests"])
+        self.assertEqual(payload["verification_checks"], payload["verificationChecks"])
         self.assertEqual(payload["pendingVerificationChecks"], ["npm test"])
+        self.assertEqual(payload["pending_verification_checks"], payload["pendingVerificationChecks"])
         self.assertEqual(payload["failedVerificationChecks"], ["npm test (exit=1)"])
+        self.assertEqual(payload["failed_verification_checks"], payload["failedVerificationChecks"])
 
     def test_main_resumes_from_structured_input_run_id_alias(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:

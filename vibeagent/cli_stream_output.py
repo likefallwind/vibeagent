@@ -41,7 +41,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
     user_input_requests = code_result_user_input_requests(result)
     pending_user_input = code_result_has_pending_user_input(result)
     stop_reason = code_result_stop_reason(result)
-    return {
+    payload = {
         "kind": "code",
         "success": result.success,
         "status": result.status,
@@ -80,6 +80,38 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
         "pending_user_input": pending_user_input,
         "userInputRequests": user_input_requests,
         "user_input_requests": user_input_requests,
+    }
+    payload.update(code_result_snake_case_aliases(payload))
+    return payload
+
+
+def code_result_snake_case_aliases(payload: dict[str, object]) -> dict[str, object]:
+    alias_keys = {
+        "priorContext": "prior_context",
+        "completionReady": "completion_ready",
+        "completionBlockers": "completion_blockers",
+        "completionWarnings": "completion_warnings",
+        "completionBlockedCount": "completion_blocked_count",
+        "latestCompletionBlockers": "latest_completion_blockers",
+        "latestCompletionPendingChecks": "latest_completion_pending_checks",
+        "latestCompletionFailedChecks": "latest_completion_failed_checks",
+        "latestCompletionFinalReviewIssues": "latest_completion_final_review_issues",
+        "latestCompletionFinalReviewChangedFiles": "latest_completion_final_review_changed_files",
+        "latestCompletionToolErrors": "latest_completion_tool_errors",
+        "latestCompletionCheckpointFailures": "latest_completion_checkpoint_failures",
+        "latestCompletionActiveProcesses": "latest_completion_active_processes",
+        "latestCompletionDeniedApprovals": "latest_completion_denied_approvals",
+        "changedFiles": "changed_files",
+        "verificationChecks": "verification_checks",
+        "pendingVerificationChecks": "pending_verification_checks",
+        "failedVerificationChecks": "failed_verification_checks",
+        "pendingUserInput": "pending_user_input",
+        "userInputRequests": "user_input_requests",
+    }
+    return {
+        alias: payload[key]
+        for key, alias in alias_keys.items()
+        if key in payload and alias not in payload
     }
 
 
@@ -130,6 +162,7 @@ __all__ = [
     "JsonEventStream",
     "add_duration_fields",
     "build_code_result_payload",
+    "code_result_snake_case_aliases",
     "code_result_has_pending_user_input",
     "code_result_stop_reason",
     "code_result_user_input_requests",
