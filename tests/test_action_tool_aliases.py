@@ -252,6 +252,16 @@ class ActionToolAliasTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "context_lines must be a non-negative integer"):
             parse_tool_action("Grep", {"pattern": "needle", "-C": "many"})
 
+    def test_claude_grep_directional_context_flags_map_to_context_lines(self) -> None:
+        action = parse_tool_action("Grep", {"pattern": "needle", "-A": "2", "-B": "4"})
+
+        self.assertIsInstance(action, SearchAction)
+        self.assertEqual(action.context_lines, 4)
+
+    def test_claude_grep_directional_context_rejects_invalid_string(self) -> None:
+        with self.assertRaisesRegex(ValueError, "context_lines must be a non-negative integer"):
+            parse_tool_action("Grep", {"pattern": "needle", "-A": "after"})
+
     def test_claude_grep_i_executes_case_insensitive_search(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-alias-") as base:
             root = Path(base)

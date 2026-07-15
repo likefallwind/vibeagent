@@ -72,6 +72,21 @@ def _normalize_search_context_aliases(value: dict[str, Any]) -> None:
     if context is not None:
         value["context_lines"] = context
         return
-    directional = [item for item in (after, before) if type(item) is int]
+    directional = [item for item in (after, before) if item is not None]
     if directional:
-        value["context_lines"] = max(directional)
+        value["context_lines"] = _max_directional_context(directional)
+
+
+def _max_directional_context(values: list[Any]) -> Any:
+    numeric_values = []
+    for value in values:
+        if type(value) is int:
+            numeric_values.append(value)
+            continue
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.isdigit():
+                numeric_values.append(int(stripped))
+                continue
+        return value
+    return max(numeric_values)
