@@ -205,7 +205,7 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
         return ProcessOutputContextsAction(
             type="process_output_contexts",
             process_id=_parse_process_id(value.get("process_id"), raw, "process_output_contexts"),
-            max_output_chars=_parse_bounded_output_chars(value.get("max_output_chars", 20_000), raw, maximum=50_000),
+            max_output_chars=_parse_optional_command_output_chars(value.get("max_output_chars"), raw),
             context_lines=context_lines,
             max_contexts=max_contexts,
             max_bytes_per_context=max_bytes_per_context,
@@ -221,7 +221,7 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
         return ProcessOutputDiagnosticsAction(
             type="process_output_diagnostics",
             process_id=_parse_process_id(value.get("process_id"), raw, "process_output_diagnostics"),
-            max_output_chars=_parse_bounded_output_chars(value.get("max_output_chars", 20_000), raw, maximum=50_000),
+            max_output_chars=_parse_optional_command_output_chars(value.get("max_output_chars"), raw),
             context_lines=context_lines,
             max_diagnostics=max_diagnostics,
             max_contexts=max_contexts,

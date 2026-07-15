@@ -2077,6 +2077,9 @@ class ActionTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionParseError, "process_output_contexts action requires a non-empty process_id"):
             parse_tool_action("process_output_contexts", {})
 
+        with self.assertRaisesRegex(ActionParseError, "max_output_chars must be at least 1000"):
+            parse_tool_action("process_output_contexts", {"process_id": "abc123", "max_output_chars": 999})
+
         with self.assertRaisesRegex(ActionParseError, "max_output_chars must be at most 50000"):
             parse_tool_action("process_output_contexts", {"process_id": "abc123", "max_output_chars": 50001})
 
@@ -2088,6 +2091,9 @@ class ActionTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ActionParseError, "process_output_diagnostics action requires a non-empty process_id"):
             parse_tool_action("process_output_diagnostics", {})
+
+        with self.assertRaisesRegex(ActionParseError, "max_output_chars must be at least 1000"):
+            parse_tool_action("process_output_diagnostics", {"process_id": "abc123", "max_output_chars": 999})
 
         with self.assertRaisesRegex(ActionParseError, "max_output_chars must be at most 50000"):
             parse_tool_action("process_output_diagnostics", {"process_id": "abc123", "max_output_chars": 50001})
@@ -9560,6 +9566,7 @@ class ActionTests(unittest.TestCase):
                 )
                 self.assertEqual(contexts.kind, "process_output_contexts")
                 self.assertTrue(contexts.ok)
+                self.assertEqual(contexts.max_output_chars, 2000)
                 self.assertEqual(contexts.pid, start.pid)
                 self.assertFalse(contexts.running)
                 self.assertEqual(contexts.exit_code, 0)
@@ -9608,6 +9615,7 @@ class ActionTests(unittest.TestCase):
                 )
                 self.assertEqual(diagnostics.kind, "process_output_diagnostics")
                 self.assertTrue(diagnostics.ok)
+                self.assertEqual(diagnostics.max_output_chars, 2000)
                 self.assertEqual(diagnostics.pid, start.pid)
                 self.assertFalse(diagnostics.running)
                 self.assertEqual(diagnostics.exit_code, 0)
@@ -9620,6 +9628,59 @@ class ActionTests(unittest.TestCase):
                 self.assertEqual(diagnostics.total_refs, 1)
                 self.assertEqual(diagnostics.contexts[0].path, "src/app.py")
                 self.assertIn("second", diagnostics.contexts[0].content)
+            finally:
+                if start.kind == "start_command" and start.process_id:
+                    execute_action(workspace, StopProcessAction(type="stop_process", process_id=start.process_id))
+
+    def test_execute_process_output_analysis_uses_start_command_output_limit_by_default(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
+            root = Path(base)
+            source_dir = root / "src"
+            source_dir.mkdir()
+            (source_dir / "app.py").write_text("first\nsecond\nthird\n", encoding="utf-8")
+            workspace = create_run_workspace(base, "test-run")
+            start = execute_action(
+                workspace,
+                StartCommandAction(
+                    type="start_command",
+                    command="python3 -c \"print('ERROR src/app.py:2:5 failed', flush=True)\"",
+                    max_output_chars=1000,
+                ),
+            )
+            try:
+                self.assertEqual(start.kind, "start_command")
+                self.assertTrue(start.ok)
+
+                wait = execute_action(workspace, WaitProcessAction(type="wait_process", process_id=start.process_id, timeout_ms=5000))
+                self.assertEqual(wait.kind, "wait_process")
+                self.assertTrue(wait.ok)
+
+                contexts = execute_action(
+                    workspace,
+                    ProcessOutputContextsAction(
+                        type="process_output_contexts",
+                        process_id=start.process_id,
+                        context_lines=0,
+                        max_contexts=3,
+                        max_bytes_per_context=1000,
+                    ),
+                )
+                diagnostics = execute_action(
+                    workspace,
+                    ProcessOutputDiagnosticsAction(
+                        type="process_output_diagnostics",
+                        process_id=start.process_id,
+                        context_lines=0,
+                        max_diagnostics=5,
+                        max_contexts=3,
+                        max_bytes_per_context=1000,
+                    ),
+                )
+
+                self.assertEqual(contexts.max_output_chars, 1000)
+                self.assertEqual(diagnostics.max_output_chars, 1000)
+                self.assertEqual(contexts.total_refs, 1)
+                self.assertEqual(diagnostics.total_diagnostics, 1)
             finally:
                 if start.kind == "start_command" and start.process_id:
                     execute_action(workspace, StopProcessAction(type="stop_process", process_id=start.process_id))

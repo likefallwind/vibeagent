@@ -35,7 +35,7 @@ def read_background_process_output_contexts(
             truncated=False,
             stdout_chars=0,
             stderr_chars=0,
-            max_output_chars=action.max_output_chars,
+            max_output_chars=process.max_output_chars,
             message=process.message,
         )
 
@@ -54,7 +54,7 @@ def read_background_process_output_contexts(
             truncated=False,
             stdout_chars=len(process.stdout),
             stderr_chars=len(process.stderr),
-            max_output_chars=action.max_output_chars,
+            max_output_chars=process.max_output_chars,
             message=f"Process {action.process_id} output contained no file:line references.",
         )
 
@@ -80,7 +80,7 @@ def read_background_process_output_contexts(
             truncated=False,
             stdout_chars=len(process.stdout),
             stderr_chars=len(process.stderr),
-            max_output_chars=action.max_output_chars,
+            max_output_chars=process.max_output_chars,
             message=str(error),
         )
 
@@ -99,7 +99,7 @@ def read_background_process_output_contexts(
         truncated=bool(result["truncated"]),
         stdout_chars=len(process.stdout),
         stderr_chars=len(process.stderr),
-        max_output_chars=action.max_output_chars,
+        max_output_chars=process.max_output_chars,
         message=f"Extracted {len(contexts)}/{total_refs} output context(s) from process {action.process_id}.",
     )
 
@@ -130,7 +130,7 @@ def read_background_process_output_diagnostics(
             contexts_truncated=False,
             stdout_chars=0,
             stderr_chars=0,
-            max_output_chars=action.max_output_chars,
+            max_output_chars=process.max_output_chars,
             message=process.message,
         )
 
@@ -152,7 +152,7 @@ def read_background_process_output_diagnostics(
             contexts_truncated=False,
             stdout_chars=len(process.stdout),
             stderr_chars=len(process.stderr),
-            max_output_chars=action.max_output_chars,
+            max_output_chars=process.max_output_chars,
             message=f"Process {action.process_id} output contained no diagnostic lines.",
         )
 
@@ -182,7 +182,7 @@ def read_background_process_output_diagnostics(
             contexts_truncated=False,
             stdout_chars=len(process.stdout),
             stderr_chars=len(process.stderr),
-            max_output_chars=action.max_output_chars,
+            max_output_chars=process.max_output_chars,
             message=str(error),
         )
 
@@ -206,7 +206,7 @@ def read_background_process_output_diagnostics(
         contexts_truncated=bool(result["contexts_truncated"]),
         stdout_chars=len(process.stdout),
         stderr_chars=len(process.stderr),
-        max_output_chars=action.max_output_chars,
+        max_output_chars=process.max_output_chars,
         message=(
             f"Extracted {len(diagnostics)}/{total_diagnostics} diagnostic(s) "
             f"and {len(contexts)}/{total_refs} source context(s) from process {action.process_id}."

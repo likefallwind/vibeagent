@@ -123,7 +123,7 @@ class ReadProcessAction:
 class ProcessOutputContextsAction:
     type: Literal["process_output_contexts"]
     process_id: str
-    max_output_chars: int = 20_000
+    max_output_chars: int | None = None
     context_lines: int = 5
     max_contexts: int = 20
     max_bytes_per_context: int = 20_000
@@ -133,7 +133,7 @@ class ProcessOutputContextsAction:
 class ProcessOutputDiagnosticsAction:
     type: Literal["process_output_diagnostics"]
     process_id: str
-    max_output_chars: int = 20_000
+    max_output_chars: int | None = None
     context_lines: int = 2
     max_diagnostics: int = 50
     max_contexts: int = 20

@@ -35,9 +35,9 @@ PROCESS_OUTPUT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "process_id": {"type": "string"},
                 "max_output_chars": {
                     "type": "integer",
-                    "minimum": 0,
+                    "minimum": 1000,
                     "maximum": 50000,
-                    "description": "Maximum recent characters to scan from each output stream. Defaults to 20000.",
+                    "description": "Maximum recent characters to scan from each output stream. Defaults to the process start limit or 4000.",
                 },
                 "context_lines": {
                     "type": "integer",
@@ -71,9 +71,9 @@ PROCESS_OUTPUT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "process_id": {"type": "string"},
                 "max_output_chars": {
                     "type": "integer",
-                    "minimum": 0,
+                    "minimum": 1000,
                     "maximum": 50000,
-                    "description": "Maximum recent characters to scan from each output stream. Defaults to 20000.",
+                    "description": "Maximum recent characters to scan from each output stream. Defaults to the process start limit or 4000.",
                 },
                 "context_lines": {
                     "type": "integer",
