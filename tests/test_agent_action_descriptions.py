@@ -101,6 +101,33 @@ class AgentActionDescriptionTests(unittest.TestCase):
 
         self.assertEqual(events, [("reading file", "vibeagent/agent.py")])
 
+    def test_log_action_uses_table_driven_target_variants(self) -> None:
+        events: list[tuple[str, object]] = []
+        logger = lambda message, target: events.append((message, target))
+
+        log_action(logger, t.ListFilesAction(type="list_files", path=""))
+        log_action(logger, t.GitStatusAction(type="git_status"))
+        log_action(logger, t.CheckPatchesAction(type="check_patches", patch="diff --git a/app.py b/app.py"))
+        log_action(logger, t.ReadProcessAction(type="read_process", process_id="proc-1", max_output_chars=100))
+
+        self.assertEqual(
+            events,
+            [
+                ("listing files", "."),
+                ("checking git status", None),
+                ("checking patches", "multiple files"),
+                ("reading process", "proc-1"),
+            ],
+        )
+
+    def test_log_action_keeps_dynamic_delegate_message(self) -> None:
+        events: list[tuple[str, object]] = []
+        action = t.DelegateTaskAction(type="delegate_task", task="inspect auth flow", mode="code")
+
+        log_action(lambda message, target: events.append((message, target)), action)
+
+        self.assertEqual(events, [("delegating code task", "inspect auth flow")])
+
 
 if __name__ == "__main__":
     unittest.main()

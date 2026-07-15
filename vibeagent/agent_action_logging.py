@@ -1,398 +1,250 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from . import types as t
 from .agent_action_targets import build_action_target
+
+
+ActionTargetBuilder = Callable[[object], object]
+
+
+def _target_none(_action: object) -> None:
+    return None
+
+
+def _target_action(action: object) -> object:
+    return build_action_target(action)
+
+
+def _target_path(action: object) -> object:
+    return getattr(action, "path")
+
+
+def _target_optional_path(action: object) -> object:
+    return getattr(action, "path", None) or "."
+
+
+def _target_query(action: object) -> object:
+    return getattr(action, "query")
+
+
+def _target_pattern(action: object) -> object:
+    return getattr(action, "pattern")
+
+
+def _target_multiple_files(_action: object) -> str:
+    return "multiple files"
+
+
+def _target_process_id(action: object) -> object:
+    return getattr(action, "process_id")
+
+
+ACTION_LOG_SPECS: dict[str, tuple[str, ActionTargetBuilder]] = {
+    "list_files": ("listing files", _target_optional_path),
+    "list_tree": ("listing tree", _target_optional_path),
+    "repo_map": ("mapping repo", _target_action),
+    "read_file": ("reading file", _target_path),
+    "read_file_context": ("reading file context", _target_action),
+    "read_file_contexts": ("reading file contexts", _target_action),
+    "output_contexts": ("reading output contexts", _target_action),
+    "tail_file": ("tailing file", _target_path),
+    "read_files": ("reading files", _target_action),
+    "read_file_ranges": ("reading file ranges", _target_action),
+    "file_info": ("reading file info", _target_action),
+    "image_info": ("reading image info", _target_action),
+    "view_image": ("viewing image", _target_action),
+    "python_symbols": ("reading python symbols", _target_action),
+    "code_outline": ("reading code outline", _target_action),
+    "python_check": ("checking python", _target_action),
+    "config_check": ("checking config", _target_action),
+    "python_dependencies": ("reading python dependencies", _target_action),
+    "code_dependencies": ("reading code dependencies", _target_action),
+    "code_references": ("reading code references", _target_action),
+    "code_reference_contexts": ("reading code reference contexts", _target_action),
+    "code_definitions": ("reading code definitions", _target_action),
+    "code_rename_preview": ("previewing code rename", _target_action),
+    "code_rename": ("renaming code symbol", _target_action),
+    "python_definitions": ("reading python definitions", _target_action),
+    "python_calls": ("reading python calls", _target_action),
+    "python_call_graph": ("reading python call graph", _target_action),
+    "python_references": ("reading python references", _target_action),
+    "python_reference_contexts": ("reading python reference contexts", _target_action),
+    "python_rename_preview": ("previewing python rename", _target_action),
+    "python_rename": ("renaming python symbol", _target_action),
+    "search": ("searching", _target_query),
+    "search_contexts": ("searching contexts", _target_action),
+    "find_files": ("finding files", _target_action),
+    "glob": ("globbing", _target_pattern),
+    "git_status": ("checking git status", _target_none),
+    "git_conflicts": ("scanning git conflicts", _target_optional_path),
+    "git_diff_contexts": ("reading git diff contexts", _target_optional_path),
+    "git_info": ("reading git info", _target_none),
+    "git_changes": ("reading git changes", _target_none),
+    "git_branches": ("reading git branches", _target_none),
+    "check_git_fetch": ("checking git fetch", _target_action),
+    "git_fetch": ("fetching git remote", _target_action),
+    "check_git_pull": ("checking git pull", _target_action),
+    "git_pull": ("pulling git upstream", _target_action),
+    "check_git_push": ("checking git push", _target_action),
+    "git_push": ("pushing git upstream", _target_action),
+    "check_git_restore": ("checking git restore", _target_action),
+    "git_restore": ("restoring git paths", _target_action),
+    "git_stashes": ("reading git stashes", _target_action),
+    "check_git_stash": ("checking git stash", _target_action),
+    "git_stash": ("stashing git changes", _target_action),
+    "check_git_stash_apply": ("checking git stash apply", _target_action),
+    "git_stash_apply": ("applying git stash", _target_action),
+    "check_git_stash_drop": ("checking git stash drop", _target_action),
+    "git_stash_drop": ("dropping git stash", _target_action),
+    "check_git_switch": ("checking git switch", _target_action),
+    "git_switch": ("switching git branch", _target_action),
+    "check_git_stage": ("checking git stage", _target_action),
+    "git_stage": ("staging git paths", _target_action),
+    "check_git_unstage": ("checking git unstage", _target_action),
+    "git_unstage": ("unstaging git paths", _target_action),
+    "check_git_commit": ("checking git commit", _target_action),
+    "git_commit": ("committing staged changes", _target_action),
+    "review_changes": ("reviewing changes", _target_none),
+    "final_review": ("final reviewing changes", _target_none),
+    "suggest_checks": ("suggesting checks", _target_none),
+    "check_suggested_checks": ("checking suggested checks", _target_action),
+    "run_suggested_checks": ("running suggested checks", _target_action),
+    "project_commands": ("reading project commands", _target_none),
+    "tool_search": ("searching tool catalog", _target_action),
+    "related_tests": ("finding related tests", _target_action),
+    "focused_test_commands": ("suggesting focused test commands", _target_action),
+    "check_focused_test_commands": ("checking focused test commands", _target_action),
+    "run_focused_test_commands": ("running focused test commands", _target_action),
+    "project_manifests": ("reading project manifests", _target_none),
+    "project_instructions": ("reading project instructions", _target_none),
+    "project_skills": ("listing project skills", _target_none),
+    "project_agents": ("listing project agent profiles", _target_none),
+    "skill": ("loading project skill", _target_action),
+    "mcp_servers": ("listing MCP servers", _target_none),
+    "mcp_tools": ("listing MCP tools", _target_action),
+    "mcp_call": ("calling MCP tool", _target_action),
+    "project_overview": ("reading project overview", _target_none),
+    "command_check": ("checking command", _target_action),
+    "check_run_commands": ("checking commands", _target_action),
+    "environment_info": ("reading environment info", _target_none),
+    "git_diff": ("reading git diff", _target_action),
+    "git_diff_hunks": ("reading git diff hunks", _target_action),
+    "git_log": ("reading git log", _target_action),
+    "git_show": ("reading git show", _target_action),
+    "git_blame": ("reading git blame", _target_action),
+    "session_summary": ("reading session summary", _target_action),
+    "session_plan": ("reading session plan", _target_action),
+    "session_transcript": ("reading session transcript", _target_action),
+    "session_search": ("searching session", _target_action),
+    "session_commands": ("reading session commands", _target_action),
+    "session_output_contexts": ("reading session output contexts", _target_action),
+    "session_output_diagnostics": ("reading session output diagnostics", _target_action),
+    "session_files": ("reading session files", _target_action),
+    "session_failures": ("reading session failures", _target_action),
+    "session_verification": ("reading session verification", _target_action),
+    "run_session_verification": ("running session verification", _target_action),
+    "session_audit": ("reading session audit", _target_action),
+    "session_handoff": ("reading session handoff", _target_action),
+    "checkpoint_create": ("creating checkpoint", _target_action),
+    "checkpoint_list": ("listing checkpoints", _target_action),
+    "checkpoint_show": ("reading checkpoint", _target_action),
+    "checkpoint_diff": ("reading checkpoint diff", _target_action),
+    "checkpoint_status": ("checking checkpoint status", _target_action),
+    "check_checkpoint_restore": ("checking checkpoint restore", _target_action),
+    "checkpoint_restore": ("restoring checkpoint", _target_action),
+    "check_checkpoint_delete": ("checking checkpoint delete", _target_action),
+    "checkpoint_delete": ("deleting checkpoint", _target_action),
+    "check_checkpoint_prune": ("checking checkpoint prune", _target_action),
+    "checkpoint_prune": ("pruning checkpoints", _target_action),
+    "check_edit_file": ("checking file edit", _target_action),
+    "edit_file": ("editing file", _target_path),
+    "check_multi_edit_file": ("checking multi-edit", _target_action),
+    "multi_edit_file": ("multi-editing file", _target_path),
+    "check_replace_python_definition": ("checking python definition replacement", _target_action),
+    "replace_python_definition": ("replacing python definition", _target_action),
+    "check_replace_lines": ("checking replace lines", _target_action),
+    "replace_lines": ("replacing lines", _target_action),
+    "check_insert_lines": ("checking insert lines", _target_action),
+    "insert_lines": ("inserting lines", _target_action),
+    "check_append_file": ("checking append file", _target_action),
+    "append_file": ("appending file", _target_action),
+    "regex_replace": ("regex replacing", _target_action),
+    "check_regex_replace": ("checking regex replace", _target_action),
+    "check_json_set": ("checking json set", _target_action),
+    "json_set": ("setting json", _target_action),
+    "check_json_remove": ("checking json remove", _target_action),
+    "json_remove": ("removing json", _target_action),
+    "check_json_patch": ("checking json patch", _target_action),
+    "json_patch": ("patching json", _target_action),
+    "check_patch": ("checking patch", _target_path),
+    "check_patches": ("checking patches", _target_multiple_files),
+    "patch_file": ("patching file", _target_path),
+    "patch_files": ("patching files", _target_multiple_files),
+    "check_delete_file": ("checking delete file", _target_action),
+    "delete_file": ("deleting file", _target_path),
+    "check_delete_files": ("checking file deletes", _target_action),
+    "delete_files": ("deleting files", _target_action),
+    "check_move_file": ("checking move file", _target_action),
+    "move_file": ("moving file", _target_action),
+    "check_move_files": ("checking file moves", _target_action),
+    "move_files": ("moving files", _target_action),
+    "check_copy_file": ("checking copy file", _target_action),
+    "copy_file": ("copying file", _target_action),
+    "check_copy_files": ("checking file copies", _target_action),
+    "copy_files": ("copying files", _target_action),
+    "check_move_dir": ("checking move directory", _target_action),
+    "move_dir": ("moving directory", _target_action),
+    "check_move_dirs": ("checking directory moves", _target_action),
+    "move_dirs": ("moving directories", _target_action),
+    "check_copy_dir": ("checking copy directory", _target_action),
+    "copy_dir": ("copying directory", _target_action),
+    "check_copy_dirs": ("checking directory copies", _target_action),
+    "copy_dirs": ("copying directories", _target_action),
+    "check_create_dir": ("checking create directory", _target_action),
+    "create_dir": ("creating directory", _target_action),
+    "check_create_dirs": ("checking directory creates", _target_action),
+    "create_dirs": ("creating directories", _target_action),
+    "check_delete_empty_dir": ("checking delete empty directory", _target_action),
+    "delete_empty_dir": ("deleting empty directory", _target_action),
+    "check_delete_empty_dirs": ("checking empty directory deletes", _target_action),
+    "delete_empty_dirs": ("deleting empty directories", _target_action),
+    "check_set_executable": ("checking executable bit", _target_action),
+    "set_executable": ("setting executable bit", _target_action),
+    "check_write_file": ("checking file write", _target_action),
+    "write_file": ("writing file", _target_path),
+    "check_write_files": ("checking file writes", _target_action),
+    "write_files": ("writing files", _target_action),
+    "run_command": ("running command", _target_action),
+    "run_commands": ("running commands", _target_action),
+    "check_start_command": ("checking start command", _target_action),
+    "port_check": ("checking port", _target_action),
+    "http_check": ("checking http", _target_action),
+    "http_fetch": ("fetching http", _target_action),
+    "web_fetch": ("fetching public document", _target_action),
+    "start_command": ("starting command", _target_action),
+    "read_process": ("reading process", _target_process_id),
+    "wait_process": ("waiting process", _target_process_id),
+    "check_write_process": ("checking process write", _target_action),
+    "write_process": ("writing process", _target_action),
+    "list_processes": ("listing processes", _target_none),
+    "check_stop_all_processes": ("checking stop all processes", _target_none),
+    "check_stop_process": ("checking stop process", _target_process_id),
+    "stop_all_processes": ("stopping all processes", _target_none),
+    "stop_process": ("stopping process", _target_process_id),
+    "update_plan": ("updating plan", _target_action),
+    "ask_user": ("asking user", _target_action),
+}
 
 
 def log_action(logger: t.AgentLogger | None, action: object) -> None:
     if not logger:
         return
     action_type = getattr(action, "type", None)
-    if action_type == "list_files":
-        logger("listing files", getattr(action, "path", None) or ".")
-    elif action_type == "list_tree":
-        logger("listing tree", getattr(action, "path", None) or ".")
-    elif action_type == "repo_map":
-        logger("mapping repo", build_action_target(action))
-    elif action_type == "read_file":
-        logger("reading file", getattr(action, "path"))
-    elif action_type == "read_file_context":
-        logger("reading file context", build_action_target(action))
-    elif action_type == "read_file_contexts":
-        logger("reading file contexts", build_action_target(action))
-    elif action_type == "output_contexts":
-        logger("reading output contexts", build_action_target(action))
-    elif action_type == "tail_file":
-        logger("tailing file", getattr(action, "path"))
-    elif action_type == "read_files":
-        logger("reading files", build_action_target(action))
-    elif action_type == "read_file_ranges":
-        logger("reading file ranges", build_action_target(action))
-    elif action_type == "file_info":
-        logger("reading file info", build_action_target(action))
-    elif action_type == "image_info":
-        logger("reading image info", build_action_target(action))
-    elif action_type == "view_image":
-        logger("viewing image", build_action_target(action))
-    elif action_type == "python_symbols":
-        logger("reading python symbols", build_action_target(action))
-    elif action_type == "code_outline":
-        logger("reading code outline", build_action_target(action))
-    elif action_type == "python_check":
-        logger("checking python", build_action_target(action))
-    elif action_type == "config_check":
-        logger("checking config", build_action_target(action))
-    elif action_type == "python_dependencies":
-        logger("reading python dependencies", build_action_target(action))
-    elif action_type == "code_dependencies":
-        logger("reading code dependencies", build_action_target(action))
-    elif action_type == "code_references":
-        logger("reading code references", build_action_target(action))
-    elif action_type == "code_reference_contexts":
-        logger("reading code reference contexts", build_action_target(action))
-    elif action_type == "code_definitions":
-        logger("reading code definitions", build_action_target(action))
-    elif action_type == "code_rename_preview":
-        logger("previewing code rename", build_action_target(action))
-    elif action_type == "code_rename":
-        logger("renaming code symbol", build_action_target(action))
-    elif action_type == "python_definitions":
-        logger("reading python definitions", build_action_target(action))
-    elif action_type == "python_calls":
-        logger("reading python calls", build_action_target(action))
-    elif action_type == "python_call_graph":
-        logger("reading python call graph", build_action_target(action))
-    elif action_type == "python_references":
-        logger("reading python references", build_action_target(action))
-    elif action_type == "python_reference_contexts":
-        logger("reading python reference contexts", build_action_target(action))
-    elif action_type == "python_rename_preview":
-        logger("previewing python rename", build_action_target(action))
-    elif action_type == "python_rename":
-        logger("renaming python symbol", build_action_target(action))
-    elif action_type == "search":
-        logger("searching", getattr(action, "query"))
-    elif action_type == "search_contexts":
-        logger("searching contexts", build_action_target(action))
-    elif action_type == "find_files":
-        logger("finding files", build_action_target(action))
-    elif action_type == "glob":
-        logger("globbing", getattr(action, "pattern"))
-    elif action_type == "git_status":
-        logger("checking git status", None)
-    elif action_type == "git_conflicts":
-        logger("scanning git conflicts", getattr(action, "path", None) or ".")
-    elif action_type == "git_diff_contexts":
-        logger("reading git diff contexts", getattr(action, "path", None) or ".")
-    elif action_type == "git_info":
-        logger("reading git info", None)
-    elif action_type == "git_changes":
-        logger("reading git changes", None)
-    elif action_type == "git_branches":
-        logger("reading git branches", None)
-    elif action_type == "check_git_fetch":
-        logger("checking git fetch", build_action_target(action))
-    elif action_type == "git_fetch":
-        logger("fetching git remote", build_action_target(action))
-    elif action_type == "check_git_pull":
-        logger("checking git pull", build_action_target(action))
-    elif action_type == "git_pull":
-        logger("pulling git upstream", build_action_target(action))
-    elif action_type == "check_git_push":
-        logger("checking git push", build_action_target(action))
-    elif action_type == "git_push":
-        logger("pushing git upstream", build_action_target(action))
-    elif action_type == "check_git_restore":
-        logger("checking git restore", build_action_target(action))
-    elif action_type == "git_restore":
-        logger("restoring git paths", build_action_target(action))
-    elif action_type == "git_stashes":
-        logger("reading git stashes", build_action_target(action))
-    elif action_type == "check_git_stash":
-        logger("checking git stash", build_action_target(action))
-    elif action_type == "git_stash":
-        logger("stashing git changes", build_action_target(action))
-    elif action_type == "check_git_stash_apply":
-        logger("checking git stash apply", build_action_target(action))
-    elif action_type == "git_stash_apply":
-        logger("applying git stash", build_action_target(action))
-    elif action_type == "check_git_stash_drop":
-        logger("checking git stash drop", build_action_target(action))
-    elif action_type == "git_stash_drop":
-        logger("dropping git stash", build_action_target(action))
-    elif action_type == "check_git_switch":
-        logger("checking git switch", build_action_target(action))
-    elif action_type == "git_switch":
-        logger("switching git branch", build_action_target(action))
-    elif action_type == "check_git_stage":
-        logger("checking git stage", build_action_target(action))
-    elif action_type == "git_stage":
-        logger("staging git paths", build_action_target(action))
-    elif action_type == "check_git_unstage":
-        logger("checking git unstage", build_action_target(action))
-    elif action_type == "git_unstage":
-        logger("unstaging git paths", build_action_target(action))
-    elif action_type == "check_git_commit":
-        logger("checking git commit", build_action_target(action))
-    elif action_type == "git_commit":
-        logger("committing staged changes", build_action_target(action))
-    elif action_type == "review_changes":
-        logger("reviewing changes", None)
-    elif action_type == "final_review":
-        logger("final reviewing changes", None)
-    elif action_type == "suggest_checks":
-        logger("suggesting checks", None)
-    elif action_type == "check_suggested_checks":
-        logger("checking suggested checks", build_action_target(action))
-    elif action_type == "run_suggested_checks":
-        logger("running suggested checks", build_action_target(action))
-    elif action_type == "project_commands":
-        logger("reading project commands", None)
-    elif action_type == "tool_search":
-        logger("searching tool catalog", build_action_target(action))
-    elif action_type == "related_tests":
-        logger("finding related tests", build_action_target(action))
-    elif action_type == "focused_test_commands":
-        logger("suggesting focused test commands", build_action_target(action))
-    elif action_type == "check_focused_test_commands":
-        logger("checking focused test commands", build_action_target(action))
-    elif action_type == "run_focused_test_commands":
-        logger("running focused test commands", build_action_target(action))
-    elif action_type == "project_manifests":
-        logger("reading project manifests", None)
-    elif action_type == "project_instructions":
-        logger("reading project instructions", None)
-    elif action_type == "project_skills":
-        logger("listing project skills", None)
-    elif action_type == "project_agents":
-        logger("listing project agent profiles", None)
-    elif action_type == "skill":
-        logger("loading project skill", build_action_target(action))
-    elif action_type == "mcp_servers":
-        logger("listing MCP servers", None)
-    elif action_type == "mcp_tools":
-        logger("listing MCP tools", build_action_target(action))
-    elif action_type == "mcp_call":
-        logger("calling MCP tool", build_action_target(action))
-    elif action_type == "project_overview":
-        logger("reading project overview", None)
-    elif action_type == "command_check":
-        logger("checking command", build_action_target(action))
-    elif action_type == "check_run_commands":
-        logger("checking commands", build_action_target(action))
-    elif action_type == "environment_info":
-        logger("reading environment info", None)
-    elif action_type == "git_diff":
-        logger("reading git diff", build_action_target(action))
-    elif action_type == "git_diff_hunks":
-        logger("reading git diff hunks", build_action_target(action))
-    elif action_type == "git_log":
-        logger("reading git log", build_action_target(action))
-    elif action_type == "git_show":
-        logger("reading git show", build_action_target(action))
-    elif action_type == "git_blame":
-        logger("reading git blame", build_action_target(action))
-    elif action_type == "session_summary":
-        logger("reading session summary", build_action_target(action))
-    elif action_type == "session_plan":
-        logger("reading session plan", build_action_target(action))
-    elif action_type == "session_transcript":
-        logger("reading session transcript", build_action_target(action))
-    elif action_type == "session_search":
-        logger("searching session", build_action_target(action))
-    elif action_type == "session_commands":
-        logger("reading session commands", build_action_target(action))
-    elif action_type == "session_output_contexts":
-        logger("reading session output contexts", build_action_target(action))
-    elif action_type == "session_output_diagnostics":
-        logger("reading session output diagnostics", build_action_target(action))
-    elif action_type == "session_files":
-        logger("reading session files", build_action_target(action))
-    elif action_type == "session_failures":
-        logger("reading session failures", build_action_target(action))
-    elif action_type == "session_verification":
-        logger("reading session verification", build_action_target(action))
-    elif action_type == "run_session_verification":
-        logger("running session verification", build_action_target(action))
-    elif action_type == "session_audit":
-        logger("reading session audit", build_action_target(action))
-    elif action_type == "session_handoff":
-        logger("reading session handoff", build_action_target(action))
-    elif action_type == "checkpoint_create":
-        logger("creating checkpoint", build_action_target(action))
-    elif action_type == "checkpoint_list":
-        logger("listing checkpoints", build_action_target(action))
-    elif action_type == "checkpoint_show":
-        logger("reading checkpoint", build_action_target(action))
-    elif action_type == "checkpoint_diff":
-        logger("reading checkpoint diff", build_action_target(action))
-    elif action_type == "checkpoint_status":
-        logger("checking checkpoint status", build_action_target(action))
-    elif action_type == "check_checkpoint_restore":
-        logger("checking checkpoint restore", build_action_target(action))
-    elif action_type == "checkpoint_restore":
-        logger("restoring checkpoint", build_action_target(action))
-    elif action_type == "check_checkpoint_delete":
-        logger("checking checkpoint delete", build_action_target(action))
-    elif action_type == "checkpoint_delete":
-        logger("deleting checkpoint", build_action_target(action))
-    elif action_type == "check_checkpoint_prune":
-        logger("checking checkpoint prune", build_action_target(action))
-    elif action_type == "checkpoint_prune":
-        logger("pruning checkpoints", build_action_target(action))
-    elif action_type == "check_edit_file":
-        logger("checking file edit", build_action_target(action))
-    elif action_type == "edit_file":
-        logger("editing file", getattr(action, "path"))
-    elif action_type == "check_multi_edit_file":
-        logger("checking multi-edit", build_action_target(action))
-    elif action_type == "multi_edit_file":
-        logger("multi-editing file", getattr(action, "path"))
-    elif action_type == "check_replace_python_definition":
-        logger("checking python definition replacement", build_action_target(action))
-    elif action_type == "replace_python_definition":
-        logger("replacing python definition", build_action_target(action))
-    elif action_type == "check_replace_lines":
-        logger("checking replace lines", build_action_target(action))
-    elif action_type == "replace_lines":
-        logger("replacing lines", build_action_target(action))
-    elif action_type == "check_insert_lines":
-        logger("checking insert lines", build_action_target(action))
-    elif action_type == "insert_lines":
-        logger("inserting lines", build_action_target(action))
-    elif action_type == "check_append_file":
-        logger("checking append file", build_action_target(action))
-    elif action_type == "append_file":
-        logger("appending file", build_action_target(action))
-    elif action_type == "regex_replace":
-        logger("regex replacing", build_action_target(action))
-    elif action_type == "check_regex_replace":
-        logger("checking regex replace", build_action_target(action))
-    elif action_type == "check_json_set":
-        logger("checking json set", build_action_target(action))
-    elif action_type == "json_set":
-        logger("setting json", build_action_target(action))
-    elif action_type == "check_json_remove":
-        logger("checking json remove", build_action_target(action))
-    elif action_type == "json_remove":
-        logger("removing json", build_action_target(action))
-    elif action_type == "check_json_patch":
-        logger("checking json patch", build_action_target(action))
-    elif action_type == "json_patch":
-        logger("patching json", build_action_target(action))
-    elif action_type == "check_patch":
-        logger("checking patch", getattr(action, "path"))
-    elif action_type == "check_patches":
-        logger("checking patches", "multiple files")
-    elif action_type == "patch_file":
-        logger("patching file", getattr(action, "path"))
-    elif action_type == "patch_files":
-        logger("patching files", "multiple files")
-    elif action_type == "check_delete_file":
-        logger("checking delete file", build_action_target(action))
-    elif action_type == "delete_file":
-        logger("deleting file", getattr(action, "path"))
-    elif action_type == "check_delete_files":
-        logger("checking file deletes", build_action_target(action))
-    elif action_type == "delete_files":
-        logger("deleting files", build_action_target(action))
-    elif action_type == "check_move_file":
-        logger("checking move file", build_action_target(action))
-    elif action_type == "move_file":
-        logger("moving file", build_action_target(action))
-    elif action_type == "check_move_files":
-        logger("checking file moves", build_action_target(action))
-    elif action_type == "move_files":
-        logger("moving files", build_action_target(action))
-    elif action_type == "check_copy_file":
-        logger("checking copy file", build_action_target(action))
-    elif action_type == "copy_file":
-        logger("copying file", build_action_target(action))
-    elif action_type == "check_copy_files":
-        logger("checking file copies", build_action_target(action))
-    elif action_type == "copy_files":
-        logger("copying files", build_action_target(action))
-    elif action_type == "check_move_dir":
-        logger("checking move directory", build_action_target(action))
-    elif action_type == "move_dir":
-        logger("moving directory", build_action_target(action))
-    elif action_type == "check_move_dirs":
-        logger("checking directory moves", build_action_target(action))
-    elif action_type == "move_dirs":
-        logger("moving directories", build_action_target(action))
-    elif action_type == "check_copy_dir":
-        logger("checking copy directory", build_action_target(action))
-    elif action_type == "copy_dir":
-        logger("copying directory", build_action_target(action))
-    elif action_type == "check_copy_dirs":
-        logger("checking directory copies", build_action_target(action))
-    elif action_type == "copy_dirs":
-        logger("copying directories", build_action_target(action))
-    elif action_type == "check_create_dir":
-        logger("checking create directory", build_action_target(action))
-    elif action_type == "create_dir":
-        logger("creating directory", build_action_target(action))
-    elif action_type == "check_create_dirs":
-        logger("checking directory creates", build_action_target(action))
-    elif action_type == "create_dirs":
-        logger("creating directories", build_action_target(action))
-    elif action_type == "check_delete_empty_dir":
-        logger("checking delete empty directory", build_action_target(action))
-    elif action_type == "delete_empty_dir":
-        logger("deleting empty directory", build_action_target(action))
-    elif action_type == "check_delete_empty_dirs":
-        logger("checking empty directory deletes", build_action_target(action))
-    elif action_type == "delete_empty_dirs":
-        logger("deleting empty directories", build_action_target(action))
-    elif action_type == "check_set_executable":
-        logger("checking executable bit", build_action_target(action))
-    elif action_type == "set_executable":
-        logger("setting executable bit", build_action_target(action))
-    elif action_type == "check_write_file":
-        logger("checking file write", build_action_target(action))
-    elif action_type == "write_file":
-        logger("writing file", getattr(action, "path"))
-    elif action_type == "check_write_files":
-        logger("checking file writes", build_action_target(action))
-    elif action_type == "write_files":
-        logger("writing files", build_action_target(action))
-    elif action_type == "run_command":
-        logger("running command", build_action_target(action))
-    elif action_type == "run_commands":
-        logger("running commands", build_action_target(action))
-    elif action_type == "check_start_command":
-        logger("checking start command", build_action_target(action))
-    elif action_type == "port_check":
-        logger("checking port", build_action_target(action))
-    elif action_type == "http_check":
-        logger("checking http", build_action_target(action))
-    elif action_type == "http_fetch":
-        logger("fetching http", build_action_target(action))
-    elif action_type == "web_fetch":
-        logger("fetching public document", build_action_target(action))
-    elif action_type == "start_command":
-        logger("starting command", build_action_target(action))
-    elif action_type == "read_process":
-        logger("reading process", getattr(action, "process_id"))
-    elif action_type == "wait_process":
-        logger("waiting process", getattr(action, "process_id"))
-    elif action_type == "check_write_process":
-        logger("checking process write", build_action_target(action))
-    elif action_type == "write_process":
-        logger("writing process", build_action_target(action))
-    elif action_type == "list_processes":
-        logger("listing processes", None)
-    elif action_type == "check_stop_all_processes":
-        logger("checking stop all processes", None)
-    elif action_type == "check_stop_process":
-        logger("checking stop process", getattr(action, "process_id"))
-    elif action_type == "stop_all_processes":
-        logger("stopping all processes", None)
-    elif action_type == "stop_process":
-        logger("stopping process", getattr(action, "process_id"))
-    elif action_type == "update_plan":
-        logger("updating plan", build_action_target(action))
-    elif action_type == "ask_user":
-        logger("asking user", build_action_target(action))
+    spec = ACTION_LOG_SPECS.get(str(action_type))
+    if spec is not None:
+        message, target_builder = spec
+        logger(message, target_builder(action))
     elif action_type == "delegate_task":
         logger(f"delegating {getattr(action, 'mode', 'explore')} task", build_action_target(action))
