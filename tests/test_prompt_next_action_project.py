@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from types import SimpleNamespace
 
-from vibeagent.prompt_next_action_project import _available_command_labels, _command_labels
+from vibeagent.prompt_next_action_project import _available_command_labels, _blocked_check_labels, _command_labels
 
 
 class PromptNextActionProjectTests(unittest.TestCase):
@@ -28,6 +28,18 @@ class PromptNextActionProjectTests(unittest.TestCase):
         )
 
         self.assertEqual(labels, ["npm test (cwd=.)", "python -m unittest (cwd=.)"])
+
+    def test_blocked_check_labels_use_reason_priority_and_skip_ok_checks(self) -> None:
+        labels = _blocked_check_labels(
+            [
+                SimpleNamespace(ok=True, command="npm test", block_reason="ignored", missing_tool="", message=""),
+                SimpleNamespace(ok=False, command="code .", block_reason="GUI launch blocked", missing_tool="code", message="blocked"),
+                SimpleNamespace(ok=False, command="pytest", block_reason="", missing_tool="pytest", message="Missing pytest"),
+                SimpleNamespace(ok=False, command="", block_reason="", missing_tool="", message="command invalid"),
+            ]
+        )
+
+        self.assertEqual(labels, ["code .: GUI launch blocked", "pytest: pytest", "command invalid"])
 
 
 if __name__ == "__main__":

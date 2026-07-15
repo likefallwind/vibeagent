@@ -68,15 +68,27 @@ def _blocked_check_labels(values: object) -> list[str]:
     for value in values:
         if getattr(value, "ok", False):
             continue
-        command = str(getattr(value, "command", "") or "").strip()
-        reason = str(getattr(value, "block_reason", "") or getattr(value, "missing_tool", "") or getattr(value, "message", "") or "").strip()
-        if command and reason:
-            labels.append(f"{command}: {reason}")
-        elif command:
-            labels.append(command)
-        elif reason:
-            labels.append(reason)
+        label = _blocked_check_label(value)
+        if label:
+            labels.append(label)
     return labels
+
+
+def _blocked_check_label(value: object) -> str | None:
+    command = str(getattr(value, "command", "") or "").strip()
+    reason = _blocked_check_reason(value)
+    if command and reason:
+        return f"{command}: {reason}"
+    return command or reason or None
+
+
+def _blocked_check_reason(value: object) -> str:
+    return str(
+        getattr(value, "block_reason", "")
+        or getattr(value, "missing_tool", "")
+        or getattr(value, "message", "")
+        or ""
+    ).strip()
 
 
 def _format_next_action_items(items: list[str], max_items: int = 3) -> str:
