@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from .types import (
@@ -417,11 +418,17 @@ def parse_edit_operations(value: Any, raw: str, action_type: str = "multi_edit_f
 def _coerce_int(value: Any) -> int | None:
     if type(value) is int:
         return value
+    if type(value) is float and math.isfinite(value) and value.is_integer():
+        return int(value)
     if isinstance(value, str):
         stripped = value.strip()
         normalized = stripped.replace("_", "").replace(",", "")
         if normalized.isdigit():
             return int(normalized)
+        if normalized.count(".") == 1:
+            whole, fraction = normalized.split(".", 1)
+            if whole.isdigit() and fraction and set(fraction) == {"0"}:
+                return int(whole)
     return None
 
 
