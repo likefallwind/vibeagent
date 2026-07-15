@@ -285,12 +285,36 @@ def _normalize_read_file_input(value: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _normalize_read_range_alias(value: Any) -> dict[str, int]:
+    if isinstance(value, dict):
+        start = value.get("start", value.get("start_line"))
+        end = value.get("end", value.get("end_line"))
+    elif isinstance(value, (list, tuple)) and len(value) == 2:
+        start, end = value
+    elif isinstance(value, str):
+        match = re.fullmatch(r"\s*(\d+)\s*[-:]\s*(\d+)\s*", value)
+        if match is None:
+            return {}
+        start, end = match.groups()
+    else:
+        return {}
+
+    start_int = coerce_int(start)
+    end_int = coerce_int(end)
+    if start_int is None or end_int is None or start_int < 1 or end_int < start_int:
+        return {}
+    return {"start_line": start_int, "line_count": end_int - start_int + 1}
+
+
 def _is_zero_offset_alias(value: Any) -> bool:
     return coerce_int(value) == 0
 
 
 def _normalize_claude_read_file_input(value: dict[str, Any]) -> dict[str, Any]:
     normalized = _normalize_read_file_input(value)
+    if "read_range" in normalized and "start_line" not in normalized and "line_count" not in normalized:
+        normalized.update(_normalize_read_range_alias(normalized["read_range"]))
+    normalized.pop("read_range", None)
     if _is_zero_offset_alias(normalized.get("start_line")):
         normalized["start_line"] = 1
     if "line_count" in normalized and "start_line" not in normalized:

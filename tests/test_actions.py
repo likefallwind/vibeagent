@@ -2529,6 +2529,28 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(action.start_line, 1)
         self.assertEqual(action.line_count, 1000)
 
+    def test_parse_tool_action_accepts_claude_read_range_alias(self) -> None:
+        object_range = parse_tool_action(
+            "Read",
+            {"file_path": "README.md", "read_range": {"start": 10, "end": 12}},
+        )
+        list_range = parse_tool_action("Read", {"file_path": "README.md", "read_range": [3, 4]})
+        string_range = parse_tool_action("Read", {"file_path": "README.md", "read_range": "7-9"})
+        explicit_offset = parse_tool_action(
+            "Read",
+            {
+                "file_path": "README.md",
+                "offset": 2,
+                "limit": 5,
+                "read_range": {"start": 10, "end": 12},
+            },
+        )
+
+        self.assertEqual((object_range.start_line, object_range.line_count), (10, 3))
+        self.assertEqual((list_range.start_line, list_range.line_count), (3, 2))
+        self.assertEqual((string_range.start_line, string_range.line_count), (7, 3))
+        self.assertEqual((explicit_offset.start_line, explicit_offset.line_count), (2, 5))
+
     def test_documented_claude_tool_call_aliases_are_registered(self) -> None:
         documented = {
             "Agent",
