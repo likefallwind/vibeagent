@@ -138,6 +138,8 @@ CLAUDE_TOOL_ALIASES = {
 }
 PROFILE_TOOL_ALIAS_EXPANSIONS = {
     "Bash": frozenset({"read_process", "run_command", "start_command", "stop_process"}),
+    "Edit": frozenset({"edit_file", "regex_replace"}),
+    "NotebookEdit": frozenset({"edit_file", "notebook_edit", "regex_replace"}),
     "TodoRead": frozenset({"session_plan"}),
 }
 

@@ -191,6 +191,64 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertEqual(set(client.tool_names[0]), {"finish", "write_file"})
         self.assertIn("PROFILE_SPECIAL_INSTRUCTION", str(client.messages[0][0].content))
 
+    def test_code_profile_edit_alias_allows_replace_all_regex_path(self) -> None:
+        client = ProfileClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "edit-1",
+                        "name": "Edit",
+                        "input": {
+                            "file_path": "app.py",
+                            "old_string": "old",
+                            "new_string": "new",
+                            "replace_all": True,
+                        },
+                    }
+                ],
+                [{"type": "text", "text": "Replaced all matches."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            root.joinpath("app.py").write_text("old old\n", encoding="utf-8")
+            _write_agent(
+                root,
+                ".claude/agents",
+                "editor",
+                "Edits files",
+                "Use the declared edit tool.",
+                mode="code",
+                tools="Edit",
+            )
+            workspace = create_run_workspace(root, "run-1")
+            loaded = read_project_agent(workspace, "editor")
+            action = parse_tool_action("delegate_task", {"task": "Replace text", "agent": "editor", "max_iterations": 2})
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=lambda request: ApprovalDecision(approved=True, message="approved"),
+            )
+
+            self.assertEqual(root.joinpath("app.py").read_text(encoding="utf-8"), "new new\n")
+
+        self.assertEqual(loaded["tools"], ["edit_file", "regex_replace"])
+        self.assertTrue(observation.ok)
+        self.assertEqual(set(client.tool_names[0]), {"finish", "edit_file", "regex_replace"})
+        result = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertEqual(result["kind"], "regex_replace")
+        self.assertEqual(result["replacements"], 2)
+
     def test_explore_profile_accepts_claude_read_tool_alias(self) -> None:
         client = ProfileClient(
             [

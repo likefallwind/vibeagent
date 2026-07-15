@@ -324,6 +324,8 @@ class ActionTests(unittest.TestCase):
             profile_tool_names("Bash"),
             frozenset({"read_process", "run_command", "start_command", "stop_process"}),
         )
+        self.assertEqual(profile_tool_names("Edit"), frozenset({"edit_file", "regex_replace"}))
+        self.assertEqual(profile_tool_names("NotebookEdit"), frozenset({"edit_file", "notebook_edit", "regex_replace"}))
         self.assertEqual(profile_tool_names("TodoRead"), frozenset({"session_plan"}))
         self.assertEqual(profile_tool_names("Read"), frozenset({"read_file"}))
         self.assertEqual(profile_tool_names("write_file"), frozenset({"write_file"}))
