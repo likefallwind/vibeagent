@@ -11,7 +11,7 @@ CHECKPOINT_RESTORE_HINT = "/check-checkpoint-restore latest"
 
 
 def final_review_resolved_by_completion(summary: SessionSummary) -> bool:
-    return summary.final_review_ready is False and summary.completion_ready is True
+    return summary.final_review_seen and summary.final_review_ready is not True and summary.completion_ready is True
 
 
 def final_review_ready_label(ready: bool | None) -> str:

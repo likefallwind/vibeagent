@@ -1418,6 +1418,59 @@ class SessionTests(unittest.TestCase):
         self.assertIn("final review is not ready", handoff)
         self.assertIn("final review is not ready", report["blockers"]["items"])
 
+    def test_session_reports_mark_legacy_final_review_resolved_by_completion(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(
+                root,
+                "run-legacy-resolved-review",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "id": "write",
+                        "name": "write_file",
+                        "result": {"kind": "write_file", "path": "app.py", "ok": True},
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 2,
+                        "id": "review",
+                        "name": "final_review",
+                        "result": {
+                            "kind": "final_review",
+                            "ok": True,
+                            "message": "Legacy review without explicit readiness.",
+                        },
+                    },
+                    {
+                        "type": "result",
+                        "success": True,
+                        "status": "completed",
+                        "iterations": 3,
+                        "message": "Verified after legacy review.",
+                        "completion_ready": True,
+                        "completion_blockers": [],
+                    },
+                ],
+            )
+
+            summary = summarize_session(root, "run-legacy-resolved-review")
+            summary_text = format_session_summary(summary)
+            summary_report = build_session_summary_report(summary)
+            audit = format_session_audit(root, "run-legacy-resolved-review")
+            audit_report = build_session_audit_report(root, "run-legacy-resolved-review")
+
+        self.assertTrue(summary.completed)
+        self.assertTrue(summary.completion_ready)
+        self.assertIsNone(summary.final_review_ready)
+        self.assertIn("ready: yes", audit)
+        self.assertIn("resolvedByCompletion=yes", summary_text)
+        self.assertIn("resolvedByCompletion=yes", audit)
+        self.assertTrue(summary_report["finalReview"]["resolvedByCompletion"])
+        self.assertTrue(audit_report["finalReview"]["resolvedByCompletion"])
+        self.assertEqual(audit_report["blockers"]["items"], [])
+
     def test_session_readiness_blocks_incomplete_session_without_failures(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
             root = Path(base)
