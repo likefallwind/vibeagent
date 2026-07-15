@@ -15,7 +15,14 @@ def text_reports_ready(text: object) -> bool:
     return "ready: yes" in lowered or "status: ready" in lowered
 
 
+def _session_plan_lines(plan: object) -> list[str]:
+    return [line.strip().lower() for line in str(plan or "").splitlines() if line.strip()]
+
+
 def session_plan_has_unfinished_work(plan: object) -> bool:
+    plan_lines = _session_plan_lines(plan)
+    if any(line.startswith(("- [ ]", "* [ ]")) for line in plan_lines):
+        return True
     plan_lower = str(plan or "").lower()
     unfinished_markers = (
         "in_progress",
@@ -38,6 +45,8 @@ def session_plan_has_unfinished_work(plan: object) -> bool:
 def session_plan_appears_complete(plan: object) -> bool:
     if session_plan_has_unfinished_work(plan):
         return False
+    if any(line.startswith(("- [x]", "* [x]")) for line in _session_plan_lines(plan)):
+        return True
     plan_lower = str(plan or "").lower()
     complete_markers = ("completed", "complete", "done")
     return any(marker in plan_lower for marker in complete_markers)

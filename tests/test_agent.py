@@ -7112,6 +7112,21 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Continue the in-progress or next pending plan item", instruction)
         self.assertNotIn("Session plan appears complete", instruction)
 
+    def test_next_action_instruction_treats_unchecked_session_plan_item_as_unfinished(self) -> None:
+        observation = SessionPlanObservation(
+            kind="session_plan",
+            run_id="run-1",
+            ok=True,
+            plan="- [ ] Run final checks\n- [x] Read code",
+            message="Read session plan for run-1.",
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session plan shows unfinished work", instruction)
+        self.assertIn("Continue the in-progress or next pending plan item", instruction)
+        self.assertNotIn("Session plan appears complete", instruction)
+
     def test_next_action_instruction_guides_unreadable_session_plan_to_handoff_or_audit(self) -> None:
         observation = SessionPlanObservation(
             kind="session_plan",
