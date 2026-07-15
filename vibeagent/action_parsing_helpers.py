@@ -419,8 +419,9 @@ def _coerce_int(value: Any) -> int | None:
         return value
     if isinstance(value, str):
         stripped = value.strip()
-        if stripped.isdigit():
-            return int(stripped)
+        normalized = stripped.replace("_", "").replace(",", "")
+        if normalized.isdigit():
+            return int(normalized)
     return None
 
 

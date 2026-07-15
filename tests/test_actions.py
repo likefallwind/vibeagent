@@ -1779,6 +1779,9 @@ class ActionTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionParseError, "timeout_ms must be a positive integer"):
             parse_tool_action("run_command", {"command": "python3 test.py", "timeout_ms": "soon"})
 
+        with self.assertRaisesRegex(ActionParseError, "timeout_ms must be a positive integer"):
+            parse_tool_action("run_command", {"command": "python3 test.py", "timeout_ms": "1_000ms"})
+
         with self.assertRaisesRegex(ActionParseError, "timeout_ms must be at most 600000"):
             parse_tool_action("run_command", {"command": "python3 test.py", "timeout_ms": 600001})
 
@@ -2321,7 +2324,7 @@ class ActionTests(unittest.TestCase):
 
     def test_parse_tool_action_accepts_claude_tool_name_aliases(self) -> None:
         read_action = parse_tool_action("Read", {"file_path": "app.py", "offset": 2, "limit": 5})
-        bash_action = parse_tool_action("Bash", {"command": "python3 -m unittest", "timeout": "1000"})
+        bash_action = parse_tool_action("Bash", {"command": "python3 -m unittest", "timeout": "1_000"})
         background_bash_action = parse_tool_action("Bash", {"command": "npm run dev", "run_in_background": "true"})
         foreground_bash_action = parse_tool_action("Bash", {"command": "npm test", "run_in_background": "false"})
         bash_output_action = parse_tool_action("BashOutput", {"bash_id": "proc-1", "max_output_chars": 2000})
@@ -2430,12 +2433,12 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(action.timeout_ms, 30_000)
 
     def test_parse_tool_action_accepts_claude_read_limit_without_offset(self) -> None:
-        action = parse_tool_action("Read", {"file_path": "README.md", "limit": "2"})
+        action = parse_tool_action("Read", {"file_path": "README.md", "limit": "1,000"})
 
         self.assertEqual(action.type, "read_file")
         self.assertEqual(action.path, "README.md")
         self.assertEqual(action.start_line, 1)
-        self.assertEqual(action.line_count, 2)
+        self.assertEqual(action.line_count, 1000)
 
     def test_documented_claude_tool_call_aliases_are_registered(self) -> None:
         documented = {
