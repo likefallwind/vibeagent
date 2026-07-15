@@ -50,8 +50,7 @@ POWERSHELL_ENCODED_COMMAND_OPTIONS = {"-e", "-ec", "-enc", "-encodedcommand"}
 def powershell_encoded_command_payload(args: list[str]) -> str:
     for index, token in enumerate(args):
         option, separator, inline_value = token.partition(":")
-        normalized_option = "-" + option.lstrip("-/").lower()
-        if normalized_option not in POWERSHELL_ENCODED_COMMAND_OPTIONS:
+        if normalize_powershell_option(option, preserve_slash=False) not in POWERSHELL_ENCODED_COMMAND_OPTIONS:
             continue
         encoded = inline_value.strip() if separator else args[index + 1].strip() if index + 1 < len(args) else ""
         if not encoded:
@@ -97,11 +96,22 @@ def powershell_expression_payload_launches_gui(
 def powershell_command_payload(args: list[str]) -> str:
     command_options = {"-c", "-command", "/c", "/command"}
     for index, token in enumerate(args):
-        if token.lower() in command_options:
-            return " ".join(args[index + 1 :]).strip()
+        option, separator, inline_value = token.partition(":")
+        normalized_option = normalize_powershell_option(option, preserve_slash=True)
+        if normalized_option in command_options:
+            return (
+                " ".join(part for part in [inline_value, *args[index + 1 :]] if part).strip()
+                if separator
+                else " ".join(args[index + 1 :]).strip()
+            )
     if args and args[0].lower() not in {"-file", "/file"} and not args[0].startswith("-"):
         return " ".join(args).strip()
     return ""
+
+
+def normalize_powershell_option(option: str, *, preserve_slash: bool) -> str:
+    prefix = "/" if preserve_slash and option.startswith("/") else "-"
+    return prefix + option.lstrip("-/").lower()
 
 
 def _shell_token_basename(token: str) -> str:

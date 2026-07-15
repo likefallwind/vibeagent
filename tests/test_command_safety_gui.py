@@ -78,6 +78,19 @@ class CommandSafetyGuiTests(unittest.TestCase):
     def test_allows_powershell_encoded_non_gui_payload(self) -> None:
         self.assertIsNone(get_blocked_command_reason(self._powershell_encoded_command("Write-Output ok")))
 
+    def test_blocks_powershell_inline_command_gui_targets(self) -> None:
+        commands = [
+            "powershell -c:xdg-open .",
+            "powershell /c:start .",
+            "powershell /Command:Start-ThreadJob { xdg-open . }",
+        ]
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertIn("GUI application launch", get_blocked_command_reason(command) or "")
+
+    def test_allows_powershell_inline_command_non_gui_payload(self) -> None:
+        self.assertIsNone(get_blocked_command_reason("powershell -Command:Write-Output ok"))
+
     def test_blocks_powershell_inline_encoded_gui_targets(self) -> None:
         commands = [
             self._powershell_inline_encoded_command("-EncodedCommand", "explorer.exe ."),
