@@ -6,6 +6,9 @@ from .local_command_workspace import local_command_workspace
 from .workspace import list_files, read_project_command_hints
 
 
+INIT_USAGE = "Usage: /init [AGENTS.md|CLAUDE.md]"
+
+
 def get_init_report(project_root: str | Path = ".", file_name: str | None = "AGENTS.md") -> dict[str, object]:
     root = Path(project_root).resolve()
     normalized = normalize_project_instructions_file_name(file_name)
@@ -19,7 +22,7 @@ def get_init_report(project_root: str | Path = ".", file_name: str | None = "AGE
             "created": False,
             "exists": False,
             "error": "invalid_file",
-            "message": "Usage: /init [AGENTS.md|CLAUDE.md]",
+            "message": INIT_USAGE,
         }
     target = root / normalized
     if target.exists():
