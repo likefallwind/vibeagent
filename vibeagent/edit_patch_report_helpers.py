@@ -4,11 +4,12 @@ from pathlib import Path
 from typing import Callable
 
 from .edit_command_parsing import parse_patch_argument, parse_patches_argument
+from .local_command_workspace import local_command_workspace
 from .workspace_core import RunWorkspace
 
 
 def _workspace(root: Path, run_id: str) -> RunWorkspace:
-    return RunWorkspace(root=root, run_id=run_id, session_dir=root / ".vibeagent" / "sessions" / run_id)
+    return local_command_workspace(root, run_id)
 
 
 def _patch_usage_report(root: Path, kind: str, usage: str, error: ValueError, *, path: str | None = None) -> dict[str, object]:

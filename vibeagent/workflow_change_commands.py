@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .local_command_workspace import local_command_workspace
 from .workflow_review_formatting import format_review_file
 from .workspace import read_git_changes
-from .workspace_core import RunWorkspace
 
 
 def get_changes_report(project_root: str | Path = ".", max_files: int = 200) -> dict[str, object]:
@@ -13,11 +13,7 @@ def get_changes_report(project_root: str | Path = ".", max_files: int = 200) -> 
     if max_files > 500:
         raise ValueError("max_files must be at most 500.")
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(
-        root=root,
-        run_id="local-changes",
-        session_dir=root / ".vibeagent" / "sessions" / "local-changes",
-    )
+    workspace = local_command_workspace(root, "local-changes")
     changes = read_git_changes(workspace)
     if not bool(changes["ok"]):
         return {
