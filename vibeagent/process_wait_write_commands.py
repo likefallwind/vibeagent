@@ -8,21 +8,13 @@ from .actions import execute_action as _default_execute_action
 from .local_command_workspace import local_command_workspace
 from .process_request_parsing import parse_positive_decimal, parse_single_quoted_argument, split_process_argument, validate_max_output_chars
 from .process_report_helpers import (
+    empty_command_output_analysis,
     format_structured_command_output_analysis_lines,
     indent_block as _indent_block,
     process_status_text,
     serialize_command_output_analysis,
 )
 from .types import CheckWriteProcessAction, WaitProcessAction, WriteProcessAction
-
-
-def _empty_process_output_analysis() -> dict[str, object]:
-    return {
-        "diagnostics": {"shown": 0, "total": 0, "items": []},
-        "diagnosticsTruncated": False,
-        "contexts": {"shown": 0, "totalRefs": 0, "items": []},
-        "contextsTruncated": False,
-    }
 
 
 def _wait_process_failure_report(
@@ -49,7 +41,7 @@ def _wait_process_failure_report(
         "maxOutputChars": max_output_chars,
         "stdout": "",
         "stderr": "",
-        "analysis": _empty_process_output_analysis(),
+        "analysis": empty_command_output_analysis(),
         "message": message,
     }
 

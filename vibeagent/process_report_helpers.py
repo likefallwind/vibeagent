@@ -53,6 +53,15 @@ def serialize_command_output_analysis(result: object) -> dict[str, object]:
     }
 
 
+def empty_command_output_analysis() -> dict[str, object]:
+    return {
+        "diagnostics": {"shown": 0, "total": 0, "items": []},
+        "diagnosticsTruncated": False,
+        "contexts": {"shown": 0, "totalRefs": 0, "items": []},
+        "contextsTruncated": False,
+    }
+
+
 def format_env_report_text(report: dict[str, object]) -> str:
     tools = report.get("tools") if isinstance(report.get("tools"), dict) else {}
     items = [item for item in tools.get("items", []) if isinstance(item, dict)] if isinstance(tools.get("items"), list) else []

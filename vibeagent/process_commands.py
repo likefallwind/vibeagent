@@ -44,6 +44,7 @@ from .process_wait_write_commands import (
     serialize_write_process_report,
 )
 from .process_report_helpers import (
+    empty_command_output_analysis,
     format_env_report_text,
     format_process_report_text,
     format_processes_report_text,
@@ -162,7 +163,7 @@ def get_process_report(
             "maxOutputChars": max_output_chars,
             "stdout": "",
             "stderr": "",
-            "analysis": {"diagnostics": {"shown": 0, "total": 0, "items": []}, "diagnosticsTruncated": False, "contexts": {"shown": 0, "totalRefs": 0, "items": []}, "contextsTruncated": False},
+            "analysis": empty_command_output_analysis(),
             "message": f"Usage: /process <id> [chars]\nError: {error}",
         }
 
@@ -184,7 +185,7 @@ def get_process_report(
             "maxOutputChars": selected_max,
             "stdout": "",
             "stderr": "",
-            "analysis": {"diagnostics": {"shown": 0, "total": 0, "items": []}, "diagnosticsTruncated": False, "contexts": {"shown": 0, "totalRefs": 0, "items": []}, "contextsTruncated": False},
+            "analysis": empty_command_output_analysis(),
             "message": f"Unexpected observation: {observation.kind}",
         }
 
