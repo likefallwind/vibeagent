@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .local_command_workspace import local_command_workspace
 from .workspace import read_project_command_hints, read_project_instructions, read_workspace_snapshot
-from .workspace_core import RunWorkspace
 
 
 def get_context_text(
@@ -20,7 +20,7 @@ def get_context_report(
     resume_context: str | None = None,
 ) -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-context", session_dir=root / ".vibeagent" / "sessions" / "local-context")
+    workspace = local_command_workspace(root, "local-context")
     instructions = read_project_instructions(workspace, max_bytes=4_000, max_files=10)
     command_hints = read_project_command_hints(workspace, max_bytes=4_000, max_files=20)
     snapshot = read_workspace_snapshot(workspace, max_bytes=4_000)
