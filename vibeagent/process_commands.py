@@ -55,6 +55,35 @@ from .process_report_helpers import (
 )
 from .types import EnvironmentInfoAction, ListProcessesAction, ReadProcessAction
 
+PROCESS_USAGE = "Usage: /process <id> [chars]"
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
+
+
+def _process_failure_report(
+    root: Path,
+    process_id: str,
+    max_output_chars: int | None,
+    message: str,
+) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "processId": process_id,
+        "pid": None,
+        "status": "unknown",
+        "running": False,
+        "exitCode": None,
+        "signal": None,
+        "maxOutputChars": max_output_chars,
+        "stdout": "",
+        "stderr": "",
+        "analysis": empty_command_output_analysis(),
+        "message": message,
+    }
+
 
 def get_env_text(project_root: str | Path = ".") -> str:
     return format_env_report_text(get_env_report(project_root))
@@ -151,21 +180,7 @@ def get_process_report(
     try:
         selected_process_id, selected_max = parse_process_request(argument, process_id, max_output_chars)
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "processId": process_id or "",
-            "pid": None,
-            "status": "unknown",
-            "running": False,
-            "exitCode": None,
-            "signal": None,
-            "maxOutputChars": max_output_chars,
-            "stdout": "",
-            "stderr": "",
-            "analysis": empty_command_output_analysis(),
-            "message": f"Usage: /process <id> [chars]\nError: {error}",
-        }
+        return _process_failure_report(root, process_id or "", max_output_chars, _usage_error(PROCESS_USAGE, error))
 
     workspace = local_command_workspace(root, "local-process")
     observation = execute_action(
@@ -173,21 +188,12 @@ def get_process_report(
         ReadProcessAction(type="read_process", process_id=selected_process_id, max_output_chars=selected_max),
     )
     if observation.kind != "read_process":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "processId": selected_process_id,
-            "pid": None,
-            "status": "unknown",
-            "running": False,
-            "exitCode": None,
-            "signal": None,
-            "maxOutputChars": selected_max,
-            "stdout": "",
-            "stderr": "",
-            "analysis": empty_command_output_analysis(),
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _process_failure_report(
+            root,
+            selected_process_id,
+            selected_max,
+            f"Unexpected observation: {observation.kind}",
+        )
 
     return {
         "projectRoot": str(root),
