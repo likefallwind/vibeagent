@@ -10,6 +10,8 @@ from .project_command_utils import (
 )
 from .types import CodeOutlineAction
 
+SYMBOLS_USAGE = "Usage: /symbols <path...>"
+
 
 def serialize_symbol(symbol: object) -> dict[str, object]:
     return {
@@ -89,9 +91,9 @@ def get_symbols_report(
     try:
         paths = parse_symbols_paths(argument)
     except ValueError as error:
-        return _symbols_failure_report(root, f"Usage: /symbols <path...>\nError: {error}", max_symbols=max_symbols)
+        return _symbols_failure_report(root, _usage_error(error), max_symbols=max_symbols)
     if not paths:
-        return _symbols_failure_report(root, "Usage: /symbols <path...>", max_symbols=max_symbols)
+        return _symbols_failure_report(root, SYMBOLS_USAGE, max_symbols=max_symbols)
 
     workspace = local_command_workspace(root, "local-symbols")
     observation = _execute_action(
@@ -166,3 +168,7 @@ def get_symbols_text(
 
 def parse_symbols_paths(argument: str | list[str] | None) -> list[str]:
     return parse_local_path_args(argument, max_paths=20)
+
+
+def _usage_error(error: object) -> str:
+    return f"{SYMBOLS_USAGE}\nError: {error}"
