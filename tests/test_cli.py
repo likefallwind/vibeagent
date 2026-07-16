@@ -293,6 +293,15 @@ class CliTests(unittest.TestCase):
         self.assertEqual(process_override_args.process_max_chars, 2000)
         self.assertEqual(wait_override_args.wait_max_chars, 3000)
 
+    def test_help_mentions_quoted_write_stdin_text(self) -> None:
+        stdout = io.StringIO()
+
+        with redirect_stdout(stdout), self.assertRaises(SystemExit) as raised:
+            cli_module.parse_args(["--help"])
+
+        self.assertEqual(raised.exception.code, 0)
+        self.assertIn("Quote text with spaces", stdout.getvalue())
+
     def test_normalize_task_bound_diff_args_moves_task_into_diff_argument(self) -> None:
         args = argparse.Namespace(
             diff_contexts="",
