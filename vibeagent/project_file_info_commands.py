@@ -26,6 +26,21 @@ def serialize_file_info_result(file: object) -> dict[str, object]:
     }
 
 
+def _path_collection_failure_report(
+    root: Path,
+    collection_key: str,
+    message: str,
+    *,
+    total: int = 0,
+) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        collection_key: {"ok": 0, "total": total, "items": []},
+        "message": message,
+    }
+
+
 def get_file_info_report(
     project_root: str | Path = ".",
     argument: str | list[str] | None = None,
@@ -34,19 +49,9 @@ def get_file_info_report(
     try:
         paths = parse_local_path_args(argument, max_paths=50)
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "paths": {"ok": 0, "total": 0, "items": []},
-            "message": f"Usage: /file-info <path...>\nError: {error}",
-        }
+        return _path_collection_failure_report(root, "paths", f"Usage: /file-info <path...>\nError: {error}")
     if not paths:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "paths": {"ok": 0, "total": 0, "items": []},
-            "message": "Usage: /file-info <path...>",
-        }
+        return _path_collection_failure_report(root, "paths", "Usage: /file-info <path...>")
 
     workspace = local_command_workspace(root, "local-file-info")
     observation = _execute_action(
@@ -57,12 +62,12 @@ def get_file_info_report(
         ),
     )
     if observation.kind != "file_info":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "paths": {"ok": 0, "total": len(paths), "items": []},
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _path_collection_failure_report(
+            root,
+            "paths",
+            f"Unexpected observation: {observation.kind}",
+            total=len(paths),
+        )
     items = [serialize_file_info_result(file) for file in observation.files]
     ok_count = sum(1 for item in items if bool(item["ok"]))
     return {
@@ -138,19 +143,9 @@ def get_image_info_report(
     try:
         paths = parse_local_path_args(argument, max_paths=20)
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "images": {"ok": 0, "total": 0, "items": []},
-            "message": f"Usage: /image-info <path...>\nError: {error}",
-        }
+        return _path_collection_failure_report(root, "images", f"Usage: /image-info <path...>\nError: {error}")
     if not paths:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "images": {"ok": 0, "total": 0, "items": []},
-            "message": "Usage: /image-info <path...>",
-        }
+        return _path_collection_failure_report(root, "images", "Usage: /image-info <path...>")
 
     workspace = local_command_workspace(root, "local-image-info")
     observation = _execute_action(
@@ -161,12 +156,12 @@ def get_image_info_report(
         ),
     )
     if observation.kind != "image_info":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "images": {"ok": 0, "total": len(paths), "items": []},
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _path_collection_failure_report(
+            root,
+            "images",
+            f"Unexpected observation: {observation.kind}",
+            total=len(paths),
+        )
     items = [serialize_image_info_result(image) for image in observation.images]
     ok_count = sum(1 for item in items if bool(item["ok"]))
     return {

@@ -62,6 +62,24 @@ def format_serialized_symbol_file(file: dict[str, object]) -> list[str]:
     return lines
 
 
+def _symbols_failure_report(
+    root: Path,
+    message: str,
+    *,
+    paths: list[str] | None = None,
+    max_symbols: int = 200,
+) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "paths": paths or [],
+        "maxSymbols": max_symbols,
+        "files": {"ok": 0, "total": 0, "items": []},
+        "counts": {"symbols": 0, "imports": 0},
+        "message": message,
+    }
+
+
 def get_symbols_report(
     project_root: str | Path = ".",
     argument: str | list[str] | None = None,
@@ -71,25 +89,9 @@ def get_symbols_report(
     try:
         paths = parse_symbols_paths(argument)
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "paths": [],
-            "maxSymbols": max_symbols,
-            "files": {"ok": 0, "total": 0, "items": []},
-            "counts": {"symbols": 0, "imports": 0},
-            "message": f"Usage: /symbols <path...>\nError: {error}",
-        }
+        return _symbols_failure_report(root, f"Usage: /symbols <path...>\nError: {error}", max_symbols=max_symbols)
     if not paths:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "paths": [],
-            "maxSymbols": max_symbols,
-            "files": {"ok": 0, "total": 0, "items": []},
-            "counts": {"symbols": 0, "imports": 0},
-            "message": "Usage: /symbols <path...>",
-        }
+        return _symbols_failure_report(root, "Usage: /symbols <path...>", max_symbols=max_symbols)
 
     workspace = local_command_workspace(root, "local-symbols")
     observation = _execute_action(
@@ -101,15 +103,12 @@ def get_symbols_report(
         ),
     )
     if observation.kind != "code_outline":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "paths": paths,
-            "maxSymbols": max_symbols,
-            "files": {"ok": 0, "total": 0, "items": []},
-            "counts": {"symbols": 0, "imports": 0},
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _symbols_failure_report(
+            root,
+            f"Unexpected observation: {observation.kind}",
+            paths=paths,
+            max_symbols=max_symbols,
+        )
 
     items = [serialize_symbol_file(file) for file in observation.files]
     ok_count = sum(1 for item in items if bool(item["ok"]))
