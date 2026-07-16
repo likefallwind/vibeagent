@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 
 from .actions import execute_action as _default_execute_action
+from .local_command_workspace import local_command_workspace
 from .output_serialization import serialize_output_context_result, serialize_output_diagnostic
 from .project_output_reports import (
     format_output_contexts_report_text,
@@ -12,7 +13,6 @@ from .project_output_reports import (
     indent_block as _indent_block,
 )
 from .types import OutputContextsAction, OutputDiagnosticsAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -48,7 +48,7 @@ def get_output_contexts_text(
         return "Usage: /output-contexts <text>\nError: max_bytes_per_context must be at most 200000."
 
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-output-contexts", session_dir=root / ".vibeagent" / "sessions" / "local-output-contexts")
+    workspace = local_command_workspace(root, "local-output-contexts")
     observation = _execute_action(
         workspace,
         OutputContextsAction(
@@ -158,7 +158,7 @@ def get_output_contexts_report(
             "message": message,
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-output-contexts", session_dir=root / ".vibeagent" / "sessions" / "local-output-contexts")
+    workspace = local_command_workspace(root, "local-output-contexts")
     observation = _execute_action(
         workspace,
         OutputContextsAction(
@@ -227,7 +227,7 @@ def get_output_diagnostics_text(
         return "Usage: /output-diagnostics <text>\nError: max_bytes_per_context must be at most 200000."
 
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-output-diagnostics", session_dir=root / ".vibeagent" / "sessions" / "local-output-diagnostics")
+    workspace = local_command_workspace(root, "local-output-diagnostics")
     observation = _execute_action(
         workspace,
         OutputDiagnosticsAction(
@@ -350,7 +350,7 @@ def get_output_diagnostics_report(
         }
 
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-output-diagnostics", session_dir=root / ".vibeagent" / "sessions" / "local-output-diagnostics")
+    workspace = local_command_workspace(root, "local-output-diagnostics")
     observation = _execute_action(
         workspace,
         OutputDiagnosticsAction(
