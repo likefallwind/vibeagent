@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .local_command_workspace import local_command_workspace
 from .project_command_utils import (
     commands_attr as _commands_attr,
     execute_action as _execute_action,
@@ -9,7 +10,6 @@ from .project_command_utils import (
     plain_data as _plain_data,
 )
 from .types import RepoMapAction
-from .workspace_core import RunWorkspace
 
 
 def get_repo_map_report(
@@ -20,7 +20,7 @@ def get_repo_map_report(
     max_symbols: int = 120,
 ) -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-repo-map", session_dir=root / ".vibeagent" / "sessions" / "local-repo-map")
+    workspace = local_command_workspace(root, "local-repo-map")
     observation = _execute_action(
         workspace,
         RepoMapAction(
