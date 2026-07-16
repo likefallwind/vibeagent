@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 from .types import (
     DirectoryTransfer,
@@ -51,6 +51,7 @@ PLAN_ITEM_STATUS_ALIASES = {
 PLAN_ITEM_STATUS_VALUES = set(PLAN_ITEM_STATUS_ALIASES)
 PLAN_ITEM_SCHEMA_STATUS_VALUES = ("complete", "completed", "done", "in-progress", "in_progress", "pending", "todo")
 INT_STRING_PATTERN = re.compile(r"^\d+(?:[_,]\d+)*(?:\.0+)?$")
+TransferRecord = TypeVar("TransferRecord")
 
 
 class ActionParseError(ValueError):
@@ -309,42 +310,35 @@ def parse_run_command_items(value: Any, raw: str, action_type: str) -> list[RunC
 
 
 def parse_move_file_transfers(value: Any, raw: str, action_type: str) -> list[MoveFileTransfer]:
-    if not isinstance(value, list) or not value:
-        raise ActionParseError(f"{action_type} action requires a non-empty transfers list.", raw)
-    if len(value) > 100:
-        raise ActionParseError(f"{action_type} action transfers must contain at most 100 items.", raw)
-
-    transfers: list[MoveFileTransfer] = []
-    seen_sources: set[str] = set()
-    seen_destinations: set[str] = set()
-    for index, item in enumerate(value, start=1):
-        if not isinstance(item, dict):
-            raise ActionParseError(f"{action_type} transfer {index} must be an object.", raw)
-        source = item.get("source")
-        destination = item.get("destination")
-        if not isinstance(source, str) or not source.strip():
-            raise ActionParseError(f"{action_type} transfer {index} requires a non-empty source.", raw)
-        if not isinstance(destination, str) or not destination.strip():
-            raise ActionParseError(f"{action_type} transfer {index} requires a non-empty destination.", raw)
-        normalized_source = source.strip()
-        normalized_destination = destination.strip()
-        if normalized_source in seen_sources:
-            raise ActionParseError(f"{action_type} transfer {index} duplicates source {normalized_source}.", raw)
-        if normalized_destination in seen_destinations:
-            raise ActionParseError(f"{action_type} transfer {index} duplicates destination {normalized_destination}.", raw)
-        seen_sources.add(normalized_source)
-        seen_destinations.add(normalized_destination)
-        transfers.append(MoveFileTransfer(source=normalized_source, destination=normalized_destination))
-    return transfers
+    return _parse_transfer_records(
+        value,
+        raw,
+        action_type,
+        lambda source, destination: MoveFileTransfer(source=source, destination=destination),
+    )
 
 
 def parse_directory_transfers(value: Any, raw: str, action_type: str) -> list[DirectoryTransfer]:
+    return _parse_transfer_records(
+        value,
+        raw,
+        action_type,
+        lambda source, destination: DirectoryTransfer(source=source, destination=destination),
+    )
+
+
+def _parse_transfer_records(
+    value: Any,
+    raw: str,
+    action_type: str,
+    factory: Callable[[str, str], TransferRecord],
+) -> list[TransferRecord]:
     if not isinstance(value, list) or not value:
         raise ActionParseError(f"{action_type} action requires a non-empty transfers list.", raw)
     if len(value) > 100:
         raise ActionParseError(f"{action_type} action transfers must contain at most 100 items.", raw)
 
-    transfers: list[DirectoryTransfer] = []
+    transfers: list[TransferRecord] = []
     seen_sources: set[str] = set()
     seen_destinations: set[str] = set()
     for index, item in enumerate(value, start=1):
@@ -364,7 +358,7 @@ def parse_directory_transfers(value: Any, raw: str, action_type: str) -> list[Di
             raise ActionParseError(f"{action_type} transfer {index} duplicates destination {normalized_destination}.", raw)
         seen_sources.add(normalized_source)
         seen_destinations.add(normalized_destination)
-        transfers.append(DirectoryTransfer(source=normalized_source, destination=normalized_destination))
+        transfers.append(factory(normalized_source, normalized_destination))
     return transfers
 
 
