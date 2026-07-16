@@ -11,6 +11,9 @@ from .read_command_parsing import parse_read_ranges_argument, serialize_read_ran
 from .read_report_helpers import format_read_files_report_text, format_read_ranges_report_text
 from .types import ReadFileRangesAction, ReadFilesAction
 
+READ_FILES_USAGE = "Usage: /read-files <path...>"
+READ_RANGES_USAGE = "Usage: /read-ranges <path:start[:end]...>"
+
 
 def _execute_action(*args: object, **kwargs: object) -> object:
     commands_module = sys.modules.get("vibeagent.read_commands")
@@ -24,6 +27,10 @@ def _read_command_function(name: str, default: Callable[..., object]) -> Callabl
     commands_module = sys.modules.get("vibeagent.read_commands")
     candidate = getattr(commands_module, name, None) if commands_module is not None else None
     return candidate if callable(candidate) else default
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
 
 
 def get_read_files_text(
@@ -56,14 +63,14 @@ def get_read_files_report(
             root,
             max_bytes_per_file,
             show_line_numbers,
-            "Usage: /read-files <path...>\nError: max_bytes_per_file must be at least 1000.",
+            _usage_error(READ_FILES_USAGE, "max_bytes_per_file must be at least 1000."),
         )
     if max_bytes_per_file > 200_000:
         return _read_files_usage_report(
             root,
             max_bytes_per_file,
             show_line_numbers,
-            "Usage: /read-files <path...>\nError: max_bytes_per_file must be at most 200000.",
+            _usage_error(READ_FILES_USAGE, "max_bytes_per_file must be at most 200000."),
         )
     try:
         paths = parse_local_path_args(argument, max_paths=20)
@@ -72,14 +79,14 @@ def get_read_files_report(
             root,
             max_bytes_per_file,
             show_line_numbers,
-            f"Usage: /read-files <path...>\nError: {error}",
+            _usage_error(READ_FILES_USAGE, error),
         )
     if not paths:
         return _read_files_usage_report(
             root,
             max_bytes_per_file,
             show_line_numbers,
-            "Usage: /read-files <path...>",
+            READ_FILES_USAGE,
         )
 
     workspace = local_command_workspace(root, "local-read-files")
@@ -132,13 +139,13 @@ def get_read_ranges_report(
         return _read_ranges_usage_report(
             root,
             max_bytes_per_range,
-            "Usage: /read-ranges <path:start[:end]...>\nError: max_bytes_per_range must be at least 1000.",
+            _usage_error(READ_RANGES_USAGE, "max_bytes_per_range must be at least 1000."),
         )
     if max_bytes_per_range > 200_000:
         return _read_ranges_usage_report(
             root,
             max_bytes_per_range,
-            "Usage: /read-ranges <path:start[:end]...>\nError: max_bytes_per_range must be at most 200000.",
+            _usage_error(READ_RANGES_USAGE, "max_bytes_per_range must be at most 200000."),
         )
     try:
         ranges = parse_read_ranges_argument(argument)
@@ -146,13 +153,13 @@ def get_read_ranges_report(
         return _read_ranges_usage_report(
             root,
             max_bytes_per_range,
-            f"Usage: /read-ranges <path:start[:end]...>\nError: {error}",
+            _usage_error(READ_RANGES_USAGE, error),
         )
     if not ranges:
         return _read_ranges_usage_report(
             root,
             max_bytes_per_range,
-            "Usage: /read-ranges <path:start[:end]...>",
+            READ_RANGES_USAGE,
         )
 
     workspace = local_command_workspace(root, "local-read-ranges")
