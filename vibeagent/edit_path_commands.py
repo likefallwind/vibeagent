@@ -34,6 +34,12 @@ from .edit_path_reports import (
     serialize_path_action_report,
     serialize_path_list_report,
 )
+from .edit_usage_report_helpers import (
+    file_transfer_list_usage_report as _file_transfer_list_usage_report,
+    file_transfer_usage_report as _file_transfer_usage_report,
+    path_action_usage_report as _path_action_usage_report,
+    path_list_usage_report as _path_list_usage_report,
+)
 from .local_command_workspace import local_command_workspace
 from .types import (
     CheckCopyFileAction,
@@ -58,55 +64,6 @@ def _execute_action(*args: object, **kwargs: object) -> object:
     if command_execute_action is not None:
         return command_execute_action(*args, **kwargs)
     return _default_execute_action(*args, **kwargs)
-
-
-def _file_transfer_usage_report(
-    root: Path,
-    kind: str,
-    usage: str,
-    error: ValueError,
-    *,
-    source: str | None = None,
-    destination: str | None = None,
-) -> dict[str, object]:
-    return {
-        "projectRoot": str(root),
-        "kind": kind,
-        "ok": False,
-        "source": source or "",
-        "destination": destination or "",
-        "message": f"Usage: {usage}\nError: {error}",
-    }
-
-
-def _file_transfer_list_usage_report(root: Path, kind: str, usage: str, error: ValueError) -> dict[str, object]:
-    return {
-        "projectRoot": str(root),
-        "kind": kind,
-        "ok": False,
-        "transfers": {"total": 0, "items": []},
-        "message": f"Usage: {usage}\nError: {error}",
-    }
-
-
-def _path_action_usage_report(root: Path, kind: str, usage: str, error: ValueError, *, path: str | None = None) -> dict[str, object]:
-    return {
-        "projectRoot": str(root),
-        "kind": kind,
-        "ok": False,
-        "path": path or "",
-        "message": f"Usage: {usage}\nError: {error}",
-    }
-
-
-def _path_list_usage_report(root: Path, kind: str, usage: str, error: ValueError) -> dict[str, object]:
-    return {
-        "projectRoot": str(root),
-        "kind": kind,
-        "ok": False,
-        "paths": {"total": 0, "items": []},
-        "message": f"Usage: {usage}\nError: {error}",
-    }
 
 
 def get_check_move_file_text(

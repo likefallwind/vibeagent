@@ -11,6 +11,7 @@ from .edit_text_formatting import (
     serialize_line_edit_report,
     serialize_write_files_report,
 )
+from .edit_usage_report_helpers import path_action_usage_report as _path_action_usage_report
 from .local_command_workspace import local_command_workspace
 from .types import CheckWriteFileAction, CheckWriteFilesAction, WriteFileAction, WriteFileItem, WriteFilesAction
 
@@ -28,6 +29,16 @@ def _commands_attr(name: str, default: object) -> object:
     if commands_module is None:
         return default
     return getattr(commands_module, name, default)
+
+
+def _write_files_usage_report(root: Path, kind: str, usage: str, error: ValueError) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "kind": kind,
+        "ok": False,
+        "files": {"total": 0, "items": []},
+        "message": f"Usage: {usage}\nError: {error}",
+    }
 
 
 def get_check_write_file_text(
@@ -59,14 +70,9 @@ def get_check_write_file_report(
             usage="/check-write <path> <text>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_write_file",
-            "ok": False,
-            "path": path or "",
-            "message": f"Usage: /check-write <path> <text>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        report = _path_action_usage_report(root, "check_write_file", "/check-write <path> <text>", error, path=path)
+        report["diff"] = {"text": "", "lines": [], "lineCount": 0}
+        return report
     workspace = local_command_workspace(root, "local-check-write")
     observation = _execute_action(workspace, CheckWriteFileAction(type="check_write_file", path=parsed_path, content=parsed_content))
     return serialize_line_edit_report(root, observation)
@@ -100,14 +106,9 @@ def get_write_file_report(
             usage="/write <path> <text>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "write_file",
-            "ok": False,
-            "path": path or "",
-            "message": f"Usage: /write <path> <text>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        report = _path_action_usage_report(root, "write_file", "/write <path> <text>", error, path=path)
+        report["diff"] = {"text": "", "lines": [], "lineCount": 0}
+        return report
     workspace = local_command_workspace(root, "local-write")
     observation = _execute_action(workspace, WriteFileAction(type="write_file", path=parsed_path, content=parsed_content))
     return serialize_line_edit_report(root, observation)
@@ -135,13 +136,7 @@ def get_check_write_files_report(
     try:
         parsed_files = parse_write_file_list_argument(argument, files=files, usage="/check-write-files <path> <text>...")
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_write_files",
-            "ok": False,
-            "files": {"total": 0, "items": []},
-            "message": f"Usage: /check-write-files <path> <text>...\nError: {error}",
-        }
+        return _write_files_usage_report(root, "check_write_files", "/check-write-files <path> <text>...", error)
     workspace = local_command_workspace(root, "local-check-write-files")
     observation = _execute_action(workspace, CheckWriteFilesAction(type="check_write_files", files=parsed_files))
     return serialize_write_files_report(root, observation)
@@ -168,13 +163,7 @@ def get_write_files_report(
     try:
         parsed_files = parse_write_file_list_argument(argument, files=files, usage="/write-files <path> <text>...")
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "write_files",
-            "ok": False,
-            "files": {"total": 0, "items": []},
-            "message": f"Usage: /write-files <path> <text>...\nError: {error}",
-        }
+        return _write_files_usage_report(root, "write_files", "/write-files <path> <text>...", error)
     workspace = local_command_workspace(root, "local-write-files")
     observation = _execute_action(workspace, WriteFilesAction(type="write_files", files=parsed_files))
     return serialize_write_files_report(root, observation)

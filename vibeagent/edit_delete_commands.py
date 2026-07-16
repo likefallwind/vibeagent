@@ -7,6 +7,10 @@ from .actions import execute_action as _default_execute_action
 from .edit_command_parsing import parse_required_path_list_argument, parse_required_single_path_argument
 from .edit_path_reports import format_path_list_report_text, serialize_path_list_report
 from .edit_text_commands import format_line_edit_report_text, serialize_line_edit_report
+from .edit_usage_report_helpers import (
+    path_action_usage_report as _path_action_usage_report,
+    path_list_usage_report as _path_list_usage_report,
+)
 from .local_command_workspace import local_command_workspace
 from .types import CheckDeleteFileAction, CheckDeleteFilesAction, DeleteFileAction, DeleteFilesAction
 
@@ -45,14 +49,9 @@ def get_check_delete_file_report(
             usage="/check-delete <path>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_delete_file",
-            "ok": False,
-            "path": path or "",
-            "message": f"Usage: /check-delete <path>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        report = _path_action_usage_report(root, "check_delete_file", "/check-delete <path>", error, path=path)
+        report["diff"] = {"text": "", "lines": [], "lineCount": 0}
+        return report
     workspace = local_command_workspace(root, "local-check-delete")
     observation = _execute_action(workspace, CheckDeleteFileAction(type="check_delete_file", path=parsed_path))
     return serialize_line_edit_report(root, observation)
@@ -84,14 +83,9 @@ def get_delete_file_report(
             usage="/delete <path>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "delete_file",
-            "ok": False,
-            "path": path or "",
-            "message": f"Usage: /delete <path>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        report = _path_action_usage_report(root, "delete_file", "/delete <path>", error, path=path)
+        report["diff"] = {"text": "", "lines": [], "lineCount": 0}
+        return report
     workspace = local_command_workspace(root, "local-delete")
     observation = _execute_action(workspace, DeleteFileAction(type="delete_file", path=parsed_path))
     return serialize_line_edit_report(root, observation)
@@ -120,14 +114,9 @@ def get_check_delete_files_report(
     try:
         parsed_paths = parse_required_path_list_argument(argument, paths=paths, usage="/check-delete-files <path...>")
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_delete_files",
-            "ok": False,
-            "paths": {"total": 0, "items": []},
-            "message": f"Usage: /check-delete-files <path...>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        report = _path_list_usage_report(root, "check_delete_files", "/check-delete-files <path...>", error)
+        report["diff"] = {"text": "", "lines": [], "lineCount": 0}
+        return report
     workspace = local_command_workspace(root, "local-check-delete-files")
     observation = _execute_action(workspace, CheckDeleteFilesAction(type="check_delete_files", paths=parsed_paths))
     return serialize_path_list_report(root, observation)
@@ -156,14 +145,9 @@ def get_delete_files_report(
     try:
         parsed_paths = parse_required_path_list_argument(argument, paths=paths, usage="/delete-files <path...>")
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "delete_files",
-            "ok": False,
-            "paths": {"total": 0, "items": []},
-            "message": f"Usage: /delete-files <path...>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        report = _path_list_usage_report(root, "delete_files", "/delete-files <path...>", error)
+        report["diff"] = {"text": "", "lines": [], "lineCount": 0}
+        return report
     workspace = local_command_workspace(root, "local-delete-files")
     observation = _execute_action(workspace, DeleteFilesAction(type="delete_files", paths=parsed_paths))
     return serialize_path_list_report(root, observation)
