@@ -158,6 +158,41 @@ def format_structured_command_checks(checks: list[dict[str, object]], spaces: in
     return lines
 
 
+def _check_suggested_checks_failure_report(root: Path, message: str, *, selected_max: int) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "suggestedChecks": {"shown": 0, "total": 0, "commands": []},
+        "commands": {"shown": 0, "total": 0, "max": selected_max},
+        "truncated": False,
+        "checks": [],
+        "message": message,
+    }
+
+
+def _run_suggested_checks_failure_report(
+    root: Path,
+    message: str,
+    *,
+    selected_max: int,
+    stop_on_failure: bool,
+) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "suggestedChecks": {"shown": 0, "total": 0, "commands": []},
+        "commands": {"shown": 0, "total": 0, "max": selected_max},
+        "ran": 0,
+        "skippedUnavailable": 0,
+        "truncated": False,
+        "stopOnFailure": stop_on_failure,
+        "stoppedEarly": False,
+        "selectedCommandsNotRun": {"count": 0, "commands": []},
+        "results": [],
+        "message": message,
+    }
+
+
 def get_check_suggested_checks_text(
     project_root: str | Path = ".",
     argument: str | None = None,
@@ -175,15 +210,11 @@ def get_check_suggested_checks_report(
     try:
         selected_max = parse_suggested_checks_limit(argument, max_checks)
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "suggestedChecks": {"shown": 0, "total": 0, "commands": []},
-            "commands": {"shown": 0, "total": 0, "max": max_checks},
-            "truncated": False,
-            "checks": [],
-            "message": f"Usage: /check-suggested-checks [max|--max-checks N]\nError: {error}",
-        }
+        return _check_suggested_checks_failure_report(
+            root,
+            f"Usage: /check-suggested-checks [max|--max-checks N]\nError: {error}",
+            selected_max=max_checks,
+        )
 
     workspace = create_local_workspace(root, "local-check-suggested-checks")
     observation = execute_action(
@@ -191,15 +222,11 @@ def get_check_suggested_checks_report(
         CheckSuggestedChecksAction(type="check_suggested_checks", max_commands=selected_max),
     )
     if observation.kind != "check_suggested_checks":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "suggestedChecks": {"shown": 0, "total": 0, "commands": []},
-            "commands": {"shown": 0, "total": 0, "max": selected_max},
-            "truncated": False,
-            "checks": [],
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _check_suggested_checks_failure_report(
+            root,
+            f"Unexpected observation: {observation.kind}",
+            selected_max=selected_max,
+        )
 
     return {
         "projectRoot": str(root),
@@ -286,20 +313,12 @@ def get_run_suggested_checks_report(
     root = Path(project_root).resolve()
 
     def failure(message: str, selected_max: int = max_checks) -> dict[str, object]:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "suggestedChecks": {"shown": 0, "total": 0, "commands": []},
-            "commands": {"shown": 0, "total": 0, "max": selected_max},
-            "ran": 0,
-            "skippedUnavailable": 0,
-            "truncated": False,
-            "stopOnFailure": stop_on_failure,
-            "stoppedEarly": False,
-            "selectedCommandsNotRun": {"count": 0, "commands": []},
-            "results": [],
-            "message": message,
-        }
+        return _run_suggested_checks_failure_report(
+            root,
+            message,
+            selected_max=selected_max,
+            stop_on_failure=stop_on_failure,
+        )
 
     try:
         selected_max = parse_suggested_checks_limit(argument, max_checks)
