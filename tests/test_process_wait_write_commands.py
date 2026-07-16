@@ -71,6 +71,10 @@ class ProcessWaitWriteCommandModuleTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "wait-process argument cannot be combined with explicit process_id"):
             parse_wait_process_request("bg-1 2000 3000 extra", process_id="bg-2")
 
+    def test_parse_write_process_request_unquotes_single_stdin_argument(self) -> None:
+        self.assertEqual(parse_write_process_request("bg-1 'hello world\\n'"), ("bg-1", "hello world\n"))
+        self.assertEqual(parse_write_process_request("bg-1 hello  world\\n"), ("bg-1", "hello  world\n"))
+
 
 if __name__ == "__main__":
     unittest.main()

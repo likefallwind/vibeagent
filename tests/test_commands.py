@@ -7397,10 +7397,12 @@ class CommandTests(unittest.TestCase):
             )
             with patch("vibeagent.process_commands.execute_action", return_value=observation) as execute_action:
                 report = get_write_process_report(root, "bg-1 hello\\n")
+                quoted_report = get_write_process_report(root, "bg-1 'hello world\\n'")
             usage = get_write_process_report(root)
             rendered = format_write_process_report_text(report)
 
-            action = execute_action.call_args.args[1]
+            action = execute_action.call_args_list[0].args[1]
+            quoted_action = execute_action.call_args_list[1].args[1]
 
         self.assertEqual(
             report,
@@ -7419,6 +7421,8 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(action.type, "write_process")
         self.assertEqual(action.process_id, "bg-1")
         self.assertEqual(action.content, "hello\n")
+        self.assertEqual(quoted_report["ok"], True)
+        self.assertEqual(quoted_action.content, "hello world\n")
         self.assertIn("Write process:", rendered)
         self.assertIn("contentChars: 6", rendered)
         self.assertFalse(usage["ok"])
