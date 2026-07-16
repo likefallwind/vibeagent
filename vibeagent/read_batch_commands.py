@@ -93,14 +93,13 @@ def get_read_files_report(
         ),
     )
     if observation.kind != "read_files":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "files": {"ok": 0, "total": len(paths), "items": []},
-            "maxBytesPerFile": max_bytes_per_file,
-            "showLineNumbers": show_line_numbers,
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _read_files_usage_report(
+            root,
+            max_bytes_per_file,
+            show_line_numbers,
+            f"Unexpected observation: {observation.kind}",
+            total=len(paths),
+        )
     items = [serialize_read_result(item) for item in observation.files]
     ok_count = sum(1 for item in items if bool(item["ok"]))
     return {
@@ -162,13 +161,12 @@ def get_read_ranges_report(
         ReadFileRangesAction(type="read_file_ranges", ranges=ranges, max_bytes_per_range=max_bytes_per_range),
     )
     if observation.kind != "read_file_ranges":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "ranges": {"ok": 0, "total": len(ranges), "items": []},
-            "maxBytesPerRange": max_bytes_per_range,
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _read_ranges_usage_report(
+            root,
+            max_bytes_per_range,
+            f"Unexpected observation: {observation.kind}",
+            total=len(ranges),
+        )
     items = [serialize_read_range_result(item) for item in observation.ranges]
     ok_count = sum(1 for item in items if bool(item["ok"]))
     return {
@@ -185,22 +183,30 @@ def _read_files_usage_report(
     max_bytes_per_file: int,
     show_line_numbers: bool,
     message: str,
+    *,
+    total: int = 0,
 ) -> dict[str, object]:
     return {
         "projectRoot": str(root),
         "ok": False,
-        "files": {"ok": 0, "total": 0, "items": []},
+        "files": {"ok": 0, "total": total, "items": []},
         "maxBytesPerFile": max_bytes_per_file,
         "showLineNumbers": show_line_numbers,
         "message": message,
     }
 
 
-def _read_ranges_usage_report(root: Path, max_bytes_per_range: int, message: str) -> dict[str, object]:
+def _read_ranges_usage_report(
+    root: Path,
+    max_bytes_per_range: int,
+    message: str,
+    *,
+    total: int = 0,
+) -> dict[str, object]:
     return {
         "projectRoot": str(root),
         "ok": False,
-        "ranges": {"ok": 0, "total": 0, "items": []},
+        "ranges": {"ok": 0, "total": total, "items": []},
         "maxBytesPerRange": max_bytes_per_range,
         "message": message,
     }
