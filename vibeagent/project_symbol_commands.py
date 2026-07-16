@@ -3,12 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from .command_parsing import parse_local_path_args
+from .local_command_workspace import local_command_workspace
 from .project_command_utils import (
     commands_attr as _commands_attr,
     execute_action as _execute_action,
 )
 from .types import CodeOutlineAction
-from .workspace_core import RunWorkspace
 
 
 def serialize_symbol(symbol: object) -> dict[str, object]:
@@ -91,7 +91,7 @@ def get_symbols_report(
             "message": "Usage: /symbols <path...>",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-symbols", session_dir=root / ".vibeagent" / "sessions" / "local-symbols")
+    workspace = local_command_workspace(root, "local-symbols")
     observation = _execute_action(
         workspace,
         CodeOutlineAction(
