@@ -6,8 +6,8 @@ import sys
 from urllib.parse import urlparse
 
 from .actions import execute_action as _default_execute_action
+from .local_command_workspace import local_command_workspace
 from .types import HttpCheckAction, HttpFetchAction, PortCheckAction
-from .workspace_core import RunWorkspace
 
 
 def _indent_block(value: str, spaces: int = 2) -> str:
@@ -63,7 +63,7 @@ def get_port_report(
     if selected_timeout_ms > 600_000:
         return failure("Usage: /port <port> [host] [timeout-ms]\nError: timeout_ms must be at most 600000.", selected_port, selected_host, selected_timeout_ms)
 
-    workspace = RunWorkspace(root=root, run_id="local-port", session_dir=root / ".vibeagent" / "sessions" / "local-port")
+    workspace = local_command_workspace(root, "local-port")
     observation = _execute_action(
         workspace,
         PortCheckAction(type="port_check", port=selected_port, host=selected_host, timeout_ms=selected_timeout_ms),
@@ -197,7 +197,7 @@ def get_http_report(
     if max_body_chars > 50_000:
         return failure("Usage: /http <url> [contains]\nError: max_body_chars must be at most 50000.", selected_url, selected_contains)
 
-    workspace = RunWorkspace(root=root, run_id="local-http", session_dir=root / ".vibeagent" / "sessions" / "local-http")
+    workspace = local_command_workspace(root, "local-http")
     observation = _execute_action(
         workspace,
         HttpCheckAction(
@@ -315,7 +315,7 @@ def get_http_fetch_report(
     if max_body_chars > 100_000:
         return failure("Usage: /http-fetch <url>\nError: max_body_chars must be at most 100000.", selected_url)
 
-    workspace = RunWorkspace(root=root, run_id="local-http-fetch", session_dir=root / ".vibeagent" / "sessions" / "local-http-fetch")
+    workspace = local_command_workspace(root, "local-http-fetch")
     observation = _execute_action(
         workspace,
         HttpFetchAction(
