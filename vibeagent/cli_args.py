@@ -33,6 +33,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         metavar="MODEL",
         help="Show model provider configuration and exit, or set the model for a one-shot task when MODEL is provided.",
     )
+    local.add_argument("--version", action="store_true", help="Show VibeAgent version and exit.")
     local.add_argument("--config", action="store_true", help="Show resolved provider and execution configuration and exit.")
     local.add_argument("--tools", action="store_true", help="Show model tool names by category and exit.")
     local.add_argument("--tool", metavar="NAME", help="Show one model tool's description and input schema and exit.")

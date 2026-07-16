@@ -10,7 +10,7 @@ from contextlib import ExitStack, redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import Mock, call, patch
 
-from vibeagent import cli as cli_module
+from vibeagent import __version__, cli as cli_module
 from vibeagent import cli_command_namespace, commands as commands_module
 from vibeagent.agent import AgentResult
 from vibeagent.cli import build_approval_handler, format_error, handle_approval_command, main, print_agent_result, prompt_approval
@@ -280,6 +280,31 @@ class CliTests(unittest.TestCase):
         self.assertTrue(cli_module.has_local_flag(local_args))
         self.assertEqual(override_args.model, "MiniMax-custom")
         self.assertFalse(cli_module.has_local_flag(override_args))
+
+    def test_version_flag_is_local_and_prints_package_version(self) -> None:
+        args = cli_module.parse_args(["--version"])
+        stdout = io.StringIO()
+
+        with patch("vibeagent.cli.create_chat_client") as create_chat_client, redirect_stdout(stdout):
+            exit_code = main(["--version"])
+
+        self.assertTrue(args.version)
+        self.assertTrue(cli_module.has_local_flag(args))
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stdout.getvalue(), f"vibeagent {__version__}\n")
+        create_chat_client.assert_not_called()
+
+    def test_version_flag_reports_json_payload(self) -> None:
+        stdout = io.StringIO()
+
+        with redirect_stdout(stdout):
+            exit_code = main(["--json", "--version"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["kind"], "local")
+        self.assertEqual(payload["text"], f"vibeagent {__version__}")
+        self.assertEqual(payload["version"], __version__)
 
     def test_process_and_wait_max_chars_default_to_runtime_process_limit(self) -> None:
         default_args = cli_module.parse_args(["--process-output-contexts", "bg-1"])

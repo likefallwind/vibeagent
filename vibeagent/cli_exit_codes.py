@@ -6,6 +6,7 @@ import argparse
 LOCAL_RESULT_ARG_NAMES = frozenset(
     {
         "model",
+        "version",
         "tool",
         "tool_search",
         "config",

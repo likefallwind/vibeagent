@@ -5,6 +5,7 @@ from collections.abc import Sequence
 import os
 from pathlib import Path
 
+from . import __version__
 from .agent import run_agent
 from .chat import run_chat
 from .cli_exit_codes import (
@@ -174,6 +175,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def run_local_flag(args: argparse.Namespace) -> int:
     try:
+        if args.version:
+            payload = {"version": __version__} if args.json else None
+            return emit_local_result(args, f"vibeagent {__version__}", payload)
         project_root = resolve_project_root(args.cwd)
         config_root = project_root or Path.cwd()
         payload_extra: dict[str, object] = {}
