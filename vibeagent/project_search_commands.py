@@ -7,6 +7,34 @@ from .project_command_utils import commands_attr, execute_action, indent_block, 
 from .types import SearchAction, SearchContextsAction
 
 
+def _search_failure_report(
+    root: Path,
+    collection_key: str,
+    message: str,
+    *,
+    query: str = "",
+    path: str | None = None,
+    regex: bool = False,
+    case_sensitive: bool = True,
+    context_lines: int = 0,
+    max_bytes_per_context: int | None = None,
+) -> dict[str, object]:
+    report: dict[str, object] = {
+        "projectRoot": str(root),
+        "ok": False,
+        "query": query,
+        "path": path or ".",
+        collection_key: {"shown": 0, "total": 0, "truncated": False, "items": []},
+        "regex": regex,
+        "caseSensitive": case_sensitive,
+        "contextLines": context_lines,
+        "message": message,
+    }
+    if max_bytes_per_context is not None:
+        report["maxBytesPerContext"] = max_bytes_per_context
+    return report
+
+
 def get_search_report(
     project_root: str | Path = ".",
     query: str | None = None,
@@ -18,17 +46,15 @@ def get_search_report(
 ) -> dict[str, object]:
     root = Path(project_root).resolve()
     if query is None or not query.strip():
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "query": "",
-            "path": path or ".",
-            "matches": {"shown": 0, "total": 0, "truncated": False, "items": []},
-            "regex": regex,
-            "caseSensitive": case_sensitive,
-            "contextLines": context_lines,
-            "message": "Usage: /search <query>",
-        }
+        return _search_failure_report(
+            root,
+            "matches",
+            "Usage: /search <query>",
+            path=path,
+            regex=regex,
+            case_sensitive=case_sensitive,
+            context_lines=context_lines,
+        )
     workspace = local_command_workspace(root, "local-search")
     observation = execute_action(
         workspace,
@@ -43,17 +69,16 @@ def get_search_report(
         ),
     )
     if observation.kind != "search":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "query": query.strip(),
-            "path": path or ".",
-            "matches": {"shown": 0, "total": 0, "truncated": False, "items": []},
-            "regex": regex,
-            "caseSensitive": case_sensitive,
-            "contextLines": context_lines,
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _search_failure_report(
+            root,
+            "matches",
+            f"Unexpected observation: {observation.kind}",
+            query=query.strip(),
+            path=path,
+            regex=regex,
+            case_sensitive=case_sensitive,
+            context_lines=context_lines,
+        )
 
     return {
         "projectRoot": str(root),
@@ -137,18 +162,16 @@ def get_search_contexts_report(
 ) -> dict[str, object]:
     root = Path(project_root).resolve()
     if query is None or not query.strip():
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "query": "",
-            "path": path or ".",
-            "contexts": {"shown": 0, "total": 0, "truncated": False, "items": []},
-            "regex": regex,
-            "caseSensitive": case_sensitive,
-            "contextLines": context_lines,
-            "maxBytesPerContext": max_bytes_per_context,
-            "message": "Usage: /search-contexts <query>",
-        }
+        return _search_failure_report(
+            root,
+            "contexts",
+            "Usage: /search-contexts <query>",
+            path=path,
+            regex=regex,
+            case_sensitive=case_sensitive,
+            context_lines=context_lines,
+            max_bytes_per_context=max_bytes_per_context,
+        )
     workspace = local_command_workspace(root, "local-search-contexts")
     observation = execute_action(
         workspace,
@@ -164,18 +187,17 @@ def get_search_contexts_report(
         ),
     )
     if observation.kind != "search_contexts":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "query": query.strip(),
-            "path": path or ".",
-            "contexts": {"shown": 0, "total": 0, "truncated": False, "items": []},
-            "regex": regex,
-            "caseSensitive": case_sensitive,
-            "contextLines": context_lines,
-            "maxBytesPerContext": max_bytes_per_context,
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _search_failure_report(
+            root,
+            "contexts",
+            f"Unexpected observation: {observation.kind}",
+            query=query.strip(),
+            path=path,
+            regex=regex,
+            case_sensitive=case_sensitive,
+            context_lines=context_lines,
+            max_bytes_per_context=max_bytes_per_context,
+        )
 
     return {
         "projectRoot": str(root),
