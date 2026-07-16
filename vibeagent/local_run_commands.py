@@ -17,6 +17,10 @@ from .local_runtime_reports import (
 from .types import CheckRunCommandsAction, RunCommandAction, RunCommandItem, RunCommandsAction
 from .workspace_core import create_local_workspace
 
+RUN_USAGE = "Usage: /run <shell command>"
+RUN_SEQUENCE_USAGE = "Usage: /run-seq <cmd> ;; <cmd>"
+CHECK_RUN_SEQUENCE_USAGE = "Usage: /check-run-seq <cmd> ;; <cmd>"
+
 
 def _run_failure_report(
     root: Path,
@@ -46,6 +50,10 @@ def _run_failure_report(
         "analysis": empty_command_output_analysis(),
         "message": message,
     }
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
 
 
 def _run_sequence_failure_report(
@@ -140,21 +148,21 @@ def get_run_report(
         )
 
     if command is None or not command.strip():
-        return failure("Usage: /run <shell command>")
+        return failure(RUN_USAGE)
     if timeout_ms < 100:
-        return failure("Usage: /run <shell command>\nError: timeout_ms must be at least 100.")
+        return failure(_usage_error(RUN_USAGE, "timeout_ms must be at least 100."))
     if timeout_ms > 600_000:
-        return failure("Usage: /run <shell command>\nError: timeout_ms must be at most 600000.")
+        return failure(_usage_error(RUN_USAGE, "timeout_ms must be at most 600000."))
     if max_output_chars < 1_000:
-        return failure("Usage: /run <shell command>\nError: max_output_chars must be at least 1000.")
+        return failure(_usage_error(RUN_USAGE, "max_output_chars must be at least 1000."))
     if max_output_chars > 50_000:
-        return failure("Usage: /run <shell command>\nError: max_output_chars must be at most 50000.")
+        return failure(_usage_error(RUN_USAGE, "max_output_chars must be at most 50000."))
     output_context_error = validate_run_output_context_options(
         context_lines=context_lines,
         max_diagnostics=max_diagnostics,
         max_contexts=max_contexts,
         max_bytes_per_context=max_bytes_per_context,
-        usage="Usage: /run <shell command>",
+        usage=RUN_USAGE,
     )
     if output_context_error:
         return failure(output_context_error)
@@ -250,21 +258,21 @@ def get_run_sequence_report(
     try:
         selected_commands = parse_run_sequence_request(argument, commands)
     except ValueError as error:
-        return failure(f"Usage: /run-seq <cmd> ;; <cmd>\nError: {error}")
+        return failure(_usage_error(RUN_SEQUENCE_USAGE, error))
     if timeout_ms < 100:
-        return failure("Usage: /run-seq <cmd> ;; <cmd>\nError: timeout_ms must be at least 100.", selected_commands)
+        return failure(_usage_error(RUN_SEQUENCE_USAGE, "timeout_ms must be at least 100."), selected_commands)
     if timeout_ms > 600_000:
-        return failure("Usage: /run-seq <cmd> ;; <cmd>\nError: timeout_ms must be at most 600000.", selected_commands)
+        return failure(_usage_error(RUN_SEQUENCE_USAGE, "timeout_ms must be at most 600000."), selected_commands)
     if max_output_chars < 1_000:
-        return failure("Usage: /run-seq <cmd> ;; <cmd>\nError: max_output_chars must be at least 1000.", selected_commands)
+        return failure(_usage_error(RUN_SEQUENCE_USAGE, "max_output_chars must be at least 1000."), selected_commands)
     if max_output_chars > 50_000:
-        return failure("Usage: /run-seq <cmd> ;; <cmd>\nError: max_output_chars must be at most 50000.", selected_commands)
+        return failure(_usage_error(RUN_SEQUENCE_USAGE, "max_output_chars must be at most 50000."), selected_commands)
     output_context_error = validate_run_output_context_options(
         context_lines=context_lines,
         max_diagnostics=max_diagnostics,
         max_contexts=max_contexts,
         max_bytes_per_context=max_bytes_per_context,
-        usage="Usage: /run-seq <cmd> ;; <cmd>",
+        usage=RUN_SEQUENCE_USAGE,
     )
     if output_context_error:
         return failure(output_context_error, selected_commands)
@@ -354,7 +362,7 @@ def get_check_run_sequence_report(
     try:
         selected_commands = parse_run_sequence_request(argument, commands)
     except ValueError as error:
-        return failure(f"Usage: /check-run-seq <cmd> ;; <cmd>\nError: {error}")
+        return failure(_usage_error(CHECK_RUN_SEQUENCE_USAGE, error))
 
     workspace = create_local_workspace(root, "local-check-run-sequence")
     observation = execute_local_action(
