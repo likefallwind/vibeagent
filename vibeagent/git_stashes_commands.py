@@ -9,6 +9,8 @@ from .actions import execute_action as _default_execute_action
 from .local_command_workspace import local_command_workspace
 from .types import GitStashesAction
 
+STASHES_USAGE = "Usage: /stashes [count]"
+
 
 def _execute_action(*args: object, **kwargs: object) -> object:
     commands_module = sys.modules.get("vibeagent.git_commands")
@@ -24,6 +26,10 @@ def _git_command_function(name: str, default: Callable[..., object]) -> Callable
     return candidate if callable(candidate) else default
 
 
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
+
+
 def get_stashes_report(project_root: str | Path = ".", argument: str | None = None, max_entries: int = 20) -> dict[str, object]:
     try:
         selected_max = parse_stashes_request(argument, max_entries)
@@ -33,7 +39,7 @@ def get_stashes_report(project_root: str | Path = ".", argument: str | None = No
             "ok": False,
             "maxEntries": max_entries,
             "entries": {"shown": 0, "total": 0, "truncated": False, "items": []},
-            "message": f"Usage: /stashes [count]\nError: {error}",
+            "message": _usage_error(STASHES_USAGE, error),
         }
 
     root = Path(project_root).resolve()
