@@ -6,6 +6,9 @@ from .local_command_workspace import local_command_workspace
 from .project_command_utils import commands_attr, execute_action
 from .types import FindFilesAction, GlobAction, ListTreeAction
 
+FIND_FILES_USAGE = "Usage: /find-files [--path PATH] [--max-matches N] [--regex] [--case-sensitive] [--include-dirs] -- <query>"
+GLOB_USAGE = "Usage: /glob [--max-matches N] [--include-dirs] -- <pattern>"
+
 
 def _path_matches_failure_report(
     root: Path,
@@ -73,7 +76,7 @@ def get_find_files_report(
     if query is None or not query.strip():
         return _path_matches_failure_report(
             root,
-            "Usage: /find-files [--path PATH] [--max-matches N] [--regex] [--case-sensitive] [--include-dirs] -- <query>",
+            FIND_FILES_USAGE,
             query="",
             path=path,
             max_matches=max_matches,
@@ -185,7 +188,7 @@ def get_glob_report(
     if pattern is None or not pattern.strip():
         return _path_matches_failure_report(
             root,
-            "Usage: /glob [--max-matches N] [--include-dirs] -- <pattern>",
+            GLOB_USAGE,
             pattern="",
             max_matches=max_matches,
             include_dirs=include_dirs,
