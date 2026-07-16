@@ -7,6 +7,59 @@ from .project_command_utils import commands_attr, execute_action
 from .types import FindFilesAction, GlobAction, ListTreeAction
 
 
+def _path_matches_failure_report(
+    root: Path,
+    message: str,
+    *,
+    query: str | None = None,
+    pattern: str | None = None,
+    path: str | None = None,
+    max_matches: int,
+    regex: bool | None = None,
+    case_sensitive: bool | None = None,
+    include_dirs: bool = False,
+) -> dict[str, object]:
+    report: dict[str, object] = {
+        "projectRoot": str(root),
+        "ok": False,
+        "matches": {"shown": 0, "total": 0, "truncated": False, "files": []},
+        "maxMatches": max_matches,
+        "includeDirs": include_dirs,
+        "message": message,
+    }
+    if query is not None:
+        report.update(
+            {
+                "query": query,
+                "path": path,
+                "regex": bool(regex),
+                "caseSensitive": bool(case_sensitive),
+            }
+        )
+    if pattern is not None:
+        report["pattern"] = pattern
+    return report
+
+
+def _tree_failure_report(
+    root: Path,
+    message: str,
+    *,
+    path: str = ".",
+    max_depth: int = 3,
+    max_entries: int = 200,
+) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "path": path,
+        "entries": {"shown": 0, "total": 0, "truncated": False, "items": []},
+        "maxDepth": max_depth,
+        "maxEntries": max_entries,
+        "message": message,
+    }
+
+
 def get_find_files_report(
     project_root: str | Path = ".",
     query: str | None = None,
@@ -18,18 +71,16 @@ def get_find_files_report(
 ) -> dict[str, object]:
     root = Path(project_root).resolve()
     if query is None or not query.strip():
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "query": "",
-            "path": path,
-            "matches": {"shown": 0, "total": 0, "truncated": False, "files": []},
-            "maxMatches": max_matches,
-            "regex": regex,
-            "caseSensitive": case_sensitive,
-            "includeDirs": include_dirs,
-            "message": "Usage: /find-files [--path PATH] [--max-matches N] [--regex] [--case-sensitive] [--include-dirs] -- <query>",
-        }
+        return _path_matches_failure_report(
+            root,
+            "Usage: /find-files [--path PATH] [--max-matches N] [--regex] [--case-sensitive] [--include-dirs] -- <query>",
+            query="",
+            path=path,
+            max_matches=max_matches,
+            regex=regex,
+            case_sensitive=case_sensitive,
+            include_dirs=include_dirs,
+        )
     workspace = local_command_workspace(root, "local-find-files")
     observation = execute_action(
         workspace,
@@ -44,18 +95,16 @@ def get_find_files_report(
         ),
     )
     if observation.kind != "find_files":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "query": query.strip(),
-            "path": path,
-            "matches": {"shown": 0, "total": 0, "truncated": False, "files": []},
-            "maxMatches": max_matches,
-            "regex": regex,
-            "caseSensitive": case_sensitive,
-            "includeDirs": include_dirs,
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _path_matches_failure_report(
+            root,
+            f"Unexpected observation: {observation.kind}",
+            query=query.strip(),
+            path=path,
+            max_matches=max_matches,
+            regex=regex,
+            case_sensitive=case_sensitive,
+            include_dirs=include_dirs,
+        )
     return {
         "projectRoot": str(root),
         "ok": observation.ok,
@@ -134,15 +183,13 @@ def get_glob_report(
 ) -> dict[str, object]:
     root = Path(project_root).resolve()
     if pattern is None or not pattern.strip():
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "pattern": "",
-            "matches": {"shown": 0, "total": 0, "truncated": False, "files": []},
-            "maxMatches": max_matches,
-            "includeDirs": include_dirs,
-            "message": "Usage: /glob [--max-matches N] [--include-dirs] -- <pattern>",
-        }
+        return _path_matches_failure_report(
+            root,
+            "Usage: /glob [--max-matches N] [--include-dirs] -- <pattern>",
+            pattern="",
+            max_matches=max_matches,
+            include_dirs=include_dirs,
+        )
     workspace = local_command_workspace(root, "local-glob")
     observation = execute_action(
         workspace,
@@ -154,15 +201,13 @@ def get_glob_report(
         ),
     )
     if observation.kind != "glob":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "pattern": pattern.strip(),
-            "matches": {"shown": 0, "total": 0, "truncated": False, "files": []},
-            "maxMatches": max_matches,
-            "includeDirs": include_dirs,
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _path_matches_failure_report(
+            root,
+            f"Unexpected observation: {observation.kind}",
+            pattern=pattern.strip(),
+            max_matches=max_matches,
+            include_dirs=include_dirs,
+        )
     return {
         "projectRoot": str(root),
         "ok": observation.ok,
@@ -233,15 +278,13 @@ def get_tree_report(
         ),
     )
     if observation.kind != "list_tree":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "path": selected_path or ".",
-            "entries": {"shown": 0, "total": 0, "truncated": False, "items": []},
-            "maxDepth": max_depth,
-            "maxEntries": max_entries,
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _tree_failure_report(
+            root,
+            f"Unexpected observation: {observation.kind}",
+            path=selected_path or ".",
+            max_depth=max_depth,
+            max_entries=max_entries,
+        )
     return {
         "projectRoot": str(root),
         "ok": observation.ok,
