@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .actions import execute_action
+from .local_command_workspace import local_command_workspace
 from .process_output_commands import (
     format_process_output_contexts_report_text,
     format_process_output_diagnostics_report_text,
@@ -52,7 +53,6 @@ from .process_report_helpers import (
     serialize_process_info,
 )
 from .types import EnvironmentInfoAction, ListProcessesAction, ReadProcessAction
-from .workspace_core import RunWorkspace
 
 
 def get_env_text(project_root: str | Path = ".") -> str:
@@ -61,7 +61,7 @@ def get_env_text(project_root: str | Path = ".") -> str:
 
 def get_env_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-env", session_dir=root / ".vibeagent" / "sessions" / "local-env")
+    workspace = local_command_workspace(root, "local-env")
     observation = execute_action(
         workspace,
         EnvironmentInfoAction(type="environment_info"),
@@ -110,7 +110,7 @@ def get_processes_text(project_root: str | Path = ".") -> str:
 
 def get_processes_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-processes", session_dir=root / ".vibeagent" / "sessions" / "local-processes")
+    workspace = local_command_workspace(root, "local-processes")
     observation = execute_action(
         workspace,
         ListProcessesAction(type="list_processes"),
@@ -166,7 +166,7 @@ def get_process_report(
             "message": f"Usage: /process <id> [chars]\nError: {error}",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-process", session_dir=root / ".vibeagent" / "sessions" / "local-process")
+    workspace = local_command_workspace(root, "local-process")
     observation = execute_action(
         workspace,
         ReadProcessAction(type="read_process", process_id=selected_process_id, max_output_chars=selected_max),
