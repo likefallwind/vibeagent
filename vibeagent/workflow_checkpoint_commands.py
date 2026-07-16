@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 
 from .actions import execute_action
+from .local_command_workspace import local_command_workspace
 from .types import (
     CheckCheckpointDeleteAction,
     CheckCheckpointPruneAction,
@@ -42,7 +43,6 @@ from .workflow_checkpoint_utils import (
 )
 from .workflow_review_formatting import filter_handoff_status
 from .workspace import make_run_id, read_git_diff, read_git_status
-from .workspace_core import RunWorkspace
 
 
 def get_checkpoint_report(project_root: str | Path = ".", label: str | None = None) -> dict[str, object]:
@@ -79,7 +79,7 @@ def get_checkpoint_text(project_root: str | Path = ".", label: str | None = None
 
 
 def create_local_checkpoint_metadata(root: Path, label: str | None = None) -> tuple[dict[str, object] | None, str]:
-    workspace = RunWorkspace(root=root, run_id="local-checkpoint", session_dir=root / ".vibeagent" / "sessions" / "local-checkpoint")
+    workspace = local_command_workspace(root, "local-checkpoint")
     status = read_git_status(workspace)
     if not status.ok:
         return None, status.stderr or "git status failed."
@@ -138,7 +138,7 @@ def get_check_checkpoint_restore_report(checkpoint_id: str | None, project_root:
             "current": {"changedFiles": 0, "stagedFiles": 0, "unstagedFiles": 0, "untrackedFiles": 0},
             "message": "Usage: /checkpoint-restore <id>",
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-checkpoint-restore", session_dir=root / ".vibeagent" / "sessions" / "local-check-checkpoint-restore")
+    workspace = local_command_workspace(root, "local-check-checkpoint-restore")
     observation = execute_action(workspace, CheckCheckpointRestoreAction(type="check_checkpoint_restore", checkpoint_id=checkpoint_id))
     return {
         "projectRoot": str(root),
@@ -182,7 +182,7 @@ def get_checkpoint_restore_report(checkpoint_id: str | None, project_root: str |
             "current": {"untrackedFiles": 0},
             "message": "Usage: /checkpoint-restore <id>",
         }
-    workspace = RunWorkspace(root=root, run_id="local-checkpoint-restore", session_dir=root / ".vibeagent" / "sessions" / "local-checkpoint-restore")
+    workspace = local_command_workspace(root, "local-checkpoint-restore")
     observation = execute_action(workspace, CheckpointRestoreAction(type="checkpoint_restore", checkpoint_id=checkpoint_id))
     return {
         "projectRoot": str(root),
@@ -216,7 +216,7 @@ def get_check_checkpoint_delete_report(checkpoint_id: str | None, project_root: 
             "createdAt": "",
             "message": "Usage: /check-checkpoint-delete <id>",
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-checkpoint-delete", session_dir=root / ".vibeagent" / "sessions" / "local-check-checkpoint-delete")
+    workspace = local_command_workspace(root, "local-check-checkpoint-delete")
     observation = execute_action(workspace, CheckCheckpointDeleteAction(type="check_checkpoint_delete", checkpoint_id=checkpoint_id))
     return {
         "projectRoot": str(root),
@@ -311,7 +311,7 @@ def get_checkpoint_delete_report(checkpoint_id: str | None, project_root: str | 
             "id": "",
             "message": "Usage: /checkpoint-delete <id>",
         }
-    workspace = RunWorkspace(root=root, run_id="local-checkpoint-delete", session_dir=root / ".vibeagent" / "sessions" / "local-checkpoint-delete")
+    workspace = local_command_workspace(root, "local-checkpoint-delete")
     observation = execute_action(workspace, CheckpointDeleteAction(type="checkpoint_delete", checkpoint_id=checkpoint_id))
     return {
         "projectRoot": str(root),
@@ -336,7 +336,7 @@ def get_check_checkpoint_prune_report(keep_last: str | int | None, project_root:
             "checkpoints": [],
             "message": error,
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-checkpoint-prune", session_dir=root / ".vibeagent" / "sessions" / "local-check-checkpoint-prune")
+    workspace = local_command_workspace(root, "local-check-checkpoint-prune")
     observation = execute_action(workspace, CheckCheckpointPruneAction(type="check_checkpoint_prune", keep_last=parsed))
     return {
         "projectRoot": str(root),
@@ -364,7 +364,7 @@ def get_checkpoint_prune_report(keep_last: str | int | None, project_root: str |
             "checkpoints": [],
             "message": error,
         }
-    workspace = RunWorkspace(root=root, run_id="local-checkpoint-prune", session_dir=root / ".vibeagent" / "sessions" / "local-checkpoint-prune")
+    workspace = local_command_workspace(root, "local-checkpoint-prune")
     observation = execute_action(workspace, CheckpointPruneAction(type="checkpoint_prune", keep_last=parsed))
     return {
         "projectRoot": str(root),
