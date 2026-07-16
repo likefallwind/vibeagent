@@ -16,6 +16,63 @@ from .process_report_helpers import (
 from .types import CheckWriteProcessAction, WaitProcessAction, WriteProcessAction
 
 
+def _empty_process_output_analysis() -> dict[str, object]:
+    return {
+        "diagnostics": {"shown": 0, "total": 0, "items": []},
+        "diagnosticsTruncated": False,
+        "contexts": {"shown": 0, "totalRefs": 0, "items": []},
+        "contextsTruncated": False,
+    }
+
+
+def _wait_process_failure_report(
+    root: Path,
+    process_id: str,
+    timeout_ms: int,
+    max_output_chars: int | None,
+    message: str,
+) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "processId": process_id,
+        "pid": None,
+        "status": "unknown",
+        "running": False,
+        "timedOut": False,
+        "matched": False,
+        "matchedStream": None,
+        "matchedPattern": None,
+        "timeoutMs": timeout_ms,
+        "exitCode": None,
+        "signal": None,
+        "maxOutputChars": max_output_chars,
+        "stdout": "",
+        "stderr": "",
+        "analysis": _empty_process_output_analysis(),
+        "message": message,
+    }
+
+
+def _write_process_failure_report(
+    root: Path,
+    process_id: str,
+    content_chars: int,
+    message: str,
+) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "processId": process_id,
+        "pid": None,
+        "running": False,
+        "command": "",
+        "cwd": "",
+        "contentChars": content_chars,
+        "message": message,
+    }
+
+
 def _execute_action(*args: object, **kwargs: object) -> object:
     commands_module = sys.modules.get("vibeagent.process_commands")
     command_execute_action = getattr(commands_module, "execute_action", None) if commands_module is not None else None
@@ -75,26 +132,13 @@ def get_wait_process_report(
             max_output_chars,
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "processId": process_id or "",
-            "pid": None,
-            "status": "unknown",
-            "running": False,
-            "timedOut": False,
-            "matched": False,
-            "matchedStream": None,
-            "matchedPattern": None,
-            "timeoutMs": timeout_ms,
-            "exitCode": None,
-            "signal": None,
-            "maxOutputChars": max_output_chars,
-            "stdout": "",
-            "stderr": "",
-            "analysis": {"diagnostics": {"shown": 0, "total": 0, "items": []}, "diagnosticsTruncated": False, "contexts": {"shown": 0, "totalRefs": 0, "items": []}, "contextsTruncated": False},
-            "message": f"Usage: /wait-process <id> [timeout-ms] [chars]\nError: {error}",
-        }
+        return _wait_process_failure_report(
+            root,
+            process_id or "",
+            timeout_ms,
+            max_output_chars,
+            f"Usage: /wait-process <id> [timeout-ms] [chars]\nError: {error}",
+        )
 
     workspace = local_command_workspace(root, "local-wait-process")
     observation = _execute_action(
@@ -110,26 +154,13 @@ def get_wait_process_report(
         ),
     )
     if observation.kind != "wait_process":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "processId": selected_process_id,
-            "pid": None,
-            "status": "unknown",
-            "running": False,
-            "timedOut": False,
-            "matched": False,
-            "matchedStream": None,
-            "matchedPattern": None,
-            "timeoutMs": selected_timeout,
-            "exitCode": None,
-            "signal": None,
-            "maxOutputChars": selected_max,
-            "stdout": "",
-            "stderr": "",
-            "analysis": {"diagnostics": {"shown": 0, "total": 0, "items": []}, "diagnosticsTruncated": False, "contexts": {"shown": 0, "totalRefs": 0, "items": []}, "contextsTruncated": False},
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _wait_process_failure_report(
+            root,
+            selected_process_id,
+            selected_timeout,
+            selected_max,
+            f"Unexpected observation: {observation.kind}",
+        )
 
     return {
         "projectRoot": str(root),
@@ -242,17 +273,12 @@ def get_write_process_report(
     try:
         selected_process_id, selected_content = parse_write_process_request(argument, process_id, content)
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "processId": process_id or "",
-            "pid": None,
-            "running": False,
-            "command": "",
-            "cwd": "",
-            "contentChars": len(content or ""),
-            "message": f"Usage: /write-process <id> <text>\nError: {error}",
-        }
+        return _write_process_failure_report(
+            root,
+            process_id or "",
+            len(content or ""),
+            f"Usage: /write-process <id> <text>\nError: {error}",
+        )
 
     workspace = local_command_workspace(root, "local-write-process")
     observation = _execute_action(
@@ -260,17 +286,12 @@ def get_write_process_report(
         WriteProcessAction(type="write_process", process_id=selected_process_id, content=selected_content),
     )
     if observation.kind != "write_process":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "processId": selected_process_id,
-            "pid": None,
-            "running": False,
-            "command": "",
-            "cwd": "",
-            "contentChars": len(selected_content),
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _write_process_failure_report(
+            root,
+            selected_process_id,
+            len(selected_content),
+            f"Unexpected observation: {observation.kind}",
+        )
 
     return serialize_write_process_report(root, observation)
 
@@ -312,17 +333,12 @@ def get_check_write_process_report(
     try:
         selected_process_id, selected_content = parse_write_process_request(argument, process_id, content)
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "processId": process_id or "",
-            "pid": None,
-            "running": False,
-            "command": "",
-            "cwd": "",
-            "contentChars": len(content or ""),
-            "message": f"Usage: /check-write-process <id> <text>\nError: {error}",
-        }
+        return _write_process_failure_report(
+            root,
+            process_id or "",
+            len(content or ""),
+            f"Usage: /check-write-process <id> <text>\nError: {error}",
+        )
 
     workspace = local_command_workspace(root, "local-check-write-process")
     observation = _execute_action(
@@ -330,17 +346,12 @@ def get_check_write_process_report(
         CheckWriteProcessAction(type="check_write_process", process_id=selected_process_id, content=selected_content),
     )
     if observation.kind != "check_write_process":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "processId": selected_process_id,
-            "pid": None,
-            "running": False,
-            "command": "",
-            "cwd": "",
-            "contentChars": len(selected_content),
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _write_process_failure_report(
+            root,
+            selected_process_id,
+            len(selected_content),
+            f"Unexpected observation: {observation.kind}",
+        )
 
     return serialize_write_process_report(root, observation)
 
