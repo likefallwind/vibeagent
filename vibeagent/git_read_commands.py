@@ -27,8 +27,8 @@ from .git_read_report_helpers import (
     format_show_report_text,
     indent_block as _indent_block,
 )
+from .local_command_workspace import local_command_workspace
 from .types import GitBranchesAction, GitConflictsAction, GitInfoAction, GitStatusAction
-from .workspace_core import RunWorkspace
 
 
 def _split_nonempty_lines(value: str) -> list[str]:
@@ -42,7 +42,7 @@ def _git_status_payload(status: str) -> dict[str, object]:
 
 def get_git_status_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-git-status", session_dir=root / ".vibeagent" / "sessions" / "local-git-status")
+    workspace = local_command_workspace(root, "local-git-status")
     observation = execute_action(workspace, GitStatusAction(type="git_status"))
     if observation.kind != "git_status":
         return {
@@ -94,7 +94,7 @@ def get_git_conflicts_report(
             "message": f"Usage: /conflicts [path]\n  message: {error}",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-git-conflicts", session_dir=root / ".vibeagent" / "sessions" / "local-git-conflicts")
+    workspace = local_command_workspace(root, "local-git-conflicts")
     observation = execute_action(
         workspace,
         GitConflictsAction(
@@ -140,7 +140,7 @@ def get_git_conflicts_report(
 
 def get_git_info_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-git-info", session_dir=root / ".vibeagent" / "sessions" / "local-git-info")
+    workspace = local_command_workspace(root, "local-git-info")
     observation = execute_action(workspace, GitInfoAction(type="git_info"))
     if observation.kind != "git_info":
         return {
@@ -180,7 +180,7 @@ def get_git_info_text(project_root: str | Path = ".") -> str:
 
 def get_branches_report(project_root: str | Path = ".", max_branches: int = 100) -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-branches", session_dir=root / ".vibeagent" / "sessions" / "local-branches")
+    workspace = local_command_workspace(root, "local-branches")
     observation = execute_action(
         workspace,
         GitBranchesAction(type="git_branches", max_branches=max_branches),
