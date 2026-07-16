@@ -173,6 +173,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     return run_interactive()
 
 
+def console_main() -> int:
+    import sys
+
+    return main(sys.argv[1:])
+
+
 def run_local_flag(args: argparse.Namespace) -> int:
     try:
         if args.version:

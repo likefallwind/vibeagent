@@ -180,7 +180,7 @@ class V1AcceptanceTests(unittest.TestCase):
         package = json.loads(PACKAGE_PATH.read_text(encoding="utf-8"))
         bin_entrypoint = BIN_ENTRYPOINT_PATH.read_text(encoding="utf-8")
 
-        self.assertEqual(pyproject["project"]["scripts"]["vibeagent"], "vibeagent.cli:main")
+        self.assertEqual(pyproject["project"]["scripts"]["vibeagent"], "vibeagent.cli:console_main")
         self.assertEqual(package["bin"]["vibeagent"], "./bin/vibeagent")
         self.assertIn("from vibeagent.cli import main", bin_entrypoint)
         self.assertIn("main(sys.argv[1:])", bin_entrypoint)

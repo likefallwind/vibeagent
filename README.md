@@ -94,6 +94,13 @@ Confirm the installed package version:
 python -m vibeagent --version
 ```
 
+Before cutting a release, verify an editable install from outside the source
+tree:
+
+```sh
+npm run test:install
+```
+
 or through the npm compatibility scripts:
 
 ```sh

@@ -13,4 +13,4 @@ readme = "README.md"
 packages = ["vibeagent"]
 
 [project.scripts]
-vibeagent = "vibeagent.cli:main"
+vibeagent = "vibeagent.cli:console_main"

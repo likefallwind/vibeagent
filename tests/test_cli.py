@@ -306,6 +306,13 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["text"], f"vibeagent {__version__}")
         self.assertEqual(payload["version"], __version__)
 
+    def test_console_main_passes_process_arguments_to_main(self) -> None:
+        with patch("sys.argv", ["vibeagent", "--version"]), patch("vibeagent.cli.main", return_value=0) as main_func:
+            exit_code = cli_module.console_main()
+
+        self.assertEqual(exit_code, 0)
+        main_func.assert_called_once_with(["--version"])
+
     def test_process_and_wait_max_chars_default_to_runtime_process_limit(self) -> None:
         default_args = cli_module.parse_args(["--process-output-contexts", "bg-1"])
         process_override_args = cli_module.parse_args(
