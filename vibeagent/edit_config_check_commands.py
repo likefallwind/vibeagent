@@ -6,6 +6,7 @@ import sys
 
 from .actions import execute_action as _default_execute_action
 from .command_parsing import parse_optional_single_path_argument
+from .edit_usage_report_helpers import config_check_usage_report
 from .local_command_workspace import local_command_workspace
 from .types import ConfigCheckAction
 
@@ -37,14 +38,7 @@ def get_config_check_report(project_root: str | Path = ".", argument: str | None
     try:
         path = parse_optional_single_path_argument(argument)
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "path": argument or ".",
-            "files": {"shown": 0, "total": 0, "items": []},
-            "truncated": False,
-            "message": f"Usage: /config-check [path]\nError: {error}",
-        }
+        return config_check_usage_report(root, "/config-check [path]", error, path=argument)
     workspace = local_command_workspace(root, "local-config-check")
     observation = _execute_action(workspace, ConfigCheckAction(type="config_check", path=path, max_files=max_files))
     if observation.kind != "config_check":

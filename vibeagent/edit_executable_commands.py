@@ -5,6 +5,7 @@ import sys
 
 from .actions import execute_action as _default_execute_action
 from .edit_command_parsing import parse_executable_argument
+from .edit_usage_report_helpers import path_action_usage_report
 from .local_command_workspace import local_command_workspace
 from .types import CheckSetExecutableAction, SetExecutableAction
 
@@ -46,16 +47,18 @@ def get_check_set_executable_report(
             usage="/check-executable <path> [true|false]",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_set_executable",
-            "ok": False,
-            "path": path or "",
-            "executable": executable if isinstance(executable, bool) else False,
-            "modeBefore": "",
-            "modeAfter": "",
-            "message": f"Usage: /check-executable <path> [true|false]\nError: {error}",
-        }
+        return path_action_usage_report(
+            root,
+            "check_set_executable",
+            "/check-executable <path> [true|false]",
+            error,
+            path=path,
+            fields={
+                "executable": executable if isinstance(executable, bool) else False,
+                "modeBefore": "",
+                "modeAfter": "",
+            },
+        )
     workspace = local_command_workspace(root, "local-check-executable")
     observation = _execute_action(workspace, CheckSetExecutableAction(type="check_set_executable", path=parsed_path, executable=parsed_executable))
     return serialize_executable_report(root, observation)
@@ -90,16 +93,18 @@ def get_set_executable_report(
             usage="/set-executable <path> [true|false]",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "set_executable",
-            "ok": False,
-            "path": path or "",
-            "executable": executable if isinstance(executable, bool) else False,
-            "modeBefore": "",
-            "modeAfter": "",
-            "message": f"Usage: /set-executable <path> [true|false]\nError: {error}",
-        }
+        return path_action_usage_report(
+            root,
+            "set_executable",
+            "/set-executable <path> [true|false]",
+            error,
+            path=path,
+            fields={
+                "executable": executable if isinstance(executable, bool) else False,
+                "modeBefore": "",
+                "modeAfter": "",
+            },
+        )
     workspace = local_command_workspace(root, "local-set-executable")
     observation = _execute_action(workspace, SetExecutableAction(type="set_executable", path=parsed_path, executable=parsed_executable))
     return serialize_executable_report(root, observation)
