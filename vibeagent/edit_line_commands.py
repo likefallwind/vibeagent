@@ -6,6 +6,7 @@ import sys
 from .actions import execute_action as _default_execute_action
 from .edit_command_parsing import parse_append_file_argument, parse_insert_lines_argument, parse_replace_lines_argument
 from .edit_text_formatting import format_line_edit_report_text, serialize_line_edit_report
+from .local_command_workspace import local_command_workspace
 from .types import (
     AppendFileAction,
     CheckAppendFileAction,
@@ -14,7 +15,6 @@ from .types import (
     InsertLinesAction,
     ReplaceLinesAction,
 )
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -79,7 +79,7 @@ def get_check_replace_lines_report(
             "message": f"Usage: /check-replace-lines <path> <start> <end> <text>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-replace-lines", session_dir=root / ".vibeagent" / "sessions" / "local-check-replace-lines")
+    workspace = local_command_workspace(root, "local-check-replace-lines")
     observation = _execute_action(
         workspace,
         CheckReplaceLinesAction(type="check_replace_lines", path=parsed_path, start_line=parsed_start, end_line=parsed_end, content=parsed_content),
@@ -134,7 +134,7 @@ def get_replace_lines_report(
             "message": f"Usage: /replace-lines <path> <start> <end> <text>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-replace-lines", session_dir=root / ".vibeagent" / "sessions" / "local-replace-lines")
+    workspace = local_command_workspace(root, "local-replace-lines")
     observation = _execute_action(
         workspace,
         ReplaceLinesAction(type="replace_lines", path=parsed_path, start_line=parsed_start, end_line=parsed_end, content=parsed_content),
@@ -183,7 +183,7 @@ def get_check_insert_lines_report(
             "message": f"Usage: /check-insert-lines <path> <line> <text>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-insert-lines", session_dir=root / ".vibeagent" / "sessions" / "local-check-insert-lines")
+    workspace = local_command_workspace(root, "local-check-insert-lines")
     observation = _execute_action(workspace, CheckInsertLinesAction(type="check_insert_lines", path=parsed_path, line=parsed_line, content=parsed_content))
     return serialize_line_edit_report(root, observation)
 
@@ -228,7 +228,7 @@ def get_insert_lines_report(
             "message": f"Usage: /insert-lines <path> <line> <text>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-insert-lines", session_dir=root / ".vibeagent" / "sessions" / "local-insert-lines")
+    workspace = local_command_workspace(root, "local-insert-lines")
     observation = _execute_action(workspace, InsertLinesAction(type="insert_lines", path=parsed_path, line=parsed_line, content=parsed_content))
     return serialize_line_edit_report(root, observation)
 
@@ -270,7 +270,7 @@ def get_check_append_file_report(
             "message": f"Usage: /check-append <path> <text>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-append", session_dir=root / ".vibeagent" / "sessions" / "local-check-append")
+    workspace = local_command_workspace(root, "local-check-append")
     observation = _execute_action(workspace, CheckAppendFileAction(type="check_append_file", path=parsed_path, content=parsed_content))
     return serialize_line_edit_report(root, observation)
 
@@ -311,6 +311,6 @@ def get_append_file_report(
             "message": f"Usage: /append <path> <text>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-append", session_dir=root / ".vibeagent" / "sessions" / "local-append")
+    workspace = local_command_workspace(root, "local-append")
     observation = _execute_action(workspace, AppendFileAction(type="append_file", path=parsed_path, content=parsed_content))
     return serialize_line_edit_report(root, observation)
