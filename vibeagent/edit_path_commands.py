@@ -60,6 +60,10 @@ def _execute_action(*args: object, **kwargs: object) -> object:
     return _default_execute_action(*args, **kwargs)
 
 
+def _local_workspace(root: Path, run_id: str) -> RunWorkspace:
+    return RunWorkspace(root=root, run_id=run_id, session_dir=root / ".vibeagent" / "sessions" / run_id)
+
+
 def get_check_move_file_text(
     project_root: str | Path = ".",
     argument: str | None = None,
@@ -97,7 +101,7 @@ def get_check_move_file_report(
             "destination": destination or "",
             "message": f"Usage: /check-move <source> <destination>\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-move", session_dir=root / ".vibeagent" / "sessions" / "local-check-move")
+    workspace = _local_workspace(root, "local-check-move")
     observation = _execute_action(workspace, CheckMoveFileAction(type="check_move_file", source=parsed_source, destination=parsed_destination))
     return serialize_file_transfer_report(root, observation)
 
@@ -139,7 +143,7 @@ def get_move_file_report(
             "destination": destination or "",
             "message": f"Usage: /move <source> <destination>\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-move", session_dir=root / ".vibeagent" / "sessions" / "local-move")
+    workspace = _local_workspace(root, "local-move")
     observation = _execute_action(workspace, MoveFileAction(type="move_file", source=parsed_source, destination=parsed_destination))
     return serialize_file_transfer_report(root, observation)
 
@@ -173,7 +177,7 @@ def get_check_move_files_report(
             "transfers": {"total": 0, "items": []},
             "message": f"Usage: /check-move-files <source> <destination>...\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-move-files", session_dir=root / ".vibeagent" / "sessions" / "local-check-move-files")
+    workspace = _local_workspace(root, "local-check-move-files")
     observation = _execute_action(workspace, CheckMoveFilesAction(type="check_move_files", transfers=parsed_transfers))
     return serialize_file_transfer_list_report(root, observation)
 
@@ -207,7 +211,7 @@ def get_move_files_report(
             "transfers": {"total": 0, "items": []},
             "message": f"Usage: /move-files <source> <destination>...\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-move-files", session_dir=root / ".vibeagent" / "sessions" / "local-move-files")
+    workspace = _local_workspace(root, "local-move-files")
     observation = _execute_action(workspace, MoveFilesAction(type="move_files", transfers=parsed_transfers))
     return serialize_file_transfer_list_report(root, observation)
 
@@ -249,7 +253,7 @@ def get_check_copy_file_report(
             "destination": destination or "",
             "message": f"Usage: /check-copy <source> <destination>\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-copy", session_dir=root / ".vibeagent" / "sessions" / "local-check-copy")
+    workspace = _local_workspace(root, "local-check-copy")
     observation = _execute_action(workspace, CheckCopyFileAction(type="check_copy_file", source=parsed_source, destination=parsed_destination))
     return serialize_file_transfer_report(root, observation)
 
@@ -291,7 +295,7 @@ def get_copy_file_report(
             "destination": destination or "",
             "message": f"Usage: /copy <source> <destination>\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-copy", session_dir=root / ".vibeagent" / "sessions" / "local-copy")
+    workspace = _local_workspace(root, "local-copy")
     observation = _execute_action(workspace, CopyFileAction(type="copy_file", source=parsed_source, destination=parsed_destination))
     return serialize_file_transfer_report(root, observation)
 
@@ -325,7 +329,7 @@ def get_check_copy_files_report(
             "transfers": {"total": 0, "items": []},
             "message": f"Usage: /check-copy-files <source> <destination>...\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-copy-files", session_dir=root / ".vibeagent" / "sessions" / "local-check-copy-files")
+    workspace = _local_workspace(root, "local-check-copy-files")
     observation = _execute_action(workspace, CheckCopyFilesAction(type="check_copy_files", transfers=parsed_transfers))
     return serialize_file_transfer_list_report(root, observation)
 
@@ -359,7 +363,7 @@ def get_copy_files_report(
             "transfers": {"total": 0, "items": []},
             "message": f"Usage: /copy-files <source> <destination>...\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-copy-files", session_dir=root / ".vibeagent" / "sessions" / "local-copy-files")
+    workspace = _local_workspace(root, "local-copy-files")
     observation = _execute_action(workspace, CopyFilesAction(type="copy_files", transfers=parsed_transfers))
     return serialize_file_transfer_list_report(root, observation)
 
@@ -393,7 +397,7 @@ def get_check_create_dir_report(
             "path": path or "",
             "message": f"Usage: /check-mkdir <path>\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-mkdir", session_dir=root / ".vibeagent" / "sessions" / "local-check-mkdir")
+    workspace = _local_workspace(root, "local-check-mkdir")
     observation = _execute_action(workspace, CheckCreateDirectoryAction(type="check_create_dir", path=parsed_path))
     return serialize_path_action_report(root, observation)
 
@@ -427,7 +431,7 @@ def get_create_dir_report(
             "path": path or "",
             "message": f"Usage: /mkdir <path>\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-mkdir", session_dir=root / ".vibeagent" / "sessions" / "local-mkdir")
+    workspace = _local_workspace(root, "local-mkdir")
     observation = _execute_action(workspace, CreateDirectoryAction(type="create_dir", path=parsed_path))
     return serialize_path_action_report(root, observation)
 
@@ -461,7 +465,7 @@ def get_check_create_dirs_report(
             "paths": {"total": 0, "items": []},
             "message": f"Usage: /check-mkdirs <path...>\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-mkdirs", session_dir=root / ".vibeagent" / "sessions" / "local-check-mkdirs")
+    workspace = _local_workspace(root, "local-check-mkdirs")
     observation = _execute_action(workspace, CheckCreateDirectoriesAction(type="check_create_dirs", paths=parsed_paths))
     return serialize_path_list_report(root, observation)
 
@@ -495,6 +499,6 @@ def get_create_dirs_report(
             "paths": {"total": 0, "items": []},
             "message": f"Usage: /mkdirs <path...>\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-mkdirs", session_dir=root / ".vibeagent" / "sessions" / "local-mkdirs")
+    workspace = _local_workspace(root, "local-mkdirs")
     observation = _execute_action(workspace, CreateDirectoriesAction(type="create_dirs", paths=parsed_paths))
     return serialize_path_list_report(root, observation)
