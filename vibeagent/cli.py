@@ -5,9 +5,10 @@ from collections.abc import Sequence
 import os
 from pathlib import Path
 
-from . import __version__
 from .agent import run_agent
 from .chat import run_chat
+from .cli_args import has_local_flag, parse_args
+from .cli_config import resolve_project_root
 from .cli_exit_codes import (
     LOCAL_RESULT_ARG_NAMES,
     has_bad_session_summary_status,
@@ -22,14 +23,8 @@ from .cli_exit_codes import (
     local_result_arg_selected,
     process_status_value_failed,
 )
-from .cli_args import has_local_flag, parse_args
-from .cli_config import (
-    build_provider_env,
-    format_save_config_report_text,
-    resolve_project_root,
-    save_project_config_from_args,
-    save_project_config_report_from_args,
-)
+from .cli_local_flag_runner import run_local_flag as _run_local_flag
+from .cli_local_result import emit_local_result
 from .cli_output import (
     build_approval_handler,
     format_error,
@@ -43,10 +38,8 @@ from .cli_checkpoint_local_flags import run_checkpoint_local_flag
 from .cli_code_intel_local_flags import run_code_intel_local_flag, run_python_local_flag
 from .cli_command_local_flags import run_command_local_flag
 from .cli_edit_local_flags import run_edit_local_flag
-from .cli_local_result import emit_local_result
 from .cli_git_local_flags import run_git_local_flag
 from .cli_json_local_flags import run_json_local_flag
-from .cli_local_dispatch import dispatch_local_flag
 from .cli_patch_local_flags import run_patch_local_flag
 from .cli_session_local_flags import run_session_local_flag
 from .cli_startup_context import InteractiveStartupContext, resolve_interactive_startup_context
@@ -180,32 +173,7 @@ def console_main() -> int:
 
 
 def run_local_flag(args: argparse.Namespace) -> int:
-    try:
-        if args.version:
-            payload = {"version": __version__} if args.json else None
-            return emit_local_result(args, f"vibeagent {__version__}", payload)
-        project_root = resolve_project_root(args.cwd)
-        config_root = project_root or Path.cwd()
-        payload_extra: dict[str, object] = {}
-        if args.save_config:
-            if args.json:
-                save_config_report = save_project_config_report_from_args(args, config_root)
-                payload_extra["saveConfig"] = save_config_report
-                text = format_save_config_report_text(save_config_report)
-            else:
-                text = save_project_config_from_args(args, config_root)
-        else:
-            provider_env = build_provider_env(args, config_root)
-            if (flag_result := dispatch_local_flag(args, project_root, config_root, provider_env, globals())) is not None:
-                text, payload = flag_result
-                payload_extra.update(payload)
-            else:
-                text = ""
-        return emit_local_result(args, text, payload_extra)
-    except KeyboardInterrupt:
-        return print_interrupted_result(args.json, args.output_format)
-    except Exception as error:
-        return print_error_result(format_error(error), args.json, prefix=True, output_format=args.output_format)
+    return _run_local_flag(args, globals())
 
 
 def run_interactive(base_dir: str | None = None, startup_context: InteractiveStartupContext | None = None) -> int:
