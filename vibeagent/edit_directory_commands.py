@@ -11,6 +11,10 @@ from .edit_command_parsing import (
     parse_source_destination_argument,
 )
 from .edit_path_commands import (
+    _file_transfer_list_usage_report,
+    _file_transfer_usage_report,
+    _path_action_usage_report,
+    _path_list_usage_report,
     format_file_transfer_list_report_text,
     format_file_transfer_report_text,
     format_path_action_report_text,
@@ -75,14 +79,7 @@ def get_check_move_dir_report(
             usage="/check-move-dir <source> <destination>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_move_dir",
-            "ok": False,
-            "source": source or "",
-            "destination": destination or "",
-            "message": f"Usage: /check-move-dir <source> <destination>\nError: {error}",
-        }
+        return _file_transfer_usage_report(root, "check_move_dir", "/check-move-dir <source> <destination>", error, source=source, destination=destination)
     workspace = local_command_workspace(root, "local-check-move-dir")
     observation = _execute_action(workspace, CheckMoveDirectoryAction(type="check_move_dir", source=parsed_source, destination=parsed_destination))
     return serialize_file_transfer_report(root, observation)
@@ -117,14 +114,7 @@ def get_move_dir_report(
             usage="/move-dir <source> <destination>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "move_dir",
-            "ok": False,
-            "source": source or "",
-            "destination": destination or "",
-            "message": f"Usage: /move-dir <source> <destination>\nError: {error}",
-        }
+        return _file_transfer_usage_report(root, "move_dir", "/move-dir <source> <destination>", error, source=source, destination=destination)
     workspace = local_command_workspace(root, "local-move-dir")
     observation = _execute_action(workspace, MoveDirectoryAction(type="move_dir", source=parsed_source, destination=parsed_destination))
     return serialize_file_transfer_report(root, observation)
@@ -152,13 +142,7 @@ def get_check_move_dirs_report(
     try:
         parsed_transfers = parse_directory_transfer_list_argument(argument, transfers=transfers, usage="/check-move-dirs <source> <destination>...")
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_move_dirs",
-            "ok": False,
-            "transfers": {"total": 0, "items": []},
-            "message": f"Usage: /check-move-dirs <source> <destination>...\nError: {error}",
-        }
+        return _file_transfer_list_usage_report(root, "check_move_dirs", "/check-move-dirs <source> <destination>...", error)
     workspace = local_command_workspace(root, "local-check-move-dirs")
     observation = _execute_action(workspace, CheckMoveDirectoriesAction(type="check_move_dirs", transfers=parsed_transfers))
     return serialize_file_transfer_list_report(root, observation)
@@ -186,13 +170,7 @@ def get_move_dirs_report(
     try:
         parsed_transfers = parse_directory_transfer_list_argument(argument, transfers=transfers, usage="/move-dirs <source> <destination>...")
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "move_dirs",
-            "ok": False,
-            "transfers": {"total": 0, "items": []},
-            "message": f"Usage: /move-dirs <source> <destination>...\nError: {error}",
-        }
+        return _file_transfer_list_usage_report(root, "move_dirs", "/move-dirs <source> <destination>...", error)
     workspace = local_command_workspace(root, "local-move-dirs")
     observation = _execute_action(workspace, MoveDirectoriesAction(type="move_dirs", transfers=parsed_transfers))
     return serialize_file_transfer_list_report(root, observation)
@@ -227,14 +205,7 @@ def get_check_copy_dir_report(
             usage="/check-copy-dir <source> <destination>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_copy_dir",
-            "ok": False,
-            "source": source or "",
-            "destination": destination or "",
-            "message": f"Usage: /check-copy-dir <source> <destination>\nError: {error}",
-        }
+        return _file_transfer_usage_report(root, "check_copy_dir", "/check-copy-dir <source> <destination>", error, source=source, destination=destination)
     workspace = local_command_workspace(root, "local-check-copy-dir")
     observation = _execute_action(workspace, CheckCopyDirectoryAction(type="check_copy_dir", source=parsed_source, destination=parsed_destination))
     return serialize_file_transfer_report(root, observation)
@@ -269,14 +240,7 @@ def get_copy_dir_report(
             usage="/copy-dir <source> <destination>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "copy_dir",
-            "ok": False,
-            "source": source or "",
-            "destination": destination or "",
-            "message": f"Usage: /copy-dir <source> <destination>\nError: {error}",
-        }
+        return _file_transfer_usage_report(root, "copy_dir", "/copy-dir <source> <destination>", error, source=source, destination=destination)
     workspace = local_command_workspace(root, "local-copy-dir")
     observation = _execute_action(workspace, CopyDirectoryAction(type="copy_dir", source=parsed_source, destination=parsed_destination))
     return serialize_file_transfer_report(root, observation)
@@ -304,13 +268,7 @@ def get_check_copy_dirs_report(
     try:
         parsed_transfers = parse_directory_transfer_list_argument(argument, transfers=transfers, usage="/check-copy-dirs <source> <destination>...")
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_copy_dirs",
-            "ok": False,
-            "transfers": {"total": 0, "items": []},
-            "message": f"Usage: /check-copy-dirs <source> <destination>...\nError: {error}",
-        }
+        return _file_transfer_list_usage_report(root, "check_copy_dirs", "/check-copy-dirs <source> <destination>...", error)
     workspace = local_command_workspace(root, "local-check-copy-dirs")
     observation = _execute_action(workspace, CheckCopyDirectoriesAction(type="check_copy_dirs", transfers=parsed_transfers))
     return serialize_file_transfer_list_report(root, observation)
@@ -338,13 +296,7 @@ def get_copy_dirs_report(
     try:
         parsed_transfers = parse_directory_transfer_list_argument(argument, transfers=transfers, usage="/copy-dirs <source> <destination>...")
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "copy_dirs",
-            "ok": False,
-            "transfers": {"total": 0, "items": []},
-            "message": f"Usage: /copy-dirs <source> <destination>...\nError: {error}",
-        }
+        return _file_transfer_list_usage_report(root, "copy_dirs", "/copy-dirs <source> <destination>...", error)
     workspace = local_command_workspace(root, "local-copy-dirs")
     observation = _execute_action(workspace, CopyDirectoriesAction(type="copy_dirs", transfers=parsed_transfers))
     return serialize_file_transfer_list_report(root, observation)
@@ -372,13 +324,7 @@ def get_check_delete_empty_dir_report(
     try:
         parsed_path = parse_required_single_path_argument(argument, path=path, usage="/check-rmdir <path>")
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_delete_empty_dir",
-            "ok": False,
-            "path": path or "",
-            "message": f"Usage: /check-rmdir <path>\nError: {error}",
-        }
+        return _path_action_usage_report(root, "check_delete_empty_dir", "/check-rmdir <path>", error, path=path)
     workspace = local_command_workspace(root, "local-check-rmdir")
     observation = _execute_action(workspace, CheckDeleteEmptyDirectoryAction(type="check_delete_empty_dir", path=parsed_path))
     return serialize_path_action_report(root, observation)
@@ -406,13 +352,7 @@ def get_delete_empty_dir_report(
     try:
         parsed_path = parse_required_single_path_argument(argument, path=path, usage="/rmdir <path>")
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "delete_empty_dir",
-            "ok": False,
-            "path": path or "",
-            "message": f"Usage: /rmdir <path>\nError: {error}",
-        }
+        return _path_action_usage_report(root, "delete_empty_dir", "/rmdir <path>", error, path=path)
     workspace = local_command_workspace(root, "local-rmdir")
     observation = _execute_action(workspace, DeleteEmptyDirectoryAction(type="delete_empty_dir", path=parsed_path))
     return serialize_path_action_report(root, observation)
@@ -440,13 +380,7 @@ def get_check_delete_empty_dirs_report(
     try:
         parsed_paths = parse_required_path_list_argument(argument, paths=paths, usage="/check-rmdirs <path...>")
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_delete_empty_dirs",
-            "ok": False,
-            "paths": {"total": 0, "items": []},
-            "message": f"Usage: /check-rmdirs <path...>\nError: {error}",
-        }
+        return _path_list_usage_report(root, "check_delete_empty_dirs", "/check-rmdirs <path...>", error)
     workspace = local_command_workspace(root, "local-check-rmdirs")
     observation = _execute_action(workspace, CheckDeleteEmptyDirectoriesAction(type="check_delete_empty_dirs", paths=parsed_paths))
     return serialize_path_list_report(root, observation)
@@ -474,13 +408,7 @@ def get_delete_empty_dirs_report(
     try:
         parsed_paths = parse_required_path_list_argument(argument, paths=paths, usage="/rmdirs <path...>")
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "delete_empty_dirs",
-            "ok": False,
-            "paths": {"total": 0, "items": []},
-            "message": f"Usage: /rmdirs <path...>\nError: {error}",
-        }
+        return _path_list_usage_report(root, "delete_empty_dirs", "/rmdirs <path...>", error)
     workspace = local_command_workspace(root, "local-rmdirs")
     observation = _execute_action(workspace, DeleteEmptyDirectoriesAction(type="delete_empty_dirs", paths=parsed_paths))
     return serialize_path_list_report(root, observation)
