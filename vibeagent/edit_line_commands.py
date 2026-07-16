@@ -6,6 +6,7 @@ import sys
 from .actions import execute_action as _default_execute_action
 from .edit_command_parsing import parse_append_file_argument, parse_insert_lines_argument, parse_replace_lines_argument
 from .edit_text_formatting import format_line_edit_report_text, serialize_line_edit_report
+from .edit_usage_report_helpers import line_edit_usage_report
 from .local_command_workspace import local_command_workspace
 from .types import (
     AppendFileAction,
@@ -69,16 +70,14 @@ def get_check_replace_lines_report(
             usage="/check-replace-lines <path> <start> <end> <text>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_replace_lines",
-            "ok": False,
-            "path": path or "",
-            "startLine": None,
-            "endLine": None,
-            "message": f"Usage: /check-replace-lines <path> <start> <end> <text>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(
+            root,
+            "check_replace_lines",
+            "/check-replace-lines <path> <start> <end> <text>",
+            error,
+            path=path,
+            fields={"startLine": None, "endLine": None},
+        )
     workspace = local_command_workspace(root, "local-check-replace-lines")
     observation = _execute_action(
         workspace,
@@ -124,16 +123,14 @@ def get_replace_lines_report(
             usage="/replace-lines <path> <start> <end> <text>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "replace_lines",
-            "ok": False,
-            "path": path or "",
-            "startLine": None,
-            "endLine": None,
-            "message": f"Usage: /replace-lines <path> <start> <end> <text>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(
+            root,
+            "replace_lines",
+            "/replace-lines <path> <start> <end> <text>",
+            error,
+            path=path,
+            fields={"startLine": None, "endLine": None},
+        )
     workspace = local_command_workspace(root, "local-replace-lines")
     observation = _execute_action(
         workspace,
@@ -174,15 +171,14 @@ def get_check_insert_lines_report(
             usage="/check-insert-lines <path> <line> <text>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_insert_lines",
-            "ok": False,
-            "path": path or "",
-            "line": None,
-            "message": f"Usage: /check-insert-lines <path> <line> <text>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(
+            root,
+            "check_insert_lines",
+            "/check-insert-lines <path> <line> <text>",
+            error,
+            path=path,
+            fields={"line": None},
+        )
     workspace = local_command_workspace(root, "local-check-insert-lines")
     observation = _execute_action(workspace, CheckInsertLinesAction(type="check_insert_lines", path=parsed_path, line=parsed_line, content=parsed_content))
     return serialize_line_edit_report(root, observation)
@@ -219,15 +215,14 @@ def get_insert_lines_report(
             usage="/insert-lines <path> <line> <text>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "insert_lines",
-            "ok": False,
-            "path": path or "",
-            "line": None,
-            "message": f"Usage: /insert-lines <path> <line> <text>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(
+            root,
+            "insert_lines",
+            "/insert-lines <path> <line> <text>",
+            error,
+            path=path,
+            fields={"line": None},
+        )
     workspace = local_command_workspace(root, "local-insert-lines")
     observation = _execute_action(workspace, InsertLinesAction(type="insert_lines", path=parsed_path, line=parsed_line, content=parsed_content))
     return serialize_line_edit_report(root, observation)
@@ -262,14 +257,7 @@ def get_check_append_file_report(
             usage="/check-append <path> <text>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_append_file",
-            "ok": False,
-            "path": path or "",
-            "message": f"Usage: /check-append <path> <text>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(root, "check_append_file", "/check-append <path> <text>", error, path=path)
     workspace = local_command_workspace(root, "local-check-append")
     observation = _execute_action(workspace, CheckAppendFileAction(type="check_append_file", path=parsed_path, content=parsed_content))
     return serialize_line_edit_report(root, observation)
@@ -303,14 +291,7 @@ def get_append_file_report(
             usage="/append <path> <text>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "append_file",
-            "ok": False,
-            "path": path or "",
-            "message": f"Usage: /append <path> <text>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(root, "append_file", "/append <path> <text>", error, path=path)
     workspace = local_command_workspace(root, "local-append")
     observation = _execute_action(workspace, AppendFileAction(type="append_file", path=parsed_path, content=parsed_content))
     return serialize_line_edit_report(root, observation)
