@@ -9,8 +9,8 @@ from .smart_code_common import (
     execute_action_for_commands as _execute_action,
     plain_data as _plain_data,
 )
+from .local_command_workspace import local_command_workspace
 from .types import PythonCheckAction, PythonDependenciesAction
-from .workspace_core import RunWorkspace
 
 
 def get_python_check_report(project_root: str | Path = ".", argument: str | None = None, max_files: int = 200) -> dict[str, object]:
@@ -26,7 +26,7 @@ def get_python_check_report(project_root: str | Path = ".", argument: str | None
             "maxFiles": max_files,
             "message": f"Usage: /python-check [path]\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-python-check", session_dir=root / ".vibeagent" / "sessions" / "local-python-check")
+    workspace = local_command_workspace(root, "local-python-check")
     observation = _execute_action(workspace, PythonCheckAction(type="python_check", path=path, max_files=max_files))
     if observation.kind != "python_check":
         return {
@@ -97,7 +97,7 @@ def get_python_deps_report(
             "maxImports": max_imports,
             "message": f"Usage: /python-deps [path]\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-python-deps", session_dir=root / ".vibeagent" / "sessions" / "local-python-deps")
+    workspace = local_command_workspace(root, "local-python-deps")
     observation = _execute_action(
         workspace,
         PythonDependenciesAction(type="python_dependencies", path=path, max_files=max_files, max_imports=max_imports),

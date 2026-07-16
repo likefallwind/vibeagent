@@ -9,9 +9,9 @@ from .smart_code_common import (
     rename_unexpected_report as _rename_unexpected_report,
     rename_usage_report as _rename_usage_report,
 )
+from .local_command_workspace import local_command_workspace
 from .smart_code_parsing import parse_rename_argument, parse_replace_python_definition_argument
 from .types import CheckReplacePythonDefinitionAction, PythonRenameAction, PythonRenamePreviewAction, ReplacePythonDefinitionAction
-from .workspace_core import RunWorkspace
 
 
 def get_python_rename_preview_text(
@@ -56,7 +56,7 @@ def get_python_rename_preview_report(
         )
     except ValueError as error:
         return _rename_usage_report(root, usage, symbol, new_name, path, max_files, max_replacements, str(error))
-    workspace = RunWorkspace(root=root, run_id="local-python-rename-preview", session_dir=root / ".vibeagent" / "sessions" / "local-python-rename-preview")
+    workspace = local_command_workspace(root, "local-python-rename-preview")
     observation = _execute_action(
         workspace,
         PythonRenamePreviewAction(
@@ -115,7 +115,7 @@ def get_python_rename_report(
         )
     except ValueError as error:
         return _rename_usage_report(root, usage, symbol, new_name, path, max_files, max_replacements, str(error))
-    workspace = RunWorkspace(root=root, run_id="local-python-rename", session_dir=root / ".vibeagent" / "sessions" / "local-python-rename")
+    workspace = local_command_workspace(root, "local-python-rename")
     observation = _execute_action(
         workspace,
         PythonRenameAction(
@@ -162,7 +162,7 @@ def get_check_replace_python_definition_report(
         )
     except ValueError as error:
         return _replace_python_definition_usage_report(root, usage, symbol, path, str(error))
-    workspace = RunWorkspace(root=root, run_id="local-check-replace-python-def", session_dir=root / ".vibeagent" / "sessions" / "local-check-replace-python-def")
+    workspace = local_command_workspace(root, "local-check-replace-python-def")
     observation = _execute_action(
         workspace,
         CheckReplacePythonDefinitionAction(
@@ -207,7 +207,7 @@ def get_replace_python_definition_report(
         )
     except ValueError as error:
         return _replace_python_definition_usage_report(root, usage, symbol, path, str(error))
-    workspace = RunWorkspace(root=root, run_id="local-replace-python-def", session_dir=root / ".vibeagent" / "sessions" / "local-replace-python-def")
+    workspace = local_command_workspace(root, "local-replace-python-def")
     observation = _execute_action(
         workspace,
         ReplacePythonDefinitionAction(

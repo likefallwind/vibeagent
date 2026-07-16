@@ -8,9 +8,9 @@ from .smart_code_common import (
     plain_data as _plain_data,
     symbol_report_base as _symbol_report_base,
 )
+from .local_command_workspace import local_command_workspace
 from .smart_code_parsing import parse_symbol_path_argument
 from .types import PythonDefinitionsAction, PythonReferenceContextsAction, PythonReferencesAction
-from .workspace_core import RunWorkspace
 
 
 def get_python_defs_report(
@@ -26,7 +26,7 @@ def get_python_defs_report(
         usage_report["maxMatches"] = max_matches
         usage_report["maxLines"] = max_lines
         return usage_report
-    workspace = RunWorkspace(root=root, run_id="local-python-defs", session_dir=root / ".vibeagent" / "sessions" / "local-python-defs")
+    workspace = local_command_workspace(root, "local-python-defs")
     observation = _execute_action(
         workspace,
         PythonDefinitionsAction(type="python_definitions", symbol=parsed_symbol or "", path=parsed_path, max_matches=max_matches, max_lines=max_lines),
@@ -84,7 +84,7 @@ def get_python_refs_report(
     if usage_report is not None:
         usage_report["maxMatches"] = max_matches
         return usage_report
-    workspace = RunWorkspace(root=root, run_id="local-python-refs", session_dir=root / ".vibeagent" / "sessions" / "local-python-refs")
+    workspace = local_command_workspace(root, "local-python-refs")
     observation = _execute_action(workspace, PythonReferencesAction(type="python_references", symbol=parsed_symbol or "", path=parsed_path, max_matches=max_matches))
     if observation.kind != "python_references":
         return _python_symbol_unexpected_report(root, parsed_symbol or "", parsed_path, "references", f"Unexpected observation: {observation.kind}", max_matches=max_matches)
@@ -138,7 +138,7 @@ def get_python_ref_contexts_report(
         usage_report["contextLines"] = context_lines
         usage_report["maxBytesPerContext"] = max_bytes_per_context
         return usage_report
-    workspace = RunWorkspace(root=root, run_id="local-python-ref-contexts", session_dir=root / ".vibeagent" / "sessions" / "local-python-ref-contexts")
+    workspace = local_command_workspace(root, "local-python-ref-contexts")
     observation = _execute_action(
         workspace,
         PythonReferenceContextsAction(

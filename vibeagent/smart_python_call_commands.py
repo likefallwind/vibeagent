@@ -9,9 +9,9 @@ from .smart_code_common import (
     plain_data as _plain_data,
     symbol_report_base as _symbol_report_base,
 )
+from .local_command_workspace import local_command_workspace
 from .smart_code_parsing import parse_symbol_path_argument
 from .types import PythonCallGraphAction, PythonCallsAction
-from .workspace_core import RunWorkspace
 
 
 def get_python_calls_report(
@@ -25,7 +25,7 @@ def get_python_calls_report(
     if usage_report is not None:
         usage_report["maxMatches"] = max_matches
         return usage_report
-    workspace = RunWorkspace(root=root, run_id="local-python-calls", session_dir=root / ".vibeagent" / "sessions" / "local-python-calls")
+    workspace = local_command_workspace(root, "local-python-calls")
     observation = _execute_action(workspace, PythonCallsAction(type="python_calls", symbol=parsed_symbol or "", path=parsed_path, max_matches=max_matches))
     if observation.kind != "python_calls":
         return _python_call_unexpected_report(root, parsed_symbol or "", parsed_path, "calls", f"Unexpected observation: {observation.kind}", max_matches=max_matches)
@@ -75,7 +75,7 @@ def get_python_call_graph_report(project_root: str | Path = ".", argument: str |
             "maxEdges": max_edges,
             "message": f"Usage: /python-call-graph [path]\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-python-call-graph", session_dir=root / ".vibeagent" / "sessions" / "local-python-call-graph")
+    workspace = local_command_workspace(root, "local-python-call-graph")
     observation = _execute_action(workspace, PythonCallGraphAction(type="python_call_graph", path=path, max_files=max_files, max_edges=max_edges))
     if observation.kind != "python_call_graph":
         return {
