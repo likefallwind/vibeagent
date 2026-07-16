@@ -6,6 +6,7 @@ import sys
 from .actions import execute_action as _default_execute_action
 from .edit_command_parsing import parse_edit_file_argument, parse_multi_edit_file_argument
 from .edit_text_formatting import format_line_edit_report_text, serialize_line_edit_report
+from .edit_usage_report_helpers import line_edit_usage_report
 from .local_command_workspace import local_command_workspace
 from .types import CheckEditFileAction, CheckMultiEditAction, EditFileAction, EditOperation, MultiEditAction
 
@@ -57,14 +58,7 @@ def get_check_edit_file_report(
             usage="/check-edit <path> <old> <new>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_edit_file",
-            "ok": False,
-            "path": path or "",
-            "message": f"Usage: /check-edit <path> <old> <new>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(root, "check_edit_file", "/check-edit <path> <old> <new>", error, path=path)
     workspace = local_command_workspace(root, "local-check-edit")
     observation = _execute_action(workspace, CheckEditFileAction(type="check_edit_file", path=parsed_path, old=parsed_old, new=parsed_new))
     return serialize_line_edit_report(root, observation)
@@ -101,14 +95,7 @@ def get_edit_file_report(
             usage="/edit <path> <old> <new>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "edit_file",
-            "ok": False,
-            "path": path or "",
-            "message": f"Usage: /edit <path> <old> <new>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(root, "edit_file", "/edit <path> <old> <new>", error, path=path)
     workspace = local_command_workspace(root, "local-edit")
     observation = _execute_action(workspace, EditFileAction(type="edit_file", path=parsed_path, old=parsed_old, new=parsed_new))
     return serialize_line_edit_report(root, observation)
@@ -143,14 +130,7 @@ def get_check_multi_edit_file_report(
             usage="/check-multi-edit <path> <old> <new>...",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_multi_edit_file",
-            "ok": False,
-            "path": path or "",
-            "message": f"Usage: /check-multi-edit <path> <old> <new>...\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(root, "check_multi_edit_file", "/check-multi-edit <path> <old> <new>...", error, path=path)
     workspace = local_command_workspace(root, "local-check-multi-edit")
     observation = _execute_action(workspace, CheckMultiEditAction(type="check_multi_edit_file", path=parsed_path, edits=parsed_edits))
     return serialize_line_edit_report(root, observation)
@@ -184,14 +164,7 @@ def get_multi_edit_file_report(
             usage="/multi-edit <path> <old> <new>...",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "multi_edit_file",
-            "ok": False,
-            "path": path or "",
-            "message": f"Usage: /multi-edit <path> <old> <new>...\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(root, "multi_edit_file", "/multi-edit <path> <old> <new>...", error, path=path)
     workspace = local_command_workspace(root, "local-multi-edit")
     observation = _execute_action(workspace, MultiEditAction(type="multi_edit_file", path=parsed_path, edits=parsed_edits))
     return serialize_line_edit_report(root, observation)

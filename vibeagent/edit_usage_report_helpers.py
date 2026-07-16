@@ -50,3 +50,25 @@ def path_list_usage_report(root: Path, kind: str, usage: str, error: ValueError)
         "paths": {"total": 0, "items": []},
         "message": f"Usage: {usage}\nError: {error}",
     }
+
+
+def line_edit_usage_report(
+    root: Path,
+    kind: str,
+    usage: str,
+    error: ValueError,
+    *,
+    path: str | None = None,
+    fields: dict[str, object] | None = None,
+) -> dict[str, object]:
+    report: dict[str, object] = {
+        "projectRoot": str(root),
+        "kind": kind,
+        "ok": False,
+        "path": path or "",
+        "message": f"Usage: {usage}\nError: {error}",
+        "diff": {"text": "", "lines": [], "lineCount": 0},
+    }
+    if fields:
+        report.update(fields)
+    return report
