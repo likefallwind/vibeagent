@@ -3,12 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from .command_parsing import parse_local_path_args
+from .local_command_workspace import local_command_workspace
 from .project_command_utils import (
     commands_attr as _commands_attr,
     execute_action as _execute_action,
 )
 from .types import FileInfoAction, ImageInfoAction
-from .workspace_core import RunWorkspace
 
 
 def serialize_file_info_result(file: object) -> dict[str, object]:
@@ -48,7 +48,7 @@ def get_file_info_report(
             "message": "Usage: /file-info <path...>",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-file-info", session_dir=root / ".vibeagent" / "sessions" / "local-file-info")
+    workspace = local_command_workspace(root, "local-file-info")
     observation = _execute_action(
         workspace,
         FileInfoAction(
@@ -152,7 +152,7 @@ def get_image_info_report(
             "message": "Usage: /image-info <path...>",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-image-info", session_dir=root / ".vibeagent" / "sessions" / "local-image-info")
+    workspace = local_command_workspace(root, "local-image-info")
     observation = _execute_action(
         workspace,
         ImageInfoAction(
