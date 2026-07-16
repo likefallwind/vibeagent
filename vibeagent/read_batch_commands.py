@@ -6,10 +6,10 @@ import sys
 
 from .actions import execute_action as _default_execute_action
 from .command_parsing import parse_local_path_args
+from .local_command_workspace import local_command_workspace
 from .read_command_parsing import parse_read_ranges_argument, serialize_read_range_result, serialize_read_result
 from .read_report_helpers import format_read_files_report_text, format_read_ranges_report_text
 from .types import ReadFileRangesAction, ReadFilesAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -82,7 +82,7 @@ def get_read_files_report(
             "Usage: /read-files <path...>",
         )
 
-    workspace = RunWorkspace(root=root, run_id="local-read-files", session_dir=root / ".vibeagent" / "sessions" / "local-read-files")
+    workspace = local_command_workspace(root, "local-read-files")
     observation = _execute_action(
         workspace,
         ReadFilesAction(
@@ -156,7 +156,7 @@ def get_read_ranges_report(
             "Usage: /read-ranges <path:start[:end]...>",
         )
 
-    workspace = RunWorkspace(root=root, run_id="local-read-ranges", session_dir=root / ".vibeagent" / "sessions" / "local-read-ranges")
+    workspace = local_command_workspace(root, "local-read-ranges")
     observation = _execute_action(
         workspace,
         ReadFileRangesAction(type="read_file_ranges", ranges=ranges, max_bytes_per_range=max_bytes_per_range),
