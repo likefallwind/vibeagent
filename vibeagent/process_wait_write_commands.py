@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 
 from .actions import execute_action as _default_execute_action
+from .local_command_workspace import local_command_workspace
 from .process_request_parsing import parse_positive_decimal, parse_single_quoted_argument, split_process_argument, validate_max_output_chars
 from .process_report_helpers import (
     format_structured_command_output_analysis_lines,
@@ -13,7 +14,6 @@ from .process_report_helpers import (
     serialize_command_output_analysis,
 )
 from .types import CheckWriteProcessAction, WaitProcessAction, WriteProcessAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -96,7 +96,7 @@ def get_wait_process_report(
             "message": f"Usage: /wait-process <id> [timeout-ms] [chars]\nError: {error}",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-wait-process", session_dir=root / ".vibeagent" / "sessions" / "local-wait-process")
+    workspace = local_command_workspace(root, "local-wait-process")
     observation = _execute_action(
         workspace,
         WaitProcessAction(
@@ -254,7 +254,7 @@ def get_write_process_report(
             "message": f"Usage: /write-process <id> <text>\nError: {error}",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-write-process", session_dir=root / ".vibeagent" / "sessions" / "local-write-process")
+    workspace = local_command_workspace(root, "local-write-process")
     observation = _execute_action(
         workspace,
         WriteProcessAction(type="write_process", process_id=selected_process_id, content=selected_content),
@@ -324,7 +324,7 @@ def get_check_write_process_report(
             "message": f"Usage: /check-write-process <id> <text>\nError: {error}",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-check-write-process", session_dir=root / ".vibeagent" / "sessions" / "local-check-write-process")
+    workspace = local_command_workspace(root, "local-check-write-process")
     observation = _execute_action(
         workspace,
         CheckWriteProcessAction(type="check_write_process", process_id=selected_process_id, content=selected_content),
