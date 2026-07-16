@@ -14,6 +14,10 @@ from .git_stash_report_helpers import (
 from .local_command_workspace import local_command_workspace
 from .types import CheckGitStashApplyAction, GitStashApplyAction
 
+CHECK_STASH_APPLY_USAGE = "/check-stash-apply <stash@{N}>"
+STASH_APPLY_USAGE = "/stash-apply <stash@{N}>"
+STASH_REF_REQUIRED_ERROR = "stash ref is required."
+
 
 def _execute_action(*args: object, **kwargs: object) -> object:
     commands_module = sys.modules.get("vibeagent.git_commands")
@@ -40,7 +44,7 @@ def get_check_stash_apply_report(project_root: str | Path = ".", argument: str |
     root = Path(project_root).resolve()
     stash_ref = (argument or "").strip()
     if not stash_ref:
-        return _git_stash_apply_usage_report(root, "/check-stash-apply <stash@{N}>", "stash ref is required.", max_patch_chars)
+        return _git_stash_apply_usage_report(root, CHECK_STASH_APPLY_USAGE, STASH_REF_REQUIRED_ERROR, max_patch_chars)
 
     workspace = local_command_workspace(root, "local-check-stash-apply")
     observation = _execute_action(
@@ -63,7 +67,7 @@ def get_stash_apply_report(project_root: str | Path = ".", argument: str | None 
     root = Path(project_root).resolve()
     stash_ref = (argument or "").strip()
     if not stash_ref:
-        return _git_stash_apply_usage_report(root, "/stash-apply <stash@{N}>", "stash ref is required.", max_patch_chars)
+        return _git_stash_apply_usage_report(root, STASH_APPLY_USAGE, STASH_REF_REQUIRED_ERROR, max_patch_chars)
 
     workspace = local_command_workspace(root, "local-stash-apply")
     observation = _execute_action(
