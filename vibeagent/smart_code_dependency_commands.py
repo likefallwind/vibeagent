@@ -9,8 +9,8 @@ from .smart_code_common import (
     plain_data as _plain_data,
 )
 from .smart_code_formatting import format_code_deps_report_text
+from .local_command_workspace import local_command_workspace
 from .types import CodeDependenciesAction
-from .workspace_core import RunWorkspace
 
 
 def get_code_deps_report(
@@ -32,7 +32,7 @@ def get_code_deps_report(
             "maxImports": max_imports,
             "message": f"Usage: /code-deps [path]\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-code-deps", session_dir=root / ".vibeagent" / "sessions" / "local-code-deps")
+    workspace = local_command_workspace(root, "local-code-deps")
     observation = _execute_action(
         workspace,
         CodeDependenciesAction(type="code_dependencies", path=path, max_files=max_files, max_imports=max_imports),

@@ -13,9 +13,9 @@ from .smart_code_formatting import (
     format_code_ref_contexts_report_text,
     format_code_refs_report_text,
 )
+from .local_command_workspace import local_command_workspace
 from .smart_code_parsing import parse_symbol_path_argument
 from .types import CodeDefinitionsAction, CodeReferenceContextsAction, CodeReferencesAction
-from .workspace_core import RunWorkspace
 
 
 def _code_symbol_usage_report(
@@ -61,7 +61,7 @@ def get_code_refs_report(
     root, parsed_symbol, parsed_path, usage_report = _symbol_report_base(project_root, "/code-refs <symbol> [path]", parse_symbol_path_argument, argument, symbol, path)
     if usage_report is not None:
         return _code_symbol_usage_report(usage_report, "references", max_matches=max_matches)
-    workspace = RunWorkspace(root=root, run_id="local-code-refs", session_dir=root / ".vibeagent" / "sessions" / "local-code-refs")
+    workspace = local_command_workspace(root, "local-code-refs")
     observation = _execute_action(workspace, CodeReferencesAction(type="code_references", symbol=parsed_symbol or "", path=parsed_path, max_matches=max_matches))
     if observation.kind != "code_references":
         return _code_symbol_unexpected_report(root, parsed_symbol or "", parsed_path, "references", f"Unexpected observation: {observation.kind}", maxMatches=max_matches)
@@ -99,7 +99,7 @@ def get_code_ref_contexts_report(
             context_lines=context_lines,
             max_bytes_per_context=max_bytes_per_context,
         )
-    workspace = RunWorkspace(root=root, run_id="local-code-ref-contexts", session_dir=root / ".vibeagent" / "sessions" / "local-code-ref-contexts")
+    workspace = local_command_workspace(root, "local-code-ref-contexts")
     observation = _execute_action(
         workspace,
         CodeReferenceContextsAction(
@@ -151,7 +151,7 @@ def get_code_defs_report(
     root, parsed_symbol, parsed_path, usage_report = _symbol_report_base(project_root, "/code-defs <symbol> [path]", parse_symbol_path_argument, argument, symbol, path)
     if usage_report is not None:
         return _code_symbol_usage_report(usage_report, "definitions", max_matches=max_matches, max_lines=max_lines)
-    workspace = RunWorkspace(root=root, run_id="local-code-defs", session_dir=root / ".vibeagent" / "sessions" / "local-code-defs")
+    workspace = local_command_workspace(root, "local-code-defs")
     observation = _execute_action(
         workspace,
         CodeDefinitionsAction(type="code_definitions", symbol=parsed_symbol or "", path=parsed_path, max_matches=max_matches, max_lines=max_lines),
