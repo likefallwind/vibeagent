@@ -21,8 +21,8 @@ from .git_sync_report_helpers import (
     git_sync_preview_observation_report as _git_sync_preview_observation_report,
     git_sync_unexpected_report as _git_sync_unexpected_report,
 )
+from .local_command_workspace import local_command_workspace
 from .types import CheckGitFetchAction, CheckGitPullAction, CheckGitPushAction, GitFetchAction, GitPullAction, GitPushAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -51,7 +51,7 @@ def get_check_fetch_report(project_root: str | Path = ".", argument: str | None 
         remote = parse_optional_remote_argument(argument)
     except ValueError as error:
         return _git_fetch_usage_report(root, "/check-fetch [remote]", str(error))
-    workspace = RunWorkspace(root=root, run_id="local-check-fetch", session_dir=root / ".vibeagent" / "sessions" / "local-check-fetch")
+    workspace = local_command_workspace(root, "local-check-fetch")
     observation = _execute_action(workspace, CheckGitFetchAction(type="check_git_fetch", remote=remote))
     if observation.kind != "check_git_fetch":
         return _git_fetch_unexpected_report(root, f"Unexpected observation: {observation.kind}")
@@ -80,7 +80,7 @@ def get_fetch_report(project_root: str | Path = ".", argument: str | None = None
         remote = parse_optional_remote_argument(argument)
     except ValueError as error:
         return _git_fetch_usage_report(root, "/fetch [remote]", str(error))
-    workspace = RunWorkspace(root=root, run_id="local-fetch", session_dir=root / ".vibeagent" / "sessions" / "local-fetch")
+    workspace = local_command_workspace(root, "local-fetch")
     observation = _execute_action(workspace, GitFetchAction(type="git_fetch", remote=remote))
     if observation.kind != "git_fetch":
         return _git_fetch_unexpected_report(root, f"Unexpected observation: {observation.kind}")
@@ -107,7 +107,7 @@ def get_check_pull_text(project_root: str | Path = ".") -> str:
 
 def get_check_pull_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-check-pull", session_dir=root / ".vibeagent" / "sessions" / "local-check-pull")
+    workspace = local_command_workspace(root, "local-check-pull")
     observation = _execute_action(workspace, CheckGitPullAction(type="check_git_pull"))
     if observation.kind != "check_git_pull":
         return _git_sync_unexpected_report(root, f"Unexpected observation: {observation.kind}")
@@ -122,7 +122,7 @@ def get_pull_text(project_root: str | Path = ".") -> str:
 
 def get_pull_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-pull", session_dir=root / ".vibeagent" / "sessions" / "local-pull")
+    workspace = local_command_workspace(root, "local-pull")
     observation = _execute_action(workspace, GitPullAction(type="git_pull"))
     if observation.kind != "git_pull":
         return _git_sync_unexpected_report(root, f"Unexpected observation: {observation.kind}")
@@ -151,7 +151,7 @@ def get_check_push_text(project_root: str | Path = ".") -> str:
 
 def get_check_push_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-check-push", session_dir=root / ".vibeagent" / "sessions" / "local-check-push")
+    workspace = local_command_workspace(root, "local-check-push")
     observation = _execute_action(workspace, CheckGitPushAction(type="check_git_push"))
     if observation.kind != "check_git_push":
         return _git_sync_unexpected_report(root, f"Unexpected observation: {observation.kind}")
@@ -166,7 +166,7 @@ def get_push_text(project_root: str | Path = ".") -> str:
 
 def get_push_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-push", session_dir=root / ".vibeagent" / "sessions" / "local-push")
+    workspace = local_command_workspace(root, "local-push")
     observation = _execute_action(workspace, GitPushAction(type="git_push"))
     if observation.kind != "git_push":
         return _git_sync_unexpected_report(root, f"Unexpected observation: {observation.kind}")
