@@ -11,6 +11,10 @@ from .git_read_report_helpers import format_blame_report_text, format_log_report
 from .local_command_workspace import local_command_workspace
 from .types import GitBlameAction, GitLogAction, GitShowAction
 
+LOG_USAGE = "Usage: /log [path] [count]"
+SHOW_USAGE = "Usage: /show [rev] [path]"
+BLAME_USAGE = "Usage: /blame <path> [start[:end]]"
+
 
 def _execute_action(*args: object, **kwargs: object) -> object:
     commands_module = sys.modules.get("vibeagent.git_commands")
@@ -28,6 +32,10 @@ def _git_command_function(name: str, default: Callable[..., object]) -> Callable
 
 def _split_nonempty_lines(value: str) -> list[str]:
     return [line for line in value.splitlines() if line.strip()]
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
 
 
 def _git_output_payload(output: str, *, truncated: bool, max_output_chars: int) -> dict[str, object]:
@@ -99,7 +107,7 @@ def get_log_report(project_root: str | Path = ".", argument: str | None = None, 
             "maxCount": max_count,
             "commits": {"shown": 0, "items": []},
             "log": "",
-            "message": f"Usage: /log [path] [count]\nError: {error}",
+            "message": _usage_error(LOG_USAGE, error),
         }
 
     root = Path(project_root).resolve()
@@ -187,7 +195,7 @@ def get_show_report(
             "rev": rev or "HEAD",
             "path": path or ".",
             "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
-            "message": "Usage: /show [rev] [path]\nError: max_output_chars must be at least 1000.",
+            "message": _usage_error(SHOW_USAGE, "max_output_chars must be at least 1000."),
         }
     if max_output_chars > 50_000:
         return {
@@ -196,7 +204,7 @@ def get_show_report(
             "rev": rev or "HEAD",
             "path": path or ".",
             "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
-            "message": "Usage: /show [rev] [path]\nError: max_output_chars must be at most 50000.",
+            "message": _usage_error(SHOW_USAGE, "max_output_chars must be at most 50000."),
         }
     try:
         selected_rev, selected_path = parse_show_request(argument, rev, path)
@@ -207,7 +215,7 @@ def get_show_report(
             "rev": rev or "HEAD",
             "path": path or ".",
             "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
-            "message": f"Usage: /show [rev] [path]\nError: {error}",
+            "message": _usage_error(SHOW_USAGE, error),
         }
 
     root = Path(project_root).resolve()
@@ -272,7 +280,7 @@ def get_blame_report(
             "startLine": None,
             "lineCount": None,
             "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
-            "message": "Usage: /blame <path> [start[:end]]\nError: max_output_chars must be at least 1000.",
+            "message": _usage_error(BLAME_USAGE, "max_output_chars must be at least 1000."),
         }
     if max_output_chars > 50_000:
         return {
@@ -283,7 +291,7 @@ def get_blame_report(
             "startLine": None,
             "lineCount": None,
             "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
-            "message": "Usage: /blame <path> [start[:end]]\nError: max_output_chars must be at most 50000.",
+            "message": _usage_error(BLAME_USAGE, "max_output_chars must be at most 50000."),
         }
     if argument is None or not argument.strip():
         return {
@@ -294,7 +302,7 @@ def get_blame_report(
             "startLine": None,
             "lineCount": None,
             "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
-            "message": "Usage: /blame <path> [start[:end]]",
+            "message": BLAME_USAGE,
         }
     try:
         path, start_line, line_count, range_label = parse_read_request(argument, line_range)
@@ -307,7 +315,7 @@ def get_blame_report(
             "startLine": None,
             "lineCount": None,
             "output": _git_output_payload("", truncated=False, max_output_chars=max_output_chars),
-            "message": f"Usage: /blame <path> [start[:end]]\nError: {error}",
+            "message": _usage_error(BLAME_USAGE, error),
         }
 
     root = Path(project_root).resolve()
