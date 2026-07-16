@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .local_command_workspace import local_command_workspace
 from .project_command_utils import commands_attr, execute_action
 from .types import FindFilesAction, GlobAction, ListTreeAction
-from .workspace_core import RunWorkspace
 
 
 def get_find_files_report(
@@ -30,7 +30,7 @@ def get_find_files_report(
             "includeDirs": include_dirs,
             "message": "Usage: /find-files [--path PATH] [--max-matches N] [--regex] [--case-sensitive] [--include-dirs] -- <query>",
         }
-    workspace = RunWorkspace(root=root, run_id="local-find-files", session_dir=root / ".vibeagent" / "sessions" / "local-find-files")
+    workspace = local_command_workspace(root, "local-find-files")
     observation = execute_action(
         workspace,
         FindFilesAction(
@@ -143,7 +143,7 @@ def get_glob_report(
             "includeDirs": include_dirs,
             "message": "Usage: /glob [--max-matches N] [--include-dirs] -- <pattern>",
         }
-    workspace = RunWorkspace(root=root, run_id="local-glob", session_dir=root / ".vibeagent" / "sessions" / "local-glob")
+    workspace = local_command_workspace(root, "local-glob")
     observation = execute_action(
         workspace,
         GlobAction(
@@ -222,7 +222,7 @@ def get_tree_report(
 ) -> dict[str, object]:
     root = Path(project_root).resolve()
     selected_path = path.strip() if path else None
-    workspace = RunWorkspace(root=root, run_id="local-tree", session_dir=root / ".vibeagent" / "sessions" / "local-tree")
+    workspace = local_command_workspace(root, "local-tree")
     observation = execute_action(
         workspace,
         ListTreeAction(
