@@ -5,8 +5,8 @@ import sys
 
 from .actions import execute_action as _default_execute_action
 from .edit_command_parsing import parse_regex_replace_argument
+from .local_command_workspace import local_command_workspace
 from .types import CheckRegexReplaceAction, RegexReplaceAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -93,7 +93,7 @@ def get_check_regex_replace_report(
             "message": f"Usage: /check-regex-replace [--ignore-case] [--multiline] [--count N] [--max-replacements N] <path> <pattern> <replacement>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-regex-replace", session_dir=root / ".vibeagent" / "sessions" / "local-check-regex-replace")
+    workspace = local_command_workspace(root, "local-check-regex-replace")
     observation = _execute_action(workspace, CheckRegexReplaceAction(type="check_regex_replace", **parsed))
     return serialize_regex_replace_report(root, observation, parsed)
 
@@ -169,7 +169,7 @@ def get_regex_replace_report(
             "message": f"Usage: /regex-replace [--ignore-case] [--multiline] [--count N] [--max-replacements N] <path> <pattern> <replacement>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-regex-replace", session_dir=root / ".vibeagent" / "sessions" / "local-regex-replace")
+    workspace = local_command_workspace(root, "local-regex-replace")
     observation = _execute_action(workspace, RegexReplaceAction(type="regex_replace", **parsed))
     return serialize_regex_replace_report(root, observation, parsed)
 
