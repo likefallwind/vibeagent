@@ -10,6 +10,7 @@ from .read_batch_commands import (
     get_read_ranges_text,
 )
 from .read_command_parsing import parse_around_many_argument, parse_around_request, parse_read_request, parse_tail_request, serialize_context_result
+from .local_command_workspace import local_command_workspace
 from .read_report_helpers import (
     format_around_many_report_text,
     format_around_report_text,
@@ -20,7 +21,6 @@ from .read_report_helpers import (
     indent_block as _indent_block,
 )
 from .types import ReadFileAction, ReadFileContextAction, ReadFileContextsAction, TailFileAction
-from .workspace_core import RunWorkspace
 
 
 def get_read_text(
@@ -76,7 +76,7 @@ def get_read_report(
             "message": f"Usage: /read <path> [start[:end]]\nError: {error}",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-read", session_dir=root / ".vibeagent" / "sessions" / "local-read")
+    workspace = local_command_workspace(root, "local-read")
     observation = execute_action(
         workspace,
         ReadFileAction(
@@ -171,7 +171,7 @@ def get_tail_report(
             "message": "Usage: /tail <path> [lines]",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-tail", session_dir=root / ".vibeagent" / "sessions" / "local-tail")
+    workspace = local_command_workspace(root, "local-tail")
     observation = execute_action(
         workspace,
         TailFileAction(type="tail_file", path=path, line_count=requested_lines, max_bytes=max_bytes),
@@ -251,7 +251,7 @@ def get_around_report(
             "message": "Usage: /around <path> <line> [context-lines]",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-around", session_dir=root / ".vibeagent" / "sessions" / "local-around")
+    workspace = local_command_workspace(root, "local-around")
     observation = execute_action(
         workspace,
         ReadFileContextAction(
@@ -333,7 +333,7 @@ def get_around_many_report(
             "message": "Usage: /around-many <path:line[:context-lines]...>",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-around-many", session_dir=root / ".vibeagent" / "sessions" / "local-around-many")
+    workspace = local_command_workspace(root, "local-around-many")
     observation = execute_action(
         workspace,
         ReadFileContextsAction(
