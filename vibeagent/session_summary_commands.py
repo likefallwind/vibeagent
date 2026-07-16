@@ -13,6 +13,9 @@ from .session import (
 )
 from .session_input import normalize_optional_run_id
 
+SESSION_USAGE = "Usage: /session <run-id>"
+SESSION_SEARCH_USAGE = "Usage: /session-search [--run run-id] <query>"
+
 
 def _clip(value: str, max_length: int) -> str:
     compacted = value.strip()
@@ -35,7 +38,7 @@ def get_session_report(run_id: str | None, project_root: str | Path = ".") -> di
             "exists": False,
             "ok": False,
             "status": "invalid",
-            "message": "Usage: /session <run-id>",
+            "message": SESSION_USAGE,
         }
     try:
         return build_session_summary_report(summarize_session(project_root, selected))
@@ -411,7 +414,7 @@ def get_session_search_report(
             "exists": False,
             "ok": False,
             "status": "invalid",
-            "message": "Usage: /session-search [--run run-id] <query>",
+            "message": SESSION_SEARCH_USAGE,
         }
     query = argument.strip()
     if selected is None:
