@@ -8,8 +8,8 @@ import sys
 from .actions import execute_action as _default_execute_action
 from .read_command_parsing import parse_read_request
 from .git_read_report_helpers import format_blame_report_text, format_log_report_text, format_show_report_text
+from .local_command_workspace import local_command_workspace
 from .types import GitBlameAction, GitLogAction, GitShowAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -103,7 +103,7 @@ def get_log_report(project_root: str | Path = ".", argument: str | None = None, 
         }
 
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-log", session_dir=root / ".vibeagent" / "sessions" / "local-log")
+    workspace = local_command_workspace(root, "local-log")
     observation = _execute_action(
         workspace,
         GitLogAction(type="git_log", path=path, max_count=selected_count),
@@ -211,7 +211,7 @@ def get_show_report(
         }
 
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-show", session_dir=root / ".vibeagent" / "sessions" / "local-show")
+    workspace = local_command_workspace(root, "local-show")
     observation = _execute_action(
         workspace,
         GitShowAction(type="git_show", rev=selected_rev, path=selected_path, max_output_chars=max_output_chars),
@@ -311,7 +311,7 @@ def get_blame_report(
         }
 
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-blame", session_dir=root / ".vibeagent" / "sessions" / "local-blame")
+    workspace = local_command_workspace(root, "local-blame")
     observation = _execute_action(
         workspace,
         GitBlameAction(
