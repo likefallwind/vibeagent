@@ -11,8 +11,8 @@ from .git_local_report_helpers import (
     git_commit_unexpected_report as _git_commit_unexpected_report,
     git_commit_usage_report as _git_commit_usage_report,
 )
+from .local_command_workspace import local_command_workspace
 from .types import CheckGitCommitAction, GitCommitAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -41,7 +41,7 @@ def get_check_commit_report(project_root: str | Path = ".", argument: str | None
     if not message:
         return _git_commit_usage_report(root, "/check-commit <message>", "message is required.")
 
-    workspace = RunWorkspace(root=root, run_id="local-check-commit", session_dir=root / ".vibeagent" / "sessions" / "local-check-commit")
+    workspace = local_command_workspace(root, "local-check-commit")
     observation = _execute_action(
         workspace,
         CheckGitCommitAction(type="check_git_commit", message=message),
@@ -63,7 +63,7 @@ def get_commit_report(project_root: str | Path = ".", argument: str | None = Non
     if not message:
         return _git_commit_usage_report(root, "/commit <message>", "message is required.")
 
-    workspace = RunWorkspace(root=root, run_id="local-commit", session_dir=root / ".vibeagent" / "sessions" / "local-commit")
+    workspace = local_command_workspace(root, "local-commit")
     observation = _execute_action(
         workspace,
         GitCommitAction(type="git_commit", message=message),
