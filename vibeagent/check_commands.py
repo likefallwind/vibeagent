@@ -21,10 +21,17 @@ from .workspace_core import create_local_workspace
 from .workspace import suggest_project_checks
 from .workflow_commands import format_review_check
 
+CHECK_SUGGESTED_CHECKS_USAGE = "Usage: /check-suggested-checks [max|--max-checks N]"
+RUN_SUGGESTED_CHECKS_USAGE = "Usage: /run-suggested-checks [max]"
+
 
 def _indent_block(value: str, spaces: int = 2) -> str:
     indent = " " * spaces
     return "\n".join(f"{indent}{line}" if line else "" for line in value.splitlines())
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
 
 
 def get_checks_report(project_root: str | Path = ".", max_checks: int = 20) -> dict[str, object]:
@@ -212,7 +219,7 @@ def get_check_suggested_checks_report(
     except ValueError as error:
         return _check_suggested_checks_failure_report(
             root,
-            f"Usage: /check-suggested-checks [max|--max-checks N]\nError: {error}",
+            _usage_error(CHECK_SUGGESTED_CHECKS_USAGE, error),
             selected_max=max_checks,
         )
 
@@ -323,21 +330,21 @@ def get_run_suggested_checks_report(
     try:
         selected_max = parse_suggested_checks_limit(argument, max_checks)
     except ValueError as error:
-        return failure(f"Usage: /run-suggested-checks [max]\nError: {error}")
+        return failure(_usage_error(RUN_SUGGESTED_CHECKS_USAGE, error))
     if timeout_ms < 100:
-        return failure("Usage: /run-suggested-checks [max]\nError: timeout_ms must be at least 100.", selected_max)
+        return failure(_usage_error(RUN_SUGGESTED_CHECKS_USAGE, "timeout_ms must be at least 100."), selected_max)
     if timeout_ms > 600_000:
-        return failure("Usage: /run-suggested-checks [max]\nError: timeout_ms must be at most 600000.", selected_max)
+        return failure(_usage_error(RUN_SUGGESTED_CHECKS_USAGE, "timeout_ms must be at most 600000."), selected_max)
     if max_output_chars < 1_000:
-        return failure("Usage: /run-suggested-checks [max]\nError: max_output_chars must be at least 1000.", selected_max)
+        return failure(_usage_error(RUN_SUGGESTED_CHECKS_USAGE, "max_output_chars must be at least 1000."), selected_max)
     if max_output_chars > 50_000:
-        return failure("Usage: /run-suggested-checks [max]\nError: max_output_chars must be at most 50000.", selected_max)
+        return failure(_usage_error(RUN_SUGGESTED_CHECKS_USAGE, "max_output_chars must be at most 50000."), selected_max)
     output_context_error = validate_run_output_context_options(
         context_lines=context_lines,
         max_diagnostics=max_diagnostics,
         max_contexts=max_contexts,
         max_bytes_per_context=max_bytes_per_context,
-        usage="Usage: /run-suggested-checks [max]",
+        usage=RUN_SUGGESTED_CHECKS_USAGE,
     )
     if output_context_error:
         return failure(output_context_error, selected_max)
