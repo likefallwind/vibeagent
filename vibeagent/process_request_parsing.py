@@ -22,14 +22,14 @@ def parse_process_request(
 ) -> tuple[str, int | None]:
     selected_process_id = process_id.strip() if process_id else None
     selected_max = max_output_chars
+    if argument and argument.strip() and process_id is not None:
+        raise ValueError("process argument cannot be combined with explicit process_id.")
     parts = split_process_argument(
         argument,
         max_parts=2,
         too_many_message="expected process id and optional max chars.",
     )
     if parts:
-        if process_id is not None:
-            raise ValueError("process argument cannot be combined with explicit process_id.")
         selected_process_id = parts[0]
         if len(parts) == 2:
             selected_max = parse_positive_decimal(parts[1], "max chars")

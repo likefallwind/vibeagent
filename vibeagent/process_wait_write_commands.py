@@ -198,14 +198,14 @@ def parse_wait_process_request(
     selected_process_id = process_id.strip() if process_id else None
     selected_timeout = timeout_ms
     selected_max = max_output_chars
+    if argument and argument.strip() and process_id is not None:
+        raise ValueError("wait-process argument cannot be combined with explicit process_id.")
     parts = split_process_argument(
         argument,
         max_parts=3,
         too_many_message="expected process id, optional timeout ms, and optional max chars.",
     )
     if parts:
-        if process_id is not None:
-            raise ValueError("wait-process argument cannot be combined with explicit process_id.")
         selected_process_id = parts[0]
         if len(parts) >= 2:
             selected_timeout = parse_positive_decimal(parts[1], "timeout ms")

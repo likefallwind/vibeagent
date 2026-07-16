@@ -89,6 +89,10 @@ class ProcessOutputCommandModuleTests(unittest.TestCase):
         self.assertEqual(parse_process_request("bg-1 2000"), ("bg-1", 2000))
         self.assertEqual(parse_process_request(process_id="bg-1", max_output_chars=3000), ("bg-1", 3000))
 
+    def test_parse_process_request_reports_argument_conflict_before_argument_shape(self) -> None:
+        with self.assertRaisesRegex(ValueError, "process argument cannot be combined with explicit process_id"):
+            parse_process_request("bg-1 2000 extra", process_id="bg-2")
+
 
 if __name__ == "__main__":
     unittest.main()
