@@ -12,6 +12,13 @@ from .smart_code_common import (
 from .local_command_workspace import local_command_workspace
 from .types import PythonCheckAction, PythonDependenciesAction
 
+PYTHON_CHECK_USAGE = "Usage: /python-check [path]"
+PYTHON_DEPS_USAGE = "Usage: /python-deps [path]"
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
+
 
 def get_python_check_report(project_root: str | Path = ".", argument: str | None = None, max_files: int = 200) -> dict[str, object]:
     root = Path(project_root).resolve()
@@ -24,7 +31,7 @@ def get_python_check_report(project_root: str | Path = ".", argument: str | None
             "path": ".",
             "files": {"shown": 0, "total": 0, "truncated": False, "items": []},
             "maxFiles": max_files,
-            "message": f"Usage: /python-check [path]\nError: {error}",
+            "message": _usage_error(PYTHON_CHECK_USAGE, error),
         }
     workspace = local_command_workspace(root, "local-python-check")
     observation = _execute_action(workspace, PythonCheckAction(type="python_check", path=path, max_files=max_files))
@@ -95,7 +102,7 @@ def get_python_deps_report(
             "files": {"shown": 0, "total": 0, "truncated": False, "items": []},
             "maxFiles": max_files,
             "maxImports": max_imports,
-            "message": f"Usage: /python-deps [path]\nError: {error}",
+            "message": _usage_error(PYTHON_DEPS_USAGE, error),
         }
     workspace = local_command_workspace(root, "local-python-deps")
     observation = _execute_action(
