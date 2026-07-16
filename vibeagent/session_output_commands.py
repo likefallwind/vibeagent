@@ -3,11 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from .actions import execute_action
+from .local_command_workspace import local_command_workspace
 from .output_serialization import serialize_output_context_result, serialize_output_diagnostic
 from .session import get_last_session_id
 from .session_input import normalize_optional_run_id
 from .types import SessionOutputContextsAction, SessionOutputDiagnosticsAction
-from .workspace_core import RunWorkspace
 
 
 def _indent_block(value: str, spaces: int = 2) -> str:
@@ -50,7 +50,7 @@ def get_session_output_contexts_observation(
     if not selected:
         return None
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-session-output-contexts", session_dir=root / ".vibeagent" / "sessions" / "local-session-output-contexts")
+    workspace = local_command_workspace(root, "local-session-output-contexts")
     return execute_action(
         workspace,
         SessionOutputContextsAction(
@@ -255,7 +255,7 @@ def get_session_output_diagnostics_observation(
     if not selected:
         return None
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-session-output-diagnostics", session_dir=root / ".vibeagent" / "sessions" / "local-session-output-diagnostics")
+    workspace = local_command_workspace(root, "local-session-output-diagnostics")
     return execute_action(
         workspace,
         SessionOutputDiagnosticsAction(
