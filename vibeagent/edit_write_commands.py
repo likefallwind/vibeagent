@@ -11,8 +11,8 @@ from .edit_text_formatting import (
     serialize_line_edit_report,
     serialize_write_files_report,
 )
+from .local_command_workspace import local_command_workspace
 from .types import CheckWriteFileAction, CheckWriteFilesAction, WriteFileAction, WriteFileItem, WriteFilesAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -67,7 +67,7 @@ def get_check_write_file_report(
             "message": f"Usage: /check-write <path> <text>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-write", session_dir=root / ".vibeagent" / "sessions" / "local-check-write")
+    workspace = local_command_workspace(root, "local-check-write")
     observation = _execute_action(workspace, CheckWriteFileAction(type="check_write_file", path=parsed_path, content=parsed_content))
     return serialize_line_edit_report(root, observation)
 
@@ -108,7 +108,7 @@ def get_write_file_report(
             "message": f"Usage: /write <path> <text>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-write", session_dir=root / ".vibeagent" / "sessions" / "local-write")
+    workspace = local_command_workspace(root, "local-write")
     observation = _execute_action(workspace, WriteFileAction(type="write_file", path=parsed_path, content=parsed_content))
     return serialize_line_edit_report(root, observation)
 
@@ -142,7 +142,7 @@ def get_check_write_files_report(
             "files": {"total": 0, "items": []},
             "message": f"Usage: /check-write-files <path> <text>...\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-write-files", session_dir=root / ".vibeagent" / "sessions" / "local-check-write-files")
+    workspace = local_command_workspace(root, "local-check-write-files")
     observation = _execute_action(workspace, CheckWriteFilesAction(type="check_write_files", files=parsed_files))
     return serialize_write_files_report(root, observation)
 
@@ -175,6 +175,6 @@ def get_write_files_report(
             "files": {"total": 0, "items": []},
             "message": f"Usage: /write-files <path> <text>...\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-write-files", session_dir=root / ".vibeagent" / "sessions" / "local-write-files")
+    workspace = local_command_workspace(root, "local-write-files")
     observation = _execute_action(workspace, WriteFilesAction(type="write_files", files=parsed_files))
     return serialize_write_files_report(root, observation)
