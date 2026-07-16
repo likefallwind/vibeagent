@@ -16,6 +16,10 @@ from .process_report_helpers import (
 )
 from .types import CheckWriteProcessAction, WaitProcessAction, WriteProcessAction
 
+WAIT_PROCESS_USAGE = "Usage: /wait-process <id> [timeout-ms] [chars]"
+WRITE_PROCESS_USAGE = "Usage: /write-process <id> <text>"
+CHECK_WRITE_PROCESS_USAGE = "Usage: /check-write-process <id> <text>"
+
 
 def _wait_process_failure_report(
     root: Path,
@@ -44,6 +48,10 @@ def _wait_process_failure_report(
         "analysis": empty_command_output_analysis(),
         "message": message,
     }
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
 
 
 def _write_process_failure_report(
@@ -129,7 +137,7 @@ def get_wait_process_report(
             process_id or "",
             timeout_ms,
             max_output_chars,
-            f"Usage: /wait-process <id> [timeout-ms] [chars]\nError: {error}",
+            _usage_error(WAIT_PROCESS_USAGE, error),
         )
 
     workspace = local_command_workspace(root, "local-wait-process")
@@ -269,7 +277,7 @@ def get_write_process_report(
             root,
             process_id or "",
             len(content or ""),
-            f"Usage: /write-process <id> <text>\nError: {error}",
+            _usage_error(WRITE_PROCESS_USAGE, error),
         )
 
     workspace = local_command_workspace(root, "local-write-process")
@@ -329,7 +337,7 @@ def get_check_write_process_report(
             root,
             process_id or "",
             len(content or ""),
-            f"Usage: /check-write-process <id> <text>\nError: {error}",
+            _usage_error(CHECK_WRITE_PROCESS_USAGE, error),
         )
 
     workspace = local_command_workspace(root, "local-check-write-process")
