@@ -12,8 +12,8 @@ from .git_local_report_helpers import (
     git_index_unexpected_report as _git_index_unexpected_report,
     git_index_usage_report as _git_index_usage_report,
 )
+from .local_command_workspace import local_command_workspace
 from .types import CheckGitStageAction, CheckGitUnstageAction, GitStageAction, GitUnstageAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -46,7 +46,7 @@ def get_check_stage_report(project_root: str | Path = ".", argument: str | list[
     if not paths:
         return _git_index_usage_report(root, usage, "path is required.")
 
-    workspace = RunWorkspace(root=root, run_id="local-check-stage", session_dir=root / ".vibeagent" / "sessions" / "local-check-stage")
+    workspace = local_command_workspace(root, "local-check-stage")
     observation = _execute_action(
         workspace,
         CheckGitStageAction(type="check_git_stage", paths=paths),
@@ -72,7 +72,7 @@ def get_stage_report(project_root: str | Path = ".", argument: str | list[str] |
     if not paths:
         return _git_index_usage_report(root, usage, "path is required.")
 
-    workspace = RunWorkspace(root=root, run_id="local-stage", session_dir=root / ".vibeagent" / "sessions" / "local-stage")
+    workspace = local_command_workspace(root, "local-stage")
     observation = _execute_action(
         workspace,
         GitStageAction(type="git_stage", paths=paths),
@@ -98,7 +98,7 @@ def get_check_unstage_report(project_root: str | Path = ".", argument: str | lis
     if not paths:
         return _git_index_usage_report(root, usage, "path is required.")
 
-    workspace = RunWorkspace(root=root, run_id="local-check-unstage", session_dir=root / ".vibeagent" / "sessions" / "local-check-unstage")
+    workspace = local_command_workspace(root, "local-check-unstage")
     observation = _execute_action(
         workspace,
         CheckGitUnstageAction(type="check_git_unstage", paths=paths),
@@ -124,7 +124,7 @@ def get_unstage_report(project_root: str | Path = ".", argument: str | list[str]
     if not paths:
         return _git_index_usage_report(root, usage, "path is required.")
 
-    workspace = RunWorkspace(root=root, run_id="local-unstage", session_dir=root / ".vibeagent" / "sessions" / "local-unstage")
+    workspace = local_command_workspace(root, "local-unstage")
     observation = _execute_action(
         workspace,
         GitUnstageAction(type="git_unstage", paths=paths),
