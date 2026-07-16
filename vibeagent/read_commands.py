@@ -22,6 +22,11 @@ from .read_report_helpers import (
 )
 from .types import ReadFileAction, ReadFileContextAction, ReadFileContextsAction, TailFileAction
 
+READ_USAGE = "Usage: /read <path> [start[:end]]"
+TAIL_USAGE = "Usage: /tail <path> [lines]"
+AROUND_USAGE = "Usage: /around <path> <line> [context-lines]"
+AROUND_MANY_USAGE = "Usage: /around-many <path:line[:context-lines]...>"
+
 
 def _read_failure_report(
     root: Path,
@@ -45,6 +50,10 @@ def _read_failure_report(
         "read": {"content": "", "totalBytes": None, "maxBytes": max_bytes, "truncated": False},
         "message": message,
     }
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
 
 
 def _tail_failure_report(
@@ -150,7 +159,7 @@ def get_read_report(
     if argument is None or not argument.strip():
         return _read_failure_report(
             root,
-            "Usage: /read <path> [start[:end]]",
+            READ_USAGE,
             max_bytes=max_bytes,
             show_line_numbers=show_line_numbers,
         )
@@ -159,7 +168,7 @@ def get_read_report(
     except ValueError as error:
         return _read_failure_report(
             root,
-            f"Usage: /read <path> [start[:end]]\nError: {error}",
+            _usage_error(READ_USAGE, error),
             max_bytes=max_bytes,
             show_line_numbers=show_line_numbers,
         )
@@ -226,14 +235,14 @@ def get_tail_report(
     if max_bytes < 1_000:
         return _tail_failure_report(
             root,
-            "Usage: /tail <path> [lines]\nError: max_bytes must be at least 1000.",
+            _usage_error(TAIL_USAGE, "max_bytes must be at least 1000."),
             requested_lines=line_count,
             max_bytes=max_bytes,
         )
     if max_bytes > 200_000:
         return _tail_failure_report(
             root,
-            "Usage: /tail <path> [lines]\nError: max_bytes must be at most 200000.",
+            _usage_error(TAIL_USAGE, "max_bytes must be at most 200000."),
             requested_lines=line_count,
             max_bytes=max_bytes,
         )
@@ -242,14 +251,14 @@ def get_tail_report(
     except ValueError as error:
         return _tail_failure_report(
             root,
-            f"Usage: /tail <path> [lines]\nError: {error}",
+            _usage_error(TAIL_USAGE, error),
             requested_lines=line_count,
             max_bytes=max_bytes,
         )
     if path is None:
         return _tail_failure_report(
             root,
-            "Usage: /tail <path> [lines]",
+            TAIL_USAGE,
             requested_lines=requested_lines,
             max_bytes=max_bytes,
         )
@@ -307,14 +316,14 @@ def get_around_report(
     except ValueError as error:
         return _around_failure_report(
             root,
-            f"Usage: /around <path> <line> [context-lines]\nError: {error}",
+            _usage_error(AROUND_USAGE, error),
             context_lines=context_lines,
             max_bytes=max_bytes,
         )
     if path is None or line is None:
         return _around_failure_report(
             root,
-            "Usage: /around <path> <line> [context-lines]",
+            AROUND_USAGE,
             context_lines=context_lines,
             max_bytes=max_bytes,
         )
@@ -369,13 +378,13 @@ def get_around_many_report(
     if max_bytes_per_context < 1_000:
         return _around_many_failure_report(
             root,
-            "Usage: /around-many <path:line[:context-lines]...>\nError: max_bytes_per_context must be at least 1000.",
+            _usage_error(AROUND_MANY_USAGE, "max_bytes_per_context must be at least 1000."),
             max_bytes_per_context=max_bytes_per_context,
         )
     if max_bytes_per_context > 200_000:
         return _around_many_failure_report(
             root,
-            "Usage: /around-many <path:line[:context-lines]...>\nError: max_bytes_per_context must be at most 200000.",
+            _usage_error(AROUND_MANY_USAGE, "max_bytes_per_context must be at most 200000."),
             max_bytes_per_context=max_bytes_per_context,
         )
     try:
@@ -383,13 +392,13 @@ def get_around_many_report(
     except ValueError as error:
         return _around_many_failure_report(
             root,
-            f"Usage: /around-many <path:line[:context-lines]...>\nError: {error}",
+            _usage_error(AROUND_MANY_USAGE, error),
             max_bytes_per_context=max_bytes_per_context,
         )
     if not contexts:
         return _around_many_failure_report(
             root,
-            "Usage: /around-many <path:line[:context-lines]...>",
+            AROUND_MANY_USAGE,
             max_bytes_per_context=max_bytes_per_context,
         )
 
