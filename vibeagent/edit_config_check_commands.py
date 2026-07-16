@@ -6,8 +6,8 @@ import sys
 
 from .actions import execute_action as _default_execute_action
 from .command_parsing import parse_optional_single_path_argument
+from .local_command_workspace import local_command_workspace
 from .types import ConfigCheckAction
-from .workspace_core import RunWorkspace
 
 
 def plain_data(value: object) -> object:
@@ -45,7 +45,7 @@ def get_config_check_report(project_root: str | Path = ".", argument: str | None
             "truncated": False,
             "message": f"Usage: /config-check [path]\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-config-check", session_dir=root / ".vibeagent" / "sessions" / "local-config-check")
+    workspace = local_command_workspace(root, "local-config-check")
     observation = _execute_action(workspace, ConfigCheckAction(type="config_check", path=path, max_files=max_files))
     if observation.kind != "config_check":
         return {
