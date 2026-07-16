@@ -4,9 +4,9 @@ from pathlib import Path
 import shlex
 
 from .actions import execute_action
+from .local_command_workspace import local_command_workspace
 from .types import GitDiffContextsAction, GitDiffHunksAction
 from .workspace import read_git_diff
-from .workspace_core import RunWorkspace
 
 
 def get_diff_report(project_root: str | Path = ".", argument: str | None = None, max_chars: int = 12_000) -> dict[str, object]:
@@ -29,7 +29,7 @@ def get_diff_report(project_root: str | Path = ".", argument: str | None = None,
         }
 
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-diff", session_dir=root / ".vibeagent" / "sessions" / "local-diff")
+    workspace = local_command_workspace(root, "local-diff")
     staged, path = parsed
     try:
         result = read_git_diff(workspace, relative_path=path, staged=staged)
@@ -137,7 +137,7 @@ def get_diff_hunks_report(
             "message": usage,
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-diff-hunks", session_dir=root / ".vibeagent" / "sessions" / "local-diff-hunks")
+    workspace = local_command_workspace(root, "local-diff-hunks")
     staged, path = parsed
     observation = execute_action(
         workspace,
@@ -285,7 +285,7 @@ def get_diff_contexts_report(
             "message": usage,
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-diff-contexts", session_dir=root / ".vibeagent" / "sessions" / "local-diff-contexts")
+    workspace = local_command_workspace(root, "local-diff-contexts")
     staged, path = parsed
     observation = execute_action(
         workspace,
