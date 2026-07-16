@@ -5,6 +5,7 @@ import sys
 
 from .actions import execute_action as _default_execute_action
 from .edit_command_parsing import parse_regex_replace_argument
+from .edit_usage_report_helpers import line_edit_usage_report
 from .local_command_workspace import local_command_workspace
 from .types import CheckRegexReplaceAction, RegexReplaceAction
 
@@ -78,21 +79,22 @@ def get_check_regex_replace_report(
             usage="/check-regex-replace [opts] <path> <pattern> <replacement>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_regex_replace",
-            "ok": False,
-            "path": path or "",
-            "pattern": pattern or "",
-            "replacement": replacement or "",
-            "count": count,
-            "caseSensitive": bool(case_sensitive),
-            "multiline": bool(multiline),
-            "maxReplacements": max_replacements,
-            "replacements": 0,
-            "message": f"Usage: /check-regex-replace [--ignore-case] [--multiline] [--count N] [--max-replacements N] <path> <pattern> <replacement>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(
+            root,
+            "check_regex_replace",
+            "/check-regex-replace [--ignore-case] [--multiline] [--count N] [--max-replacements N] <path> <pattern> <replacement>",
+            error,
+            path=path,
+            fields={
+                "pattern": pattern or "",
+                "replacement": replacement or "",
+                "count": count,
+                "caseSensitive": bool(case_sensitive),
+                "multiline": bool(multiline),
+                "maxReplacements": max_replacements,
+                "replacements": 0,
+            },
+        )
     workspace = local_command_workspace(root, "local-check-regex-replace")
     observation = _execute_action(workspace, CheckRegexReplaceAction(type="check_regex_replace", **parsed))
     return serialize_regex_replace_report(root, observation, parsed)
@@ -154,21 +156,22 @@ def get_regex_replace_report(
             usage="/regex-replace [opts] <path> <pattern> <replacement>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "regex_replace",
-            "ok": False,
-            "path": path or "",
-            "pattern": pattern or "",
-            "replacement": replacement or "",
-            "count": count,
-            "caseSensitive": bool(case_sensitive),
-            "multiline": bool(multiline),
-            "maxReplacements": max_replacements,
-            "replacements": 0,
-            "message": f"Usage: /regex-replace [--ignore-case] [--multiline] [--count N] [--max-replacements N] <path> <pattern> <replacement>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(
+            root,
+            "regex_replace",
+            "/regex-replace [--ignore-case] [--multiline] [--count N] [--max-replacements N] <path> <pattern> <replacement>",
+            error,
+            path=path,
+            fields={
+                "pattern": pattern or "",
+                "replacement": replacement or "",
+                "count": count,
+                "caseSensitive": bool(case_sensitive),
+                "multiline": bool(multiline),
+                "maxReplacements": max_replacements,
+                "replacements": 0,
+            },
+        )
     workspace = local_command_workspace(root, "local-regex-replace")
     observation = _execute_action(workspace, RegexReplaceAction(type="regex_replace", **parsed))
     return serialize_regex_replace_report(root, observation, parsed)

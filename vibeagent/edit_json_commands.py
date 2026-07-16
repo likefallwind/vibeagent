@@ -10,6 +10,7 @@ from .edit_command_parsing import (
     parse_json_remove_argument,
     parse_json_set_argument,
 )
+from .edit_usage_report_helpers import line_edit_usage_report
 from .local_command_workspace import local_command_workspace
 from .types import (
     CheckJsonPatchAction,
@@ -75,17 +76,14 @@ def get_check_json_set_report(
             usage="/check-json-set [--create-missing] <path> <pointer> <json-value>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_json_set",
-            "ok": False,
-            "path": path or "",
-            "pointer": pointer or "",
-            "value": _plain_data(value),
-            "createMissing": bool(create_missing),
-            "message": f"Usage: /check-json-set [--create-missing] <path> <pointer> <json-value>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(
+            root,
+            "check_json_set",
+            "/check-json-set [--create-missing] <path> <pointer> <json-value>",
+            error,
+            path=path,
+            fields={"pointer": pointer or "", "value": _plain_data(value), "createMissing": bool(create_missing)},
+        )
     workspace = local_command_workspace(root, "local-check-json-set")
     observation = _execute_action(
         workspace,
@@ -135,17 +133,14 @@ def get_json_set_report(
             usage="/json-set [--create-missing] <path> <pointer> <json-value>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "json_set",
-            "ok": False,
-            "path": path or "",
-            "pointer": pointer or "",
-            "value": _plain_data(value),
-            "createMissing": bool(create_missing),
-            "message": f"Usage: /json-set [--create-missing] <path> <pointer> <json-value>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(
+            root,
+            "json_set",
+            "/json-set [--create-missing] <path> <pointer> <json-value>",
+            error,
+            path=path,
+            fields={"pointer": pointer or "", "value": _plain_data(value), "createMissing": bool(create_missing)},
+        )
     workspace = local_command_workspace(root, "local-json-set")
     observation = _execute_action(
         workspace,
@@ -189,15 +184,14 @@ def get_check_json_remove_report(
             usage="/check-json-remove <path> <pointer>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_json_remove",
-            "ok": False,
-            "path": path or "",
-            "pointer": pointer or "",
-            "message": f"Usage: /check-json-remove <path> <pointer>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(
+            root,
+            "check_json_remove",
+            "/check-json-remove <path> <pointer>",
+            error,
+            path=path,
+            fields={"pointer": pointer or ""},
+        )
     workspace = local_command_workspace(root, "local-check-json-remove")
     observation = _execute_action(workspace, CheckJsonRemoveAction(type="check_json_remove", path=parsed_path, pointer=parsed_pointer))
     return serialize_json_pointer_report(root, observation)
@@ -232,15 +226,14 @@ def get_json_remove_report(
             usage="/json-remove <path> <pointer>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "json_remove",
-            "ok": False,
-            "path": path or "",
-            "pointer": pointer or "",
-            "message": f"Usage: /json-remove <path> <pointer>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(
+            root,
+            "json_remove",
+            "/json-remove <path> <pointer>",
+            error,
+            path=path,
+            fields={"pointer": pointer or ""},
+        )
     workspace = local_command_workspace(root, "local-json-remove")
     observation = _execute_action(workspace, JsonRemoveAction(type="json_remove", path=parsed_path, pointer=parsed_pointer))
     return serialize_json_pointer_report(root, observation)
@@ -275,15 +268,14 @@ def get_check_json_patch_report(
             usage="/check-json-patch <path> <json-ops-array>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "check_json_patch",
-            "ok": False,
-            "path": path or "",
-            "operations": {"total": 0, "items": []},
-            "message": f"Usage: /check-json-patch <path> <json-ops-array>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(
+            root,
+            "check_json_patch",
+            "/check-json-patch <path> <json-ops-array>",
+            error,
+            path=path,
+            fields={"operations": {"total": 0, "items": []}},
+        )
     workspace = local_command_workspace(root, "local-check-json-patch")
     observation = _execute_action(workspace, CheckJsonPatchAction(type="check_json_patch", path=parsed_path, operations=parsed_operations))
     return serialize_json_patch_report(root, observation, operations=parsed_operations)
@@ -318,15 +310,14 @@ def get_json_patch_report(
             usage="/json-patch <path> <json-ops-array>",
         )
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "kind": "json_patch",
-            "ok": False,
-            "path": path or "",
-            "operations": {"total": 0, "items": []},
-            "message": f"Usage: /json-patch <path> <json-ops-array>\nError: {error}",
-            "diff": {"text": "", "lines": [], "lineCount": 0},
-        }
+        return line_edit_usage_report(
+            root,
+            "json_patch",
+            "/json-patch <path> <json-ops-array>",
+            error,
+            path=path,
+            fields={"operations": {"total": 0, "items": []}},
+        )
     workspace = local_command_workspace(root, "local-json-patch")
     observation = _execute_action(workspace, JsonPatchAction(type="json_patch", path=parsed_path, operations=parsed_operations))
     return serialize_json_patch_report(root, observation, operations=parsed_operations)
@@ -419,4 +410,3 @@ def format_json_patch_report_text(title: str, report: dict[str, object]) -> str:
         for diff_line in diff.splitlines():
             lines.append(f"    {diff_line}")
     return "\n".join(lines)
-
