@@ -8,6 +8,14 @@ from .local_command_workspace import local_command_workspace
 from .types import GitDiffContextsAction, GitDiffHunksAction
 from .workspace import read_git_diff
 
+DIFF_USAGE = "Usage: /diff [--staged|--cached] [path]"
+DIFF_HUNKS_USAGE = "Usage: /diff-hunks [--staged|--cached] [--max-hunks N] [--max-lines N] [path]"
+DIFF_CONTEXTS_USAGE = "Usage: /diff-contexts [--staged|--cached] [--context-lines N] [--max-hunks N] [--max-bytes N] [path]"
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
+
 
 def get_diff_report(project_root: str | Path = ".", argument: str | None = None, max_chars: int = 12_000) -> dict[str, object]:
     if max_chars < 100:
@@ -25,7 +33,7 @@ def get_diff_report(project_root: str | Path = ".", argument: str | None = None,
             "chars": 0,
             "truncated": False,
             "maxChars": max_chars,
-            "message": "Usage: /diff [--staged|--cached] [path]",
+            "message": DIFF_USAGE,
         }
 
     root = Path(project_root).resolve()
@@ -114,8 +122,11 @@ def get_diff_hunks_report(
     max_hunks: int = 80,
     max_lines_per_hunk: int = 80,
 ) -> dict[str, object]:
-    usage = "Usage: /diff-hunks [--staged|--cached] [--max-hunks N] [--max-lines N] [path]"
-    limit_error = validate_diff_hunks_limits(usage, max_hunks=max_hunks, max_lines_per_hunk=max_lines_per_hunk)
+    limit_error = validate_diff_hunks_limits(
+        DIFF_HUNKS_USAGE,
+        max_hunks=max_hunks,
+        max_lines_per_hunk=max_lines_per_hunk,
+    )
     root = Path(project_root).resolve()
     if limit_error:
         return {
@@ -134,7 +145,7 @@ def get_diff_hunks_report(
             "scope": "unstaged",
             "path": ".",
             "hunks": {"shown": 0, "total": 0, "truncated": False, "items": []},
-            "message": usage,
+            "message": DIFF_HUNKS_USAGE,
         }
 
     workspace = local_command_workspace(root, "local-diff-hunks")
@@ -255,9 +266,8 @@ def get_diff_contexts_report(
     max_hunks: int = 80,
     max_bytes_per_context: int = 20_000,
 ) -> dict[str, object]:
-    usage = "Usage: /diff-contexts [--staged|--cached] [--context-lines N] [--max-hunks N] [--max-bytes N] [path]"
     limit_error = validate_diff_contexts_limits(
-        usage,
+        DIFF_CONTEXTS_USAGE,
         context_lines=context_lines,
         max_hunks=max_hunks,
         max_bytes_per_context=max_bytes_per_context,
@@ -282,7 +292,7 @@ def get_diff_contexts_report(
             "path": ".",
             "contextLines": context_lines,
             "contexts": {"shown": 0, "total": 0, "truncated": False, "items": []},
-            "message": usage,
+            "message": DIFF_CONTEXTS_USAGE,
         }
 
     workspace = local_command_workspace(root, "local-diff-contexts")
@@ -400,13 +410,13 @@ def get_diff_contexts_text(
 
 def validate_diff_hunks_limits(usage: str, max_hunks: int, max_lines_per_hunk: int) -> str | None:
     if max_hunks < 1:
-        return f"{usage}\nError: max_hunks must be at least 1."
+        return _usage_error(usage, "max_hunks must be at least 1.")
     if max_hunks > 500:
-        return f"{usage}\nError: max_hunks must be at most 500."
+        return _usage_error(usage, "max_hunks must be at most 500.")
     if max_lines_per_hunk < 1:
-        return f"{usage}\nError: max_lines_per_hunk must be at least 1."
+        return _usage_error(usage, "max_lines_per_hunk must be at least 1.")
     if max_lines_per_hunk > 500:
-        return f"{usage}\nError: max_lines_per_hunk must be at most 500."
+        return _usage_error(usage, "max_lines_per_hunk must be at most 500.")
     return None
 
 
@@ -417,17 +427,17 @@ def validate_diff_contexts_limits(
     max_bytes_per_context: int,
 ) -> str | None:
     if context_lines < 0:
-        return f"{usage}\nError: context_lines must be at least 0."
+        return _usage_error(usage, "context_lines must be at least 0.")
     if context_lines > 500:
-        return f"{usage}\nError: context_lines must be at most 500."
+        return _usage_error(usage, "context_lines must be at most 500.")
     if max_hunks < 1:
-        return f"{usage}\nError: max_hunks must be at least 1."
+        return _usage_error(usage, "max_hunks must be at least 1.")
     if max_hunks > 500:
-        return f"{usage}\nError: max_hunks must be at most 500."
+        return _usage_error(usage, "max_hunks must be at most 500.")
     if max_bytes_per_context < 1_000:
-        return f"{usage}\nError: max_bytes_per_context must be at least 1000."
+        return _usage_error(usage, "max_bytes_per_context must be at least 1000.")
     if max_bytes_per_context > 200_000:
-        return f"{usage}\nError: max_bytes_per_context must be at most 200000."
+        return _usage_error(usage, "max_bytes_per_context must be at most 200000.")
     return None
 
 
