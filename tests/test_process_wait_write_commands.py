@@ -74,6 +74,7 @@ class ProcessWaitWriteCommandModuleTests(unittest.TestCase):
     def test_parse_write_process_request_unquotes_single_stdin_argument(self) -> None:
         self.assertEqual(parse_write_process_request("bg-1 'hello world\\n'"), ("bg-1", "hello world\n"))
         self.assertEqual(parse_write_process_request("bg-1 hello  world\\n"), ("bg-1", "hello  world\n"))
+        self.assertEqual(parse_write_process_request("bg-1 'unterminated"), ("bg-1", "'unterminated"))
 
 
 if __name__ == "__main__":
