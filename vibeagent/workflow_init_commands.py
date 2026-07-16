@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .local_command_workspace import local_command_workspace
 from .workspace import list_files, read_project_command_hints
-from .workspace_core import RunWorkspace
 
 
 def get_init_report(project_root: str | Path = ".", file_name: str | None = "AGENTS.md") -> dict[str, object]:
@@ -83,7 +83,7 @@ def normalize_project_instructions_file_name(file_name: str | None) -> str | Non
 
 def build_project_instructions_template(project_root: str | Path = ".") -> str:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-init", session_dir=root / ".vibeagent" / "sessions" / "local-init")
+    workspace = local_command_workspace(root, "local-init")
     top_entries = _top_level_entries(root)
     command_hints = read_project_command_hints(workspace, max_bytes=2_000, max_files=10)
     command_lines = _extract_command_lines(command_hints or "")
