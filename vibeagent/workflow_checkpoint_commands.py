@@ -44,6 +44,10 @@ from .workflow_checkpoint_utils import (
 from .workflow_review_formatting import filter_handoff_status
 from .workspace import make_run_id, read_git_diff, read_git_status
 
+CHECKPOINT_RESTORE_USAGE = "Usage: /checkpoint-restore <id>"
+CHECK_CHECKPOINT_DELETE_USAGE = "Usage: /check-checkpoint-delete <id>"
+CHECKPOINT_DELETE_USAGE = "Usage: /checkpoint-delete <id>"
+
 
 def get_checkpoint_report(project_root: str | Path = ".", label: str | None = None) -> dict[str, object]:
     return build_checkpoint_create_report(project_root, label=label)
@@ -136,7 +140,7 @@ def get_check_checkpoint_restore_report(checkpoint_id: str | None, project_root:
             "currentHead": "",
             "saved": {"changedFiles": 0, "stagedFiles": 0, "unstagedFiles": 0, "untrackedFiles": 0, "stagedPatchChars": 0, "unstagedPatchChars": 0},
             "current": {"changedFiles": 0, "stagedFiles": 0, "unstagedFiles": 0, "untrackedFiles": 0},
-            "message": "Usage: /checkpoint-restore <id>",
+            "message": CHECKPOINT_RESTORE_USAGE,
         }
     workspace = local_command_workspace(root, "local-check-checkpoint-restore")
     observation = execute_action(workspace, CheckCheckpointRestoreAction(type="check_checkpoint_restore", checkpoint_id=checkpoint_id))
@@ -180,7 +184,7 @@ def get_checkpoint_restore_report(checkpoint_id: str | None, project_root: str |
             "currentHead": "",
             "saved": {"untrackedFiles": 0, "stagedPatchChars": 0, "unstagedPatchChars": 0},
             "current": {"untrackedFiles": 0},
-            "message": "Usage: /checkpoint-restore <id>",
+            "message": CHECKPOINT_RESTORE_USAGE,
         }
     workspace = local_command_workspace(root, "local-checkpoint-restore")
     observation = execute_action(workspace, CheckpointRestoreAction(type="checkpoint_restore", checkpoint_id=checkpoint_id))
@@ -214,7 +218,7 @@ def get_check_checkpoint_delete_report(checkpoint_id: str | None, project_root: 
             "id": "",
             "label": "",
             "createdAt": "",
-            "message": "Usage: /check-checkpoint-delete <id>",
+            "message": CHECK_CHECKPOINT_DELETE_USAGE,
         }
     workspace = local_command_workspace(root, "local-check-checkpoint-delete")
     observation = execute_action(workspace, CheckCheckpointDeleteAction(type="check_checkpoint_delete", checkpoint_id=checkpoint_id))
@@ -231,7 +235,7 @@ def get_check_checkpoint_delete_report(checkpoint_id: str | None, project_root: 
 
 def get_checkpoint_delete_text(checkpoint_id: str | None, project_root: str | Path = ".") -> str:
     if not checkpoint_id or not checkpoint_id.strip():
-        return "Usage: /checkpoint-delete <id>"
+        return CHECKPOINT_DELETE_USAGE
     root = Path(project_root).resolve()
     try:
         checkpoint_dir = resolve_checkpoint_dir(root, checkpoint_id)
@@ -309,7 +313,7 @@ def get_checkpoint_delete_report(checkpoint_id: str | None, project_root: str | 
             "ok": False,
             "deleted": False,
             "id": "",
-            "message": "Usage: /checkpoint-delete <id>",
+            "message": CHECKPOINT_DELETE_USAGE,
         }
     workspace = local_command_workspace(root, "local-checkpoint-delete")
     observation = execute_action(workspace, CheckpointDeleteAction(type="checkpoint_delete", checkpoint_id=checkpoint_id))
