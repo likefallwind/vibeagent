@@ -7,6 +7,9 @@ from .tool_catalog_core import suggest_tool_names, tool_category, tool_requires_
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
 
 
+TOOL_SEARCH_USAGE = "Usage: /tool-search <query>"
+
+
 def get_tool_search_report(
     query: str | None,
     max_matches: int = 20,
@@ -25,7 +28,7 @@ def get_tool_search_report(
             "shown": 0,
             "truncated": False,
             "suggestions": [],
-            "message": "Usage: /tool-search <query>",
+            "message": TOOL_SEARCH_USAGE,
         }
     if max_matches < 1:
         raise ValueError("max_matches must be at least 1")

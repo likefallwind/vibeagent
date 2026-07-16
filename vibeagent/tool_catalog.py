@@ -12,6 +12,9 @@ from .tool_catalog_search import format_tool_search_report_text, get_tool_search
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
 
 
+TOOL_USAGE = "Usage: /tool <name>"
+
+
 def get_tools_report() -> dict[str, object]:
     categories = categorize_tools()
     category_by_tool = {name: category for category, names in categories.items() for name in names}
@@ -89,7 +92,7 @@ def get_tool_report(name: str | None) -> dict[str, object]:
             "found": False,
             "name": "",
             "suggestions": [],
-            "message": "Usage: /tool <name>",
+            "message": TOOL_USAGE,
         }
     normalized = name.strip()
     tool = next((item for item in AGENT_TOOL_DEFINITIONS if item.get("name") == normalized), None)
