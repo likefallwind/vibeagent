@@ -17,6 +17,42 @@ def _execute_action(*args: object, **kwargs: object) -> object:
     return _default_execute_action(*args, **kwargs)
 
 
+def _check_stop_process_failure_report(root: Path, process_id: str, message: str) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "processId": process_id,
+        "pid": None,
+        "command": "",
+        "cwd": "",
+        "running": False,
+        "exitCode": None,
+        "signal": None,
+        "status": "unknown",
+        "message": message,
+    }
+
+
+def _stop_process_failure_report(root: Path, process_id: str, message: str) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "processId": process_id,
+        "pid": None,
+        "exitCode": None,
+        "signal": None,
+        "result": "unknown",
+        "message": message,
+    }
+
+
+def _processes_failure_report(root: Path, key: str, message: str) -> dict[str, object]:
+    collection = {"total": 0, "items": []}
+    if key == "processes":
+        collection["running"] = 0
+    return {"projectRoot": str(root), "ok": False, key: collection, "message": message}
+
+
 def get_check_stop_process_text(project_root: str | Path = ".", process_id: str | None = None) -> str:
     return format_check_stop_process_report_text(get_check_stop_process_report(project_root, process_id))
 
@@ -25,19 +61,7 @@ def get_check_stop_process_report(project_root: str | Path = ".", process_id: st
     root = Path(project_root).resolve()
     selected_process_id = process_id.strip() if process_id else None
     if not selected_process_id:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "processId": "",
-            "pid": None,
-            "command": "",
-            "cwd": "",
-            "running": False,
-            "exitCode": None,
-            "signal": None,
-            "status": "unknown",
-            "message": "Usage: /check-stop-process <id>\nError: process id is required.",
-        }
+        return _check_stop_process_failure_report(root, "", "Usage: /check-stop-process <id>\nError: process id is required.")
 
     workspace = local_command_workspace(root, "local-check-stop-process")
     observation = _execute_action(
@@ -45,19 +69,11 @@ def get_check_stop_process_report(project_root: str | Path = ".", process_id: st
         CheckStopProcessAction(type="check_stop_process", process_id=selected_process_id),
     )
     if observation.kind != "check_stop_process":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "processId": selected_process_id,
-            "pid": None,
-            "command": "",
-            "cwd": "",
-            "running": False,
-            "exitCode": None,
-            "signal": None,
-            "status": "unknown",
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _check_stop_process_failure_report(
+            root,
+            selected_process_id,
+            f"Unexpected observation: {observation.kind}",
+        )
 
     return {
         "projectRoot": str(root),
@@ -98,16 +114,7 @@ def get_stop_process_report(project_root: str | Path = ".", process_id: str | No
     root = Path(project_root).resolve()
     selected_process_id = process_id.strip() if process_id else None
     if not selected_process_id:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "processId": "",
-            "pid": None,
-            "exitCode": None,
-            "signal": None,
-            "result": "unknown",
-            "message": "Usage: /stop-process <id>\nError: process id is required.",
-        }
+        return _stop_process_failure_report(root, "", "Usage: /stop-process <id>\nError: process id is required.")
 
     workspace = local_command_workspace(root, "local-stop-process")
     observation = _execute_action(
@@ -115,16 +122,7 @@ def get_stop_process_report(project_root: str | Path = ".", process_id: str | No
         StopProcessAction(type="stop_process", process_id=selected_process_id),
     )
     if observation.kind != "stop_process":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "processId": selected_process_id,
-            "pid": None,
-            "exitCode": None,
-            "signal": None,
-            "result": "unknown",
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _stop_process_failure_report(root, selected_process_id, f"Unexpected observation: {observation.kind}")
 
     return {
         "projectRoot": str(root),
@@ -164,12 +162,7 @@ def get_check_stop_all_processes_report(project_root: str | Path = ".") -> dict[
         CheckStopAllProcessesAction(type="check_stop_all_processes"),
     )
     if observation.kind != "check_stop_all_processes":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "processes": {"total": 0, "running": 0, "items": []},
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _processes_failure_report(root, "processes", f"Unexpected observation: {observation.kind}")
 
     items = [serialize_process_info(process) for process in observation.processes]
     return {
@@ -218,12 +211,7 @@ def get_stop_all_processes_report(project_root: str | Path = ".") -> dict[str, o
         StopAllProcessesAction(type="stop_all_processes"),
     )
     if observation.kind != "stop_all_processes":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "stopped": {"total": 0, "items": []},
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return _processes_failure_report(root, "stopped", f"Unexpected observation: {observation.kind}")
 
     items = [serialize_stopped_process_info(process) for process in observation.stopped]
     return {
