@@ -168,12 +168,10 @@ def _process_output_diagnostics(command: Any, commands: dict[str, Any]) -> str:
 
 
 def _wait_process(command: Any, commands: dict[str, Any]) -> str:
-    process_id, kwargs, error, uses_named_options = commands["parse_interactive_wait_process_argument"](command.argument)
+    process_id, kwargs, error = commands["parse_interactive_wait_process_argument"](command.argument)
     if error:
         return error
-    if uses_named_options:
-        return commands["get_wait_process_text"](process_id=process_id, **kwargs)
-    return commands["get_wait_process_text"](argument=command.argument)
+    return commands["get_wait_process_text"](process_id=process_id, **kwargs)
 
 
 def run_interactive_runtime_command(command: Any, commands: dict[str, Any]) -> str | None:
