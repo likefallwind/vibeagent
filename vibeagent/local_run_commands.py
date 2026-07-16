@@ -18,6 +18,72 @@ from .types import CheckRunCommandsAction, RunCommandAction, RunCommandItem, Run
 from .workspace_core import create_local_workspace
 
 
+def _run_failure_report(
+    root: Path,
+    message: str,
+    *,
+    command: str | None,
+    cwd: str | None,
+    timeout_ms: int,
+    max_output_chars: int,
+) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "command": (command or "").strip(),
+        "cwd": cwd or ".",
+        "exitCode": None,
+        "timedOut": False,
+        "signal": None,
+        "sandboxed": False,
+        "sandboxWarning": None,
+        "timeoutMs": timeout_ms,
+        "maxOutputChars": max_output_chars,
+        "stdout": "",
+        "stderr": "",
+        "stdoutTruncated": False,
+        "stderrTruncated": False,
+        "analysis": empty_command_output_analysis(),
+        "message": message,
+    }
+
+
+def _run_sequence_failure_report(
+    root: Path,
+    message: str,
+    *,
+    selected_commands: list[str] | None = None,
+    stop_on_failure: bool = True,
+) -> dict[str, object]:
+    selected = list(selected_commands or [])
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "clean": False,
+        "commands": {"shown": 0, "total": len(selected), "requested": selected},
+        "stopOnFailure": stop_on_failure,
+        "stoppedEarly": False,
+        "results": [],
+        "message": message,
+    }
+
+
+def _check_run_sequence_failure_report(
+    root: Path,
+    message: str,
+    *,
+    selected_commands: list[str] | None = None,
+) -> dict[str, object]:
+    selected = list(selected_commands or [])
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "commands": {"shown": 0, "total": len(selected), "requested": selected},
+        "checks": [],
+        "message": message,
+    }
+
+
 def get_run_text(
     project_root: str | Path = ".",
     command: str | None = None,
@@ -64,25 +130,14 @@ def get_run_report(
     root = Path(project_root).resolve()
 
     def failure(message: str) -> dict[str, object]:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "command": (command or "").strip(),
-            "cwd": cwd or ".",
-            "exitCode": None,
-            "timedOut": False,
-            "signal": None,
-            "sandboxed": False,
-            "sandboxWarning": None,
-            "timeoutMs": timeout_ms,
-            "maxOutputChars": max_output_chars,
-            "stdout": "",
-            "stderr": "",
-            "stdoutTruncated": False,
-            "stderrTruncated": False,
-            "analysis": empty_command_output_analysis(),
-            "message": message,
-        }
+        return _run_failure_report(
+            root,
+            message,
+            command=command,
+            cwd=cwd,
+            timeout_ms=timeout_ms,
+            max_output_chars=max_output_chars,
+        )
 
     if command is None or not command.strip():
         return failure("Usage: /run <shell command>")
@@ -185,17 +240,12 @@ def get_run_sequence_report(
     root = Path(project_root).resolve()
 
     def failure(message: str, selected_commands: list[str] | None = None) -> dict[str, object]:
-        selected = list(selected_commands or [])
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "clean": False,
-            "commands": {"shown": 0, "total": len(selected), "requested": selected},
-            "stopOnFailure": stop_on_failure,
-            "stoppedEarly": False,
-            "results": [],
-            "message": message,
-        }
+        return _run_sequence_failure_report(
+            root,
+            message,
+            selected_commands=selected_commands,
+            stop_on_failure=stop_on_failure,
+        )
 
     try:
         selected_commands = parse_run_sequence_request(argument, commands)
@@ -299,14 +349,7 @@ def get_check_run_sequence_report(
     root = Path(project_root).resolve()
 
     def failure(message: str, selected_commands: list[str] | None = None) -> dict[str, object]:
-        selected = list(selected_commands or [])
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "commands": {"shown": 0, "total": len(selected), "requested": selected},
-            "checks": [],
-            "message": message,
-        }
+        return _check_run_sequence_failure_report(root, message, selected_commands=selected_commands)
 
     try:
         selected_commands = parse_run_sequence_request(argument, commands)
