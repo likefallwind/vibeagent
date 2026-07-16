@@ -6,8 +6,8 @@ import shlex
 import sys
 
 from .actions import execute_action as _default_execute_action
+from .local_command_workspace import local_command_workspace
 from .types import GitStashesAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -37,7 +37,7 @@ def get_stashes_report(project_root: str | Path = ".", argument: str | None = No
         }
 
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-stashes", session_dir=root / ".vibeagent" / "sessions" / "local-stashes")
+    workspace = local_command_workspace(root, "local-stashes")
     observation = _execute_action(
         workspace,
         GitStashesAction(type="git_stashes", max_entries=selected_max),
