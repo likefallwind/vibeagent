@@ -26,7 +26,7 @@ from .project_focused_test_commands import (
     get_run_focused_test_commands_text,
     parse_related_tests_argument,
 )
-from .workspace_core import RunWorkspace
+from .local_command_workspace import local_command_workspace
 from .workspace import (
     read_project_commands,
     read_project_instruction_sources,
@@ -41,7 +41,7 @@ def get_commands_text(project_root: str | Path = ".", max_commands: int = 100, m
 
 def get_commands_report(project_root: str | Path = ".", max_commands: int = 100, max_files: int = 30) -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-commands", session_dir=root / ".vibeagent" / "sessions" / "local-commands")
+    workspace = local_command_workspace(root, "local-commands")
     try:
         metadata = read_project_commands(workspace, max_commands=max_commands, max_files=max_files)
     except ValueError as error:
@@ -77,7 +77,7 @@ def get_manifests_text(project_root: str | Path = ".", max_files: int = 30, max_
 
 def get_manifests_report(project_root: str | Path = ".", max_files: int = 30, max_items: int = 500) -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-manifests", session_dir=root / ".vibeagent" / "sessions" / "local-manifests")
+    workspace = local_command_workspace(root, "local-manifests")
     try:
         metadata = read_project_manifests(workspace, max_files=max_files, max_items=max_items)
     except ValueError as error:
@@ -112,7 +112,7 @@ def get_instructions_text(project_root: str | Path = ".", max_files: int = 20, m
 
 def get_instructions_report(project_root: str | Path = ".", max_files: int = 20, max_bytes: int = 12_000) -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-instructions", session_dir=root / ".vibeagent" / "sessions" / "local-instructions")
+    workspace = local_command_workspace(root, "local-instructions")
     try:
         metadata = read_project_instruction_sources(workspace, max_files=max_files, max_bytes=max_bytes)
     except ValueError as error:
@@ -157,7 +157,7 @@ def get_todos_report(
     max_files: int = 1000,
 ) -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-todos", session_dir=root / ".vibeagent" / "sessions" / "local-todos")
+    workspace = local_command_workspace(root, "local-todos")
     try:
         metadata = read_project_todos(workspace, relative_path=path, max_items=max_items, max_files=max_files)
     except ValueError as error:
