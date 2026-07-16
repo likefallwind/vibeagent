@@ -26,6 +26,19 @@ from .types import (
 )
 from .workspace_core import create_local_workspace
 
+RELATED_TESTS_USAGE = "Usage: /related-tests [path...]"
+FOCUSED_TESTS_USAGE = "Usage: /focused-tests [path...]"
+CHECK_FOCUSED_TESTS_USAGE = "Usage: /check-focused-tests [path...]"
+RUN_FOCUSED_TESTS_USAGE = "Usage: /run-focused-tests [path...]"
+
+
+def _usage_message(usage: str, message: object) -> str:
+    return f"{usage}\n  message: {message}"
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
+
 
 def get_related_tests_text(
     project_root: str | Path = ".",
@@ -55,7 +68,7 @@ def get_related_tests_report(
             "testFiles": 0,
             "candidates": {"shown": 0, "total": 0, "items": []},
             "truncated": False,
-            "message": f"Usage: /related-tests [path...]\n  message: {error}",
+            "message": _usage_message(RELATED_TESTS_USAGE, error),
         }
 
     workspace = create_local_workspace(root, "local-related-tests")
@@ -139,7 +152,7 @@ def get_focused_test_commands_report(
             "relatedTests": {"total": 0},
             "commands": {"shown": 0, "total": 0, "items": []},
             "truncated": False,
-            "message": f"Usage: /focused-tests [path...]\n  message: {error}",
+            "message": _usage_message(FOCUSED_TESTS_USAGE, error),
         }
 
     workspace = create_local_workspace(root, "local-focused-tests")
@@ -216,7 +229,7 @@ def get_check_focused_test_commands_report(
             "focusedCommands": {"shown": 0, "total": 0, "max": max_commands, "items": []},
             "truncated": False,
             "checks": [],
-            "message": f"Usage: /check-focused-tests [path...]\n  message: {error}",
+            "message": _usage_message(CHECK_FOCUSED_TESTS_USAGE, error),
         }
 
     workspace = create_local_workspace(root, "local-check-focused-tests")
@@ -334,21 +347,21 @@ def get_run_focused_test_commands_report(
     try:
         paths = parse_related_tests_argument(argument)
     except ValueError as error:
-        return failure(f"Usage: /run-focused-tests [path...]\n  message: {error}")
+        return failure(_usage_message(RUN_FOCUSED_TESTS_USAGE, error))
     if timeout_ms < 100:
-        return failure("Usage: /run-focused-tests [path...]\nError: timeout_ms must be at least 100.")
+        return failure(_usage_error(RUN_FOCUSED_TESTS_USAGE, "timeout_ms must be at least 100."))
     if timeout_ms > 600_000:
-        return failure("Usage: /run-focused-tests [path...]\nError: timeout_ms must be at most 600000.")
+        return failure(_usage_error(RUN_FOCUSED_TESTS_USAGE, "timeout_ms must be at most 600000."))
     if max_output_chars < 1_000:
-        return failure("Usage: /run-focused-tests [path...]\nError: max_output_chars must be at least 1000.")
+        return failure(_usage_error(RUN_FOCUSED_TESTS_USAGE, "max_output_chars must be at least 1000."))
     if max_output_chars > 50_000:
-        return failure("Usage: /run-focused-tests [path...]\nError: max_output_chars must be at most 50000.")
+        return failure(_usage_error(RUN_FOCUSED_TESTS_USAGE, "max_output_chars must be at most 50000."))
     output_context_error = validate_run_output_context_options(
         context_lines=context_lines,
         max_diagnostics=max_diagnostics,
         max_contexts=max_contexts,
         max_bytes_per_context=max_bytes_per_context,
-        usage="Usage: /run-focused-tests [path...]",
+        usage=RUN_FOCUSED_TESTS_USAGE,
     )
     if output_context_error:
         return failure(output_context_error)
