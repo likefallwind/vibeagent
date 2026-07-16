@@ -13,6 +13,12 @@ from .local_command_workspace import local_command_workspace
 from .smart_code_parsing import parse_symbol_path_argument
 from .types import PythonCallGraphAction, PythonCallsAction
 
+PYTHON_CALL_GRAPH_USAGE = "Usage: /python-call-graph [path]"
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
+
 
 def get_python_calls_report(
     project_root: str | Path = ".",
@@ -73,7 +79,7 @@ def get_python_call_graph_report(project_root: str | Path = ".", argument: str |
             "errors": [str(error)],
             "maxFiles": max_files,
             "maxEdges": max_edges,
-            "message": f"Usage: /python-call-graph [path]\nError: {error}",
+            "message": _usage_error(PYTHON_CALL_GRAPH_USAGE, error),
         }
     workspace = local_command_workspace(root, "local-python-call-graph")
     observation = _execute_action(workspace, PythonCallGraphAction(type="python_call_graph", path=path, max_files=max_files, max_edges=max_edges))
