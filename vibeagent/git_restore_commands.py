@@ -13,8 +13,8 @@ from .git_local_report_helpers import (
     git_restore_usage_report as _git_restore_usage_report,
     validate_git_restore_max_diff_chars as _validate_git_restore_max_diff_chars,
 )
+from .local_command_workspace import local_command_workspace
 from .types import CheckGitRestoreAction, GitRestoreAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -48,7 +48,7 @@ def get_check_restore_report(project_root: str | Path = ".", argument: str | lis
     if not paths:
         return _git_restore_usage_report(root, usage, "path is required.", max_diff_chars)
 
-    workspace = RunWorkspace(root=root, run_id="local-check-restore", session_dir=root / ".vibeagent" / "sessions" / "local-check-restore")
+    workspace = local_command_workspace(root, "local-check-restore")
     observation = _execute_action(
         workspace,
         CheckGitRestoreAction(type="check_git_restore", paths=paths),
@@ -75,7 +75,7 @@ def get_restore_report(project_root: str | Path = ".", argument: str | list[str]
     if not paths:
         return _git_restore_usage_report(root, usage, "path is required.", max_diff_chars)
 
-    workspace = RunWorkspace(root=root, run_id="local-restore", session_dir=root / ".vibeagent" / "sessions" / "local-restore")
+    workspace = local_command_workspace(root, "local-restore")
     observation = _execute_action(
         workspace,
         GitRestoreAction(type="git_restore", paths=paths),
