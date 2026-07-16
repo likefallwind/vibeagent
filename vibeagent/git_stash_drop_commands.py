@@ -11,8 +11,8 @@ from .git_stash_report_helpers import (
     _validate_git_stash_max_chars,
     format_git_stash_drop_report_text,
 )
+from .local_command_workspace import local_command_workspace
 from .types import CheckGitStashDropAction, GitStashDropAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -42,7 +42,7 @@ def get_check_stash_drop_report(project_root: str | Path = ".", argument: str | 
     if not stash_ref:
         return _git_stash_drop_usage_report(root, "/check-stash-drop <stash@{N}>", "stash ref is required.", max_patch_chars)
 
-    workspace = RunWorkspace(root=root, run_id="local-check-stash-drop", session_dir=root / ".vibeagent" / "sessions" / "local-check-stash-drop")
+    workspace = local_command_workspace(root, "local-check-stash-drop")
     observation = _execute_action(
         workspace,
         CheckGitStashDropAction(type="check_git_stash_drop", stash_ref=stash_ref),
@@ -65,7 +65,7 @@ def get_stash_drop_report(project_root: str | Path = ".", argument: str | None =
     if not stash_ref:
         return _git_stash_drop_usage_report(root, "/stash-drop <stash@{N}>", "stash ref is required.", max_patch_chars)
 
-    workspace = RunWorkspace(root=root, run_id="local-stash-drop", session_dir=root / ".vibeagent" / "sessions" / "local-stash-drop")
+    workspace = local_command_workspace(root, "local-stash-drop")
     observation = _execute_action(
         workspace,
         GitStashDropAction(type="git_stash_drop", stash_ref=stash_ref),
