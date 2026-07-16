@@ -23,6 +23,80 @@ def _execute_action(*args: object, **kwargs: object) -> object:
     return _default_execute_action(*args, **kwargs)
 
 
+def _port_failure_report(
+    root: Path,
+    message: str,
+    *,
+    port: int | None,
+    host: str,
+    timeout_ms: int,
+) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "host": host,
+        "port": port,
+        "reachable": False,
+        "timeoutMs": timeout_ms,
+        "error": None,
+        "message": message,
+    }
+
+
+def _http_failure_report(
+    root: Path,
+    message: str,
+    *,
+    url: str,
+    contains: str | None,
+    timeout_ms: int,
+    max_body_chars: int,
+) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "url": url,
+        "finalUrl": None,
+        "status": None,
+        "reason": None,
+        "reachable": False,
+        "matched": False,
+        "matchedPattern": contains,
+        "timeoutMs": timeout_ms,
+        "maxBodyChars": max_body_chars,
+        "body": "",
+        "bodyTruncated": False,
+        "error": None,
+        "message": message,
+    }
+
+
+def _http_fetch_failure_report(
+    root: Path,
+    message: str,
+    *,
+    url: str,
+    timeout_ms: int,
+    max_body_chars: int,
+) -> dict[str, object]:
+    return {
+        "projectRoot": str(root),
+        "ok": False,
+        "url": url,
+        "finalUrl": None,
+        "status": None,
+        "reason": None,
+        "contentType": None,
+        "reachable": False,
+        "timeoutMs": timeout_ms,
+        "maxBodyChars": max_body_chars,
+        "body": "",
+        "bodyTruncated": False,
+        "error": None,
+        "message": message,
+    }
+
+
 def get_port_text(
     project_root: str | Path = ".",
     argument: str | None = None,
@@ -43,16 +117,13 @@ def get_port_report(
     root = Path(project_root).resolve()
 
     def failure(message: str, selected_port: int | None = port, selected_host: str = host, selected_timeout: int = timeout_ms) -> dict[str, object]:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "host": selected_host,
-            "port": selected_port,
-            "reachable": False,
-            "timeoutMs": selected_timeout,
-            "error": None,
-            "message": message,
-        }
+        return _port_failure_report(
+            root,
+            message,
+            port=selected_port,
+            host=selected_host,
+            timeout_ms=selected_timeout,
+        )
 
     try:
         selected_port, selected_host, selected_timeout_ms = parse_port_request(argument, port, host, timeout_ms)
@@ -166,23 +237,14 @@ def get_http_report(
     root = Path(project_root).resolve()
 
     def failure(message: str, selected_url: str = url or "", selected_contains: str | None = contains) -> dict[str, object]:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "url": selected_url,
-            "finalUrl": None,
-            "status": None,
-            "reason": None,
-            "reachable": False,
-            "matched": False,
-            "matchedPattern": selected_contains,
-            "timeoutMs": timeout_ms,
-            "maxBodyChars": max_body_chars,
-            "body": "",
-            "bodyTruncated": False,
-            "error": None,
-            "message": message,
-        }
+        return _http_failure_report(
+            root,
+            message,
+            url=selected_url,
+            contains=selected_contains,
+            timeout_ms=timeout_ms,
+            max_body_chars=max_body_chars,
+        )
 
     try:
         selected_url, selected_contains = parse_http_request(argument, url, contains)
@@ -285,22 +347,13 @@ def get_http_fetch_report(
     root = Path(project_root).resolve()
 
     def failure(message: str, selected_url: str = url or "") -> dict[str, object]:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "url": selected_url,
-            "finalUrl": None,
-            "status": None,
-            "reason": None,
-            "contentType": None,
-            "reachable": False,
-            "timeoutMs": timeout_ms,
-            "maxBodyChars": max_body_chars,
-            "body": "",
-            "bodyTruncated": False,
-            "error": None,
-            "message": message,
-        }
+        return _http_fetch_failure_report(
+            root,
+            message,
+            url=selected_url,
+            timeout_ms=timeout_ms,
+            max_body_chars=max_body_chars,
+        )
 
     try:
         selected_url = parse_http_fetch_request(argument, url)
