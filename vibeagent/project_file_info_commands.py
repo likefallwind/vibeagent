@@ -10,6 +10,9 @@ from .project_command_utils import (
 )
 from .types import FileInfoAction, ImageInfoAction
 
+FILE_INFO_USAGE = "Usage: /file-info <path...>"
+IMAGE_INFO_USAGE = "Usage: /image-info <path...>"
+
 
 def serialize_file_info_result(file: object) -> dict[str, object]:
     return {
@@ -49,9 +52,9 @@ def get_file_info_report(
     try:
         paths = parse_local_path_args(argument, max_paths=50)
     except ValueError as error:
-        return _path_collection_failure_report(root, "paths", f"Usage: /file-info <path...>\nError: {error}")
+        return _path_collection_failure_report(root, "paths", _usage_error(FILE_INFO_USAGE, error))
     if not paths:
-        return _path_collection_failure_report(root, "paths", "Usage: /file-info <path...>")
+        return _path_collection_failure_report(root, "paths", FILE_INFO_USAGE)
 
     workspace = local_command_workspace(root, "local-file-info")
     observation = _execute_action(
@@ -143,9 +146,9 @@ def get_image_info_report(
     try:
         paths = parse_local_path_args(argument, max_paths=20)
     except ValueError as error:
-        return _path_collection_failure_report(root, "images", f"Usage: /image-info <path...>\nError: {error}")
+        return _path_collection_failure_report(root, "images", _usage_error(IMAGE_INFO_USAGE, error))
     if not paths:
-        return _path_collection_failure_report(root, "images", "Usage: /image-info <path...>")
+        return _path_collection_failure_report(root, "images", IMAGE_INFO_USAGE)
 
     workspace = local_command_workspace(root, "local-image-info")
     observation = _execute_action(
@@ -211,6 +214,10 @@ def get_image_info_text(
     get_report = _commands_attr("get_image_info_report", get_image_info_report)
     formatter = _commands_attr("format_image_info_report_text", format_image_info_report_text)
     return formatter(get_report(project_root, argument))
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
 
 
 def file_type_text(file: object) -> str:
