@@ -15,6 +15,9 @@ from .git_stash_report_helpers import (
 from .local_command_workspace import local_command_workspace
 from .types import CheckGitStashAction, GitStashAction
 
+CHECK_STASH_USAGE = "/check-stash [--include-untracked] [message]"
+STASH_USAGE = "/stash [--include-untracked] [message]"
+
 
 def _execute_action(*args: object, **kwargs: object) -> object:
     commands_module = sys.modules.get("vibeagent.git_commands")
@@ -42,7 +45,7 @@ def get_check_stash_report(project_root: str | Path = ".", argument: str | None 
     try:
         message, include_untracked = parse_stash_argument(argument)
     except ValueError as error:
-        return _git_stash_usage_report(root, "/check-stash [--include-untracked] [message]", str(error), max_diff_chars)
+        return _git_stash_usage_report(root, CHECK_STASH_USAGE, str(error), max_diff_chars)
 
     workspace = local_command_workspace(root, "local-check-stash")
     observation = _execute_action(
@@ -66,7 +69,7 @@ def get_stash_report(project_root: str | Path = ".", argument: str | None = None
     try:
         message, include_untracked = parse_stash_argument(argument)
     except ValueError as error:
-        return _git_stash_usage_report(root, "/stash [--include-untracked] [message]", str(error), max_diff_chars)
+        return _git_stash_usage_report(root, STASH_USAGE, str(error), max_diff_chars)
 
     workspace = local_command_workspace(root, "local-stash")
     observation = _execute_action(
