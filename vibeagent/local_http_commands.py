@@ -9,6 +9,10 @@ from .actions import execute_action as _default_execute_action
 from .local_command_workspace import local_command_workspace
 from .types import HttpCheckAction, HttpFetchAction, PortCheckAction
 
+PORT_USAGE = "Usage: /port <port> [host] [timeout-ms]"
+HTTP_USAGE = "Usage: /http <url> [contains]"
+HTTP_FETCH_USAGE = "Usage: /http-fetch <url>"
+
 
 def _indent_block(value: str, spaces: int = 2) -> str:
     indent = " " * spaces
@@ -21,6 +25,10 @@ def _execute_action(*args: object, **kwargs: object) -> object:
     if command_execute_action is not None:
         return command_execute_action(*args, **kwargs)
     return _default_execute_action(*args, **kwargs)
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
 
 
 def _port_failure_report(
@@ -128,11 +136,21 @@ def get_port_report(
     try:
         selected_port, selected_host, selected_timeout_ms = parse_port_request(argument, port, host, timeout_ms)
     except ValueError as error:
-        return failure(f"Usage: /port <port> [host] [timeout-ms]\nError: {error}")
+        return failure(_usage_error(PORT_USAGE, error))
     if selected_timeout_ms < 100:
-        return failure("Usage: /port <port> [host] [timeout-ms]\nError: timeout_ms must be at least 100.", selected_port, selected_host, selected_timeout_ms)
+        return failure(
+            _usage_error(PORT_USAGE, "timeout_ms must be at least 100."),
+            selected_port,
+            selected_host,
+            selected_timeout_ms,
+        )
     if selected_timeout_ms > 600_000:
-        return failure("Usage: /port <port> [host] [timeout-ms]\nError: timeout_ms must be at most 600000.", selected_port, selected_host, selected_timeout_ms)
+        return failure(
+            _usage_error(PORT_USAGE, "timeout_ms must be at most 600000."),
+            selected_port,
+            selected_host,
+            selected_timeout_ms,
+        )
 
     workspace = local_command_workspace(root, "local-port")
     observation = _execute_action(
@@ -249,15 +267,31 @@ def get_http_report(
     try:
         selected_url, selected_contains = parse_http_request(argument, url, contains)
     except ValueError as error:
-        return failure(f"Usage: /http <url> [contains]\nError: {error}")
+        return failure(_usage_error(HTTP_USAGE, error))
     if timeout_ms < 100:
-        return failure("Usage: /http <url> [contains]\nError: timeout_ms must be at least 100.", selected_url, selected_contains)
+        return failure(
+            _usage_error(HTTP_USAGE, "timeout_ms must be at least 100."),
+            selected_url,
+            selected_contains,
+        )
     if timeout_ms > 600_000:
-        return failure("Usage: /http <url> [contains]\nError: timeout_ms must be at most 600000.", selected_url, selected_contains)
+        return failure(
+            _usage_error(HTTP_USAGE, "timeout_ms must be at most 600000."),
+            selected_url,
+            selected_contains,
+        )
     if max_body_chars < 0:
-        return failure("Usage: /http <url> [contains]\nError: max_body_chars must be non-negative.", selected_url, selected_contains)
+        return failure(
+            _usage_error(HTTP_USAGE, "max_body_chars must be non-negative."),
+            selected_url,
+            selected_contains,
+        )
     if max_body_chars > 50_000:
-        return failure("Usage: /http <url> [contains]\nError: max_body_chars must be at most 50000.", selected_url, selected_contains)
+        return failure(
+            _usage_error(HTTP_USAGE, "max_body_chars must be at most 50000."),
+            selected_url,
+            selected_contains,
+        )
 
     workspace = local_command_workspace(root, "local-http")
     observation = _execute_action(
@@ -358,15 +392,27 @@ def get_http_fetch_report(
     try:
         selected_url = parse_http_fetch_request(argument, url)
     except ValueError as error:
-        return failure(f"Usage: /http-fetch <url>\nError: {error}")
+        return failure(_usage_error(HTTP_FETCH_USAGE, error))
     if timeout_ms < 100:
-        return failure("Usage: /http-fetch <url>\nError: timeout_ms must be at least 100.", selected_url)
+        return failure(
+            _usage_error(HTTP_FETCH_USAGE, "timeout_ms must be at least 100."),
+            selected_url,
+        )
     if timeout_ms > 600_000:
-        return failure("Usage: /http-fetch <url>\nError: timeout_ms must be at most 600000.", selected_url)
+        return failure(
+            _usage_error(HTTP_FETCH_USAGE, "timeout_ms must be at most 600000."),
+            selected_url,
+        )
     if max_body_chars < 1:
-        return failure("Usage: /http-fetch <url>\nError: max_body_chars must be at least 1.", selected_url)
+        return failure(
+            _usage_error(HTTP_FETCH_USAGE, "max_body_chars must be at least 1."),
+            selected_url,
+        )
     if max_body_chars > 100_000:
-        return failure("Usage: /http-fetch <url>\nError: max_body_chars must be at most 100000.", selected_url)
+        return failure(
+            _usage_error(HTTP_FETCH_USAGE, "max_body_chars must be at most 100000."),
+            selected_url,
+        )
 
     workspace = local_command_workspace(root, "local-http-fetch")
     observation = _execute_action(
