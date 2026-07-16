@@ -11,8 +11,8 @@ from .git_local_report_helpers import (
     git_switch_unexpected_report as _git_switch_unexpected_report,
     git_switch_usage_report as _git_switch_usage_report,
 )
+from .local_command_workspace import local_command_workspace
 from .types import CheckGitSwitchAction, GitSwitchAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -47,7 +47,7 @@ def get_check_switch_report(project_root: str | Path = ".", argument: str | None
         branch, create = parse_switch_argument(argument)
     except ValueError as error:
         return _git_switch_usage_report(root, "/check-switch [--create] <branch>", str(error))
-    workspace = RunWorkspace(root=root, run_id="local-check-switch", session_dir=root / ".vibeagent" / "sessions" / "local-check-switch")
+    workspace = local_command_workspace(root, "local-check-switch")
     observation = _execute_action(
         workspace,
         CheckGitSwitchAction(type="check_git_switch", branch=branch, create=create),
@@ -73,7 +73,7 @@ def get_switch_report(project_root: str | Path = ".", argument: str | None = Non
         branch, create = parse_switch_argument(argument)
     except ValueError as error:
         return _git_switch_usage_report(root, "/switch [--create] <branch>", str(error))
-    workspace = RunWorkspace(root=root, run_id="local-switch", session_dir=root / ".vibeagent" / "sessions" / "local-switch")
+    workspace = local_command_workspace(root, "local-switch")
     observation = _execute_action(
         workspace,
         GitSwitchAction(type="git_switch", branch=branch, create=create),
