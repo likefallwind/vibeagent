@@ -68,15 +68,15 @@ from .project_symbol_commands import (
     serialize_symbol,
     serialize_symbol_file,
 )
+from .local_command_workspace import local_command_workspace
 from .types import (
     ProjectOverviewAction,
 )
-from .workspace_core import RunWorkspace
 
 
 def get_overview_report(project_root: str | Path = ".", max_files: int = 80, max_commands: int = 20, max_checks: int = 10) -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-overview", session_dir=root / ".vibeagent" / "sessions" / "local-overview")
+    workspace = local_command_workspace(root, "local-overview")
     observation = _execute_action(
         workspace,
         ProjectOverviewAction(
