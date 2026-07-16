@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .local_command_workspace import local_command_workspace
 from .project_command_utils import commands_attr, execute_action, indent_block, plain_data
 from .types import SearchAction, SearchContextsAction
-from .workspace_core import RunWorkspace
 
 
 def get_search_report(
@@ -29,7 +29,7 @@ def get_search_report(
             "contextLines": context_lines,
             "message": "Usage: /search <query>",
         }
-    workspace = RunWorkspace(root=root, run_id="local-search", session_dir=root / ".vibeagent" / "sessions" / "local-search")
+    workspace = local_command_workspace(root, "local-search")
     observation = execute_action(
         workspace,
         SearchAction(
@@ -149,7 +149,7 @@ def get_search_contexts_report(
             "maxBytesPerContext": max_bytes_per_context,
             "message": "Usage: /search-contexts <query>",
         }
-    workspace = RunWorkspace(root=root, run_id="local-search-contexts", session_dir=root / ".vibeagent" / "sessions" / "local-search-contexts")
+    workspace = local_command_workspace(root, "local-search-contexts")
     observation = execute_action(
         workspace,
         SearchContextsAction(
