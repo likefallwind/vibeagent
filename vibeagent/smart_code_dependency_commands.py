@@ -12,6 +12,12 @@ from .smart_code_formatting import format_code_deps_report_text
 from .local_command_workspace import local_command_workspace
 from .types import CodeDependenciesAction
 
+CODE_DEPS_USAGE = "Usage: /code-deps [path]"
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
+
 
 def get_code_deps_report(
     project_root: str | Path = ".",
@@ -30,7 +36,7 @@ def get_code_deps_report(
             "files": {"shown": 0, "total": 0, "truncated": False, "items": []},
             "maxFiles": max_files,
             "maxImports": max_imports,
-            "message": f"Usage: /code-deps [path]\nError: {error}",
+            "message": _usage_error(CODE_DEPS_USAGE, error),
         }
     workspace = local_command_workspace(root, "local-code-deps")
     observation = _execute_action(
