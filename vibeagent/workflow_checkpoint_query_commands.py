@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .local_command_workspace import local_command_workspace
 from .types import CheckpointInfo
 from .workflow_checkpoint_formatting import (
     format_checkpoint_diff_report_text,
@@ -24,7 +25,6 @@ from .workflow_checkpoint_utils import (
 from .workflow_diff_commands import clip_with_flag
 from .workflow_review_formatting import filter_handoff_status
 from .workspace import read_git_diff, read_git_status
-from .workspace_core import RunWorkspace
 
 
 def serialize_checkpoint_metadata(metadata: dict[str, object]) -> dict[str, object]:
@@ -194,7 +194,7 @@ def get_checkpoint_status_report(checkpoint_id: str | None, project_root: str | 
             "matches": False,
             "message": error,
         }
-    workspace = RunWorkspace(root=root, run_id="local-checkpoint-status", session_dir=root / ".vibeagent" / "sessions" / "local-checkpoint-status")
+    workspace = local_command_workspace(root, "local-checkpoint-status")
     status = read_git_status(workspace)
     if not status.ok:
         return checkpoint_status_error_report(root, metadata, status.stderr or "git status failed.")
