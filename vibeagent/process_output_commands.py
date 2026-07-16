@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 
 from .actions import execute_action as _default_execute_action
+from .local_command_workspace import local_command_workspace
 from .output_serialization import serialize_output_context_result, serialize_output_diagnostic
 from .process_request_parsing import parse_process_request
 from .process_report_helpers import (
@@ -13,7 +14,6 @@ from .process_report_helpers import (
     process_status_text,
 )
 from .types import ProcessOutputContextsAction, ProcessOutputDiagnosticsAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -84,7 +84,7 @@ def get_process_output_contexts_report(
     if message:
         return _process_output_contexts_usage_report(root, selected_process_id, selected_max, message)
 
-    workspace = RunWorkspace(root=root, run_id="local-process-output-contexts", session_dir=root / ".vibeagent" / "sessions" / "local-process-output-contexts")
+    workspace = local_command_workspace(root, "local-process-output-contexts")
     observation = _execute_action(
         workspace,
         ProcessOutputContextsAction(
@@ -196,7 +196,7 @@ def get_process_output_diagnostics_report(
             message,
         )
 
-    workspace = RunWorkspace(root=root, run_id="local-process-output-diagnostics", session_dir=root / ".vibeagent" / "sessions" / "local-process-output-diagnostics")
+    workspace = local_command_workspace(root, "local-process-output-diagnostics")
     observation = _execute_action(
         workspace,
         ProcessOutputDiagnosticsAction(
