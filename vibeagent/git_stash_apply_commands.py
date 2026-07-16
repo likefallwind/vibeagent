@@ -11,8 +11,8 @@ from .git_stash_report_helpers import (
     _validate_git_stash_max_chars,
     format_git_stash_apply_report_text,
 )
+from .local_command_workspace import local_command_workspace
 from .types import CheckGitStashApplyAction, GitStashApplyAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -42,7 +42,7 @@ def get_check_stash_apply_report(project_root: str | Path = ".", argument: str |
     if not stash_ref:
         return _git_stash_apply_usage_report(root, "/check-stash-apply <stash@{N}>", "stash ref is required.", max_patch_chars)
 
-    workspace = RunWorkspace(root=root, run_id="local-check-stash-apply", session_dir=root / ".vibeagent" / "sessions" / "local-check-stash-apply")
+    workspace = local_command_workspace(root, "local-check-stash-apply")
     observation = _execute_action(
         workspace,
         CheckGitStashApplyAction(type="check_git_stash_apply", stash_ref=stash_ref),
@@ -65,7 +65,7 @@ def get_stash_apply_report(project_root: str | Path = ".", argument: str | None 
     if not stash_ref:
         return _git_stash_apply_usage_report(root, "/stash-apply <stash@{N}>", "stash ref is required.", max_patch_chars)
 
-    workspace = RunWorkspace(root=root, run_id="local-stash-apply", session_dir=root / ".vibeagent" / "sessions" / "local-stash-apply")
+    workspace = local_command_workspace(root, "local-stash-apply")
     observation = _execute_action(
         workspace,
         GitStashApplyAction(type="git_stash_apply", stash_ref=stash_ref),
