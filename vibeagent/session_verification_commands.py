@@ -17,6 +17,8 @@ from .session_verification_action_executor import execute_run_session_verificati
 from .types import RunSessionVerificationAction
 from .workspace_core import create_local_workspace
 
+RUN_SESSION_VERIFICATION_USAGE = "Usage: /run-session-verification [run-id]"
+
 
 def get_session_verification_text(
     project_root: str | Path = ".",
@@ -145,28 +147,25 @@ def get_run_session_verification_report(
     if not selected:
         return failure("No sessions found.", None)
     if max_checks < 1:
-        return failure("Usage: /run-session-verification [run-id]\nError: max_checks must be at least 1.", selected)
+        return failure(_usage_error("max_checks must be at least 1."), selected)
     if max_checks > 10:
-        return failure("Usage: /run-session-verification [run-id]\nError: max_checks must be at most 10.", selected)
+        return failure(_usage_error("max_checks must be at most 10."), selected)
     if timeout_ms < 100:
-        return failure("Usage: /run-session-verification [run-id]\nError: timeout_ms must be at least 100.", selected)
+        return failure(_usage_error("timeout_ms must be at least 100."), selected)
     if timeout_ms > 600_000:
-        return failure("Usage: /run-session-verification [run-id]\nError: timeout_ms must be at most 600000.", selected)
+        return failure(_usage_error("timeout_ms must be at most 600000."), selected)
     if max_output_chars < 1_000:
-        return failure("Usage: /run-session-verification [run-id]\nError: max_output_chars must be at least 1000.", selected)
+        return failure(_usage_error("max_output_chars must be at least 1000."), selected)
     if max_output_chars > 50_000:
-        return failure("Usage: /run-session-verification [run-id]\nError: max_output_chars must be at most 50000.", selected)
+        return failure(_usage_error("max_output_chars must be at most 50000."), selected)
     if not include_failed and not include_pending:
-        return failure(
-            "Usage: /run-session-verification [run-id]\nError: include_failed and include_pending cannot both be false.",
-            selected,
-        )
+        return failure(_usage_error("include_failed and include_pending cannot both be false."), selected)
     output_context_error = validate_run_output_context_options(
         context_lines=context_lines,
         max_diagnostics=max_diagnostics,
         max_contexts=max_contexts,
         max_bytes_per_context=max_bytes_per_context,
-        usage="Usage: /run-session-verification [run-id]",
+        usage=RUN_SESSION_VERIFICATION_USAGE,
     )
     if output_context_error:
         return failure(output_context_error, selected)
@@ -212,6 +211,10 @@ def get_run_session_verification_report(
         "results": results,
         "message": observation.message,
     }
+
+
+def _usage_error(error: str) -> str:
+    return f"{RUN_SESSION_VERIFICATION_USAGE}\nError: {error}"
 
 
 def format_run_session_verification_report_text(report: dict[str, object]) -> str:
