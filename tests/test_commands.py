@@ -1162,6 +1162,7 @@ class CommandTests(unittest.TestCase):
         self.assertIn("/wait-process <id> [timeout-ms] [chars] [--timeout-ms N]", get_help_text())
         self.assertIn("/check-write-process <id> <text>", get_help_text())
         self.assertIn("/write-process <id> <text>", get_help_text())
+        self.assertIn("quote text with spaces", get_help_text())
         self.assertIn("/check-stop-process <id>", get_help_text())
         self.assertIn("/stop-process <id>", get_help_text())
         self.assertIn("/check-stop-processes", get_help_text())
