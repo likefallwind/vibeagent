@@ -7,8 +7,8 @@ from .actions import execute_action as _default_execute_action
 from .edit_command_parsing import parse_required_path_list_argument, parse_required_single_path_argument
 from .edit_path_reports import format_path_list_report_text, serialize_path_list_report
 from .edit_text_commands import format_line_edit_report_text, serialize_line_edit_report
+from .local_command_workspace import local_command_workspace
 from .types import CheckDeleteFileAction, CheckDeleteFilesAction, DeleteFileAction, DeleteFilesAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -53,7 +53,7 @@ def get_check_delete_file_report(
             "message": f"Usage: /check-delete <path>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-delete", session_dir=root / ".vibeagent" / "sessions" / "local-check-delete")
+    workspace = local_command_workspace(root, "local-check-delete")
     observation = _execute_action(workspace, CheckDeleteFileAction(type="check_delete_file", path=parsed_path))
     return serialize_line_edit_report(root, observation)
 
@@ -92,7 +92,7 @@ def get_delete_file_report(
             "message": f"Usage: /delete <path>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-delete", session_dir=root / ".vibeagent" / "sessions" / "local-delete")
+    workspace = local_command_workspace(root, "local-delete")
     observation = _execute_action(workspace, DeleteFileAction(type="delete_file", path=parsed_path))
     return serialize_line_edit_report(root, observation)
 
@@ -128,7 +128,7 @@ def get_check_delete_files_report(
             "message": f"Usage: /check-delete-files <path...>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-delete-files", session_dir=root / ".vibeagent" / "sessions" / "local-check-delete-files")
+    workspace = local_command_workspace(root, "local-check-delete-files")
     observation = _execute_action(workspace, CheckDeleteFilesAction(type="check_delete_files", paths=parsed_paths))
     return serialize_path_list_report(root, observation)
 
@@ -164,6 +164,6 @@ def get_delete_files_report(
             "message": f"Usage: /delete-files <path...>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-delete-files", session_dir=root / ".vibeagent" / "sessions" / "local-delete-files")
+    workspace = local_command_workspace(root, "local-delete-files")
     observation = _execute_action(workspace, DeleteFilesAction(type="delete_files", paths=parsed_paths))
     return serialize_path_list_report(root, observation)
