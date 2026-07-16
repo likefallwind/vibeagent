@@ -8,6 +8,10 @@ from .local_command_workspace import local_command_workspace
 from .process_report_helpers import process_status_text, serialize_process_info
 from .types import CheckStopAllProcessesAction, CheckStopProcessAction, StopAllProcessesAction, StopProcessAction
 
+CHECK_STOP_PROCESS_USAGE = "Usage: /check-stop-process <id>"
+STOP_PROCESS_USAGE = "Usage: /stop-process <id>"
+PROCESS_ID_REQUIRED_ERROR = "process id is required."
+
 
 def _execute_action(*args: object, **kwargs: object) -> object:
     commands_module = sys.modules.get("vibeagent.process_commands")
@@ -15,6 +19,10 @@ def _execute_action(*args: object, **kwargs: object) -> object:
     if command_execute_action is not None:
         return command_execute_action(*args, **kwargs)
     return _default_execute_action(*args, **kwargs)
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
 
 
 def _check_stop_process_failure_report(root: Path, process_id: str, message: str) -> dict[str, object]:
@@ -61,7 +69,7 @@ def get_check_stop_process_report(project_root: str | Path = ".", process_id: st
     root = Path(project_root).resolve()
     selected_process_id = process_id.strip() if process_id else None
     if not selected_process_id:
-        return _check_stop_process_failure_report(root, "", "Usage: /check-stop-process <id>\nError: process id is required.")
+        return _check_stop_process_failure_report(root, "", _usage_error(CHECK_STOP_PROCESS_USAGE, PROCESS_ID_REQUIRED_ERROR))
 
     workspace = local_command_workspace(root, "local-check-stop-process")
     observation = _execute_action(
@@ -114,7 +122,7 @@ def get_stop_process_report(project_root: str | Path = ".", process_id: str | No
     root = Path(project_root).resolve()
     selected_process_id = process_id.strip() if process_id else None
     if not selected_process_id:
-        return _stop_process_failure_report(root, "", "Usage: /stop-process <id>\nError: process id is required.")
+        return _stop_process_failure_report(root, "", _usage_error(STOP_PROCESS_USAGE, PROCESS_ID_REQUIRED_ERROR))
 
     workspace = local_command_workspace(root, "local-stop-process")
     observation = _execute_action(
