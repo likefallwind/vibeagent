@@ -6,6 +6,9 @@ from .local_command_workspace import local_command_workspace
 from .project_command_utils import commands_attr, execute_action, indent_block, plain_data
 from .types import SearchAction, SearchContextsAction
 
+SEARCH_USAGE = "Usage: /search <query>"
+SEARCH_CONTEXTS_USAGE = "Usage: /search-contexts <query>"
+
 
 def _search_failure_report(
     root: Path,
@@ -49,7 +52,7 @@ def get_search_report(
         return _search_failure_report(
             root,
             "matches",
-            "Usage: /search <query>",
+            SEARCH_USAGE,
             path=path,
             regex=regex,
             case_sensitive=case_sensitive,
@@ -100,7 +103,7 @@ def get_search_report(
 
 def format_search_report_text(report: dict[str, object]) -> str:
     if not report.get("query") and str(report.get("message") or "").startswith("Usage:"):
-        return str(report.get("message") or "Usage: /search <query>")
+        return str(report.get("message") or SEARCH_USAGE)
     matches = report.get("matches") if isinstance(report.get("matches"), dict) else {}
     match_items = matches.get("items") if isinstance(matches.get("items"), list) else []
 
@@ -165,7 +168,7 @@ def get_search_contexts_report(
         return _search_failure_report(
             root,
             "contexts",
-            "Usage: /search-contexts <query>",
+            SEARCH_CONTEXTS_USAGE,
             path=path,
             regex=regex,
             case_sensitive=case_sensitive,
@@ -220,7 +223,7 @@ def get_search_contexts_report(
 
 def format_search_contexts_report_text(report: dict[str, object]) -> str:
     if not report.get("query") and str(report.get("message") or "").startswith("Usage:"):
-        return str(report.get("message") or "Usage: /search-contexts <query>")
+        return str(report.get("message") or SEARCH_CONTEXTS_USAGE)
     contexts = report.get("contexts") if isinstance(report.get("contexts"), dict) else {}
     context_items = contexts.get("items") if isinstance(contexts.get("items"), list) else []
 
