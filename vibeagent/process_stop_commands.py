@@ -4,9 +4,9 @@ from pathlib import Path
 import sys
 
 from .actions import execute_action as _default_execute_action
+from .local_command_workspace import local_command_workspace
 from .process_report_helpers import process_status_text, serialize_process_info
 from .types import CheckStopAllProcessesAction, CheckStopProcessAction, StopAllProcessesAction, StopProcessAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -39,7 +39,7 @@ def get_check_stop_process_report(project_root: str | Path = ".", process_id: st
             "message": "Usage: /check-stop-process <id>\nError: process id is required.",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-check-stop-process", session_dir=root / ".vibeagent" / "sessions" / "local-check-stop-process")
+    workspace = local_command_workspace(root, "local-check-stop-process")
     observation = _execute_action(
         workspace,
         CheckStopProcessAction(type="check_stop_process", process_id=selected_process_id),
@@ -109,7 +109,7 @@ def get_stop_process_report(project_root: str | Path = ".", process_id: str | No
             "message": "Usage: /stop-process <id>\nError: process id is required.",
         }
 
-    workspace = RunWorkspace(root=root, run_id="local-stop-process", session_dir=root / ".vibeagent" / "sessions" / "local-stop-process")
+    workspace = local_command_workspace(root, "local-stop-process")
     observation = _execute_action(
         workspace,
         StopProcessAction(type="stop_process", process_id=selected_process_id),
@@ -158,7 +158,7 @@ def get_check_stop_all_processes_text(project_root: str | Path = ".") -> str:
 
 def get_check_stop_all_processes_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-check-stop-all-processes", session_dir=root / ".vibeagent" / "sessions" / "local-check-stop-all-processes")
+    workspace = local_command_workspace(root, "local-check-stop-all-processes")
     observation = _execute_action(
         workspace,
         CheckStopAllProcessesAction(type="check_stop_all_processes"),
@@ -212,7 +212,7 @@ def get_stop_all_processes_text(project_root: str | Path = ".") -> str:
 
 def get_stop_all_processes_report(project_root: str | Path = ".") -> dict[str, object]:
     root = Path(project_root).resolve()
-    workspace = RunWorkspace(root=root, run_id="local-stop-all-processes", session_dir=root / ".vibeagent" / "sessions" / "local-stop-all-processes")
+    workspace = local_command_workspace(root, "local-stop-all-processes")
     observation = _execute_action(
         workspace,
         StopAllProcessesAction(type="stop_all_processes"),
