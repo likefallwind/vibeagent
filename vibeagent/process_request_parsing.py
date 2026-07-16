@@ -52,3 +52,15 @@ def validate_max_output_chars(max_output_chars: int | None) -> None:
         raise ValueError("max chars must be at least 1000.")
     if max_output_chars > 50_000:
         raise ValueError("max chars must be at most 50000.")
+
+
+def parse_single_quoted_argument(value: str) -> str:
+    if not value or value[0] not in {"'", '"'}:
+        return value
+    try:
+        parts = shlex.split(value)
+    except ValueError:
+        return value
+    if len(parts) == 1:
+        return parts[0]
+    return value

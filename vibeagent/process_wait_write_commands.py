@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-import shlex
 import sys
 
 from .actions import execute_action as _default_execute_action
-from .process_request_parsing import parse_positive_decimal, split_process_argument, validate_max_output_chars
+from .process_request_parsing import parse_positive_decimal, parse_single_quoted_argument, split_process_argument, validate_max_output_chars
 from .process_report_helpers import (
     format_structured_command_output_analysis_lines,
     indent_block as _indent_block,
@@ -389,7 +388,7 @@ def parse_write_process_request(
         parts = argument.strip().split(maxsplit=1)
         if parts:
             selected_process_id = parts[0]
-        selected_content = _parse_write_process_content(parts[1]) if len(parts) > 1 else None
+        selected_content = parse_single_quoted_argument(parts[1]) if len(parts) > 1 else None
     if not selected_process_id:
         raise ValueError("process id is required.")
     if selected_content is None or selected_content == "":
@@ -399,15 +398,3 @@ def parse_write_process_request(
 
 def decode_stdin_escapes(value: str) -> str:
     return value.replace("\\r", "\r").replace("\\n", "\n").replace("\\t", "\t")
-
-
-def _parse_write_process_content(value: str) -> str:
-    if not value or value[0] not in {"'", '"'}:
-        return value
-    try:
-        parts = shlex.split(value)
-    except ValueError:
-        return value
-    if len(parts) == 1:
-        return parts[0]
-    return value
