@@ -5,8 +5,8 @@ import sys
 
 from .actions import execute_action as _default_execute_action
 from .edit_command_parsing import parse_executable_argument
+from .local_command_workspace import local_command_workspace
 from .types import CheckSetExecutableAction, SetExecutableAction
-from .workspace_core import RunWorkspace
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -56,7 +56,7 @@ def get_check_set_executable_report(
             "modeAfter": "",
             "message": f"Usage: /check-executable <path> [true|false]\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-executable", session_dir=root / ".vibeagent" / "sessions" / "local-check-executable")
+    workspace = local_command_workspace(root, "local-check-executable")
     observation = _execute_action(workspace, CheckSetExecutableAction(type="check_set_executable", path=parsed_path, executable=parsed_executable))
     return serialize_executable_report(root, observation)
 
@@ -100,7 +100,7 @@ def get_set_executable_report(
             "modeAfter": "",
             "message": f"Usage: /set-executable <path> [true|false]\nError: {error}",
         }
-    workspace = RunWorkspace(root=root, run_id="local-set-executable", session_dir=root / ".vibeagent" / "sessions" / "local-set-executable")
+    workspace = local_command_workspace(root, "local-set-executable")
     observation = _execute_action(workspace, SetExecutableAction(type="set_executable", path=parsed_path, executable=parsed_executable))
     return serialize_executable_report(root, observation)
 
