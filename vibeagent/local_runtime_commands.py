@@ -53,6 +53,10 @@ from .types import (
 )
 from .workspace_core import create_local_workspace
 
+COMMAND_CHECK_USAGE = "Usage: /command <shell command>"
+CHECK_START_USAGE = "Usage: /check-start <shell command>"
+START_USAGE = "Usage: /start <shell command>"
+
 
 def get_command_check_text(project_root: str | Path = ".", command: str | None = None, cwd: str | None = None) -> str:
     return format_command_check_report_text(get_command_check_report(project_root, command, cwd))
@@ -71,7 +75,7 @@ def get_command_check_report(project_root: str | Path = ".", command: str | None
             "executableAvailable": False,
             "blockReason": None,
             "missingTool": None,
-            "message": "Usage: /command <shell command>",
+            "message": COMMAND_CHECK_USAGE,
         }
     workspace = create_local_workspace(root, "local-command-check")
     observation = build_command_check_observation(workspace, command.strip(), cwd)
@@ -103,7 +107,7 @@ def get_check_start_report(project_root: str | Path = ".", command: str | None =
         }
 
     if command is None or not command.strip():
-        return failure("Usage: /check-start <shell command>")
+        return failure(CHECK_START_USAGE)
     workspace = create_local_workspace(root, "local-check-start")
     observation = execute_local_action(
         workspace,
@@ -140,7 +144,7 @@ def get_start_report(project_root: str | Path = ".", command: str | None = None,
         }
 
     if command is None or not command.strip():
-        return failure("Usage: /start <shell command>")
+        return failure(START_USAGE)
 
     workspace = create_local_workspace(root, "local-start")
     observation = execute_local_action(
