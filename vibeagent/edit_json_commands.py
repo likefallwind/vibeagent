@@ -10,6 +10,7 @@ from .edit_command_parsing import (
     parse_json_remove_argument,
     parse_json_set_argument,
 )
+from .local_command_workspace import local_command_workspace
 from .types import (
     CheckJsonPatchAction,
     CheckJsonRemoveAction,
@@ -19,7 +20,6 @@ from .types import (
     JsonRemoveAction,
     JsonSetAction,
 )
-from .workspace_core import RunWorkspace
 
 
 def _plain_data(value: object) -> object:
@@ -86,7 +86,7 @@ def get_check_json_set_report(
             "message": f"Usage: /check-json-set [--create-missing] <path> <pointer> <json-value>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-json-set", session_dir=root / ".vibeagent" / "sessions" / "local-check-json-set")
+    workspace = local_command_workspace(root, "local-check-json-set")
     observation = _execute_action(
         workspace,
         CheckJsonSetAction(
@@ -146,7 +146,7 @@ def get_json_set_report(
             "message": f"Usage: /json-set [--create-missing] <path> <pointer> <json-value>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-json-set", session_dir=root / ".vibeagent" / "sessions" / "local-json-set")
+    workspace = local_command_workspace(root, "local-json-set")
     observation = _execute_action(
         workspace,
         JsonSetAction(
@@ -198,7 +198,7 @@ def get_check_json_remove_report(
             "message": f"Usage: /check-json-remove <path> <pointer>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-json-remove", session_dir=root / ".vibeagent" / "sessions" / "local-check-json-remove")
+    workspace = local_command_workspace(root, "local-check-json-remove")
     observation = _execute_action(workspace, CheckJsonRemoveAction(type="check_json_remove", path=parsed_path, pointer=parsed_pointer))
     return serialize_json_pointer_report(root, observation)
 
@@ -241,7 +241,7 @@ def get_json_remove_report(
             "message": f"Usage: /json-remove <path> <pointer>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-json-remove", session_dir=root / ".vibeagent" / "sessions" / "local-json-remove")
+    workspace = local_command_workspace(root, "local-json-remove")
     observation = _execute_action(workspace, JsonRemoveAction(type="json_remove", path=parsed_path, pointer=parsed_pointer))
     return serialize_json_pointer_report(root, observation)
 
@@ -284,7 +284,7 @@ def get_check_json_patch_report(
             "message": f"Usage: /check-json-patch <path> <json-ops-array>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-check-json-patch", session_dir=root / ".vibeagent" / "sessions" / "local-check-json-patch")
+    workspace = local_command_workspace(root, "local-check-json-patch")
     observation = _execute_action(workspace, CheckJsonPatchAction(type="check_json_patch", path=parsed_path, operations=parsed_operations))
     return serialize_json_patch_report(root, observation, operations=parsed_operations)
 
@@ -327,7 +327,7 @@ def get_json_patch_report(
             "message": f"Usage: /json-patch <path> <json-ops-array>\nError: {error}",
             "diff": {"text": "", "lines": [], "lineCount": 0},
         }
-    workspace = RunWorkspace(root=root, run_id="local-json-patch", session_dir=root / ".vibeagent" / "sessions" / "local-json-patch")
+    workspace = local_command_workspace(root, "local-json-patch")
     observation = _execute_action(workspace, JsonPatchAction(type="json_patch", path=parsed_path, operations=parsed_operations))
     return serialize_json_patch_report(root, observation, operations=parsed_operations)
 
@@ -419,5 +419,4 @@ def format_json_patch_report_text(title: str, report: dict[str, object]) -> str:
         for diff_line in diff.splitlines():
             lines.append(f"    {diff_line}")
     return "\n".join(lines)
-
 
