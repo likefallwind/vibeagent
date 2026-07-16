@@ -30,9 +30,15 @@ from .git_read_report_helpers import (
 from .local_command_workspace import local_command_workspace
 from .types import GitBranchesAction, GitConflictsAction, GitInfoAction, GitStatusAction
 
+CONFLICTS_USAGE = "Usage: /conflicts [path]"
+
 
 def _split_nonempty_lines(value: str) -> list[str]:
     return [line for line in value.splitlines() if line.strip()]
+
+
+def _usage_message(usage: str, message: object) -> str:
+    return f"{usage}\n  message: {message}"
 
 
 def _git_status_payload(status: str) -> dict[str, object]:
@@ -91,7 +97,7 @@ def get_git_conflicts_report(
             "scannedFiles": 0,
             "totalFiles": 0,
             "truncated": False,
-            "message": f"Usage: /conflicts [path]\n  message: {error}",
+            "message": _usage_message(CONFLICTS_USAGE, error),
         }
 
     workspace = local_command_workspace(root, "local-git-conflicts")
