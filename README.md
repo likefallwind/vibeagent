@@ -88,6 +88,12 @@ approval policy.
 python -m vibeagent
 ```
 
+Confirm the installed package version:
+
+```sh
+python -m vibeagent --version
+```
+
 or through the npm compatibility scripts:
 
 ```sh

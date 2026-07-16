@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 import unittest
 from pathlib import Path
 
+from vibeagent import __version__
 from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAN_PATH = ROOT / "docs" / "vibeagent-1.0.md"
 READINESS_PATH = ROOT / "docs" / "vibeagent-1.0-readiness.md"
+PYPROJECT_PATH = ROOT / "pyproject.toml"
+PACKAGE_PATH = ROOT / "package.json"
 DOGFOOD_TESTS = {
     "test_v1_agent_can_read_repair_verify_commit_and_finish",
     "test_v1_agent_can_resume_after_interrupted_failure_and_commit",
@@ -160,6 +164,13 @@ class V1AcceptanceTests(unittest.TestCase):
             package["scripts"]["test:v1:full"],
             "npm run test:v1 && python3 -m unittest discover -s tests -q",
         )
+
+    def test_package_version_metadata_stays_in_sync(self) -> None:
+        pyproject = tomllib.loads(PYPROJECT_PATH.read_text(encoding="utf-8"))
+        package = json.loads(PACKAGE_PATH.read_text(encoding="utf-8"))
+
+        self.assertEqual(pyproject["project"]["version"], __version__)
+        self.assertEqual(package["version"], __version__)
 
     def test_acceptance_plan_names_the_dedicated_cli_smoke_tests(self) -> None:
         plan = PLAN_PATH.read_text(encoding="utf-8")
