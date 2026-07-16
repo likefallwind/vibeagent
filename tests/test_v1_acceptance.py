@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
+import sys
 import tomllib
 import unittest
 from pathlib import Path
@@ -15,6 +17,7 @@ PLAN_PATH = ROOT / "docs" / "vibeagent-1.0.md"
 READINESS_PATH = ROOT / "docs" / "vibeagent-1.0-readiness.md"
 PYPROJECT_PATH = ROOT / "pyproject.toml"
 PACKAGE_PATH = ROOT / "package.json"
+BIN_ENTRYPOINT_PATH = ROOT / "bin" / "vibeagent"
 DOGFOOD_TESTS = {
     "test_v1_agent_can_read_repair_verify_commit_and_finish",
     "test_v1_agent_can_resume_after_interrupted_failure_and_commit",
@@ -171,6 +174,29 @@ class V1AcceptanceTests(unittest.TestCase):
 
         self.assertEqual(pyproject["project"]["version"], __version__)
         self.assertEqual(package["version"], __version__)
+
+    def test_distribution_entrypoints_target_cli_main(self) -> None:
+        pyproject = tomllib.loads(PYPROJECT_PATH.read_text(encoding="utf-8"))
+        package = json.loads(PACKAGE_PATH.read_text(encoding="utf-8"))
+        bin_entrypoint = BIN_ENTRYPOINT_PATH.read_text(encoding="utf-8")
+
+        self.assertEqual(pyproject["project"]["scripts"]["vibeagent"], "vibeagent.cli:main")
+        self.assertEqual(package["bin"]["vibeagent"], "./bin/vibeagent")
+        self.assertIn("from vibeagent.cli import main", bin_entrypoint)
+        self.assertIn("main(sys.argv[1:])", bin_entrypoint)
+
+    def test_npm_bin_entrypoint_runs_from_source_checkout(self) -> None:
+        result = subprocess.run(
+            [sys.executable, BIN_ENTRYPOINT_PATH.as_posix(), "--version"],
+            cwd=ROOT,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), f"vibeagent {__version__}")
 
     def test_acceptance_plan_names_the_dedicated_cli_smoke_tests(self) -> None:
         plan = PLAN_PATH.read_text(encoding="utf-8")
