@@ -15,6 +15,9 @@ from .process_report_helpers import (
 )
 from .types import ProcessOutputContextsAction, ProcessOutputDiagnosticsAction
 
+PROCESS_OUTPUT_CONTEXTS_USAGE = "Usage: /process-output-contexts <id> [chars]"
+PROCESS_OUTPUT_DIAGNOSTICS_USAGE = "Usage: /process-output-diagnostics <id> [chars]"
+
 
 def _execute_action(*args: object, **kwargs: object) -> object:
     commands_module = sys.modules.get("vibeagent.process_commands")
@@ -74,7 +77,7 @@ def get_process_output_contexts_report(
             root,
             process_id or "",
             max_output_chars,
-            f"Usage: /process-output-contexts <id> [chars]\nError: {error}",
+            _usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, error),
         )
     message = _validate_process_output_context_limits(
         context_lines=context_lines,
@@ -176,7 +179,7 @@ def get_process_output_diagnostics_report(
             max_diagnostics,
             max_contexts,
             max_bytes_per_context,
-            f"Usage: /process-output-diagnostics <id> [chars]\nError: {error}",
+            _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, error),
         )
     message = _validate_process_output_diagnostic_limits(
         context_lines=context_lines,
@@ -255,19 +258,18 @@ def _validate_process_output_context_limits(
     max_contexts: int,
     max_bytes_per_context: int,
 ) -> str:
-    usage = "Usage: /process-output-contexts <id> [chars]\nError:"
     if context_lines < 0:
-        return f"{usage} context_lines must be at least 0."
+        return _usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, "context_lines must be at least 0.")
     if context_lines > 500:
-        return f"{usage} context_lines must be at most 500."
+        return _usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, "context_lines must be at most 500.")
     if max_contexts < 1:
-        return f"{usage} max_contexts must be at least 1."
+        return _usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, "max_contexts must be at least 1.")
     if max_contexts > 100:
-        return f"{usage} max_contexts must be at most 100."
+        return _usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, "max_contexts must be at most 100.")
     if max_bytes_per_context < 1_000:
-        return f"{usage} max_bytes_per_context must be at least 1000."
+        return _usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, "max_bytes_per_context must be at least 1000.")
     if max_bytes_per_context > 200_000:
-        return f"{usage} max_bytes_per_context must be at most 200000."
+        return _usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, "max_bytes_per_context must be at most 200000.")
     return ""
 
 
@@ -278,24 +280,27 @@ def _validate_process_output_diagnostic_limits(
     max_contexts: int,
     max_bytes_per_context: int,
 ) -> str:
-    usage = "Usage: /process-output-diagnostics <id> [chars]\nError:"
     if context_lines < 0:
-        return f"{usage} context_lines must be at least 0."
+        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "context_lines must be at least 0.")
     if context_lines > 500:
-        return f"{usage} context_lines must be at most 500."
+        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "context_lines must be at most 500.")
     if max_diagnostics < 1:
-        return f"{usage} max_diagnostics must be at least 1."
+        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "max_diagnostics must be at least 1.")
     if max_diagnostics > 200:
-        return f"{usage} max_diagnostics must be at most 200."
+        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "max_diagnostics must be at most 200.")
     if max_contexts < 1:
-        return f"{usage} max_contexts must be at least 1."
+        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "max_contexts must be at least 1.")
     if max_contexts > 100:
-        return f"{usage} max_contexts must be at most 100."
+        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "max_contexts must be at most 100.")
     if max_bytes_per_context < 1_000:
-        return f"{usage} max_bytes_per_context must be at least 1000."
+        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "max_bytes_per_context must be at least 1000.")
     if max_bytes_per_context > 200_000:
-        return f"{usage} max_bytes_per_context must be at most 200000."
+        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "max_bytes_per_context must be at most 200000.")
     return ""
+
+
+def _usage_error(usage: str, error: object) -> str:
+    return f"{usage}\nError: {error}"
 
 
 def _process_output_contexts_usage_report(
