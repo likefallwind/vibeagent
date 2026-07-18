@@ -17,8 +17,10 @@ def record_tool_result_event(
     iteration: int,
     hook_results: tuple[object, ...] = (),
     auto: bool = False,
-) -> object:
+) -> dict[str, object]:
     result_payload = redact_jsonable_payload(to_jsonable(observation))
+    if not isinstance(result_payload, dict):
+        result_payload = {"result": result_payload}
     if hook_results and isinstance(result_payload, dict):
         result_payload["hooks"] = redact_jsonable_payload(to_jsonable(hook_results))
     event: dict[str, object] = {

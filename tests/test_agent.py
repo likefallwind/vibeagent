@@ -557,6 +557,43 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(len(ends), 2)
         self.assertLess(max(started_at for _path, started_at in starts), min(ended_at for _path, ended_at in ends))
 
+    def test_parallel_tool_results_use_shared_redaction_for_model_and_session_events(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            client = MockClient(
+                [
+                    [
+                        {"type": "tool_call", "id": "1", "name": "read_file", "input": {"path": "a.txt"}},
+                        {"type": "tool_call", "id": "2", "name": "read_file", "input": {"path": "b.txt"}},
+                    ],
+                    [{"type": "tool_call", "id": "3", "name": "finish", "input": {"message": "done"}}],
+                ]
+            )
+
+            def fake_execute_action(workspace: object, action: object, command_timeout_ms: int = 30_000) -> object:
+                if getattr(action, "type", "") != "read_file":
+                    return execute_action(workspace, action, command_timeout_ms)
+                path = str(getattr(action, "path"))
+                return ReadFileObservation(
+                    kind="read_file",
+                    path=path,
+                    content=f"{path}: OPENAI_API_KEY=sk-parallelsecret1234567890\n",
+                    message=f"Read {path}.",
+                )
+
+            with patch("vibeagent.agent.execute_action", side_effect=fake_execute_action):
+                result = run_agent("read both files", base_dir=root, client=client, max_iterations=2)
+            events_text = (root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl").read_text(
+                encoding="utf-8"
+            )
+
+        self.assertTrue(result.success)
+        model_payload_text = json.dumps(client.messages[1][-1].content, ensure_ascii=False)
+        self.assertNotIn("sk-parallelsecret1234567890", model_payload_text)
+        self.assertNotIn("sk-parallelsecret1234567890", events_text)
+        self.assertIn("OPENAI_API_KEY=[REDACTED]", model_payload_text)
+        self.assertIn('"redacted": true', events_text)
+
     def test_run_agent_parallelizes_safe_prefix_before_serial_tool_call(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)
