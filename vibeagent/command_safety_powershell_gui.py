@@ -73,6 +73,10 @@ def powershell_direct_payload_launches_gui(
         return False
     if not parts:
         return False
+    while parts and parts[0] == "&":
+        parts = parts[1:]
+    if not parts:
+        return False
     launcher = _shell_token_basename(parts[0])
     if launcher not in POWERSHELL_DIRECT_GUI_LAUNCHERS:
         return False

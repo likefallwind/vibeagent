@@ -56,6 +56,8 @@ BLOCKED_COMMAND_EXAMPLES: tuple[str, ...] = (
     "rundll32 url.dll,FileProtocolHandler .",
     "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command Start-Process .",
     "pwsh -Command ii .",
+    "powershell -Command '& ii .'",
+    "pwsh -Command '& Start-Process .'",
     "open -a Finder .",
     "code .",
     "sensible-browser http://127.0.0.1:5173",

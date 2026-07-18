@@ -8800,6 +8800,8 @@ class ActionTests(unittest.TestCase):
         )
         self.assertIn("GUI application launch", get_blocked_command_reason("powershell Invoke-Item .") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("pwsh -Command ii .") or "")
+        self.assertIn("GUI application launch", get_blocked_command_reason("powershell -Command '& ii .'") or "")
+        self.assertIn("GUI application launch", get_blocked_command_reason("pwsh -Command '& Start-Process .'") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("open -a Finder .") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("cursor .") or "")
         self.assertIn("GUI application launch", get_blocked_command_reason("sensible-browser http://127.0.0.1:5173") or "")

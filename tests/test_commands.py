@@ -1345,6 +1345,8 @@ class CommandTests(unittest.TestCase):
         self.assertIn("rundll32 url.dll,FileProtocolHandler .", text)
         self.assertIn("/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command Start-Process .", text)
         self.assertIn("pwsh -Command ii .", text)
+        self.assertIn("powershell -Command '& ii .'", text)
+        self.assertIn("pwsh -Command '& Start-Process .'", text)
         self.assertIn("open -a Finder .", text)
         self.assertIn("code .", text)
         self.assertIn("sensible-browser http://127.0.0.1:5173", text)
@@ -1442,6 +1444,8 @@ class CommandTests(unittest.TestCase):
                 for check in hard_blocks["checks"]
             )
         )
+        self.assertTrue(any(check["command"] == "powershell -Command '& ii .'" and check["active"] for check in hard_blocks["checks"]))
+        self.assertTrue(any(check["command"] == "pwsh -Command '& Start-Process .'" and check["active"] for check in hard_blocks["checks"]))
         self.assertTrue(any(check["command"] == "python3 -m webbrowser http://127.0.0.1:5173" and check["active"] for check in hard_blocks["checks"]))
         self.assertTrue(any(check["command"] == "python3 -c \"import webbrowser; webbrowser.open('http://127.0.0.1:5173')\"" and check["active"] for check in hard_blocks["checks"]))
         self.assertTrue(any(check["command"] == "python3 -c \"import webbrowser; webbrowser.get().open('http://127.0.0.1:5173')\"" and check["active"] for check in hard_blocks["checks"]))
