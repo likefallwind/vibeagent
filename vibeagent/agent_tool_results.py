@@ -8,6 +8,31 @@ from .types import AgentLogger, ApprovalPolicy, ContentBlock, Observation, RunCo
 from .workspace_core import RunWorkspace
 
 
+def record_tool_result_event(
+    workspace: RunWorkspace,
+    *,
+    tool_id: str,
+    tool_name: str,
+    observation: Observation,
+    iteration: int,
+    hook_results: tuple[object, ...] = (),
+    auto: bool = False,
+) -> object:
+    result_payload = redact_jsonable_payload(to_jsonable(observation))
+    if hook_results and isinstance(result_payload, dict):
+        result_payload["hooks"] = redact_jsonable_payload(to_jsonable(hook_results))
+    event: dict[str, object] = {
+        "iteration": iteration,
+        "id": tool_id,
+        "name": tool_name,
+        "result": result_payload,
+    }
+    if auto:
+        event["auto"] = True
+    append_session_event(workspace.session_dir, "tool_result", event)
+    return result_payload
+
+
 def record_tool_observation(
     workspace: RunWorkspace,
     *,
@@ -32,17 +57,18 @@ def record_tool_observation(
         approval_policy,
     )
 
-    result_payload = redact_jsonable_payload(to_jsonable(observation))
-    if hook_results and isinstance(result_payload, dict):
-        result_payload["hooks"] = redact_jsonable_payload(to_jsonable(hook_results))
-    append_session_event(
-        workspace.session_dir,
-        "tool_result",
-        {"iteration": iteration, "id": tool_id, "name": tool_name, "result": result_payload},
+    result_payload = record_tool_result_event(
+        workspace,
+        tool_id=tool_id,
+        tool_name=tool_name,
+        observation=observation,
+        iteration=iteration,
+        hook_results=hook_results,
     )
     if isinstance(observation, RunCommandObservation) and logger:
         ok = observation.result.exit_code == 0 and not observation.result.timed_out
         logger("observed success" if ok else "observed failure", summarize_command(observation.result))
     return build_tool_result_block(workspace, tool_id, observation, result_payload)
 
-__all__ = ["record_tool_observation"]
+
+__all__ = ["record_tool_observation", "record_tool_result_event"]

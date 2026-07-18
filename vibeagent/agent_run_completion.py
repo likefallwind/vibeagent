@@ -16,7 +16,7 @@ from .agent_observation_utils import summarize
 from .agent_result import AgentResult
 from .agent_runtime_utils import append_session_event, to_jsonable
 from .agent_steps import observation_summary
-from .redaction import redact_jsonable_payload
+from .agent_tool_results import record_tool_result_event
 from .session import read_session_events, summarize_session
 from .session_verification_state import session_verification_from_events
 from .types import AgentLogger, FinalReviewAction, Observation, PlanItem, TaskStep
@@ -185,17 +185,13 @@ def auto_run_final_review_if_needed(
     action = FinalReviewAction(type="final_review")
     observation = execute_action_safely_func(workspace, action, command_timeout_ms, "final_review")
     observations.append(observation)
-    result_payload = redact_jsonable_payload(to_jsonable(observation))
-    append_session_event(
-        workspace.session_dir,
-        "tool_result",
-        {
-            "iteration": iteration,
-            "id": "auto-final-review",
-            "name": "final_review",
-            "auto": True,
-            "result": result_payload,
-        },
+    record_tool_result_event(
+        workspace,
+        tool_id="auto-final-review",
+        tool_name="final_review",
+        observation=observation,
+        iteration=iteration,
+        auto=True,
     )
     if logger:
         logger("auto final_review result", observation_summary(observation))
