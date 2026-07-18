@@ -183,9 +183,10 @@ task, VibeAgent starts the interactive prompt with that context already loaded.
 `--append-system-prompt` keeps the default prompt and adds extra system-level
 constraints. Both options work in one-shot code and chat modes and are never
 saved to project configuration.
-With `--json`, one-shot coding results include the runtime `version`, `status`
-(`completed`, `blocked`, or `failed`), matching `stopReason`, `numTurns`, final
-text as `message` plus a `result` alias, `runId` plus a `sessionId` alias, a
+With `--json`, one-shot coding results include `schemaVersion`, the runtime
+`version`, `status` (`completed`, `blocked`, or `failed`), matching
+`stopReason`, `numTurns`, final text as `message` plus a `result` alias,
+`runId` plus a `sessionId` alias, a
 `priorContext` object with loaded/source/run id metadata, structured `plan`
 items,
 `completionReady`, `completionBlockers`, `completionWarnings`,
@@ -205,12 +206,12 @@ prior context, completion, latest-completion, changed-file, verification,
 pending-user-input, and timing fields where applicable.
 `--output-format json` is equivalent to `--json`. `--output-format stream-json`
 emits newline-delimited JSON for one-shot tasks: each durable session event is
-written as a `type: "event"` record with `version`, a monotonically increasing
-`sequence`, `runId`, matching `sessionId` and `session_id`, and the redacted
-event payload,
+written as a `type: "event"` record with `schemaVersion`, `version`, a
+monotonically increasing `sequence`, `runId`, matching `sessionId` and
+`session_id`, and the redacted event payload,
 followed by exactly one `type: "result"` record containing the normal code or
-chat result, including `version`, with final text available as both `message`
-and `result`. Every
+chat result, including `schemaVersion` and `version`, with final text available
+as both `message` and `result`. Every
 `permissions_loaded` event includes the loaded rule count, sources, and trusted
 allow sources so CI logs can audit per-run overrides such as `acceptEdits`.
 Every line is flushed immediately for CI and process supervisors. Stream mode
@@ -235,7 +236,8 @@ rate status, and command hard-block self-checks without exposing API key values.
 execution-configuration payloads with model/base URL, API-key configured/source
 metadata, project-config status, execution limits, and cost-rate status without
 exposing API key values.
-All local `--json` payloads include a top-level runtime `version` field.
+All local `--json` payloads include top-level `schemaVersion` and runtime
+`version` fields.
 `--json --save-config` includes a structured `saveConfig` object with the
 project config path, created/existing state, written non-secret keys, and the
 saved non-secret config snapshot.

@@ -7,7 +7,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
-from vibeagent import __version__
+from vibeagent import MACHINE_OUTPUT_SCHEMA_VERSION, __version__
 from vibeagent.cli import main
 
 
@@ -53,6 +53,7 @@ class CliLocalFlagTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "local")
+        self.assertEqual(payload["schemaVersion"], MACHINE_OUTPUT_SCHEMA_VERSION)
         self.assertEqual(payload["version"], __version__)
         self.assertTrue(payload["success"])
         self.assertEqual(payload["status"], "completed")
@@ -419,6 +420,7 @@ class CliLocalFlagTests(unittest.TestCase):
             payload,
             {
                 "kind": "local",
+                "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
                 "version": __version__,
                 "success": False,
                 "status": "failed",
@@ -532,6 +534,7 @@ class CliLocalFlagTests(unittest.TestCase):
             payload,
             {
                 "kind": "local",
+                "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
                 "version": __version__,
                 "success": False,
                 "status": "failed",

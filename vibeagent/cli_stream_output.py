@@ -6,7 +6,7 @@ import sys
 from threading import Lock
 from typing import Any, TextIO
 
-from . import __version__
+from . import MACHINE_OUTPUT_SCHEMA_VERSION, __version__
 from .agent_result import AgentResult
 
 
@@ -58,7 +58,12 @@ class JsonEventStream:
     def emit(self, payload: dict[str, object]) -> None:
         with self._lock:
             self.sequence += 1
-            record = {"sequence": self.sequence, "version": __version__, **payload}
+            record = {
+                "sequence": self.sequence,
+                "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
+                "version": __version__,
+                **payload,
+            }
             self.output.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
             self.output.flush()
 
@@ -69,6 +74,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
     stop_reason = code_result_stop_reason(result)
     payload = {
         "kind": "code",
+        "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
         "version": __version__,
         "success": result.success,
         "status": result.status,
@@ -115,6 +121,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
 def build_chat_result_payload(message: str) -> dict[str, object]:
     return {
         "kind": "chat",
+        "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
         "version": __version__,
         "success": True,
         "status": "completed",
@@ -132,7 +139,14 @@ def code_result_snake_case_aliases(payload: dict[str, object]) -> dict[str, obje
 
 
 def error_result_payload(error: str, *, kind: str = "error", status: str = "failed") -> dict[str, object]:
-    return {"kind": kind, "version": __version__, "success": False, "status": status, "error": error}
+    return {
+        "kind": kind,
+        "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
+        "version": __version__,
+        "success": False,
+        "status": status,
+        "error": error,
+    }
 
 
 def add_duration_fields(payload: dict[str, object], duration_ms: int) -> None:

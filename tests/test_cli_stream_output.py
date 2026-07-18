@@ -9,7 +9,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from vibeagent import __version__
+from vibeagent import MACHINE_OUTPUT_SCHEMA_VERSION, __version__
 from vibeagent.agent_result import AgentResult
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.cli import main
@@ -76,6 +76,7 @@ class CliOutputFormatTests(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["type"], "result")
         self.assertEqual(records[0]["sequence"], 1)
+        self.assertEqual(records[0]["schemaVersion"], MACHINE_OUTPUT_SCHEMA_VERSION)
         self.assertEqual(records[0]["version"], __version__)
         self.assertIn("requires a one-shot task", records[0]["error"])
 
@@ -127,6 +128,7 @@ class CliOutputFormatTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "code")
+        self.assertEqual(payload["schemaVersion"], MACHINE_OUTPUT_SCHEMA_VERSION)
         self.assertEqual(payload["version"], __version__)
         self.assertEqual(payload["status"], "completed")
         self.assertEqual(payload["stopReason"], "completed")
@@ -204,10 +206,12 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual(event_types[0], "task")
         self.assertIn("tool_catalog_initialized", event_types)
         self.assertLess(event_types.index("model"), event_types.index("result"))
+        self.assertTrue(all(record["schemaVersion"] == MACHINE_OUTPUT_SCHEMA_VERSION for record in event_records))
         self.assertTrue(all(record["version"] == __version__ for record in event_records))
         self.assertEqual(event_types[-1], "result")
         self.assertEqual(final["type"], "result")
         self.assertEqual(final["kind"], "code")
+        self.assertEqual(final["schemaVersion"], MACHINE_OUTPUT_SCHEMA_VERSION)
         self.assertEqual(final["version"], __version__)
         self.assertEqual(final["status"], "completed")
         self.assertEqual(final["stopReason"], "completed")
@@ -399,6 +403,7 @@ class CliStreamJsonTests(unittest.TestCase):
             "error": "No task provided.",
             "kind": "error",
             "sequence": 1,
+            "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
             "status": "failed",
             "success": False,
             "type": "result",
@@ -419,6 +424,7 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["type"], "result")
         self.assertEqual(records[0]["kind"], "chat")
+        self.assertEqual(records[0]["schemaVersion"], MACHINE_OUTPUT_SCHEMA_VERSION)
         self.assertEqual(records[0]["version"], __version__)
         self.assertEqual(records[0]["message"], "hello")
         self.assertEqual(records[0]["result"], "hello")
@@ -453,6 +459,7 @@ class CodeResultPayloadTests(unittest.TestCase):
             payload,
             {
                 "kind": "chat",
+                "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
                 "version": __version__,
                 "success": True,
                 "status": "completed",
@@ -491,6 +498,7 @@ class CodeResultPayloadTests(unittest.TestCase):
         root = Path("/tmp/vibeagent-result")
         payload = build_code_result_payload(_result(root), prior_context=OneShotPriorContext(source="none"))
 
+        self.assertEqual(payload["schemaVersion"], MACHINE_OUTPUT_SCHEMA_VERSION)
         self.assertEqual(payload["version"], __version__)
         self.assertFalse(payload["pendingUserInput"])
         self.assertFalse(payload["pending_user_input"])

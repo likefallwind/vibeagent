@@ -10,7 +10,7 @@ from contextlib import ExitStack, redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import Mock, call, patch
 
-from vibeagent import __version__, cli as cli_module
+from vibeagent import MACHINE_OUTPUT_SCHEMA_VERSION, __version__, cli as cli_module
 from vibeagent import cli_command_namespace, commands as commands_module
 from vibeagent.agent import AgentResult
 from vibeagent.cli import build_approval_handler, format_error, handle_approval_command, main, print_agent_result, prompt_approval
@@ -304,6 +304,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "local")
         self.assertEqual(payload["text"], f"vibeagent {__version__}")
+        self.assertEqual(payload["schemaVersion"], MACHINE_OUTPUT_SCHEMA_VERSION)
         self.assertEqual(payload["version"], __version__)
 
     def test_console_main_passes_process_arguments_to_main(self) -> None:
@@ -357,6 +358,7 @@ class CliTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 1)
         self.assertFalse(payload["success"])
+        self.assertEqual(payload["schemaVersion"], MACHINE_OUTPUT_SCHEMA_VERSION)
         self.assertEqual(payload["version"], __version__)
         self.assertEqual(payload["status"], "failed")
         self.assertEqual(payload["tool"], {"ok": False})
@@ -682,6 +684,7 @@ class CliTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 2)
         self.assertEqual(payload["kind"], "error")
+        self.assertEqual(payload["schemaVersion"], MACHINE_OUTPUT_SCHEMA_VERSION)
         self.assertEqual(payload["version"], __version__)
         self.assertIn("permission rule is invalid", payload["error"])
         create_chat_client.assert_not_called()
@@ -12580,6 +12583,7 @@ class CliTests(unittest.TestCase):
                 "numTurns": 1,
                 "num_turns": 1,
                 "result": "你好",
+                "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
                 "success": True,
                 "status": "completed",
                 "version": __version__,
