@@ -7,6 +7,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
+from vibeagent import __version__
 from vibeagent.cli import main
 
 
@@ -149,6 +150,8 @@ class CliLocalFlagTests(unittest.TestCase):
         self.assertTrue(payload["success"])
         self.assertIn("Doctor:", payload["text"])
         doctor = payload["doctor"]
+        self.assertEqual(doctor["version"], __version__)
+        self.assertIn(f"version: {__version__}", payload["text"])
         self.assertEqual(doctor["projectRoot"], str(Path(base).resolve()))
         self.assertEqual(doctor["provider"]["apiKeySource"], "MINIMAX_API_KEY")
         self.assertNotIn("secret-key", json.dumps(payload, ensure_ascii=False))
@@ -557,4 +560,3 @@ class CliLocalFlagTests(unittest.TestCase):
         commands = [item["command"] for item in handoff["suggestedChecks"]["commands"] if isinstance(item, dict)]
         self.assertIn("npm run test", commands)
         self.assertEqual(handoff["blockingIssues"], [])
-

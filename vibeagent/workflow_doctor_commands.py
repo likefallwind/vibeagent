@@ -4,6 +4,7 @@ from pathlib import Path
 import shutil
 import sys
 
+from . import __version__
 from .command_hard_blocks import get_command_hard_block_report
 from .config import resolve_cost_rates, resolve_provider_config
 
@@ -11,6 +12,7 @@ from .config import resolve_cost_rates, resolve_provider_config
 def get_doctor_report(project_root: str | Path = ".", env: dict[str, str | None] | None = None) -> dict[str, object]:
     root = Path(project_root).resolve()
     report: dict[str, object] = {
+        "version": __version__,
         "projectRoot": str(root),
         "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         "sessionsDir": (root / ".vibeagent" / "sessions").exists(),
@@ -62,6 +64,7 @@ def get_doctor_text(project_root: str | Path = ".", env: dict[str, str | None] |
 def format_doctor_report_text(report: dict[str, object]) -> str:
     lines = [
         "Doctor:",
+        f"  version: {report.get('version') or ''}",
         f"  projectRoot: {report.get('projectRoot') or '.'}",
         f"  python: {report.get('python') or ''}",
         f"  sessionsDir: {'yes' if bool(report.get('sessionsDir')) else 'no'}",

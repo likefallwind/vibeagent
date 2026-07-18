@@ -13,6 +13,7 @@ from typing import Literal, Union, get_args, get_origin, get_type_hints
 from unittest.mock import patch
 
 import vibeagent.commands as commands_module
+from vibeagent import __version__
 from vibeagent.commands import (
     LocalCommand,
     get_append_file_report,
@@ -11230,6 +11231,7 @@ class CommandTests(unittest.TestCase):
             )
             rendered = format_doctor_report_text(report)
 
+        self.assertEqual(report["version"], __version__)
         self.assertEqual(report["projectRoot"], str(root.resolve()))
         self.assertTrue(report["sessionsDir"])
         provider = report["provider"]
@@ -11249,6 +11251,7 @@ class CommandTests(unittest.TestCase):
         self.assertTrue(any(check["command"] == "code ." and check["active"] for check in hard_blocks["checks"]))
         self.assertTrue(any(check["command"] == "pwsh -Command ii ." and check["active"] for check in hard_blocks["checks"]))
         self.assertIn("Doctor:", rendered)
+        self.assertIn(f"version: {__version__}", rendered)
         self.assertIn("provider: minimax", rendered)
         self.assertIn("commandHardBlocks:", rendered)
 
