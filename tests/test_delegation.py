@@ -13,7 +13,7 @@ from vibeagent.agent_delegate import (
     execute_delegate_task_action,
 )
 from vibeagent.session_timeline_reports import format_session_event_timeline_item
-from vibeagent.session import summarize_session
+from vibeagent.session import read_session_events, summarize_session
 from vibeagent.session_types import SessionEvent
 from vibeagent.types import ApprovalDecision, AssistantResponse, ChatMessage, ContentBlock, ModelUsage
 from vibeagent.workspace import create_run_workspace
@@ -161,6 +161,52 @@ class DelegationTests(unittest.TestCase):
         self.assertEqual(summary.total_tokens, 38)
         read_result = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual(read_result["kind"], "read_file")
+
+    def test_subagent_tool_results_use_shared_redaction_for_model_and_session_events(self) -> None:
+        client = DelegationClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "read-1",
+                        "name": "read_file",
+                        "input": {"path": "app.py"},
+                    }
+                ],
+                [{"type": "text", "text": "Found the secret marker in `app.py`."}],
+            ]
+        )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            root = Path(base)
+            root.joinpath("app.py").write_text("OPENAI_API_KEY=sk-subagentsecret1234567890\n", encoding="utf-8")
+            workspace = create_run_workspace(root)
+            action = parse_tool_action("delegate_task", {"task": "Inspect app.py", "max_iterations": 2})
+
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+            events_text = "\n".join(
+                json.dumps(event.raw, ensure_ascii=False)
+                for event in read_session_events(root, workspace.run_id)
+            )
+
+        self.assertTrue(observation.ok)
+        model_payload_text = json.dumps(client.messages[1][-1].content, ensure_ascii=False)
+        self.assertNotIn("sk-subagentsecret1234567890", model_payload_text)
+        self.assertNotIn("sk-subagentsecret1234567890", events_text)
+        self.assertIn("OPENAI_API_KEY=[REDACTED]", model_payload_text)
+        self.assertIn("OPENAI_API_KEY=[REDACTED]", events_text)
 
     def test_subagent_rejects_hallucinated_write_tool(self) -> None:
         client = DelegationClient(

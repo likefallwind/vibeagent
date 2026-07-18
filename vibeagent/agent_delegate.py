@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import replace
-import json
 
 from .agent_delegate_tools import (
     DELEGATE_TOOL_DEFINITIONS,
@@ -10,6 +9,7 @@ from .agent_delegate_tools import (
     execute_delegate_tool_call,
 )
 from .agent_model import complete_with_retries
+from .agent_multimodal import build_tool_result_block
 from .agent_observation_utils import observation_failed
 from .agent_runtime_utils import (
     append_session_event,
@@ -17,7 +17,7 @@ from .agent_runtime_utils import (
     normalize_assistant_content,
     to_jsonable,
 )
-from .redaction import redact_jsonable_payload
+from .agent_tool_results import build_tool_result_payload
 from .types import (
     AgentLogger,
     ApprovalHandler,
@@ -275,9 +275,7 @@ def execute_delegate_task_action(
             observation = execution.observation
             if observation is None:
                 continue
-            result_payload = redact_jsonable_payload(to_jsonable(observation))
-            if execution.hook_results and isinstance(result_payload, dict):
-                result_payload["hooks"] = redact_jsonable_payload(to_jsonable(execution.hook_results))
+            result_payload = build_tool_result_payload(observation, execution.hook_results)
             append_session_event(
                 workspace.session_dir,
                 "subagent_tool_result",
@@ -291,13 +289,7 @@ def execute_delegate_task_action(
                     "result": result_payload,
                 },
             )
-            tool_results.append(
-                {
-                    "type": "tool_result",
-                    "tool_call_id": tool_id,
-                    "content": json.dumps(result_payload, ensure_ascii=False),
-                }
-            )
+            tool_results.append(build_tool_result_block(workspace, tool_id, observation, result_payload))
         messages.append(ChatMessage(role="user", content=tool_results))
 
     return finish_delegate_task(

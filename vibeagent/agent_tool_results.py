@@ -8,6 +8,15 @@ from .types import AgentLogger, ApprovalPolicy, ContentBlock, Observation, RunCo
 from .workspace_core import RunWorkspace
 
 
+def build_tool_result_payload(observation: Observation, hook_results: tuple[object, ...] = ()) -> dict[str, object]:
+    result_payload = redact_jsonable_payload(to_jsonable(observation))
+    if not isinstance(result_payload, dict):
+        result_payload = {"result": result_payload}
+    if hook_results:
+        result_payload["hooks"] = redact_jsonable_payload(to_jsonable(hook_results))
+    return result_payload
+
+
 def record_tool_result_event(
     workspace: RunWorkspace,
     *,
@@ -18,11 +27,7 @@ def record_tool_result_event(
     hook_results: tuple[object, ...] = (),
     auto: bool = False,
 ) -> dict[str, object]:
-    result_payload = redact_jsonable_payload(to_jsonable(observation))
-    if not isinstance(result_payload, dict):
-        result_payload = {"result": result_payload}
-    if hook_results and isinstance(result_payload, dict):
-        result_payload["hooks"] = redact_jsonable_payload(to_jsonable(hook_results))
+    result_payload = build_tool_result_payload(observation, hook_results)
     event: dict[str, object] = {
         "iteration": iteration,
         "id": tool_id,
@@ -73,4 +78,4 @@ def record_tool_observation(
     return build_tool_result_block(workspace, tool_id, observation, result_payload)
 
 
-__all__ = ["record_tool_observation", "record_tool_result_event"]
+__all__ = ["build_tool_result_payload", "record_tool_observation", "record_tool_result_event"]
