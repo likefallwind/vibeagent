@@ -139,12 +139,15 @@ def code_result_snake_case_aliases(payload: dict[str, object]) -> dict[str, obje
 
 
 def error_result_payload(error: str, *, kind: str = "error", status: str = "failed") -> dict[str, object]:
+    stop_reason = "interrupted" if status == "interrupted" else "failed"
     return {
         "kind": kind,
         "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
         "version": __version__,
         "success": False,
         "status": status,
+        "stopReason": stop_reason,
+        "stop_reason": stop_reason,
         "error": error,
     }
 

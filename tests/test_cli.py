@@ -687,6 +687,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["schemaVersion"], MACHINE_OUTPUT_SCHEMA_VERSION)
         self.assertEqual(payload["version"], __version__)
         self.assertIn("permission rule is invalid", payload["error"])
+        self.assertEqual(payload["stopReason"], "failed")
+        self.assertEqual(payload["stop_reason"], "failed")
         create_chat_client.assert_not_called()
 
     def test_main_rejects_permission_overrides_without_code_task(self) -> None:
@@ -12545,6 +12547,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["version"], __version__)
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["stopReason"], "failed")
+        self.assertEqual(payload["stop_reason"], "failed")
         self.assertEqual(payload["error"], "No task provided.")
         create_chat_client.assert_not_called()
 

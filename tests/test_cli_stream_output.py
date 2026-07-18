@@ -21,6 +21,7 @@ from vibeagent.cli_stream_output import (
     build_code_result_payload,
     code_result_snake_case_aliases,
     code_result_stop_reason,
+    error_result_payload,
 )
 from vibeagent.observation_common_types import UserInputObservation
 from vibeagent.runtime_types import AssistantResponse
@@ -411,6 +412,8 @@ class CliStreamJsonTests(unittest.TestCase):
             "sequence": 1,
             "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
             "status": "failed",
+            "stopReason": "failed",
+            "stop_reason": "failed",
             "success": False,
             "type": "result",
             "version": __version__,
@@ -458,6 +461,15 @@ class SessionEventObserverTests(unittest.TestCase):
 
 
 class CodeResultPayloadTests(unittest.TestCase):
+    def test_error_result_payload_includes_stop_reason_aliases(self) -> None:
+        failed = error_result_payload("No task provided.")
+        interrupted = error_result_payload("Interrupted.", kind="interrupted", status="interrupted")
+
+        self.assertEqual(failed["stopReason"], "failed")
+        self.assertEqual(failed["stop_reason"], "failed")
+        self.assertEqual(interrupted["stopReason"], "interrupted")
+        self.assertEqual(interrupted["stop_reason"], "interrupted")
+
     def test_chat_result_payload_includes_runtime_version_and_result_alias(self) -> None:
         payload = build_chat_result_payload("hello")
 
