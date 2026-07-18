@@ -12453,6 +12453,27 @@ class CliTests(unittest.TestCase):
         self.assertIn("Invalid stream-json input on line 1", stdout.getvalue())
         create_chat_client.assert_not_called()
 
+    def test_main_stream_json_future_schema_version_does_not_call_agent(self) -> None:
+        stdout = io.StringIO()
+        raw = json.dumps(
+            {
+                "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION + 1,
+                "type": "user",
+                "text": "continue task",
+            }
+        )
+
+        with (
+            patch("sys.stdin", io.StringIO(raw)),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--input-format", "stream-json", "-"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("Unsupported schemaVersion", stdout.getvalue())
+        create_chat_client.assert_not_called()
+
     def test_main_json_stdin_parse_error_does_not_call_agent(self) -> None:
         stdout = io.StringIO()
 

@@ -4,6 +4,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 import json
 
+from . import MACHINE_OUTPUT_SCHEMA_VERSION
+
 
 class TaskInputFormatError(ValueError):
     pass
@@ -58,6 +60,7 @@ def _resolve_task_input_records(records: Iterable[object]) -> StreamJsonTaskInpu
     chunks: list[str] = []
     session_id: str | None = None
     for record in records:
+        _validate_schema_version(record)
         session_id = session_id or _session_id_from_record(record)
         chunks.extend(_text_chunks_from_record(record))
         role_chunks = _role_text_chunks_from_record(record)
@@ -71,6 +74,20 @@ def _resolve_task_input_records(records: Iterable[object]) -> StreamJsonTaskInpu
         assistant_context=_optional_join_text_chunks(assistant_chunks),
         session_id=session_id,
     )
+
+
+def _validate_schema_version(record: object) -> None:
+    if not isinstance(record, dict) or "schemaVersion" not in record:
+        return
+    schema_version = record.get("schemaVersion")
+    if not isinstance(schema_version, int) or isinstance(schema_version, bool):
+        raise TaskInputFormatError("schemaVersion must be an integer.")
+    if schema_version > MACHINE_OUTPUT_SCHEMA_VERSION:
+        raise TaskInputFormatError(
+            f"Unsupported schemaVersion {schema_version}; this VibeAgent supports up to {MACHINE_OUTPUT_SCHEMA_VERSION}."
+        )
+    if schema_version < 1:
+        raise TaskInputFormatError("schemaVersion must be at least 1.")
 
 
 @dataclass(frozen=True)

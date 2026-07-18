@@ -1,6 +1,7 @@
 import json
 import unittest
 
+from vibeagent import MACHINE_OUTPUT_SCHEMA_VERSION
 from vibeagent.cli_input_format import (
     TaskInputFormatError,
     resolve_json_task_input,
@@ -124,6 +125,35 @@ class CliInputFormatTests(unittest.TestCase):
         )
 
         self.assertEqual(resolve_stream_json_task_text(raw), "legacy direct\nlegacy message")
+
+    def test_stream_json_accepts_current_schema_version(self) -> None:
+        raw = json.dumps(
+            {
+                "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
+                "type": "user",
+                "text": "continue task",
+            }
+        )
+
+        self.assertEqual(resolve_stream_json_task_text(raw), "continue task")
+
+    def test_stream_json_rejects_future_schema_version(self) -> None:
+        raw = json.dumps(
+            {
+                "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION + 1,
+                "type": "user",
+                "text": "continue task",
+            }
+        )
+
+        with self.assertRaisesRegex(TaskInputFormatError, "Unsupported schemaVersion"):
+            resolve_stream_json_task_text(raw)
+
+    def test_stream_json_rejects_non_integer_schema_version(self) -> None:
+        raw = json.dumps({"schemaVersion": "1", "type": "user", "text": "continue task"})
+
+        with self.assertRaisesRegex(TaskInputFormatError, "schemaVersion must be an integer"):
+            resolve_stream_json_task_text(raw)
 
     def test_stream_json_accepts_prompt_and_input_text_fields(self) -> None:
         raw = "\n".join(
