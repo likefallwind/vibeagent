@@ -357,6 +357,7 @@ class CliTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 1)
         self.assertFalse(payload["success"])
+        self.assertEqual(payload["version"], __version__)
         self.assertEqual(payload["status"], "failed")
         self.assertEqual(payload["tool"], {"ok": False})
 

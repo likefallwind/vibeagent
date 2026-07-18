@@ -53,6 +53,7 @@ class CliLocalFlagTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "local")
+        self.assertEqual(payload["version"], __version__)
         self.assertTrue(payload["success"])
         self.assertEqual(payload["status"], "completed")
         self.assertEqual(payload["text"], rendered)
@@ -418,6 +419,7 @@ class CliLocalFlagTests(unittest.TestCase):
             payload,
             {
                 "kind": "local",
+                "version": __version__,
                 "success": False,
                 "status": "failed",
                 "text": "Review:\n  ready: no",
@@ -439,6 +441,7 @@ class CliLocalFlagTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "local")
+        self.assertEqual(payload["version"], __version__)
         self.assertEqual(payload["status"], "completed")
         self.assertTrue(payload["success"])
         self.assertIn("Review:", payload["text"])
@@ -529,6 +532,7 @@ class CliLocalFlagTests(unittest.TestCase):
             payload,
             {
                 "kind": "local",
+                "version": __version__,
                 "success": False,
                 "status": "failed",
                 "text": "Handoff:\n  ready: no",
@@ -550,6 +554,7 @@ class CliLocalFlagTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "local")
+        self.assertEqual(payload["version"], __version__)
         self.assertEqual(payload["status"], "completed")
         self.assertTrue(payload["success"])
         self.assertIn("Handoff:", payload["text"])

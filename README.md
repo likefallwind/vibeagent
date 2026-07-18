@@ -235,6 +235,7 @@ rate status, and command hard-block self-checks without exposing API key values.
 execution-configuration payloads with model/base URL, API-key configured/source
 metadata, project-config status, execution limits, and cost-rate status without
 exposing API key values.
+All local `--json` payloads include a top-level runtime `version` field.
 `--json --save-config` includes a structured `saveConfig` object with the
 project config path, created/existing state, written non-secret keys, and the
 saved non-secret config snapshot.
