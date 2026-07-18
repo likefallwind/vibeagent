@@ -8904,6 +8904,7 @@ class CommandTests(unittest.TestCase):
         )
 
         self.assertIn("Status:", text)
+        self.assertIn(f"version: {__version__}", text)
         self.assertIn("mode: chat", text)
         self.assertIn("approval: allow", text)
         self.assertIn("resume: run-1", text)
@@ -8915,13 +8916,16 @@ class CommandTests(unittest.TestCase):
         report = get_status_report("chat", "allow", "run-1", chat_turns=2, system_prompt_set=True)
 
         json.dumps(report)
+        self.assertEqual(report["version"], __version__)
         self.assertEqual(report["mode"], "chat")
         self.assertEqual(report["approval"], "allow")
         self.assertEqual(report["resume"], "run-1")
         self.assertEqual(report["chatTurns"], 2)
         self.assertEqual(report["systemPrompt"], "custom")
         self.assertEqual(report["appendSystemPrompt"], "none")
-        self.assertIn("Status:", format_status_report_text(report))
+        rendered = format_status_report_text(report)
+        self.assertIn("Status:", rendered)
+        self.assertIn(f"version: {__version__}", rendered)
 
     def test_get_context_text_reports_prompt_context_sources(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:

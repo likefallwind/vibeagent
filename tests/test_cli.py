@@ -12116,12 +12116,14 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Status:", stdout.getvalue())
+        self.assertIn(f"version: {__version__}", stdout.getvalue())
         self.assertIn("approval: deny", stdout.getvalue())
         create_chat_client.assert_not_called()
 
     def test_main_local_status_flag_reports_json_payload(self) -> None:
         stdout = io.StringIO()
         report = {
+            "version": __version__,
             "mode": "code",
             "approval": "deny",
             "resume": "",
@@ -12141,6 +12143,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertTrue(payload["success"])
         self.assertEqual(payload["runtimeStatus"], report)
+        self.assertEqual(payload["runtimeStatus"]["version"], __version__)
         self.assertIn("Status:", payload["text"])
         get_status_report.assert_called_once_with("code", "deny", None, chat_turns=0)
         create_chat_client.assert_not_called()

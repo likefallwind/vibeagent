@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from . import __version__
+
 
 def get_status_report(
     mode: str,
@@ -10,6 +12,7 @@ def get_status_report(
     append_system_prompt_set: bool = False,
 ) -> dict[str, object]:
     return {
+        "version": __version__,
         "mode": mode,
         "approval": approval_policy,
         "resume": resume_run_id or "",
@@ -25,6 +28,7 @@ def format_status_report_text(report: dict[str, object]) -> str:
     return "\n".join(
         [
             "Status:",
+            f"  version: {report.get('version') or ''}",
             f"  mode: {report.get('mode') or ''}",
             f"  approval: {report.get('approval') or ''}",
             f"  resume: {resume}",
