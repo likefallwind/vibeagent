@@ -11,6 +11,7 @@ from vibeagent.agent_tool_results import (
     record_subagent_tool_result_event,
     record_tool_observation,
     record_tool_result_event,
+    record_tool_result_observation,
 )
 from vibeagent.session import read_session_events
 from vibeagent.types import CommandResult, RunCommandObservation, WriteFileObservation
@@ -64,6 +65,33 @@ class AgentToolResultsTests(unittest.TestCase):
         self.assertEqual(events[0].payload["before_action_type"], "write_file")
         self.assertEqual(events[0].payload["result"], payload)
         self.assertNotIn("before_action_type", payload)
+
+    def test_record_tool_result_observation_returns_tool_block_and_records_event(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-tool-results-") as base:
+            workspace = create_run_workspace(Path(base), "run-1")
+            observation = WriteFileObservation(
+                kind="write_file",
+                path="src/app.py",
+                ok=True,
+                message="Wrote src/app.py with OPENAI_API_KEY=plain-secret",
+            )
+
+            block = record_tool_result_observation(
+                workspace,
+                tool_id="write-1",
+                tool_name="write_file",
+                observation=observation,
+                iteration=3,
+            )
+            events = read_session_events(workspace.root, workspace.run_id)
+
+        self.assertEqual(block["type"], "tool_result")
+        self.assertEqual(block["tool_call_id"], "write-1")
+        self.assertEqual(json.loads(block["content"])["message"], "Wrote src/app.py with OPENAI_API_KEY=[REDACTED]")
+        self.assertEqual(events[0].type, "tool_result")
+        self.assertEqual(events[0].payload["id"], "write-1")
+        self.assertEqual(events[0].payload["iteration"], 3)
+        self.assertEqual(events[0].payload["result"]["message"], "Wrote src/app.py with OPENAI_API_KEY=[REDACTED]")
 
     def test_record_subagent_tool_result_event_redacts_payload_and_preserves_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-tool-results-") as base:

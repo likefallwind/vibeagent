@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 from .actions import ActionParseError, execute_action, parse_tool_action
 from .agent_action_logging import log_action
-from .agent_multimodal import build_tool_result_block
 from .agent_parallel_safety import is_parallel_safe_action
 from .agent_runtime_utils import (
     append_session_event,
@@ -15,7 +14,7 @@ from .agent_runtime_utils import (
     list_files_action_path,
 )
 from .agent_steps import complete_task_step, start_task_step
-from .agent_tool_results import record_tool_result_event
+from .agent_tool_results import record_tool_result_observation
 from .agent_tool_registry import prepare_action_for_policy
 from .types import ApprovalPolicy, AgentLogger, ContentBlock, ListFilesObservation, Observation, TaskStep, ToolErrorObservation
 from .workspace_core import RunWorkspace
@@ -129,12 +128,11 @@ def execute_parallel_tool_call_batch(
             observation = ToolErrorObservation(kind="tool_error", tool=item.tool_name or "unknown", message="Tool execution failed.")
         complete_task_step(workspace, item.step, observation, iteration, logger)
         observations.append(observation)
-        result_payload = record_tool_result_event(
+        tool_results.append(record_tool_result_observation(
             workspace,
             tool_id=item.tool_id,
             tool_name=item.tool_name,
             observation=observation,
             iteration=iteration,
-        )
-        tool_results.append(build_tool_result_block(workspace, item.tool_id, observation, result_payload))
+        ))
     return ParallelToolCallBatchResult(tool_results=tool_results, handled_count=len(prepared))

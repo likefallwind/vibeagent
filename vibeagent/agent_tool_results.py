@@ -44,6 +44,30 @@ def record_tool_result_event(
     return result_payload
 
 
+def record_tool_result_observation(
+    workspace: RunWorkspace,
+    *,
+    tool_id: str,
+    tool_name: str,
+    observation: Observation,
+    iteration: int,
+    hook_results: tuple[object, ...] = (),
+    auto: bool = False,
+    event_extra: dict[str, object] | None = None,
+) -> ContentBlock:
+    result_payload = record_tool_result_event(
+        workspace,
+        tool_id=tool_id,
+        tool_name=tool_name,
+        observation=observation,
+        iteration=iteration,
+        hook_results=hook_results,
+        auto=auto,
+        event_extra=event_extra,
+    )
+    return build_tool_result_block(workspace, tool_id, observation, result_payload)
+
+
 def record_subagent_tool_result_event(
     workspace: RunWorkspace,
     *,
@@ -142,4 +166,5 @@ __all__ = [
     "record_subagent_tool_result_event",
     "record_tool_observation",
     "record_tool_result_event",
+    "record_tool_result_observation",
 ]
