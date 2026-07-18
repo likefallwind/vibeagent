@@ -204,6 +204,7 @@ class CliStreamJsonTests(unittest.TestCase):
         self.assertEqual(event_types[0], "task")
         self.assertIn("tool_catalog_initialized", event_types)
         self.assertLess(event_types.index("model"), event_types.index("result"))
+        self.assertTrue(all(record["version"] == __version__ for record in event_records))
         self.assertEqual(event_types[-1], "result")
         self.assertEqual(final["type"], "result")
         self.assertEqual(final["kind"], "code")

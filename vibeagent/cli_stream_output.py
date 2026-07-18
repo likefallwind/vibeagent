@@ -58,7 +58,7 @@ class JsonEventStream:
     def emit(self, payload: dict[str, object]) -> None:
         with self._lock:
             self.sequence += 1
-            record = {"sequence": self.sequence, **payload}
+            record = {"sequence": self.sequence, "version": __version__, **payload}
             self.output.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
             self.output.flush()
 

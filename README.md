@@ -205,8 +205,9 @@ prior context, completion, latest-completion, changed-file, verification,
 pending-user-input, and timing fields where applicable.
 `--output-format json` is equivalent to `--json`. `--output-format stream-json`
 emits newline-delimited JSON for one-shot tasks: each durable session event is
-written as a `type: "event"` record with a monotonically increasing `sequence`,
-`runId`, matching `sessionId` and `session_id`, and the redacted event payload,
+written as a `type: "event"` record with `version`, a monotonically increasing
+`sequence`, `runId`, matching `sessionId` and `session_id`, and the redacted
+event payload,
 followed by exactly one `type: "result"` record containing the normal code or
 chat result, including `version`, with final text available as both `message`
 and `result`. Every
