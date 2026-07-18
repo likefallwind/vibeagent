@@ -394,12 +394,18 @@ class CliStreamJsonTests(unittest.TestCase):
     def test_stream_json_emits_structured_empty_input_error(self) -> None:
         stdout = io.StringIO()
 
-        with patch("sys.stdin", io.StringIO("\n")), redirect_stdout(stdout):
+        with (
+            patch("sys.stdin", io.StringIO("\n")),
+            patch("vibeagent.cli_runner.monotonic", side_effect=[40.0, 40.125]),
+            redirect_stdout(stdout),
+        ):
             exit_code = main(["--output-format", "stream-json", "-"])
 
         records = [json.loads(line) for line in stdout.getvalue().splitlines()]
         self.assertEqual(exit_code, 1)
         self.assertEqual(records, [{
+            "durationMs": 125,
+            "duration_ms": 125,
             "error": "No task provided.",
             "kind": "error",
             "sequence": 1,

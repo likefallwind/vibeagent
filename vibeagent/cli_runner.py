@@ -159,8 +159,14 @@ def run_one_shot(
     stream = JsonEventStream() if stream_json else None
 
     def emit_error(error: str, *, kind: str = "error", status: str = "failed", exit_code: int = 1) -> int:
+        payload = error_result_payload(error, kind=kind, status=status)
+        if machine_output:
+            add_duration_fields(payload, elapsed_milliseconds(started_at))
         if stream is not None:
-            stream.result(error_result_payload(error, kind=kind, status=status))
+            stream.result(payload)
+            return exit_code
+        if output_json:
+            print_output(payload, True)
             return exit_code
         return print_error_result(error, output_json, exit_code=exit_code)
 

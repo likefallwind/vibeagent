@@ -12532,6 +12532,7 @@ class CliTests(unittest.TestCase):
         with (
             patch("sys.stdin", io.StringIO("\n")),
             patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli_runner.monotonic", side_effect=[50.0, 50.067]),
             redirect_stdout(stdout),
         ):
             exit_code = main(["--json", "-"])
@@ -12539,6 +12540,8 @@ class CliTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 1)
         self.assertEqual(payload["kind"], "error")
+        self.assertEqual(payload["durationMs"], 67)
+        self.assertEqual(payload["duration_ms"], 67)
         self.assertEqual(payload["version"], __version__)
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
