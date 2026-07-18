@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vibeagent"
 version = "0.1.0"
-description = "Minimal command-line ReAct coding agent powered by MiniMax."
+description = "Project-aware command-line coding agent with safe tools, sessions, and provider-neutral model adapters."
 requires-python = ">=3.11"
 readme = "README.md"
 

@@ -1,9 +1,10 @@
 # VibeAgent
 
-VibeAgent v1 is a minimal command-line assistant written in Python. In coding mode,
-it treats the directory where you run it as the real project workspace, asks the
-configured model provider for a response, and lets the model call tools when it
-needs file, Python symbol, call-site, runtime environment, or command access. Tool results are fed back to the model until the
+VibeAgent v1 is a project-aware command-line coding agent written in Python. In
+coding mode, it treats the directory where you run it as the real project
+workspace, asks the configured model provider for a response, and lets the model
+call tools when it needs file, Python symbol, call-site, runtime environment, or
+command access. Tool results are fed back to the model until the
 task finishes or the iteration limit is reached. It also
 includes a daily conversation mode for normal chat that does not write files or
 run commands.
