@@ -681,6 +681,7 @@ class CliTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 2)
         self.assertEqual(payload["kind"], "error")
+        self.assertEqual(payload["version"], __version__)
         self.assertIn("permission rule is invalid", payload["error"])
         create_chat_client.assert_not_called()
 
@@ -12229,6 +12230,7 @@ class CliTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 2)
         self.assertEqual(payload["kind"], "error")
+        self.assertEqual(payload["version"], __version__)
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
         self.assertEqual(payload["error"], "Local command flags cannot be combined with a task.")
@@ -12512,6 +12514,7 @@ class CliTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 1)
         self.assertEqual(payload["kind"], "error")
+        self.assertEqual(payload["version"], __version__)
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
         self.assertEqual(payload["error"], "No task provided.")
@@ -12578,6 +12581,7 @@ class CliTests(unittest.TestCase):
                 "result": "你好",
                 "success": True,
                 "status": "completed",
+                "version": __version__,
             },
         )
 

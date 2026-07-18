@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 from time import monotonic
 
+from . import __version__
 from .agent import run_agent
 from .chat import run_chat
 from .cli_context import build_context_limit_kwargs, resolve_one_shot_prior_context
@@ -198,6 +199,7 @@ def run_one_shot(
             )
             payload = {
                 "kind": "chat",
+                "version": __version__,
                 "success": True,
                 "status": "completed",
                 "message": response,

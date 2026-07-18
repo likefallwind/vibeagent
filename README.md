@@ -183,9 +183,9 @@ task, VibeAgent starts the interactive prompt with that context already loaded.
 `--append-system-prompt` keeps the default prompt and adds extra system-level
 constraints. Both options work in one-shot code and chat modes and are never
 saved to project configuration.
-With `--json`, one-shot coding results include `status` (`completed`,
-`blocked`, or `failed`), matching `stopReason`, `numTurns`, final text as
-`message` plus a `result` alias, `runId` plus a `sessionId` alias, a
+With `--json`, one-shot coding results include the runtime `version`, `status`
+(`completed`, `blocked`, or `failed`), matching `stopReason`, `numTurns`, final
+text as `message` plus a `result` alias, `runId` plus a `sessionId` alias, a
 `priorContext` object with loaded/source/run id metadata, structured `plan`
 items,
 `completionReady`, `completionBlockers`, `completionWarnings`,
@@ -208,7 +208,8 @@ emits newline-delimited JSON for one-shot tasks: each durable session event is
 written as a `type: "event"` record with a monotonically increasing `sequence`,
 `runId`, matching `sessionId` and `session_id`, and the redacted event payload,
 followed by exactly one `type: "result"` record containing the normal code or
-chat result, with final text available as both `message` and `result`. Every
+chat result, including `version`, with final text available as both `message`
+and `result`. Every
 `permissions_loaded` event includes the loaded rule count, sources, and trusted
 allow sources so CI logs can audit per-run overrides such as `acceptEdits`.
 Every line is flushed immediately for CI and process supervisors. Stream mode

@@ -6,6 +6,7 @@ import sys
 from threading import Lock
 from typing import Any, TextIO
 
+from . import __version__
 from .agent_result import AgentResult
 
 
@@ -68,6 +69,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
     stop_reason = code_result_stop_reason(result)
     payload = {
         "kind": "code",
+        "version": __version__,
         "success": result.success,
         "status": result.status,
         "stopReason": stop_reason,
@@ -119,7 +121,7 @@ def code_result_snake_case_aliases(payload: dict[str, object]) -> dict[str, obje
 
 
 def error_result_payload(error: str, *, kind: str = "error", status: str = "failed") -> dict[str, object]:
-    return {"kind": kind, "success": False, "status": status, "error": error}
+    return {"kind": kind, "version": __version__, "success": False, "status": status, "error": error}
 
 
 def add_duration_fields(payload: dict[str, object], duration_ms: int) -> None:

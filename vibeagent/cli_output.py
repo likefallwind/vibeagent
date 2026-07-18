@@ -33,7 +33,7 @@ def print_error_result(
         JsonEventStream().result(error_result_payload(error))
         return exit_code
     if output_json:
-        print(json.dumps({"kind": "error", "success": False, "status": "failed", "error": error}, ensure_ascii=False, sort_keys=True))
+        print(json.dumps(error_result_payload(error), ensure_ascii=False, sort_keys=True))
     else:
         print(f"Error: {error}" if prefix else error)
     return exit_code
@@ -46,7 +46,7 @@ def print_interrupted_result(output_json: bool, output_format: str | None = None
     if output_json:
         print(
             json.dumps(
-                {"kind": "interrupted", "success": False, "status": "interrupted", "error": "Interrupted."},
+                error_result_payload("Interrupted.", kind="interrupted", status="interrupted"),
                 ensure_ascii=False,
                 sort_keys=True,
             )
