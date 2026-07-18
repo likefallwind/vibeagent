@@ -208,6 +208,57 @@ class DelegationTests(unittest.TestCase):
         self.assertIn("OPENAI_API_KEY=[REDACTED]", model_payload_text)
         self.assertIn("OPENAI_API_KEY=[REDACTED]", events_text)
 
+    def test_subagent_finish_tool_result_uses_shared_redaction_before_completion_event(self) -> None:
+        client = DelegationClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "finish-1",
+                        "name": "finish",
+                        "input": {"message": "Done with TOKEN=subagent-secret"},
+                    }
+                ],
+            ]
+        )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root)
+            action = parse_tool_action("delegate_task", {"task": "Finish directly", "max_iterations": 1})
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=7,
+                subagent_id="delegate-7-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+            events = read_session_events(root, workspace.run_id)
+            events_text = "\n".join(json.dumps(event.raw, ensure_ascii=False) for event in events)
+
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.summary, "Done with TOKEN=subagent-secret")
+        self.assertNotIn("subagent-secret", events_text)
+        subagent_events = [event for event in events if event.type.startswith("subagent_")]
+        self.assertEqual(
+            [event.type for event in subagent_events],
+            ["subagent_started", "subagent_model", "subagent_tool_call", "subagent_tool_result", "subagent_completed"],
+        )
+        result_event = subagent_events[3]
+        self.assertEqual(result_event.payload["subagent_id"], "delegate-7-1")
+        self.assertEqual(result_event.payload["parent_iteration"], 7)
+        self.assertEqual(result_event.payload["iteration"], 1)
+        self.assertEqual(result_event.payload["id"], "finish-1")
+        self.assertEqual(result_event.payload["name"], "finish")
+        self.assertFalse(result_event.payload["failed"])
+        self.assertEqual(result_event.payload["result"]["summary"], "Done with TOKEN=[REDACTED]")
+
     def test_subagent_rejects_hallucinated_write_tool(self) -> None:
         client = DelegationClient(
             [

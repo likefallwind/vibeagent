@@ -368,15 +368,15 @@ def finish_delegate_task(
         agent=action.agent,
     )
     if tool_event is not None:
-        append_session_event(
-            workspace.session_dir,
-            "subagent_tool_result",
-            {
-                "subagent_id": subagent_id,
-                **tool_event,
-                "failed": not ok,
-                "result": observation,
-            },
+        record_subagent_tool_result_event(
+            workspace,
+            subagent_id=subagent_id,
+            parent_iteration=int(tool_event["parent_iteration"]),
+            iteration=int(tool_event["iteration"]),
+            tool_id=str(tool_event["id"]),
+            tool_name=str(tool_event["name"]),
+            observation=observation,
+            failed=not ok,
         )
     append_session_event(
         workspace.session_dir,
