@@ -246,8 +246,9 @@ local changes when asked, and resume from recorded session context.
 - `tests.test_project_permissions`, `tests.test_workspace`, and
   `tests.test_command_sandbox` cover the main workspace and safety boundaries.
 
-## 1.0 Exit Criteria
+## Verified 1.0 Exit Criteria
 
+- Package metadata and runtime version report VibeAgent `1.0.0`.
 - `npm run test:v1` passes from a clean worktree.
 - `npm run test:v1:full` passes from a clean worktree.
 - The full unit suite passes from a clean worktree.

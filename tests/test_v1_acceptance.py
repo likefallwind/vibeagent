@@ -244,6 +244,8 @@ class V1AcceptanceTests(unittest.TestCase):
         plan = PLAN_PATH.read_text(encoding="utf-8")
 
         self.assertIn("docs/vibeagent-1.0-readiness.md", plan)
+        self.assertIn("Verified 1.0 Exit Criteria", plan)
+        self.assertIn(f"VibeAgent `{__version__}`", plan)
         self.assertIn("npm run test:v1:full", plan)
 
     def test_readiness_audit_names_automated_and_live_provider_gates(self) -> None:
@@ -252,6 +254,7 @@ class V1AcceptanceTests(unittest.TestCase):
         self.assertIn("npm run test:v1:full", readiness)
         self.assertIn("Live Provider Gate", readiness)
         self.assertIn("Status: `complete-for-v1-release`", readiness)
+        self.assertIn(f"Release package version: `{__version__}`", readiness)
         self.assertIn("2026-07-15T01-46-18-965Z-7adb0ef6", readiness)
         self.assertIn("scripts/live_dogfood_v1.py", readiness)
         self.assertIn("python3 -m vibeagent --cwd /tmp/vibeagent-live-dogfood", readiness)

@@ -90,6 +90,8 @@ review, ready completion, and ready session handoff.
 
 Status: `complete-for-v1-release`.
 
+Release package version: `1.0.0`.
+
 Reason: the automated 1.0 gate is broad and passing, and the live-provider
 dogfood gate passed on a non-fixture throwaway repository.
 
