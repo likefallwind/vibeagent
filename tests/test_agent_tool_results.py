@@ -7,6 +7,7 @@ from pathlib import Path
 
 from vibeagent.agent_hooks import HookRunResult
 from vibeagent.agent_tool_results import (
+    ToolObservationContext,
     record_subagent_tool_observation,
     record_subagent_tool_result_event,
     record_tool_observation,
@@ -194,11 +195,13 @@ class AgentToolResultsTests(unittest.TestCase):
                 observation=observation,
                 additional_observations=(additional,),
                 hook_results=(),
-                observations=observations,
-                active_tool_names=set(),
-                iteration=2,
-                approval_policy="ask",
-                logger=lambda event, message: logs.append((event, message)),
+                context=ToolObservationContext(
+                    observations=observations,
+                    active_tool_names=set(),
+                    iteration=2,
+                    approval_policy="ask",
+                    logger=lambda event, message: logs.append((event, message)),
+                ),
             )
             events = read_session_events(workspace.root, workspace.run_id)
 

@@ -12,7 +12,7 @@ from .agent_multimodal import strip_consumed_tool_images
 from .agent_result import AgentResult
 from .agent_run_setup import prepare_agent_run
 from .agent_special_tools import execute_special_tool_action
-from .agent_tool_results import record_tool_observation
+from .agent_tool_results import ToolObservationContext, record_tool_observation
 from .agent_execution_support import (
     create_auto_checkpoint_before_action as _shared_create_auto_checkpoint_before_action,
     execute_action_safely as _shared_execute_action_safely,
@@ -303,11 +303,13 @@ def run_agent(
                 observation=observation,
                 additional_observations=additional_observations,
                 hook_results=hook_results,
-                observations=observations,
-                active_tool_names=active_tool_names,
-                iteration=iteration,
-                approval_policy=approval_policy,
-                logger=logger,
+                context=ToolObservationContext(
+                    observations=observations,
+                    active_tool_names=active_tool_names,
+                    iteration=iteration,
+                    approval_policy=approval_policy,
+                    logger=logger,
+                ),
             ))
 
             if observation.kind == "finish":

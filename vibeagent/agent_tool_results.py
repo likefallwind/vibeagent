@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from .agent_multimodal import build_tool_result_block
 from .agent_observation_utils import observation_failed
 from .agent_runtime_utils import append_session_event, summarize_command, to_jsonable
@@ -7,6 +9,15 @@ from .agent_tool_registry import activate_tools_from_observations
 from .redaction import redact_jsonable_payload
 from .types import AgentLogger, ApprovalPolicy, ContentBlock, Observation, RunCommandObservation
 from .workspace_core import RunWorkspace
+
+
+@dataclass
+class ToolObservationContext:
+    observations: list[Observation]
+    active_tool_names: set[str]
+    iteration: int
+    approval_policy: ApprovalPolicy
+    logger: AgentLogger | None
 
 
 def build_tool_result_payload(observation: Observation, hook_results: tuple[object, ...] = ()) -> dict[str, object]:
@@ -130,20 +141,16 @@ def record_tool_observation(
     observation: Observation,
     additional_observations: tuple[Observation, ...],
     hook_results: tuple[object, ...],
-    observations: list[Observation],
-    active_tool_names: set[str],
-    iteration: int,
-    approval_policy: ApprovalPolicy,
-    logger: AgentLogger | None,
+    context: ToolObservationContext,
 ) -> ContentBlock:
-    observations.append(observation)
-    observations.extend(additional_observations)
+    context.observations.append(observation)
+    context.observations.extend(additional_observations)
     activate_tools_from_observations(
         workspace,
-        active_tool_names,
+        context.active_tool_names,
         [observation],
-        iteration,
-        approval_policy,
+        context.iteration,
+        context.approval_policy,
     )
 
     result_payload = record_tool_result_event(
@@ -151,16 +158,17 @@ def record_tool_observation(
         tool_id=tool_id,
         tool_name=tool_name,
         observation=observation,
-        iteration=iteration,
+        iteration=context.iteration,
         hook_results=hook_results,
     )
-    if isinstance(observation, RunCommandObservation) and logger:
+    if isinstance(observation, RunCommandObservation) and context.logger:
         ok = observation.result.exit_code == 0 and not observation.result.timed_out
-        logger("observed success" if ok else "observed failure", summarize_command(observation.result))
+        context.logger("observed success" if ok else "observed failure", summarize_command(observation.result))
     return build_tool_result_block(workspace, tool_id, observation, result_payload)
 
 
 __all__ = [
+    "ToolObservationContext",
     "build_tool_result_payload",
     "record_subagent_tool_observation",
     "record_subagent_tool_result_event",
