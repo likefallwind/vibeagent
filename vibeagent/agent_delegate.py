@@ -17,7 +17,7 @@ from .agent_runtime_utils import (
     normalize_assistant_content,
     to_jsonable,
 )
-from .agent_tool_results import build_tool_result_payload
+from .agent_tool_results import record_subagent_tool_result_event
 from .types import (
     AgentLogger,
     ApprovalHandler,
@@ -275,19 +275,16 @@ def execute_delegate_task_action(
             observation = execution.observation
             if observation is None:
                 continue
-            result_payload = build_tool_result_payload(observation, execution.hook_results)
-            append_session_event(
-                workspace.session_dir,
-                "subagent_tool_result",
-                {
-                    "subagent_id": subagent_id,
-                    "parent_iteration": parent_iteration,
-                    "iteration": child_iteration,
-                    "id": tool_id,
-                    "name": tool_name,
-                    "failed": observation_failed(observation),
-                    "result": result_payload,
-                },
+            result_payload = record_subagent_tool_result_event(
+                workspace,
+                subagent_id=subagent_id,
+                parent_iteration=parent_iteration,
+                iteration=child_iteration,
+                tool_id=tool_id,
+                tool_name=tool_name,
+                observation=observation,
+                failed=observation_failed(observation),
+                hook_results=execution.hook_results,
             )
             tool_results.append(build_tool_result_block(workspace, tool_id, observation, result_payload))
         messages.append(ChatMessage(role="user", content=tool_results))

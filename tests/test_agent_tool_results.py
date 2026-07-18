@@ -6,7 +6,11 @@ import unittest
 from pathlib import Path
 
 from vibeagent.agent_hooks import HookRunResult
-from vibeagent.agent_tool_results import record_tool_observation, record_tool_result_event
+from vibeagent.agent_tool_results import (
+    record_subagent_tool_result_event,
+    record_tool_observation,
+    record_tool_result_event,
+)
 from vibeagent.session import read_session_events
 from vibeagent.types import CommandResult, RunCommandObservation, WriteFileObservation
 from vibeagent.workspace import create_run_workspace
@@ -59,6 +63,53 @@ class AgentToolResultsTests(unittest.TestCase):
         self.assertEqual(events[0].payload["before_action_type"], "write_file")
         self.assertEqual(events[0].payload["result"], payload)
         self.assertNotIn("before_action_type", payload)
+
+    def test_record_subagent_tool_result_event_redacts_payload_and_preserves_context(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-tool-results-") as base:
+            workspace = create_run_workspace(Path(base), "run-1")
+            observation = WriteFileObservation(
+                kind="write_file",
+                path="src/app.py",
+                ok=False,
+                message="Failed with TOKEN=subagent-secret",
+            )
+            hook = HookRunResult(
+                event="PostToolUseFailure",
+                command="python3 hook.py",
+                source=".vibeagent/hooks.json",
+                status="failed",
+                ok=False,
+                exit_code=1,
+                timed_out=False,
+                stdout="",
+                stderr="PASSWORD=hook-secret",
+                message="Hook failed.",
+            )
+
+            payload = record_subagent_tool_result_event(
+                workspace,
+                subagent_id="delegate-1-1",
+                parent_iteration=4,
+                iteration=2,
+                tool_id="write-1",
+                tool_name="write_file",
+                observation=observation,
+                failed=True,
+                hook_results=(hook,),
+            )
+            events = read_session_events(workspace.root, workspace.run_id)
+
+        self.assertEqual(payload["message"], "Failed with TOKEN=[REDACTED]")
+        self.assertEqual(payload["hooks"][0]["stderr"], "PASSWORD=[REDACTED]")
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].type, "subagent_tool_result")
+        self.assertEqual(events[0].payload["subagent_id"], "delegate-1-1")
+        self.assertEqual(events[0].payload["parent_iteration"], 4)
+        self.assertEqual(events[0].payload["iteration"], 2)
+        self.assertEqual(events[0].payload["id"], "write-1")
+        self.assertEqual(events[0].payload["name"], "write_file")
+        self.assertTrue(events[0].payload["failed"])
+        self.assertEqual(events[0].payload["result"], payload)
 
     def test_record_tool_observation_appends_state_logs_command_and_returns_tool_block(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-tool-results-") as base:

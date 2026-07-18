@@ -43,6 +43,35 @@ def record_tool_result_event(
     return result_payload
 
 
+def record_subagent_tool_result_event(
+    workspace: RunWorkspace,
+    *,
+    subagent_id: str,
+    parent_iteration: int,
+    iteration: int,
+    tool_id: str,
+    tool_name: str,
+    observation: Observation,
+    failed: bool,
+    hook_results: tuple[object, ...] = (),
+) -> dict[str, object]:
+    result_payload = build_tool_result_payload(observation, hook_results)
+    append_session_event(
+        workspace.session_dir,
+        "subagent_tool_result",
+        {
+            "subagent_id": subagent_id,
+            "parent_iteration": parent_iteration,
+            "iteration": iteration,
+            "id": tool_id,
+            "name": tool_name,
+            "failed": failed,
+            "result": result_payload,
+        },
+    )
+    return result_payload
+
+
 def record_tool_observation(
     workspace: RunWorkspace,
     *,
@@ -81,4 +110,9 @@ def record_tool_observation(
     return build_tool_result_block(workspace, tool_id, observation, result_payload)
 
 
-__all__ = ["build_tool_result_payload", "record_tool_observation", "record_tool_result_event"]
+__all__ = [
+    "build_tool_result_payload",
+    "record_subagent_tool_result_event",
+    "record_tool_observation",
+    "record_tool_result_event",
+]
