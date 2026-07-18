@@ -17,6 +17,7 @@ from vibeagent.cli_args import parse_args
 from vibeagent.cli_context import OneShotPriorContext
 from vibeagent.cli_stream_output import (
     CODE_RESULT_SNAKE_CASE_ALIAS_KEYS,
+    build_chat_result_payload,
     build_code_result_payload,
     code_result_snake_case_aliases,
     code_result_stop_reason,
@@ -444,6 +445,21 @@ class SessionEventObserverTests(unittest.TestCase):
 
 
 class CodeResultPayloadTests(unittest.TestCase):
+    def test_chat_result_payload_includes_runtime_version_and_result_alias(self) -> None:
+        payload = build_chat_result_payload("hello")
+
+        self.assertEqual(
+            payload,
+            {
+                "kind": "chat",
+                "version": __version__,
+                "success": True,
+                "status": "completed",
+                "message": "hello",
+                "result": "hello",
+            },
+        )
+
     def test_code_result_snake_case_aliases_cover_machine_readable_fields(self) -> None:
         payload = {
             key: f"value-{index}"

@@ -7,7 +7,6 @@ from pathlib import Path
 import sys
 from time import monotonic
 
-from . import __version__
 from .agent import run_agent
 from .chat import run_chat
 from .cli_context import build_context_limit_kwargs, resolve_one_shot_prior_context
@@ -24,7 +23,13 @@ from .cli_output import (
     prompt_user_input,
 )
 from .cli_permission_overrides import build_permission_overrides
-from .cli_stream_output import JsonEventStream, add_duration_fields, build_code_result_payload, error_result_payload
+from .cli_stream_output import (
+    JsonEventStream,
+    add_duration_fields,
+    build_chat_result_payload,
+    build_code_result_payload,
+    error_result_payload,
+)
 from .commands import get_compact_context, get_resume_context, parse_local_command
 from .config import resolve_cost_rates, resolve_execution_config
 from .providers import create_chat_client
@@ -197,14 +202,7 @@ def run_one_shot(
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
             )
-            payload = {
-                "kind": "chat",
-                "version": __version__,
-                "success": True,
-                "status": "completed",
-                "message": response,
-                "result": response,
-            }
+            payload = build_chat_result_payload(response)
             if machine_output:
                 add_duration_fields(payload, elapsed_milliseconds(started_at))
                 payload["numTurns"] = 1

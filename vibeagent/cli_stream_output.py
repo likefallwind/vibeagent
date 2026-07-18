@@ -112,6 +112,17 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
     return payload
 
 
+def build_chat_result_payload(message: str) -> dict[str, object]:
+    return {
+        "kind": "chat",
+        "version": __version__,
+        "success": True,
+        "status": "completed",
+        "message": message,
+        "result": message,
+    }
+
+
 def code_result_snake_case_aliases(payload: dict[str, object]) -> dict[str, object]:
     return {
         alias: payload[key]
@@ -167,6 +178,7 @@ __all__ = [
     "CODE_RESULT_SNAKE_CASE_ALIAS_KEYS",
     "JsonEventStream",
     "add_duration_fields",
+    "build_chat_result_payload",
     "build_code_result_payload",
     "code_result_snake_case_aliases",
     "code_result_has_pending_user_input",
