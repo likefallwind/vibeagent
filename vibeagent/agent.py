@@ -8,11 +8,11 @@ from .actions import ActionParseError, execute_action, parse_tool_action
 from .agent_model import complete_with_retries
 from .agent_model_turn import handle_no_tool_call_response, record_model_turn
 from .agent_message_flow import append_tool_results_and_compact
-from .agent_multimodal import build_tool_result_block, strip_consumed_tool_images
+from .agent_multimodal import strip_consumed_tool_images
 from .agent_result import AgentResult
-from .redaction import redact_jsonable_payload
 from .agent_run_setup import prepare_agent_run
 from .agent_special_tools import execute_special_tool_action
+from .agent_tool_results import record_tool_observation
 from .agent_execution_support import (
     create_auto_checkpoint_before_action as _shared_create_auto_checkpoint_before_action,
     execute_action_safely as _shared_execute_action_safely,
@@ -48,11 +48,9 @@ from .agent_run_completion import (
     finish_agent_run as _finish_agent_run,
     session_result_status as _session_result_status,
 )
-from .agent_observation_utils import observation_failed, summarize
+from .agent_observation_utils import observation_failed
 from .agent_runtime_utils import (
     append_session_event,
-    summarize_command,
-    to_jsonable,
     tool_error_observation,
 )
 from .session import summarize_session
@@ -67,7 +65,6 @@ from .types import (
     DelegateTaskAction,
     Observation,
     PlanItem,
-    RunCommandObservation,
     TaskStep,
     UserInputHandler,
 )
@@ -299,24 +296,19 @@ def run_agent(
             except ActionParseError as error:
                 observation = tool_error_observation(tool_name, error)
 
-            observations.append(observation)
-            observations.extend(additional_observations)
-            activate_tools_from_observations(
+            tool_results.append(record_tool_observation(
                 current_workspace,
-                active_tool_names,
-                [observation],
-                iteration,
-                approval_policy,
-            )
-            result_payload = redact_jsonable_payload(to_jsonable(observation))
-            if hook_results and isinstance(result_payload, dict):
-                result_payload["hooks"] = redact_jsonable_payload(to_jsonable(hook_results))
-            append_session_event(
-                current_workspace.session_dir,
-                "tool_result",
-                {"iteration": iteration, "id": tool_id, "name": tool_name, "result": result_payload},
-            )
-            tool_results.append(build_tool_result_block(current_workspace, tool_id, observation, result_payload))
+                tool_id=tool_id,
+                tool_name=tool_name,
+                observation=observation,
+                additional_observations=additional_observations,
+                hook_results=hook_results,
+                observations=observations,
+                active_tool_names=active_tool_names,
+                iteration=iteration,
+                approval_policy=approval_policy,
+                logger=logger,
+            ))
 
             if observation.kind == "finish":
                 blocked_completion_feedback = completion_blocked_feedback_if_needed(
@@ -345,10 +337,6 @@ def run_agent(
                     command_timeout_ms=command_timeout_ms,
                     logger=logger,
                 )
-
-            if isinstance(observation, RunCommandObservation) and logger:
-                ok = observation.result.exit_code == 0 and not observation.result.timed_out
-                logger("observed success" if ok else "observed failure", summarize_command(observation.result))
 
         if blocked_completion_feedback is not None:
             messages.append(ChatMessage(role="user", content=tool_results))
