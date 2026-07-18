@@ -1,6 +1,6 @@
 {
   "name": "vibeagent",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Project-aware command-line coding agent with safe tools, sessions, and provider-neutral model adapters.",
   "bin": {
     "vibeagent": "./bin/vibeagent"

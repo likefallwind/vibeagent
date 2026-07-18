@@ -8,6 +8,7 @@ import tempfile
 import time
 from typing import Any
 
+from . import __version__
 from .mcp_config import McpServerConfig, expanded_mcp_environment
 from .workspace_core import RunWorkspace
 
@@ -47,7 +48,7 @@ class McpStdioClient:
                 {
                     "protocolVersion": MCP_PROTOCOL_VERSION,
                     "capabilities": {},
-                    "clientInfo": {"name": "vibeagent", "version": "0.1.0"},
+                    "clientInfo": {"name": "vibeagent", "version": __version__},
                 },
             )
             version = initialized.get("protocolVersion") if isinstance(initialized, dict) else None

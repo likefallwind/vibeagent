@@ -29,7 +29,7 @@ class InstallSmokeScriptTests(unittest.TestCase):
             def fake_run(args, *, cwd, check, text, stdout, stderr):
                 calls.append((list(args), Path(cwd)))
                 if args[-1] == "--version":
-                    return subprocess.CompletedProcess(args=args, returncode=0, stdout="vibeagent 0.1.0\n", stderr="")
+                    return subprocess.CompletedProcess(args=args, returncode=0, stdout="vibeagent 1.0.0\n", stderr="")
                 return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
 
             with patch.object(install_smoke.tempfile, "mkdtemp", return_value=str(Path(base) / "smoke")):
@@ -40,8 +40,8 @@ class InstallSmokeScriptTests(unittest.TestCase):
         outside = result.workdir
         python = install_smoke.venv_bin(venv, "python")
         executable = install_smoke.venv_bin(venv, "vibeagent")
-        self.assertEqual(result.module_output, "vibeagent 0.1.0")
-        self.assertEqual(result.script_output, "vibeagent 0.1.0")
+        self.assertEqual(result.module_output, "vibeagent 1.0.0")
+        self.assertEqual(result.script_output, "vibeagent 1.0.0")
         self.assertEqual(
             calls,
             [
