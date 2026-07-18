@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .agent_multimodal import build_tool_result_block
+from .agent_observation_utils import observation_failed
 from .agent_runtime_utils import append_session_event, summarize_command, to_jsonable
 from .agent_tool_registry import activate_tools_from_observations
 from .redaction import redact_jsonable_payload
@@ -72,6 +73,31 @@ def record_subagent_tool_result_event(
     return result_payload
 
 
+def record_subagent_tool_observation(
+    workspace: RunWorkspace,
+    *,
+    subagent_id: str,
+    parent_iteration: int,
+    iteration: int,
+    tool_id: str,
+    tool_name: str,
+    observation: Observation,
+    hook_results: tuple[object, ...] = (),
+) -> ContentBlock:
+    result_payload = record_subagent_tool_result_event(
+        workspace,
+        subagent_id=subagent_id,
+        parent_iteration=parent_iteration,
+        iteration=iteration,
+        tool_id=tool_id,
+        tool_name=tool_name,
+        observation=observation,
+        failed=observation_failed(observation),
+        hook_results=hook_results,
+    )
+    return build_tool_result_block(workspace, tool_id, observation, result_payload)
+
+
 def record_tool_observation(
     workspace: RunWorkspace,
     *,
@@ -112,6 +138,7 @@ def record_tool_observation(
 
 __all__ = [
     "build_tool_result_payload",
+    "record_subagent_tool_observation",
     "record_subagent_tool_result_event",
     "record_tool_observation",
     "record_tool_result_event",

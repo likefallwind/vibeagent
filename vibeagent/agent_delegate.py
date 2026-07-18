@@ -9,15 +9,13 @@ from .agent_delegate_tools import (
     execute_delegate_tool_call,
 )
 from .agent_model import complete_with_retries
-from .agent_multimodal import build_tool_result_block
-from .agent_observation_utils import observation_failed
 from .agent_runtime_utils import (
     append_session_event,
     content_blocks_to_text,
     normalize_assistant_content,
     to_jsonable,
 )
-from .agent_tool_results import record_subagent_tool_result_event
+from .agent_tool_results import record_subagent_tool_observation, record_subagent_tool_result_event
 from .types import (
     AgentLogger,
     ApprovalHandler,
@@ -275,7 +273,7 @@ def execute_delegate_task_action(
             observation = execution.observation
             if observation is None:
                 continue
-            result_payload = record_subagent_tool_result_event(
+            tool_results.append(record_subagent_tool_observation(
                 workspace,
                 subagent_id=subagent_id,
                 parent_iteration=parent_iteration,
@@ -283,10 +281,8 @@ def execute_delegate_task_action(
                 tool_id=tool_id,
                 tool_name=tool_name,
                 observation=observation,
-                failed=observation_failed(observation),
                 hook_results=execution.hook_results,
-            )
-            tool_results.append(build_tool_result_block(workspace, tool_id, observation, result_payload))
+            ))
         messages.append(ChatMessage(role="user", content=tool_results))
 
     return finish_delegate_task(

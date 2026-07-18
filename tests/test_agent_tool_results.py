@@ -7,6 +7,7 @@ from pathlib import Path
 
 from vibeagent.agent_hooks import HookRunResult
 from vibeagent.agent_tool_results import (
+    record_subagent_tool_observation,
     record_subagent_tool_result_event,
     record_tool_observation,
     record_tool_result_event,
@@ -110,6 +111,34 @@ class AgentToolResultsTests(unittest.TestCase):
         self.assertEqual(events[0].payload["name"], "write_file")
         self.assertTrue(events[0].payload["failed"])
         self.assertEqual(events[0].payload["result"], payload)
+
+    def test_record_subagent_tool_observation_returns_tool_block_and_records_failure(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-tool-results-") as base:
+            workspace = create_run_workspace(Path(base), "run-1")
+            observation = WriteFileObservation(
+                kind="write_file",
+                path="src/app.py",
+                ok=False,
+                message="Failed with API_KEY=subagent-secret",
+            )
+
+            block = record_subagent_tool_observation(
+                workspace,
+                subagent_id="delegate-1-1",
+                parent_iteration=1,
+                iteration=2,
+                tool_id="write-1",
+                tool_name="write_file",
+                observation=observation,
+            )
+            events = read_session_events(workspace.root, workspace.run_id)
+
+        self.assertEqual(block["type"], "tool_result")
+        self.assertEqual(block["tool_call_id"], "write-1")
+        self.assertEqual(json.loads(block["content"])["message"], "Failed with API_KEY=[REDACTED]")
+        self.assertEqual(events[0].type, "subagent_tool_result")
+        self.assertTrue(events[0].payload["failed"])
+        self.assertEqual(events[0].payload["result"]["message"], "Failed with API_KEY=[REDACTED]")
 
     def test_record_tool_observation_appends_state_logs_command_and_returns_tool_block(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-tool-results-") as base:
