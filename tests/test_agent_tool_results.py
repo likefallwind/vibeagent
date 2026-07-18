@@ -43,6 +43,7 @@ class AgentToolResultsTests(unittest.TestCase):
                 iteration=3,
                 hook_results=(hook,),
                 auto=True,
+                event_extra={"before_action_type": "write_file"},
             )
 
             events = read_session_events(workspace.root, workspace.run_id)
@@ -55,7 +56,9 @@ class AgentToolResultsTests(unittest.TestCase):
         self.assertEqual(events[0].payload["name"], "final_review")
         self.assertEqual(events[0].payload["iteration"], 3)
         self.assertTrue(events[0].payload["auto"])
+        self.assertEqual(events[0].payload["before_action_type"], "write_file")
         self.assertEqual(events[0].payload["result"], payload)
+        self.assertNotIn("before_action_type", payload)
 
     def test_record_tool_observation_appends_state_logs_command_and_returns_tool_block(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-tool-results-") as base:

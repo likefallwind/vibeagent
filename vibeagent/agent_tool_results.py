@@ -26,6 +26,7 @@ def record_tool_result_event(
     iteration: int,
     hook_results: tuple[object, ...] = (),
     auto: bool = False,
+    event_extra: dict[str, object] | None = None,
 ) -> dict[str, object]:
     result_payload = build_tool_result_payload(observation, hook_results)
     event: dict[str, object] = {
@@ -36,6 +37,8 @@ def record_tool_result_event(
     }
     if auto:
         event["auto"] = True
+    if event_extra:
+        event.update(event_extra)
     append_session_event(workspace.session_dir, "tool_result", event)
     return result_payload
 

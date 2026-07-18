@@ -5,9 +5,8 @@ from collections.abc import Callable
 from .actions import read_checkpoint_git_head
 from .agent_completion_kinds import FINITE_COMMAND_OBSERVATION_KINDS, PROJECT_CHANGE_OBSERVATION_KINDS
 from .agent_observation_utils import observation_failed
-from .agent_runtime_utils import append_session_event, to_jsonable
 from .agent_steps import complete_task_step, observation_summary, start_task_step
-from .redaction import redact_jsonable_payload
+from .agent_tool_results import record_tool_result_event
 from .types import AgentLogger, CheckpointCreateAction, Observation, TaskStep
 from .workspace_core import RunWorkspace
 
@@ -39,18 +38,14 @@ def create_auto_checkpoint_before_action(
     step = start_task_step(workspace, steps, iteration, checkpoint_action, logger)
     observation = execute_action_safely_func(workspace, checkpoint_action, command_timeout_ms, "checkpoint_create")
     complete_task_step(workspace, step, observation, iteration, logger)
-    result_payload = redact_jsonable_payload(to_jsonable(observation))
-    append_session_event(
-        workspace.session_dir,
-        "tool_result",
-        {
-            "iteration": iteration,
-            "id": "auto-checkpoint",
-            "name": "checkpoint_create",
-            "auto": True,
-            "before_action_type": action_type,
-            "result": result_payload,
-        },
+    record_tool_result_event(
+        workspace,
+        tool_id="auto-checkpoint",
+        tool_name="checkpoint_create",
+        observation=observation,
+        iteration=iteration,
+        auto=True,
+        event_extra={"before_action_type": action_type},
     )
     if observation_failed(observation):
         if logger:
