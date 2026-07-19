@@ -10,6 +10,81 @@ from vibeagent.cli import main
 
 
 class CliProcessOutputAnalysisFlagTests(unittest.TestCase):
+    def test_main_parses_interactive_process_output_limit_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/process-output-contexts bg-1 --max-chars 1200 --context-lines 0 --max-contexts 3 --max-bytes 1000",
+                    "/process-output-diagnostics bg-1 1400 --context-lines 1 --max-diagnostics 4 --max-contexts 5 --max-bytes 1200",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_process_output_contexts_text", return_value="Process output contexts:\n  contexts: 1/1") as get_process_output_contexts_text,
+            patch("vibeagent.cli.get_process_output_diagnostics_text", return_value="Process output diagnostics:\n  diagnostics: 1/1") as get_process_output_diagnostics_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Process output contexts:", output)
+        self.assertIn("Process output diagnostics:", output)
+        get_process_output_contexts_text.assert_called_once_with(
+            process_id="bg-1",
+            max_output_chars=1200,
+            context_lines=0,
+            max_contexts=3,
+            max_bytes_per_context=1000,
+        )
+        get_process_output_diagnostics_text.assert_called_once_with(
+            process_id="bg-1",
+            max_output_chars=1400,
+            context_lines=1,
+            max_diagnostics=4,
+            max_contexts=5,
+            max_bytes_per_context=1200,
+        )
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_process_output_limit_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/process-output-contexts --context-lines -1 bg-1",
+                    "/process-output-diagnostics bg-1 --max-diagnostics 0",
+                    "/process-output-contexts bg-1 --max-diagnostics 2",
+                    "/process-output-contexts bg-1 --max-chars 999",
+                    "/process-output-diagnostics bg-1 999",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_process_output_contexts_text") as get_process_output_contexts_text,
+            patch("vibeagent.cli.get_process_output_diagnostics_text") as get_process_output_diagnostics_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /process-output-contexts <id> [chars]", output)
+        self.assertIn("--context-lines must be a non-negative integer.", output)
+        self.assertIn("Usage: /process-output-diagnostics <id> [chars]", output)
+        self.assertIn("--max-diagnostics must be a positive integer.", output)
+        self.assertIn("Unknown option: --max-diagnostics", output)
+        self.assertIn("max chars must be at least 1000.", output)
+        self.assertIn("invalid max chars: 999", output)
+        get_process_output_contexts_text.assert_not_called()
+        get_process_output_diagnostics_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
     def test_main_runs_process_output_contexts_local_flag_without_creating_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
