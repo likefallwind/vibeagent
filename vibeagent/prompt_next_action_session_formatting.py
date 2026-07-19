@@ -189,10 +189,14 @@ def completion_blocker_labels(latest: Observation) -> list[str]:
     labels.extend(completion_blocker_detail_values(latest))
     if labels:
         return labels
-    return text_section_items(
-        getattr(latest, "audit", ""),
-        ("completionBlockers", "latestCompletionBlockers"),
-    )
+    for attr in ("audit", "handoff", "summary"):
+        labels = text_section_items(
+            getattr(latest, attr, ""),
+            ("completionBlockers", "latestCompletionBlockers"),
+        )
+        if labels:
+            return labels
+    return []
 
 
 def completion_next_action_labels(latest: Observation) -> list[str]:

@@ -77,6 +77,37 @@ class PromptNextActionSessionFormattingTests(unittest.TestCase):
         self.assertEqual(completion_blocker_labels(observation), ["run verification"])
         self.assertTrue(has_completion_blocker_signal([], observation))
 
+    def test_completion_blockers_parse_handoff_or_summary_report_sections(self) -> None:
+        handoff_observation = SimpleNamespace(
+            completion_blockers=[],
+            latest_completion_blockers=[],
+            audit="",
+            handoff="\n".join(
+                [
+                    "completionBlockers:",
+                    "- resolve failed smoke test",
+                ]
+            ),
+            summary="",
+        )
+        summary_observation = SimpleNamespace(
+            completion_blockers=[],
+            latest_completion_blockers=[],
+            audit="",
+            handoff="",
+            summary="\n".join(
+                [
+                    "latestCompletionBlockers:",
+                    "- commit validated stage",
+                ]
+            ),
+        )
+
+        self.assertEqual(completion_blocker_labels(handoff_observation), ["resolve failed smoke test"])
+        self.assertTrue(has_completion_blocker_signal([], handoff_observation))
+        self.assertEqual(completion_blocker_labels(summary_observation), ["commit validated stage"])
+        self.assertTrue(has_completion_blocker_signal([], summary_observation))
+
     def test_completion_blocker_signal_uses_structured_fields_first(self) -> None:
         observation = SimpleNamespace(
             completion_ready=False,
