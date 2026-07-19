@@ -4,7 +4,7 @@ from pathlib import Path
 import shlex
 
 from .actions import execute_action
-from .check_commands import serialize_focused_test_command, serialize_not_run_focused_test_commands
+from .check_report_helpers import serialize_focused_test_command, serialize_not_run_focused_test_commands
 from .local_runtime_commands import (
     command_results_clean,
     serialize_command_check,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .check_commands import format_structured_command_checks
+from .check_report_helpers import format_structured_command_checks
 from .process_report_helpers import format_structured_command_output_analysis_lines
 from .runner_report_helpers import format_selected_not_run_command_lines, selected_not_run_command_items
 from .types import ProjectCommand
