@@ -5,11 +5,11 @@ from typing import Any
 from .action_parsing_helpers import (
     ActionParseError,
     parse_directory_transfers,
-    parse_edit_operations,
     parse_move_file_transfers,
     parse_optional_positive_int,
     parse_path_list,
 )
+from .action_parsing_file_exact import parse_file_exact_action
 from .action_parsing_file_edit_fields import (
     parse_insert,
     parse_line_range,
@@ -31,13 +31,11 @@ from .types import (
     CheckDeleteFilesAction,
     CheckDeleteEmptyDirectoryAction,
     CheckDeleteEmptyDirectoriesAction,
-    CheckEditFileAction,
     CheckInsertLinesAction,
     CheckMoveFileAction,
     CheckMoveFilesAction,
     CheckMoveDirectoryAction,
     CheckMoveDirectoriesAction,
-    CheckMultiEditAction,
     CheckNotebookEditAction,
     CheckPatchAction,
     CheckPatchesAction,
@@ -54,13 +52,11 @@ from .types import (
     DeleteFilesAction,
     DeleteEmptyDirectoryAction,
     DeleteEmptyDirectoriesAction,
-    EditFileAction,
     InsertLinesAction,
     MoveFileAction,
     MoveFilesAction,
     MoveDirectoryAction,
     MoveDirectoriesAction,
-    MultiEditAction,
     NotebookEditAction,
     PatchFileAction,
     PatchFilesAction,
@@ -134,17 +130,9 @@ def parse_file_edit_action(action_type: object, value: dict[str, Any], raw: str)
     if write_action is not None:
         return write_action
 
-    if action_type == "check_edit_file":
-        path = parse_string_field(value.get("path"), raw, "check_edit_file action requires a string path.")
-        old = parse_string_field(value.get("old"), raw, "check_edit_file action requires string old.")
-        new = parse_string_field(value.get("new"), raw, "check_edit_file action requires string new.")
-        return CheckEditFileAction(type="check_edit_file", path=path, old=old, new=new)
-
-    if action_type == "edit_file":
-        path = parse_string_field(value.get("path"), raw, "edit_file action requires a string path.")
-        old = parse_string_field(value.get("old"), raw, "edit_file action requires string old.")
-        new = parse_string_field(value.get("new"), raw, "edit_file action requires string new.")
-        return EditFileAction(type="edit_file", path=path, old=old, new=new)
+    exact_action = parse_file_exact_action(action_type, value, raw)
+    if exact_action is not None:
+        return exact_action
 
     if action_type in {"check_notebook_edit", "notebook_edit"}:
         path = parse_string_field(value.get("path"), raw, f"{action_type} action requires a string path.")
@@ -168,18 +156,6 @@ def parse_file_edit_action(action_type: object, value: dict[str, Any], raw: str)
             cell_number=parsed_cell_number,
             cell_type=cell_type,
         )
-
-    if action_type == "check_multi_edit_file":
-        path = parse_string_field(value.get("path"), raw, "check_multi_edit_file action requires a string path.")
-        return CheckMultiEditAction(
-            type="check_multi_edit_file",
-            path=path,
-            edits=parse_edit_operations(value.get("edits"), raw, action_type="check_multi_edit_file"),
-        )
-
-    if action_type == "multi_edit_file":
-        path = parse_string_field(value.get("path"), raw, "multi_edit_file action requires a string path.")
-        return MultiEditAction(type="multi_edit_file", path=path, edits=parse_edit_operations(value.get("edits"), raw))
 
     if action_type == "check_replace_lines":
         path, start_line, end_line, content = parse_line_range(value, raw, "check_replace_lines")
