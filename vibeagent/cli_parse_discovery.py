@@ -3,6 +3,7 @@ from __future__ import annotations
 import shlex
 
 from .cli_parse_core import parse_interactive_nonnegative_option, parse_interactive_positive_option
+from .cli_parse_discovery_queries import parse_interactive_query_argument
 from .cli_parse_option_limits import parse_interactive_option_limit_argument
 
 
@@ -59,60 +60,12 @@ def parse_interactive_search_argument(
         "--case-insensitive": ("case_sensitive", False),
         "--case-sensitive": ("case_sensitive", True),
     }
-    recognized_flags = set(value_options) | set(bool_options)
-    parts, error, handled = _split_named_parts(argument, usage=usage, recognized_flags=recognized_flags)
-    if error or not handled:
-        return None, {}, error, handled
-    assert parts is not None
-
-    kwargs: dict[str, int | str | bool] = {}
-    query_parts: list[str] = []
-    index = 0
-    while index < len(parts):
-        part = parts[index]
-        if part == "--":
-            query_parts.extend(parts[index + 1 :])
-            break
-        flag = _option_flag(part)
-        if flag in bool_options:
-            if "=" in part:
-                return None, {}, f"{usage}\n  error: {flag} does not take a value.", True
-            keyword, value = bool_options[flag]
-            kwargs[keyword] = value
-            index += 1
-            continue
-        if flag in value_options:
-            keyword, value_type = value_options[flag]
-            if "=" in part:
-                raw_value = part.split("=", 1)[1]
-                index += 1
-            else:
-                raw_value = parts[index + 1] if index + 1 < len(parts) else None
-                index += 2
-            if value_type == "positive":
-                value, error = parse_interactive_positive_option(flag, raw_value)
-            elif value_type == "nonnegative":
-                value, error = parse_interactive_nonnegative_option(flag, raw_value)
-            else:
-                if raw_value is None:
-                    value, error = None, f"{flag} requires a value."
-                elif raw_value == "":
-                    value, error = None, f"{flag} must be a non-empty string."
-                else:
-                    value, error = raw_value, None
-            if error:
-                return None, {}, f"{usage}\n  error: {error}", True
-            kwargs[keyword] = value
-            continue
-        if part.startswith("--"):
-            return None, {}, f"{usage}\n  error: Unknown option: {part}", True
-        query_parts.append(part)
-        index += 1
-
-    query = " ".join(query_parts).strip()
-    if not query:
-        return None, {}, f"{usage}\n  error: query is required.", True
-    return query, kwargs, None, True
+    return parse_interactive_query_argument(
+        argument,
+        usage=usage,
+        value_options=value_options,
+        bool_options=bool_options,
+    )
 
 
 def parse_interactive_find_files_argument(
@@ -131,58 +84,12 @@ def parse_interactive_find_files_argument(
         "--case-insensitive": ("case_sensitive", False),
         "--include-dirs": ("include_dirs", True),
     }
-    recognized_flags = set(value_options) | set(bool_options)
-    parts, error, handled = _split_named_parts(argument, usage=usage, recognized_flags=recognized_flags)
-    if error or not handled:
-        return None, {}, error, handled
-    assert parts is not None
-
-    kwargs: dict[str, int | str | bool] = {}
-    query_parts: list[str] = []
-    index = 0
-    while index < len(parts):
-        part = parts[index]
-        if part == "--":
-            query_parts.extend(parts[index + 1 :])
-            break
-        flag = _option_flag(part)
-        if flag in bool_options:
-            if "=" in part:
-                return None, {}, f"{usage}\n  error: {flag} does not take a value.", True
-            keyword, value = bool_options[flag]
-            kwargs[keyword] = value
-            index += 1
-            continue
-        if flag in value_options:
-            keyword, value_type = value_options[flag]
-            if "=" in part:
-                raw_value = part.split("=", 1)[1]
-                index += 1
-            else:
-                raw_value = parts[index + 1] if index + 1 < len(parts) else None
-                index += 2
-            if value_type == "positive":
-                value, error = parse_interactive_positive_option(flag, raw_value)
-            else:
-                if raw_value is None:
-                    value, error = None, f"{flag} requires a value."
-                elif raw_value == "":
-                    value, error = None, f"{flag} must be a non-empty string."
-                else:
-                    value, error = raw_value, None
-            if error:
-                return None, {}, f"{usage}\n  error: {error}", True
-            kwargs[keyword] = value
-            continue
-        if part.startswith("--"):
-            return None, {}, f"{usage}\n  error: Unknown option: {part}", True
-        query_parts.append(part)
-        index += 1
-
-    query = " ".join(query_parts).strip()
-    if not query:
-        return None, {}, f"{usage}\n  error: query is required.", True
-    return query, kwargs, None, True
+    return parse_interactive_query_argument(
+        argument,
+        usage=usage,
+        value_options=value_options,
+        bool_options=bool_options,
+    )
 
 
 def parse_interactive_overview_argument(
