@@ -11,8 +11,8 @@ from .agent_message_flow import append_tool_results_and_compact
 from .agent_multimodal import strip_consumed_tool_images
 from .agent_result import AgentResult
 from .agent_run_setup import prepare_agent_run
-from .agent_special_tools import execute_special_tool_action
-from .agent_tool_results import ToolObservationContext, record_tool_observation
+from .agent_sequential_execution import execute_sequential_tool_call
+from .agent_tool_results import record_tool_observation
 from .agent_execution_support import (
     create_auto_checkpoint_before_action as _shared_create_auto_checkpoint_before_action,
     execute_action_safely as _shared_execute_action_safely,
@@ -32,15 +32,14 @@ from .agent_approval_preview import (
     attach_approval_preview,
     summarize_preview_observation,
 )
-from .agent_parallel_safety import PARALLEL_SAFE_TOOL_NAMES, is_parallel_safe_action
 from .agent_parallel_execution import execute_parallel_tool_call_batch
+from .agent_parallel_safety import PARALLEL_SAFE_TOOL_NAMES, is_parallel_safe_action
 from .agent_steps import observation_summary
 from .agent_tool_execution import execute_parsed_tool_action
 from .agent_tool_registry import (
     agent_tool_definitions,
     activate_tools_for_run,
     activate_tools_from_observations,
-    prepare_action_for_policy,
 )
 from .agent_run_completion import (
     auto_run_final_review_if_needed as _auto_run_final_review_if_needed,
@@ -50,7 +49,6 @@ from .agent_run_completion import (
 )
 from .agent_observation_utils import observation_failed
 from .agent_runtime_utils import (
-    append_session_event,
     tool_error_observation,
 )
 from .session import summarize_session
@@ -58,11 +56,9 @@ from .types import (
     AgentLogger,
     ApprovalHandler,
     ApprovalPolicy,
-    AskUserAction,
     ChatClient,
     ChatMessage,
     ContentBlock,
-    DelegateTaskAction,
     Observation,
     PlanItem,
     TaskStep,
@@ -228,89 +224,35 @@ def run_agent(
 
         blocked_completion_feedback: str | None = None
         for block in tool_calls[handled_tool_calls:]:
-            tool_id = str(block.get("id") or "")
-            tool_name = str(block.get("name") or "")
-            tool_input = block.get("input") or {}
-            append_session_event(
-                current_workspace.session_dir,
-                "tool_call",
-                {"iteration": iteration, "id": tool_id, "name": tool_name, "input": tool_input},
-            )
-            hook_results: tuple[object, ...] = ()
-            additional_observations: tuple[Observation, ...] = ()
-
-            try:
-                action = prepare_action_for_policy(parse_tool_action(tool_name, tool_input), approval_policy)
-                if isinstance(action, (AskUserAction, DelegateTaskAction)):
-                    wrapped = execute_special_tool_action(
-                        current_workspace,
-                        action,
-                        client,
-                        steps=steps,
-                        observations=observations,
-                        iteration=iteration,
-                        tool_name=tool_name,
-                        max_output_tokens=max_output_tokens,
-                        model_retries=model_retries,
-                        model_retry_delay_ms=model_retry_delay_ms,
-                        model_timeout_ms=model_timeout_ms,
-                        command_timeout_ms=command_timeout_ms,
-                        logger=logger,
-                        approval_handler=approval_handler,
-                        approval_policy=approval_policy,
-                        user_input_handler=user_input_handler,
-                        hooks=project_hooks,
-                        permissions=project_permissions,
-                        execute_action_safely_func=execute_action_safely,
-                    )
-                    observation = wrapped.observation
-                    hook_results = wrapped.hook_results
-                    additional_observations = wrapped.additional_observations
-                else:
-                    execution = execute_parsed_tool_action(
-                        current_workspace,
-                        action,
-                        observations,
-                        steps,
-                        iteration,
-                        command_timeout_ms,
-                        logger,
-                        approval_handler,
-                        tool_name,
-                        auto_checkpoint_attempted,
-                        execute_action_safely,
-                        should_auto_checkpoint_before_action,
-                        create_auto_checkpoint_before_action,
-                        approval_policy,
-                        project_hooks,
-                        project_permissions,
-                    )
-                    observation = execution.observation
-                    hook_results = execution.hook_results
-                    additional_observations = execution.additional_observations
-                    auto_checkpoint_attempted = execution.auto_checkpoint_attempted
-                    if execution.auto_checkpoint is not None:
-                        observations.append(execution.auto_checkpoint)
-                if observation.kind == "update_plan":
-                    plan = list(observation.plan)
-            except ActionParseError as error:
-                observation = tool_error_observation(tool_name, error)
-
-            tool_results.append(record_tool_observation(
+            sequential = execute_sequential_tool_call(
                 current_workspace,
-                tool_id=tool_id,
-                tool_name=tool_name,
-                observation=observation,
-                additional_observations=additional_observations,
-                hook_results=hook_results,
-                context=ToolObservationContext(
-                    observations=observations,
-                    active_tool_names=active_tool_names,
-                    iteration=iteration,
-                    approval_policy=approval_policy,
-                    logger=logger,
-                ),
-            ))
+                block,
+                client,
+                observations=observations,
+                steps=steps,
+                plan=plan,
+                active_tool_names=active_tool_names,
+                iteration=iteration,
+                max_output_tokens=max_output_tokens,
+                model_retries=model_retries,
+                model_retry_delay_ms=model_retry_delay_ms,
+                model_timeout_ms=model_timeout_ms,
+                command_timeout_ms=command_timeout_ms,
+                logger=logger,
+                approval_handler=approval_handler,
+                approval_policy=approval_policy,
+                user_input_handler=user_input_handler,
+                hooks=project_hooks,
+                permissions=project_permissions,
+                auto_checkpoint_attempted=auto_checkpoint_attempted,
+                execute_action_safely_func=execute_action_safely,
+                should_auto_checkpoint_before_action_func=should_auto_checkpoint_before_action,
+                create_auto_checkpoint_before_action_func=create_auto_checkpoint_before_action,
+            )
+            tool_results.append(sequential.tool_result)
+            observation = sequential.observation
+            plan = sequential.plan
+            auto_checkpoint_attempted = sequential.auto_checkpoint_attempted
 
             if observation.kind == "finish":
                 blocked_completion_feedback = completion_blocked_feedback_if_needed(
