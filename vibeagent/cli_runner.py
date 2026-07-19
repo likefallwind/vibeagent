@@ -29,6 +29,7 @@ from .cli_output import (
     print_interrupted_result,
     print_output,
 )
+from .cli_output_mode import resolve_cli_output_mode
 from .cli_stream_output import JsonEventStream
 from .cli_project_command_expansion import expand_one_shot_project_command
 from .commands import get_compact_context, get_resume_context
@@ -83,15 +84,13 @@ def run_one_shot(
     get_compact_context_func=get_compact_context,
 ) -> int:
     started_at = monotonic()
-    effective_output_format = output_format or ("json" if output_json else "text")
-    stream_json = effective_output_format == "stream-json"
-    machine_output = effective_output_format in {"json", "stream-json"}
-    stream = JsonEventStream() if stream_json else None
+    output_mode = resolve_cli_output_mode(output_json, output_format)
+    stream = JsonEventStream() if output_mode.stream_json else None
 
     def emit_error(error: str, *, kind: str = "error", status: str = "failed", exit_code: int = 1) -> int:
         payload = build_one_shot_error_payload(
             error,
-            machine_output=machine_output,
+            machine_output=output_mode.machine,
             elapsed_ms=elapsed_milliseconds(started_at),
             kind=kind,
             status=status,
@@ -145,7 +144,7 @@ def run_one_shot(
             )
             payload = build_one_shot_chat_payload(
                 response,
-                machine_output=machine_output,
+                machine_output=output_mode.machine,
                 elapsed_ms=elapsed_milliseconds(started_at),
             )
             if stream is not None:
@@ -207,8 +206,8 @@ def run_one_shot(
             permission_overrides=permission_overrides,
             mcp_config_paths=resolved_mcp_config_paths,
             strict_mcp_config=strict_mcp_config,
-            machine_output=machine_output,
-            stream_json=stream_json,
+            machine_output=output_mode.machine,
+            stream_json=output_mode.stream_json,
             prior_context=merged_prior_context,
             system_prompt=system_prompt,
             append_system_prompt=append_system_prompt,
@@ -220,7 +219,7 @@ def run_one_shot(
         result_payload = build_one_shot_code_payload(
             result,
             prior_context,
-            machine_output=machine_output,
+            machine_output=output_mode.machine,
             elapsed_ms=elapsed_milliseconds(started_at),
             project_root=project_root,
             provider_env=provider_env,
