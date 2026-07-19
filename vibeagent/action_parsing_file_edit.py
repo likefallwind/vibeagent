@@ -11,16 +11,13 @@ from .action_parsing_helpers import (
 )
 from .action_parsing_file_exact import parse_file_exact_action
 from .action_parsing_file_edit_fields import (
-    parse_insert,
-    parse_line_range,
     parse_regex_replace,
     parse_string_field,
     parse_transfer,
 )
+from .action_parsing_file_line import parse_file_line_action
 from .action_parsing_file_write import parse_file_write_action
 from .types import (
-    AppendFileAction,
-    CheckAppendFileAction,
     CheckCopyFileAction,
     CheckCopyFilesAction,
     CheckCopyDirectoryAction,
@@ -31,7 +28,6 @@ from .types import (
     CheckDeleteFilesAction,
     CheckDeleteEmptyDirectoryAction,
     CheckDeleteEmptyDirectoriesAction,
-    CheckInsertLinesAction,
     CheckMoveFileAction,
     CheckMoveFilesAction,
     CheckMoveDirectoryAction,
@@ -40,7 +36,6 @@ from .types import (
     CheckPatchAction,
     CheckPatchesAction,
     CheckRegexReplaceAction,
-    CheckReplaceLinesAction,
     CheckSetExecutableAction,
     CopyFileAction,
     CopyFilesAction,
@@ -52,7 +47,6 @@ from .types import (
     DeleteFilesAction,
     DeleteEmptyDirectoryAction,
     DeleteEmptyDirectoriesAction,
-    InsertLinesAction,
     MoveFileAction,
     MoveFilesAction,
     MoveDirectoryAction,
@@ -61,7 +55,6 @@ from .types import (
     PatchFileAction,
     PatchFilesAction,
     RegexReplaceAction,
-    ReplaceLinesAction,
     SetExecutableAction,
 )
 
@@ -134,6 +127,10 @@ def parse_file_edit_action(action_type: object, value: dict[str, Any], raw: str)
     if exact_action is not None:
         return exact_action
 
+    line_action = parse_file_line_action(action_type, value, raw)
+    if line_action is not None:
+        return line_action
+
     if action_type in {"check_notebook_edit", "notebook_edit"}:
         path = parse_string_field(value.get("path"), raw, f"{action_type} action requires a string path.")
         new_source = parse_string_field(value.get("new_source"), raw, f"{action_type} action requires string new_source.")
@@ -156,48 +153,6 @@ def parse_file_edit_action(action_type: object, value: dict[str, Any], raw: str)
             cell_number=parsed_cell_number,
             cell_type=cell_type,
         )
-
-    if action_type == "check_replace_lines":
-        path, start_line, end_line, content = parse_line_range(value, raw, "check_replace_lines")
-        return CheckReplaceLinesAction(
-            type="check_replace_lines",
-            path=path,
-            start_line=start_line,
-            end_line=end_line,
-            content=content,
-        )
-
-    if action_type == "replace_lines":
-        path, start_line, end_line, content = parse_line_range(value, raw, "replace_lines")
-        return ReplaceLinesAction(
-            type="replace_lines",
-            path=path,
-            start_line=start_line,
-            end_line=end_line,
-            content=content,
-        )
-
-    if action_type == "check_insert_lines":
-        path, line, content = parse_insert(value, raw, "check_insert_lines")
-        return CheckInsertLinesAction(type="check_insert_lines", path=path, line=line, content=content)
-
-    if action_type == "insert_lines":
-        path, line, content = parse_insert(value, raw, "insert_lines")
-        return InsertLinesAction(type="insert_lines", path=path, line=line, content=content)
-
-    if action_type == "check_append_file":
-        path = parse_string_field(value.get("path"), raw, "check_append_file action requires a string path.")
-        content = value.get("content")
-        if not isinstance(content, str) or content == "":
-            raise ActionParseError("check_append_file action requires non-empty string content.", raw)
-        return CheckAppendFileAction(type="check_append_file", path=path, content=content)
-
-    if action_type == "append_file":
-        path = parse_string_field(value.get("path"), raw, "append_file action requires a string path.")
-        content = value.get("content")
-        if not isinstance(content, str) or content == "":
-            raise ActionParseError("append_file action requires non-empty string content.", raw)
-        return AppendFileAction(type="append_file", path=path, content=content)
 
     if action_type == "check_regex_replace":
         path, pattern, replacement, count, case_sensitive, multiline, max_replacements = parse_regex_replace(
