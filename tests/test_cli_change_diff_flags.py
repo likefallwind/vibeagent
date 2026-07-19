@@ -295,6 +295,165 @@ class CliChangeDiffFlagTests(unittest.TestCase):
         self.assertEqual(stdout.getvalue(), "--staged can only be used with --diff, --diff-hunks, or --diff-contexts.\n")
         create_chat_client.assert_not_called()
 
+    def test_main_parses_interactive_diff_max_chars(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/diff --max-chars 1000 --staged app.py",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_diff_text", return_value="Diff:\n  truncated: yes") as get_diff_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Diff:", stdout.getvalue())
+        get_diff_text.assert_called_once_with(argument="--staged app.py", max_chars=1000)
+        create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_changes_max_files(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/changes --max-files 1",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_changes_text", return_value="Changes:\n  shownFiles: 1/3") as get_changes_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Changes:", stdout.getvalue())
+        get_changes_text.assert_called_once_with(max_files=1)
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_changes_max_files_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/changes --max-files 0",
+                    "/changes --unknown 1",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_changes_text") as get_changes_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /changes [--max-files N]", output)
+        self.assertIn("--max-files must be a positive integer.", output)
+        self.assertIn("Unknown option: --unknown", output)
+        get_changes_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_diff_max_chars_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/diff --max-chars 0 app.py",
+                    "/diff --max-chars 99 app.py",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_diff_text", side_effect=ValueError("max_chars must be at least 100.")) as get_diff_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /diff [--staged|--cached] [--max-chars N] [path]", output)
+        self.assertIn("--max-chars must be a positive integer.", output)
+        self.assertIn("max_chars must be at least 100.", output)
+        get_diff_text.assert_called_once_with(argument="app.py", max_chars=99)
+        create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_structured_diff_limit_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/diff-hunks --max-hunks 3 --max-lines 4 --staged app.py",
+                    "/diff-contexts --context-lines 2 --max-hunks 5 --max-bytes 1000 app.py",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_diff_hunks_text", return_value="Diff hunks:\n  hunks: 1/1") as get_diff_hunks_text,
+            patch("vibeagent.cli.get_diff_contexts_text", return_value="Diff contexts:\n  contexts: 1/1") as get_diff_contexts_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Diff hunks:", output)
+        self.assertIn("Diff contexts:", output)
+        get_diff_hunks_text.assert_called_once_with(argument="--staged app.py", max_hunks=3, max_lines_per_hunk=4)
+        get_diff_contexts_text.assert_called_once_with(
+            argument="app.py",
+            context_lines=2,
+            max_hunks=5,
+            max_bytes_per_context=1000,
+        )
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_structured_diff_limit_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/diff-hunks --max-hunks 0 app.py",
+                    "/diff-contexts --context-lines -1 app.py",
+                    "/diff-contexts --unknown app.py",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_diff_hunks_text") as get_diff_hunks_text,
+            patch("vibeagent.cli.get_diff_contexts_text") as get_diff_contexts_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /diff-hunks [--staged|--cached] [--max-hunks N] [--max-lines N] [path]", output)
+        self.assertIn("--max-hunks must be a positive integer.", output)
+        self.assertIn("Usage: /diff-contexts [--staged|--cached] [--context-lines N] [--max-hunks N] [--max-bytes N] [path]", output)
+        self.assertIn("--context-lines must be a non-negative integer.", output)
+        self.assertIn("Unknown option: --unknown", output)
+        get_diff_hunks_text.assert_not_called()
+        get_diff_contexts_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
