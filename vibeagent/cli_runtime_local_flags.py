@@ -5,6 +5,18 @@ from pathlib import Path
 from typing import Any
 
 from .cli_local_result import local_text_or_report
+from .workspace_resolve import resolve_inside_run
+
+
+def _resolve_write_stdin_content(args: argparse.Namespace, root: str | Path) -> str | None:
+    if args.write_stdin_file is None:
+        return args.write_stdin
+    path = resolve_inside_run(root, args.write_stdin_file)
+    if not path.exists():
+        raise ValueError(f"--write-stdin-file does not exist: {args.write_stdin_file}")
+    if not path.is_file():
+        raise ValueError(f"--write-stdin-file is not a file: {args.write_stdin_file}")
+    return path.read_text(encoding="utf-8")
 
 
 def run_runtime_local_flag(
@@ -86,7 +98,7 @@ def run_runtime_local_flag(
             lambda: commands["get_wait_process_text"](root, **wait_process_kwargs),
         )
     if args.check_write_process is not None:
-        write_kwargs = {"process_id": args.check_write_process, "content": args.write_stdin}
+        write_kwargs = {"process_id": args.check_write_process, "content": _resolve_write_stdin_content(args, root)}
         return local_text_or_report(
             args,
             "checkWriteProcess",
@@ -95,7 +107,7 @@ def run_runtime_local_flag(
             lambda: commands["get_check_write_process_text"](root, **write_kwargs),
         )
     if args.write_process is not None:
-        write_kwargs = {"process_id": args.write_process, "content": args.write_stdin}
+        write_kwargs = {"process_id": args.write_process, "content": _resolve_write_stdin_content(args, root)}
         return local_text_or_report(
             args,
             "writeProcess",

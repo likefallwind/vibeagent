@@ -664,6 +664,7 @@ python -m vibeagent --process-output-diagnostics <process-id> --process-output-c
 python -m vibeagent --wait-process <process-id> --wait-timeout-ms 5000 --wait-stdout "ready" --cwd ../my-project
 python -m vibeagent --check-write-process <process-id> --write-stdin "hello\n" --cwd ../my-project
 python -m vibeagent --write-process <process-id> --write-stdin "hello\n" --cwd ../my-project
+python -m vibeagent --write-process <process-id> --write-stdin-file scripts/repl-input.txt --cwd ../my-project
 python -m vibeagent --check-stop-process <process-id> --cwd ../my-project
 python -m vibeagent --stop-process <process-id> --cwd ../my-project
 python -m vibeagent --check-stop-all-processes --cwd ../my-project

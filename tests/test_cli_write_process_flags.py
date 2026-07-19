@@ -42,6 +42,50 @@ class CliWriteProcessFlagTests(unittest.TestCase):
         get_check_write_process_text.assert_called_once_with(Path(base).resolve(), process_id="bg-1", content="hello\\n")
         create_chat_client.assert_not_called()
 
+    def test_main_reads_write_process_stdin_from_project_file(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            (root / "input.txt").write_text("hello\nfrom file\n", encoding="utf-8")
+            check_stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_check_write_process_text", return_value="Check write process:\n  ok: yes") as get_check_write_process_text,
+                redirect_stdout(check_stdout),
+            ):
+                check_exit = main(["--cwd", base, "--check-write-process", "bg-1", "--write-stdin-file", "input.txt"])
+
+            write_stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client_write,
+                patch("vibeagent.cli.get_write_process_text", return_value="Write process:\n  ok: yes") as get_write_process_text,
+                redirect_stdout(write_stdout),
+            ):
+                write_exit = main(["--cwd", base, "--write-process", "bg-1", "--write-stdin-file", "input.txt"])
+
+        self.assertEqual(check_exit, 0)
+        self.assertEqual(write_exit, 0)
+        get_check_write_process_text.assert_called_once_with(root.resolve(), process_id="bg-1", content="hello\nfrom file\n")
+        get_write_process_text.assert_called_once_with(root.resolve(), process_id="bg-1", content="hello\nfrom file\n")
+        create_chat_client.assert_not_called()
+        create_chat_client_write.assert_not_called()
+
+    def test_main_rejects_write_process_stdin_file_outside_project_without_creating_client(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_write_process_text") as get_write_process_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", base, "--write-process", "bg-1", "--write-stdin-file", "../input.txt"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("Path escapes the project directory", stdout.getvalue())
+        get_write_process_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
     def test_main_write_process_json_outputs_structured_payloads(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             check_stdout = io.StringIO()

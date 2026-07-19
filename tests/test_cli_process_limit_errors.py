@@ -66,8 +66,10 @@ class CliProcessLimitErrorTests(unittest.TestCase):
     def test_main_reports_write_process_stdin_pairing_errors(self) -> None:
         cases = [
             (["--write-stdin", "hello", "fix"], "--write-stdin can only be used with --check-write-process or --write-process.\n"),
-            (["--check-write-process", "bg-1"], "--check-write-process requires --write-stdin.\n"),
-            (["--write-process", "bg-1"], "--write-process requires --write-stdin.\n"),
+            (["--write-stdin-file", "input.txt", "fix"], "--write-stdin-file can only be used with --check-write-process or --write-process.\n"),
+            (["--check-write-process", "bg-1", "--write-stdin", "hello", "--write-stdin-file", "input.txt"], "--write-stdin and --write-stdin-file cannot be used together.\n"),
+            (["--check-write-process", "bg-1"], "--check-write-process requires --write-stdin or --write-stdin-file.\n"),
+            (["--write-process", "bg-1"], "--write-process requires --write-stdin or --write-stdin-file.\n"),
         ]
         for argv, expected in cases:
             with self.subTest(argv=argv):

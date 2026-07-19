@@ -167,6 +167,7 @@ def get_help_text() -> str:
             "  /process-output-diagnostics <id> [chars] [--max-chars N] [--context-lines N] [--max-diagnostics N] [--max-contexts N] [--max-bytes N] Summarize diagnostics from background command output.",
             "  /wait-process <id> [timeout-ms] [chars] [--timeout-ms N] [--max-chars N] [--stdout TEXT] [--stderr TEXT] [--regex] Wait for one background process or output match.",
             "  /check-write-process <id> <text> Preview writing stdin text to one running background process; quote text with spaces.",
+            "  CLI flags also support --write-stdin-file PATH for project-relative UTF-8 stdin content.",
             "  /write-process <id> <text> Write stdin text to one running background process; quote text with spaces.",
             "  /check-stop-process <id> Preview stopping one VibeAgent-started background process.",
             "  /stop-process <id> Stop one VibeAgent-started background process.",

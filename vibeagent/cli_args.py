@@ -342,6 +342,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--wait-stderr", metavar="TEXT", help="Return early when --wait-process stderr contains TEXT.")
     parser.add_argument("--wait-regex", action="store_true", help="Treat --wait-stdout or --wait-stderr as a regular expression.")
     parser.add_argument("--write-stdin", metavar="TEXT", help="Stdin text for --check-write-process or --write-process. Quote text with spaces; use \\n when pressing Enter is required.")
+    parser.add_argument("--write-stdin-file", metavar="PATH", help="Project-relative UTF-8 file to use as stdin text for --check-write-process or --write-process.")
     parser.add_argument("--regex-count", type=nonnegative_int, default=0, metavar="N", help="Maximum replacements for --check-regex-replace or --regex-replace. Use 0 for all.")
     parser.add_argument("--regex-max-replacements", type=positive_int, default=100, metavar="N", help="Safety cap for --check-regex-replace or --regex-replace.")
     parser.add_argument("--regex-ignore-case", action="store_true", help="Use case-insensitive matching with --check-regex-replace or --regex-replace.")

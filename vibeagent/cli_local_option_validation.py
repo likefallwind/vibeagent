@@ -283,10 +283,15 @@ def validate_local_option_dependencies(args: argparse.Namespace) -> str | None:
     write_stdin_target = args.check_write_process is not None or args.write_process is not None
     if args.write_stdin is not None and not write_stdin_target:
         return "--write-stdin can only be used with --check-write-process or --write-process."
-    if args.check_write_process is not None and args.write_stdin is None:
-        return "--check-write-process requires --write-stdin."
-    if args.write_process is not None and args.write_stdin is None:
-        return "--write-process requires --write-stdin."
+    if args.write_stdin_file is not None and not write_stdin_target:
+        return "--write-stdin-file can only be used with --check-write-process or --write-process."
+    if args.write_stdin is not None and args.write_stdin_file is not None:
+        return "--write-stdin and --write-stdin-file cannot be used together."
+    has_write_stdin_source = args.write_stdin is not None or args.write_stdin_file is not None
+    if args.check_write_process is not None and not has_write_stdin_source:
+        return "--check-write-process requires --write-stdin or --write-stdin-file."
+    if args.write_process is not None and not has_write_stdin_source:
+        return "--write-process requires --write-stdin or --write-stdin-file."
     run_target = (
         args.run_command is not None
         or args.run_commands is not None
