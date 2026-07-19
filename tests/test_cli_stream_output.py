@@ -472,6 +472,12 @@ class CodeResultPayloadTests(unittest.TestCase):
         self.assertEqual(interrupted["stopReason"], "interrupted")
         self.assertEqual(interrupted["stop_reason"], "interrupted")
 
+    def test_error_result_payload_includes_exit_code_aliases_when_known(self) -> None:
+        payload = error_result_payload("Invalid arguments.", exit_code=2)
+
+        self.assertEqual(payload["exitCode"], 2)
+        self.assertEqual(payload["exit_code"], 2)
+
     def test_chat_result_payload_includes_runtime_version_and_result_alias(self) -> None:
         payload = build_chat_result_payload("hello")
 

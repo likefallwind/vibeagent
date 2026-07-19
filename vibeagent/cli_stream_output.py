@@ -138,9 +138,15 @@ def code_result_snake_case_aliases(payload: dict[str, object]) -> dict[str, obje
     }
 
 
-def error_result_payload(error: str, *, kind: str = "error", status: str = "failed") -> dict[str, object]:
+def error_result_payload(
+    error: str,
+    *,
+    kind: str = "error",
+    status: str = "failed",
+    exit_code: int | None = None,
+) -> dict[str, object]:
     stop_reason = "interrupted" if status == "interrupted" else "failed"
-    return {
+    payload: dict[str, object] = {
         "kind": kind,
         "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
         "version": __version__,
@@ -150,6 +156,10 @@ def error_result_payload(error: str, *, kind: str = "error", status: str = "fail
         "stop_reason": stop_reason,
         "error": error,
     }
+    if exit_code is not None:
+        payload["exitCode"] = exit_code
+        payload["exit_code"] = exit_code
+    return payload
 
 
 def add_duration_fields(payload: dict[str, object], duration_ms: int) -> None:

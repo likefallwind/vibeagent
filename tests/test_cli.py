@@ -12490,6 +12490,24 @@ class CliTests(unittest.TestCase):
         self.assertIn("Invalid json input", stdout.getvalue())
         create_chat_client.assert_not_called()
 
+    def test_main_json_stdin_parse_error_reports_exit_code_in_json(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("sys.stdin", io.StringIO("{not json}\n")),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--json", "--input-format", "json", "-"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(payload["exitCode"], 2)
+        self.assertEqual(payload["exit_code"], 2)
+        self.assertEqual(payload["status"], "failed")
+        self.assertIn("Invalid json input", payload["error"])
+        create_chat_client.assert_not_called()
+
     def test_main_rejects_input_format_stream_json_without_stdin_task(self) -> None:
         stdout = io.StringIO()
 

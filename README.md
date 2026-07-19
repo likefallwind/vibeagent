@@ -206,6 +206,8 @@ configured cost estimate status shown in the text UI.
 Machine output also includes Claude-style snake_case aliases for run status,
 prior context, completion, latest-completion, changed-file, verification,
 pending-user-input, and timing fields where applicable.
+Machine-readable error results include `exitCode` and `exit_code` when the
+CLI knows the process exit status for that failure.
 `--output-format json` is equivalent to `--json`. `--output-format stream-json`
 emits newline-delimited JSON for one-shot tasks: each durable session event is
 written as a `type: "event"` record with `schemaVersion`, `version`, a
