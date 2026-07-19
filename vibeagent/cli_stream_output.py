@@ -78,11 +78,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
         "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
         "version": __version__,
         "success": result.success,
-        "status": result.status,
-        "stopReason": stop_reason,
-        "stop_reason": stop_reason,
-        "exitCode": exit_code,
-        "exit_code": exit_code,
+        **machine_result_status_fields(status=result.status, stop_reason=stop_reason, exit_code=exit_code),
         "message": result.message,
         "result": result.message,
         "runId": result.run_id,
@@ -127,11 +123,7 @@ def build_chat_result_payload(message: str) -> dict[str, object]:
         "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
         "version": __version__,
         "success": True,
-        "status": "completed",
-        "exitCode": 0,
-        "exit_code": 0,
-        "stopReason": "completed",
-        "stop_reason": "completed",
+        **machine_result_status_fields(status="completed", stop_reason="completed", exit_code=0),
         "message": message,
         "result": message,
     }
@@ -149,6 +141,23 @@ def code_result_exit_code(result: AgentResult) -> int:
     return 0 if result.success and result.completion_ready else 1
 
 
+def machine_result_status_fields(
+    *,
+    status: str,
+    stop_reason: str,
+    exit_code: int | None = None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "status": status,
+        "stopReason": stop_reason,
+        "stop_reason": stop_reason,
+    }
+    if exit_code is not None:
+        payload["exitCode"] = exit_code
+        payload["exit_code"] = exit_code
+    return payload
+
+
 def error_result_payload(
     error: str,
     *,
@@ -162,14 +171,9 @@ def error_result_payload(
         "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
         "version": __version__,
         "success": False,
-        "status": status,
-        "stopReason": stop_reason,
-        "stop_reason": stop_reason,
+        **machine_result_status_fields(status=status, stop_reason=stop_reason, exit_code=exit_code),
         "error": error,
     }
-    if exit_code is not None:
-        payload["exitCode"] = exit_code
-        payload["exit_code"] = exit_code
     return payload
 
 

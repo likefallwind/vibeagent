@@ -23,6 +23,7 @@ from vibeagent.cli_stream_output import (
     code_result_snake_case_aliases,
     code_result_stop_reason,
     error_result_payload,
+    machine_result_status_fields,
 )
 from vibeagent.observation_common_types import UserInputObservation
 from vibeagent.runtime_types import AssistantResponse
@@ -480,6 +481,22 @@ class CodeResultPayloadTests(unittest.TestCase):
 
         self.assertEqual(payload["exitCode"], 2)
         self.assertEqual(payload["exit_code"], 2)
+
+    def test_machine_result_status_fields_include_aliases(self) -> None:
+        without_exit = machine_result_status_fields(status="failed", stop_reason="failed")
+        with_exit = machine_result_status_fields(status="completed", stop_reason="completed", exit_code=0)
+
+        self.assertEqual(without_exit, {"status": "failed", "stopReason": "failed", "stop_reason": "failed"})
+        self.assertEqual(
+            with_exit,
+            {
+                "status": "completed",
+                "stopReason": "completed",
+                "stop_reason": "completed",
+                "exitCode": 0,
+                "exit_code": 0,
+            },
+        )
 
     def test_chat_result_payload_includes_runtime_version_and_result_alias(self) -> None:
         payload = build_chat_result_payload("hello")
