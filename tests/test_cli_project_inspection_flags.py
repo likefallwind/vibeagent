@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from vibeagent.cli import main
 
@@ -129,4 +129,127 @@ class CliProjectInspectionFlagTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 2)
         self.assertEqual(stdout.getvalue(), "--symbols-max can only be used with --symbols.\n")
+        create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_glob_tree_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/glob --max-matches 7 --include-dirs -- **/*.py",
+                    "/tree src --max-depth 2 --max-entries 30",
+                    "/tree --max-depth=0 --max-entries=5",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_glob_text", return_value="Glob:\n  matches: 1/1") as get_glob_text,
+            patch("vibeagent.cli.get_tree_text", return_value="Tree:\n  entries: 1/1") as get_tree_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Glob:", output)
+        self.assertIn("Tree:", output)
+        get_glob_text.assert_called_once_with(pattern="**/*.py", max_matches=7, include_dirs=True)
+        self.assertEqual(
+            get_tree_text.call_args_list,
+            [
+                call(path="src", max_depth=2, max_entries=30),
+                call(path=None, max_depth=0, max_entries=5),
+            ],
+        )
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_glob_tree_option_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/glob --max-matches 0 -- **/*.py",
+                    "/glob --max-matches 5",
+                    "/glob --include-dirs=maybe -- **/*.py",
+                    "/glob --unknown 1 -- **/*.py",
+                    "/tree --max-depth -1",
+                    "/tree src --max-entries 0",
+                    "/tree src other --max-depth 1",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_glob_text") as get_glob_text,
+            patch("vibeagent.cli.get_tree_text") as get_tree_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /glob [--max-matches N] [--include-dirs] -- <pattern>", output)
+        self.assertIn("--max-matches must be a positive integer.", output)
+        self.assertIn("pattern is required.", output)
+        self.assertIn("--include-dirs must be a boolean.", output)
+        self.assertIn("Unknown option: --unknown", output)
+        self.assertIn("Usage: /tree [path] [--max-depth N] [--max-entries N]", output)
+        self.assertIn("--max-depth must be a non-negative integer.", output)
+        self.assertIn("--max-entries must be a positive integer.", output)
+        get_glob_text.assert_not_called()
+        get_tree_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_symbols_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/symbols --max-symbols 12 -- src/app.py web/app.ts",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_symbols_text", return_value="Symbols:\n  files: 1/1") as get_symbols_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Symbols:", output)
+        get_symbols_text.assert_called_once_with(argument=["src/app.py", "web/app.ts"], max_symbols=12)
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_symbols_option_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/symbols --max-symbols 0 -- src/app.py",
+                    "/symbols --max-symbols 12",
+                    "/symbols --unknown 1 -- src/app.py",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_symbols_text") as get_symbols_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /symbols [--max-symbols N] -- <path...>", output)
+        self.assertIn("--max-symbols must be a positive integer.", output)
+        self.assertIn("at least one path is required.", output)
+        self.assertIn("Unknown option: --unknown", output)
+        get_symbols_text.assert_not_called()
         create_chat_client.assert_not_called()
