@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .workspace_core import GitCommandResult, RunWorkspace
 from .workspace_git_branch_ops import git_status_has_non_runtime_changes
+from .workspace_git_remote_selection import select_fetch_remote_from_remotes
 from .workspace_git_utils import parse_git_remotes, redact_git_text, run_git_mutation, run_readonly_git
 
 
@@ -415,31 +416,7 @@ def select_git_fetch_remote(workspace: RunWorkspace, remote: str | None) -> dict
     remotes_result = run_readonly_git(workspace.root, ["remote", "-v"])
     remotes = parse_git_remotes(remotes_result.stdout if remotes_result.ok else "")
     fetch_remotes = [item for item in remotes if item.get("kind") == "fetch"]
-    names = sorted({item["name"] for item in fetch_remotes})
-    requested = remote.strip() if isinstance(remote, str) else ""
-    if remote is not None and not requested:
-        return {"ok": False, "remote": "", "remote_url": "", "message": "git_fetch remote must be non-empty when provided."}
-    if requested and requested not in names:
-        return {
-            "ok": False,
-            "remote": requested,
-            "remote_url": "",
-            "message": f"Git remote not found: {requested}.",
-        }
-    if not requested:
-        if not names:
-            return {"ok": False, "remote": "", "remote_url": "", "message": "No git remotes are configured."}
-        if len(names) > 1:
-            return {
-                "ok": False,
-                "remote": "",
-                "remote_url": "",
-                "message": "Multiple git remotes are configured; specify one remote.",
-            }
-        requested = names[0]
-
-    remote_url = next((item["url"] for item in fetch_remotes if item["name"] == requested), "")
-    return {"ok": True, "remote": requested, "remote_url": remote_url, "message": "Git remote selected."}
+    return select_fetch_remote_from_remotes(fetch_remotes, remote)
 
 
 def _read_git_status(workspace: RunWorkspace) -> GitCommandResult:
