@@ -1,22 +1,24 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from .cli_output import build_approval_handler, prompt_user_input
+from .config import ExecutionConfig
 from .project_trust import is_project_permissions_trusted
 from .types import ApprovalPolicy
+from .workspace_core import RunWorkspace
+from .workspace_permissions import ProjectPermissions
 
 
 def build_one_shot_agent_kwargs(
     *,
     client: object,
     project_root: Path,
-    execution_config: object,
+    execution_config: ExecutionConfig,
     approval_policy: ApprovalPolicy,
     trust_project_permissions: bool,
-    permission_overrides: object,
-    mcp_config_paths: list[Path] | tuple[Path, ...],
+    permission_overrides: ProjectPermissions | None,
+    mcp_config_paths: tuple[Path, ...],
     strict_mcp_config: bool,
     machine_output: bool,
     stream_json: bool,
@@ -24,9 +26,9 @@ def build_one_shot_agent_kwargs(
     system_prompt: str | None,
     append_system_prompt: str | None,
     task_metadata: dict[str, object] | None,
-    workspace: object | None = None,
-) -> dict[str, Any]:
-    kwargs: dict[str, Any] = {
+    workspace: RunWorkspace | None = None,
+) -> dict[str, object]:
+    kwargs: dict[str, object] = {
         "client": client,
         "base_dir": project_root,
         "max_iterations": execution_config.max_iterations,

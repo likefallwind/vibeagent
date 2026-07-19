@@ -8,6 +8,7 @@ from unittest.mock import patch
 from vibeagent.cli_one_shot_agent_kwargs import build_one_shot_agent_kwargs
 from vibeagent.config import ExecutionConfig
 from vibeagent.types import ApprovalRequest
+from vibeagent.workspace_permissions import ProjectPermissions
 
 
 class CliOneShotAgentKwargsTests(unittest.TestCase):
@@ -23,7 +24,7 @@ class CliOneShotAgentKwargsTests(unittest.TestCase):
                 approval_policy="ask",
                 trust_project_permissions=False,
                 permission_overrides=None,
-                mcp_config_paths=[],
+                mcp_config_paths=(),
                 strict_mcp_config=True,
                 machine_output=True,
                 stream_json=True,
@@ -56,8 +57,8 @@ class CliOneShotAgentKwargsTests(unittest.TestCase):
                 execution_config=ExecutionConfig(),
                 approval_policy="allow",
                 trust_project_permissions=False,
-                permission_overrides="overrides",
-                mcp_config_paths=[root / ".mcp.json"],
+                permission_overrides=ProjectPermissions(sources=("cli",)),
+                mcp_config_paths=(root / ".mcp.json",),
                 strict_mcp_config=False,
                 machine_output=False,
                 stream_json=False,
@@ -72,8 +73,8 @@ class CliOneShotAgentKwargsTests(unittest.TestCase):
         )
         self.assertTrue(decision.approved)
         self.assertIsNotNone(kwargs["user_input_handler"])
-        self.assertEqual(kwargs["permission_overrides"], "overrides")
-        self.assertEqual(kwargs["mcp_config_paths"], [root / ".mcp.json"])
+        self.assertEqual(kwargs["permission_overrides"], ProjectPermissions(sources=("cli",)))
+        self.assertEqual(kwargs["mcp_config_paths"], (root / ".mcp.json",))
         self.assertNotIn("workspace", kwargs)
 
     def test_trust_project_permissions_uses_explicit_or_project_trust(self) -> None:
@@ -88,7 +89,7 @@ class CliOneShotAgentKwargsTests(unittest.TestCase):
                     approval_policy="deny",
                     trust_project_permissions=True,
                     permission_overrides=None,
-                    mcp_config_paths=[],
+                    mcp_config_paths=(),
                     strict_mcp_config=False,
                     machine_output=True,
                     stream_json=False,
@@ -106,7 +107,7 @@ class CliOneShotAgentKwargsTests(unittest.TestCase):
                     approval_policy="deny",
                     trust_project_permissions=False,
                     permission_overrides=None,
-                    mcp_config_paths=[],
+                    mcp_config_paths=(),
                     strict_mcp_config=False,
                     machine_output=True,
                     stream_json=False,
