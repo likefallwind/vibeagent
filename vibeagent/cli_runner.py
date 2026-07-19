@@ -20,11 +20,13 @@ from .cli_one_shot_output import (
     build_one_shot_chat_payload,
     build_one_shot_code_payload,
     build_one_shot_error_payload,
+    emit_one_shot_chat_payload,
+    emit_one_shot_code_payload,
+    one_shot_code_exit_code,
 )
 from .cli_one_shot_stream import build_one_shot_stream_scope
 from .cli_output import (
     format_error,
-    print_agent_result,
     print_error_result,
     print_interrupted_result,
     print_output,
@@ -145,10 +147,7 @@ def run_one_shot(
                 machine_output=output_mode.machine,
                 elapsed_ms=elapsed_milliseconds(started_at),
             )
-            if stream is not None:
-                stream.result(payload)
-            else:
-                print_output(payload, output_json)
+            emit_one_shot_chat_payload(payload, stream=stream, output_json=output_json)
             return 0
 
         prior_context = resolve_one_shot_context_from_limits(
@@ -208,15 +207,14 @@ def run_one_shot(
             project_root=project_root,
             provider_env=provider_env,
         )
-        if stream is not None:
-            stream.result(result_payload)
-        elif output_json:
-            print_output(result_payload, True)
-        elif print_mode:
-            print_output({"message": result.message}, False)
-        else:
-            print_agent_result(result)
-        return 0 if result.success and result.completion_ready else 1
+        emit_one_shot_code_payload(
+            result,
+            result_payload,
+            stream=stream,
+            output_json=output_json,
+            print_mode=print_mode,
+        )
+        return one_shot_code_exit_code(result)
     except KeyboardInterrupt:
         if stream is not None:
             return emit_error("Interrupted.", kind="interrupted", status="interrupted", exit_code=130)

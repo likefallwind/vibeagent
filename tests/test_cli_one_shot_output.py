@@ -10,6 +10,9 @@ from vibeagent.cli_one_shot_output import (
     build_one_shot_chat_payload,
     build_one_shot_code_payload,
     build_one_shot_error_payload,
+    emit_one_shot_chat_payload,
+    emit_one_shot_code_payload,
+    one_shot_code_exit_code,
 )
 
 
@@ -71,6 +74,36 @@ class CliOneShotOutputTests(unittest.TestCase):
         self.assertNotIn("numTurns", payload)
         self.assertNotIn("durationMs", payload)
 
+    def test_emit_chat_payload_uses_stream_when_available(self) -> None:
+        payload = {"kind": "chat", "message": "hello"}
+        emitted: list[dict[str, object]] = []
+
+        class Stream:
+            def result(self, value):
+                emitted.append(value)
+
+        emit_one_shot_chat_payload(
+            payload,
+            stream=Stream(),
+            output_json=False,
+            print_output_func=lambda value, output_json: self.fail("printed instead of streamed"),
+        )
+
+        self.assertEqual(emitted, [payload])
+
+    def test_emit_chat_payload_prints_without_stream(self) -> None:
+        calls: list[tuple[dict[str, object], bool]] = []
+        payload = {"kind": "chat", "message": "hello"}
+
+        emit_one_shot_chat_payload(
+            payload,
+            stream=None,
+            output_json=True,
+            print_output_func=lambda value, output_json: calls.append((value, output_json)),
+        )
+
+        self.assertEqual(calls, [(payload, True)])
+
     def test_code_payload_adds_duration_usage_and_cost_for_machine_output(self) -> None:
         root = Path("/tmp/vibeagent-one-shot-output")
         usage = {"exists": True, "usage": {"sessions": 1}}
@@ -125,6 +158,102 @@ class CliOneShotOutputTests(unittest.TestCase):
         build_usage.assert_not_called()
         resolve_rates.assert_not_called()
         build_cost.assert_not_called()
+
+    def test_emit_code_payload_uses_stream_when_available(self) -> None:
+        root = Path("/tmp/vibeagent-one-shot-output")
+        result = _result(root)
+        payload = {"kind": "code", "message": "done"}
+        emitted: list[dict[str, object]] = []
+
+        class Stream:
+            def result(self, value):
+                emitted.append(value)
+
+        emit_one_shot_code_payload(
+            result,
+            payload,
+            stream=Stream(),
+            output_json=False,
+            print_mode=False,
+            print_output_func=lambda value, output_json: self.fail("printed instead of streamed"),
+            print_agent_result_func=lambda value: self.fail("printed agent result instead of streamed"),
+        )
+
+        self.assertEqual(emitted, [payload])
+
+    def test_emit_code_payload_prints_json_payload(self) -> None:
+        root = Path("/tmp/vibeagent-one-shot-output")
+        result = _result(root)
+        payload = {"kind": "code", "message": "done"}
+        calls: list[tuple[dict[str, object], bool]] = []
+
+        emit_one_shot_code_payload(
+            result,
+            payload,
+            stream=None,
+            output_json=True,
+            print_mode=False,
+            print_output_func=lambda value, output_json: calls.append((value, output_json)),
+            print_agent_result_func=lambda value: self.fail("printed text result instead of json"),
+        )
+
+        self.assertEqual(calls, [(payload, True)])
+
+    def test_emit_code_payload_print_mode_uses_message_only(self) -> None:
+        root = Path("/tmp/vibeagent-one-shot-output")
+        result = _result(root)
+        payload = {"kind": "code", "message": "done", "extra": True}
+        calls: list[tuple[dict[str, object], bool]] = []
+
+        emit_one_shot_code_payload(
+            result,
+            payload,
+            stream=None,
+            output_json=False,
+            print_mode=True,
+            print_output_func=lambda value, output_json: calls.append((value, output_json)),
+            print_agent_result_func=lambda value: self.fail("printed full agent result in print mode"),
+        )
+
+        self.assertEqual(calls, [({"message": "done"}, False)])
+
+    def test_emit_code_payload_prints_agent_result_for_text_output(self) -> None:
+        root = Path("/tmp/vibeagent-one-shot-output")
+        result = _result(root)
+        payload = {"kind": "code", "message": "done"}
+        calls: list[AgentResult] = []
+
+        emit_one_shot_code_payload(
+            result,
+            payload,
+            stream=None,
+            output_json=False,
+            print_mode=False,
+            print_output_func=lambda value, output_json: self.fail("printed payload instead of agent result"),
+            print_agent_result_func=lambda value: calls.append(value),
+        )
+
+        self.assertEqual(calls, [result])
+
+    def test_one_shot_code_exit_code_requires_success_and_completion_ready(self) -> None:
+        root = Path("/tmp/vibeagent-one-shot-output")
+        self.assertEqual(one_shot_code_exit_code(_result(root)), 0)
+        self.assertEqual(one_shot_code_exit_code(AgentResult(False, "failed", root, "run-1", 1, [], [])), 1)
+        self.assertEqual(
+            one_shot_code_exit_code(
+                AgentResult(
+                    success=True,
+                    message="blocked",
+                    run_dir=root,
+                    run_id="run-1",
+                    iterations=1,
+                    observations=[],
+                    steps=[],
+                    completion_ready=False,
+                )
+            ),
+            1,
+        )
 
 
 if __name__ == "__main__":
