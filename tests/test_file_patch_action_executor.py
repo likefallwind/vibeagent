@@ -1,0 +1,56 @@
+import tempfile
+import unittest
+from pathlib import Path
+
+from vibeagent.file_patch_action_executor import execute_patch_file_action
+from vibeagent.types import CheckRegexReplaceAction, PatchFileAction
+from vibeagent.workspace import create_run_workspace, write_run_file
+
+
+class FilePatchActionExecutorTests(unittest.TestCase):
+    def test_execute_patch_file_action_previews_regex_replace(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-patch-executor-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            write_run_file(workspace, "app.py", "value = 'old'\n")
+
+            observation = execute_patch_file_action(
+                workspace,
+                CheckRegexReplaceAction(
+                    type="check_regex_replace",
+                    path="app.py",
+                    pattern="old",
+                    replacement="new",
+                ),
+            )
+
+            self.assertIsNotNone(observation)
+            self.assertEqual(observation.kind, "check_regex_replace")
+            self.assertTrue(observation.ok)
+            self.assertEqual(observation.replacements, 1)
+            self.assertEqual(Path(base, "app.py").read_text(encoding="utf-8"), "value = 'old'\n")
+
+    def test_execute_patch_file_action_applies_single_file_patch(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-patch-executor-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            write_run_file(workspace, "app.py", "old\n")
+
+            observation = execute_patch_file_action(
+                workspace,
+                PatchFileAction(type="patch_file", path="app.py", patch="@@ -1 +1 @@\n-old\n+new\n"),
+            )
+
+            self.assertIsNotNone(observation)
+            self.assertEqual(observation.kind, "patch_file")
+            self.assertTrue(observation.ok)
+            self.assertIn("Patched app.py", observation.message)
+            self.assertEqual(Path(base, "app.py").read_text(encoding="utf-8"), "new\n")
+
+    def test_execute_patch_file_action_returns_none_for_unhandled_actions(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-patch-executor-") as base:
+            workspace = create_run_workspace(base, "test-run")
+
+            self.assertIsNone(execute_patch_file_action(workspace, object()))
+
+
+if __name__ == "__main__":
+    unittest.main()
