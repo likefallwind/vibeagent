@@ -9,7 +9,6 @@ from .action_parsing_helpers import (
     parse_move_file_transfers,
     parse_optional_positive_int,
     parse_path_list,
-    parse_write_file_items,
 )
 from .action_parsing_file_edit_fields import (
     parse_insert,
@@ -18,6 +17,7 @@ from .action_parsing_file_edit_fields import (
     parse_string_field,
     parse_transfer,
 )
+from .action_parsing_file_write import parse_file_write_action
 from .types import (
     AppendFileAction,
     CheckAppendFileAction,
@@ -44,8 +44,6 @@ from .types import (
     CheckRegexReplaceAction,
     CheckReplaceLinesAction,
     CheckSetExecutableAction,
-    CheckWriteFileAction,
-    CheckWriteFilesAction,
     CopyFileAction,
     CopyFilesAction,
     CopyDirectoryAction,
@@ -69,8 +67,6 @@ from .types import (
     RegexReplaceAction,
     ReplaceLinesAction,
     SetExecutableAction,
-    WriteFileAction,
-    WriteFilesAction,
 )
 
 
@@ -133,6 +129,10 @@ FILE_EDIT_ACTION_TYPES = {
 def parse_file_edit_action(action_type: object, value: dict[str, Any], raw: str) -> object | None:
     if action_type not in FILE_EDIT_ACTION_TYPES:
         return None
+
+    write_action = parse_file_write_action(action_type, value, raw)
+    if write_action is not None:
+        return write_action
 
     if action_type == "check_edit_file":
         path = parse_string_field(value.get("path"), raw, "check_edit_file action requires a string path.")
@@ -274,25 +274,6 @@ def parse_file_edit_action(action_type: object, value: dict[str, Any], raw: str)
     if action_type == "patch_files":
         patch = parse_string_field(value.get("patch"), raw, "patch_files action requires string patch.")
         return PatchFilesAction(type="patch_files", patch=patch)
-
-    if action_type == "check_write_file":
-        path = parse_string_field(value.get("path"), raw, "check_write_file action requires a string path.")
-        content = parse_string_field(value.get("content"), raw, "check_write_file action requires string content.")
-        return CheckWriteFileAction(type="check_write_file", path=path, content=content)
-
-    if action_type == "write_file":
-        path = parse_string_field(value.get("path"), raw, "write_file action requires a string path.")
-        content = parse_string_field(value.get("content"), raw, "write_file action requires string content.")
-        return WriteFileAction(type="write_file", path=path, content=content)
-
-    if action_type == "check_write_files":
-        return CheckWriteFilesAction(
-            type="check_write_files",
-            files=parse_write_file_items(value.get("files"), raw, action_type="check_write_files"),
-        )
-
-    if action_type == "write_files":
-        return WriteFilesAction(type="write_files", files=parse_write_file_items(value.get("files"), raw))
 
     if action_type == "check_delete_file":
         path = parse_string_field(value.get("path"), raw, "check_delete_file action requires a string path.")
