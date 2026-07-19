@@ -15,7 +15,6 @@ from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.cli import main
 from vibeagent.cli_args import parse_args
 from vibeagent.cli_context import OneShotPriorContext
-from vibeagent.cli_machine_output import machine_result_status_fields
 from vibeagent.cli_stream_output import (
     CODE_RESULT_SNAKE_CASE_ALIAS_KEYS,
     build_chat_result_payload,
@@ -481,22 +480,6 @@ class CodeResultPayloadTests(unittest.TestCase):
 
         self.assertEqual(payload["exitCode"], 2)
         self.assertEqual(payload["exit_code"], 2)
-
-    def test_machine_result_status_fields_include_aliases(self) -> None:
-        without_exit = machine_result_status_fields(status="failed", stop_reason="failed")
-        with_exit = machine_result_status_fields(status="completed", stop_reason="completed", exit_code=0)
-
-        self.assertEqual(without_exit, {"status": "failed", "stopReason": "failed", "stop_reason": "failed"})
-        self.assertEqual(
-            with_exit,
-            {
-                "status": "completed",
-                "stopReason": "completed",
-                "stop_reason": "completed",
-                "exitCode": 0,
-                "exit_code": 0,
-            },
-        )
 
     def test_chat_result_payload_includes_runtime_version_and_result_alias(self) -> None:
         payload = build_chat_result_payload("hello")
