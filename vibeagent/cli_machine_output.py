@@ -25,3 +25,8 @@ def machine_result_status_fields(
         payload["exitCode"] = exit_code
         payload["exit_code"] = exit_code
     return payload
+
+
+def add_duration_fields(payload: dict[str, object], duration_ms: int) -> None:
+    payload["durationMs"] = duration_ms
+    payload["duration_ms"] = duration_ms

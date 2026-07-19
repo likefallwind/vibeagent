@@ -156,11 +156,6 @@ def error_result_payload(
     return payload
 
 
-def add_duration_fields(payload: dict[str, object], duration_ms: int) -> None:
-    payload["durationMs"] = duration_ms
-    payload["duration_ms"] = duration_ms
-
-
 def code_result_stop_reason(result: AgentResult) -> str:
     if code_result_has_pending_user_input(result):
         return "user_input"
@@ -198,7 +193,6 @@ def code_result_user_input_requests(result: AgentResult) -> list[dict[str, objec
 __all__ = [
     "CODE_RESULT_SNAKE_CASE_ALIAS_KEYS",
     "JsonEventStream",
-    "add_duration_fields",
     "build_chat_result_payload",
     "build_code_result_payload",
     "code_result_snake_case_aliases",

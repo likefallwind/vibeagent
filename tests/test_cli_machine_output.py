@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from vibeagent import MACHINE_OUTPUT_SCHEMA_VERSION, __version__
-from vibeagent.cli_machine_output import machine_result_status_fields, machine_runtime_fields
+from vibeagent.cli_machine_output import add_duration_fields, machine_result_status_fields, machine_runtime_fields
 
 
 class CliMachineOutputTests(unittest.TestCase):
@@ -31,6 +31,13 @@ class CliMachineOutputTests(unittest.TestCase):
                 "exit_code": 0,
             },
         )
+
+    def test_add_duration_fields_includes_aliases(self) -> None:
+        payload: dict[str, object] = {}
+
+        add_duration_fields(payload, 42)
+
+        self.assertEqual(payload, {"durationMs": 42, "duration_ms": 42})
 
 
 if __name__ == "__main__":

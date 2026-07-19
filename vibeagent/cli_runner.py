@@ -13,6 +13,7 @@ from .cli_context import build_context_limit_kwargs, resolve_one_shot_prior_cont
 from .cli_config import build_provider_env, resolve_project_root
 from .cli_input_format import StreamJsonTaskInput, resolve_json_task_input, resolve_stream_json_task_input
 from .cli_mcp_args import resolve_mcp_config_paths
+from .cli_machine_output import add_duration_fields
 from .cli_output import (
     build_approval_handler,
     format_error,
@@ -25,7 +26,6 @@ from .cli_output import (
 from .cli_permission_overrides import build_permission_overrides
 from .cli_stream_output import (
     JsonEventStream,
-    add_duration_fields,
     build_chat_result_payload,
     build_code_result_payload,
     error_result_payload,
