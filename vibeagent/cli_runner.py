@@ -8,23 +8,17 @@ from .agent import run_agent
 from .chat import run_chat
 from .cli_config import build_provider_env, resolve_project_root
 from .cli_mcp_args import resolve_mcp_config_paths
-from .cli_one_shot_agent_kwargs import build_one_shot_agent_kwargs
 from .cli_one_shot_chat import run_one_shot_chat
+from .cli_one_shot_code import run_one_shot_code
 from .cli_one_shot_input import (
     build_one_shot_kwargs_from_args,
-    combine_optional_text,
     resolve_one_shot_code_task,
-    resolve_one_shot_context_from_limits,
     resolve_task_input,
     resolve_task_text,
 )
 from .cli_one_shot_output import (
-    build_one_shot_code_payload,
     emit_one_shot_error,
-    emit_one_shot_code_payload,
-    one_shot_code_exit_code,
 )
-from .cli_one_shot_stream import build_one_shot_stream_scope
 from .cli_output import (
     format_error,
     print_error_result,
@@ -139,11 +133,28 @@ def run_one_shot(
                 run_chat_func=run_chat_func,
             )
 
-        prior_context = resolve_one_shot_context_from_limits(
+        exit_code, prior_context = run_one_shot_code(
+            task,
+            project_root=project_root,
+            execution_config=execution_config,
+            provider_env=provider_env,
+            approval_policy=approval_policy,
+            trust_project_permissions=trust_project_permissions,
+            permission_overrides=permission_overrides,
+            resolved_mcp_config_paths=resolved_mcp_config_paths,
+            strict_mcp_config=strict_mcp_config,
+            output_mode=output_mode,
+            output_json=output_json,
+            print_mode=print_mode,
+            elapsed_ms=elapsed_milliseconds(started_at),
+            stream=stream,
+            input_prior_context=input_prior_context,
+            system_prompt=system_prompt,
+            append_system_prompt=append_system_prompt,
+            task_metadata=task_metadata,
             resume_arg=resume_arg,
             compact_arg=compact_arg,
             auto_compact=auto_compact,
-            project_root=project_root,
             resume_max_failures=resume_max_failures,
             resume_max_files=resume_max_files,
             resume_max_commands=resume_max_commands,
@@ -156,54 +167,14 @@ def run_one_shot(
             compact_max_checks=compact_max_checks,
             compact_max_output_chars=compact_max_output_chars,
             compact_max_text=compact_max_text,
+            create_chat_client_func=create_chat_client_func,
+            run_agent_func=run_agent_func,
             get_resume_context_func=get_resume_context_func,
             get_compact_context_func=get_compact_context_func,
         )
         if prior_context.error is not None:
             return emit_error(prior_context.error)
-        merged_prior_context = combine_optional_text(prior_context.context, input_prior_context)
-        client = create_chat_client_func(provider_env)
-        stream_scope = build_one_shot_stream_scope(
-            stream,
-            project_root=project_root,
-            mcp_config_paths=resolved_mcp_config_paths,
-            strict_mcp_config=strict_mcp_config,
-        )
-        run_kwargs = build_one_shot_agent_kwargs(
-            client=client,
-            project_root=project_root,
-            execution_config=execution_config,
-            approval_policy=approval_policy,
-            trust_project_permissions=trust_project_permissions,
-            permission_overrides=permission_overrides,
-            mcp_config_paths=resolved_mcp_config_paths,
-            strict_mcp_config=strict_mcp_config,
-            machine_output=output_mode.machine,
-            stream_json=output_mode.stream_json,
-            prior_context=merged_prior_context,
-            system_prompt=system_prompt,
-            append_system_prompt=append_system_prompt,
-            task_metadata=task_metadata,
-            workspace=stream_scope.workspace,
-        )
-        with stream_scope.event_scope:
-            result = run_agent_func(task, **run_kwargs)
-        result_payload = build_one_shot_code_payload(
-            result,
-            prior_context,
-            machine_output=output_mode.machine,
-            elapsed_ms=elapsed_milliseconds(started_at),
-            project_root=project_root,
-            provider_env=provider_env,
-        )
-        emit_one_shot_code_payload(
-            result,
-            result_payload,
-            stream=stream,
-            output_json=output_json,
-            print_mode=print_mode,
-        )
-        return one_shot_code_exit_code(result)
+        return exit_code
     except KeyboardInterrupt:
         if stream is not None:
             return emit_error("Interrupted.", kind="interrupted", status="interrupted", exit_code=130)
