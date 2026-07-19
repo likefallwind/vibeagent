@@ -9824,6 +9824,70 @@ class AgentTests(unittest.TestCase):
         self.assertIn("full batch before finishing", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_guides_batch_source_issues_without_failed_exit(self) -> None:
+        observation = RunSuggestedChecksObservation(
+            kind="run_suggested_checks",
+            ok=False,
+            results=[
+                CommandResult(
+                    command="python -m unittest tests.test_agent",
+                    exit_code=0,
+                    stdout="tests/test_agent.py:42: warning: suspicious assertion\n",
+                    stderr="",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                    output_diagnostics=[
+                        OutputDiagnostic(
+                            severity="warning",
+                            output_line=1,
+                            text="suspicious assertion",
+                            path="tests/test_agent.py",
+                            line=42,
+                            column=None,
+                        )
+                    ],
+                    output_diagnostic_total=1,
+                )
+            ],
+            suggested_checks=[
+                SuggestedCheck(
+                    command="python -m unittest tests.test_agent",
+                    cwd=".",
+                    source="tests",
+                    reason="unit tests",
+                ),
+                SuggestedCheck(
+                    command="npm test",
+                    cwd="web",
+                    source="package.json",
+                    reason="project test script",
+                ),
+            ],
+            total=2,
+            truncated=False,
+            max_commands=2,
+            stopped_early=False,
+            skipped_unavailable=0,
+            message="Suggested checks produced source-linked output diagnostics.",
+        )
+
+        instruction = get_next_action_instruction("fix suspicious output", [observation])
+
+        self.assertIn("source-linked output issue", instruction)
+        self.assertIn("without failed command exits", instruction)
+        self.assertIn("tests/test_agent.py:42 warning: suspicious assertion", instruction)
+        self.assertIn("Inspect or edit the referenced source", instruction)
+        self.assertIn("rerun the relevant command", instruction)
+        self.assertIn("full batch before finishing", instruction)
+        self.assertIn("Not-yet-run selected check", instruction)
+        self.assertIn(
+            "npm test (cwd=web, source=package.json, available=true, "
+            "missingTool=none, reason=project test script)",
+            instruction,
+        )
+        self.assertNotIn("continue only after confirming they are non-blocking", instruction)
+
     def test_next_action_instruction_lists_not_run_focused_checks_after_stopped_batch(self) -> None:
         observation = types_module.RunFocusedTestCommandsObservation(
             kind="run_focused_test_commands",

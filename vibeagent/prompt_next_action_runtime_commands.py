@@ -109,6 +109,19 @@ def batch_command_result_next_action_instruction(base: str, latest: Observation)
         )
     output_issues = command_result_output_issue_labels(results, failed_only=False)
     if output_issues:
+        if not getattr(latest, "ok", False):
+            not_run_text = not_run_detail(
+                not_run_batch_command_labels(latest, len(results or []))
+            )
+            return inline_output_issue_instruction(
+                base,
+                f"The latest {latest.kind} found source-linked output issue(s) without failed command exits.",
+                output_issues,
+                (
+                    "inspect or edit the referenced source, then rerun the relevant command(s) or the full batch "
+                    f"before finishing.{not_run_text}"
+                ),
+            )
         return inline_output_issue_instruction(
             base,
             f"The latest {latest.kind} completed without failed commands, but inline output analysis found source-linked issue(s).",
