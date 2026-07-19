@@ -4,7 +4,7 @@ from pathlib import Path
 
 from vibeagent.read_action_executor import execute_read_action
 from vibeagent.read_action_file_observations import execute_read_file_action
-from vibeagent.types import FileInfoAction, OutputContextsAction, PythonSymbolsAction, ReadFileAction, ReadFilesAction
+from vibeagent.types import CodeOutlineAction, FileInfoAction, OutputContextsAction, PythonSymbolsAction, ReadFileAction, ReadFilesAction
 from vibeagent.workspace_core import RunWorkspace
 
 
@@ -40,6 +40,15 @@ class ReadActionFileObservationsTests(unittest.TestCase):
             (root / "app.py").write_text("print('hello')\n", encoding="utf-8")
             workspace = self.make_workspace(root)
             action = FileInfoAction(type="file_info", paths=["app.py", "missing.py"])
+
+            self.assertEqual(execute_read_file_action(workspace, action), execute_read_action(workspace, action))
+
+    def test_file_helper_matches_read_executor_for_code_outline(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-read-files-") as tmp:
+            root = Path(tmp)
+            (root / "app.ts").write_text("export function run() { return 1; }\n", encoding="utf-8")
+            workspace = self.make_workspace(root)
+            action = CodeOutlineAction(type="code_outline", paths=["app.ts"])
 
             self.assertEqual(execute_read_file_action(workspace, action), execute_read_action(workspace, action))
 
