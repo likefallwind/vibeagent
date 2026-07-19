@@ -145,14 +145,14 @@ def file_reference_labels(values: object) -> list[str]:
     return labels
 
 
-def audit_section_items(audit: object, section_names: tuple[str, ...]) -> list[str]:
-    if not isinstance(audit, str):
+def text_section_items(text: object, section_names: tuple[str, ...]) -> list[str]:
+    if not isinstance(text, str):
         return []
 
     names = set(section_names)
     items: list[str] = []
     in_section = False
-    for line in audit.splitlines():
+    for line in text.splitlines():
         stripped = line.strip()
         heading = stripped[:-1] if stripped.endswith(":") else stripped
         if heading in names:
@@ -171,6 +171,10 @@ def audit_section_items(audit: object, section_names: tuple[str, ...]) -> list[s
     return items
 
 
+def audit_section_items(audit: object, section_names: tuple[str, ...]) -> list[str]:
+    return text_section_items(audit, section_names)
+
+
 def completion_blocker_labels(latest: Observation) -> list[str]:
     labels = [
         str(blocker).strip()
@@ -185,7 +189,7 @@ def completion_blocker_labels(latest: Observation) -> list[str]:
     labels.extend(completion_blocker_detail_values(latest))
     if labels:
         return labels
-    return audit_section_items(
+    return text_section_items(
         getattr(latest, "audit", ""),
         ("completionBlockers", "latestCompletionBlockers"),
     )
@@ -200,7 +204,7 @@ def completion_next_action_labels(latest: Observation) -> list[str]:
     if labels:
         return labels
     for attr in ("audit", "handoff", "summary"):
-        labels = audit_section_items(
+        labels = text_section_items(
             getattr(latest, attr, ""),
             ("latestCompletionNextActions",),
         )

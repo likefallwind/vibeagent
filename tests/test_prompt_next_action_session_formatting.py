@@ -11,6 +11,7 @@ from vibeagent.prompt_next_action_session_formatting import (
     session_audit_process_labels,
     session_plan_appears_complete,
     session_plan_has_unfinished_work,
+    text_section_items,
     text_reports_ready,
     verification_command_labels,
 )
@@ -71,6 +72,7 @@ class PromptNextActionSessionFormattingTests(unittest.TestCase):
             ),
         )
 
+        self.assertEqual(text_section_items(observation.audit, ("completionBlockers",)), ["run verification"])
         self.assertEqual(audit_section_items(observation.audit, ("completionBlockers",)), ["run verification"])
         self.assertEqual(completion_blocker_labels(observation), ["run verification"])
         self.assertTrue(has_completion_blocker_signal([], observation))
