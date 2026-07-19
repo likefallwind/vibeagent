@@ -4,13 +4,23 @@ from pathlib import Path
 import shlex
 
 from .actions import execute_action
-from .check_report_helpers import serialize_focused_test_command, serialize_not_run_focused_test_commands
+from .check_report_helpers import serialize_not_run_focused_test_commands
 from .local_runtime_commands import (
     command_results_clean,
-    serialize_command_check,
     serialize_command_result,
     sum_command_result_duration_ms,
     validate_run_output_context_options,
+)
+from .project_focused_test_reports import (
+    empty_check_focused_test_commands_report,
+    empty_focused_test_commands_report,
+    empty_related_tests_report,
+    empty_run_focused_test_commands_report,
+    serialize_command_check_items,
+    serialize_focused_test_command_items,
+    serialize_related_test_candidates,
+    usage_error,
+    usage_message,
 )
 from .project_context_formatting import (
     format_check_focused_test_commands_report_text,
@@ -30,14 +40,6 @@ RELATED_TESTS_USAGE = "Usage: /related-tests [path...]"
 FOCUSED_TESTS_USAGE = "Usage: /focused-tests [path...]"
 CHECK_FOCUSED_TESTS_USAGE = "Usage: /check-focused-tests [path...]"
 RUN_FOCUSED_TESTS_USAGE = "Usage: /run-focused-tests [path...]"
-
-
-def _usage_message(usage: str, message: object) -> str:
-    return f"{usage}\n  message: {message}"
-
-
-def _usage_error(usage: str, error: object) -> str:
-    return f"{usage}\nError: {error}"
 
 
 def get_related_tests_text(
@@ -61,15 +63,7 @@ def get_related_tests_report(
     try:
         paths = parse_related_tests_argument(argument)
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "targetPaths": [],
-            "testFiles": 0,
-            "candidates": {"shown": 0, "total": 0, "items": []},
-            "truncated": False,
-            "message": _usage_message(RELATED_TESTS_USAGE, error),
-        }
+        return empty_related_tests_report(str(root), usage_message(RELATED_TESTS_USAGE, error))
 
     workspace = create_local_workspace(root, "local-related-tests")
     observation = execute_action(
@@ -82,25 +76,9 @@ def get_related_tests_report(
         ),
     )
     if observation.kind != "related_tests":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "targetPaths": [],
-            "testFiles": 0,
-            "candidates": {"shown": 0, "total": 0, "items": []},
-            "truncated": False,
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return empty_related_tests_report(str(root), f"Unexpected observation: {observation.kind}")
 
-    candidates = [
-        {
-            "source": candidate.source_path,
-            "test": candidate.test_path,
-            "score": candidate.score,
-            "reason": candidate.reason,
-        }
-        for candidate in observation.candidates
-    ]
+    candidates = serialize_related_test_candidates(list(observation.candidates))
     return {
         "projectRoot": str(root),
         "ok": observation.ok,
@@ -145,15 +123,7 @@ def get_focused_test_commands_report(
     try:
         paths = parse_related_tests_argument(argument)
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "targetPaths": [],
-            "relatedTests": {"total": 0},
-            "commands": {"shown": 0, "total": 0, "items": []},
-            "truncated": False,
-            "message": _usage_message(FOCUSED_TESTS_USAGE, error),
-        }
+        return empty_focused_test_commands_report(str(root), usage_message(FOCUSED_TESTS_USAGE, error))
 
     workspace = create_local_workspace(root, "local-focused-tests")
     observation = execute_action(
@@ -167,15 +137,7 @@ def get_focused_test_commands_report(
         ),
     )
     if observation.kind != "focused_test_commands":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "targetPaths": [],
-            "relatedTests": {"total": 0},
-            "commands": {"shown": 0, "total": 0, "items": []},
-            "truncated": False,
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return empty_focused_test_commands_report(str(root), f"Unexpected observation: {observation.kind}")
 
     return {
         "projectRoot": str(root),
@@ -185,7 +147,7 @@ def get_focused_test_commands_report(
         "commands": {
             "shown": len(observation.commands),
             "total": observation.total,
-            "items": [serialize_focused_test_command(command, index=index) for index, command in enumerate(observation.commands, start=1)],
+            "items": serialize_focused_test_command_items(list(observation.commands)),
         },
         "truncated": observation.truncated,
         "message": observation.message,
@@ -221,16 +183,11 @@ def get_check_focused_test_commands_report(
     try:
         paths = parse_related_tests_argument(argument)
     except ValueError as error:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "targetPaths": [],
-            "relatedTests": {"total": 0},
-            "focusedCommands": {"shown": 0, "total": 0, "max": max_commands, "items": []},
-            "truncated": False,
-            "checks": [],
-            "message": _usage_message(CHECK_FOCUSED_TESTS_USAGE, error),
-        }
+        return empty_check_focused_test_commands_report(
+            str(root),
+            usage_message(CHECK_FOCUSED_TESTS_USAGE, error),
+            max_commands=max_commands,
+        )
 
     workspace = create_local_workspace(root, "local-check-focused-tests")
     observation = execute_action(
@@ -244,16 +201,11 @@ def get_check_focused_test_commands_report(
         ),
     )
     if observation.kind != "check_focused_test_commands":
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "targetPaths": [],
-            "relatedTests": {"total": 0},
-            "focusedCommands": {"shown": 0, "total": 0, "max": max_commands, "items": []},
-            "truncated": False,
-            "checks": [],
-            "message": f"Unexpected observation: {observation.kind}",
-        }
+        return empty_check_focused_test_commands_report(
+            str(root),
+            f"Unexpected observation: {observation.kind}",
+            max_commands=max_commands,
+        )
 
     return {
         "projectRoot": str(root),
@@ -264,10 +216,10 @@ def get_check_focused_test_commands_report(
             "shown": len(observation.focused_commands),
             "total": observation.total,
             "max": observation.max_commands,
-            "items": [serialize_focused_test_command(command, index=index) for index, command in enumerate(observation.focused_commands, start=1)],
+            "items": serialize_focused_test_command_items(list(observation.focused_commands)),
         },
         "truncated": observation.truncated,
-        "checks": [serialize_command_check(check, index=index) for index, check in enumerate(observation.checks, start=1)],
+        "checks": serialize_command_check_items(list(observation.checks)),
         "message": observation.message,
     }
 
@@ -327,35 +279,25 @@ def get_run_focused_test_commands_report(
     root = Path(project_root).resolve()
 
     def failure(message: str) -> dict[str, object]:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "clean": False,
-            "targetPaths": [],
-            "relatedTests": {"total": 0},
-            "focusedCommands": {"shown": 0, "total": 0, "max": max_commands, "items": []},
-            "ran": 0,
-            "skippedUnavailable": 0,
-            "truncated": False,
-            "stopOnFailure": stop_on_failure,
-            "stoppedEarly": False,
-            "selectedCommandsNotRun": {"count": 0, "items": []},
-            "results": [],
-            "message": message,
-        }
+        return empty_run_focused_test_commands_report(
+            str(root),
+            message,
+            max_commands=max_commands,
+            stop_on_failure=stop_on_failure,
+        )
 
     try:
         paths = parse_related_tests_argument(argument)
     except ValueError as error:
-        return failure(_usage_message(RUN_FOCUSED_TESTS_USAGE, error))
+        return failure(usage_message(RUN_FOCUSED_TESTS_USAGE, error))
     if timeout_ms < 100:
-        return failure(_usage_error(RUN_FOCUSED_TESTS_USAGE, "timeout_ms must be at least 100."))
+        return failure(usage_error(RUN_FOCUSED_TESTS_USAGE, "timeout_ms must be at least 100."))
     if timeout_ms > 600_000:
-        return failure(_usage_error(RUN_FOCUSED_TESTS_USAGE, "timeout_ms must be at most 600000."))
+        return failure(usage_error(RUN_FOCUSED_TESTS_USAGE, "timeout_ms must be at most 600000."))
     if max_output_chars < 1_000:
-        return failure(_usage_error(RUN_FOCUSED_TESTS_USAGE, "max_output_chars must be at least 1000."))
+        return failure(usage_error(RUN_FOCUSED_TESTS_USAGE, "max_output_chars must be at least 1000."))
     if max_output_chars > 50_000:
-        return failure(_usage_error(RUN_FOCUSED_TESTS_USAGE, "max_output_chars must be at most 50000."))
+        return failure(usage_error(RUN_FOCUSED_TESTS_USAGE, "max_output_chars must be at most 50000."))
     output_context_error = validate_run_output_context_options(
         context_lines=context_lines,
         max_diagnostics=max_diagnostics,
@@ -403,7 +345,7 @@ def get_run_focused_test_commands_report(
             "shown": len(focused_commands),
             "total": observation.total,
             "max": observation.max_commands,
-            "items": [serialize_focused_test_command(command, index=index) for index, command in enumerate(focused_commands, start=1)],
+            "items": serialize_focused_test_command_items(focused_commands),
         },
         "ran": len(results),
         "skippedUnavailable": observation.skipped_unavailable,
