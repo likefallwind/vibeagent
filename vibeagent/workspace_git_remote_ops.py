@@ -3,6 +3,7 @@ from __future__ import annotations
 from .workspace_core import GitCommandResult, RunWorkspace
 from .workspace_git_branch_ops import git_status_has_non_runtime_changes
 from .workspace_git_remote_selection import select_fetch_remote_from_remotes
+from .workspace_git_sync_preview import git_sync_preview_payload, pull_readiness, push_readiness
 from .workspace_git_utils import parse_git_remotes, redact_git_text, run_git_mutation, run_readonly_git
 
 
@@ -147,88 +148,59 @@ def preview_pull_git_upstream(workspace: RunWorkspace) -> dict[str, object]:
     status = _read_git_status(workspace)
     current = str(info["branch"]) if info["ok"] else ""
     if not info["ok"]:
-        return {
-            "ok": False,
-            "remote": "",
-            "branch": "",
-            "current": "",
-            "upstream": "",
-            "ahead": 0,
-            "behind": 0,
-            "worktree_clean": False,
-            "status": "",
-            "message": str(info["message"]),
-        }
+        return git_sync_preview_payload(ok=False, message=str(info["message"]))
     if not current:
-        return {
-            "ok": False,
-            "remote": "",
-            "branch": "",
-            "current": "",
-            "upstream": "",
-            "ahead": int(info["ahead"]),
-            "behind": int(info["behind"]),
-            "worktree_clean": False,
-            "status": status.stdout if status.ok else "",
-            "message": "Cannot pull while HEAD is detached.",
-        }
+        return git_sync_preview_payload(
+            ok=False,
+            ahead=int(info["ahead"]),
+            behind=int(info["behind"]),
+            status=status.stdout if status.ok else "",
+            message="Cannot pull while HEAD is detached.",
+        )
     upstream = str(info["upstream"])
     upstream_parts = read_git_upstream_parts(workspace, current)
     clean = status.ok and not git_status_has_non_runtime_changes(status.stdout)
     if not upstream or not upstream_parts["ok"]:
-        return {
-            "ok": False,
-            "remote": str(upstream_parts["remote"]),
-            "branch": str(upstream_parts["branch"]),
-            "current": current,
-            "upstream": upstream,
-            "ahead": int(info["ahead"]),
-            "behind": int(info["behind"]),
-            "worktree_clean": clean,
-            "status": status.stdout if status.ok else "",
-            "message": "Current branch has no upstream configured.",
-        }
+        return git_sync_preview_payload(
+            ok=False,
+            remote=str(upstream_parts["remote"]),
+            branch=str(upstream_parts["branch"]),
+            current=current,
+            upstream=upstream,
+            ahead=int(info["ahead"]),
+            behind=int(info["behind"]),
+            worktree_clean=clean,
+            status=status.stdout if status.ok else "",
+            message="Current branch has no upstream configured.",
+        )
     if not clean:
-        return {
-            "ok": False,
-            "remote": str(upstream_parts["remote"]),
-            "branch": str(upstream_parts["branch"]),
-            "current": current,
-            "upstream": upstream,
-            "ahead": int(info["ahead"]),
-            "behind": int(info["behind"]),
-            "worktree_clean": False,
-            "status": status.stdout if status.ok else "",
-            "message": "Working tree has uncommitted changes; commit or clean changes before pulling.",
-        }
+        return git_sync_preview_payload(
+            ok=False,
+            remote=str(upstream_parts["remote"]),
+            branch=str(upstream_parts["branch"]),
+            current=current,
+            upstream=upstream,
+            ahead=int(info["ahead"]),
+            behind=int(info["behind"]),
+            status=status.stdout if status.ok else "",
+            message="Working tree has uncommitted changes; commit or clean changes before pulling.",
+        )
 
     ahead = int(info["ahead"])
     behind = int(info["behind"])
-    if ahead > 0 and behind > 0:
-        message = "Current branch has diverged from upstream; fast-forward pull is not safe."
-        ok = False
-    elif ahead > 0:
-        message = "Current branch is ahead of upstream; nothing to fast-forward pull."
-        ok = False
-    elif behind == 0:
-        message = "Current branch is already up to date with cached upstream state; git pull --ff-only can still check the remote."
-        ok = True
-    else:
-        message = f"Can fast-forward pull {upstream} into {current}."
-        ok = True
-
-    return {
-        "ok": ok,
-        "remote": str(upstream_parts["remote"]),
-        "branch": str(upstream_parts["branch"]),
-        "current": current,
-        "upstream": upstream,
-        "ahead": ahead,
-        "behind": behind,
-        "worktree_clean": True,
-        "status": status.stdout if status.ok else "",
-        "message": message,
-    }
+    ok, message = pull_readiness(ahead, behind, upstream=upstream, current=current)
+    return git_sync_preview_payload(
+        ok=ok,
+        remote=str(upstream_parts["remote"]),
+        branch=str(upstream_parts["branch"]),
+        current=current,
+        upstream=upstream,
+        ahead=ahead,
+        behind=behind,
+        worktree_clean=True,
+        status=status.stdout if status.ok else "",
+        message=message,
+    )
 
 
 def pull_git_upstream(workspace: RunWorkspace) -> dict[str, object]:
@@ -278,86 +250,60 @@ def preview_push_git_upstream(workspace: RunWorkspace) -> dict[str, object]:
     status = _read_git_status(workspace)
     current = str(info["branch"]) if info["ok"] else ""
     if not info["ok"]:
-        return {
-            "ok": False,
-            "remote": "",
-            "branch": "",
-            "current": "",
-            "upstream": "",
-            "ahead": 0,
-            "behind": 0,
-            "worktree_clean": False,
-            "status": "",
-            "message": str(info["message"]),
-        }
+        return git_sync_preview_payload(ok=False, message=str(info["message"]))
     if not current:
-        return {
-            "ok": False,
-            "remote": "",
-            "branch": "",
-            "current": "",
-            "upstream": "",
-            "ahead": int(info["ahead"]),
-            "behind": int(info["behind"]),
-            "worktree_clean": False,
-            "status": status.stdout if status.ok else "",
-            "message": "Cannot push while HEAD is detached.",
-        }
+        return git_sync_preview_payload(
+            ok=False,
+            ahead=int(info["ahead"]),
+            behind=int(info["behind"]),
+            status=status.stdout if status.ok else "",
+            message="Cannot push while HEAD is detached.",
+        )
 
     upstream = str(info["upstream"])
     upstream_parts = read_git_upstream_parts(workspace, current)
     clean = status.ok and not git_status_has_non_runtime_changes(status.stdout)
     if not upstream or not upstream_parts["ok"]:
-        return {
-            "ok": False,
-            "remote": str(upstream_parts["remote"]),
-            "branch": str(upstream_parts["branch"]),
-            "current": current,
-            "upstream": upstream,
-            "ahead": int(info["ahead"]),
-            "behind": int(info["behind"]),
-            "worktree_clean": clean,
-            "status": status.stdout if status.ok else "",
-            "message": "Current branch has no upstream configured.",
-        }
+        return git_sync_preview_payload(
+            ok=False,
+            remote=str(upstream_parts["remote"]),
+            branch=str(upstream_parts["branch"]),
+            current=current,
+            upstream=upstream,
+            ahead=int(info["ahead"]),
+            behind=int(info["behind"]),
+            worktree_clean=clean,
+            status=status.stdout if status.ok else "",
+            message="Current branch has no upstream configured.",
+        )
     if not clean:
-        return {
-            "ok": False,
-            "remote": str(upstream_parts["remote"]),
-            "branch": str(upstream_parts["branch"]),
-            "current": current,
-            "upstream": upstream,
-            "ahead": int(info["ahead"]),
-            "behind": int(info["behind"]),
-            "worktree_clean": False,
-            "status": status.stdout if status.ok else "",
-            "message": "Working tree has uncommitted changes; commit or clean changes before pushing.",
-        }
+        return git_sync_preview_payload(
+            ok=False,
+            remote=str(upstream_parts["remote"]),
+            branch=str(upstream_parts["branch"]),
+            current=current,
+            upstream=upstream,
+            ahead=int(info["ahead"]),
+            behind=int(info["behind"]),
+            status=status.stdout if status.ok else "",
+            message="Working tree has uncommitted changes; commit or clean changes before pushing.",
+        )
 
     ahead = int(info["ahead"])
     behind = int(info["behind"])
-    if behind > 0:
-        message = "Current branch is behind upstream; fetch and fast-forward pull before pushing."
-        ok = False
-    elif ahead == 0:
-        message = "Current branch has no commits to push."
-        ok = False
-    else:
-        message = f"Can push {ahead} commit(s) from {current} to {upstream}."
-        ok = True
-
-    return {
-        "ok": ok,
-        "remote": str(upstream_parts["remote"]),
-        "branch": str(upstream_parts["branch"]),
-        "current": current,
-        "upstream": upstream,
-        "ahead": ahead,
-        "behind": behind,
-        "worktree_clean": True,
-        "status": status.stdout if status.ok else "",
-        "message": message,
-    }
+    ok, message = push_readiness(ahead, behind, upstream=upstream, current=current)
+    return git_sync_preview_payload(
+        ok=ok,
+        remote=str(upstream_parts["remote"]),
+        branch=str(upstream_parts["branch"]),
+        current=current,
+        upstream=upstream,
+        ahead=ahead,
+        behind=behind,
+        worktree_clean=True,
+        status=status.stdout if status.ok else "",
+        message=message,
+    )
 
 
 def push_git_upstream(workspace: RunWorkspace) -> dict[str, object]:
