@@ -441,3 +441,145 @@ class CliLocalInspectionFlagTests(unittest.TestCase):
                 get_report.assert_called_once_with(root, **expected_kwargs)
                 format_report.assert_called_once_with(report)
                 create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_run_suggested_check_limit_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/run-suggested-checks --timeout-ms 2000 --max-chars 3000 --continue-on-failure --output-contexts --output-diagnostics --context-lines 2 --max-diagnostics 7 --max-contexts 5 --max-bytes 1000 -- 2",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_run_suggested_checks_text", return_value="Run suggested checks:\n  ok: yes") as get_run_suggested_checks_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Run suggested checks:", output)
+        get_run_suggested_checks_text.assert_called_once_with(
+            argument="2",
+            timeout_ms=2000,
+            max_output_chars=3000,
+            stop_on_failure=False,
+            extract_output_contexts=True,
+            extract_output_diagnostics=True,
+            context_lines=2,
+            max_diagnostics=7,
+            max_contexts=5,
+            max_bytes_per_context=1000,
+        )
+        create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_run_suggested_check_named_max_option(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/run-suggested-checks --max-checks 2 --timeout-ms 2000",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_run_suggested_checks_text", return_value="Run suggested checks:\n  ok: yes") as get_run_suggested_checks_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Run suggested checks:", output)
+        get_run_suggested_checks_text.assert_called_once_with(
+            argument=None,
+            max_checks=2,
+            timeout_ms=2000,
+        )
+        create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_check_suggested_check_limit_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/check-suggested-checks --max-checks 2",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_check_suggested_checks_text", return_value="Check suggested checks:\n  ok: yes") as get_check_suggested_checks_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Check suggested checks:", output)
+        get_check_suggested_checks_text.assert_called_once_with(max_checks=2)
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_check_suggested_check_limit_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/check-suggested-checks --max-checks 0",
+                    "/check-suggested-checks --bad",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_check_suggested_checks_text") as get_check_suggested_checks_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /check-suggested-checks [--max-checks N]", output)
+        self.assertIn("--max-checks must be a positive integer.", output)
+        self.assertIn("Unknown option: --bad", output)
+        get_check_suggested_checks_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_run_suggested_check_limit_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/run-suggested-checks --timeout-ms 99 -- 2",
+                    "/run-suggested-checks --context-lines -1 -- 2",
+                    "/run-suggested-checks --output-diagnostics=true -- 2",
+                    "/run-suggested-checks --output-contexts -- 1 2",
+                    "/run-suggested-checks --max-checks 1 -- 2",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_run_suggested_checks_text") as get_run_suggested_checks_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /run-suggested-checks [--max-checks N]", output)
+        self.assertIn("--timeout-ms must be at least 100.", output)
+        self.assertIn("--context-lines must be a non-negative integer.", output)
+        self.assertIn("--output-diagnostics does not take a value.", output)
+        self.assertIn("expected at most one max value.", output)
+        self.assertIn("provide either --max-checks or trailing max, not both.", output)
+        get_run_suggested_checks_text.assert_not_called()
+        create_chat_client.assert_not_called()
