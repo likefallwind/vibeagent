@@ -7090,6 +7090,30 @@ class AgentTests(unittest.TestCase):
         self.assertIn("session_output_diagnostics", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_reads_handoff_text_completion_next_actions(self) -> None:
+        observation = SessionHandoffObservation(
+            kind="session_handoff",
+            run_id="run-1",
+            ok=True,
+            handoff=(
+                "Session handoff:\n"
+                "  readiness:\n"
+                "    latestCompletionNextActions:\n"
+                "      - Use run_session_verification to run pending recorded checks before trying to finish again.\n"
+            ),
+            message="Session handoff has blocker(s).",
+            ready=False,
+            status="blocked",
+            blockers=["1 completion blocker(s)"],
+            completion_ready=False,
+            completion_blockers=["1 suggested verification check(s) are still pending after the latest project change."],
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Follow latest completion next action", instruction)
+        self.assertIn("Use run_session_verification to run pending recorded checks", instruction)
+
     def test_next_action_instruction_guides_session_handoff_changed_files(self) -> None:
         observation = SessionHandoffObservation(
             kind="session_handoff",

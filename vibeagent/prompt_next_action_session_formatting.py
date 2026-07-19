@@ -199,10 +199,14 @@ def completion_next_action_labels(latest: Observation) -> list[str]:
     ]
     if labels:
         return labels
-    return audit_section_items(
-        getattr(latest, "audit", ""),
-        ("latestCompletionNextActions",),
-    )
+    for attr in ("audit", "handoff"):
+        labels = audit_section_items(
+            getattr(latest, attr, ""),
+            ("latestCompletionNextActions",),
+        )
+        if labels:
+            return labels
+    return []
 
 
 def has_completion_blocker_signal(blockers: list[str], latest: Observation) -> bool:
