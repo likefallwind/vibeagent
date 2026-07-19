@@ -231,3 +231,51 @@ class CliReadContextFlagTests(unittest.TestCase):
         get_read_files_report.assert_called_once_with(Path(base).resolve(), ["missing-a.py", "missing-b.py"])
         format_read_files_report_text.assert_called_once_with(report)
         create_chat_client.assert_not_called()
+
+    def test_main_runs_read_files_local_flag_without_creating_client(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_read_files_text", return_value="Read files:\n  files: 2/2") as get_read_files_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--cwd",
+                        base,
+                        "--read-files",
+                        "src/app.py",
+                        "tests/test_app.py",
+                        "--read-files-max-bytes",
+                        "1000",
+                        "--read-files-line-numbers",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Read files:", stdout.getvalue())
+        get_read_files_text.assert_called_once_with(
+            Path(base).resolve(),
+            ["src/app.py", "tests/test_app.py"],
+            max_bytes_per_file=1000,
+            show_line_numbers=True,
+        )
+        create_chat_client.assert_not_called()
+
+    def test_main_runs_read_ranges_local_flag_without_creating_client(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            stdout = io.StringIO()
+
+            with (
+                patch("vibeagent.cli.create_chat_client") as create_chat_client,
+                patch("vibeagent.cli.get_read_ranges_text", return_value="Read ranges:\n  ranges: 2/2") as get_read_ranges_text,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", base, "--read-ranges", "src/app.py:2:4", "tests/test_app.py:1", "--read-ranges-max-bytes", "1000"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Read ranges:", stdout.getvalue())
+        get_read_ranges_text.assert_called_once_with(Path(base).resolve(), ["src/app.py:2:4", "tests/test_app.py:1"], max_bytes_per_range=1000)
+        create_chat_client.assert_not_called()
