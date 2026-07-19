@@ -7175,6 +7175,29 @@ class AgentTests(unittest.TestCase):
         self.assertIn("session_verification", instruction)
         self.assertIn("session_audit", instruction)
 
+    def test_next_action_instruction_reads_summary_text_completion_next_actions(self) -> None:
+        observation = SessionSummaryObservation(
+            kind="session_summary",
+            run_id="run-1",
+            ok=True,
+            summary=(
+                "Session: run-1\n"
+                "  status: blocked\n"
+                "  latestCompletionNextActions:\n"
+                "    - Use update_plan to mark completed items and keep exactly one active in_progress item while work remains.\n"
+                "    - Use run_session_verification to run pending recorded checks before trying to finish again.\n"
+            ),
+            recent_sessions=[],
+            message="Read session summary for run-1.",
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session summary reports latest completion next action", instruction)
+        self.assertIn("Use update_plan to mark completed items", instruction)
+        self.assertIn("Use run_session_verification to run pending recorded checks", instruction)
+        self.assertIn("before trying to finish again", instruction)
+
     def test_next_action_instruction_guides_ready_session_summary_to_finish(self) -> None:
         observation = SessionSummaryObservation(
             kind="session_summary",

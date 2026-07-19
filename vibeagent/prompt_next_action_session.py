@@ -25,6 +25,14 @@ def _session_summary_next_action_instruction(base: str, latest: Observation) -> 
             "then continue with the next useful action before finishing."
         )
 
+    next_actions = completion_next_action_labels(latest)
+    if next_actions:
+        return (
+            f"{base} Session summary reports latest completion next action(s): "
+            f"{format_next_action_items(next_actions, max_items=4)}. "
+            "Follow them before trying to finish again."
+        )
+
     if text_reports_ready(summary):
         return (
             f"{base} Session summary reports the recovered session is ready. "

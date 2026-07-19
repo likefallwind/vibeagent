@@ -199,7 +199,7 @@ def completion_next_action_labels(latest: Observation) -> list[str]:
     ]
     if labels:
         return labels
-    for attr in ("audit", "handoff"):
+    for attr in ("audit", "handoff", "summary"):
         labels = audit_section_items(
             getattr(latest, attr, ""),
             ("latestCompletionNextActions",),
