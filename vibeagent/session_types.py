@@ -98,4 +98,5 @@ class SessionSummary:
     subagents_started: int = 0
     subagents_completed: int = 0
     subagents_failed: int = 0
+    subagent_tool_calls: list[str] = field(default_factory=list)
     subagent_context_compacted_count: int = 0

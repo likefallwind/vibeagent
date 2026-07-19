@@ -74,6 +74,7 @@ def format_session_handoff_readiness(
             f"started={summary.subagents_started}, "
             f"completed={summary.subagents_completed}, "
             f"failed={summary.subagents_failed}, "
+            f"toolCalls={len(summary.subagent_tool_calls)}, "
             f"contextCompacted={summary.subagent_context_compacted_count}"
         )
     lines.append("  blockers:")
@@ -179,6 +180,7 @@ def format_session_audit_from_parts(
     lines.append(f"    started: {summary.subagents_started}")
     lines.append(f"    completed: {summary.subagents_completed}")
     lines.append(f"    failed: {summary.subagents_failed}")
+    lines.append(f"    toolCalls: {len(summary.subagent_tool_calls)}")
     lines.append(f"    contextCompacted: {summary.subagent_context_compacted_count}")
 
     lines.append("  blockers:")

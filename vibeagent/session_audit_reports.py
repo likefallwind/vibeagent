@@ -87,6 +87,8 @@ def build_session_audit_report_from_parts(
             "subagentsStarted": summary.subagents_started,
             "subagentsCompleted": summary.subagents_completed,
             "subagentsFailed": summary.subagents_failed,
+            "subagentToolCalls": len(summary.subagent_tool_calls),
+            "subagentToolCallNames": summary.subagent_tool_calls,
             "subagentContextCompacted": summary.subagent_context_compacted_count,
         },
         "finalReview": {

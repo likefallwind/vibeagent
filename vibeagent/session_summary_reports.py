@@ -133,6 +133,10 @@ def build_session_summary_report(summary: SessionSummary, max_text: int = 500) -
             "started": summary.subagents_started,
             "completed": summary.subagents_completed,
             "failed": summary.subagents_failed,
+            "toolCalls": {
+                "total": len(summary.subagent_tool_calls),
+                "names": summary.subagent_tool_calls,
+            },
             "contextCompacted": summary.subagent_context_compacted_count,
         },
         "finalMessage": compact(summary.final_message, max_text) if summary.final_message else None,
@@ -235,6 +239,7 @@ def format_session_summary(summary: SessionSummary) -> str:
             f"started={summary.subagents_started}, "
             f"completed={summary.subagents_completed}, "
             f"failed={summary.subagents_failed}, "
+            f"toolCalls={len(summary.subagent_tool_calls)}, "
             f"contextCompacted={summary.subagent_context_compacted_count}"
         )
     if summary.task:

@@ -858,6 +858,7 @@ class SessionTests(unittest.TestCase):
                 [
                     {"type": "task", "task": "Run delegated exploration."},
                     {"type": "subagent_started", "subagent_id": "delegate-1-1", "task": "Explore", "mode": "explore"},
+                    {"type": "subagent_tool_call", "subagent_id": "delegate-1-1", "name": "read_file"},
                     {
                         "type": "subagent_context_compacted",
                         "subagent_id": "delegate-1-1",
@@ -871,6 +872,8 @@ class SessionTests(unittest.TestCase):
                         "result": {"kind": "delegate_task", "ok": True, "message": "Subagent completed the investigation."},
                     },
                     {"type": "subagent_started", "subagent_id": "delegate-1-2", "task": "Edit", "mode": "code"},
+                    {"type": "subagent_tool_call", "subagent_id": "delegate-1-2", "name": "write_file"},
+                    {"type": "subagent_tool_call", "subagent_id": "delegate-1-2", "name": "run_command"},
                     {
                         "type": "subagent_context_compacted",
                         "subagent_id": "delegate-1-2",
@@ -904,21 +907,27 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(summary.subagents_started, 2)
         self.assertEqual(summary.subagents_completed, 2)
         self.assertEqual(summary.subagents_failed, 1)
+        self.assertEqual(summary.subagent_tool_calls, ["read_file", "write_file", "run_command"])
         self.assertEqual(summary.subagent_context_compacted_count, 2)
         self.assertEqual(report["subagents"]["started"], 2)
         self.assertEqual(report["subagents"]["completed"], 2)
         self.assertEqual(report["subagents"]["failed"], 1)
+        self.assertEqual(report["subagents"]["toolCalls"]["total"], 3)
+        self.assertEqual(report["subagents"]["toolCalls"]["names"], ["read_file", "write_file", "run_command"])
         self.assertEqual(report["subagents"]["contextCompacted"], 2)
         self.assertEqual(audit_report["summary"]["subagentsStarted"], 2)
         self.assertEqual(audit_report["summary"]["subagentsCompleted"], 2)
         self.assertEqual(audit_report["summary"]["subagentsFailed"], 1)
+        self.assertEqual(audit_report["summary"]["subagentToolCalls"], 3)
+        self.assertEqual(audit_report["summary"]["subagentToolCallNames"], ["read_file", "write_file", "run_command"])
         self.assertEqual(audit_report["summary"]["subagentContextCompacted"], 2)
-        self.assertIn("subagents: started=2, completed=2, failed=1, contextCompacted=2", text)
+        self.assertIn("subagents: started=2, completed=2, failed=1, toolCalls=3, contextCompacted=2", text)
         self.assertIn("started: 2", audit)
         self.assertIn("completed: 2", audit)
         self.assertIn("failed: 1", audit)
+        self.assertIn("toolCalls: 3", audit)
         self.assertIn("contextCompacted: 2", audit)
-        self.assertIn("subagents: started=2, completed=2, failed=1, contextCompacted=2", handoff)
+        self.assertIn("subagents: started=2, completed=2, failed=1, toolCalls=3, contextCompacted=2", handoff)
 
     def test_format_session_transcript_reports_safe_event_timeline(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:

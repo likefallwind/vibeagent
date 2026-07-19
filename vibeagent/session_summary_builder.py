@@ -84,6 +84,7 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
     subagents_started = 0
     subagents_completed = 0
     subagents_failed = 0
+    subagent_tool_calls: list[str] = []
     subagent_context_compacted_count = 0
 
     for event in valid_events:
@@ -125,6 +126,10 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
             failed = True
         elif event.type == "subagent_started":
             subagents_started += 1
+        elif event.type == "subagent_tool_call":
+            name = event.payload.get("name")
+            if isinstance(name, str):
+                subagent_tool_calls.append(name)
         elif event.type == "subagent_context_compacted":
             subagent_context_compacted_count += 1
         elif event.type == "subagent_completed":
@@ -352,6 +357,7 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
         subagents_started=subagents_started,
         subagents_completed=subagents_completed,
         subagents_failed=subagents_failed,
+        subagent_tool_calls=subagent_tool_calls,
         subagent_context_compacted_count=subagent_context_compacted_count,
     )
 
