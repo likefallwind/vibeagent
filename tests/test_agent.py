@@ -4472,6 +4472,7 @@ class AgentTests(unittest.TestCase):
                     completion_ready=False,
                     completion_blockers=["Task plan still has unfinished item(s): 1 in_progress."],
                     latest_completion_blockers=["1 suggested verification check(s) are still pending."],
+                    latest_subagent_failures=["task=Inspect; agent=reader; mode=explore; message=failed."],
                 )
             ]
         )
@@ -4485,6 +4486,7 @@ class AgentTests(unittest.TestCase):
         self.assertIn("completionReady: false", text)
         self.assertIn("completionBlocker: Task plan still has unfinished item(s): 1 in_progress.", text)
         self.assertIn("latestCompletionBlocker: 1 suggested verification check(s) are still pending.", text)
+        self.assertIn("latestSubagentFailure: task=Inspect; agent=reader; mode=explore; message=failed.", text)
         self.assertIn("active_process: bg-1 pid=1234 cwd=web command=npm run dev", text)
 
     def test_format_observations_renders_session_verification_readiness(self) -> None:
@@ -4512,6 +4514,7 @@ class AgentTests(unittest.TestCase):
                     message="Read session verification for run-1.",
                     ready=False,
                     status="blocked",
+                    latest_subagent_failures=["task=Read; agent=reader; mode=explore; message=failed."],
                 )
             ]
         )
@@ -4520,6 +4523,7 @@ class AgentTests(unittest.TestCase):
         self.assertIn("ok: true", text)
         self.assertIn("ready: false", text)
         self.assertIn("status: blocked", text)
+        self.assertIn("latestSubagentFailure: task=Read; agent=reader; mode=explore; message=failed.", text)
         self.assertIn("pendingCommands: 1/1", text)
         self.assertIn("- npm test", text)
 
@@ -4584,6 +4588,7 @@ class AgentTests(unittest.TestCase):
                     completion_ready=False,
                     completion_blockers=["Task plan still has unfinished item(s): 1 in_progress."],
                     latest_completion_blockers=["1 suggested verification check(s) are still pending."],
+                    latest_subagent_failures=["task=Edit; agent=editor; mode=code; message=failed."],
                 )
             ]
         )
@@ -4609,6 +4614,7 @@ class AgentTests(unittest.TestCase):
         self.assertIn("completionReady: false", text)
         self.assertIn("completionBlocker: Task plan still has unfinished item(s): 1 in_progress.", text)
         self.assertIn("latestCompletionBlocker: 1 suggested verification check(s) are still pending.", text)
+        self.assertIn("latestSubagentFailure: task=Edit; agent=editor; mode=code; message=failed.", text)
 
     def test_format_observations_renders_output_diagnostics_with_contexts(self) -> None:
         text = format_observations(

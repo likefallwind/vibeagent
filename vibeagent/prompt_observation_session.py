@@ -72,6 +72,15 @@ def format_file_reference_lines(
     return file_lines
 
 
+def format_subagent_failure_lines(observation: object) -> list[str]:
+    failures = [
+        str(failure).strip()
+        for failure in getattr(observation, "latest_subagent_failures", [])
+        if str(failure).strip()
+    ]
+    return [f"latestSubagentFailure: {failure}" for failure in failures[:20]]
+
+
 def format_session_observation(index: int, observation: object) -> str | None:
     if observation.kind == "session_summary":
         return "\n".join(
@@ -174,12 +183,14 @@ def format_session_observation(index: int, observation: object) -> str | None:
         command_lines.extend(format_verification_command_lines("verifiedCommands", verified_commands, verified_count))
         command_lines.extend(format_verification_command_lines("pendingCommands", pending_commands, pending_count))
         command_lines.extend(format_verification_command_lines("failedCommands", failed_commands, failed_count))
+        subagent_failure_lines = format_subagent_failure_lines(observation)
         return "\n".join(
             [
                 f"{index}. session_verification {observation.run_id}: {observation.message}",
                 f"ok: {str(observation.ok).lower()}",
                 *readiness_lines,
                 f"truncated: {str(bool(getattr(observation, 'verification_truncated', False))).lower()}",
+                *subagent_failure_lines,
                 "commands:",
                 truncate("\n".join(command_lines)),
                 f"verification:\n{truncate(observation.verification)}",
@@ -240,6 +251,7 @@ def format_session_observation(index: int, observation: object) -> str | None:
             f"latestCompletionBlocker: {blocker}" for blocker in observation.latest_completion_blockers[:20]
         )
         completion_lines.extend(completion_detail_prompt_lines(observation))
+        subagent_failure_lines = format_subagent_failure_lines(observation)
         file_lines = format_file_reference_lines(
             getattr(observation, "file_references", []),
             int(getattr(observation, "file_count", 0) or 0),
@@ -256,6 +268,7 @@ def format_session_observation(index: int, observation: object) -> str | None:
                 *[f"blocker: {blocker}" for blocker in observation.blockers[:20]],
                 *file_lines,
                 *completion_lines,
+                *subagent_failure_lines,
                 *process_lines,
                 f"audit:\n{truncate(observation.audit)}",
             ]
@@ -331,6 +344,7 @@ def format_session_observation(index: int, observation: object) -> str | None:
             for blocker in getattr(observation, "latest_completion_blockers", [])[:20]
         )
         completion_lines.extend(completion_detail_prompt_lines(observation))
+        subagent_failure_lines = format_subagent_failure_lines(observation)
         return "\n".join(
             [
                 f"{index}. session_handoff {observation.run_id}: {observation.message}",
@@ -341,6 +355,7 @@ def format_session_observation(index: int, observation: object) -> str | None:
                 "commands:",
                 *verification_lines,
                 *completion_lines,
+                *subagent_failure_lines,
                 f"handoff:\n{truncate(observation.handoff)}",
             ]
         )
