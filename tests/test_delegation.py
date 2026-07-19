@@ -612,10 +612,31 @@ class DelegationTests(unittest.TestCase):
             type="subagent_completed",
             payload={"result": {"ok": True, "message": "done"}},
         )
+        compacted = SessionEvent(
+            line_number=3,
+            type="subagent_context_compacted",
+            payload={
+                "subagent_id": "delegate-1-1",
+                "mode": "code",
+                "agent": "context-reader",
+                "previous_messages": 14,
+                "new_messages": 2,
+                "observations": 6,
+                "retained_observations": 6,
+            },
+        )
 
         self.assertIn("Find auth", format_session_event_timeline_item(started))
         self.assertIn("delegate-1-1", format_session_event_timeline_item(started))
         self.assertIn("ok=yes", format_session_event_timeline_item(completed))
+        compacted_summary = format_session_event_timeline_item(compacted)
+        self.assertIn("compacted delegated context", compacted_summary)
+        self.assertIn("delegate-1-1", compacted_summary)
+        self.assertIn("mode=code", compacted_summary)
+        self.assertIn("agent=context-reader", compacted_summary)
+        self.assertIn("messages=14->2", compacted_summary)
+        self.assertIn("observations=6", compacted_summary)
+        self.assertIn("retained=6", compacted_summary)
 
     def test_main_catalog_contains_one_delegate_tool(self) -> None:
         names = [str(tool["name"]) for tool in AGENT_TOOL_DEFINITIONS]

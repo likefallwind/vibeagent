@@ -193,6 +193,26 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         failed = payload.get("failed")
         suffix = [f"failed={'yes' if failed else 'no'}"] if isinstance(failed, bool) else []
         return f"{prefix} {name if isinstance(name, str) else 'unknown'}{format_detail_suffix(suffix)}"
+    if event.type == "subagent_context_compacted":
+        subagent_id = payload.get("subagent_id")
+        previous_messages = payload.get("previous_messages")
+        new_messages = payload.get("new_messages")
+        observations = payload.get("observations")
+        retained_observations = payload.get("retained_observations")
+        suffix = [f"id={compact(subagent_id, 80)}"] if isinstance(subagent_id, str) else []
+        mode = payload.get("mode")
+        if isinstance(mode, str):
+            suffix.append(f"mode={compact(mode, 20)}")
+        agent = payload.get("agent")
+        if isinstance(agent, str):
+            suffix.append(f"agent={compact(agent, 80)}")
+        if isinstance(previous_messages, int) and isinstance(new_messages, int):
+            suffix.append(f"messages={previous_messages}->{new_messages}")
+        if isinstance(observations, int):
+            suffix.append(f"observations={observations}")
+        if isinstance(retained_observations, int):
+            suffix.append(f"retained={retained_observations}")
+        return f"{prefix} compacted delegated context{format_detail_suffix(suffix)}"
     if event.type == "subagent_completed":
         result = payload.get("result")
         ok = result.get("ok") if isinstance(result, dict) else None
