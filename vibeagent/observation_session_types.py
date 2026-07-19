@@ -125,6 +125,8 @@ class SessionVerificationObservation:
     failed_count: int
     verification_truncated: bool
     message: str
+    ready: bool | None = None
+    status: str = ""
 
 
 @dataclass(frozen=True)

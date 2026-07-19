@@ -73,6 +73,8 @@ def session_verification_observation(
     pending_count = 0
     failed_count = 0
     verification_truncated = False
+    ready: bool | None = None
+    status = ""
     try:
         summary = summarize_session(workspace.root, run_id)
         verification = format_session_verification(summary, max_checks=action.max_checks)
@@ -84,6 +86,9 @@ def session_verification_observation(
             pending_commands, pending_count = session_verification_group(report, "pending")
             failed_commands, failed_count = session_verification_group(report, "failed")
             verification_truncated = bool(report.get("truncated"))
+            report_ready = report.get("ready")
+            ready = report_ready if isinstance(report_ready, bool) else None
+            status = str(report.get("status") or "")
     except ValueError as error:
         verification = ""
         ok = False
@@ -101,6 +106,8 @@ def session_verification_observation(
         failed_count=failed_count,
         verification_truncated=verification_truncated,
         message=message,
+        ready=ready,
+        status=status,
     )
 
 

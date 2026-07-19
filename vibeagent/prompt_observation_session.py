@@ -163,6 +163,13 @@ def format_session_observation(index: int, observation: object) -> str | None:
         verified_count = int(getattr(observation, "verified_count", len(verified_commands)) or 0)
         pending_count = int(getattr(observation, "pending_count", len(pending_commands)) or 0)
         failed_count = int(getattr(observation, "failed_count", len(failed_commands)) or 0)
+        ready = getattr(observation, "ready", None)
+        status = str(getattr(observation, "status", "") or "").strip()
+        readiness_lines: list[str] = []
+        if ready is not None:
+            readiness_lines.append(f"ready: {str(bool(ready)).lower()}")
+        if status:
+            readiness_lines.append(f"status: {status}")
         command_lines: list[str] = []
         command_lines.extend(format_verification_command_lines("verifiedCommands", verified_commands, verified_count))
         command_lines.extend(format_verification_command_lines("pendingCommands", pending_commands, pending_count))
@@ -171,6 +178,7 @@ def format_session_observation(index: int, observation: object) -> str | None:
             [
                 f"{index}. session_verification {observation.run_id}: {observation.message}",
                 f"ok: {str(observation.ok).lower()}",
+                *readiness_lines,
                 f"truncated: {str(bool(getattr(observation, 'verification_truncated', False))).lower()}",
                 "commands:",
                 truncate("\n".join(command_lines)),

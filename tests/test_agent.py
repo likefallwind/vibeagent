@@ -4437,6 +4437,42 @@ class AgentTests(unittest.TestCase):
         self.assertIn("latestCompletionBlocker: 1 suggested verification check(s) are still pending.", text)
         self.assertIn("active_process: bg-1 pid=1234 cwd=web command=npm run dev", text)
 
+    def test_format_observations_renders_session_verification_readiness(self) -> None:
+        text = format_observations(
+            [
+                SessionVerificationObservation(
+                    kind="session_verification",
+                    run_id="run-1",
+                    ok=True,
+                    verification="Session verification:\n  ready: no",
+                    verified_commands=[],
+                    pending_commands=[
+                        {
+                            "command": "npm test",
+                            "cwd": ".",
+                            "label": "npm test",
+                            "status": "pending",
+                        }
+                    ],
+                    failed_commands=[],
+                    verified_count=0,
+                    pending_count=1,
+                    failed_count=0,
+                    verification_truncated=False,
+                    message="Read session verification for run-1.",
+                    ready=False,
+                    status="blocked",
+                )
+            ]
+        )
+
+        self.assertIn("session_verification run-1", text)
+        self.assertIn("ok: true", text)
+        self.assertIn("ready: false", text)
+        self.assertIn("status: blocked", text)
+        self.assertIn("pendingCommands: 1/1", text)
+        self.assertIn("- npm test", text)
+
     def test_format_observations_renders_session_handoff_readiness(self) -> None:
         text = format_observations(
             [
