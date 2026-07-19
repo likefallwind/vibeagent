@@ -54,6 +54,10 @@ def _usage_error(usage: str, error: object) -> str:
     return f"{usage}\nError: {error}"
 
 
+def _yes_no(value: object) -> str:
+    return "yes" if bool(value) else "no"
+
+
 def _write_process_failure_report(
     root: Path,
     process_id: str,
@@ -192,12 +196,12 @@ def format_wait_process_report_text(report: dict[str, object]) -> str:
     lines = [
         "Wait process:",
         f"  projectRoot: {report.get('projectRoot') or '.'}",
-        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  ok: {_yes_no(report.get('ok'))}",
         f"  processId: {report.get('processId') or ''}",
         f"  pid: {report.get('pid') if report.get('pid') is not None else '.'}",
         f"  status: {report.get('status') or 'unknown'}",
-        f"  timedOut: {'yes' if bool(report.get('timedOut')) else 'no'}",
-        f"  matched: {'yes' if bool(report.get('matched')) else 'no'}",
+        f"  timedOut: {_yes_no(report.get('timedOut'))}",
+        f"  matched: {_yes_no(report.get('matched'))}",
         f"  matchedStream: {report.get('matchedStream') or '.'}",
         f"  matchedPattern: {report.get('matchedPattern') or '.'}",
         f"  timeoutMs: {report.get('timeoutMs', 0)}",
@@ -297,19 +301,7 @@ def get_write_process_report(
 
 
 def format_write_process_report_text(report: dict[str, object]) -> str:
-    lines = [
-        "Write process:",
-        f"  projectRoot: {report.get('projectRoot') or '.'}",
-        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
-        f"  processId: {report.get('processId') or ''}",
-        f"  pid: {report.get('pid') if report.get('pid') is not None else '.'}",
-        f"  running: {'yes' if bool(report.get('running')) else 'no'}",
-        f"  command: {report.get('command') or '.'}",
-        f"  cwd: {report.get('cwd') or '.'}",
-        f"  contentChars: {int(report.get('contentChars', 0) or 0)}",
-        f"  message: {report.get('message') or ''}",
-    ]
-    return "\n".join(lines)
+    return _format_write_like_process_report_text("Write process", report)
 
 
 def get_check_write_process_text(
@@ -357,13 +349,17 @@ def get_check_write_process_report(
 
 
 def format_check_write_process_report_text(report: dict[str, object]) -> str:
+    return _format_write_like_process_report_text("Check write process", report)
+
+
+def _format_write_like_process_report_text(title: str, report: dict[str, object]) -> str:
     lines = [
-        "Check write process:",
+        f"{title}:",
         f"  projectRoot: {report.get('projectRoot') or '.'}",
-        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  ok: {_yes_no(report.get('ok'))}",
         f"  processId: {report.get('processId') or ''}",
         f"  pid: {report.get('pid') if report.get('pid') is not None else '.'}",
-        f"  running: {'yes' if bool(report.get('running')) else 'no'}",
+        f"  running: {_yes_no(report.get('running'))}",
         f"  command: {report.get('command') or '.'}",
         f"  cwd: {report.get('cwd') or '.'}",
         f"  contentChars: {int(report.get('contentChars', 0) or 0)}",
