@@ -10,12 +10,16 @@ from .agent_delegate_tools import (
 )
 from .agent_model import complete_with_retries
 from .agent_runtime_utils import (
+    AGENT_COMPACT_CONTEXT_MAX_LENGTH,
+    AGENT_COMPACT_OBSERVATION_LIMIT,
     append_session_event,
+    compact_session_context,
     content_blocks_to_text,
     normalize_assistant_content,
     to_jsonable,
 )
 from .agent_tool_results import record_subagent_tool_observation, record_subagent_tool_result_event
+from .prompt_observations import format_observations
 from .types import (
     AgentLogger,
     ApprovalHandler,
@@ -47,6 +51,9 @@ You may use coding tools, but every side effect remains subject to the parent ag
 You cannot ask the user, update the parent plan, or delegate another task. Do not broaden scope beyond the delegated task.
 Verify your changes with focused checks when possible, then return a concise report of changed files, checks, and remaining risks.
 Answer directly when complete, or call finish with the report."""
+
+
+DELEGATE_MESSAGE_COMPACT_THRESHOLD = 12
 
 
 def execute_delegate_task_action(
@@ -284,6 +291,16 @@ def execute_delegate_task_action(
                 hook_results=execution.hook_results,
             ))
         messages.append(ChatMessage(role="user", content=tool_results))
+        messages = compact_delegate_message_history(
+            workspace,
+            action,
+            messages,
+            observations,
+            parent_iteration=parent_iteration,
+            child_iteration=child_iteration,
+            subagent_id=subagent_id,
+            profile_prompt=profile_prompt,
+        )
 
     return finish_delegate_task(
         workspace,
@@ -324,6 +341,76 @@ def build_delegate_messages(
         ),
         ChatMessage(role="user", content="\n\n".join(parts)),
     ]
+
+
+def compact_delegate_message_history(
+    workspace: RunWorkspace,
+    action: DelegateTaskAction,
+    messages: list[ChatMessage],
+    observations: list[Observation],
+    *,
+    parent_iteration: int,
+    child_iteration: int,
+    subagent_id: str,
+    profile_prompt: str | None = None,
+    threshold: int = DELEGATE_MESSAGE_COMPACT_THRESHOLD,
+    observation_limit: int = AGENT_COMPACT_OBSERVATION_LIMIT,
+    max_context_length: int = AGENT_COMPACT_CONTEXT_MAX_LENGTH,
+) -> list[ChatMessage]:
+    if len(messages) <= threshold:
+        return messages
+
+    context = build_compacted_delegate_context(
+        action,
+        observations,
+        observation_limit=observation_limit,
+        max_context_length=max_context_length,
+    )
+    compacted_messages = build_delegate_messages(
+        workspace,
+        replace(action, context=context),
+        profile_prompt=profile_prompt,
+    )
+    append_session_event(
+        workspace.session_dir,
+        "subagent_context_compacted",
+        {
+            "subagent_id": subagent_id,
+            "parent_iteration": parent_iteration,
+            "iteration": child_iteration,
+            "previous_messages": len(messages),
+            "new_messages": len(compacted_messages),
+            "observations": len(observations),
+            "retained_observations": min(len(observations), observation_limit),
+        },
+    )
+    return compacted_messages
+
+
+def build_compacted_delegate_context(
+    action: DelegateTaskAction,
+    observations: list[Observation],
+    *,
+    observation_limit: int = AGENT_COMPACT_OBSERVATION_LIMIT,
+    max_context_length: int = AGENT_COMPACT_CONTEXT_MAX_LENGTH,
+) -> str:
+    recent_observations = observations[-observation_limit:]
+    sections = [
+        "Compacted delegated-task context:",
+        f"Total subagent observations so far: {len(observations)}.",
+        f"Recent subagent observations retained: {len(recent_observations)}.",
+    ]
+    if action.context:
+        compacted_focus = compact_session_context(action.context)
+        if compacted_focus:
+            sections.extend(["Original delegated context:", compacted_focus])
+    sections.extend(
+        [
+            "Compacted subagent observations:",
+            format_observations(recent_observations),
+        ]
+    )
+    return compact_session_context("\n".join(sections), max_context_length) or ""
 
 
 def clip_delegate_summary(value: str, max_chars: int = 12_000) -> str:

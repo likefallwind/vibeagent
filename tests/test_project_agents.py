@@ -338,6 +338,57 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertEqual(result["kind"], "list_files")
         self.assertIn("Already listed", result["message"])
 
+    def test_explore_subagent_compacts_long_message_history(self) -> None:
+        responses = [
+            [{"type": "tool_call", "id": f"read-{index}", "name": "read_file", "input": {"path": "README.md"}}]
+            for index in range(6)
+        ]
+        responses.append([{"type": "text", "text": "Read enough context."}])
+        client = ProfileClient(responses)
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            root.joinpath("README.md").write_text("# Demo\nBody\n", encoding="utf-8")
+            workspace = create_run_workspace(root, "run-1")
+            action = parse_tool_action(
+                "delegate_task",
+                {
+                    "task": "Read project context",
+                    "context": "Keep the README evidence.",
+                    "max_iterations": 7,
+                },
+            )
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+            events_path = root / ".vibeagent" / "sessions" / "run-1" / "events.jsonl"
+            rows = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+
+        compacted_user = client.messages[6][1].content
+        compaction_rows = [row for row in rows if row["type"] == "subagent_context_compacted"]
+        self.assertTrue(observation.ok)
+        self.assertEqual(len(client.messages[6]), 2)
+        self.assertIsInstance(compacted_user, str)
+        self.assertIn("Compacted delegated-task context:", compacted_user)
+        self.assertIn("Total subagent observations so far: 6.", compacted_user)
+        self.assertIn("Original delegated context:", compacted_user)
+        self.assertIn("Keep the README evidence.", compacted_user)
+        self.assertIn("Compacted subagent observations:", compacted_user)
+        self.assertIn("read_file README.md", compacted_user)
+        self.assertEqual(len(compaction_rows), 1)
+        self.assertEqual(compaction_rows[0]["previous_messages"], 14)
+        self.assertEqual(compaction_rows[0]["new_messages"], 2)
+        self.assertEqual(compaction_rows[0]["observations"], 6)
+
     def test_code_profile_bash_alias_allows_background_bash(self) -> None:
         approvals: list[str] = []
         client = ProfileClient(
