@@ -447,6 +447,46 @@ class CliOneShotTests(unittest.TestCase):
             "--input-format json requires task '-' so input can be read from stdin.\n",
         )
 
+    def test_main_one_shot_empty_stdin_returns_error(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("sys.stdin", io.StringIO("\n")),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["-"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(stdout.getvalue(), "No task provided.\n")
+        create_chat_client.assert_not_called()
+
+    def test_main_one_shot_empty_stdin_returns_json_error_status(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("sys.stdin", io.StringIO("\n")),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli_runner.monotonic", side_effect=[50.0, 50.067]),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--json", "-"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(payload["kind"], "error")
+        self.assertEqual(payload["durationMs"], 67)
+        self.assertEqual(payload["duration_ms"], 67)
+        self.assertEqual(payload["exitCode"], 1)
+        self.assertEqual(payload["exit_code"], 1)
+        self.assertEqual(payload["version"], __version__)
+        self.assertFalse(payload["success"])
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["stopReason"], "failed")
+        self.assertEqual(payload["stop_reason"], "failed")
+        self.assertEqual(payload["error"], "No task provided.")
+        create_chat_client.assert_not_called()
+
     def test_main_one_shot_code_task_exits_nonzero_when_completion_is_blocked(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             result = AgentResult(
@@ -499,6 +539,30 @@ class CliOneShotTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 1)
         self.assertEqual(stdout.getvalue(), "done\n")
+
+    def test_main_passes_appended_system_prompt_to_one_shot_code_task(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="new-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", base, "--append-system-prompt", "Prefer focused tests.", "inspect"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIsNone(run_agent.call_args.kwargs["system_prompt"])
+        self.assertEqual(run_agent.call_args.kwargs["append_system_prompt"], "Prefer focused tests.")
 
     def test_main_print_mode_keeps_json_machine_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
