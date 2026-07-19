@@ -218,3 +218,133 @@ class CliFocusedTestFlagTests(unittest.TestCase):
                 get_report.assert_called_once_with(root, **expected_kwargs)
                 format_report.assert_called_once_with(report)
                 create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_run_focused_test_limit_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/run-focused-tests --max-paths 3 --max-candidates 4 --max-commands 5 --timeout-ms 2000 --max-chars 3000 --continue-on-failure --output-contexts --output-diagnostics --context-lines 2 --max-diagnostics 7 --max-contexts 5 --max-bytes 1000 -- pkg/actions.py tests/test_actions.py",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_run_focused_test_commands_text", return_value="Run focused test commands:\n  ok: yes") as get_run_focused_test_commands_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Run focused test commands:", output)
+        get_run_focused_test_commands_text.assert_called_once_with(
+            argument="pkg/actions.py tests/test_actions.py",
+            max_paths=3,
+            max_candidates=4,
+            max_commands=5,
+            timeout_ms=2000,
+            max_output_chars=3000,
+            stop_on_failure=False,
+            extract_output_contexts=True,
+            extract_output_diagnostics=True,
+            context_lines=2,
+            max_diagnostics=7,
+            max_contexts=5,
+            max_bytes_per_context=1000,
+        )
+        create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_related_and_focused_test_limit_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/related-tests --max-paths 3 --max-candidates 4 -- pkg/actions.py",
+                    "/focused-tests --max-paths 5 --max-candidates 6 --max-commands 7 -- pkg/actions.py",
+                    "/check-focused-tests --max-paths 8 --max-candidates 9 --max-commands 10 -- pkg/actions.py",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_related_tests_text", return_value="Related tests:\n  candidates: 1/1") as get_related_tests_text,
+            patch("vibeagent.cli.get_focused_test_commands_text", return_value="Focused test commands:\n  commands: 1/1") as get_focused_test_commands_text,
+            patch("vibeagent.cli.get_check_focused_test_commands_text", return_value="Check focused test commands:\n  ok: yes") as get_check_focused_test_commands_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Related tests:", output)
+        self.assertIn("Focused test commands:", output)
+        self.assertIn("Check focused test commands:", output)
+        get_related_tests_text.assert_called_once_with(argument="pkg/actions.py", max_paths=3, max_candidates=4)
+        get_focused_test_commands_text.assert_called_once_with(argument="pkg/actions.py", max_paths=5, max_candidates=6, max_commands=7)
+        get_check_focused_test_commands_text.assert_called_once_with(argument="pkg/actions.py", max_paths=8, max_candidates=9, max_commands=10)
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_test_limit_option_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/related-tests --max-paths 0 -- pkg/actions.py",
+                    "/focused-tests --max-commands 0 -- pkg/actions.py",
+                    "/check-focused-tests --unknown 1 -- pkg/actions.py",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_related_tests_text") as get_related_tests_text,
+            patch("vibeagent.cli.get_focused_test_commands_text") as get_focused_test_commands_text,
+            patch("vibeagent.cli.get_check_focused_test_commands_text") as get_check_focused_test_commands_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /related-tests [--max-paths N]", output)
+        self.assertIn("--max-paths must be a positive integer.", output)
+        self.assertIn("Usage: /focused-tests [--max-paths N]", output)
+        self.assertIn("--max-commands must be a positive integer.", output)
+        self.assertIn("Usage: /check-focused-tests [--max-paths N]", output)
+        self.assertIn("Unknown option: --unknown", output)
+        get_related_tests_text.assert_not_called()
+        get_focused_test_commands_text.assert_not_called()
+        get_check_focused_test_commands_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_run_focused_test_limit_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/run-focused-tests --timeout-ms 99 -- pkg/actions.py",
+                    "/run-focused-tests --max-bytes 0 -- pkg/actions.py",
+                    "/run-focused-tests --output-contexts=true -- pkg/actions.py",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_run_focused_test_commands_text") as get_run_focused_test_commands_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /run-focused-tests [--max-paths N]", output)
+        self.assertIn("--timeout-ms must be at least 100.", output)
+        self.assertIn("--max-bytes must be a positive integer.", output)
+        self.assertIn("--output-contexts does not take a value.", output)
+        get_run_focused_test_commands_text.assert_not_called()
+        create_chat_client.assert_not_called()
