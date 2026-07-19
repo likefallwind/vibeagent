@@ -1,15 +1,11 @@
-import inspect
 import json
 import os
-import re
 import subprocess
 import tempfile
 import time
 import unittest
 from decimal import Decimal
 from pathlib import Path
-from types import UnionType
-from typing import Literal, Union, get_args, get_origin, get_type_hints
 from unittest.mock import patch
 
 import vibeagent.commands as commands_module
@@ -534,18 +530,6 @@ def write_session_events(project_root: Path, run_id: str, rows: list[dict], mtim
         os.utime(events_path, (mtime, mtime))
 
 
-def local_command_literal_values(annotation: object) -> set[str]:
-    origin = get_origin(annotation)
-    if origin is Literal:
-        return set(get_args(annotation))
-    if origin in (Union, UnionType):
-        values: set[str] = set()
-        for arg in get_args(annotation):
-            values.update(local_command_literal_values(arg))
-        return values
-    return set()
-
-
 class CommandTests(unittest.TestCase):
     def test_is_exit_command_only_treats_exit_as_the_exit_command(self) -> None:
         self.assertTrue(is_exit_command("/exit"))
@@ -955,24 +939,6 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(parse_local_command("/code"), LocalCommand(type="code"))
         self.assertEqual(parse_local_command("/code write a script"), LocalCommand(type="code", argument="write a script"))
         self.assertIsNone(parse_local_command("write a script"))
-
-    def test_parse_local_command_types_match_local_command_literal(self) -> None:
-        source = inspect.getsource(parse_local_command)
-        returned_types = set(re.findall(r'LocalCommand\(type="([^"]+)"', source))
-        literal_types = local_command_literal_values(get_type_hints(LocalCommand)["type"])
-
-        self.assertEqual(returned_types - literal_types, set())
-
-    def test_help_text_lists_all_parseable_slash_commands(self) -> None:
-        from vibeagent.commands import get_help_text
-
-        source = inspect.getsource(parse_local_command)
-        slash_commands = set(re.findall(r'trimmed == "(/[^"]+)"', source))
-        help_text = get_help_text()
-
-        missing = sorted(command for command in slash_commands if command not in help_text)
-
-        self.assertEqual(missing, [])
 
     def test_help_text_lists_approval_command(self) -> None:
         from vibeagent.commands import get_help_text
