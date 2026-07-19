@@ -12,6 +12,10 @@ from .project_output_reports import (
     format_python_traceback_report_text,
     indent_block as _indent_block,
 )
+from .project_output_validation import (
+    validate_output_context_options,
+    validate_output_diagnostic_options,
+)
 from .types import OutputContextsAction, OutputDiagnosticsAction
 
 OUTPUT_CONTEXTS_USAGE = "Usage: /output-contexts <text>"
@@ -27,10 +31,6 @@ def _execute_action(*args: object, **kwargs: object) -> object:
     return _default_execute_action(*args, **kwargs)
 
 
-def _usage_error(usage: str, error: object) -> str:
-    return f"{usage}\nError: {error}"
-
-
 def get_output_contexts_text(
     project_root: str | Path = ".",
     text: str | None = None,
@@ -40,20 +40,15 @@ def get_output_contexts_text(
 ) -> str:
     if not text or not text.strip():
         return OUTPUT_CONTEXTS_USAGE
-    if len(text) > 200_000:
-        return _usage_error(OUTPUT_CONTEXTS_USAGE, "text must be at most 200000 characters.")
-    if context_lines < 0:
-        return _usage_error(OUTPUT_CONTEXTS_USAGE, "context_lines must be at least 0.")
-    if context_lines > 500:
-        return _usage_error(OUTPUT_CONTEXTS_USAGE, "context_lines must be at most 500.")
-    if max_contexts < 1:
-        return _usage_error(OUTPUT_CONTEXTS_USAGE, "max_contexts must be at least 1.")
-    if max_contexts > 100:
-        return _usage_error(OUTPUT_CONTEXTS_USAGE, "max_contexts must be at most 100.")
-    if max_bytes_per_context < 1_000:
-        return _usage_error(OUTPUT_CONTEXTS_USAGE, "max_bytes_per_context must be at least 1000.")
-    if max_bytes_per_context > 200_000:
-        return _usage_error(OUTPUT_CONTEXTS_USAGE, "max_bytes_per_context must be at most 200000.")
+    validation_error = validate_output_context_options(
+        OUTPUT_CONTEXTS_USAGE,
+        text=text,
+        context_lines=context_lines,
+        max_contexts=max_contexts,
+        max_bytes_per_context=max_bytes_per_context,
+    )
+    if validation_error:
+        return validation_error
 
     root = Path(project_root).resolve()
     workspace = local_command_workspace(root, "local-output-contexts")
@@ -127,32 +122,13 @@ def get_output_contexts_report(
             "truncated": False,
             "message": OUTPUT_CONTEXTS_USAGE,
         }
-    if len(text) > 200_000:
-        return {
-            "projectRoot": str(root),
-            "ok": False,
-            "contexts": {"ok": 0, "total": 0, "items": []},
-            "totalRefs": 0,
-            "contextLines": context_lines,
-            "maxContexts": max_contexts,
-            "maxBytesPerContext": max_bytes_per_context,
-            "truncated": False,
-            "message": _usage_error(OUTPUT_CONTEXTS_USAGE, "text must be at most 200000 characters."),
-        }
-    if context_lines < 0:
-        message = _usage_error(OUTPUT_CONTEXTS_USAGE, "context_lines must be at least 0.")
-    elif context_lines > 500:
-        message = _usage_error(OUTPUT_CONTEXTS_USAGE, "context_lines must be at most 500.")
-    elif max_contexts < 1:
-        message = _usage_error(OUTPUT_CONTEXTS_USAGE, "max_contexts must be at least 1.")
-    elif max_contexts > 100:
-        message = _usage_error(OUTPUT_CONTEXTS_USAGE, "max_contexts must be at most 100.")
-    elif max_bytes_per_context < 1_000:
-        message = _usage_error(OUTPUT_CONTEXTS_USAGE, "max_bytes_per_context must be at least 1000.")
-    elif max_bytes_per_context > 200_000:
-        message = _usage_error(OUTPUT_CONTEXTS_USAGE, "max_bytes_per_context must be at most 200000.")
-    else:
-        message = ""
+    message = validate_output_context_options(
+        OUTPUT_CONTEXTS_USAGE,
+        text=text,
+        context_lines=context_lines,
+        max_contexts=max_contexts,
+        max_bytes_per_context=max_bytes_per_context,
+    ) or ""
     if message:
         return {
             "projectRoot": str(root),
@@ -215,24 +191,16 @@ def get_output_diagnostics_text(
 ) -> str:
     if not text or not text.strip():
         return OUTPUT_DIAGNOSTICS_USAGE
-    if len(text) > 200_000:
-        return _usage_error(OUTPUT_DIAGNOSTICS_USAGE, "text must be at most 200000 characters.")
-    if context_lines < 0:
-        return _usage_error(OUTPUT_DIAGNOSTICS_USAGE, "context_lines must be at least 0.")
-    if context_lines > 500:
-        return _usage_error(OUTPUT_DIAGNOSTICS_USAGE, "context_lines must be at most 500.")
-    if max_diagnostics < 1:
-        return _usage_error(OUTPUT_DIAGNOSTICS_USAGE, "max_diagnostics must be at least 1.")
-    if max_diagnostics > 200:
-        return _usage_error(OUTPUT_DIAGNOSTICS_USAGE, "max_diagnostics must be at most 200.")
-    if max_contexts < 1:
-        return _usage_error(OUTPUT_DIAGNOSTICS_USAGE, "max_contexts must be at least 1.")
-    if max_contexts > 100:
-        return _usage_error(OUTPUT_DIAGNOSTICS_USAGE, "max_contexts must be at most 100.")
-    if max_bytes_per_context < 1_000:
-        return _usage_error(OUTPUT_DIAGNOSTICS_USAGE, "max_bytes_per_context must be at least 1000.")
-    if max_bytes_per_context > 200_000:
-        return _usage_error(OUTPUT_DIAGNOSTICS_USAGE, "max_bytes_per_context must be at most 200000.")
+    validation_error = validate_output_diagnostic_options(
+        OUTPUT_DIAGNOSTICS_USAGE,
+        text=text,
+        context_lines=context_lines,
+        max_diagnostics=max_diagnostics,
+        max_contexts=max_contexts,
+        max_bytes_per_context=max_bytes_per_context,
+    )
+    if validation_error:
+        return validation_error
 
     root = Path(project_root).resolve()
     workspace = local_command_workspace(root, "local-output-diagnostics")
@@ -321,26 +289,14 @@ def get_output_diagnostics_report(
             "contextsTruncated": False,
             "message": f"Usage: {usage}",
         }
-    if len(text) > 200_000:
-        message = f"Usage: {usage}\nError: text must be at most 200000 characters."
-    elif context_lines < 0:
-        message = f"Usage: {usage}\nError: context_lines must be at least 0."
-    elif context_lines > 500:
-        message = f"Usage: {usage}\nError: context_lines must be at most 500."
-    elif max_diagnostics < 1:
-        message = f"Usage: {usage}\nError: max_diagnostics must be at least 1."
-    elif max_diagnostics > 200:
-        message = f"Usage: {usage}\nError: max_diagnostics must be at most 200."
-    elif max_contexts < 1:
-        message = f"Usage: {usage}\nError: max_contexts must be at least 1."
-    elif max_contexts > 100:
-        message = f"Usage: {usage}\nError: max_contexts must be at most 100."
-    elif max_bytes_per_context < 1_000:
-        message = f"Usage: {usage}\nError: max_bytes_per_context must be at least 1000."
-    elif max_bytes_per_context > 200_000:
-        message = f"Usage: {usage}\nError: max_bytes_per_context must be at most 200000."
-    else:
-        message = ""
+    message = validate_output_diagnostic_options(
+        f"Usage: {usage}",
+        text=text,
+        context_lines=context_lines,
+        max_diagnostics=max_diagnostics,
+        max_contexts=max_contexts,
+        max_bytes_per_context=max_bytes_per_context,
+    ) or ""
     if message:
         return {
             "projectRoot": str(root),
