@@ -759,6 +759,54 @@ class CliLocalFlagTests(unittest.TestCase):
         format_review_report_text.assert_called_once_with({"ready": True})
         create_chat_client.assert_not_called()
 
+    def test_main_parses_interactive_review_limits(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/review --max-files 1 --max-checks 2",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_review_text", return_value="Review:\n  ready: yes") as get_review_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Review:", stdout.getvalue())
+        get_review_text.assert_called_once_with(max_files=1, max_checks=2)
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_review_limit_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/review --max-files 0",
+                    "/review --unknown 1",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_review_text") as get_review_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /review [--max-files N] [--max-checks N]", output)
+        self.assertIn("--max-files must be a positive integer.", output)
+        self.assertIn("Unknown option: --unknown", output)
+        get_review_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
     def test_main_runs_review_local_flag_with_json_output(self) -> None:
         stdout = io.StringIO()
         review = {"ready": False, "blockingIssues": ["Changed Python files have syntax errors."]}
@@ -875,6 +923,54 @@ class CliLocalFlagTests(unittest.TestCase):
             max_plan_chars=4000,
         )
         format_handoff_report_text.assert_called_once_with({"ready": True})
+        create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_handoff_limits(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/handoff --max-files 1 --max-checks 2 --max-status-chars 3000 --max-plan-chars 4000",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_handoff_text", return_value="Handoff:\n  ready: yes") as get_handoff_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Handoff:", stdout.getvalue())
+        get_handoff_text.assert_called_once_with(max_files=1, max_checks=2, max_status_chars=3000, max_plan_chars=4000)
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_handoff_limit_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/handoff --max-files 0",
+                    "/handoff --unknown 1",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_handoff_text") as get_handoff_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /handoff [--max-files N] [--max-checks N] [--max-status-chars N] [--max-plan-chars N]", output)
+        self.assertIn("--max-files must be a positive integer.", output)
+        self.assertIn("Unknown option: --unknown", output)
+        get_handoff_text.assert_not_called()
         create_chat_client.assert_not_called()
 
     def test_main_runs_handoff_local_flag_with_json_output(self) -> None:
