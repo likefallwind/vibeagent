@@ -379,6 +379,8 @@ def compact_delegate_message_history(
             "subagent_id": subagent_id,
             "parent_iteration": parent_iteration,
             "iteration": child_iteration,
+            "mode": action.mode,
+            "agent": action.agent,
             "previous_messages": len(messages),
             "new_messages": len(compacted_messages),
             "observations": len(observations),

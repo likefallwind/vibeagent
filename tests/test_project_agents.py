@@ -407,10 +407,19 @@ class ProjectAgentProfileTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
             root = Path(base)
             root.joinpath("README.md").write_text("# Demo\nBody\n", encoding="utf-8")
+            _write_agent(
+                root,
+                ".claude/agents",
+                "context-reader",
+                "Reads code context",
+                "PROFILE_COMPACTION_INSTRUCTION",
+                mode="code",
+                tools="read_file",
+            )
             workspace = create_run_workspace(root, "run-1")
             action = parse_tool_action(
                 "delegate_task",
-                {"task": "Read project context", "mode": "code", "max_iterations": 7},
+                {"task": "Read project context", "agent": "context-reader", "max_iterations": 7},
             )
             observation = execute_delegate_task_action(
                 workspace,
@@ -426,14 +435,22 @@ class ProjectAgentProfileTests(unittest.TestCase):
                 logger=None,
                 parent_observations=parent_observations,
             )
+            events_path = root / ".vibeagent" / "sessions" / "run-1" / "events.jsonl"
+            rows = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
 
         compacted_user = client.messages[6][1].content
+        compacted_system = client.messages[6][0].content
+        compaction_rows = [row for row in rows if row["type"] == "subagent_context_compacted"]
         self.assertTrue(observation.ok)
         self.assertIsInstance(compacted_user, str)
+        self.assertIsInstance(compacted_system, str)
+        self.assertIn("PROFILE_COMPACTION_INSTRUCTION", compacted_system)
         self.assertIn("Total subagent observations so far: 6.", compacted_user)
         self.assertIn("read_file README.md", compacted_user)
         self.assertNotIn("parent.txt", compacted_user)
         self.assertEqual(len(parent_observations), 7)
+        self.assertEqual(compaction_rows[0]["mode"], "code")
+        self.assertEqual(compaction_rows[0]["agent"], "context-reader")
 
     def test_code_profile_bash_alias_allows_background_bash(self) -> None:
         approvals: list[str] = []
