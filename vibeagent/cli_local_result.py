@@ -8,6 +8,7 @@ from typing import TypeVar
 from . import MACHINE_OUTPUT_SCHEMA_VERSION, __version__
 from .cli_exit_codes import local_result_exit_code
 from .cli_output import print_output
+from .cli_stream_output import machine_result_status_fields
 
 
 T = TypeVar("T")
@@ -34,16 +35,15 @@ def emit_local_result(args: argparse.Namespace, text: str, payload_extra: Mappin
         "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
         "version": __version__,
         "success": exit_code == 0,
-        "exitCode": exit_code,
-        "exit_code": exit_code,
-        "stopReason": stop_reason,
-        "stop_reason": stop_reason,
+        **machine_result_status_fields(
+            status=stop_reason,
+            stop_reason=stop_reason,
+            exit_code=exit_code,
+        ),
         "text": text,
     }
     if payload_extra:
         payload.update(payload_extra)
-    if exit_code != 0:
-        payload["status"] = "failed"
     print_output(payload, args.json)
     return exit_code
 
