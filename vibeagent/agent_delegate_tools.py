@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .actions import ActionParseError, execute_action, parse_tool_action
+from .actions import ActionParseError, parse_tool_action
 from .agent_execution_support import (
     create_auto_checkpoint_before_action,
     execute_action_safely,
     should_auto_checkpoint_before_action,
 )
 from .agent_hooks import HookRunResult
-from .agent_permissions import authorize_tool_action
 from .agent_delegate_policy import (
     CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
     DELEGATE_TOOL_NAMES,
@@ -231,20 +230,28 @@ def execute_delegate_action(
                 auto_checkpoint_attempted,
                 (),
             )
-        authorization = authorize_tool_action(
+        execution = execute_parsed_tool_action(
             workspace,
-            permissions,
-            tool_name,
             parsed,
+            observations,
+            steps,
             iteration,
-            approval_handler,
-            approval_policy,
+            command_timeout_ms,
             logger,
+            approval_handler,
+            tool_name,
+            auto_checkpoint_attempted,
+            execute_action_safely,
+            should_auto_checkpoint_before_action,
+            create_auto_checkpoint_before_action,
+            approval_policy,
+            hooks,
+            permissions,
         )
-        if not authorization.allowed:
-            assert authorization.denial is not None
-            return authorization.denial, auto_checkpoint_attempted, ()
-        return execute_action(workspace, parsed, command_timeout_ms), auto_checkpoint_attempted, ()
+        if execution.auto_checkpoint is not None:
+            observations.append(execution.auto_checkpoint)
+        observations.extend(execution.additional_observations)
+        return execution.observation, execution.auto_checkpoint_attempted, execution.hook_results
     if tool_name in CODE_DELEGATE_EXCLUDED_TOOL_NAMES or action_type in CODE_DELEGATE_EXCLUDED_TOOL_NAMES:
         return (
             ToolErrorObservation(

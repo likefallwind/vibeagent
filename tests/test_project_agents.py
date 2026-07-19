@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from vibeagent.actions import execute_action, parse_tool_action
 from vibeagent.agent_delegate import execute_delegate_task_action
@@ -295,6 +296,47 @@ class ProjectAgentProfileTests(unittest.TestCase):
         result = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual(result["kind"], "read_file")
         self.assertEqual(result["path"], "README.md")
+
+    def test_explore_subagent_guards_repeated_list_files(self) -> None:
+        client = ProfileClient(
+            [
+                [{"type": "tool_call", "id": "list-1", "name": "list_files", "input": {"path": "."}}],
+                [{"type": "tool_call", "id": "list-2", "name": "list_files", "input": {"path": "."}}],
+                [{"type": "text", "text": "Listed once and stopped repeating."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            root.joinpath("app.py").write_text("print('ok')\n", encoding="utf-8")
+            workspace = create_run_workspace(root, "run-1")
+            action = parse_tool_action("delegate_task", {"task": "List project files", "max_iterations": 3})
+            list_calls: list[str] = []
+
+            def fake_execute_action_safely(workspace, action, command_timeout_ms, tool_name):
+                if getattr(action, "type", "") == "list_files":
+                    list_calls.append(str(getattr(action, "path", None) or "."))
+                return execute_action(workspace, action, command_timeout_ms)
+
+            with patch("vibeagent.agent_delegate_tools.execute_action_safely", side_effect=fake_execute_action_safely):
+                observation = execute_delegate_task_action(
+                    workspace,
+                    action,
+                    client,
+                    parent_iteration=1,
+                    subagent_id="delegate-1-1",
+                    max_output_tokens=2048,
+                    model_retries=0,
+                    model_retry_delay_ms=0,
+                    model_timeout_ms=10_000,
+                    command_timeout_ms=10_000,
+                    logger=None,
+                )
+
+        self.assertTrue(observation.ok)
+        self.assertEqual(list_calls, ["."])
+        result = json.loads(client.messages[2][-1].content[0]["content"])
+        self.assertEqual(result["kind"], "list_files")
+        self.assertIn("Already listed", result["message"])
 
     def test_code_profile_bash_alias_allows_background_bash(self) -> None:
         approvals: list[str] = []
