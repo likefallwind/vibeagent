@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .prompt_next_action_session_formatting import (
     completion_blocker_labels,
+    completion_next_action_labels,
     file_reference_labels,
     format_next_action_items,
     has_completion_blocker_signal,
@@ -181,12 +182,18 @@ def _session_audit_next_action_instruction(base: str, latest: Observation) -> st
 
     blockers = [str(blocker).strip() for blocker in getattr(latest, "blockers", []) if str(blocker).strip()]
     completion_blockers = completion_blocker_labels(latest)
+    next_actions = completion_next_action_labels(latest)
     file_references = file_reference_labels(getattr(latest, "file_references", []))
     if blockers and has_completion_blocker_signal(blockers, latest):
         completion_details = completion_blockers or blockers
+        recovery = (
+            f" Follow latest completion next action(s): {format_next_action_items(next_actions, max_items=4)}."
+            if next_actions
+            else ""
+        )
         return (
             f"{base} Session audit is not ready because completion blocker(s) remain. "
-            f"Fix completion blocker(s): {format_next_action_items(completion_details, max_items=6)}. "
+            f"Fix completion blocker(s): {format_next_action_items(completion_details, max_items=6)}.{recovery} "
             "Use session_plan for unfinished task-plan blockers, "
             "session_verification or run_session_verification for verification blockers, "
             "and session_failures or session_output_diagnostics for failure blockers; "
@@ -225,6 +232,7 @@ def _session_audit_next_action_instruction(base: str, latest: Observation) -> st
 def _session_handoff_next_action_instruction(base: str, latest: Observation) -> str:
     blockers = [str(blocker).strip() for blocker in getattr(latest, "blockers", []) if str(blocker).strip()]
     completion_blockers = completion_blocker_labels(latest)
+    next_actions = completion_next_action_labels(latest)
     active_processes = session_audit_process_labels(getattr(latest, "active_background_processes", []))
     failed = verification_command_labels(getattr(latest, "failed_commands", []))
     pending = verification_command_labels(getattr(latest, "pending_commands", []))
@@ -262,9 +270,14 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
 
     if blockers and has_completion_blocker_signal(blockers, latest):
         completion_details = completion_blockers or blockers
+        recovery = (
+            f" Follow latest completion next action(s): {format_next_action_items(next_actions, max_items=4)}."
+            if next_actions
+            else ""
+        )
         return (
             f"{base} Session handoff reports completion blocker(s). "
-            f"Fix completion blocker(s): {format_next_action_items(completion_details, max_items=6)}. "
+            f"Fix completion blocker(s): {format_next_action_items(completion_details, max_items=6)}.{recovery} "
             "Use session_plan for unfinished task-plan blockers, "
             "session_verification or run_session_verification for verification blockers, "
             "and session_failures or session_output_diagnostics for failure blockers before finishing."

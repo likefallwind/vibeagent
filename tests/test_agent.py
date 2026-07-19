@@ -6865,6 +6865,10 @@ class AgentTests(unittest.TestCase):
             ],
             latest_completion_tool_errors=["read_file: Tool execution failed: boom"],
             latest_completion_denied_approvals=["write_file note.txt: Denied by policy."],
+            latest_completion_next_actions=[
+                "Use run_session_verification to run pending recorded checks before trying to finish again.",
+                "Inspect changed or failing files with read_file_context or git_diff_contexts, fix blockers, then rerun final_review.",
+            ],
         )
 
         instruction = get_next_action_instruction("resume and finish task", [observation])
@@ -6874,6 +6878,9 @@ class AgentTests(unittest.TestCase):
         self.assertIn("1 suggested verification check(s) are still pending", instruction)
         self.assertIn("read_file: Tool execution failed: boom", instruction)
         self.assertIn("write_file note.txt: Denied by policy.", instruction)
+        self.assertIn("Follow latest completion next action", instruction)
+        self.assertIn("Use run_session_verification to run pending recorded checks", instruction)
+        self.assertIn("git_diff_contexts", instruction)
         self.assertIn("session_plan", instruction)
         self.assertIn("run_session_verification", instruction)
         self.assertIn("session_output_diagnostics", instruction)
@@ -7062,6 +7069,9 @@ class AgentTests(unittest.TestCase):
             latest_completion_failed_verification_checks=["npm test (exit=1)"],
             latest_completion_tool_errors=["read_file: Tool execution failed: boom"],
             latest_completion_denied_approvals=["write_file note.txt: Denied by policy."],
+            latest_completion_next_actions=[
+                "Use run_session_verification to rerun failed recorded checks, then session_output_diagnostics or session_output_contexts if failures remain.",
+            ],
         )
 
         instruction = get_next_action_instruction("resume and finish task", [observation])
@@ -7072,6 +7082,9 @@ class AgentTests(unittest.TestCase):
         self.assertIn("npm test (exit=1)", instruction)
         self.assertIn("read_file: Tool execution failed: boom", instruction)
         self.assertIn("write_file note.txt: Denied by policy.", instruction)
+        self.assertIn("Follow latest completion next action", instruction)
+        self.assertIn("Use run_session_verification to rerun failed recorded checks", instruction)
+        self.assertIn("session_output_contexts", instruction)
         self.assertIn("session_plan", instruction)
         self.assertIn("run_session_verification", instruction)
         self.assertIn("session_output_diagnostics", instruction)

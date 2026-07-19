@@ -191,6 +191,20 @@ def completion_blocker_labels(latest: Observation) -> list[str]:
     )
 
 
+def completion_next_action_labels(latest: Observation) -> list[str]:
+    labels = [
+        str(action).strip()
+        for action in getattr(latest, "latest_completion_next_actions", [])
+        if str(action).strip()
+    ]
+    if labels:
+        return labels
+    return audit_section_items(
+        getattr(latest, "audit", ""),
+        ("latestCompletionNextActions",),
+    )
+
+
 def has_completion_blocker_signal(blockers: list[str], latest: Observation) -> bool:
     if getattr(latest, "completion_ready", None) is False:
         return True
