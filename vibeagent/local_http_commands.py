@@ -30,6 +30,14 @@ def _usage_error(usage: str, error: object) -> str:
     return f"{usage}\nError: {error}"
 
 
+def _yes_no(value: object) -> str:
+    return "yes" if bool(value) else "no"
+
+
+def _report_int(report: dict[str, object], key: str) -> int:
+    return int(report.get(key, 0) or 0)
+
+
 def _port_failure_report(
     root: Path,
     message: str,
@@ -102,6 +110,63 @@ def _http_fetch_failure_report(
         "error": None,
         "message": message,
     }
+
+
+def _serialize_http_response_fields(
+    observation: object,
+    *,
+    before_reachable: dict[str, object] | None = None,
+    after_reachable: dict[str, object] | None = None,
+) -> dict[str, object]:
+    return {
+        "ok": bool(getattr(observation, "ok", False)),
+        "url": str(getattr(observation, "url", "") or ""),
+        "finalUrl": getattr(observation, "final_url", None),
+        "status": getattr(observation, "status", None),
+        "reason": getattr(observation, "reason", None),
+        **(before_reachable or {}),
+        "reachable": bool(getattr(observation, "reachable", False)),
+        **(after_reachable or {}),
+        "timeoutMs": int(getattr(observation, "timeout_ms", 0) or 0),
+        "maxBodyChars": int(getattr(observation, "max_body_chars", 0) or 0),
+        "body": str(getattr(observation, "body", "") or ""),
+        "bodyTruncated": bool(getattr(observation, "body_truncated", False)),
+        "error": getattr(observation, "error", None),
+        "message": str(getattr(observation, "message", "") or ""),
+    }
+
+
+def _format_http_response_report_text(
+    title: str,
+    report: dict[str, object],
+    detail_lines: list[str],
+) -> str:
+    message = str(report.get("message") or "")
+    if message.startswith("Usage:"):
+        return message
+    lines = [
+        f"{title}:",
+        f"  projectRoot: {report.get('projectRoot') or '.'}",
+        f"  ok: {_yes_no(report.get('ok'))}",
+        f"  url: {report.get('url') or ''}",
+        f"  finalUrl: {report.get('finalUrl') or '.'}",
+        f"  status: {report.get('status') if report.get('status') is not None else '.'}",
+        f"  reason: {report.get('reason') or '.'}",
+        *detail_lines,
+        f"  timeoutMs: {_report_int(report, 'timeoutMs')}",
+        f"  maxBodyChars: {_report_int(report, 'maxBodyChars')}",
+        f"  bodyTruncated: {_yes_no(report.get('bodyTruncated'))}",
+    ]
+    if report.get("error"):
+        lines.append(f"  error: {report.get('error')}")
+    lines.append(f"  message: {message}")
+    body = str(report.get("body") or "")
+    if body:
+        lines.append("  body:")
+        lines.append(_indent_block(body.rstrip(), spaces=4))
+    else:
+        lines.append("  body: none")
+    return "\n".join(lines)
 
 
 def get_port_text(
@@ -177,16 +242,17 @@ def format_port_report_text(report: dict[str, object]) -> str:
     lines = [
         "Port:",
         f"  projectRoot: {report.get('projectRoot') or '.'}",
-        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
+        f"  ok: {_yes_no(report.get('ok'))}",
         f"  host: {report.get('host') or ''}",
         f"  port: {report.get('port') if report.get('port') is not None else '.'}",
-        f"  reachable: {'yes' if bool(report.get('reachable')) else 'no'}",
-        f"  timeoutMs: {int(report.get('timeoutMs', 0) or 0)}",
+        f"  reachable: {_yes_no(report.get('reachable'))}",
+        f"  timeoutMs: {_report_int(report, 'timeoutMs')}",
     ]
     if report.get("error"):
         lines.append(f"  error: {report.get('error')}")
     lines.append(f"  message: {message}")
     return "\n".join(lines)
+
 
 def get_http_text(
     project_root: str | Path = ".",
@@ -268,53 +334,27 @@ def get_http_report(
 
 
 def format_http_report_text(report: dict[str, object]) -> str:
-    message = str(report.get("message") or "")
-    if message.startswith("Usage:"):
-        return message
-    lines = [
-        "HTTP:",
-        f"  projectRoot: {report.get('projectRoot') or '.'}",
-        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
-        f"  url: {report.get('url') or ''}",
-        f"  finalUrl: {report.get('finalUrl') or '.'}",
-        f"  status: {report.get('status') if report.get('status') is not None else '.'}",
-        f"  reason: {report.get('reason') or '.'}",
-        f"  reachable: {'yes' if bool(report.get('reachable')) else 'no'}",
-        f"  matched: {'yes' if bool(report.get('matched')) else 'no'}",
-        f"  matchedPattern: {report.get('matchedPattern') or '.'}",
-        f"  timeoutMs: {int(report.get('timeoutMs', 0) or 0)}",
-        f"  maxBodyChars: {int(report.get('maxBodyChars', 0) or 0)}",
-        f"  bodyTruncated: {'yes' if bool(report.get('bodyTruncated')) else 'no'}",
-    ]
-    if report.get("error"):
-        lines.append(f"  error: {report.get('error')}")
-    lines.append(f"  message: {message}")
-    body = str(report.get("body") or "")
-    if body:
-        lines.append("  body:")
-        lines.append(_indent_block(body.rstrip(), spaces=4))
-    else:
-        lines.append("  body: none")
-    return "\n".join(lines)
+    return _format_http_response_report_text(
+        "HTTP",
+        report,
+        [
+            f"  reachable: {_yes_no(report.get('reachable'))}",
+            f"  matched: {_yes_no(report.get('matched'))}",
+            f"  matchedPattern: {report.get('matchedPattern') or '.'}",
+        ],
+    )
 
 
 def serialize_http_report(root: Path, observation: object) -> dict[str, object]:
     return {
         "projectRoot": str(root),
-        "ok": bool(getattr(observation, "ok", False)),
-        "url": str(getattr(observation, "url", "") or ""),
-        "finalUrl": getattr(observation, "final_url", None),
-        "status": getattr(observation, "status", None),
-        "reason": getattr(observation, "reason", None),
-        "reachable": bool(getattr(observation, "reachable", False)),
-        "matched": bool(getattr(observation, "matched", False)),
-        "matchedPattern": getattr(observation, "matched_pattern", None),
-        "timeoutMs": int(getattr(observation, "timeout_ms", 0) or 0),
-        "maxBodyChars": int(getattr(observation, "max_body_chars", 0) or 0),
-        "body": str(getattr(observation, "body", "") or ""),
-        "bodyTruncated": bool(getattr(observation, "body_truncated", False)),
-        "error": getattr(observation, "error", None),
-        "message": str(getattr(observation, "message", "") or ""),
+        **_serialize_http_response_fields(
+            observation,
+            after_reachable={
+                "matched": bool(getattr(observation, "matched", False)),
+                "matchedPattern": getattr(observation, "matched_pattern", None),
+            },
+        ),
     }
 
 
@@ -385,47 +425,19 @@ def get_http_fetch_report(
         return failure(f"Unexpected observation: {observation.kind}", selected_url)
     return {
         "projectRoot": str(root),
-        "ok": observation.ok,
-        "url": observation.url,
-        "finalUrl": observation.final_url,
-        "status": observation.status,
-        "reason": observation.reason,
-        "contentType": observation.content_type,
-        "reachable": observation.reachable,
-        "timeoutMs": observation.timeout_ms,
-        "maxBodyChars": observation.max_body_chars,
-        "body": observation.body,
-        "bodyTruncated": observation.body_truncated,
-        "error": observation.error,
-        "message": observation.message,
+        **_serialize_http_response_fields(
+            observation,
+            before_reachable={"contentType": observation.content_type},
+        ),
     }
 
 
 def format_http_fetch_report_text(report: dict[str, object]) -> str:
-    message = str(report.get("message") or "")
-    if message.startswith("Usage:"):
-        return message
-    lines = [
-        "HTTP fetch:",
-        f"  projectRoot: {report.get('projectRoot') or '.'}",
-        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
-        f"  url: {report.get('url') or ''}",
-        f"  finalUrl: {report.get('finalUrl') or '.'}",
-        f"  status: {report.get('status') if report.get('status') is not None else '.'}",
-        f"  reason: {report.get('reason') or '.'}",
-        f"  contentType: {report.get('contentType') or '.'}",
-        f"  reachable: {'yes' if bool(report.get('reachable')) else 'no'}",
-        f"  timeoutMs: {int(report.get('timeoutMs', 0) or 0)}",
-        f"  maxBodyChars: {int(report.get('maxBodyChars', 0) or 0)}",
-        f"  bodyTruncated: {'yes' if bool(report.get('bodyTruncated')) else 'no'}",
-    ]
-    if report.get("error"):
-        lines.append(f"  error: {report.get('error')}")
-    lines.append(f"  message: {message}")
-    body = str(report.get("body") or "")
-    if body:
-        lines.append("  body:")
-        lines.append(_indent_block(body.rstrip(), spaces=4))
-    else:
-        lines.append("  body: none")
-    return "\n".join(lines)
+    return _format_http_response_report_text(
+        "HTTP fetch",
+        report,
+        [
+            f"  contentType: {report.get('contentType') or '.'}",
+            f"  reachable: {_yes_no(report.get('reachable'))}",
+        ],
+    )
