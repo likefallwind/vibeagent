@@ -10,7 +10,14 @@ def format_session_verification_report_text(report: dict[str, object]) -> str:
         fallback = f"Session not found: {session}" if session else "No sessions found."
         return str(report.get("message") or fallback)
 
-    lines = ["Session verification:"]
+    lines = [
+        "Session verification:",
+        f"  session: {session or '.'}",
+        f"  ready: {'yes' if bool(report.get('ready')) else 'no'}",
+        f"  status: {report.get('status') or 'unknown'}",
+    ]
+    if report.get("message"):
+        lines.append(f"  message: {report.get('message')}")
     truncated = bool(report.get("truncated"))
     for key, label in (("verified", "verified"), ("pending", "pendingChecks"), ("failed", "failedChecks")):
         group = report.get(key) if isinstance(report.get(key), dict) else {}
