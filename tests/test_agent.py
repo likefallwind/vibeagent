@@ -10038,6 +10038,51 @@ class AgentTests(unittest.TestCase):
         self.assertIn("rerun run_session_verification", instruction)
         self.assertIn("before finishing", instruction)
 
+    def test_next_action_instruction_guides_run_session_verification_source_issues_without_failed_exit(self) -> None:
+        observation = RunSessionVerificationObservation(
+            kind="run_session_verification",
+            run_id="run-1",
+            ok=False,
+            selected_commands=[{"command": "npm test", "cwd": ".", "status": "pending"}],
+            selected_count=1,
+            pending_count=1,
+            failed_count=0,
+            results=[
+                CommandResult(
+                    command="npm test",
+                    exit_code=0,
+                    stdout="tests/test_agent.py:42: warning: suspicious assertion\n",
+                    stderr="",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                    output_diagnostics=[
+                        OutputDiagnostic(
+                            severity="warning",
+                            output_line=1,
+                            text="suspicious assertion",
+                            path="tests/test_agent.py",
+                            line=42,
+                            column=None,
+                        )
+                    ],
+                    output_diagnostic_total=1,
+                )
+            ],
+            stopped_early=False,
+            message="Ran 1/1 session verification command(s); one or more failed or produced source-linked output diagnostics.",
+        )
+
+        instruction = get_next_action_instruction("resume verification", [observation])
+
+        self.assertIn("source-linked output issue", instruction)
+        self.assertIn("tests/test_agent.py:42 warning: suspicious assertion", instruction)
+        self.assertIn("Inspect or edit the referenced source", instruction)
+        self.assertIn("rerun run_session_verification", instruction)
+        self.assertIn("session_verification", instruction)
+        self.assertIn("before finishing", instruction)
+        self.assertNotIn("could not confirm the recorded checks passed", instruction)
+
     def test_next_action_instruction_guides_successful_run_session_verification_to_audit(self) -> None:
         observation = RunSessionVerificationObservation(
             kind="run_session_verification",

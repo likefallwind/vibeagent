@@ -145,6 +145,19 @@ def run_session_verification_next_action_instruction(base: str, latest: Observat
             f"fix the issue(s), then rerun run_session_verification or session_verification before finishing: "
             f"{format_next_action_items(failed_commands)}.{not_run_text}"
         )
+    if selected_count > 0 and not getattr(latest, "ok", False):
+        output_issues = command_result_output_issue_labels(results, failed_only=False)
+        if output_issues:
+            not_run_text = not_run_detail(not_run_session_verification_labels(latest))
+            return inline_output_issue_instruction(
+                base,
+                "run_session_verification reran recorded verification check(s) and found source-linked output issue(s) without a failed exit code.",
+                output_issues,
+                (
+                    "inspect or edit the referenced source, then rerun run_session_verification or session_verification "
+                    f"before finishing.{not_run_text}"
+                ),
+            )
     if selected_count > 0 and getattr(latest, "ok", False):
         output_issues = command_result_output_issue_labels(results, failed_only=False)
         if output_issues:
