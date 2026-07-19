@@ -10,6 +10,7 @@ from vibeagent.cli_one_shot_output import (
     build_one_shot_chat_payload,
     build_one_shot_code_payload,
     build_one_shot_error_payload,
+    emit_one_shot_error,
     emit_one_shot_chat_payload,
     emit_one_shot_code_payload,
     one_shot_code_exit_code,
@@ -55,6 +56,67 @@ class CliOneShotOutputTests(unittest.TestCase):
         self.assertNotIn("exit_code", payload)
         self.assertNotIn("durationMs", payload)
         self.assertNotIn("duration_ms", payload)
+
+    def test_emit_error_uses_stream_when_available(self) -> None:
+        emitted: list[dict[str, object]] = []
+
+        class Stream:
+            def result(self, value):
+                emitted.append(value)
+
+        exit_code = emit_one_shot_error(
+            "Interrupted.",
+            stream=Stream(),
+            output_json=False,
+            machine_output=True,
+            elapsed_ms=99,
+            kind="interrupted",
+            status="interrupted",
+            exit_code=130,
+            print_output_func=lambda value, output_json: self.fail("printed instead of streamed"),
+            print_error_result_func=lambda *args, **kwargs: self.fail("printed error instead of streamed"),
+        )
+
+        self.assertEqual(exit_code, 130)
+        self.assertEqual(emitted[0]["kind"], "interrupted")
+        self.assertEqual(emitted[0]["status"], "interrupted")
+        self.assertEqual(emitted[0]["exitCode"], 130)
+        self.assertEqual(emitted[0]["durationMs"], 99)
+
+    def test_emit_error_prints_json_payload(self) -> None:
+        calls: list[tuple[dict[str, object], bool]] = []
+
+        exit_code = emit_one_shot_error(
+            "Invalid input.",
+            stream=None,
+            output_json=True,
+            machine_output=True,
+            elapsed_ms=42,
+            exit_code=2,
+            print_output_func=lambda value, output_json: calls.append((value, output_json)),
+            print_error_result_func=lambda *args, **kwargs: self.fail("printed text error instead of json"),
+        )
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(calls[0][1], True)
+        self.assertEqual(calls[0][0]["error"], "Invalid input.")
+        self.assertEqual(calls[0][0]["exitCode"], 2)
+
+    def test_emit_error_prints_text_error_without_machine_fields(self) -> None:
+        calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+        exit_code = emit_one_shot_error(
+            "No task provided.",
+            stream=None,
+            output_json=False,
+            machine_output=False,
+            elapsed_ms=42,
+            print_output_func=lambda value, output_json: self.fail("printed payload instead of text error"),
+            print_error_result_func=lambda *args, **kwargs: calls.append((args, kwargs)) or 1,
+        )
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(calls, [(("No task provided.", False), {"exit_code": 1})])
 
     def test_chat_payload_adds_turn_count_and_duration_for_machine_output(self) -> None:
         payload = build_one_shot_chat_payload("hello", machine_output=True, elapsed_ms=7)

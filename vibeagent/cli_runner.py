@@ -19,7 +19,7 @@ from .cli_one_shot_input import (
 from .cli_one_shot_output import (
     build_one_shot_chat_payload,
     build_one_shot_code_payload,
-    build_one_shot_error_payload,
+    emit_one_shot_error,
     emit_one_shot_chat_payload,
     emit_one_shot_code_payload,
     one_shot_code_exit_code,
@@ -29,7 +29,6 @@ from .cli_output import (
     format_error,
     print_error_result,
     print_interrupted_result,
-    print_output,
 )
 from .cli_output_mode import resolve_cli_output_mode
 from .cli_stream_output import JsonEventStream
@@ -88,21 +87,16 @@ def run_one_shot(
     stream = JsonEventStream() if output_mode.stream_json else None
 
     def emit_error(error: str, *, kind: str = "error", status: str = "failed", exit_code: int = 1) -> int:
-        payload = build_one_shot_error_payload(
+        return emit_one_shot_error(
             error,
+            stream=stream,
+            output_json=output_json,
             machine_output=output_mode.machine,
             elapsed_ms=elapsed_milliseconds(started_at),
             kind=kind,
             status=status,
             exit_code=exit_code,
         )
-        if stream is not None:
-            stream.result(payload)
-            return exit_code
-        if output_json:
-            print_output(payload, True)
-            return exit_code
-        return print_error_result(error, output_json, exit_code=exit_code)
 
     try:
         if not task.strip():

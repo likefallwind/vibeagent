@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .agent_result import AgentResult
 from .cli_machine_output import add_duration_fields
-from .cli_output import print_agent_result, print_output
+from .cli_output import print_agent_result, print_error_result, print_output
 from .cli_result_payloads import (
     build_chat_result_payload,
     build_code_result_payload,
@@ -30,6 +30,36 @@ def build_one_shot_error_payload(
     if machine_output:
         add_duration_fields(payload, elapsed_ms)
     return payload
+
+
+def emit_one_shot_error(
+    error: str,
+    *,
+    stream: JsonEventStream | None,
+    output_json: bool,
+    machine_output: bool,
+    elapsed_ms: int,
+    kind: str = "error",
+    status: str = "failed",
+    exit_code: int = 1,
+    print_output_func: Callable[[dict[str, object], bool], None] = print_output,
+    print_error_result_func: Callable[..., int] = print_error_result,
+) -> int:
+    payload = build_one_shot_error_payload(
+        error,
+        machine_output=machine_output,
+        elapsed_ms=elapsed_ms,
+        kind=kind,
+        status=status,
+        exit_code=exit_code,
+    )
+    if stream is not None:
+        stream.result(payload)
+        return exit_code
+    if output_json:
+        print_output_func(payload, True)
+        return exit_code
+    return print_error_result_func(error, output_json, exit_code=exit_code)
 
 
 def build_one_shot_chat_payload(
