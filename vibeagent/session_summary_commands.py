@@ -12,18 +12,16 @@ from .session import (
     summarize_session,
 )
 from .session_input import normalize_optional_run_id
+from .session_summary_formatting import (
+    append_completion_detail_lines as _append_completion_detail_lines,
+    clip as _clip,
+    format_final_review_changed_file_lines as _format_final_review_changed_file_lines,
+    format_name_counts as _format_name_counts,
+    format_session_report_failure_lines as _format_session_report_failure_lines,
+)
 
 SESSION_USAGE = "Usage: /session <run-id>"
 SESSION_SEARCH_USAGE = "Usage: /session-search [--run run-id] <query>"
-
-
-def _clip(value: str, max_length: int) -> str:
-    compacted = value.strip()
-    if len(compacted) <= max_length:
-        return compacted
-    if max_length <= 3:
-        return compacted[:max_length]
-    return compacted[: max_length - 3] + "..."
 
 
 def get_session_text(run_id: str | None, project_root: str | Path = ".") -> str:
@@ -166,85 +164,6 @@ def format_session_summary_report_text(report: dict[str, object]) -> str:
     if report.get("finalMessage"):
         lines.append(f"  final: {_clip(str(report.get('finalMessage')), 500)}")
     return "\n".join(lines)
-
-
-def _format_name_counts(values: list[str]) -> list[str]:
-    counts: dict[str, int] = {}
-    for value in values:
-        counts[value] = counts.get(value, 0) + 1
-    return [f"{name} x{count}" if count > 1 else name for name, count in counts.items()]
-
-
-def _format_session_report_failure_lines(report: dict[str, object], indent: str = "  ", max_text: int = 160) -> list[str]:
-    python_failures = report.get("pythonFailures") if isinstance(report.get("pythonFailures"), list) else []
-    config_failures = report.get("configFailures") if isinstance(report.get("configFailures"), list) else []
-    failures = [
-        ("python", item)
-        for item in python_failures
-        if isinstance(item, str)
-    ] + [
-        ("config", item)
-        for item in config_failures
-        if isinstance(item, str)
-    ]
-    if not failures:
-        return []
-    lines = [f"{indent}finalReviewFailures:"]
-    lines.extend(f"{indent}  - {kind}: {_clip(item, max_text)}" for kind, item in failures[:20])
-    if len(failures) > 20:
-        lines.append(f"{indent}  - ... {len(failures) - 20} more")
-    return lines
-
-
-def _format_final_review_changed_file_lines(report: dict[str, object], indent: str = "  ", max_text: int = 160) -> list[str]:
-    changed_files = report.get("changedFiles") if isinstance(report.get("changedFiles"), list) else []
-    labels = [item for item in changed_files if isinstance(item, str) and item.strip()]
-    if not labels:
-        return []
-    lines = [f"{indent}finalReviewChangedFiles:"]
-    lines.extend(f"{indent}  - {_clip(item, max_text)}" for item in labels[:20])
-    if len(labels) > 20:
-        lines.append(f"{indent}  - ... {len(labels) - 20} more")
-    return lines
-
-
-def _append_completion_detail_lines(
-    lines: list[str],
-    completion: dict[str, object],
-    indent: str = "    ",
-    max_text: int = 160,
-) -> None:
-    fields = (
-        ("latestPendingVerificationChecks", "latestCompletionPendingChecks"),
-        ("latestFailedVerificationChecks", "latestCompletionFailedChecks"),
-        ("latestFinalReviewBlockingIssues", "latestCompletionFinalReviewIssues"),
-        ("latestFinalReviewChangedFiles", "latestCompletionFinalReviewChangedFiles"),
-        ("latestToolErrors", "latestCompletionToolErrors"),
-        ("latestCheckpointFailures", "latestCompletionCheckpointFailures"),
-        ("latestActiveBackgroundProcesses", "latestCompletionActiveProcesses"),
-        ("latestDeniedApprovals", "latestCompletionDeniedApprovals"),
-    )
-    for key, label in fields:
-        values = completion.get(key)
-        items = [item for item in values if isinstance(item, str) and item.strip()] if isinstance(values, list) else []
-        _append_limited_bullets(lines, label, items, indent=indent, max_text=max_text, limit=10)
-
-
-def _append_limited_bullets(
-    lines: list[str],
-    label: str,
-    items: list[str],
-    *,
-    indent: str,
-    max_text: int,
-    limit: int,
-) -> None:
-    if not items:
-        return
-    lines.append(f"{indent}{label}:")
-    lines.extend(f"{indent}  - {_clip(item, max_text)}" for item in items[:limit])
-    if len(items) > limit:
-        lines.append(f"{indent}  - ... {len(items) - limit} more")
 
 
 def get_last_session_text(project_root: str | Path = ".") -> str:
