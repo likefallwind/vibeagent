@@ -65,6 +65,7 @@ def append_completion_detail_lines(
         ("latestCheckpointFailures", "latestCompletionCheckpointFailures"),
         ("latestActiveBackgroundProcesses", "latestCompletionActiveProcesses"),
         ("latestDeniedApprovals", "latestCompletionDeniedApprovals"),
+        ("latestNextActions", "latestCompletionNextActions"),
     )
     for key, label in fields:
         values = completion.get(key)

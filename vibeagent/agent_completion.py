@@ -113,6 +113,7 @@ def build_completion_blocker_details(
     success: bool,
     observations: list[Observation],
     verification_status: VerificationStatus | None = None,
+    blockers: list[str] | None = None,
 ) -> dict[str, list[str]]:
     details: dict[str, list[str]] = {}
     _, pending_verification_checks, failed_verification_checks = resolve_completion_verification_status(
@@ -142,6 +143,10 @@ def build_completion_blocker_details(
     denied_approvals = build_denied_approval_details(observations)
     if denied_approvals:
         details["deniedApprovals"] = denied_approvals
+    blocker_values = blockers if blockers is not None else build_completion_blockers(success, observations, [], verification_status)
+    next_actions = completion_blocked_next_actions(blocker_values, details) if blocker_values else []
+    if next_actions:
+        details["nextActions"] = next_actions
     return details
 
 def build_completion_warnings(

@@ -2611,6 +2611,13 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result.latest_completion_pending_verification_checks, ["python -m unittest discover -s tests"])
         self.assertEqual(result.latest_completion_failed_verification_checks, [])
         self.assertEqual(result.latest_completion_final_review_changed_files, ["?? src/app.py", "?? tests/test_sample.py"])
+        self.assertEqual(
+            result.latest_completion_next_actions,
+            [
+                "Use run_session_verification to run pending recorded checks before trying to finish again.",
+                "Inspect changed or failing files with read_file_context or git_diff_contexts, fix blockers, then rerun final_review.",
+            ],
+        )
         self.assertEqual(len(blocked_events), 1)
         self.assertEqual(
             blocked_events[0]["details"],
@@ -2618,6 +2625,10 @@ class AgentTests(unittest.TestCase):
                 "pendingVerificationChecks": ["python -m unittest discover -s tests"],
                 "finalReviewBlockingIssues": ["Suggested verification checks are still pending after the latest project change."],
                 "finalReviewChangedFiles": ["?? src/app.py", "?? tests/test_sample.py"],
+                "nextActions": [
+                    "Use run_session_verification to run pending recorded checks before trying to finish again.",
+                    "Inspect changed or failing files with read_file_context or git_diff_contexts, fix blockers, then rerun final_review.",
+                ],
             },
         )
         self.assertTrue(any("Pending verification checks:\n- python -m unittest discover -s tests" in message for message in feedback_messages))

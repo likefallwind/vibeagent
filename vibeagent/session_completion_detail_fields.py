@@ -54,6 +54,12 @@ SESSION_COMPLETION_DETAIL_FIELDS = (
         report_key="latestDeniedApprovals",
         prompt_label="latestCompletionDeniedApproval",
     ),
+    SessionCompletionDetailField(
+        attr="latest_completion_next_actions",
+        report_key="latestNextActions",
+        prompt_label="latestCompletionNextAction",
+        blocker_signal=False,
+    ),
 )
 
 

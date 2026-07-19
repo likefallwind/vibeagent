@@ -53,7 +53,7 @@ def completion_blocked_feedback_if_needed(
     blockers = build_completion_blockers(success, observations, plan, verification_status)
     if not blockers:
         return None
-    details = build_completion_blocker_details(success, observations, verification_status)
+    details = build_completion_blocker_details(success, observations, verification_status, blockers)
     append_session_event(
         workspace.session_dir,
         "completion_blocked",
@@ -95,7 +95,7 @@ def finish_agent_run(
     completion_ready = success and not completion_blockers
     result_status = session_result_status(success, completion_ready)
     completion_warnings = build_completion_warnings(success, observations, plan, verification_status)
-    completion_details = build_completion_blocker_details(success, observations, verification_status)
+    completion_details = build_completion_blocker_details(success, observations, verification_status, completion_blockers)
     verification_checks, pending_verification_checks, failed_verification_checks = resolve_completion_verification_status(
         success,
         observations,
@@ -150,6 +150,7 @@ def finish_agent_run(
         latest_completion_checkpoint_failures=session_summary.latest_completion_checkpoint_failures,
         latest_completion_active_background_processes=session_summary.latest_completion_active_background_processes,
         latest_completion_denied_approvals=session_summary.latest_completion_denied_approvals,
+        latest_completion_next_actions=session_summary.latest_completion_next_actions,
         final_review_changed_files=session_summary.final_review_changed_files,
     )
 

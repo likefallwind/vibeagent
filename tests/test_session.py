@@ -558,6 +558,7 @@ class SessionTests(unittest.TestCase):
                             "checkpointFailures": ["checkpoint_create: git diff failed."],
                             "activeBackgroundProcesses": ["bg-1: pid=123, cwd=web, command=npm run dev"],
                             "deniedApprovals": ["write_file note.txt: Denied by policy."],
+                            "nextActions": ["Use run_session_verification to run pending recorded checks before trying to finish again."],
                         },
                         "verification_checks": ["python -m unittest discover -s tests"],
                         "pending_verification_checks": ["npm test"],
@@ -590,6 +591,7 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(summary.latest_completion_checkpoint_failures, ["checkpoint_create: git diff failed."])
         self.assertEqual(summary.latest_completion_active_background_processes, ["bg-1: pid=123, cwd=web, command=npm run dev"])
         self.assertEqual(summary.latest_completion_denied_approvals, ["write_file note.txt: Denied by policy."])
+        self.assertEqual(summary.latest_completion_next_actions, ["Use run_session_verification to run pending recorded checks before trying to finish again."])
         self.assertEqual(summary.verification_checks, ["python -m unittest discover -s tests"])
         self.assertEqual(summary.pending_verification_checks, ["npm test"])
         self.assertEqual(summary.failed_verification_checks, ["npm test (exit=1)"])
@@ -608,13 +610,21 @@ class SessionTests(unittest.TestCase):
         self.assertIn("latestCompletionCheckpointFailures:", text)
         self.assertIn("latestCompletionActiveProcesses:", text)
         self.assertIn("latestCompletionDeniedApprovals:", text)
+        self.assertIn("latestCompletionNextActions:", text)
+        self.assertIn("Use run_session_verification to run pending recorded checks before trying to finish again.", text)
         self.assertNotIn("completionBlocked:", audit)
         self.assertIn("latestCompletionToolErrors:", audit)
         self.assertIn("latestCompletionDeniedApprovals:", audit)
+        self.assertIn("latestCompletionNextActions:", audit)
+        self.assertIn("Use run_session_verification to run pending recorded checks before trying to finish again.", audit)
         self.assertIn("latestCompletionToolErrors:", handoff)
         self.assertIn("latestCompletionDeniedApprovals:", handoff)
+        self.assertIn("latestCompletionNextActions:", handoff)
+        self.assertIn("Use run_session_verification to run pending recorded checks before trying to finish again.", handoff)
         self.assertIn("latestCompletionToolErrors:", resume)
         self.assertIn("latestCompletionDeniedApprovals:", resume)
+        self.assertIn("latestCompletionNextActions:", resume)
+        self.assertIn("Use run_session_verification to run pending recorded checks before trying to finish again.", resume)
         self.assertIn("verified:", text)
         self.assertIn("python -m unittest discover -s tests", text)
         self.assertIn("pendingChecks:", text)
@@ -647,6 +657,7 @@ class SessionTests(unittest.TestCase):
                             "checkpointFailures": ["checkpoint_create: git diff failed."],
                             "activeBackgroundProcesses": ["bg-1: pid=123, cwd=web, command=npm run dev"],
                             "deniedApprovals": ["write_file note.txt: Denied by policy."],
+                            "nextActions": ["Use update_plan to mark completed items."],
                         },
                     },
                     {
@@ -681,12 +692,14 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(summary.latest_completion_checkpoint_failures, ["checkpoint_create: git diff failed."])
         self.assertEqual(summary.latest_completion_active_background_processes, ["bg-1: pid=123, cwd=web, command=npm run dev"])
         self.assertEqual(summary.latest_completion_denied_approvals, ["write_file note.txt: Denied by policy."])
+        self.assertEqual(summary.latest_completion_next_actions, ["Use update_plan to mark completed items."])
         self.assertEqual(report["completion"]["latestFinalReviewBlockingIssues"], ["Changed Python files have syntax errors."])
         self.assertEqual(report["completion"]["latestFinalReviewChangedFiles"], ["M app.py"])
         self.assertEqual(report["completion"]["latestToolErrors"], ["read_file: Tool execution failed: boom"])
         self.assertEqual(report["completion"]["latestCheckpointFailures"], ["checkpoint_create: git diff failed."])
         self.assertEqual(report["completion"]["latestActiveBackgroundProcesses"], ["bg-1: pid=123, cwd=web, command=npm run dev"])
         self.assertEqual(report["completion"]["latestDeniedApprovals"], ["write_file note.txt: Denied by policy."])
+        self.assertEqual(report["completion"]["latestNextActions"], ["Use update_plan to mark completed items."])
         self.assertIn("completionBlocked: 1", text)
         self.assertIn("latestCompletionBlockers:", text)
         self.assertIn("Task plan still has unfinished item(s): 1 in_progress.", text)

@@ -82,6 +82,7 @@ class SessionSummary:
     latest_completion_checkpoint_failures: list[str] = field(default_factory=list)
     latest_completion_active_background_processes: list[str] = field(default_factory=list)
     latest_completion_denied_approvals: list[str] = field(default_factory=list)
+    latest_completion_next_actions: list[str] = field(default_factory=list)
     completion_warnings: list[str] = field(default_factory=list)
     verification_checks: list[str] = field(default_factory=list)
     pending_verification_checks: list[str] = field(default_factory=list)
@@ -94,4 +95,3 @@ class SessionSummary:
     latest_model_error: str | None = None
     background_processes_started: int = 0
     active_background_processes: list[SessionProcessInfo] = field(default_factory=list)
-

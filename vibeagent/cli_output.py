@@ -79,6 +79,7 @@ def print_agent_result(result: AgentResult) -> None:
     print_item_section("Latest checkpoint failures:", result.latest_completion_checkpoint_failures)
     print_item_section("Latest active processes:", result.latest_completion_active_background_processes)
     print_item_section("Latest denied approvals:", result.latest_completion_denied_approvals)
+    print_item_section("Latest next actions:", result.latest_completion_next_actions)
 
 
 def print_item_section(title: str, items: list[str]) -> None:

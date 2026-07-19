@@ -33,6 +33,7 @@ class AgentResult:
     latest_completion_checkpoint_failures: list[str] = field(default_factory=list)
     latest_completion_active_background_processes: list[str] = field(default_factory=list)
     latest_completion_denied_approvals: list[str] = field(default_factory=list)
+    latest_completion_next_actions: list[str] = field(default_factory=list)
     final_review_changed_files: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:

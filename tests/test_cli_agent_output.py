@@ -78,6 +78,7 @@ class CliAgentOutputTests(unittest.TestCase):
                 latest_completion_checkpoint_failures=["checkpoint_create: git diff failed."],
                 latest_completion_active_background_processes=["bg-1: pid=123, cwd=web, command=npm run dev"],
                 latest_completion_denied_approvals=["write_file note.txt: denied"],
+                latest_completion_next_actions=["Use run_session_verification to run pending recorded checks."],
                 final_review_changed_files=["M app.py", "A tests/test_app.py"],
             )
             stdout = io.StringIO()
@@ -117,6 +118,8 @@ class CliAgentOutputTests(unittest.TestCase):
         self.assertIn("bg-1: pid=123, cwd=web, command=npm run dev", stdout.getvalue())
         self.assertIn("Latest denied approvals:", stdout.getvalue())
         self.assertIn("write_file note.txt: denied", stdout.getvalue())
+        self.assertIn("Latest next actions:", stdout.getvalue())
+        self.assertIn("Use run_session_verification to run pending recorded checks.", stdout.getvalue())
 
 
 if __name__ == "__main__":

@@ -67,6 +67,7 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
     latest_completion_checkpoint_failures: list[str] = []
     latest_completion_active_background_processes: list[str] = []
     latest_completion_denied_approvals: list[str] = []
+    latest_completion_next_actions: list[str] = []
     completion_warnings: list[str] = []
     verification_checks: list[str] = []
     pending_verification_checks: list[str] = []
@@ -134,6 +135,7 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
                     latest_completion_checkpoint_failures,
                     latest_completion_active_background_processes,
                     latest_completion_denied_approvals,
+                    latest_completion_next_actions,
                 ) = parse_completion_detail_lists(details)
             else:
                 latest_completion_pending_verification_checks = []
@@ -144,6 +146,7 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
                 latest_completion_checkpoint_failures = []
                 latest_completion_active_background_processes = []
                 latest_completion_denied_approvals = []
+                latest_completion_next_actions = []
         elif event.type == "tool_result":
             result = event.payload.get("result")
             if isinstance(result, dict):
@@ -219,6 +222,7 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
                     result_checkpoint_failures,
                     result_active_background_processes,
                     result_denied_approvals,
+                    result_next_actions,
                 ) = parse_completion_detail_lists(result_details)
                 if result_pending_checks:
                     latest_completion_pending_verification_checks = result_pending_checks
@@ -236,6 +240,8 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
                     latest_completion_active_background_processes = result_active_background_processes
                 if result_denied_approvals:
                     latest_completion_denied_approvals = result_denied_approvals
+                if result_next_actions:
+                    latest_completion_next_actions = result_next_actions
             result_checks = event.payload.get("verification_checks")
             if isinstance(result_checks, list):
                 verification_payload_seen = True
@@ -316,6 +322,7 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
         latest_completion_checkpoint_failures=latest_completion_checkpoint_failures,
         latest_completion_active_background_processes=latest_completion_active_background_processes,
         latest_completion_denied_approvals=latest_completion_denied_approvals,
+        latest_completion_next_actions=latest_completion_next_actions,
         completion_warnings=completion_warnings,
         verification_checks=verification_checks,
         pending_verification_checks=pending_verification_checks,
@@ -340,6 +347,7 @@ def parse_completion_detail_lists(details: dict[object, object]) -> tuple[
     list[str],
     list[str],
     list[str],
+    list[str],
 ]:
     return (
         parse_string_list(details.get("pendingVerificationChecks")),
@@ -350,6 +358,7 @@ def parse_completion_detail_lists(details: dict[object, object]) -> tuple[
         parse_string_list(details.get("checkpointFailures")),
         parse_string_list(details.get("activeBackgroundProcesses")),
         parse_string_list(details.get("deniedApprovals")),
+        parse_string_list(details.get("nextActions")),
     )
 
 

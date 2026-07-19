@@ -103,6 +103,7 @@ def build_session_summary_report(summary: SessionSummary, max_text: int = 500) -
             "latestCheckpointFailures": summary.latest_completion_checkpoint_failures,
             "latestActiveBackgroundProcesses": summary.latest_completion_active_background_processes,
             "latestDeniedApprovals": summary.latest_completion_denied_approvals,
+            "latestNextActions": summary.latest_completion_next_actions,
             "warnings": summary.completion_warnings,
         },
         "verification": {
@@ -356,6 +357,7 @@ def format_latest_completion_detail_lines(
         ("latestCompletionCheckpointFailures", summary.latest_completion_checkpoint_failures),
         ("latestCompletionActiveProcesses", summary.latest_completion_active_background_processes),
         ("latestCompletionDeniedApprovals", summary.latest_completion_denied_approvals),
+        ("latestCompletionNextActions", summary.latest_completion_next_actions),
     ]
     for title, items in sections:
         append_bulleted_section(lines, title, items, indent=indent, max_text=max_text)

@@ -1190,6 +1190,7 @@ class CliOneShotTests(unittest.TestCase):
                 latest_completion_checkpoint_failures=["checkpoint_create: git diff failed."],
                 latest_completion_active_background_processes=["bg-1: pid=123, cwd=web, command=npm run dev"],
                 latest_completion_denied_approvals=["write_file note.txt: denied"],
+                latest_completion_next_actions=["Use run_session_verification to run pending recorded checks."],
                 final_review_changed_files=["M app.py"],
             )
             stdout = io.StringIO()
@@ -1256,6 +1257,8 @@ class CliOneShotTests(unittest.TestCase):
         self.assertEqual(payload["latest_completion_active_processes"], payload["latestCompletionActiveProcesses"])
         self.assertEqual(payload["latestCompletionDeniedApprovals"], ["write_file note.txt: denied"])
         self.assertEqual(payload["latest_completion_denied_approvals"], payload["latestCompletionDeniedApprovals"])
+        self.assertEqual(payload["latestCompletionNextActions"], ["Use run_session_verification to run pending recorded checks."])
+        self.assertEqual(payload["latest_completion_next_actions"], payload["latestCompletionNextActions"])
         self.assertEqual(payload["changedFiles"], ["M app.py"])
         self.assertEqual(payload["changed_files"], payload["changedFiles"])
         self.assertEqual(payload["verificationChecks"], ["python -m unittest discover -s tests"])

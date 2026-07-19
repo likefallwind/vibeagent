@@ -164,6 +164,10 @@ def build_session_audit_report_from_parts(
                 compact(approval, max_text)
                 for approval in summary.latest_completion_denied_approvals
             ],
+            "latestNextActions": [
+                compact(action, max_text)
+                for action in summary.latest_completion_next_actions
+            ],
             "warnings": [compact(warning, max_text) for warning in summary.completion_warnings],
         },
         "verification": {
