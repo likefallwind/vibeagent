@@ -22,7 +22,7 @@ from .workflow_checkpoint_utils import (
     resolve_checkpoint_dir,
     short_head,
 )
-from .workflow_diff_commands import clip_with_flag
+from .workflow_diff_utils import clip_with_flag
 from .workflow_review_formatting import filter_handoff_status
 from .workspace import read_git_diff, read_git_status
 
