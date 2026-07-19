@@ -6748,6 +6748,56 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Session verification is complete", instruction)
         self.assertIn("answer directly", instruction)
 
+    def test_next_action_instruction_guides_blocked_session_verification_without_selected_commands(self) -> None:
+        observation = SessionVerificationObservation(
+            kind="session_verification",
+            run_id="run-1",
+            ok=True,
+            verification="Session verification:\n  ready: no\n  status: blocked",
+            verified_commands=[],
+            pending_commands=[],
+            failed_commands=[],
+            verified_count=0,
+            pending_count=0,
+            failed_count=0,
+            verification_truncated=False,
+            message="Session verification is blocked.",
+            ready=False,
+            status="blocked",
+        )
+
+        instruction = get_next_action_instruction("resume and finish verification", [observation])
+
+        self.assertIn("readiness is blocked", instruction)
+        self.assertIn("session_audit", instruction)
+        self.assertIn("final_review", instruction)
+        self.assertIn("rerun session_verification before finishing", instruction)
+        self.assertNotIn("Session verification is complete", instruction)
+        self.assertNotIn("readiness is complete", instruction)
+
+    def test_next_action_instruction_guides_explicit_ready_session_verification_to_finish(self) -> None:
+        observation = SessionVerificationObservation(
+            kind="session_verification",
+            run_id="run-1",
+            ok=True,
+            verification="Session verification:\n  ready: yes\n  status: ready",
+            verified_commands=[],
+            pending_commands=[],
+            failed_commands=[],
+            verified_count=0,
+            pending_count=0,
+            failed_count=0,
+            verification_truncated=False,
+            message="Session verification is ready.",
+            ready=True,
+            status="ready",
+        )
+
+        instruction = get_next_action_instruction("resume and finish verification", [observation])
+
+        self.assertIn("Session verification reports readiness is complete", instruction)
+        self.assertIn("answer directly", instruction)
+
     def test_next_action_instruction_guides_session_audit_active_processes(self) -> None:
         observation = SessionAuditObservation(
             kind="session_audit",

@@ -112,6 +112,8 @@ def _session_commands_next_action_instruction(base: str, latest: Observation) ->
 def _session_verification_next_action_instruction(base: str, latest: Observation) -> str:
     failed = verification_command_labels(getattr(latest, "failed_commands", []))
     pending = verification_command_labels(getattr(latest, "pending_commands", []))
+    ready = getattr(latest, "ready", None)
+    status = str(getattr(latest, "status", "") or "").strip().lower()
 
     if failed and pending:
         return (
@@ -134,6 +136,19 @@ def _session_verification_next_action_instruction(base: str, latest: Observation
         return (
             f"{base} Session verification reports pending checks. "
             f"Use run_session_verification to run them before finishing: {format_next_action_items(pending)}."
+        )
+
+    if ready is False or status == "blocked":
+        return (
+            f"{base} Session verification reports readiness is blocked, but no failed or pending check command was selected. "
+            "Use session_audit or final_review to inspect the remaining blocker(s), fix them, "
+            "then rerun session_verification before finishing."
+        )
+
+    if ready is True or status == "ready":
+        return (
+            f"{base} Session verification reports readiness is complete. Continue with any remaining requested work, "
+            "or answer directly if the task is complete."
         )
 
     if getattr(latest, "ok", False):
