@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import unittest
 
-from vibeagent.cli_one_shot_setup import resolve_one_shot_project_setup
+from vibeagent.cli_one_shot_setup import resolve_one_shot_project_setup, resolve_one_shot_runtime_setup
+from vibeagent.config import ExecutionConfig
 
 
 class CliOneShotSetupTests(unittest.TestCase):
@@ -70,6 +71,55 @@ class CliOneShotSetupTests(unittest.TestCase):
             )
 
         self.assertEqual(calls, ["mcp"])
+
+    def test_runtime_setup_resolves_execution_config_and_provider_env(self) -> None:
+        root = Path("/project")
+        execution = ExecutionConfig(max_iterations=7, command_timeout_ms=123)
+        provider_env = {"VIBEAGENT_PROVIDER": "minimax"}
+        calls: list[tuple[str, object]] = []
+        provider_args = object()
+
+        def resolve_execution(config_root, **kwargs):
+            calls.append(("execution", (config_root, kwargs)))
+            return execution
+
+        def build_env(args, config_root):
+            calls.append(("provider", (args, config_root)))
+            return provider_env
+
+        setup = resolve_one_shot_runtime_setup(
+            config_root=root,
+            provider_args=provider_args,
+            max_iterations=7,
+            command_timeout_ms=123,
+            max_output_tokens=2048,
+            model_retries=2,
+            model_retry_delay_ms=50,
+            model_timeout_ms=30000,
+            resolve_execution_config_func=resolve_execution,
+            build_provider_env_func=build_env,
+        )
+
+        self.assertIs(setup.execution_config, execution)
+        self.assertIs(setup.provider_env, provider_env)
+        self.assertEqual(
+            calls[0],
+            (
+                "execution",
+                (
+                    root,
+                    {
+                        "max_iterations": 7,
+                        "command_timeout_ms": 123,
+                        "max_output_tokens": 2048,
+                        "model_retries": 2,
+                        "model_retry_delay_ms": 50,
+                        "model_timeout_ms": 30000,
+                    },
+                ),
+            ),
+        )
+        self.assertEqual(calls[1], ("provider", (provider_args, root)))
 
 
 if __name__ == "__main__":

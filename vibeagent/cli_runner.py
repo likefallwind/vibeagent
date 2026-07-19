@@ -6,7 +6,7 @@ from time import monotonic
 
 from .agent import run_agent
 from .chat import run_chat
-from .cli_config import build_provider_env, resolve_project_root
+from .cli_config import resolve_project_root
 from .cli_one_shot_chat import run_one_shot_chat
 from .cli_one_shot_code import run_one_shot_code
 from .cli_one_shot_input import (
@@ -15,7 +15,7 @@ from .cli_one_shot_input import (
     resolve_task_text,
 )
 from .cli_one_shot_output import emit_one_shot_error
-from .cli_one_shot_setup import resolve_one_shot_project_setup
+from .cli_one_shot_setup import resolve_one_shot_project_setup, resolve_one_shot_runtime_setup
 from .cli_output import (
     format_error,
     print_error_result,
@@ -24,7 +24,6 @@ from .cli_output import (
 from .cli_output_mode import resolve_cli_output_mode
 from .cli_stream_output import JsonEventStream
 from .commands import get_compact_context, get_resume_context
-from .config import resolve_execution_config
 from .providers import create_chat_client
 from .types import ApprovalPolicy
 
@@ -104,9 +103,9 @@ def run_one_shot(
         task = project_setup.task
         task_metadata = project_setup.task_metadata
         resolved_mcp_config_paths = project_setup.mcp_config_paths
-        config_root = project_root
-        execution_config = resolve_execution_config(
-            config_root,
+        runtime_setup = resolve_one_shot_runtime_setup(
+            config_root=project_root,
+            provider_args=provider_args,
             max_iterations=max_iterations,
             command_timeout_ms=command_timeout_ms,
             max_output_tokens=max_output_tokens,
@@ -114,7 +113,8 @@ def run_one_shot(
             model_retry_delay_ms=model_retry_delay_ms,
             model_timeout_ms=model_timeout_ms,
         )
-        provider_env = build_provider_env(provider_args, config_root)
+        execution_config = runtime_setup.execution_config
+        provider_env = runtime_setup.provider_env
         if request_mode == "chat":
             return run_one_shot_chat(
                 task,
