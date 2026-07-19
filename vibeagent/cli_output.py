@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 
 from .agent_result import AgentResult
-from .cli_stream_output import JsonEventStream, error_result_payload
+from .cli_result_payloads import error_result_payload
+from .cli_stream_output import JsonEventStream
 from .project_trust import is_project_permissions_trusted, trust_project_permissions
 from .session_approval import SessionApprovalHandler
 from .types import ApprovalDecision, ApprovalHandler, ApprovalPolicy, ApprovalRequest, UserInputRequest

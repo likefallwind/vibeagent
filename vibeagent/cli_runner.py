@@ -24,12 +24,12 @@ from .cli_output import (
     prompt_user_input,
 )
 from .cli_permission_overrides import build_permission_overrides
-from .cli_stream_output import (
-    JsonEventStream,
+from .cli_result_payloads import (
     build_chat_result_payload,
     build_code_result_payload,
     error_result_payload,
 )
+from .cli_stream_output import JsonEventStream
 from .commands import get_compact_context, get_resume_context, parse_local_command
 from .config import resolve_cost_rates, resolve_execution_config
 from .providers import create_chat_client
