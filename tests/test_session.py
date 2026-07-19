@@ -9,6 +9,7 @@ from vibeagent.config import CostRates
 from vibeagent.session import (
     build_session_audit_report,
     build_session_commands_report,
+    build_session_failures_report,
     build_session_summary_report,
     build_session_resume_context,
     format_cost,
@@ -1804,27 +1805,47 @@ class SessionTests(unittest.TestCase):
                         },
                     },
                     {"type": "approval_decision", "iteration": 3, "decision": {"approved": False, "message": "Denied write"}},
+                    {
+                        "type": "subagent_completed",
+                        "iteration": 4,
+                        "result": {
+                            "kind": "delegate_task",
+                            "ok": False,
+                            "task": "Inspect auth SECRET_TASK",
+                            "agent": "reader",
+                            "mode": "explore",
+                            "message": "Subagent reached iteration limit.",
+                        },
+                    },
                     "{bad json",
                 ],
             )
 
-            text = format_session_failures(root, "run-1", max_failures=3, max_text=120)
+            text = format_session_failures(root, "run-1", max_failures=5, max_text=120)
+            report = build_session_failures_report(root, "run-1", max_failures=5, max_text=120)
             missing = format_session_failures(root, "missing")
 
         self.assertIn("Session failures:", text)
         self.assertIn("session: run-1", text)
-        self.assertIn("failures: 4", text)
-        self.assertIn("shown: 3/4", text)
-        self.assertIn("1 older failure(s) omitted", text)
+        self.assertIn("failures: 5", text)
+        self.assertIn("shown: 5/5", text)
         self.assertIn("#2 command: run_command", text)
         self.assertIn("python3 -m unittest", text)
         self.assertIn("exit=1", text)
         self.assertIn("#4 approval: denied", text)
         self.assertIn("target=note.txt", text)
         self.assertIn("preview=Preview passed; diffChars=42", text)
-        self.assertIn("#5 malformed: event", text)
+        self.assertIn("#5 subagent: delegate_task", text)
+        self.assertIn("Subagent reached iteration limit.", text)
+        self.assertIn("task=Inspect auth SECRET_TASK", text)
+        self.assertIn("agent=reader", text)
+        self.assertIn("mode=explore", text)
+        self.assertIn("#6 malformed: event", text)
         self.assertIn("Invalid JSON", text)
         self.assertNotIn("SECRET_CONTENT", text)
+        self.assertEqual(report["failures"]["total"], 5)
+        self.assertEqual(report["failures"]["items"][3]["type"], "subagent")
+        self.assertEqual(report["failures"]["items"][3]["name"], "delegate_task")
         self.assertEqual(missing, "Session not found: missing")
 
     def test_format_session_handoff_reports_safe_recovery_bundle(self) -> None:

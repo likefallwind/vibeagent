@@ -126,6 +126,11 @@ def session_failure_entries(events: list[SessionEvent], max_text: int) -> list[d
             if failure is not None:
                 failures.append(failure)
             continue
+        if event.type == "subagent_completed":
+            failure = subagent_failure_entry(event, max_text=max_text)
+            if failure is not None:
+                failures.append(failure)
+            continue
         if event.type != "tool_result":
             continue
         result = event.payload.get("result")
@@ -225,6 +230,30 @@ def result_failure_detail(blockers: object, max_text: int) -> str:
     if not clean_blockers:
         return ""
     return "completionBlockers=" + compact("; ".join(clean_blockers), max_text)
+
+
+def subagent_failure_entry(event: SessionEvent, max_text: int) -> dict[str, str | int] | None:
+    result = event.payload.get("result")
+    if not isinstance(result, dict) or result.get("ok") is not False:
+        return None
+    message = result.get("message")
+    detail_parts = []
+    task = result.get("task")
+    if isinstance(task, str) and task.strip():
+        detail_parts.append(f"task={compact(task, max_text)}")
+    agent = result.get("agent")
+    if isinstance(agent, str) and agent.strip():
+        detail_parts.append(f"agent={compact(agent, max_text)}")
+    mode = result.get("mode")
+    if isinstance(mode, str) and mode.strip():
+        detail_parts.append(f"mode={compact(mode, max_text)}")
+    return {
+        "line_number": event.line_number,
+        "type": "subagent",
+        "name": "delegate_task",
+        "message": compact(message, max_text) if isinstance(message, str) and message.strip() else "Subagent failed.",
+        "detail": "; ".join(detail_parts),
+    }
 
 
 def tool_result_failure_entries(event: SessionEvent, result: dict[str, Any], max_text: int) -> list[dict[str, str | int]]:
