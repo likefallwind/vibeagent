@@ -275,6 +275,70 @@ class CliSessionVerificationFlagTests(unittest.TestCase):
         get_text.assert_not_called()
         create_chat_client.assert_not_called()
 
+    def test_main_parses_interactive_run_session_verification_limit_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/run-session-verification run-1 --max-checks 2 --timeout-ms 2000 --max-output-chars 3000 --no-failed --continue-on-failure --output-contexts --output-diagnostics --context-lines 2 --max-diagnostics 7 --max-contexts 5 --max-bytes 1000",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_run_session_verification_text", return_value="Run session verification:\n  ok: yes") as get_run_session_verification_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Run session verification:", output)
+        get_run_session_verification_text.assert_called_once_with(
+            run_id="run-1",
+            max_checks=2,
+            timeout_ms=2000,
+            max_output_chars=3000,
+            include_failed=False,
+            stop_on_failure=False,
+            extract_output_contexts=True,
+            extract_output_diagnostics=True,
+            context_lines=2,
+            max_diagnostics=7,
+            max_contexts=5,
+            max_bytes_per_context=1000,
+        )
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_run_session_verification_limit_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/run-session-verification --timeout-ms 99",
+                    "/run-session-verification --context-lines -1",
+                    "/run-session-verification --output-contexts=true",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_run_session_verification_text") as get_run_session_verification_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /run-session-verification [run-id]", output)
+        self.assertIn("--timeout-ms must be at least 100.", output)
+        self.assertIn("--context-lines must be a non-negative integer.", output)
+        self.assertIn("--output-contexts does not take a value.", output)
+        get_run_session_verification_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
