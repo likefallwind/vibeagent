@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import time
 import unittest
-from contextlib import ExitStack, redirect_stderr, redirect_stdout
+from contextlib import ExitStack, redirect_stdout
 from pathlib import Path
 from unittest.mock import Mock, call, patch
 
@@ -18,8 +18,6 @@ from vibeagent.cli_local_dispatch import LOCAL_FLAG_HANDLER_NAMES, dispatch_loca
 from vibeagent.cli_local_flag_detection import LOCAL_FLAG_ARG_NAMES
 from vibeagent.cli_system_prompt_state import update_system_prompt_state
 from vibeagent.command_namespace_exports import command_export_names
-from vibeagent.tool_categories import valid_tool_categories
-from vibeagent.tool_search_options import tool_search_approval_choices
 from vibeagent.types import ApprovalRequest, PlanItem, TaskStep
 
 
@@ -397,32 +395,6 @@ class CliTests(unittest.TestCase):
                 self.assertEqual(exit_code, 2)
                 self.assertIn("can only be used with one-shot coding tasks", payload["error"])
                 create_chat_client.assert_not_called()
-
-    def test_parse_args_tool_search_category_uses_shared_categories(self) -> None:
-        for category in valid_tool_categories():
-            with self.subTest(category=category):
-                args = cli_module.parse_args(["--tool-search", "read", "--tool-search-category", category])
-                self.assertEqual(args.tool_search_category, category)
-
-        stderr = io.StringIO()
-        with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
-            cli_module.parse_args(["--tool-search", "read", "--tool-search-category", "missing"])
-
-        self.assertEqual(raised.exception.code, 2)
-        self.assertIn("invalid choice: 'missing'", stderr.getvalue())
-
-    def test_parse_args_tool_search_approval_uses_shared_choices(self) -> None:
-        for approval in tool_search_approval_choices():
-            with self.subTest(approval=approval):
-                args = cli_module.parse_args(["--tool-search", "read", "--tool-search-approval", approval])
-                self.assertEqual(args.tool_search_approval, approval)
-
-        stderr = io.StringIO()
-        with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
-            cli_module.parse_args(["--tool-search", "read", "--tool-search-approval", "maybe"])
-
-        self.assertEqual(raised.exception.code, 2)
-        self.assertIn("invalid choice: 'maybe'", stderr.getvalue())
 
     def test_format_error_uses_provider_neutral_401_guidance(self) -> None:
         text = format_error(Http401Error("unauthorized"))

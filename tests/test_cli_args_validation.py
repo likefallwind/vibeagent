@@ -3,6 +3,8 @@ import unittest
 from contextlib import redirect_stderr
 
 from vibeagent import cli as cli_module
+from vibeagent.tool_categories import valid_tool_categories
+from vibeagent.tool_search_options import tool_search_approval_choices
 
 
 class CliArgsValidationTests(unittest.TestCase):
@@ -158,6 +160,32 @@ class CliArgsValidationTests(unittest.TestCase):
         self.assertEqual(start_args.start_command, "npm run dev")
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("unrecognized arguments: --mod", stderr.getvalue())
+
+    def test_parse_args_tool_search_category_uses_shared_categories(self) -> None:
+        for category in valid_tool_categories():
+            with self.subTest(category=category):
+                args = cli_module.parse_args(["--tool-search", "read", "--tool-search-category", category])
+                self.assertEqual(args.tool_search_category, category)
+
+        stderr = io.StringIO()
+        with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            cli_module.parse_args(["--tool-search", "read", "--tool-search-category", "missing"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("invalid choice: 'missing'", stderr.getvalue())
+
+    def test_parse_args_tool_search_approval_uses_shared_choices(self) -> None:
+        for approval in tool_search_approval_choices():
+            with self.subTest(approval=approval):
+                args = cli_module.parse_args(["--tool-search", "read", "--tool-search-approval", approval])
+                self.assertEqual(args.tool_search_approval, approval)
+
+        stderr = io.StringIO()
+        with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            cli_module.parse_args(["--tool-search", "read", "--tool-search-approval", "maybe"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("invalid choice: 'maybe'", stderr.getvalue())
 
 
 if __name__ == "__main__":
