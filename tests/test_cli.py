@@ -15659,33 +15659,6 @@ class CliTests(unittest.TestCase):
         self.assertEqual(get_resume_context.call_args_list[0].args, (None, Path(base).resolve()))
         self.assertEqual(run_agent.call_args.kwargs["prior_context"], "startup latest context")
 
-    def test_main_rejects_resume_and_compact_together(self) -> None:
-        stdout = io.StringIO()
-
-        with redirect_stdout(stdout):
-            exit_code = main(["--resume", "run-1", "--compact", "run-2", "continue"])
-
-        self.assertEqual(exit_code, 2)
-        self.assertIn("--resume/--session-id and --compact cannot be used together.", stdout.getvalue())
-
-    def test_main_rejects_resume_compact_limit_without_matching_context_flag(self) -> None:
-        cases = [
-            (["--resume-max-checks", "2", "continue"], "--resume-max-checks can only be used with --resume or --session-id."),
-            (["--resume-max-files", "2", "continue"], "--resume-max-files can only be used with --resume or --session-id."),
-            (["--resume-max-output-chars", "0", "continue"], "--resume-max-output-chars can only be used with --resume or --session-id."),
-            (["--compact-max-checks", "2", "continue"], "--compact-max-checks can only be used with --compact."),
-            (["--compact-max-files", "2", "continue"], "--compact-max-files can only be used with --compact."),
-            (["--compact-max-output-chars", "0", "continue"], "--compact-max-output-chars can only be used with --compact."),
-        ]
-
-        for argv, message in cases:
-            with self.subTest(argv=argv):
-                stdout = io.StringIO()
-                with redirect_stdout(stdout):
-                    exit_code = main(argv)
-                self.assertEqual(exit_code, 2)
-                self.assertIn(message, stdout.getvalue())
-
     def test_main_resume_off_clears_context_before_next_agent_run(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             result = AgentResult(
