@@ -9,6 +9,7 @@ from .chat import run_chat
 from .cli_config import build_provider_env, resolve_project_root
 from .cli_mcp_args import resolve_mcp_config_paths
 from .cli_one_shot_agent_kwargs import build_one_shot_agent_kwargs
+from .cli_one_shot_chat import run_one_shot_chat
 from .cli_one_shot_input import (
     build_one_shot_kwargs_from_args,
     combine_optional_text,
@@ -18,10 +19,8 @@ from .cli_one_shot_input import (
     resolve_task_text,
 )
 from .cli_one_shot_output import (
-    build_one_shot_chat_payload,
     build_one_shot_code_payload,
     emit_one_shot_error,
-    emit_one_shot_chat_payload,
     emit_one_shot_code_payload,
     one_shot_code_exit_code,
 )
@@ -126,25 +125,19 @@ def run_one_shot(
         )
         provider_env = build_provider_env(provider_args, config_root)
         if request_mode == "chat":
-            client = create_chat_client_func(provider_env)
-            response = run_chat_func(
+            return run_one_shot_chat(
                 task,
-                client=client,
-                history=[],
-                max_output_tokens=execution_config.max_output_tokens,
-                model_retries=execution_config.model_retries,
-                model_retry_delay_ms=execution_config.model_retry_delay_ms,
-                model_timeout_ms=execution_config.model_timeout_ms,
+                provider_env=provider_env,
+                execution_config=execution_config,
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
-            )
-            payload = build_one_shot_chat_payload(
-                response,
                 machine_output=output_mode.machine,
+                output_json=output_json,
                 elapsed_ms=elapsed_milliseconds(started_at),
+                stream=stream,
+                create_chat_client_func=create_chat_client_func,
+                run_chat_func=run_chat_func,
             )
-            emit_one_shot_chat_payload(payload, stream=stream, output_json=output_json)
-            return 0
 
         prior_context = resolve_one_shot_context_from_limits(
             resume_arg=resume_arg,
