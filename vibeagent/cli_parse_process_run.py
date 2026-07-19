@@ -8,7 +8,7 @@ from .cli_parse_core import (
     parse_interactive_positive_option,
     parse_interactive_timeout_option,
 )
-from .workspace_resolve import resolve_inside_run
+from .cli_process_stdin import read_project_stdin_file
 
 
 def parse_interactive_wait_process_argument(
@@ -151,12 +151,7 @@ def parse_interactive_write_process_argument(
         return None, None, f"{usage}\n  error: text and --stdin-file cannot be used together."
     if stdin_file is not None:
         try:
-            path = resolve_inside_run(project_root, stdin_file)
-            if not path.exists():
-                return None, None, f"{usage}\n  error: --stdin-file does not exist: {stdin_file}"
-            if not path.is_file():
-                return None, None, f"{usage}\n  error: --stdin-file is not a file: {stdin_file}"
-            content = path.read_text(encoding="utf-8")
+            content = read_project_stdin_file(project_root, stdin_file, "--stdin-file")
         except ValueError as error:
             return None, None, f"{usage}\n  error: {error}"
     if content is None or content == "":

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import tempfile
 import unittest
+from pathlib import Path
 
 from vibeagent import cli_parsing
 from vibeagent.cli_parse_core import build_focused_tests_kwargs, parse_cli_json_value, timeout_ms
+from vibeagent.cli_process_stdin import read_project_stdin_file
 from vibeagent.cli_parse_code_intel import (
     parse_interactive_python_call_graph_argument,
     parse_interactive_python_symbol_argument,
@@ -20,7 +23,7 @@ from vibeagent.cli_parse_discovery import (
     parse_interactive_search_argument,
 )
 from vibeagent.cli_parse_diff_git import build_diff_argument, parse_interactive_diff_argument
-from vibeagent.cli_parse_process_run import parse_interactive_wait_process_argument
+from vibeagent.cli_parse_process_run import parse_interactive_wait_process_argument, parse_interactive_write_process_argument
 from vibeagent.cli_parse_runtime_checks import parse_interactive_http_argument, parse_interactive_port_argument
 from vibeagent.cli_parse_read import (
     parse_interactive_read_argument,
@@ -82,6 +85,7 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertIs(cli_parsing.parse_interactive_run_argument, parse_interactive_run_argument)
         self.assertIs(cli_parsing.parse_interactive_run_sequence_argument, parse_interactive_run_sequence_argument)
         self.assertIs(cli_parsing.parse_interactive_wait_process_argument, parse_interactive_wait_process_argument)
+        self.assertIs(cli_parsing.parse_interactive_write_process_argument, parse_interactive_write_process_argument)
         self.assertIs(cli_parsing.parse_interactive_cwd_command_argument, parse_interactive_cwd_command_argument)
         self.assertIs(cli_parsing.parse_interactive_check_run_sequence_argument, parse_cwd_check_run_sequence_argument)
         self.assertIs(cli_parse_run.parse_interactive_wait_process_argument, parse_interactive_wait_process_argument)
@@ -100,6 +104,18 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertEqual(parse_cli_json_value('{"ok": true}'), {"ok": True})
         self.assertEqual(timeout_ms("100"), 100)
         self.assertEqual(build_focused_tests_kwargs(args), {"max_paths": 2, "max_commands": 3})
+
+    def test_process_stdin_file_helper_reads_project_files_only(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-stdin-") as base:
+            root = Path(base)
+            (root / "input.txt").write_text("hello\n", encoding="utf-8")
+            (root / "dir").mkdir()
+
+            self.assertEqual(read_project_stdin_file(root, "input.txt", "--stdin-file"), "hello\n")
+            with self.assertRaisesRegex(ValueError, "--stdin-file is not a file: dir"):
+                read_project_stdin_file(root, "dir", "--stdin-file")
+            with self.assertRaisesRegex(ValueError, "Path escapes the project directory"):
+                read_project_stdin_file(root, "../input.txt", "--stdin-file")
 
     def test_project_suggested_check_kwargs_preserve_cli_defaults(self) -> None:
         args = argparse.Namespace(
