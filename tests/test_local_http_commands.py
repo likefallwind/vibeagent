@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from vibeagent import local_http_commands, local_runtime_commands
+from vibeagent import local_http_commands, local_http_parsing, local_runtime_commands
 
 
 class LocalHttpCommandModuleTests(unittest.TestCase):
@@ -20,6 +20,9 @@ class LocalHttpCommandModuleTests(unittest.TestCase):
         self.assertIs(local_runtime_commands.format_http_fetch_report_text, local_http_commands.format_http_fetch_report_text)
         self.assertIs(local_runtime_commands.parse_http_fetch_request, local_http_commands.parse_http_fetch_request)
         self.assertIs(local_runtime_commands.parse_http_request, local_http_commands.parse_http_request)
+        self.assertIs(local_http_commands.parse_port_request, local_http_parsing.parse_port_request)
+        self.assertIs(local_http_commands.parse_http_fetch_request, local_http_parsing.parse_http_fetch_request)
+        self.assertIs(local_http_commands.parse_http_request, local_http_parsing.parse_http_request)
 
     def test_parsers_keep_validation_behavior(self) -> None:
         self.assertEqual(local_http_commands.parse_port_request("8080 127.0.0.1 200"), (8080, "127.0.0.1", 200))
