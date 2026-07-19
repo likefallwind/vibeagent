@@ -4,7 +4,7 @@ from pathlib import Path
 
 from vibeagent.read_action_executor import execute_read_action
 from vibeagent.read_action_file_observations import execute_read_file_action
-from vibeagent.types import OutputContextsAction, PythonSymbolsAction, ReadFileAction, ReadFilesAction
+from vibeagent.types import FileInfoAction, OutputContextsAction, PythonSymbolsAction, ReadFileAction, ReadFilesAction
 from vibeagent.workspace_core import RunWorkspace
 
 
@@ -33,6 +33,15 @@ class ReadActionFileObservationsTests(unittest.TestCase):
 
             self.assertEqual(execute_read_file_action(workspace, batch), execute_read_action(workspace, batch))
             self.assertEqual(execute_read_file_action(workspace, symbols), execute_read_action(workspace, symbols))
+
+    def test_file_helper_matches_read_executor_for_file_info(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-read-files-") as tmp:
+            root = Path(tmp)
+            (root / "app.py").write_text("print('hello')\n", encoding="utf-8")
+            workspace = self.make_workspace(root)
+            action = FileInfoAction(type="file_info", paths=["app.py", "missing.py"])
+
+            self.assertEqual(execute_read_file_action(workspace, action), execute_read_action(workspace, action))
 
     def test_file_helper_leaves_output_context_actions_to_read_executor(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-read-files-") as tmp:
