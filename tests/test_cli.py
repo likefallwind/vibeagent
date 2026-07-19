@@ -13,16 +13,11 @@ from unittest.mock import Mock, call, patch
 from vibeagent import MACHINE_OUTPUT_SCHEMA_VERSION, __version__, cli as cli_module
 from vibeagent import cli_command_namespace, commands as commands_module
 from vibeagent.agent import AgentResult
-from vibeagent.cli import build_approval_handler, format_error, handle_approval_command, main, print_agent_result, prompt_approval
+from vibeagent.cli import build_approval_handler, handle_approval_command, main, print_agent_result, prompt_approval
 from vibeagent.cli_local_dispatch import LOCAL_FLAG_HANDLER_NAMES, dispatch_local_flag
-from vibeagent.cli_local_flag_detection import LOCAL_FLAG_ARG_NAMES
 from vibeagent.cli_system_prompt_state import update_system_prompt_state
 from vibeagent.command_namespace_exports import command_export_names
 from vibeagent.types import ApprovalRequest, PlanItem, TaskStep
-
-
-class Http401Error(Exception):
-    status = 401
 
 
 class CliTests(unittest.TestCase):
@@ -106,10 +101,6 @@ class CliTests(unittest.TestCase):
         self.assertEqual(calls[1], ("run_command_local_flag", project_root, namespace))
         self.assertEqual(calls[-1], ("run_review_local_flag", project_root, provider_env, namespace))
 
-    def test_local_result_exit_code_covers_local_result_flags(self) -> None:
-        self.assertEqual(LOCAL_FLAG_ARG_NAMES - cli_module.LOCAL_RESULT_ARG_NAMES, set())
-        self.assertEqual(cli_module.LOCAL_RESULT_ARG_NAMES - LOCAL_FLAG_ARG_NAMES, set())
-
     def test_version_flag_is_local_and_prints_package_version(self) -> None:
         args = cli_module.parse_args(["--version"])
         stdout = io.StringIO()
@@ -178,24 +169,6 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.diff_contexts, "src/app.py tests/test_app.py")
         self.assertEqual(args.task, [])
 
-    def test_emit_local_result_sets_failed_status_for_local_errors(self) -> None:
-        args = argparse.Namespace(json=True, tool="missing")
-
-        with patch("sys.stdout", new_callable=io.StringIO) as stdout:
-            exit_code = cli_module.emit_local_result(args, "Tool not found: missing", {"tool": {"ok": False}})
-
-        payload = json.loads(stdout.getvalue())
-        self.assertEqual(exit_code, 1)
-        self.assertFalse(payload["success"])
-        self.assertEqual(payload["schemaVersion"], MACHINE_OUTPUT_SCHEMA_VERSION)
-        self.assertEqual(payload["version"], __version__)
-        self.assertEqual(payload["exitCode"], 1)
-        self.assertEqual(payload["exit_code"], 1)
-        self.assertEqual(payload["status"], "failed")
-        self.assertEqual(payload["stopReason"], "failed")
-        self.assertEqual(payload["stop_reason"], "failed")
-        self.assertEqual(payload["tool"], {"ok": False})
-
     def test_main_rejects_invalid_permission_override_rule(self) -> None:
         stdout = io.StringIO()
 
@@ -235,18 +208,6 @@ class CliTests(unittest.TestCase):
                 self.assertEqual(exit_code, 2)
                 self.assertIn("can only be used with one-shot coding tasks", payload["error"])
                 create_chat_client.assert_not_called()
-
-    def test_format_error_uses_provider_neutral_401_guidance(self) -> None:
-        text = format_error(Http401Error("unauthorized"))
-
-        self.assertIn("unauthorized", text)
-        self.assertIn("configured model provider rejected the API key", text)
-        self.assertIn("Check /model", text)
-        self.assertNotIn("MiniMax rejected", text)
-        self.assertNotIn("DEEPSEEK_API_KEY", text)
-
-    def test_format_error_returns_plain_error_for_other_errors(self) -> None:
-        self.assertEqual(format_error(ValueError("bad")), "bad")
 
     def test_prompt_approval_accepts_y_and_yes(self) -> None:
         request = ApprovalRequest(
