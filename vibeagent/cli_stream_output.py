@@ -72,6 +72,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
     user_input_requests = code_result_user_input_requests(result)
     pending_user_input = code_result_has_pending_user_input(result)
     stop_reason = code_result_stop_reason(result)
+    exit_code = code_result_exit_code(result)
     payload = {
         "kind": "code",
         "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
@@ -80,6 +81,8 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
         "status": result.status,
         "stopReason": stop_reason,
         "stop_reason": stop_reason,
+        "exitCode": exit_code,
+        "exit_code": exit_code,
         "message": result.message,
         "result": result.message,
         "runId": result.run_id,
@@ -125,6 +128,10 @@ def build_chat_result_payload(message: str) -> dict[str, object]:
         "version": __version__,
         "success": True,
         "status": "completed",
+        "exitCode": 0,
+        "exit_code": 0,
+        "stopReason": "completed",
+        "stop_reason": "completed",
         "message": message,
         "result": message,
     }
@@ -136,6 +143,10 @@ def code_result_snake_case_aliases(payload: dict[str, object]) -> dict[str, obje
         for key, alias in CODE_RESULT_SNAKE_CASE_ALIAS_KEYS.items()
         if key in payload and alias not in payload
     }
+
+
+def code_result_exit_code(result: AgentResult) -> int:
+    return 0 if result.success and result.completion_ready else 1
 
 
 def error_result_payload(

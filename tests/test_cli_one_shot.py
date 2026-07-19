@@ -148,6 +148,8 @@ class CliOneShotTests(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["kind"], "code")
+        self.assertEqual(payload["exitCode"], 0)
+        self.assertEqual(payload["exit_code"], 0)
         self.assertEqual(payload["message"], "done")
         self.assertEqual(payload["result"], "done")
 
@@ -200,6 +202,8 @@ class CliOneShotTests(unittest.TestCase):
         self.assertEqual(payload["status"], "blocked")
         self.assertEqual(payload["stopReason"], "blocked")
         self.assertEqual(payload["stop_reason"], "blocked")
+        self.assertEqual(payload["exitCode"], 1)
+        self.assertEqual(payload["exit_code"], 1)
         self.assertEqual(payload["message"], "done")
         self.assertEqual(payload["result"], "done")
         self.assertEqual(payload["runId"], "one-shot")

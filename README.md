@@ -187,7 +187,8 @@ constraints. Both options work in one-shot code and chat modes and are never
 saved to project configuration.
 With `--json`, one-shot coding results include `schemaVersion`, the runtime
 `version`, `status` (`completed`, `blocked`, or `failed`), matching
-`stopReason`, `numTurns`, final text as `message` plus a `result` alias,
+`stopReason`, `exitCode`/`exit_code`, `numTurns`, final text as `message` plus
+a `result` alias,
 `runId` plus a `sessionId` alias, a
 `priorContext` object with loaded/source/run id metadata, structured `plan`
 items,

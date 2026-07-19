@@ -19,6 +19,7 @@ from vibeagent.cli_stream_output import (
     CODE_RESULT_SNAKE_CASE_ALIAS_KEYS,
     build_chat_result_payload,
     build_code_result_payload,
+    code_result_exit_code,
     code_result_snake_case_aliases,
     code_result_stop_reason,
     error_result_payload,
@@ -134,6 +135,8 @@ class CliOutputFormatTests(unittest.TestCase):
         self.assertEqual(payload["status"], "completed")
         self.assertEqual(payload["stopReason"], "completed")
         self.assertEqual(payload["stop_reason"], "completed")
+        self.assertEqual(payload["exitCode"], 0)
+        self.assertEqual(payload["exit_code"], 0)
         self.assertEqual(payload["result"], payload["message"])
         self.assertEqual(payload["numTurns"], 1)
         self.assertEqual(payload["num_turns"], 1)
@@ -489,6 +492,10 @@ class CodeResultPayloadTests(unittest.TestCase):
                 "version": __version__,
                 "success": True,
                 "status": "completed",
+                "exitCode": 0,
+                "exit_code": 0,
+                "stopReason": "completed",
+                "stop_reason": "completed",
                 "message": "hello",
                 "result": "hello",
             },
@@ -526,6 +533,8 @@ class CodeResultPayloadTests(unittest.TestCase):
 
         self.assertEqual(payload["schemaVersion"], MACHINE_OUTPUT_SCHEMA_VERSION)
         self.assertEqual(payload["version"], __version__)
+        self.assertEqual(payload["exitCode"], 0)
+        self.assertEqual(payload["exit_code"], 0)
         self.assertFalse(payload["pendingUserInput"])
         self.assertFalse(payload["pending_user_input"])
         self.assertEqual(payload["userInputRequests"], [])
@@ -558,6 +567,8 @@ class CodeResultPayloadTests(unittest.TestCase):
         self.assertTrue(payload["pending_user_input"])
         self.assertEqual(payload["stopReason"], "user_input")
         self.assertEqual(payload["stop_reason"], "user_input")
+        self.assertEqual(payload["exitCode"], 0)
+        self.assertEqual(payload["exit_code"], 0)
         self.assertEqual(
             payload["userInputRequests"],
             [
@@ -655,6 +666,40 @@ class CodeResultPayloadTests(unittest.TestCase):
                 )
             ),
             "failed",
+        )
+
+    def test_code_result_exit_code_matches_cli_completion_rule(self) -> None:
+        root = Path("/tmp/vibeagent-result")
+
+        self.assertEqual(code_result_exit_code(_result(root)), 0)
+        self.assertEqual(
+            code_result_exit_code(
+                AgentResult(
+                    success=True,
+                    message="blocked",
+                    run_dir=root,
+                    run_id="run-1",
+                    iterations=1,
+                    observations=[],
+                    steps=[],
+                    completion_ready=False,
+                )
+            ),
+            1,
+        )
+        self.assertEqual(
+            code_result_exit_code(
+                AgentResult(
+                    success=False,
+                    message="failed",
+                    run_dir=root,
+                    run_id="run-1",
+                    iterations=1,
+                    observations=[],
+                    steps=[],
+                )
+            ),
+            1,
         )
 
 

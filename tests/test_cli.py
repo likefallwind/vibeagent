@@ -12630,6 +12630,8 @@ class CliTests(unittest.TestCase):
             {
                 "durationMs": 45,
                 "duration_ms": 45,
+                "exitCode": 0,
+                "exit_code": 0,
                 "kind": "chat",
                 "message": "你好",
                 "numTurns": 1,
@@ -12638,6 +12640,8 @@ class CliTests(unittest.TestCase):
                 "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
                 "success": True,
                 "status": "completed",
+                "stopReason": "completed",
+                "stop_reason": "completed",
                 "version": __version__,
             },
         )
