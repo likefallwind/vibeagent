@@ -4,6 +4,11 @@ from vibeagent.prompts import SYSTEM_PROMPT
 
 
 class PromptSystemGuidanceTests(unittest.TestCase):
+    def test_system_prompt_guides_project_skill_discovery(self) -> None:
+        self.assertIn("Use project_skills to list project skill metadata", SYSTEM_PROMPT)
+        self.assertIn("need the exact skill name before loading one", SYSTEM_PROMPT)
+        self.assertIn("load only the needed skill by exact name", SYSTEM_PROMPT)
+
     def test_system_prompt_guides_project_agent_profile_discovery(self) -> None:
         self.assertIn("Use project_agents to list project subagent profile metadata", SYSTEM_PROMPT)
         self.assertIn("need the exact profile name before delegating", SYSTEM_PROMPT)
