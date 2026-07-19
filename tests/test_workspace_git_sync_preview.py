@@ -6,6 +6,9 @@ from vibeagent.workspace_git_sync_preview import (
     git_fetch_result_payload,
     git_pull_result_payload,
     git_push_result_payload,
+    git_sync_detached_head_payload,
+    git_sync_dirty_worktree_payload,
+    git_sync_missing_upstream_payload,
     git_sync_preview_payload,
     pull_readiness,
     push_readiness,
@@ -66,6 +69,71 @@ class WorkspaceGitSyncPreviewTests(unittest.TestCase):
                 "ahead_after": 0,
                 "behind_after": 0,
                 "message": "fetched",
+            },
+        )
+
+    def test_git_sync_preflight_payloads_preserve_failure_shapes(self) -> None:
+        self.assertEqual(
+            git_sync_detached_head_payload(operation="pull", ahead=1, behind=2, status=""),
+            {
+                "ok": False,
+                "remote": "",
+                "branch": "",
+                "current": "",
+                "upstream": "",
+                "ahead": 1,
+                "behind": 2,
+                "worktree_clean": False,
+                "status": "",
+                "message": "Cannot pull while HEAD is detached.",
+            },
+        )
+        self.assertEqual(
+            git_sync_missing_upstream_payload(
+                remote="",
+                branch="",
+                current="main",
+                upstream="",
+                ahead=0,
+                behind=0,
+                worktree_clean=True,
+                status="",
+            ),
+            {
+                "ok": False,
+                "remote": "",
+                "branch": "",
+                "current": "main",
+                "upstream": "",
+                "ahead": 0,
+                "behind": 0,
+                "worktree_clean": True,
+                "status": "",
+                "message": "Current branch has no upstream configured.",
+            },
+        )
+        self.assertEqual(
+            git_sync_dirty_worktree_payload(
+                operation="pushing",
+                remote="origin",
+                branch="main",
+                current="main",
+                upstream="origin/main",
+                ahead=1,
+                behind=0,
+                status=" M app.py",
+            ),
+            {
+                "ok": False,
+                "remote": "origin",
+                "branch": "main",
+                "current": "main",
+                "upstream": "origin/main",
+                "ahead": 1,
+                "behind": 0,
+                "worktree_clean": False,
+                "status": " M app.py",
+                "message": "Working tree has uncommitted changes; commit or clean changes before pushing.",
             },
         )
 

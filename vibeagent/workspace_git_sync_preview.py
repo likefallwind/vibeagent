@@ -28,6 +28,65 @@ def git_sync_preview_payload(
     }
 
 
+def git_sync_detached_head_payload(*, operation: str, ahead: int, behind: int, status: str) -> dict[str, object]:
+    return git_sync_preview_payload(
+        ok=False,
+        ahead=ahead,
+        behind=behind,
+        status=status,
+        message=f"Cannot {operation} while HEAD is detached.",
+    )
+
+
+def git_sync_missing_upstream_payload(
+    *,
+    remote: str,
+    branch: str,
+    current: str,
+    upstream: str,
+    ahead: int,
+    behind: int,
+    worktree_clean: bool,
+    status: str,
+) -> dict[str, object]:
+    return git_sync_preview_payload(
+        ok=False,
+        remote=remote,
+        branch=branch,
+        current=current,
+        upstream=upstream,
+        ahead=ahead,
+        behind=behind,
+        worktree_clean=worktree_clean,
+        status=status,
+        message="Current branch has no upstream configured.",
+    )
+
+
+def git_sync_dirty_worktree_payload(
+    *,
+    operation: str,
+    remote: str,
+    branch: str,
+    current: str,
+    upstream: str,
+    ahead: int,
+    behind: int,
+    status: str,
+) -> dict[str, object]:
+    return git_sync_preview_payload(
+        ok=False,
+        remote=remote,
+        branch=branch,
+        current=current,
+        upstream=upstream,
+        ahead=ahead,
+        behind=behind,
+        status=status,
+        message=f"Working tree has uncommitted changes; commit or clean changes before {operation}.",
+    )
+
+
 def git_fetch_result_payload(
     *,
     ok: bool,
