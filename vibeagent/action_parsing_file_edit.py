@@ -5,7 +5,6 @@ from typing import Any
 from .action_parsing_helpers import (
     ActionParseError,
     parse_directory_transfers,
-    parse_move_file_transfers,
     parse_optional_positive_int,
     parse_path_list,
 )
@@ -16,40 +15,27 @@ from .action_parsing_file_edit_fields import (
 )
 from .action_parsing_file_line import parse_file_line_action
 from .action_parsing_file_patch import parse_file_patch_action
+from .action_parsing_file_paths import parse_file_path_action
 from .action_parsing_file_write import parse_file_write_action
 from .types import (
-    CheckCopyFileAction,
-    CheckCopyFilesAction,
     CheckCopyDirectoryAction,
     CheckCopyDirectoriesAction,
     CheckCreateDirectoryAction,
     CheckCreateDirectoriesAction,
-    CheckDeleteFileAction,
-    CheckDeleteFilesAction,
     CheckDeleteEmptyDirectoryAction,
     CheckDeleteEmptyDirectoriesAction,
-    CheckMoveFileAction,
-    CheckMoveFilesAction,
     CheckMoveDirectoryAction,
     CheckMoveDirectoriesAction,
     CheckNotebookEditAction,
-    CheckSetExecutableAction,
-    CopyFileAction,
-    CopyFilesAction,
     CopyDirectoryAction,
     CopyDirectoriesAction,
     CreateDirectoryAction,
     CreateDirectoriesAction,
-    DeleteFileAction,
-    DeleteFilesAction,
     DeleteEmptyDirectoryAction,
     DeleteEmptyDirectoriesAction,
-    MoveFileAction,
-    MoveFilesAction,
     MoveDirectoryAction,
     MoveDirectoriesAction,
     NotebookEditAction,
-    SetExecutableAction,
 )
 
 
@@ -129,6 +115,10 @@ def parse_file_edit_action(action_type: object, value: dict[str, Any], raw: str)
     if patch_action is not None:
         return patch_action
 
+    path_action = parse_file_path_action(action_type, value, raw)
+    if path_action is not None:
+        return path_action
+
     if action_type in {"check_notebook_edit", "notebook_edit"}:
         path = parse_string_field(value.get("path"), raw, f"{action_type} action requires a string path.")
         new_source = parse_string_field(value.get("new_source"), raw, f"{action_type} action requires string new_source.")
@@ -150,66 +140,6 @@ def parse_file_edit_action(action_type: object, value: dict[str, Any], raw: str)
             cell_id=cell_id,
             cell_number=parsed_cell_number,
             cell_type=cell_type,
-        )
-
-    if action_type == "check_delete_file":
-        path = parse_string_field(value.get("path"), raw, "check_delete_file action requires a string path.")
-        return CheckDeleteFileAction(type="check_delete_file", path=path)
-
-    if action_type == "delete_file":
-        path = parse_string_field(value.get("path"), raw, "delete_file action requires a string path.")
-        return DeleteFileAction(type="delete_file", path=path)
-
-    if action_type == "check_delete_files":
-        return CheckDeleteFilesAction(
-            type="check_delete_files",
-            paths=parse_path_list(value.get("paths"), raw, "check_delete_files", maximum=100),
-        )
-
-    if action_type == "delete_files":
-        return DeleteFilesAction(
-            type="delete_files",
-            paths=parse_path_list(value.get("paths"), raw, "delete_files", maximum=100),
-        )
-
-    if action_type == "check_move_file":
-        source, destination = parse_transfer(value, raw, "check_move_file")
-        return CheckMoveFileAction(type="check_move_file", source=source, destination=destination)
-
-    if action_type == "move_file":
-        source, destination = parse_transfer(value, raw, "move_file")
-        return MoveFileAction(type="move_file", source=source, destination=destination)
-
-    if action_type == "check_move_files":
-        return CheckMoveFilesAction(
-            type="check_move_files",
-            transfers=parse_move_file_transfers(value.get("transfers"), raw, "check_move_files"),
-        )
-
-    if action_type == "move_files":
-        return MoveFilesAction(
-            type="move_files",
-            transfers=parse_move_file_transfers(value.get("transfers"), raw, "move_files"),
-        )
-
-    if action_type == "check_copy_file":
-        source, destination = parse_transfer(value, raw, "check_copy_file")
-        return CheckCopyFileAction(type="check_copy_file", source=source, destination=destination)
-
-    if action_type == "copy_file":
-        source, destination = parse_transfer(value, raw, "copy_file")
-        return CopyFileAction(type="copy_file", source=source, destination=destination)
-
-    if action_type == "check_copy_files":
-        return CheckCopyFilesAction(
-            type="check_copy_files",
-            transfers=parse_move_file_transfers(value.get("transfers"), raw, "check_copy_files"),
-        )
-
-    if action_type == "copy_files":
-        return CopyFilesAction(
-            type="copy_files",
-            transfers=parse_move_file_transfers(value.get("transfers"), raw, "copy_files"),
         )
 
     if action_type == "check_move_dir":
@@ -291,19 +221,5 @@ def parse_file_edit_action(action_type: object, value: dict[str, Any], raw: str)
             type="delete_empty_dirs",
             paths=parse_path_list(value.get("paths"), raw, "delete_empty_dirs", maximum=100),
         )
-
-    if action_type == "check_set_executable":
-        path = parse_string_field(value.get("path"), raw, "check_set_executable action requires a string path.")
-        executable = value.get("executable", True)
-        if not isinstance(executable, bool):
-            raise ActionParseError("check_set_executable action executable must be a boolean.", raw)
-        return CheckSetExecutableAction(type="check_set_executable", path=path, executable=executable)
-
-    if action_type == "set_executable":
-        path = parse_string_field(value.get("path"), raw, "set_executable action requires a string path.")
-        executable = value.get("executable", True)
-        if not isinstance(executable, bool):
-            raise ActionParseError("set_executable action executable must be a boolean.", raw)
-        return SetExecutableAction(type="set_executable", path=path, executable=executable)
 
     raise AssertionError(f"Unhandled file edit action type: {action_type!r}")
