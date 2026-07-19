@@ -3,6 +3,9 @@ from __future__ import annotations
 import unittest
 
 from vibeagent.workspace_git_sync_preview import (
+    git_fetch_result_payload,
+    git_pull_result_payload,
+    git_push_result_payload,
     git_sync_preview_payload,
     pull_readiness,
     push_readiness,
@@ -35,6 +38,90 @@ class WorkspaceGitSyncPreviewTests(unittest.TestCase):
                 "worktree_clean": True,
                 "status": "",
                 "message": "ready",
+            },
+        )
+
+    def test_git_fetch_result_payload_preserves_field_shape(self) -> None:
+        self.assertEqual(
+            git_fetch_result_payload(
+                ok=True,
+                remote="origin",
+                remote_url="git@example.com/repo.git",
+                branch="main",
+                upstream="origin/main",
+                ahead_before=1,
+                behind_before=2,
+                ahead_after=0,
+                behind_after=0,
+                message="fetched",
+            ),
+            {
+                "ok": True,
+                "remote": "origin",
+                "remote_url": "git@example.com/repo.git",
+                "branch": "main",
+                "upstream": "origin/main",
+                "ahead_before": 1,
+                "behind_before": 2,
+                "ahead_after": 0,
+                "behind_after": 0,
+                "message": "fetched",
+            },
+        )
+
+    def test_git_pull_and_push_result_payloads_preserve_field_shapes(self) -> None:
+        self.assertEqual(
+            git_pull_result_payload(
+                ok=False,
+                remote="origin",
+                branch="main",
+                current_before="main",
+                current_after="main",
+                upstream="origin/main",
+                ahead_before=0,
+                behind_before=1,
+                ahead_after=0,
+                behind_after=0,
+                status=" M app.py",
+                message="blocked",
+            ),
+            {
+                "ok": False,
+                "remote": "origin",
+                "branch": "main",
+                "current_before": "main",
+                "current_after": "main",
+                "upstream": "origin/main",
+                "ahead_before": 0,
+                "behind_before": 1,
+                "ahead_after": 0,
+                "behind_after": 0,
+                "status": " M app.py",
+                "message": "blocked",
+            },
+        )
+        self.assertEqual(
+            git_push_result_payload(
+                ok=True,
+                remote="origin",
+                branch="main",
+                current="main",
+                upstream="origin/main",
+                ahead_before=2,
+                behind_before=0,
+                status="",
+                message="pushed",
+            ),
+            {
+                "ok": True,
+                "remote": "origin",
+                "branch": "main",
+                "current": "main",
+                "upstream": "origin/main",
+                "ahead_before": 2,
+                "behind_before": 0,
+                "status": "",
+                "message": "pushed",
             },
         )
 

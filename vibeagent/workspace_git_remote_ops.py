@@ -3,7 +3,14 @@ from __future__ import annotations
 from .workspace_core import GitCommandResult, RunWorkspace
 from .workspace_git_branch_ops import git_status_has_non_runtime_changes
 from .workspace_git_remote_selection import select_fetch_remote_from_remotes
-from .workspace_git_sync_preview import git_sync_preview_payload, pull_readiness, push_readiness
+from .workspace_git_sync_preview import (
+    git_fetch_result_payload,
+    git_pull_result_payload,
+    git_push_result_payload,
+    git_sync_preview_payload,
+    pull_readiness,
+    push_readiness,
+)
 from .workspace_git_utils import parse_git_remotes, redact_git_text, run_git_mutation, run_readonly_git
 
 
@@ -97,50 +104,50 @@ def preview_fetch_git_remote(workspace: RunWorkspace, remote: str | None = None)
 def fetch_git_remote(workspace: RunWorkspace, remote: str | None = None) -> dict[str, object]:
     before = preview_fetch_git_remote(workspace, remote)
     if not before["ok"]:
-        return {
-            "ok": False,
-            "remote": str(before["remote"]),
-            "remote_url": "",
-            "branch": "",
-            "upstream": "",
-            "ahead_before": 0,
-            "behind_before": 0,
-            "ahead_after": 0,
-            "behind_after": 0,
-            "message": str(before["message"]),
-        }
+        return git_fetch_result_payload(
+            ok=False,
+            remote=str(before["remote"]),
+            remote_url="",
+            branch="",
+            upstream="",
+            ahead_before=0,
+            behind_before=0,
+            ahead_after=0,
+            behind_after=0,
+            message=str(before["message"]),
+        )
 
     result = run_git_mutation(workspace.root, ["fetch", "--prune", str(before["remote"])])
     after = read_git_info(workspace)
     if not result.ok:
-        return {
-            "ok": False,
-            "remote": str(before["remote"]),
-            "remote_url": str(before["remote_url"]),
-            "branch": str(after["branch"]),
-            "upstream": str(after["upstream"]),
-            "ahead_before": int(before["ahead"]),
-            "behind_before": int(before["behind"]),
-            "ahead_after": int(after["ahead"]),
-            "behind_after": int(after["behind"]),
-            "message": redact_git_text(result.stderr or result.stdout or "git fetch failed."),
-        }
+        return git_fetch_result_payload(
+            ok=False,
+            remote=str(before["remote"]),
+            remote_url=str(before["remote_url"]),
+            branch=str(after["branch"]),
+            upstream=str(after["upstream"]),
+            ahead_before=int(before["ahead"]),
+            behind_before=int(before["behind"]),
+            ahead_after=int(after["ahead"]),
+            behind_after=int(after["behind"]),
+            message=redact_git_text(result.stderr or result.stdout or "git fetch failed."),
+        )
 
-    return {
-        "ok": True,
-        "remote": str(before["remote"]),
-        "remote_url": str(before["remote_url"]),
-        "branch": str(after["branch"]),
-        "upstream": str(after["upstream"]),
-        "ahead_before": int(before["ahead"]),
-        "behind_before": int(before["behind"]),
-        "ahead_after": int(after["ahead"]),
-        "behind_after": int(after["behind"]),
-        "message": (
+    return git_fetch_result_payload(
+        ok=True,
+        remote=str(before["remote"]),
+        remote_url=str(before["remote_url"]),
+        branch=str(after["branch"]),
+        upstream=str(after["upstream"]),
+        ahead_before=int(before["ahead"]),
+        behind_before=int(before["behind"]),
+        ahead_after=int(after["ahead"]),
+        behind_after=int(after["behind"]),
+        message=(
             f"Fetched {before['remote']} with --prune. "
             f"Ahead/behind changed from {before['ahead']}/{before['behind']} to {after['ahead']}/{after['behind']}."
         ),
-    }
+    )
 
 
 def preview_pull_git_upstream(workspace: RunWorkspace) -> dict[str, object]:
@@ -206,43 +213,43 @@ def preview_pull_git_upstream(workspace: RunWorkspace) -> dict[str, object]:
 def pull_git_upstream(workspace: RunWorkspace) -> dict[str, object]:
     before = preview_pull_git_upstream(workspace)
     if not before["ok"]:
-        return {
-            "ok": False,
-            "remote": str(before["remote"]),
-            "branch": str(before["branch"]),
-            "current_before": str(before["current"]),
-            "current_after": str(before["current"]),
-            "upstream": str(before["upstream"]),
-            "ahead_before": int(before["ahead"]),
-            "behind_before": int(before["behind"]),
-            "ahead_after": int(before["ahead"]),
-            "behind_after": int(before["behind"]),
-            "status": str(before["status"]),
-            "message": str(before["message"]),
-        }
+        return git_pull_result_payload(
+            ok=False,
+            remote=str(before["remote"]),
+            branch=str(before["branch"]),
+            current_before=str(before["current"]),
+            current_after=str(before["current"]),
+            upstream=str(before["upstream"]),
+            ahead_before=int(before["ahead"]),
+            behind_before=int(before["behind"]),
+            ahead_after=int(before["ahead"]),
+            behind_after=int(before["behind"]),
+            status=str(before["status"]),
+            message=str(before["message"]),
+        )
 
     result = run_git_mutation(workspace.root, ["pull", "--ff-only", str(before["remote"]), str(before["branch"])])
     after = read_git_info(workspace)
     status = _read_git_status(workspace)
-    return {
-        "ok": result.ok,
-        "remote": str(before["remote"]),
-        "branch": str(before["branch"]),
-        "current_before": str(before["current"]),
-        "current_after": str(after["branch"]),
-        "upstream": str(after["upstream"]),
-        "ahead_before": int(before["ahead"]),
-        "behind_before": int(before["behind"]),
-        "ahead_after": int(after["ahead"]),
-        "behind_after": int(after["behind"]),
-        "status": status.stdout if status.ok else "",
-        "message": (
+    return git_pull_result_payload(
+        ok=result.ok,
+        remote=str(before["remote"]),
+        branch=str(before["branch"]),
+        current_before=str(before["current"]),
+        current_after=str(after["branch"]),
+        upstream=str(after["upstream"]),
+        ahead_before=int(before["ahead"]),
+        behind_before=int(before["behind"]),
+        ahead_after=int(after["ahead"]),
+        behind_after=int(after["behind"]),
+        status=status.stdout if status.ok else "",
+        message=(
             f"Pulled {before['upstream']} with --ff-only. "
             f"Ahead/behind changed from {before['ahead']}/{before['behind']} to {after['ahead']}/{after['behind']}."
             if result.ok
             else redact_git_text(result.stderr or result.stdout or "git pull --ff-only failed.")
         ),
-    }
+    )
 
 
 def preview_push_git_upstream(workspace: RunWorkspace) -> dict[str, object]:
@@ -309,35 +316,35 @@ def preview_push_git_upstream(workspace: RunWorkspace) -> dict[str, object]:
 def push_git_upstream(workspace: RunWorkspace) -> dict[str, object]:
     before = preview_push_git_upstream(workspace)
     if not before["ok"]:
-        return {
-            "ok": False,
-            "remote": str(before["remote"]),
-            "branch": str(before["branch"]),
-            "current": str(before["current"]),
-            "upstream": str(before["upstream"]),
-            "ahead_before": int(before["ahead"]),
-            "behind_before": int(before["behind"]),
-            "status": str(before["status"]),
-            "message": str(before["message"]),
-        }
+        return git_push_result_payload(
+            ok=False,
+            remote=str(before["remote"]),
+            branch=str(before["branch"]),
+            current=str(before["current"]),
+            upstream=str(before["upstream"]),
+            ahead_before=int(before["ahead"]),
+            behind_before=int(before["behind"]),
+            status=str(before["status"]),
+            message=str(before["message"]),
+        )
 
     result = run_git_mutation(workspace.root, ["push", str(before["remote"]), f"HEAD:{before['branch']}"])
     status = _read_git_status(workspace)
-    return {
-        "ok": result.ok,
-        "remote": str(before["remote"]),
-        "branch": str(before["branch"]),
-        "current": str(before["current"]),
-        "upstream": str(before["upstream"]),
-        "ahead_before": int(before["ahead"]),
-        "behind_before": int(before["behind"]),
-        "status": status.stdout if status.ok else "",
-        "message": (
+    return git_push_result_payload(
+        ok=result.ok,
+        remote=str(before["remote"]),
+        branch=str(before["branch"]),
+        current=str(before["current"]),
+        upstream=str(before["upstream"]),
+        ahead_before=int(before["ahead"]),
+        behind_before=int(before["behind"]),
+        status=status.stdout if status.ok else "",
+        message=(
             f"Pushed {before['current']} to {before['upstream']}."
             if result.ok
             else redact_git_text(result.stderr or result.stdout or "git push failed.")
         ),
-    }
+    )
 
 
 def read_git_upstream_parts(workspace: RunWorkspace, branch: str) -> dict[str, object]:

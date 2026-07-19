@@ -28,6 +28,89 @@ def git_sync_preview_payload(
     }
 
 
+def git_fetch_result_payload(
+    *,
+    ok: bool,
+    remote: str,
+    remote_url: str,
+    branch: str,
+    upstream: str,
+    ahead_before: int,
+    behind_before: int,
+    ahead_after: int,
+    behind_after: int,
+    message: str,
+) -> dict[str, object]:
+    return {
+        "ok": ok,
+        "remote": remote,
+        "remote_url": remote_url,
+        "branch": branch,
+        "upstream": upstream,
+        "ahead_before": ahead_before,
+        "behind_before": behind_before,
+        "ahead_after": ahead_after,
+        "behind_after": behind_after,
+        "message": message,
+    }
+
+
+def git_pull_result_payload(
+    *,
+    ok: bool,
+    remote: str,
+    branch: str,
+    current_before: str,
+    current_after: str,
+    upstream: str,
+    ahead_before: int,
+    behind_before: int,
+    ahead_after: int,
+    behind_after: int,
+    status: str,
+    message: str,
+) -> dict[str, object]:
+    return {
+        "ok": ok,
+        "remote": remote,
+        "branch": branch,
+        "current_before": current_before,
+        "current_after": current_after,
+        "upstream": upstream,
+        "ahead_before": ahead_before,
+        "behind_before": behind_before,
+        "ahead_after": ahead_after,
+        "behind_after": behind_after,
+        "status": status,
+        "message": message,
+    }
+
+
+def git_push_result_payload(
+    *,
+    ok: bool,
+    remote: str,
+    branch: str,
+    current: str,
+    upstream: str,
+    ahead_before: int,
+    behind_before: int,
+    status: str,
+    message: str,
+) -> dict[str, object]:
+    return {
+        "ok": ok,
+        "remote": remote,
+        "branch": branch,
+        "current": current,
+        "upstream": upstream,
+        "ahead_before": ahead_before,
+        "behind_before": behind_before,
+        "status": status,
+        "message": message,
+    }
+
+
 def pull_readiness(ahead: int, behind: int, *, upstream: str, current: str) -> tuple[bool, str]:
     if ahead > 0 and behind > 0:
         return False, "Current branch has diverged from upstream; fast-forward pull is not safe."
