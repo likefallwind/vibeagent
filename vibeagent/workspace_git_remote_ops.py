@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .workspace_core import GitCommandResult, RunWorkspace
 from .workspace_git_branch_ops import git_status_has_non_runtime_changes
+from .workspace_git_info import git_info_payload, git_not_repo_info, parse_ahead_behind_counts
 from .workspace_git_remote_selection import select_fetch_remote_from_remotes
 from .workspace_git_sync_preview import (
     git_fetch_result_payload,
@@ -17,18 +18,7 @@ from .workspace_git_utils import parse_git_remotes, redact_git_text, run_git_mut
 def read_git_info(workspace: RunWorkspace) -> dict[str, object]:
     git_probe = run_readonly_git(workspace.root, ["rev-parse", "--is-inside-work-tree"])
     if not git_probe.ok or git_probe.stdout.strip() != "true":
-        return {
-            "ok": False,
-            "is_git_repo": False,
-            "branch": "",
-            "head": "",
-            "upstream": "",
-            "ahead": 0,
-            "behind": 0,
-            "remotes": [],
-            "status": "",
-            "message": git_probe.stderr or "Not a git repository.",
-        }
+        return git_not_repo_info(git_probe.stderr or "Not a git repository.")
 
     branch_result = run_readonly_git(workspace.root, ["branch", "--show-current"])
     head_result = run_readonly_git(workspace.root, ["rev-parse", "--short", "HEAD"])
@@ -42,33 +32,21 @@ def read_git_info(workspace: RunWorkspace) -> dict[str, object]:
     if upstream:
         counts = run_readonly_git(workspace.root, ["rev-list", "--left-right", "--count", f"HEAD...{upstream}"])
         if counts.ok:
-            parts = counts.stdout.strip().split()
-            if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
-                ahead = int(parts[0])
-                behind = int(parts[1])
+            ahead, behind = parse_ahead_behind_counts(counts.stdout)
 
     remotes = parse_git_remotes(remotes_result.stdout if remotes_result.ok else "")
     branch = branch_result.stdout.strip() if branch_result.ok else ""
     head = head_result.stdout.strip() if head_result.ok else ""
     status = status_result.stdout if status_result.ok else ""
-    message = f"Git repository on {branch or 'detached HEAD'} at {head or 'unknown'}."
-    if upstream:
-        message += f" Upstream {upstream}, ahead {ahead}, behind {behind}."
-    else:
-        message += " No upstream configured."
-
-    return {
-        "ok": True,
-        "is_git_repo": True,
-        "branch": branch,
-        "head": head,
-        "upstream": upstream,
-        "ahead": ahead,
-        "behind": behind,
-        "remotes": remotes,
-        "status": status,
-        "message": message,
-    }
+    return git_info_payload(
+        branch=branch,
+        head=head,
+        upstream=upstream,
+        ahead=ahead,
+        behind=behind,
+        remotes=remotes,
+        status=status,
+    )
 
 
 def preview_fetch_git_remote(workspace: RunWorkspace, remote: str | None = None) -> dict[str, object]:
