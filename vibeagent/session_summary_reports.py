@@ -129,6 +129,9 @@ def build_session_summary_report(summary: SessionSummary, max_text: int = 500) -
                 for process in summary.active_background_processes
             ],
         },
+        "subagents": {
+            "contextCompacted": summary.subagent_context_compacted_count,
+        },
         "finalMessage": compact(summary.final_message, max_text) if summary.final_message else None,
         "message": f"Read session summary for {summary.run_id}.",
     }
@@ -223,6 +226,8 @@ def format_session_summary(summary: SessionSummary) -> str:
             f"started={summary.background_processes_started}, "
             f"active={len(summary.active_background_processes)}"
         )
+    if summary.subagent_context_compacted_count:
+        lines.append(f"  subagents: contextCompacted={summary.subagent_context_compacted_count}")
     if summary.task:
         lines.append(f"  task: {compact(summary.task, 240)}")
     if summary.checkpoints_created:

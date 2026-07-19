@@ -68,6 +68,8 @@ def format_session_handoff_readiness(
             f"started={summary.background_processes_started}, "
             f"active={len(summary.active_background_processes)}"
         )
+    if summary.subagent_context_compacted_count:
+        lines.append(f"  subagents: contextCompacted={summary.subagent_context_compacted_count}")
     lines.append("  blockers:")
     if blockers:
         lines.extend(f"    - {compact(blocker, max_text)}" for blocker in blockers)
@@ -166,6 +168,9 @@ def format_session_audit_from_parts(
                 f"#{process.line_number} {compact(process.process_id, max_text)}: "
                 f"pid={pid}, cwd={compact(process.cwd, max_text)}, command={compact(process.command, max_text)}"
             )
+
+    lines.append("  subagents:")
+    lines.append(f"    contextCompacted: {summary.subagent_context_compacted_count}")
 
     lines.append("  blockers:")
     if blockers:

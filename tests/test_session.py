@@ -849,6 +849,55 @@ class SessionTests(unittest.TestCase):
         self.assertIn("Reached iteration limit (3) before finish.", text)
         self.assertIn("#2 result: failed", handoff)
 
+    def test_session_summary_reports_subagent_context_compactions(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(
+                root,
+                "run-1",
+                [
+                    {"type": "task", "task": "Run delegated exploration."},
+                    {
+                        "type": "subagent_context_compacted",
+                        "subagent_id": "delegate-1-1",
+                        "mode": "explore",
+                        "previous_messages": 14,
+                        "new_messages": 2,
+                        "observations": 6,
+                    },
+                    {
+                        "type": "subagent_context_compacted",
+                        "subagent_id": "delegate-1-2",
+                        "mode": "code",
+                        "agent": "context-reader",
+                        "previous_messages": 16,
+                        "new_messages": 2,
+                        "observations": 7,
+                    },
+                    {
+                        "type": "result",
+                        "success": True,
+                        "status": "completed",
+                        "iterations": 3,
+                        "message": "Done.",
+                    },
+                ],
+            )
+
+            summary = summarize_session(root, "run-1")
+            report = build_session_summary_report(summary)
+            text = format_session_summary(summary)
+            audit_report = build_session_audit_report(root, "run-1")
+            audit = format_session_audit(root, "run-1")
+            handoff = format_session_handoff(root, "run-1")
+
+        self.assertEqual(summary.subagent_context_compacted_count, 2)
+        self.assertEqual(report["subagents"]["contextCompacted"], 2)
+        self.assertEqual(audit_report["summary"]["subagentContextCompacted"], 2)
+        self.assertIn("subagents: contextCompacted=2", text)
+        self.assertIn("contextCompacted: 2", audit)
+        self.assertIn("subagents: contextCompacted=2", handoff)
+
     def test_format_session_transcript_reports_safe_event_timeline(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
             root = Path(base)

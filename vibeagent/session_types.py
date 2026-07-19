@@ -95,3 +95,4 @@ class SessionSummary:
     latest_model_error: str | None = None
     background_processes_started: int = 0
     active_background_processes: list[SessionProcessInfo] = field(default_factory=list)
+    subagent_context_compacted_count: int = 0
