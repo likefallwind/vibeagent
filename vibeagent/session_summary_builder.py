@@ -81,6 +81,9 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
     latest_model_error: str | None = None
     background_processes_started = 0
     active_background_processes: dict[str, SessionProcessInfo] = {}
+    subagents_started = 0
+    subagents_completed = 0
+    subagents_failed = 0
     subagent_context_compacted_count = 0
 
     for event in valid_events:
@@ -120,8 +123,16 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
             if isinstance(message, str) and message.strip():
                 latest_model_error = message.strip()
             failed = True
+        elif event.type == "subagent_started":
+            subagents_started += 1
         elif event.type == "subagent_context_compacted":
             subagent_context_compacted_count += 1
+        elif event.type == "subagent_completed":
+            subagents_completed += 1
+            result = event.payload.get("result")
+            ok = result.get("ok") if isinstance(result, dict) else None
+            if ok is False:
+                subagents_failed += 1
         elif event.type == "completion_blocked":
             completion_blocked_count += 1
             blockers = event.payload.get("blockers")
@@ -338,6 +349,9 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
         latest_model_error=latest_model_error,
         background_processes_started=background_processes_started,
         active_background_processes=sorted(active_background_processes.values(), key=lambda process: process.process_id),
+        subagents_started=subagents_started,
+        subagents_completed=subagents_completed,
+        subagents_failed=subagents_failed,
         subagent_context_compacted_count=subagent_context_compacted_count,
     )
 

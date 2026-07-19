@@ -84,6 +84,9 @@ def build_session_audit_report_from_parts(
             "blocked": summary.blocked,
             "modelErrors": summary.model_errors,
             "latestModelError": summary.latest_model_error,
+            "subagentsStarted": summary.subagents_started,
+            "subagentsCompleted": summary.subagents_completed,
+            "subagentsFailed": summary.subagents_failed,
             "subagentContextCompacted": summary.subagent_context_compacted_count,
         },
         "finalReview": {

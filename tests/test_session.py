@@ -857,6 +857,7 @@ class SessionTests(unittest.TestCase):
                 "run-1",
                 [
                     {"type": "task", "task": "Run delegated exploration."},
+                    {"type": "subagent_started", "subagent_id": "delegate-1-1", "task": "Explore", "mode": "explore"},
                     {
                         "type": "subagent_context_compacted",
                         "subagent_id": "delegate-1-1",
@@ -866,6 +867,11 @@ class SessionTests(unittest.TestCase):
                         "observations": 6,
                     },
                     {
+                        "type": "subagent_completed",
+                        "result": {"kind": "delegate_task", "ok": True, "message": "Subagent completed the investigation."},
+                    },
+                    {"type": "subagent_started", "subagent_id": "delegate-1-2", "task": "Edit", "mode": "code"},
+                    {
                         "type": "subagent_context_compacted",
                         "subagent_id": "delegate-1-2",
                         "mode": "code",
@@ -873,6 +879,10 @@ class SessionTests(unittest.TestCase):
                         "previous_messages": 16,
                         "new_messages": 2,
                         "observations": 7,
+                    },
+                    {
+                        "type": "subagent_completed",
+                        "result": {"kind": "delegate_task", "ok": False, "message": "Subagent reached iteration limit."},
                     },
                     {
                         "type": "result",
@@ -891,12 +901,24 @@ class SessionTests(unittest.TestCase):
             audit = format_session_audit(root, "run-1")
             handoff = format_session_handoff(root, "run-1")
 
+        self.assertEqual(summary.subagents_started, 2)
+        self.assertEqual(summary.subagents_completed, 2)
+        self.assertEqual(summary.subagents_failed, 1)
         self.assertEqual(summary.subagent_context_compacted_count, 2)
+        self.assertEqual(report["subagents"]["started"], 2)
+        self.assertEqual(report["subagents"]["completed"], 2)
+        self.assertEqual(report["subagents"]["failed"], 1)
         self.assertEqual(report["subagents"]["contextCompacted"], 2)
+        self.assertEqual(audit_report["summary"]["subagentsStarted"], 2)
+        self.assertEqual(audit_report["summary"]["subagentsCompleted"], 2)
+        self.assertEqual(audit_report["summary"]["subagentsFailed"], 1)
         self.assertEqual(audit_report["summary"]["subagentContextCompacted"], 2)
-        self.assertIn("subagents: contextCompacted=2", text)
+        self.assertIn("subagents: started=2, completed=2, failed=1, contextCompacted=2", text)
+        self.assertIn("started: 2", audit)
+        self.assertIn("completed: 2", audit)
+        self.assertIn("failed: 1", audit)
         self.assertIn("contextCompacted: 2", audit)
-        self.assertIn("subagents: contextCompacted=2", handoff)
+        self.assertIn("subagents: started=2, completed=2, failed=1, contextCompacted=2", handoff)
 
     def test_format_session_transcript_reports_safe_event_timeline(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
