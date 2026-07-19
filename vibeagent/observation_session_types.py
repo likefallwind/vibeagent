@@ -128,6 +128,7 @@ class SessionVerificationObservation:
     message: str
     ready: bool | None = None
     status: str = ""
+    latest_subagent_failures: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

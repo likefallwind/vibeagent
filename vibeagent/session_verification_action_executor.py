@@ -75,8 +75,10 @@ def session_verification_observation(
     verification_truncated = False
     ready: bool | None = None
     status = ""
+    latest_subagent_failures: list[str] = []
     try:
         summary = summarize_session(workspace.root, run_id)
+        latest_subagent_failures = list(summary.latest_subagent_failures)
         verification = format_session_verification(summary, max_checks=action.max_checks)
         ok = not verification.startswith("Session not found:")
         message = f"Read session verification for {run_id}." if ok else verification
@@ -108,6 +110,7 @@ def session_verification_observation(
         message=message,
         ready=ready,
         status=status,
+        latest_subagent_failures=latest_subagent_failures,
     )
 
 

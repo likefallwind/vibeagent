@@ -20,6 +20,7 @@ from vibeagent.commands import APPROVAL_REQUIRED_TOOL_NAMES
 from vibeagent.final_review_actions import final_review_session_verification_issues
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
+from vibeagent.session_verification_action_executor import session_verification_observation
 from vibeagent.types import ApprovalDecision, ApprovalDeniedObservation, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckGitStageObservation, CheckRunCommandsObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CodeReference, CodeReferencesObservation, CommandCheckObservation, ContentBlock, EnvironmentInfoObservation, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ProjectInstructionSource, ProjectInstructionsObservation, ProjectManifest, ProjectManifestItem, ProjectManifestsObservation, ProjectOverviewObservation, ProjectTodo, ProjectTodosObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, RuntimeToolInfo, SearchObservation, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, ToolErrorObservation, ToolSearchObservation, WaitProcessObservation
 from vibeagent.types import CheckGitPushObservation, GitInfoObservation, HttpCheckObservation, PortCheckObservation
 from vibeagent.types import CheckEditFileObservation, CheckJsonSetObservation, CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, GitChangesObservation, GitCommitObservation, GitDiffObservation, GitStageObservation, GitStatusObservation, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PatchFilesObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSessionVerificationObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
@@ -4207,6 +4208,44 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Session verification:", result.observations[0].verification)
         self.assertEqual(result.steps[0].status, "completed")
 
+    def test_session_verification_observation_carries_subagent_failures(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root, run_id="run-1")
+            events_path = workspace.session_dir / "events.jsonl"
+            events_path.write_text(
+                "\n".join(
+                    [
+                        json.dumps({"type": "task", "task": "Recover delegated work."}),
+                        json.dumps(
+                            {
+                                "type": "subagent_completed",
+                                "result": {
+                                    "kind": "delegate_task",
+                                    "ok": False,
+                                    "task": "Inspect config",
+                                    "mode": "explore",
+                                    "agent": "reader",
+                                    "message": "Subagent reached iteration limit.",
+                                },
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            observation = session_verification_observation(
+                workspace,
+                types_module.SessionVerificationAction(type="session_verification"),
+            )
+
+        self.assertEqual(
+            observation.latest_subagent_failures,
+            ["task=Inspect config; agent=reader; mode=explore; message=Subagent reached iteration limit."],
+        )
+
     def test_run_agent_allows_session_audit_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             client = MockClient(
@@ -6808,6 +6847,37 @@ class AgentTests(unittest.TestCase):
 
         self.assertIn("Session verification reports readiness is complete", instruction)
         self.assertIn("answer directly", instruction)
+
+    def test_next_action_instruction_guides_session_verification_subagent_failures(self) -> None:
+        observation = SessionVerificationObservation(
+            kind="session_verification",
+            run_id="run-1",
+            ok=True,
+            verification="Session verification:\n  ready: yes\n  status: ready",
+            verified_commands=[],
+            pending_commands=[],
+            failed_commands=[],
+            verified_count=0,
+            pending_count=0,
+            failed_count=0,
+            verification_truncated=False,
+            message="Session verification is ready.",
+            ready=True,
+            status="ready",
+            latest_subagent_failures=["delegate-1 failed: tool denied while reading config"],
+        )
+
+        instruction = get_next_action_instruction("resume and finish verification", [observation])
+
+        self.assertIn("Session verification reports latest subagent failure(s)", instruction)
+        self.assertIn("delegate-1 failed: tool denied", instruction)
+        self.assertIn("main agent context", instruction)
+        self.assertIn("retry once with a narrower delegated task", instruction)
+        self.assertIn("do not repeat the same delegation unchanged", instruction)
+        self.assertIn("session_failures", instruction)
+        self.assertIn("session_audit", instruction)
+        self.assertIn("rerun session_verification before finishing", instruction)
+        self.assertNotIn("readiness is complete", instruction)
 
     def test_next_action_instruction_guides_session_audit_active_processes(self) -> None:
         observation = SessionAuditObservation(

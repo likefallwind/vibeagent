@@ -133,6 +133,7 @@ def _session_verification_next_action_instruction(base: str, latest: Observation
     pending = verification_command_labels(getattr(latest, "pending_commands", []))
     ready = getattr(latest, "ready", None)
     status = str(getattr(latest, "status", "") or "").strip().lower()
+    subagent_failures = subagent_failure_labels(latest)
 
     if failed and pending:
         return (
@@ -155,6 +156,15 @@ def _session_verification_next_action_instruction(base: str, latest: Observation
         return (
             f"{base} Session verification reports pending checks. "
             f"Use run_session_verification to run them before finishing: {format_next_action_items(pending)}."
+        )
+
+    if subagent_failures:
+        return (
+            f"{base} Session verification reports latest subagent failure(s): "
+            f"{format_next_action_items(subagent_failures, max_items=4)}. "
+            "Continue the necessary work in the main agent context, or retry once with a narrower delegated task; "
+            "do not repeat the same delegation unchanged. Use session_failures or session_audit if more detail is needed, "
+            "then rerun session_verification before finishing."
         )
 
     if ready is False or status == "blocked":
