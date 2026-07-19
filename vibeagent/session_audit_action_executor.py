@@ -48,6 +48,7 @@ def execute_session_audit_action(workspace: RunWorkspace, action: SessionAuditAc
         completion_ready: bool | None = None
         completion_blockers: list[str] = []
         latest_completion_blockers: list[str] = []
+        latest_subagent_failures: list[str] = []
         completion_detail_kwargs: dict[str, list[str]] = {}
         if ok:
             summary = summarize_session(workspace.root, run_id)
@@ -62,6 +63,7 @@ def execute_session_audit_action(workspace: RunWorkspace, action: SessionAuditAc
             completion_ready = summary.completion_ready
             completion_blockers = list(summary.completion_blockers)
             latest_completion_blockers = list(summary.latest_completion_blockers)
+            latest_subagent_failures = list(summary.latest_subagent_failures)
             completion_detail_kwargs = completion_detail_kwargs_from_object(summary)
             active_background_processes = [
                 SessionAuditProcess(
@@ -87,6 +89,7 @@ def execute_session_audit_action(workspace: RunWorkspace, action: SessionAuditAc
         completion_ready = None
         completion_blockers = []
         latest_completion_blockers = []
+        latest_subagent_failures = []
         completion_detail_kwargs = {}
         message = str(error)
     return SessionAuditObservation(
@@ -106,6 +109,7 @@ def execute_session_audit_action(workspace: RunWorkspace, action: SessionAuditAc
         completion_ready=completion_ready,
         completion_blockers=completion_blockers,
         latest_completion_blockers=latest_completion_blockers,
+        latest_subagent_failures=latest_subagent_failures,
         **completion_detail_kwargs,
     )
 

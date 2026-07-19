@@ -6930,6 +6930,31 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Session audit is ready", instruction)
         self.assertIn("answer directly", instruction)
 
+    def test_next_action_instruction_guides_session_audit_subagent_failures(self) -> None:
+        observation = SessionAuditObservation(
+            kind="session_audit",
+            run_id="run-1",
+            ok=True,
+            audit="Session audit:\n  ready: yes",
+            ready=True,
+            blockers=[],
+            background_processes_started=0,
+            active_background_processes=[],
+            message="Read session audit for run-1.",
+            latest_subagent_failures=["delegate-1 failed: model error while inspecting auth flow"],
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session audit reports latest subagent failure(s)", instruction)
+        self.assertIn("delegate-1 failed: model error", instruction)
+        self.assertIn("main agent context", instruction)
+        self.assertIn("retry once with a narrower delegated task", instruction)
+        self.assertIn("do not repeat the same delegation unchanged", instruction)
+        self.assertIn("session_failures", instruction)
+        self.assertIn("session_output_diagnostics", instruction)
+        self.assertIn("rerun session_audit before finishing", instruction)
+
     def test_next_action_instruction_guides_blocked_session_handoff_to_structured_recovery(self) -> None:
         observation = SessionHandoffObservation(
             kind="session_handoff",

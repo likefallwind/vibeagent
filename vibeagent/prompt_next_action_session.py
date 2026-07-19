@@ -183,6 +183,16 @@ def _session_verification_next_action_instruction(base: str, latest: Observation
 
 
 def _session_audit_next_action_instruction(base: str, latest: Observation) -> str:
+    subagent_failures = subagent_failure_labels(latest)
+    if subagent_failures:
+        return (
+            f"{base} Session audit reports latest subagent failure(s): "
+            f"{format_next_action_items(subagent_failures, max_items=4)}. "
+            "Continue the necessary work in the main agent context, or retry once with a narrower delegated task; "
+            "do not repeat the same delegation unchanged. Use session_failures or session_output_diagnostics if more detail is needed, "
+            "then rerun session_audit before finishing."
+        )
+
     if getattr(latest, "ready", False):
         return (
             f"{base} Session audit is ready. Continue with any remaining requested work, "
