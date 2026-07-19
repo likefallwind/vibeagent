@@ -8,7 +8,7 @@ from vibeagent import cli as cli_module
 from vibeagent.cli import main
 
 
-class CliTests(unittest.TestCase):
+class CliInteractiveCommandSmokeTests(unittest.TestCase):
     def test_main_handles_session_commands_without_creating_client(self) -> None:
         stdout = io.StringIO()
 
