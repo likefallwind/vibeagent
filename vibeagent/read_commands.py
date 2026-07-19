@@ -11,6 +11,17 @@ from .read_batch_commands import (
 )
 from .read_command_parsing import parse_around_many_argument, parse_around_request, parse_read_request, parse_tail_request, serialize_context_result
 from .local_command_workspace import local_command_workspace
+from .read_command_failures import (
+    AROUND_MANY_USAGE,
+    AROUND_USAGE,
+    READ_USAGE,
+    TAIL_USAGE,
+    around_failure_report,
+    around_many_failure_report,
+    read_failure_report,
+    tail_failure_report,
+    usage_error,
+)
 from .read_report_helpers import (
     format_around_many_report_text,
     format_around_report_text,
@@ -21,113 +32,6 @@ from .read_report_helpers import (
     indent_block as _indent_block,
 )
 from .types import ReadFileAction, ReadFileContextAction, ReadFileContextsAction, TailFileAction
-
-READ_USAGE = "Usage: /read <path> [start[:end]]"
-TAIL_USAGE = "Usage: /tail <path> [lines]"
-AROUND_USAGE = "Usage: /around <path> <line> [context-lines]"
-AROUND_MANY_USAGE = "Usage: /around-many <path:line[:context-lines]...>"
-
-
-def _read_failure_report(
-    root: Path,
-    message: str,
-    *,
-    path: str = "",
-    range_label: str = ".",
-    start_line: int | None = None,
-    line_count: int | None = None,
-    max_bytes: int = 20_000,
-    show_line_numbers: bool = False,
-) -> dict[str, object]:
-    return {
-        "projectRoot": str(root),
-        "ok": False,
-        "path": path,
-        "range": range_label,
-        "startLine": start_line,
-        "lineCount": line_count,
-        "showLineNumbers": show_line_numbers,
-        "read": {"content": "", "totalBytes": None, "maxBytes": max_bytes, "truncated": False},
-        "message": message,
-    }
-
-
-def _usage_error(usage: str, error: object) -> str:
-    return f"{usage}\nError: {error}"
-
-
-def _tail_failure_report(
-    root: Path,
-    message: str,
-    *,
-    path: str = "",
-    requested_lines: int | None = None,
-    max_bytes: int = 20_000,
-) -> dict[str, object]:
-    return {
-        "projectRoot": str(root),
-        "ok": False,
-        "path": path,
-        "tail": {
-            "content": "",
-            "totalLines": None,
-            "lineCount": 0,
-            "startLine": None,
-            "requestedLines": requested_lines,
-            "maxBytes": max_bytes,
-            "truncated": False,
-        },
-        "message": message,
-    }
-
-
-def _empty_around_context(context_lines: int | None, max_bytes: int) -> dict[str, object]:
-    return {
-        "content": "",
-        "startLine": None,
-        "endLine": None,
-        "contextLines": context_lines,
-        "targetLineExists": False,
-        "lineCount": 0,
-        "totalLines": None,
-        "maxBytes": max_bytes,
-        "truncated": False,
-    }
-
-
-def _around_failure_report(
-    root: Path,
-    message: str,
-    *,
-    path: str = "",
-    line: int | None = None,
-    context_lines: int | None = None,
-    max_bytes: int = 20_000,
-) -> dict[str, object]:
-    return {
-        "projectRoot": str(root),
-        "ok": False,
-        "path": path,
-        "line": line,
-        "context": _empty_around_context(context_lines, max_bytes),
-        "message": message,
-    }
-
-
-def _around_many_failure_report(
-    root: Path,
-    message: str,
-    *,
-    total: int = 0,
-    max_bytes_per_context: int = 20_000,
-) -> dict[str, object]:
-    return {
-        "projectRoot": str(root),
-        "ok": False,
-        "contexts": {"ok": 0, "total": total, "items": []},
-        "maxBytesPerContext": max_bytes_per_context,
-        "message": message,
-    }
 
 
 def get_read_text(
@@ -157,7 +61,7 @@ def get_read_report(
 ) -> dict[str, object]:
     root = Path(project_root).resolve()
     if argument is None or not argument.strip():
-        return _read_failure_report(
+        return read_failure_report(
             root,
             READ_USAGE,
             max_bytes=max_bytes,
@@ -166,9 +70,9 @@ def get_read_report(
     try:
         path, start_line, line_count, range_label = parse_read_request(argument, line_range)
     except ValueError as error:
-        return _read_failure_report(
+        return read_failure_report(
             root,
-            _usage_error(READ_USAGE, error),
+            usage_error(READ_USAGE, error),
             max_bytes=max_bytes,
             show_line_numbers=show_line_numbers,
         )
@@ -186,7 +90,7 @@ def get_read_report(
         ),
     )
     if observation.kind != "read_file":
-        return _read_failure_report(
+        return read_failure_report(
             root,
             f"Unexpected observation: {observation.kind}",
             path=path,
@@ -233,30 +137,30 @@ def get_tail_report(
 ) -> dict[str, object]:
     root = Path(project_root).resolve()
     if max_bytes < 1_000:
-        return _tail_failure_report(
+        return tail_failure_report(
             root,
-            _usage_error(TAIL_USAGE, "max_bytes must be at least 1000."),
+            usage_error(TAIL_USAGE, "max_bytes must be at least 1000."),
             requested_lines=line_count,
             max_bytes=max_bytes,
         )
     if max_bytes > 200_000:
-        return _tail_failure_report(
+        return tail_failure_report(
             root,
-            _usage_error(TAIL_USAGE, "max_bytes must be at most 200000."),
+            usage_error(TAIL_USAGE, "max_bytes must be at most 200000."),
             requested_lines=line_count,
             max_bytes=max_bytes,
         )
     try:
         path, requested_lines = parse_tail_request(argument, line_count)
     except ValueError as error:
-        return _tail_failure_report(
+        return tail_failure_report(
             root,
-            _usage_error(TAIL_USAGE, error),
+            usage_error(TAIL_USAGE, error),
             requested_lines=line_count,
             max_bytes=max_bytes,
         )
     if path is None:
-        return _tail_failure_report(
+        return tail_failure_report(
             root,
             TAIL_USAGE,
             requested_lines=requested_lines,
@@ -269,7 +173,7 @@ def get_tail_report(
         TailFileAction(type="tail_file", path=path, line_count=requested_lines, max_bytes=max_bytes),
     )
     if observation.kind != "tail_file":
-        return _tail_failure_report(
+        return tail_failure_report(
             root,
             f"Unexpected observation: {observation.kind}",
             path=path,
@@ -314,14 +218,14 @@ def get_around_report(
     try:
         path, line, selected_context = parse_around_request(argument, context_lines)
     except ValueError as error:
-        return _around_failure_report(
+        return around_failure_report(
             root,
-            _usage_error(AROUND_USAGE, error),
+            usage_error(AROUND_USAGE, error),
             context_lines=context_lines,
             max_bytes=max_bytes,
         )
     if path is None or line is None:
-        return _around_failure_report(
+        return around_failure_report(
             root,
             AROUND_USAGE,
             context_lines=context_lines,
@@ -340,7 +244,7 @@ def get_around_report(
         ),
     )
     if observation.kind != "read_file_context":
-        return _around_failure_report(
+        return around_failure_report(
             root,
             f"Unexpected observation: {observation.kind}",
             path=path,
@@ -376,27 +280,27 @@ def get_around_many_report(
 ) -> dict[str, object]:
     root = Path(project_root).resolve()
     if max_bytes_per_context < 1_000:
-        return _around_many_failure_report(
+        return around_many_failure_report(
             root,
-            _usage_error(AROUND_MANY_USAGE, "max_bytes_per_context must be at least 1000."),
+            usage_error(AROUND_MANY_USAGE, "max_bytes_per_context must be at least 1000."),
             max_bytes_per_context=max_bytes_per_context,
         )
     if max_bytes_per_context > 200_000:
-        return _around_many_failure_report(
+        return around_many_failure_report(
             root,
-            _usage_error(AROUND_MANY_USAGE, "max_bytes_per_context must be at most 200000."),
+            usage_error(AROUND_MANY_USAGE, "max_bytes_per_context must be at most 200000."),
             max_bytes_per_context=max_bytes_per_context,
         )
     try:
         contexts = parse_around_many_argument(argument)
     except ValueError as error:
-        return _around_many_failure_report(
+        return around_many_failure_report(
             root,
-            _usage_error(AROUND_MANY_USAGE, error),
+            usage_error(AROUND_MANY_USAGE, error),
             max_bytes_per_context=max_bytes_per_context,
         )
     if not contexts:
-        return _around_many_failure_report(
+        return around_many_failure_report(
             root,
             AROUND_MANY_USAGE,
             max_bytes_per_context=max_bytes_per_context,
@@ -412,7 +316,7 @@ def get_around_many_report(
         ),
     )
     if observation.kind != "read_file_contexts":
-        return _around_many_failure_report(
+        return around_many_failure_report(
             root,
             f"Unexpected observation: {observation.kind}",
             total=len(contexts),
