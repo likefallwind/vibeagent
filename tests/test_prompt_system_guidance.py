@@ -4,6 +4,11 @@ from vibeagent.prompts import SYSTEM_PROMPT
 
 
 class PromptSystemGuidanceTests(unittest.TestCase):
+    def test_system_prompt_guides_project_agent_profile_discovery(self) -> None:
+        self.assertIn("Use project_agents to list project subagent profile metadata", SYSTEM_PROMPT)
+        self.assertIn("need the exact profile name before delegating", SYSTEM_PROMPT)
+        self.assertIn("pass its exact name in agent", SYSTEM_PROMPT)
+
     def test_system_prompt_distinguishes_file_discovery_tools(self) -> None:
         self.assertIn("find_files to find files by path or filename fragment", SYSTEM_PROMPT)
         self.assertIn("glob to find files by path pattern", SYSTEM_PROMPT)
