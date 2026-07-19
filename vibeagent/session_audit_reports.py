@@ -89,6 +89,7 @@ def build_session_audit_report_from_parts(
             "subagentsFailed": summary.subagents_failed,
             "subagentToolCalls": len(summary.subagent_tool_calls),
             "subagentToolCallNames": summary.subagent_tool_calls,
+            "latestSubagentFailures": [compact(failure, max_text) for failure in summary.latest_subagent_failures],
             "subagentContextCompacted": summary.subagent_context_compacted_count,
         },
         "finalReview": {

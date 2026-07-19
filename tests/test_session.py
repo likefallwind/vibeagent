@@ -885,7 +885,14 @@ class SessionTests(unittest.TestCase):
                     },
                     {
                         "type": "subagent_completed",
-                        "result": {"kind": "delegate_task", "ok": False, "message": "Subagent reached iteration limit."},
+                        "result": {
+                            "kind": "delegate_task",
+                            "ok": False,
+                            "task": "Edit",
+                            "mode": "code",
+                            "agent": "context-reader",
+                            "message": "Subagent reached iteration limit.",
+                        },
                     },
                     {
                         "type": "result",
@@ -908,26 +915,42 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(summary.subagents_completed, 2)
         self.assertEqual(summary.subagents_failed, 1)
         self.assertEqual(summary.subagent_tool_calls, ["read_file", "write_file", "run_command"])
+        self.assertEqual(
+            summary.latest_subagent_failures,
+            ["task=Edit; agent=context-reader; mode=code; message=Subagent reached iteration limit."],
+        )
         self.assertEqual(summary.subagent_context_compacted_count, 2)
         self.assertEqual(report["subagents"]["started"], 2)
         self.assertEqual(report["subagents"]["completed"], 2)
         self.assertEqual(report["subagents"]["failed"], 1)
         self.assertEqual(report["subagents"]["toolCalls"]["total"], 3)
         self.assertEqual(report["subagents"]["toolCalls"]["names"], ["read_file", "write_file", "run_command"])
+        self.assertEqual(
+            report["subagents"]["latestFailures"],
+            ["task=Edit; agent=context-reader; mode=code; message=Subagent reached iteration limit."],
+        )
         self.assertEqual(report["subagents"]["contextCompacted"], 2)
         self.assertEqual(audit_report["summary"]["subagentsStarted"], 2)
         self.assertEqual(audit_report["summary"]["subagentsCompleted"], 2)
         self.assertEqual(audit_report["summary"]["subagentsFailed"], 1)
         self.assertEqual(audit_report["summary"]["subagentToolCalls"], 3)
         self.assertEqual(audit_report["summary"]["subagentToolCallNames"], ["read_file", "write_file", "run_command"])
+        self.assertEqual(
+            audit_report["summary"]["latestSubagentFailures"],
+            ["task=Edit; agent=context-reader; mode=code; message=Subagent reached iteration limit."],
+        )
         self.assertEqual(audit_report["summary"]["subagentContextCompacted"], 2)
         self.assertIn("subagents: started=2, completed=2, failed=1, toolCalls=3, contextCompacted=2", text)
+        self.assertIn("latestSubagentFailures:", text)
+        self.assertIn("task=Edit; agent=context-reader; mode=code; message=Subagent reached iteration limit.", text)
         self.assertIn("started: 2", audit)
         self.assertIn("completed: 2", audit)
         self.assertIn("failed: 1", audit)
         self.assertIn("toolCalls: 3", audit)
+        self.assertIn("latestFailures:", audit)
         self.assertIn("contextCompacted: 2", audit)
         self.assertIn("subagents: started=2, completed=2, failed=1, toolCalls=3, contextCompacted=2", handoff)
+        self.assertIn("latestSubagentFailures:", handoff)
 
     def test_format_session_transcript_reports_safe_event_timeline(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:

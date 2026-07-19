@@ -77,6 +77,9 @@ def format_session_handoff_readiness(
             f"toolCalls={len(summary.subagent_tool_calls)}, "
             f"contextCompacted={summary.subagent_context_compacted_count}"
         )
+        if summary.latest_subagent_failures:
+            lines.append("  latestSubagentFailures:")
+            lines.extend(f"    - {compact(failure, max_text)}" for failure in summary.latest_subagent_failures[:20])
     lines.append("  blockers:")
     if blockers:
         lines.extend(f"    - {compact(blocker, max_text)}" for blocker in blockers)
@@ -182,6 +185,9 @@ def format_session_audit_from_parts(
     lines.append(f"    failed: {summary.subagents_failed}")
     lines.append(f"    toolCalls: {len(summary.subagent_tool_calls)}")
     lines.append(f"    contextCompacted: {summary.subagent_context_compacted_count}")
+    if summary.latest_subagent_failures:
+        lines.append("    latestFailures:")
+        lines.extend(f"      - {compact(failure, max_text)}" for failure in summary.latest_subagent_failures[:20])
 
     lines.append("  blockers:")
     if blockers:

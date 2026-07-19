@@ -85,6 +85,7 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
     subagents_completed = 0
     subagents_failed = 0
     subagent_tool_calls: list[str] = []
+    latest_subagent_failures: list[str] = []
     subagent_context_compacted_count = 0
 
     for event in valid_events:
@@ -138,6 +139,9 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
             ok = result.get("ok") if isinstance(result, dict) else None
             if ok is False:
                 subagents_failed += 1
+                label = subagent_failure_label(result)
+                if label:
+                    latest_subagent_failures.append(label)
         elif event.type == "completion_blocked":
             completion_blocked_count += 1
             blockers = event.payload.get("blockers")
@@ -358,6 +362,7 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
         subagents_completed=subagents_completed,
         subagents_failed=subagents_failed,
         subagent_tool_calls=subagent_tool_calls,
+        latest_subagent_failures=latest_subagent_failures,
         subagent_context_compacted_count=subagent_context_compacted_count,
     )
 
@@ -384,6 +389,23 @@ def parse_completion_detail_lists(details: dict[object, object]) -> tuple[
         parse_string_list(details.get("deniedApprovals")),
         parse_string_list(details.get("nextActions")),
     )
+
+
+def subagent_failure_label(result: dict[object, object]) -> str | None:
+    parts: list[str] = []
+    task = result.get("task")
+    if isinstance(task, str) and task.strip():
+        parts.append(f"task={task.strip()}")
+    agent = result.get("agent")
+    if isinstance(agent, str) and agent.strip():
+        parts.append(f"agent={agent.strip()}")
+    mode = result.get("mode")
+    if isinstance(mode, str) and mode.strip():
+        parts.append(f"mode={mode.strip()}")
+    message = result.get("message")
+    if isinstance(message, str) and message.strip():
+        parts.append(f"message={message.strip()}")
+    return "; ".join(parts) if parts else None
 
 
 __all__ = [

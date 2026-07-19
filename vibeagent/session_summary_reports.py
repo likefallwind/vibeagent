@@ -137,6 +137,7 @@ def build_session_summary_report(summary: SessionSummary, max_text: int = 500) -
                 "total": len(summary.subagent_tool_calls),
                 "names": summary.subagent_tool_calls,
             },
+            "latestFailures": summary.latest_subagent_failures,
             "contextCompacted": summary.subagent_context_compacted_count,
         },
         "finalMessage": compact(summary.final_message, max_text) if summary.final_message else None,
@@ -242,6 +243,9 @@ def format_session_summary(summary: SessionSummary) -> str:
             f"toolCalls={len(summary.subagent_tool_calls)}, "
             f"contextCompacted={summary.subagent_context_compacted_count}"
         )
+    if summary.latest_subagent_failures:
+        lines.append("  latestSubagentFailures:")
+        lines.extend(f"    - {compact(failure, 160)}" for failure in summary.latest_subagent_failures[:20])
     if summary.task:
         lines.append(f"  task: {compact(summary.task, 240)}")
     if summary.checkpoints_created:
