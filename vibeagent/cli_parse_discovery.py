@@ -3,6 +3,7 @@ from __future__ import annotations
 import shlex
 
 from .cli_parse_core import parse_interactive_nonnegative_option, parse_interactive_positive_option
+from .cli_parse_option_limits import parse_interactive_option_limit_argument
 
 
 def _option_flag(part: str) -> str:
@@ -385,51 +386,6 @@ def parse_interactive_todos_argument(
     if path == "":
         path = None
     return path, kwargs, None, True
-
-
-def parse_interactive_option_limit_argument(
-    argument: str | None,
-    usage: str,
-    option_specs: dict[str, str],
-) -> tuple[dict[str, int], str | None, bool]:
-    if not argument:
-        return {}, None, False
-    try:
-        parts = shlex.split(argument)
-    except ValueError as error:
-        if any(flag in argument for flag in option_specs):
-            return {}, f"{usage}\n  error: {error}", True
-        return {}, None, False
-
-    uses_named_options = False
-    for part in parts:
-        flag = part.split("=", 1)[0] if part.startswith("--") else part
-        if part.startswith("--") or flag in option_specs:
-            uses_named_options = True
-            break
-    if not uses_named_options:
-        return {}, usage, True
-
-    kwargs: dict[str, int] = {}
-    index = 0
-    while index < len(parts):
-        part = parts[index]
-        flag = part.split("=", 1)[0] if part.startswith("--") else part
-        if flag in option_specs:
-            if "=" in part:
-                raw_value = part.split("=", 1)[1]
-                index += 1
-            else:
-                raw_value = parts[index + 1] if index + 1 < len(parts) else None
-                index += 2
-            value, error = parse_interactive_positive_option(flag, raw_value)
-            if error:
-                return {}, f"{usage}\n  error: {error}", True
-            kwargs[option_specs[flag]] = int(value)
-            continue
-        return {}, f"{usage}\n  error: Unknown option: {part}", True
-
-    return kwargs, None, True
 
 
 def parse_interactive_commands_argument(
