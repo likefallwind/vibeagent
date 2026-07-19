@@ -10,6 +10,7 @@ from .chat import run_chat
 from .cli_context import build_context_limit_kwargs, resolve_one_shot_prior_context
 from .cli_config import build_provider_env, resolve_project_root
 from .cli_mcp_args import resolve_mcp_config_paths
+from .cli_one_shot_agent_kwargs import build_one_shot_agent_kwargs
 from .cli_one_shot_input import (
     build_one_shot_kwargs_from_args,
     combine_optional_text,
@@ -22,20 +23,17 @@ from .cli_one_shot_output import (
     build_one_shot_error_payload,
 )
 from .cli_output import (
-    build_approval_handler,
     format_error,
     print_agent_result,
     print_error_result,
     print_interrupted_result,
     print_output,
-    prompt_user_input,
 )
 from .cli_stream_output import JsonEventStream
 from .cli_project_command_expansion import expand_one_shot_project_command
 from .commands import get_compact_context, get_resume_context
 from .config import resolve_execution_config
 from .providers import create_chat_client
-from .project_trust import is_project_permissions_trusted
 from .session_event_observers import observe_session_events
 from .types import ApprovalPolicy
 from .workspace_core import create_run_workspace
@@ -200,29 +198,23 @@ def run_one_shot(
             if stream is not None and stream_workspace is not None
             else nullcontext()
         )
-        run_kwargs = {
-            "client": client,
-            "base_dir": project_root,
-            "max_iterations": execution_config.max_iterations,
-            "command_timeout_ms": execution_config.command_timeout_ms,
-            "max_output_tokens": execution_config.max_output_tokens,
-            "model_retries": execution_config.model_retries,
-            "model_retry_delay_ms": execution_config.model_retry_delay_ms,
-            "model_timeout_ms": execution_config.model_timeout_ms,
-            "approval_handler": None if stream_json and approval_policy == "ask" else build_approval_handler(approval_policy),
-            "approval_policy": approval_policy,
-            "trust_project_permissions": trust_project_permissions or is_project_permissions_trusted(project_root),
-            "permission_overrides": permission_overrides,
-            "mcp_config_paths": resolved_mcp_config_paths,
-            "strict_mcp_config": strict_mcp_config,
-            "user_input_handler": None if machine_output else prompt_user_input,
-            "prior_context": merged_prior_context,
-            "system_prompt": system_prompt,
-            "append_system_prompt": append_system_prompt,
-            "task_metadata": task_metadata,
-        }
-        if stream_workspace is not None:
-            run_kwargs["workspace"] = stream_workspace
+        run_kwargs = build_one_shot_agent_kwargs(
+            client=client,
+            project_root=project_root,
+            execution_config=execution_config,
+            approval_policy=approval_policy,
+            trust_project_permissions=trust_project_permissions,
+            permission_overrides=permission_overrides,
+            mcp_config_paths=resolved_mcp_config_paths,
+            strict_mcp_config=strict_mcp_config,
+            machine_output=machine_output,
+            stream_json=stream_json,
+            prior_context=merged_prior_context,
+            system_prompt=system_prompt,
+            append_system_prompt=append_system_prompt,
+            task_metadata=task_metadata,
+            workspace=stream_workspace,
+        )
         with event_scope:
             result = run_agent_func(task, **run_kwargs)
         result_payload = build_one_shot_code_payload(
