@@ -1,0 +1,147 @@
+from __future__ import annotations
+
+import re
+
+
+CLAUDE_MCP_TOOL_NAME_PATTERN = re.compile(r"^mcp__[A-Za-z0-9][A-Za-z0-9._-]{0,63}__[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
+    "AskUserQuestion": "ask_user",
+    "Agent": "delegate_task",
+    "Bash": "run_command",
+    "BashOutput": "read_process",
+    "Edit": "edit_file",
+    "ExitPlanMode": "update_plan",
+    "Glob": "glob",
+    "Grep": "search",
+    "KillBash": "stop_process",
+    "LS": "list_tree",
+    "MultiEdit": "multi_edit_file",
+    "NotebookEdit": "notebook_edit",
+    "NotebookRead": "notebook_read",
+    "Read": "read_file",
+    "Task": "delegate_task",
+    "TodoRead": "todo_read",
+    "TodoWrite": "todo_write",
+    "WebFetch": "web_fetch",
+    "Write": "write_file",
+}
+
+BASH_TOOL_NAMES = frozenset(
+    {
+        "run_command",
+        "run_commands",
+        "run_focused_test_commands",
+        "run_session_verification",
+        "run_suggested_checks",
+        "start_command",
+    }
+)
+FILE_EDIT_TOOL_NAMES = frozenset(
+    {
+        "append_file",
+        "code_rename",
+        "copy_dir",
+        "copy_dirs",
+        "copy_file",
+        "copy_files",
+        "create_dir",
+        "create_dirs",
+        "delete_empty_dir",
+        "delete_empty_dirs",
+        "delete_file",
+        "delete_files",
+        "edit_file",
+        "insert_lines",
+        "json_patch",
+        "json_remove",
+        "json_set",
+        "move_dir",
+        "move_dirs",
+        "move_file",
+        "move_files",
+        "multi_edit_file",
+        "patch_file",
+        "patch_files",
+        "python_rename",
+        "regex_replace",
+        "replace_lines",
+        "replace_python_definition",
+        "set_executable",
+        "write_file",
+        "write_files",
+    }
+)
+FILE_READ_TOOL_NAMES = frozenset(
+    {
+        "code_definitions",
+        "code_dependencies",
+        "code_outline",
+        "code_reference_contexts",
+        "code_references",
+        "config_check",
+        "file_info",
+        "find_files",
+        "glob",
+        "image_info",
+        "list_files",
+        "list_tree",
+        "python_call_graph",
+        "python_calls",
+        "python_check",
+        "python_definitions",
+        "python_dependencies",
+        "python_reference_contexts",
+        "python_references",
+        "python_symbols",
+        "read_file",
+        "read_file_context",
+        "read_file_contexts",
+        "read_file_ranges",
+        "read_files",
+        "repo_map",
+        "search",
+        "search_contexts",
+        "tail_file",
+        "view_image",
+    }
+)
+CLAUDE_TOOL_ALIASES = {
+    "Agent": frozenset({"delegate_task"}),
+    "AskUserQuestion": frozenset({"ask_user"}),
+    "Bash": BASH_TOOL_NAMES,
+    "BashOutput": frozenset({"read_process"}),
+    "Edit": FILE_EDIT_TOOL_NAMES,
+    "ExitPlanMode": frozenset({"update_plan"}),
+    "Glob": frozenset({"glob"}),
+    "Grep": frozenset({"search"}),
+    "KillBash": frozenset({"stop_process"}),
+    "LS": frozenset({"list_tree"}),
+    "MultiEdit": frozenset({"multi_edit_file"}),
+    "NotebookEdit": FILE_EDIT_TOOL_NAMES | frozenset({"notebook_edit"}),
+    "NotebookRead": FILE_READ_TOOL_NAMES | frozenset({"notebook_read"}),
+    "Read": FILE_READ_TOOL_NAMES,
+    "Task": frozenset({"delegate_task"}),
+    "TodoRead": frozenset({"session_plan"}),
+    "TodoWrite": frozenset({"update_plan"}),
+    "WebFetch": frozenset({"web_fetch"}),
+    "Write": FILE_EDIT_TOOL_NAMES,
+}
+PROFILE_TOOL_ALIAS_EXPANSIONS = {
+    "Bash": frozenset(
+        {"Bash", "BashOutput", "KillBash", "read_process", "run_command", "start_command", "stop_process"}
+    ),
+    "Edit": frozenset({"Edit", "edit_file", "regex_replace"}),
+    "Glob": frozenset({"Glob", "glob"}),
+    "Grep": frozenset({"Grep", "search"}),
+    "LS": frozenset({"LS", "list_tree"}),
+    "MultiEdit": frozenset({"MultiEdit", "multi_edit_file"}),
+    "NotebookEdit": frozenset(
+        {"NotebookEdit", "edit_file", "notebook_edit", "regex_replace"}
+    ),
+    "NotebookRead": frozenset({"NotebookRead", "notebook_read"}),
+    "Read": frozenset({"Read", "read_file"}),
+    "TodoRead": frozenset({"TodoRead", "session_plan"}),
+    "WebFetch": frozenset({"WebFetch", "web_fetch"}),
+    "Write": frozenset({"Write", "write_file"}),
+}

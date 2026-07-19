@@ -5,6 +5,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from vibeagent import action_tool_alias_sets
+from vibeagent import action_tool_aliases
 from vibeagent.actions import execute_action
 from vibeagent.agent_action_labels import build_step_label
 from vibeagent.agent_action_targets import build_action_target
@@ -28,6 +30,14 @@ from vibeagent.workspace import create_run_workspace
 
 
 class ActionToolAliasTests(unittest.TestCase):
+    def test_action_tool_aliases_reexport_split_alias_sets(self) -> None:
+        self.assertIs(action_tool_aliases.BASH_TOOL_NAMES, action_tool_alias_sets.BASH_TOOL_NAMES)
+        self.assertIs(action_tool_aliases.CLAUDE_MCP_TOOL_NAME_PATTERN, action_tool_alias_sets.CLAUDE_MCP_TOOL_NAME_PATTERN)
+        self.assertIs(action_tool_aliases.CLAUDE_TOOL_ACTION_ALIASES, action_tool_alias_sets.CLAUDE_TOOL_ACTION_ALIASES)
+        self.assertIs(action_tool_aliases.CLAUDE_TOOL_ALIASES, action_tool_alias_sets.CLAUDE_TOOL_ALIASES)
+        self.assertIs(action_tool_aliases.FILE_EDIT_TOOL_NAMES, action_tool_alias_sets.FILE_EDIT_TOOL_NAMES)
+        self.assertIs(action_tool_aliases.FILE_READ_TOOL_NAMES, action_tool_alias_sets.FILE_READ_TOOL_NAMES)
+
     def test_truthy_alias_bool_accepts_common_string_values(self) -> None:
         self.assertTrue(truthy_alias_bool(True))
         self.assertTrue(truthy_alias_bool("true"))
