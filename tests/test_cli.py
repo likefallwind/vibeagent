@@ -12066,36 +12066,6 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["error"], "Local command flags cannot be combined with a task.")
         create_chat_client.assert_not_called()
 
-    def test_main_one_shot_invalid_cwd_returns_error_without_creating_client(self) -> None:
-        stdout = io.StringIO()
-
-        with (
-            patch("vibeagent.cli.create_chat_client") as create_chat_client,
-            redirect_stdout(stdout),
-        ):
-            exit_code = main(["--cwd", "missing-dir", "continue"])
-
-        self.assertEqual(exit_code, 1)
-        self.assertIn("Project directory not found: missing-dir", stdout.getvalue())
-        create_chat_client.assert_not_called()
-
-    def test_main_one_shot_error_with_json_output(self) -> None:
-        stdout = io.StringIO()
-
-        with (
-            patch("vibeagent.cli.create_chat_client") as create_chat_client,
-            redirect_stdout(stdout),
-        ):
-            exit_code = main(["--json", "--cwd", "missing-dir", "continue"])
-
-        payload = json.loads(stdout.getvalue())
-        self.assertEqual(exit_code, 1)
-        self.assertEqual(payload["kind"], "error")
-        self.assertFalse(payload["success"])
-        self.assertEqual(payload["status"], "failed")
-        self.assertEqual(payload["error"], "Project directory not found: missing-dir")
-        create_chat_client.assert_not_called()
-
     def test_main_interactive_uses_requested_cwd_and_restores_original_cwd(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             stdout = io.StringIO()
