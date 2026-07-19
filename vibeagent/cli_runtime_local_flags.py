@@ -186,6 +186,25 @@ def _wait_process(command: Any, commands: dict[str, Any]) -> str:
     return commands["get_wait_process_text"](process_id=process_id, **kwargs)
 
 
+def _write_process(command: Any, commands: dict[str, Any], *, check: bool) -> str:
+    usage = (
+        "Usage: /check-write-process <id> <text> [--stdin-file PATH]"
+        if check
+        else "Usage: /write-process <id> <text> [--stdin-file PATH]"
+    )
+    process_id, content, error = commands["parse_interactive_write_process_argument"](
+        command.argument,
+        project_root=Path.cwd(),
+        usage=usage,
+    )
+    if error:
+        return error
+    getter = commands["get_check_write_process_text"] if check else commands["get_write_process_text"]
+    if process_id is None and content is None:
+        return getter(argument=command.argument)
+    return getter(process_id=process_id, content=content)
+
+
 def run_interactive_runtime_command(command: Any, commands: dict[str, Any]) -> str | None:
     if command.type == "env":
         return commands["get_env_text"]()
@@ -200,9 +219,9 @@ def run_interactive_runtime_command(command: Any, commands: dict[str, Any]) -> s
     if command.type == "wait_process":
         return _wait_process(command, commands)
     if command.type == "check_write_process":
-        return commands["get_check_write_process_text"](argument=command.argument)
+        return _write_process(command, commands, check=True)
     if command.type == "write_process":
-        return commands["get_write_process_text"](argument=command.argument)
+        return _write_process(command, commands, check=False)
     if command.type == "check_stop_process":
         return commands["get_check_stop_process_text"](process_id=command.argument)
     if command.type == "stop_process":
