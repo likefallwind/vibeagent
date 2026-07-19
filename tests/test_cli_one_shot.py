@@ -290,6 +290,97 @@ class CliOneShotTests(unittest.TestCase):
         self.assertIn("Structured input assistant messages:", run_agent.call_args.kwargs["prior_context"])
         self.assertIn("tests/test_app.py", run_agent.call_args.kwargs["prior_context"])
 
+    def test_main_stream_json_stdin_parse_error_does_not_call_agent(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("sys.stdin", io.StringIO("{not json}\n")),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--input-format", "stream-json", "-"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("Invalid stream-json input on line 1", stdout.getvalue())
+        create_chat_client.assert_not_called()
+
+    def test_main_stream_json_future_schema_version_does_not_call_agent(self) -> None:
+        stdout = io.StringIO()
+        raw = json.dumps(
+            {
+                "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION + 1,
+                "type": "user",
+                "text": "continue task",
+            }
+        )
+
+        with (
+            patch("sys.stdin", io.StringIO(raw)),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--input-format", "stream-json", "-"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("Unsupported schemaVersion", stdout.getvalue())
+        create_chat_client.assert_not_called()
+
+    def test_main_json_stdin_parse_error_does_not_call_agent(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("sys.stdin", io.StringIO("{not json}\n")),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--input-format", "json", "-"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("Invalid json input", stdout.getvalue())
+        create_chat_client.assert_not_called()
+
+    def test_main_json_stdin_parse_error_reports_exit_code_in_json(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("sys.stdin", io.StringIO("{not json}\n")),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--json", "--input-format", "json", "-"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(payload["exitCode"], 2)
+        self.assertEqual(payload["exit_code"], 2)
+        self.assertEqual(payload["status"], "failed")
+        self.assertIn("Invalid json input", payload["error"])
+        create_chat_client.assert_not_called()
+
+    def test_main_rejects_input_format_stream_json_without_stdin_task(self) -> None:
+        stdout = io.StringIO()
+
+        with redirect_stdout(stdout):
+            exit_code = main(["--input-format", "stream-json", "inspect"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(
+            stdout.getvalue(),
+            "--input-format stream-json requires task '-' so input can be read from stdin.\n",
+        )
+
+    def test_main_rejects_input_format_json_without_stdin_task(self) -> None:
+        stdout = io.StringIO()
+
+        with redirect_stdout(stdout):
+            exit_code = main(["--input-format", "json", "inspect"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(
+            stdout.getvalue(),
+            "--input-format json requires task '-' so input can be read from stdin.\n",
+        )
+
     def test_main_one_shot_code_task_exits_nonzero_when_completion_is_blocked(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             result = AgentResult(
