@@ -19,11 +19,6 @@ from .types import (
     CheckRegexReplaceObservation,
     CheckReplaceLinesAction,
     CheckReplaceLinesObservation,
-    CheckWriteFileAction,
-    CheckWriteFileObservation,
-    CheckWriteFileResult,
-    CheckWriteFilesAction,
-    CheckWriteFilesObservation,
     EditFileAction,
     EditFileObservation,
     InsertLinesAction,
@@ -39,12 +34,8 @@ from .types import (
     RegexReplaceObservation,
     ReplaceLinesAction,
     ReplaceLinesObservation,
-    WriteFileAction,
-    WriteFileObservation,
-    WriteFileResult,
-    WriteFilesAction,
-    WriteFilesObservation,
 )
+from .file_write_action_executor import execute_write_file_action
 from .workspace import (
     RunWorkspace,
     append_project_file,
@@ -61,16 +52,16 @@ from .workspace import (
     preview_multi_edit_project_file,
     preview_regex_replace_project_file,
     preview_replace_project_file_lines,
-    preview_write_run_file,
-    preview_write_run_files,
     regex_replace_project_file,
     replace_project_file_lines,
-    write_run_file,
-    write_run_files,
 )
 
 
 def execute_text_file_action(workspace: RunWorkspace, action: object) -> Observation | None:
+    write_observation = execute_write_file_action(workspace, action)
+    if write_observation is not None:
+        return write_observation
+
     if isinstance(action, CheckEditFileAction):
         try:
             _, diff = preview_edit_project_file(workspace, action.path, action.old, action.new)
@@ -398,75 +389,5 @@ def execute_text_file_action(workspace: RunWorkspace, action: object) -> Observa
             message=message,
             diff=diff,
         )
-
-    if isinstance(action, CheckWriteFileAction):
-        try:
-            _, diff = preview_write_run_file(workspace, action.path, action.content)
-            return CheckWriteFileObservation(
-                kind="check_write_file",
-                path=action.path,
-                ok=True,
-                message=f"Write can apply to {action.path}.",
-                diff=diff,
-            )
-        except ValueError as error:
-            return CheckWriteFileObservation(
-                kind="check_write_file",
-                path=action.path,
-                ok=False,
-                message=str(error),
-                diff="",
-            )
-
-    if isinstance(action, WriteFileAction):
-        try:
-            write_run_file(workspace, action.path, action.content)
-            return WriteFileObservation(kind="write_file", path=action.path, ok=True, message=f"Wrote {action.path}")
-        except ValueError as error:
-            return WriteFileObservation(kind="write_file", path=action.path, ok=False, message=str(error))
-
-    if isinstance(action, CheckWriteFilesAction):
-        try:
-            previews = preview_write_run_files(workspace, [(file.path, file.content) for file in action.files])
-            files = [
-                CheckWriteFileResult(path=relative_path, ok=True, message=f"Write can apply to {relative_path}.", diff=diff)
-                for relative_path, _target, diff in previews
-            ]
-            return CheckWriteFilesObservation(
-                kind="check_write_files",
-                files=files,
-                ok=True,
-                message=f"Write can apply to {len(files)} file(s).",
-            )
-        except ValueError as error:
-            files = [
-                CheckWriteFileResult(path=file.path, ok=False, message=str(error), diff="")
-                for file in action.files
-            ]
-            return CheckWriteFilesObservation(
-                kind="check_write_files",
-                files=files,
-                ok=False,
-                message=str(error),
-            )
-
-    if isinstance(action, WriteFilesAction):
-        try:
-            write_run_files(workspace, [(file.path, file.content) for file in action.files])
-            files = [WriteFileResult(path=file.path, ok=True, message=f"Wrote {file.path}") for file in action.files]
-            return WriteFilesObservation(
-                kind="write_files",
-                files=files,
-                ok=True,
-                message=f"Wrote {len(files)} file(s).",
-            )
-        except ValueError as error:
-            files = [WriteFileResult(path=file.path, ok=False, message=str(error)) for file in action.files]
-            return WriteFilesObservation(
-                kind="write_files",
-                files=files,
-                ok=False,
-                message=str(error),
-            )
 
     return None
