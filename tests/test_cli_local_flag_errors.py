@@ -1,12 +1,45 @@
 import io
+import json
 import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
+from vibeagent import __version__
 from vibeagent.cli import main
 
 
 class CliLocalFlagErrorTests(unittest.TestCase):
+    def test_main_local_flag_rejects_task_text(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--doctor", "fix", "tests"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(stdout.getvalue(), "Local command flags cannot be combined with a task.\n")
+        create_chat_client.assert_not_called()
+
+    def test_main_local_flag_rejects_task_text_with_json_status(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--json", "--doctor", "fix", "tests"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(payload["kind"], "error")
+        self.assertEqual(payload["version"], __version__)
+        self.assertFalse(payload["success"])
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["error"], "Local command flags cannot be combined with a task.")
+        create_chat_client.assert_not_called()
+
     def test_main_reports_command_cwd_without_command_check_as_local_flag_error(self) -> None:
         stdout = io.StringIO()
 
