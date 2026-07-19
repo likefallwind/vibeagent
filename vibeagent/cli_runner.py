@@ -161,6 +161,8 @@ def run_one_shot(
     def emit_error(error: str, *, kind: str = "error", status: str = "failed", exit_code: int = 1) -> int:
         payload = error_result_payload(error, kind=kind, status=status)
         if machine_output:
+            payload["exitCode"] = exit_code
+            payload["exit_code"] = exit_code
             add_duration_fields(payload, elapsed_milliseconds(started_at))
         if stream is not None:
             stream.result(payload)

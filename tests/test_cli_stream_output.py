@@ -408,6 +408,8 @@ class CliStreamJsonTests(unittest.TestCase):
             "durationMs": 125,
             "duration_ms": 125,
             "error": "No task provided.",
+            "exitCode": 1,
+            "exit_code": 1,
             "kind": "error",
             "sequence": 1,
             "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,

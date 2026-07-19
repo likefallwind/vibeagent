@@ -12544,6 +12544,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["kind"], "error")
         self.assertEqual(payload["durationMs"], 67)
         self.assertEqual(payload["duration_ms"], 67)
+        self.assertEqual(payload["exitCode"], 1)
+        self.assertEqual(payload["exit_code"], 1)
         self.assertEqual(payload["version"], __version__)
         self.assertFalse(payload["success"])
         self.assertEqual(payload["status"], "failed")
