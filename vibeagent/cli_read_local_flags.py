@@ -4,6 +4,23 @@ import argparse
 from typing import Any
 
 from .cli_local_result import local_text_or_report
+from .cli_read_kwargs import (
+    build_around_kwargs,
+    build_around_many_kwargs,
+    build_find_files_kwargs,
+    build_glob_kwargs,
+    build_output_context_kwargs,
+    build_output_diagnostic_kwargs,
+    build_overview_kwargs,
+    build_read_files_kwargs,
+    build_read_kwargs,
+    build_read_ranges_kwargs,
+    build_repo_map_kwargs,
+    build_search_kwargs,
+    build_symbols_kwargs,
+    build_tail_kwargs,
+    build_tree_kwargs,
+)
 
 
 def run_read_local_flag(
@@ -13,13 +30,7 @@ def run_read_local_flag(
 ) -> tuple[str, dict[str, object]] | None:
     root = project_root or "."
     if args.overview:
-        overview_kwargs = {}
-        if args.overview_max_files is not None:
-            overview_kwargs["max_files"] = args.overview_max_files
-        if args.overview_max_commands is not None:
-            overview_kwargs["max_commands"] = args.overview_max_commands
-        if args.overview_max_checks is not None:
-            overview_kwargs["max_checks"] = args.overview_max_checks
+        overview_kwargs = build_overview_kwargs(args)
         return local_text_or_report(
             args,
             "overview",
@@ -28,13 +39,7 @@ def run_read_local_flag(
             lambda: commands["get_overview_text"](root, **overview_kwargs),
         )
     if args.repo_map is not None:
-        repo_map_kwargs = {}
-        if args.repo_map_max_depth is not None:
-            repo_map_kwargs["max_depth"] = args.repo_map_max_depth
-        if args.repo_map_max_files is not None:
-            repo_map_kwargs["max_files"] = args.repo_map_max_files
-        if args.repo_map_max_symbols is not None:
-            repo_map_kwargs["max_symbols"] = args.repo_map_max_symbols
+        repo_map_kwargs = build_repo_map_kwargs(args)
         return local_text_or_report(
             args,
             "repoMap",
@@ -43,15 +48,7 @@ def run_read_local_flag(
             lambda: commands["get_repo_map_text"](root, args.repo_map or None, **repo_map_kwargs),
         )
     if args.search is not None:
-        search_kwargs = {}
-        if args.search_max_matches is not None:
-            search_kwargs["max_matches"] = args.search_max_matches
-        if args.search_regex:
-            search_kwargs["regex"] = True
-        if args.search_ignore_case:
-            search_kwargs["case_sensitive"] = False
-        if args.search_context_lines is not None:
-            search_kwargs["context_lines"] = args.search_context_lines
+        search_kwargs = build_search_kwargs(args)
         return local_text_or_report(
             args,
             "search",
@@ -60,17 +57,7 @@ def run_read_local_flag(
             lambda: commands["get_search_text"](root, args.search, args.search_path, **search_kwargs),
         )
     if args.search_contexts is not None:
-        search_contexts_kwargs = {}
-        if args.search_max_matches is not None:
-            search_contexts_kwargs["max_matches"] = args.search_max_matches
-        if args.search_regex:
-            search_contexts_kwargs["regex"] = True
-        if args.search_ignore_case:
-            search_contexts_kwargs["case_sensitive"] = False
-        if args.search_context_lines is not None:
-            search_contexts_kwargs["context_lines"] = args.search_context_lines
-        if args.search_context_max_bytes is not None:
-            search_contexts_kwargs["max_bytes_per_context"] = args.search_context_max_bytes
+        search_contexts_kwargs = build_search_kwargs(args, include_context_bytes=True)
         return local_text_or_report(
             args,
             "searchContexts",
@@ -89,17 +76,7 @@ def run_read_local_flag(
             ),
         )
     if args.find_files is not None:
-        find_files_kwargs = {}
-        if args.find_files_path:
-            find_files_kwargs["path"] = args.find_files_path
-        if args.find_files_max_matches is not None:
-            find_files_kwargs["max_matches"] = args.find_files_max_matches
-        if args.find_files_regex:
-            find_files_kwargs["regex"] = True
-        if args.find_files_case_sensitive:
-            find_files_kwargs["case_sensitive"] = True
-        if args.find_files_include_dirs:
-            find_files_kwargs["include_dirs"] = True
+        find_files_kwargs = build_find_files_kwargs(args)
         return local_text_or_report(
             args,
             "findFiles",
@@ -108,11 +85,7 @@ def run_read_local_flag(
             lambda: commands["get_find_files_text"](root, args.find_files, **find_files_kwargs),
         )
     if args.glob is not None:
-        glob_kwargs = {}
-        if args.glob_max_matches is not None:
-            glob_kwargs["max_matches"] = args.glob_max_matches
-        if args.glob_include_dirs:
-            glob_kwargs["include_dirs"] = True
+        glob_kwargs = build_glob_kwargs(args)
         return local_text_or_report(
             args,
             "glob",
@@ -121,11 +94,7 @@ def run_read_local_flag(
             lambda: commands["get_glob_text"](root, args.glob, **glob_kwargs),
         )
     if args.tree is not None:
-        tree_kwargs = {}
-        if args.tree_max_depth is not None:
-            tree_kwargs["max_depth"] = args.tree_max_depth
-        if args.tree_max_entries is not None:
-            tree_kwargs["max_entries"] = args.tree_max_entries
+        tree_kwargs = build_tree_kwargs(args)
         return local_text_or_report(
             args,
             "tree",
@@ -134,9 +103,7 @@ def run_read_local_flag(
             lambda: commands["get_tree_text"](root, args.tree or None, **tree_kwargs),
         )
     if args.symbols is not None:
-        symbols_kwargs = {}
-        if args.symbols_max is not None:
-            symbols_kwargs["max_symbols"] = args.symbols_max
+        symbols_kwargs = build_symbols_kwargs(args)
         return local_text_or_report(
             args,
             "symbols",
@@ -161,11 +128,7 @@ def run_read_local_flag(
             lambda: commands["get_image_info_text"](root, args.image_info),
         )
     if args.read is not None:
-        read_kwargs = {}
-        if args.read_max_bytes is not None:
-            read_kwargs["max_bytes"] = args.read_max_bytes
-        if args.read_line_numbers:
-            read_kwargs["show_line_numbers"] = True
+        read_kwargs = build_read_kwargs(args)
         return local_text_or_report(
             args,
             "read",
@@ -174,9 +137,7 @@ def run_read_local_flag(
             lambda: commands["get_read_text"](root, args.read, args.read_lines, **read_kwargs),
         )
     if args.around is not None:
-        around_kwargs = {}
-        if args.around_max_bytes is not None:
-            around_kwargs["max_bytes"] = args.around_max_bytes
+        around_kwargs = build_around_kwargs(args)
         around_argument = f"{args.around[0]} {args.around[1]}"
         return local_text_or_report(
             args,
@@ -186,9 +147,7 @@ def run_read_local_flag(
             lambda: commands["get_around_text"](root, around_argument, args.around_lines, **around_kwargs),
         )
     if args.around_many is not None:
-        around_many_kwargs = {}
-        if args.around_many_max_bytes is not None:
-            around_many_kwargs["max_bytes_per_context"] = args.around_many_max_bytes
+        around_many_kwargs = build_around_many_kwargs(args)
         return local_text_or_report(
             args,
             "aroundMany",
@@ -197,11 +156,7 @@ def run_read_local_flag(
             lambda: commands["get_around_many_text"](root, args.around_many, **around_many_kwargs),
         )
     if args.output_contexts is not None:
-        output_context_kwargs = {
-            "context_lines": args.output_context_lines,
-            "max_contexts": args.output_context_max,
-            "max_bytes_per_context": args.output_context_max_bytes,
-        }
+        output_context_kwargs = build_output_context_kwargs(args)
         return local_text_or_report(
             args,
             "outputContexts",
@@ -210,12 +165,7 @@ def run_read_local_flag(
             lambda: commands["get_output_contexts_text"](root, args.output_contexts, **output_context_kwargs),
         )
     if args.output_diagnostics is not None:
-        output_diagnostic_kwargs = {
-            "context_lines": args.output_diagnostic_lines,
-            "max_diagnostics": args.output_diagnostic_max,
-            "max_contexts": args.output_diagnostic_context_max,
-            "max_bytes_per_context": args.output_diagnostic_context_max_bytes,
-        }
+        output_diagnostic_kwargs = build_output_diagnostic_kwargs(args)
         return local_text_or_report(
             args,
             "outputDiagnostics",
@@ -224,12 +174,7 @@ def run_read_local_flag(
             lambda: commands["get_output_diagnostics_text"](root, args.output_diagnostics, **output_diagnostic_kwargs),
         )
     if args.python_traceback is not None:
-        python_traceback_kwargs = {
-            "context_lines": args.output_diagnostic_lines,
-            "max_diagnostics": args.output_diagnostic_max,
-            "max_contexts": args.output_diagnostic_context_max,
-            "max_bytes_per_context": args.output_diagnostic_context_max_bytes,
-        }
+        python_traceback_kwargs = build_output_diagnostic_kwargs(args)
         return local_text_or_report(
             args,
             "pythonTraceback",
@@ -238,9 +183,7 @@ def run_read_local_flag(
             lambda: commands["get_python_traceback_text"](root, args.python_traceback, **python_traceback_kwargs),
         )
     if args.tail is not None:
-        tail_kwargs = {}
-        if args.tail_max_bytes is not None:
-            tail_kwargs["max_bytes"] = args.tail_max_bytes
+        tail_kwargs = build_tail_kwargs(args)
         return local_text_or_report(
             args,
             "tail",
@@ -249,11 +192,7 @@ def run_read_local_flag(
             lambda: commands["get_tail_text"](root, args.tail, args.tail_lines, **tail_kwargs),
         )
     if args.read_files is not None:
-        read_files_kwargs = {}
-        if args.read_files_max_bytes is not None:
-            read_files_kwargs["max_bytes_per_file"] = args.read_files_max_bytes
-        if args.read_files_line_numbers:
-            read_files_kwargs["show_line_numbers"] = True
+        read_files_kwargs = build_read_files_kwargs(args)
         return local_text_or_report(
             args,
             "readFiles",
@@ -262,9 +201,7 @@ def run_read_local_flag(
             lambda: commands["get_read_files_text"](root, args.read_files, **read_files_kwargs),
         )
     if args.read_ranges is not None:
-        read_ranges_kwargs = {}
-        if args.read_ranges_max_bytes is not None:
-            read_ranges_kwargs["max_bytes_per_range"] = args.read_ranges_max_bytes
+        read_ranges_kwargs = build_read_ranges_kwargs(args)
         return local_text_or_report(
             args,
             "readRanges",
