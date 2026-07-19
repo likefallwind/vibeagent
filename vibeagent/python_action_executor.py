@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .action_results import build_python_rename_preview_files, build_reference_context_results
+from .python_action_reports import python_call_graph_message, python_found_message
 from .types import (
     AgentAction,
     CheckReplacePythonDefinitionAction,
@@ -123,11 +124,7 @@ def execute_python_action(workspace, action: AgentAction) -> Observation | None:
             )
             definitions = [PythonDefinition(**item) for item in raw_definitions]
             truncated = len(definitions) < total
-            message = f"Found {total} Python definition(s)."
-            if truncated:
-                message += f" Showing first {len(definitions)}."
-            if errors:
-                message += f" Skipped {len(errors)} file(s)."
+            message = python_found_message(total, len(definitions), "definition", errors=errors)
             ok = True
         except ValueError as error:
             definitions = []
@@ -158,11 +155,7 @@ def execute_python_action(workspace, action: AgentAction) -> Observation | None:
             )
             calls = [PythonCall(**item) for item in raw_calls]
             truncated = len(calls) < total
-            message = f"Found {total} Python call(s)."
-            if truncated:
-                message += f" Showing first {len(calls)}."
-            if errors:
-                message += f" Skipped {len(errors)} file(s)."
+            message = python_found_message(total, len(calls), "call", errors=errors)
             ok = True
         except ValueError as error:
             calls = []
@@ -261,13 +254,13 @@ def execute_python_action(workspace, action: AgentAction) -> Observation | None:
             )
             edges = [PythonCall(**item) for item in raw_edges]
             truncated = len(edges) < total
-            message = f"Found {total} Python call graph edge(s) across {total_files} file(s)."
-            if truncated:
-                message += f" Showing first {len(edges)}."
-            if total_files > action.max_files:
-                message += f" Inspected first {action.max_files} file(s)."
-            if errors:
-                message += f" Skipped {len(errors)} file(s)."
+            message = python_call_graph_message(
+                total,
+                len(edges),
+                total_files,
+                action.max_files,
+                errors=errors,
+            )
             ok = True
         except ValueError as error:
             edges = []
@@ -297,11 +290,7 @@ def execute_python_action(workspace, action: AgentAction) -> Observation | None:
             )
             references = [PythonReference(**item) for item in raw_references]
             truncated = len(references) < total
-            message = f"Found {total} Python reference(s)."
-            if truncated:
-                message += f" Showing first {len(references)}."
-            if errors:
-                message += f" Skipped {len(errors)} file(s)."
+            message = python_found_message(total, len(references), "reference", errors=errors)
             ok = True
         except ValueError as error:
             references = []
@@ -338,11 +327,7 @@ def execute_python_action(workspace, action: AgentAction) -> Observation | None:
                 action.max_bytes_per_context,
             )
             truncated = len(contexts) < total
-            message = f"Found {total} Python reference context(s)."
-            if truncated:
-                message += f" Showing first {len(contexts)}."
-            if errors:
-                message += f" Skipped {len(errors)} file(s)."
+            message = python_found_message(total, len(contexts), "reference context", errors=errors)
             ok = True
         except ValueError as error:
             contexts = []
