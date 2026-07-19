@@ -26,7 +26,7 @@ from .workspace_python_analysis import (
     resolve_import_from_module,
     resolve_import_target,
 )
-from .workspace_project_info import list_files, list_search_files
+from .workspace_search_files import list_files, list_search_files
 from .workspace_python_symbols import (
     apply_python_rename_replacements,
     call_matches_symbol,

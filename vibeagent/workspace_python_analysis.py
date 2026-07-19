@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .workspace_core import RunWorkspace
 from .workspace_file_read import read_utf8_text_file
-from .workspace_project_info import list_files, list_search_files
+from .workspace_search_files import list_files, list_search_files
 from .workspace_resolve import resolve_inside_run
 
 

@@ -55,7 +55,7 @@ from .workspace_python_intel import (
     collect_python_symbols,
 )
 from .workspace_file_read import format_line_excerpt, read_utf8_text_file
-from .workspace_project_info import list_files, list_search_files
+from .workspace_search_files import list_files, list_search_files
 from .workspace_resolve import resolve_inside_run, resolve_mutation_path
 
 
@@ -488,4 +488,3 @@ def check_config_file_paths(
         scoped_results, _total = check_config_syntax(workspace, relative, max_files=1)
         results.extend(scoped_results)
     return results, len(files)
-

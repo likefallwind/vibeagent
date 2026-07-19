@@ -16,7 +16,7 @@ from .workspace_path_discovery import (
     normalize_list_tree_ignore,
     validate_glob_pattern,
 )
-from .workspace_project_info import list_search_files
+from .workspace_search_files import list_search_files
 from .workspace_resolve import resolve_inside_run
 
 

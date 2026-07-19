@@ -65,7 +65,7 @@ from .workspace_git_stash_ops import (
     stash_git_changes,
     validate_git_stash_ref,
 )
-from .workspace_project_info import list_search_files
+from .workspace_search_files import list_search_files
 from .workspace_resolve import resolve_inside_run
 
 

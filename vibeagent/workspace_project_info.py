@@ -9,12 +9,9 @@ from pathlib import Path
 from .workspace_core import (
     PROJECT_INSTRUCTION_CONTENT_LIMIT,
     PROJECT_INSTRUCTION_FILE_NAMES,
-    PROJECT_TODO_MARKERS,
-    PROJECT_TODO_PATTERN,
     RunWorkspace,
 )
 from .workspace_git_utils import run_readonly_git
-from .workspace_paths import should_ignore_path
 from .workspace_project_metadata import (
     SHELL_BUILTINS,
     empty_project_manifest,
@@ -30,7 +27,8 @@ from .workspace_project_metadata import (
     read_pyproject_scripts,
     stringify_manifest_value,
 )
-from .workspace_resolve import resolve_inside_run
+from .workspace_project_todos import read_project_todos
+from .workspace_search_files import list_files, list_search_files
 
 
 def read_workspace_snapshot(workspace: RunWorkspace, max_bytes: int = 12_000) -> str:
@@ -197,62 +195,6 @@ def read_project_command_hints(workspace: RunWorkspace, max_bytes: int = 8_000, 
     if len(combined) <= max_bytes:
         return combined
     return f"{combined[:max_bytes]}\n[project command hints truncated]"
-
-
-def read_project_todos(
-    workspace: RunWorkspace,
-    relative_path: str | None = None,
-    max_items: int = 100,
-    max_files: int = 1000,
-) -> dict[str, object]:
-    if max_items < 1:
-        raise ValueError("max_items must be at least 1.")
-    if max_items > 500:
-        raise ValueError("max_items must be at most 500.")
-    if max_files < 1:
-        raise ValueError("max_files must be at least 1.")
-    if max_files > 5000:
-        raise ValueError("max_files must be at most 5000.")
-
-    selected_path = relative_path.strip() if relative_path else None
-    files = list_search_files(workspace, selected_path)
-    scanned_files = files[:max_files]
-    todos: list[dict[str, object]] = []
-    total = 0
-    for relative in scanned_files:
-        path = resolve_inside_run(workspace.root, relative)
-        try:
-            lines = path.read_text(encoding="utf-8").splitlines()
-        except (OSError, UnicodeDecodeError):
-            continue
-        for line_number, line in enumerate(lines, start=1):
-            match = PROJECT_TODO_PATTERN.search(line)
-            if not match:
-                continue
-            total += 1
-            if len(todos) >= max_items:
-                continue
-            todos.append(
-                {
-                    "path": relative,
-                    "line": line_number,
-                    "marker": match.group(1).upper(),
-                    "text": line.strip(),
-                }
-            )
-
-    truncated = len(files) > len(scanned_files) or total > len(todos)
-    return {
-        "ok": True,
-        "todos": todos,
-        "total": total,
-        "truncated": truncated,
-        "total_files": len(files),
-        "scanned_files": len(scanned_files),
-        "path": selected_path or ".",
-        "markers": list(PROJECT_TODO_MARKERS),
-        "message": f"Found {total} project TODO marker(s) in {len(scanned_files)}/{len(files)} scanned file(s).",
-    }
 
 
 def read_project_commands(workspace: RunWorkspace, max_commands: int = 100, max_files: int = 30) -> dict[str, object]:
@@ -424,30 +366,3 @@ def read_runtime_tool_info(name: str, command: list[str]) -> dict[str, object]:
         "version": version_text or None,
         "message": version_text or f"Exited with {result.returncode}.",
     }
-
-
-def list_files(root: str | Path) -> list[str]:
-    # Enumerate all files in deterministic order so prompt diffs stay stable.
-    root_path = Path(root).resolve()
-    files = [
-        path.relative_to(root_path).as_posix()
-        for path in root_path.rglob("*")
-        if not path.is_symlink() and path.is_file() and not should_ignore_path(root_path, path)
-    ]
-    return sorted(files)
-
-
-def list_search_files(workspace: RunWorkspace, relative_path: str | None) -> list[str]:
-    if not relative_path:
-        return list_files(workspace.root)
-
-    base = resolve_inside_run(workspace.root, relative_path)
-    if not base.exists():
-        raise ValueError(f"Path does not exist: {relative_path}")
-    if base.is_file():
-        return [base.relative_to(workspace.root).as_posix()]
-    return [
-        path.relative_to(workspace.root).as_posix()
-        for path in sorted(base.rglob("*"))
-        if not path.is_symlink() and path.is_file() and not should_ignore_path(workspace.root, path)
-    ]
