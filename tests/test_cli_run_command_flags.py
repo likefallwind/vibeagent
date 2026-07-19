@@ -406,3 +406,128 @@ class CliRunCommandFlagTests(unittest.TestCase):
         )
         format_check_run_sequence_report.assert_called_once_with(report)
         create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_run_limit_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/run --cwd src --timeout-ms 2000 --max-chars 3000 --output-contexts --output-diagnostics --context-lines 2 --max-diagnostics 7 --max-contexts 5 --max-bytes 1000 -- python3 --version",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_run_text", return_value="Run:\n  ok: yes") as get_run_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Run:", output)
+        get_run_text.assert_called_once_with(
+            command="python3 --version",
+            cwd="src",
+            timeout_ms=2000,
+            max_output_chars=3000,
+            extract_output_contexts=True,
+            extract_output_diagnostics=True,
+            context_lines=2,
+            max_diagnostics=7,
+            max_contexts=5,
+            max_bytes_per_context=1000,
+        )
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_run_limit_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/run --timeout-ms 99 -- python3 --version",
+                    "/run --max-diagnostics 0 -- python3 --version",
+                    "/run --output-diagnostics",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_run_text") as get_run_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /run [--timeout-ms N]", output)
+        self.assertIn("--timeout-ms must be at least 100.", output)
+        self.assertIn("--max-diagnostics must be a positive integer.", output)
+        self.assertIn("command is required.", output)
+        get_run_text.assert_not_called()
+        create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_run_sequence_limit_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/run-seq --cwd src --timeout-ms 2000 --max-chars 3000 --continue-on-failure --output-contexts --output-diagnostics --context-lines 2 --max-diagnostics 7 --max-contexts 5 --max-bytes 1000 -- python3 --version ;; npm test",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_run_sequence_text", return_value="Run sequence:\n  ok: yes") as get_run_sequence_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Run sequence:", output)
+        get_run_sequence_text.assert_called_once_with(
+            commands=["python3 --version", "npm test"],
+            cwd="src",
+            timeout_ms=2000,
+            max_output_chars=3000,
+            stop_on_failure=False,
+            extract_output_contexts=True,
+            extract_output_diagnostics=True,
+            context_lines=2,
+            max_diagnostics=7,
+            max_contexts=5,
+            max_bytes_per_context=1000,
+        )
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_run_sequence_limit_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/run-seq --timeout-ms 99 -- python3 --version",
+                    "/run-seq --max-contexts 0 -- python3 --version",
+                    "/run-seq --output-diagnostics",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_run_sequence_text") as get_run_sequence_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /run-seq [--timeout-ms N]", output)
+        self.assertIn("--timeout-ms must be at least 100.", output)
+        self.assertIn("--max-contexts must be a positive integer.", output)
+        self.assertIn("at least one command is required.", output)
+        get_run_sequence_text.assert_not_called()
+        create_chat_client.assert_not_called()
