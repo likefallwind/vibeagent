@@ -4,6 +4,7 @@ import argparse
 from collections.abc import Sequence
 import sys
 
+from .cli_context import build_context_limit_kwargs
 from .cli_input_format import StreamJsonTaskInput, resolve_json_task_input, resolve_stream_json_task_input
 from .cli_permission_overrides import build_permission_overrides
 
@@ -74,6 +75,44 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "permission_overrides": build_permission_overrides(args),
         "provider_args": args,
     }
+
+
+def build_resume_context_limit_kwargs(
+    *,
+    max_failures: int | None = None,
+    max_files: int | None = None,
+    max_commands: int | None = None,
+    max_checks: int | None = None,
+    max_output_chars: int | None = None,
+    max_text: int | None = None,
+) -> dict[str, int]:
+    return build_context_limit_kwargs(
+        max_failures=max_failures,
+        max_files=max_files,
+        max_commands=max_commands,
+        max_checks=max_checks,
+        max_output_chars=max_output_chars,
+        max_text=max_text,
+    )
+
+
+def build_compact_context_limit_kwargs(
+    *,
+    max_failures: int | None = None,
+    max_files: int | None = None,
+    max_commands: int | None = None,
+    max_checks: int | None = None,
+    max_output_chars: int | None = None,
+    max_text: int | None = None,
+) -> dict[str, int]:
+    return build_context_limit_kwargs(
+        max_failures=max_failures,
+        max_files=max_files,
+        max_commands=max_commands,
+        max_checks=max_checks,
+        max_output_chars=max_output_chars,
+        max_text=max_text,
+    )
 
 
 def merge_stream_system_prompt(

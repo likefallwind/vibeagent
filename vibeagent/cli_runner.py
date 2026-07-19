@@ -7,12 +7,14 @@ from time import monotonic
 
 from .agent import run_agent
 from .chat import run_chat
-from .cli_context import build_context_limit_kwargs, resolve_one_shot_prior_context
+from .cli_context import resolve_one_shot_prior_context
 from .cli_config import build_provider_env, resolve_project_root
 from .cli_mcp_args import resolve_mcp_config_paths
 from .cli_one_shot_agent_kwargs import build_one_shot_agent_kwargs
 from .cli_one_shot_input import (
+    build_compact_context_limit_kwargs,
     build_one_shot_kwargs_from_args,
+    build_resume_context_limit_kwargs,
     combine_optional_text,
     resolve_task_input,
     resolve_task_text,
@@ -153,7 +155,7 @@ def run_one_shot(
                 print_output(payload, output_json)
             return 0
 
-        resume_kwargs = build_context_limit_kwargs(
+        resume_kwargs = build_resume_context_limit_kwargs(
             max_failures=resume_max_failures,
             max_files=resume_max_files,
             max_commands=resume_max_commands,
@@ -161,7 +163,7 @@ def run_one_shot(
             max_output_chars=resume_max_output_chars,
             max_text=resume_max_text,
         )
-        compact_kwargs = build_context_limit_kwargs(
+        compact_kwargs = build_compact_context_limit_kwargs(
             max_failures=compact_max_failures,
             max_files=compact_max_files,
             max_commands=compact_max_commands,

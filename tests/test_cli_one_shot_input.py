@@ -5,6 +5,8 @@ from unittest.mock import patch
 
 from vibeagent import cli as cli_module
 from vibeagent.cli_one_shot_input import (
+    build_compact_context_limit_kwargs,
+    build_resume_context_limit_kwargs,
     combine_optional_text,
     format_stream_assistant_context,
     merge_stream_system_prompt,
@@ -151,6 +153,30 @@ class CliOneShotInputTests(unittest.TestCase):
         self.assertEqual(combine_optional_text(" first ", "\nsecond\n"), "first\n\nsecond")
         self.assertEqual(combine_optional_text("", "second"), "second")
         self.assertIsNone(combine_optional_text(" ", None))
+
+    def test_context_limit_kwargs_skip_unset_values(self) -> None:
+        self.assertEqual(
+            build_resume_context_limit_kwargs(
+                max_failures=3,
+                max_files=None,
+                max_commands=5,
+                max_checks=None,
+                max_output_chars=1200,
+                max_text=None,
+            ),
+            {"max_failures": 3, "max_commands": 5, "max_output_chars": 1200},
+        )
+        self.assertEqual(
+            build_compact_context_limit_kwargs(
+                max_failures=None,
+                max_files=4,
+                max_commands=None,
+                max_checks=2,
+                max_output_chars=None,
+                max_text=500,
+            ),
+            {"max_files": 4, "max_checks": 2, "max_text": 500},
+        )
 
     def test_build_one_shot_kwargs_from_args_keeps_main_mapping(self) -> None:
         args = cli_module.parse_args(
