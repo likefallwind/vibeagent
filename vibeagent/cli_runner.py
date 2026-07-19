@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import nullcontext
 from pathlib import Path
 from time import monotonic
 
@@ -24,6 +23,7 @@ from .cli_one_shot_output import (
     build_one_shot_code_payload,
     build_one_shot_error_payload,
 )
+from .cli_one_shot_stream import build_one_shot_stream_scope
 from .cli_output import (
     format_error,
     print_agent_result,
@@ -37,9 +37,7 @@ from .cli_project_command_expansion import expand_one_shot_project_command
 from .commands import get_compact_context, get_resume_context
 from .config import resolve_execution_config
 from .providers import create_chat_client
-from .session_event_observers import observe_session_events
 from .types import ApprovalPolicy
-from .workspace_core import create_run_workspace
 
 
 def run_one_shot(
@@ -185,19 +183,11 @@ def run_one_shot(
             return emit_error(prior_context.error)
         merged_prior_context = combine_optional_text(prior_context.context, input_prior_context)
         client = create_chat_client_func(provider_env)
-        stream_workspace = (
-            create_run_workspace(
-                project_root,
-                mcp_config_paths=resolved_mcp_config_paths,
-                strict_mcp_config=strict_mcp_config,
-            )
-            if stream is not None
-            else None
-        )
-        event_scope = (
-            observe_session_events(stream_workspace.session_dir, stream.session_event)
-            if stream is not None and stream_workspace is not None
-            else nullcontext()
+        stream_scope = build_one_shot_stream_scope(
+            stream,
+            project_root=project_root,
+            mcp_config_paths=resolved_mcp_config_paths,
+            strict_mcp_config=strict_mcp_config,
         )
         run_kwargs = build_one_shot_agent_kwargs(
             client=client,
@@ -214,9 +204,9 @@ def run_one_shot(
             system_prompt=system_prompt,
             append_system_prompt=append_system_prompt,
             task_metadata=task_metadata,
-            workspace=stream_workspace,
+            workspace=stream_scope.workspace,
         )
-        with event_scope:
+        with stream_scope.event_scope:
             result = run_agent_func(task, **run_kwargs)
         result_payload = build_one_shot_code_payload(
             result,
