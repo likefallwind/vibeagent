@@ -95,6 +95,7 @@ def execute_delegate_task_action(
     tool_calls_used: list[str] = []
     observations = parent_observations if action.mode == "code" and parent_observations is not None else []
     steps = parent_steps if action.mode == "code" and parent_steps is not None else []
+    delegate_observation_start = len(observations)
     auto_checkpoint_attempted = False
     active_tool_names = (
         code_delegate_initial_tool_names(approval_policy, allowed_tool_names)
@@ -295,7 +296,7 @@ def execute_delegate_task_action(
             workspace,
             action,
             messages,
-            observations,
+            observations[delegate_observation_start:],
             parent_iteration=parent_iteration,
             child_iteration=child_iteration,
             subagent_id=subagent_id,

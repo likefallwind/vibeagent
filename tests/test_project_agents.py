@@ -7,7 +7,7 @@ from unittest.mock import patch
 from vibeagent.actions import execute_action, parse_tool_action
 from vibeagent.agent_delegate import execute_delegate_task_action
 from vibeagent.prompts import build_messages
-from vibeagent.types import ApprovalDecision, AssistantResponse, ChatMessage, ContentBlock, ProjectAgentsAction
+from vibeagent.types import ApprovalDecision, AssistantResponse, ChatMessage, ContentBlock, ProjectAgentsAction, ReadFileObservation
 from vibeagent.workspace import (
     create_run_workspace,
     format_project_agent_catalog,
@@ -388,6 +388,52 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertEqual(compaction_rows[0]["previous_messages"], 14)
         self.assertEqual(compaction_rows[0]["new_messages"], 2)
         self.assertEqual(compaction_rows[0]["observations"], 6)
+
+    def test_code_subagent_compaction_excludes_parent_observations(self) -> None:
+        responses = [
+            [{"type": "tool_call", "id": f"read-{index}", "name": "read_file", "input": {"path": "README.md"}}]
+            for index in range(6)
+        ]
+        responses.append([{"type": "text", "text": "Read enough code context."}])
+        client = ProfileClient(responses)
+        parent_observations = [
+            ReadFileObservation(
+                kind="read_file",
+                path="parent.txt",
+                content="parent evidence\n",
+                message="Read parent.txt.",
+            )
+        ]
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            root.joinpath("README.md").write_text("# Demo\nBody\n", encoding="utf-8")
+            workspace = create_run_workspace(root, "run-1")
+            action = parse_tool_action(
+                "delegate_task",
+                {"task": "Read project context", "mode": "code", "max_iterations": 7},
+            )
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                parent_observations=parent_observations,
+            )
+
+        compacted_user = client.messages[6][1].content
+        self.assertTrue(observation.ok)
+        self.assertIsInstance(compacted_user, str)
+        self.assertIn("Total subagent observations so far: 6.", compacted_user)
+        self.assertIn("read_file README.md", compacted_user)
+        self.assertNotIn("parent.txt", compacted_user)
+        self.assertEqual(len(parent_observations), 7)
 
     def test_code_profile_bash_alias_allows_background_bash(self) -> None:
         approvals: list[str] = []
