@@ -32,7 +32,8 @@ from .cli_result_payloads import (
     error_result_payload,
 )
 from .cli_stream_output import JsonEventStream
-from .commands import get_compact_context, get_resume_context, parse_local_command
+from .cli_project_command_expansion import expand_one_shot_project_command
+from .commands import get_compact_context, get_resume_context
 from .config import resolve_cost_rates, resolve_execution_config
 from .providers import create_chat_client
 from .project_trust import is_project_permissions_trusted
@@ -40,7 +41,6 @@ from .session_event_observers import observe_session_events
 from .session_usage import build_run_cost_report, build_run_usage_report
 from .types import ApprovalPolicy
 from .workspace_core import create_run_workspace
-from .workspace_prompt_commands import expand_project_prompt_command
 
 
 def run_one_shot(
@@ -250,19 +250,3 @@ def run_one_shot(
 
 def elapsed_milliseconds(started_at: float) -> int:
     return max(0, round((monotonic() - started_at) * 1000))
-
-
-def expand_one_shot_project_command(project_root: Path, task: str) -> tuple[str, dict[str, object] | None]:
-    stripped = task.strip()
-    if not stripped.startswith("/") or parse_local_command(stripped) is not None:
-        return task, None
-    custom_command = expand_project_prompt_command(project_root, stripped)
-    if custom_command is None:
-        return task, None
-    metadata = {
-        "source": "project_command",
-        "name": custom_command["name"],
-        "path": custom_command["path"],
-        "arguments": custom_command["arguments"],
-    }
-    return str(custom_command["prompt"]), metadata

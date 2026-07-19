@@ -22,6 +22,10 @@ from .cli_output import (
     prompt_user_input,
 )
 from .cli_patch_local_flags import run_interactive_patch_command
+from .cli_project_command_expansion import (
+    expand_code_task_project_command,
+    project_command_task_metadata,
+)
 from .cli_project_local_flags import run_interactive_project_command, run_interactive_project_state_command
 from .cli_read_local_flags import run_interactive_read_command
 from .cli_review_local_flags import run_interactive_review_command
@@ -33,7 +37,6 @@ from .commands import get_resume_context as default_get_resume_context, parse_lo
 from .config import resolve_execution_config
 from .providers import create_chat_client as default_create_chat_client
 from .types import ApprovalPolicy, ChatMessage
-from .workspace_prompt_commands import expand_project_prompt_command
 
 
 def run_interactive_loop(
@@ -77,7 +80,7 @@ def run_interactive_loop(
         custom_command: dict[str, object] | None = None
         if command is None and task.startswith("/"):
             try:
-                custom_command = expand_project_prompt_command(Path.cwd(), task)
+                custom_command = expand_code_task_project_command(Path.cwd(), task)
             except ValueError as error:
                 print(str(error))
                 continue
@@ -230,12 +233,7 @@ def run_interactive_loop(
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
                 task_metadata=(
-                    {
-                        "source": "project_command",
-                        "name": custom_command["name"],
-                        "path": custom_command["path"],
-                        "arguments": custom_command["arguments"],
-                    }
+                    project_command_task_metadata(custom_command)
                     if custom_command is not None
                     else None
                 ),
