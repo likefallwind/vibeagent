@@ -7,8 +7,8 @@ from typing import TypeVar
 
 from . import MACHINE_OUTPUT_SCHEMA_VERSION, __version__
 from .cli_exit_codes import local_result_exit_code
+from .cli_machine_output import machine_result_status_fields
 from .cli_output import print_output
-from .cli_stream_output import machine_result_status_fields
 
 
 T = TypeVar("T")

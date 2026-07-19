@@ -8,6 +8,7 @@ from typing import Any, TextIO
 
 from . import MACHINE_OUTPUT_SCHEMA_VERSION, __version__
 from .agent_result import AgentResult
+from .cli_machine_output import machine_result_status_fields
 
 
 CODE_RESULT_SNAKE_CASE_ALIAS_KEYS = {
@@ -139,23 +140,6 @@ def code_result_snake_case_aliases(payload: dict[str, object]) -> dict[str, obje
 
 def code_result_exit_code(result: AgentResult) -> int:
     return 0 if result.success and result.completion_ready else 1
-
-
-def machine_result_status_fields(
-    *,
-    status: str,
-    stop_reason: str,
-    exit_code: int | None = None,
-) -> dict[str, object]:
-    payload: dict[str, object] = {
-        "status": status,
-        "stopReason": stop_reason,
-        "stop_reason": stop_reason,
-    }
-    if exit_code is not None:
-        payload["exitCode"] = exit_code
-        payload["exit_code"] = exit_code
-    return payload
 
 
 def error_result_payload(

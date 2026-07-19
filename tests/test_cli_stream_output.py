@@ -15,6 +15,7 @@ from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.cli import main
 from vibeagent.cli_args import parse_args
 from vibeagent.cli_context import OneShotPriorContext
+from vibeagent.cli_machine_output import machine_result_status_fields
 from vibeagent.cli_stream_output import (
     CODE_RESULT_SNAKE_CASE_ALIAS_KEYS,
     build_chat_result_payload,
@@ -23,7 +24,6 @@ from vibeagent.cli_stream_output import (
     code_result_snake_case_aliases,
     code_result_stop_reason,
     error_result_payload,
-    machine_result_status_fields,
 )
 from vibeagent.observation_common_types import UserInputObservation
 from vibeagent.runtime_types import AssistantResponse
