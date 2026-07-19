@@ -360,7 +360,11 @@ class CliTests(unittest.TestCase):
         self.assertFalse(payload["success"])
         self.assertEqual(payload["schemaVersion"], MACHINE_OUTPUT_SCHEMA_VERSION)
         self.assertEqual(payload["version"], __version__)
+        self.assertEqual(payload["exitCode"], 1)
+        self.assertEqual(payload["exit_code"], 1)
         self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["stopReason"], "failed")
+        self.assertEqual(payload["stop_reason"], "failed")
         self.assertEqual(payload["tool"], {"ok": False})
 
     def test_build_one_shot_kwargs_from_args_keeps_main_mapping(self) -> None:

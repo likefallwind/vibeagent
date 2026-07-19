@@ -28,11 +28,16 @@ def local_text_or_report(
 
 def emit_local_result(args: argparse.Namespace, text: str, payload_extra: Mapping[str, object] | None = None) -> int:
     exit_code = local_result_exit_code(args, text)
+    stop_reason = "completed" if exit_code == 0 else "failed"
     payload: dict[str, object] = {
         "kind": "local",
         "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
         "version": __version__,
         "success": exit_code == 0,
+        "exitCode": exit_code,
+        "exit_code": exit_code,
+        "stopReason": stop_reason,
+        "stop_reason": stop_reason,
         "text": text,
     }
     if payload_extra:
