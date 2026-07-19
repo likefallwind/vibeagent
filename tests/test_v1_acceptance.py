@@ -251,6 +251,11 @@ class V1AcceptanceTests(unittest.TestCase):
     def test_readiness_audit_names_automated_and_live_provider_gates(self) -> None:
         readiness = READINESS_PATH.read_text(encoding="utf-8")
 
+        self.assertIn("npm run test:install", readiness)
+        self.assertIn("scripts/install_smoke.py", readiness)
+        self.assertIn("fresh virtual environment", readiness)
+        self.assertIn("python -m vibeagent --version", readiness)
+        self.assertIn("vibeagent --version", readiness)
         self.assertIn("npm run test:v1:full", readiness)
         self.assertIn("Live Provider Gate", readiness)
         self.assertIn("Status: `complete-for-v1-release`", readiness)

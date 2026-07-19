@@ -8,21 +8,27 @@ evidence for calling VibeAgent 1.0 complete.
 Run from a clean worktree:
 
 ```sh
+npm run test:install
 npm run test:v1:full
 ```
 
 This gate must run:
 
+- `python3 scripts/install_smoke.py`
 - `npm run test:v1`
 - `python3 -m unittest discover -s tests -q`
 
-Passing this gate proves the deterministic 1.0 acceptance suite, real CLI smoke
-paths, and full unit suite are internally consistent.
+Passing this gate proves the package installs from outside the repository, both
+CLI entrypoints start, and the deterministic 1.0 acceptance suite, real CLI
+smoke paths, and full unit suite are internally consistent.
 
 ## Automated Evidence
 
 The automated suite currently covers these 1.0 surfaces:
 
+- Install smoke: `scripts/install_smoke.py` creates a fresh virtual environment
+  from outside the checkout, installs the package editable, and verifies both
+  `python -m vibeagent --version` and `vibeagent --version`.
 - Core ReAct loop: inspect, edit, run checks, repair, review, commit, finish.
 - Claude-compatible tool aliases: `Read`, `Edit`, `MultiEdit`, `Write`,
   `NotebookRead`, `NotebookEdit`, `Bash`, `BashOutput`, `KillBash`,
@@ -92,7 +98,8 @@ Status: `complete-for-v1-release`.
 
 Release package version: `1.0.0`.
 
-Reason: the automated 1.0 gate is broad and passing, and the live-provider
+Reason: the automated 1.0 gate is broad and passing, the install smoke proves
+the packaged CLI entrypoints from outside the checkout, and the live-provider
 dogfood gate passed on a non-fixture throwaway repository.
 
 Live provider evidence:
