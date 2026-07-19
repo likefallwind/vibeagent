@@ -43,6 +43,7 @@ from vibeagent.cli_session_args import add_session_limit_arguments, add_session_
 from vibeagent.cli_parse_tool_search import parse_interactive_tool_search_argument
 from vibeagent.cli_project_kwargs import (
     build_check_suggested_kwargs,
+    build_config_kwargs,
     build_focused_tests_local_kwargs,
     build_instructions_kwargs,
     build_manifests_kwargs,
@@ -51,6 +52,7 @@ from vibeagent.cli_project_kwargs import (
     build_run_focused_tests_kwargs,
     build_run_suggested_kwargs,
     build_todos_kwargs,
+    build_tool_search_kwargs,
     kwargs_without_argument,
     kwargs_without_keys,
 )
@@ -135,6 +137,35 @@ class CliParseModuleTests(unittest.TestCase):
         )
         self.assertEqual(kwargs_without_argument({"argument": "pytest", "max_checks": 5}), {"max_checks": 5})
         self.assertEqual(kwargs_without_keys({"argument": "pytest", "path": "src", "max_checks": 5}, "argument", "path"), {"max_checks": 5})
+
+    def test_project_config_and_tool_search_kwargs_preserve_cli_mapping(self) -> None:
+        args = argparse.Namespace(
+            max_iterations=7,
+            command_timeout_ms=30_000,
+            max_output_tokens=2048,
+            model_retries=2,
+            model_retry_delay_ms=250,
+            model_timeout_ms=90_000,
+            tool_search_max=5,
+            tool_search_category="project",
+            tool_search_approval="yes",
+        )
+
+        self.assertEqual(
+            build_config_kwargs(args),
+            {
+                "max_iterations": 7,
+                "command_timeout_ms": 30_000,
+                "max_output_tokens": 2048,
+                "model_retries": 2,
+                "model_retry_delay_ms": 250,
+                "model_timeout_ms": 90_000,
+            },
+        )
+        self.assertEqual(
+            build_tool_search_kwargs(args),
+            {"max_matches": 5, "category": "project", "approval_required": True},
+        )
 
     def test_project_focused_test_kwargs_preserve_cli_defaults(self) -> None:
         args = argparse.Namespace(

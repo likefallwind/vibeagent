@@ -4,6 +4,26 @@ import argparse
 import shlex
 
 from .cli_parse_core import build_focused_tests_kwargs
+from .tool_search_options import tool_search_approval_filter
+
+
+def build_config_kwargs(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "max_iterations": args.max_iterations,
+        "command_timeout_ms": args.command_timeout_ms,
+        "max_output_tokens": args.max_output_tokens,
+        "model_retries": args.model_retries,
+        "model_retry_delay_ms": args.model_retry_delay_ms,
+        "model_timeout_ms": args.model_timeout_ms,
+    }
+
+
+def build_tool_search_kwargs(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "max_matches": args.tool_search_max,
+        "category": args.tool_search_category,
+        "approval_required": tool_search_approval_filter(args.tool_search_approval),
+    }
 
 
 def build_check_suggested_kwargs(args: argparse.Namespace) -> dict[str, object]:

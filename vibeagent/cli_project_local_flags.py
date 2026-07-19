@@ -8,6 +8,7 @@ from .cli_parse_tool_search import parse_interactive_tool_search_argument
 from .cli_local_result import local_text_or_report
 from .cli_project_kwargs import (
     build_check_suggested_kwargs,
+    build_config_kwargs,
     build_focused_tests_local_kwargs,
     build_instructions_kwargs,
     build_manifests_kwargs,
@@ -16,10 +17,10 @@ from .cli_project_kwargs import (
     build_run_focused_tests_kwargs,
     build_run_suggested_kwargs,
     build_todos_kwargs,
+    build_tool_search_kwargs,
     kwargs_without_argument,
     kwargs_without_keys,
 )
-from .tool_search_options import tool_search_approval_filter
 
 
 def run_project_local_flag(
@@ -39,14 +40,7 @@ def run_project_local_flag(
             lambda: commands["get_model_text"](provider_env),
         )
     if args.config:
-        config_kwargs = {
-            "max_iterations": args.max_iterations,
-            "command_timeout_ms": args.command_timeout_ms,
-            "max_output_tokens": args.max_output_tokens,
-            "model_retries": args.model_retries,
-            "model_retry_delay_ms": args.model_retry_delay_ms,
-            "model_timeout_ms": args.model_timeout_ms,
-        }
+        config_kwargs = build_config_kwargs(args)
         return local_text_or_report(
             args,
             "config",
@@ -71,22 +65,18 @@ def run_project_local_flag(
             lambda: commands["get_tool_text"](args.tool),
         )
     if args.tool_search is not None:
-        approval_required = tool_search_approval_filter(args.tool_search_approval)
+        tool_search_kwargs = build_tool_search_kwargs(args)
         return local_text_or_report(
             args,
             "toolSearch",
             lambda: commands["get_tool_search_report"](
                 args.tool_search,
-                max_matches=args.tool_search_max,
-                category=args.tool_search_category,
-                approval_required=approval_required,
+                **tool_search_kwargs,
             ),
             commands["format_tool_search_report_text"],
             lambda: commands["get_tool_search_text"](
                 args.tool_search,
-                max_matches=args.tool_search_max,
-                category=args.tool_search_category,
-                approval_required=approval_required,
+                **tool_search_kwargs,
             ),
         )
     if args.permissions:
