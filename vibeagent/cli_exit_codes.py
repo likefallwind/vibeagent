@@ -214,6 +214,25 @@ LOCAL_RESULT_ARG_NAMES = frozenset(
 )
 
 
+INCOMPLETE_COUNT_FAILURES = (
+    ("around_many", "contexts"),
+    ("read_files", "files"),
+    ("read_ranges", "ranges"),
+    ("image_info", "images"),
+    ("file_info", "paths"),
+    ("output_contexts", "contexts"),
+    ("output_diagnostics", "contexts"),
+    ("python_traceback", "contexts"),
+    ("process_output_contexts", "contexts"),
+    ("process_output_diagnostics", "contexts"),
+    ("session_output_contexts", "contexts"),
+    ("session_output_diagnostics", "contexts"),
+    ("symbols", "files"),
+    ("python_deps", "files"),
+    ("code_deps", "files"),
+)
+
+
 def local_result_exit_code(args: argparse.Namespace, text: str) -> int:
     result_flag = any(local_result_arg_selected(getattr(args, name, None)) for name in LOCAL_RESULT_ARG_NAMES)
     if not result_flag:
@@ -250,37 +269,9 @@ def local_result_exit_code(args: argparse.Namespace, text: str) -> int:
         return 1
     if has_top_level_field(text, "canDelete", "no"):
         return 1
-    if args.around_many is not None and has_incomplete_top_level_count(text, "contexts"):
-        return 1
-    if args.read_files is not None and has_incomplete_top_level_count(text, "files"):
-        return 1
-    if args.read_ranges is not None and has_incomplete_top_level_count(text, "ranges"):
-        return 1
-    if args.image_info is not None and has_incomplete_top_level_count(text, "images"):
-        return 1
-    if args.file_info is not None and has_incomplete_top_level_count(text, "paths"):
-        return 1
-    if args.output_contexts is not None and has_incomplete_top_level_count(text, "contexts"):
-        return 1
-    if args.output_diagnostics is not None and has_incomplete_top_level_count(text, "contexts"):
-        return 1
-    if args.python_traceback is not None and has_incomplete_top_level_count(text, "contexts"):
-        return 1
-    if args.process_output_contexts is not None and has_incomplete_top_level_count(text, "contexts"):
-        return 1
-    if args.process_output_diagnostics is not None and has_incomplete_top_level_count(text, "contexts"):
-        return 1
-    if args.session_output_contexts is not None and has_incomplete_top_level_count(text, "contexts"):
-        return 1
-    if args.session_output_diagnostics is not None and has_incomplete_top_level_count(text, "contexts"):
+    if has_incomplete_count_failure(args, text):
         return 1
     if args.session_verification is not None and has_session_verification_issue(text):
-        return 1
-    if args.symbols is not None and has_incomplete_top_level_count(text, "files"):
-        return 1
-    if args.python_deps is not None and has_incomplete_top_level_count(text, "files"):
-        return 1
-    if args.code_deps is not None and has_incomplete_top_level_count(text, "files"):
         return 1
     if args.diff is not None and has_top_level_error(text):
         return 1
@@ -331,6 +322,13 @@ def has_positive_top_level_count(text: str, name: str) -> bool:
         except ValueError:
             return False
     return False
+
+
+def has_incomplete_count_failure(args: argparse.Namespace, text: str) -> bool:
+    return any(
+        getattr(args, arg_name, None) is not None and has_incomplete_top_level_count(text, count_name)
+        for arg_name, count_name in INCOMPLETE_COUNT_FAILURES
+    )
 
 
 def has_bad_session_summary_status(text: str) -> bool:
