@@ -3,6 +3,15 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
+from .cli_code_intel_kwargs import (
+    build_code_rename_kwargs,
+    build_code_symbol_kwargs,
+    build_python_call_graph_kwargs,
+    build_python_deps_kwargs,
+    build_python_rename_kwargs,
+    build_python_symbol_kwargs,
+    build_replace_python_definition_kwargs,
+)
 from .cli_local_result import local_text_or_report
 
 
@@ -21,11 +30,7 @@ def run_python_local_flag(
             lambda: commands["get_python_check_text"](root, args.python_check or None),
         )
     if args.python_deps is not None:
-        python_deps_kwargs = {}
-        if args.python_deps_max_files is not None:
-            python_deps_kwargs["max_files"] = args.python_deps_max_files
-        if args.python_deps_max_imports is not None:
-            python_deps_kwargs["max_imports"] = args.python_deps_max_imports
+        python_deps_kwargs = build_python_deps_kwargs(args)
         return local_text_or_report(
             args,
             "pythonDependencies",
@@ -34,11 +39,7 @@ def run_python_local_flag(
             lambda: commands["get_python_deps_text"](root, args.python_deps or None, **python_deps_kwargs),
         )
     if args.python_defs is not None:
-        python_kwargs = {}
-        if args.python_max_matches is not None:
-            python_kwargs["max_matches"] = args.python_max_matches
-        if args.python_def_max_lines is not None:
-            python_kwargs["max_lines"] = args.python_def_max_lines
+        python_kwargs = build_python_symbol_kwargs(args, include_max_lines=True)
         return local_text_or_report(
             args,
             "pythonDefinitions",
@@ -57,9 +58,7 @@ def run_python_local_flag(
             ),
         )
     if args.python_refs is not None:
-        python_kwargs = {}
-        if args.python_max_matches is not None:
-            python_kwargs["max_matches"] = args.python_max_matches
+        python_kwargs = build_python_symbol_kwargs(args)
         return local_text_or_report(
             args,
             "pythonReferences",
@@ -78,13 +77,7 @@ def run_python_local_flag(
             ),
         )
     if args.python_ref_contexts is not None:
-        python_kwargs = {}
-        if args.python_max_matches is not None:
-            python_kwargs["max_matches"] = args.python_max_matches
-        if args.python_context_lines is not None:
-            python_kwargs["context_lines"] = args.python_context_lines
-        if args.python_context_max_bytes is not None:
-            python_kwargs["max_bytes_per_context"] = args.python_context_max_bytes
+        python_kwargs = build_python_symbol_kwargs(args, include_context=True)
         return local_text_or_report(
             args,
             "pythonReferenceContexts",
@@ -103,9 +96,7 @@ def run_python_local_flag(
             ),
         )
     if args.python_calls is not None:
-        python_kwargs = {}
-        if args.python_max_matches is not None:
-            python_kwargs["max_matches"] = args.python_max_matches
+        python_kwargs = build_python_symbol_kwargs(args)
         return local_text_or_report(
             args,
             "pythonCalls",
@@ -124,11 +115,7 @@ def run_python_local_flag(
             ),
         )
     if args.python_call_graph is not None:
-        python_call_graph_kwargs = {}
-        if args.python_call_graph_max_files is not None:
-            python_call_graph_kwargs["max_files"] = args.python_call_graph_max_files
-        if args.python_call_graph_max_edges is not None:
-            python_call_graph_kwargs["max_edges"] = args.python_call_graph_max_edges
+        python_call_graph_kwargs = build_python_call_graph_kwargs(args)
         return local_text_or_report(
             args,
             "pythonCallGraph",
@@ -137,11 +124,7 @@ def run_python_local_flag(
             lambda: commands["get_python_call_graph_text"](root, args.python_call_graph or None, **python_call_graph_kwargs),
         )
     if args.python_rename_preview is not None:
-        python_rename_kwargs = {
-            "symbol": args.python_rename_preview[0],
-            "new_name": args.python_rename_preview[1],
-            "path": args.python_path,
-        }
+        python_rename_kwargs = build_python_rename_kwargs(args, args.python_rename_preview)
         return local_text_or_report(
             args,
             "pythonRenamePreview",
@@ -150,11 +133,7 @@ def run_python_local_flag(
             lambda: commands["get_python_rename_preview_text"](root, **python_rename_kwargs),
         )
     if args.python_rename is not None:
-        python_rename_kwargs = {
-            "symbol": args.python_rename[0],
-            "new_name": args.python_rename[1],
-            "path": args.python_path,
-        }
+        python_rename_kwargs = build_python_rename_kwargs(args, args.python_rename)
         return local_text_or_report(
             args,
             "pythonRename",
@@ -163,11 +142,7 @@ def run_python_local_flag(
             lambda: commands["get_python_rename_text"](root, **python_rename_kwargs),
         )
     if args.check_replace_python_def is not None:
-        replace_definition_kwargs = {
-            "symbol": args.check_replace_python_def[0],
-            "content": args.check_replace_python_def[1],
-            "path": args.python_path,
-        }
+        replace_definition_kwargs = build_replace_python_definition_kwargs(args, args.check_replace_python_def)
         return local_text_or_report(
             args,
             "checkReplacePythonDefinition",
@@ -179,11 +154,7 @@ def run_python_local_flag(
             lambda: commands["get_check_replace_python_definition_text"](root, **replace_definition_kwargs),
         )
     if args.replace_python_def is not None:
-        replace_definition_kwargs = {
-            "symbol": args.replace_python_def[0],
-            "content": args.replace_python_def[1],
-            "path": args.python_path,
-        }
+        replace_definition_kwargs = build_replace_python_definition_kwargs(args, args.replace_python_def)
         return local_text_or_report(
             args,
             "replacePythonDefinition",
@@ -212,9 +183,7 @@ def run_code_intel_local_flag(
             lambda: commands["get_code_deps_text"](root, args.code_deps or None),
         )
     if args.code_refs is not None:
-        code_kwargs = {}
-        if args.code_max_matches is not None:
-            code_kwargs["max_matches"] = args.code_max_matches
+        code_kwargs = build_code_symbol_kwargs(args)
         return local_text_or_report(
             args,
             "codeReferences",
@@ -233,13 +202,7 @@ def run_code_intel_local_flag(
             ),
         )
     if args.code_ref_contexts is not None:
-        code_kwargs = {}
-        if args.code_max_matches is not None:
-            code_kwargs["max_matches"] = args.code_max_matches
-        if args.code_context_lines is not None:
-            code_kwargs["context_lines"] = args.code_context_lines
-        if args.code_context_max_bytes is not None:
-            code_kwargs["max_bytes_per_context"] = args.code_context_max_bytes
+        code_kwargs = build_code_symbol_kwargs(args, include_context=True)
         return local_text_or_report(
             args,
             "codeReferenceContexts",
@@ -258,11 +221,7 @@ def run_code_intel_local_flag(
             ),
         )
     if args.code_defs is not None:
-        code_kwargs = {}
-        if args.code_max_matches is not None:
-            code_kwargs["max_matches"] = args.code_max_matches
-        if args.code_def_max_lines is not None:
-            code_kwargs["max_lines"] = args.code_def_max_lines
+        code_kwargs = build_code_symbol_kwargs(args, include_max_lines=True)
         return local_text_or_report(
             args,
             "codeDefinitions",
@@ -281,11 +240,7 @@ def run_code_intel_local_flag(
             ),
         )
     if args.code_rename_preview is not None:
-        code_rename_kwargs = {
-            "symbol": args.code_rename_preview[0],
-            "new_name": args.code_rename_preview[1],
-            "path": args.code_path,
-        }
+        code_rename_kwargs = build_code_rename_kwargs(args, args.code_rename_preview)
         return local_text_or_report(
             args,
             "codeRenamePreview",
@@ -294,11 +249,7 @@ def run_code_intel_local_flag(
             lambda: commands["get_code_rename_preview_text"](root, **code_rename_kwargs),
         )
     if args.code_rename is not None:
-        code_rename_kwargs = {
-            "symbol": args.code_rename[0],
-            "new_name": args.code_rename[1],
-            "path": args.code_path,
-        }
+        code_rename_kwargs = build_code_rename_kwargs(args, args.code_rename)
         return local_text_or_report(
             args,
             "codeRename",
