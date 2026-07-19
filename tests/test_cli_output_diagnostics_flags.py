@@ -289,3 +289,91 @@ class CliOutputDiagnosticsFlagTests(unittest.TestCase):
         )
         format_output_contexts_report_text.assert_called_once_with(report)
         create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_output_analysis_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/output-contexts --context-lines 3 --max-contexts 4 --max-bytes 1000 -- src/app.py:42:8",
+                    "/output-diagnostics --context-lines 2 --max-diagnostics 5 --max-contexts 6 --max-bytes 1200 -- ERROR src/app.py:42 failed",
+                    "/python-traceback --context-lines=1 --max-diagnostics=7 --max-contexts=8 --max-bytes=1400 -- ValueError: bad",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_output_contexts_text", return_value="Output contexts:\n  contexts: 1/1") as get_output_contexts_text,
+            patch("vibeagent.cli.get_output_diagnostics_text", return_value="Output diagnostics:\n  diagnostics: 1/1") as get_output_diagnostics_text,
+            patch("vibeagent.cli.get_python_traceback_text", return_value="Python traceback:\n  diagnostics: 1/1") as get_python_traceback_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Output contexts:", output)
+        self.assertIn("Output diagnostics:", output)
+        self.assertIn("Python traceback:", output)
+        get_output_contexts_text.assert_called_once_with(
+            text="src/app.py:42:8",
+            context_lines=3,
+            max_contexts=4,
+            max_bytes_per_context=1000,
+        )
+        get_output_diagnostics_text.assert_called_once_with(
+            text="ERROR src/app.py:42 failed",
+            context_lines=2,
+            max_diagnostics=5,
+            max_contexts=6,
+            max_bytes_per_context=1200,
+        )
+        get_python_traceback_text.assert_called_once_with(
+            text="ValueError: bad",
+            context_lines=1,
+            max_diagnostics=7,
+            max_contexts=8,
+            max_bytes_per_context=1400,
+        )
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_output_analysis_option_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/output-contexts --context-lines -1 -- src/app.py:42",
+                    "/output-contexts --max-contexts 0 -- src/app.py:42",
+                    "/output-diagnostics --max-diagnostics 0 -- ERROR src/app.py:42 failed",
+                    "/python-traceback --max-bytes 0 -- ValueError: bad",
+                    "/python-traceback --unknown 1 -- ValueError: bad",
+                    "/output-diagnostics --context-lines 2",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_output_contexts_text") as get_output_contexts_text,
+            patch("vibeagent.cli.get_output_diagnostics_text") as get_output_diagnostics_text,
+            patch("vibeagent.cli.get_python_traceback_text") as get_python_traceback_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /output-contexts [--context-lines N]", output)
+        self.assertIn("--context-lines must be a non-negative integer.", output)
+        self.assertIn("--max-contexts must be a positive integer.", output)
+        self.assertIn("Usage: /output-diagnostics [--context-lines N]", output)
+        self.assertIn("--max-diagnostics must be a positive integer.", output)
+        self.assertIn("Usage: /python-traceback [--context-lines N]", output)
+        self.assertIn("--max-bytes must be a positive integer.", output)
+        self.assertIn("Unknown option: --unknown", output)
+        self.assertIn("text is required.", output)
+        get_output_contexts_text.assert_not_called()
+        get_output_diagnostics_text.assert_not_called()
+        get_python_traceback_text.assert_not_called()
+        create_chat_client.assert_not_called()
