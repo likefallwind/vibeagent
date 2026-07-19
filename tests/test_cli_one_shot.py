@@ -6,6 +6,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from vibeagent import MACHINE_OUTPUT_SCHEMA_VERSION, __version__
 from vibeagent.agent import AgentResult
 from vibeagent.cli import main
 from vibeagent.types import ApprovalRequest, PlanItem, TaskStep
@@ -71,6 +72,90 @@ class CliOneShotTests(unittest.TestCase):
         self.assertEqual(run_agent.call_args.kwargs["approval_policy"], "allow")
         handler = run_agent.call_args.kwargs["approval_handler"]
         self.assertTrue(handler(ApprovalRequest(action_type="write_file", target="note.txt", risk="write")).approved)
+
+    def test_main_runs_one_shot_chat_task_from_args(self) -> None:
+        stdout = io.StringIO()
+        run_chat = Mock(return_value="你好")
+
+        with (
+            patch("vibeagent.cli.create_chat_client", return_value=object()),
+            patch("vibeagent.cli.run_chat", run_chat),
+            patch("vibeagent.cli.run_agent") as run_agent,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(
+                [
+                    "--chat",
+                    "--max-output-tokens",
+                    "8192",
+                    "--model-retries",
+                    "2",
+                    "--model-retry-delay-ms",
+                    "25",
+                    "--model-timeout-ms",
+                    "45000",
+                    "随便聊聊",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stdout.getvalue(), "你好\n")
+        run_chat.assert_called_once()
+        self.assertEqual(run_chat.call_args.args[0], "随便聊聊")
+        self.assertEqual(run_chat.call_args.kwargs["history"], [])
+        self.assertEqual(run_chat.call_args.kwargs["max_output_tokens"], 8192)
+        self.assertEqual(run_chat.call_args.kwargs["model_retries"], 2)
+        self.assertEqual(run_chat.call_args.kwargs["model_retry_delay_ms"], 25)
+        self.assertEqual(run_chat.call_args.kwargs["model_timeout_ms"], 45000)
+        run_agent.assert_not_called()
+
+    def test_main_runs_one_shot_chat_task_with_json_output(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("vibeagent.cli.create_chat_client", return_value=object()),
+            patch("vibeagent.cli.run_chat", return_value="你好"),
+            patch("vibeagent.cli_runner.monotonic", side_effect=[20.0, 20.045]),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--json", "--chat", "随便聊聊"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            payload,
+            {
+                "durationMs": 45,
+                "duration_ms": 45,
+                "exitCode": 0,
+                "exit_code": 0,
+                "kind": "chat",
+                "message": "你好",
+                "numTurns": 1,
+                "num_turns": 1,
+                "result": "你好",
+                "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
+                "success": True,
+                "status": "completed",
+                "stopReason": "completed",
+                "stop_reason": "completed",
+                "version": __version__,
+            },
+        )
+
+    def test_main_passes_system_prompt_to_one_shot_chat(self) -> None:
+        run_chat = Mock(return_value="好")
+
+        with (
+            patch("vibeagent.cli.create_chat_client", return_value=object()),
+            patch("vibeagent.cli.run_chat", run_chat),
+            redirect_stdout(io.StringIO()),
+        ):
+            exit_code = main(["--chat", "--system-prompt", "You are terse.", "随便聊聊"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_chat.call_args.kwargs["system_prompt"], "You are terse.")
+        self.assertIsNone(run_chat.call_args.kwargs["append_system_prompt"])
 
     def test_main_one_shot_code_task_exits_nonzero_when_completion_is_blocked(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
