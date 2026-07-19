@@ -7,18 +7,15 @@ from time import monotonic
 from .agent import run_agent
 from .chat import run_chat
 from .cli_config import build_provider_env, resolve_project_root
-from .cli_mcp_args import resolve_mcp_config_paths
 from .cli_one_shot_chat import run_one_shot_chat
 from .cli_one_shot_code import run_one_shot_code
 from .cli_one_shot_input import (
     build_one_shot_kwargs_from_args,
-    resolve_one_shot_code_task,
     resolve_task_input,
     resolve_task_text,
 )
-from .cli_one_shot_output import (
-    emit_one_shot_error,
-)
+from .cli_one_shot_output import emit_one_shot_error
+from .cli_one_shot_setup import resolve_one_shot_project_setup
 from .cli_output import (
     format_error,
     print_error_result,
@@ -96,17 +93,17 @@ def run_one_shot(
             return emit_error("No task provided.")
         project_root = resolve_project_root(base_dir) or Path.cwd()
         try:
-            task, task_metadata = resolve_one_shot_code_task(
+            project_setup = resolve_one_shot_project_setup(
                 task,
                 request_mode=request_mode,
                 project_root=project_root,
+                mcp_config_paths=mcp_config_paths,
             )
         except ValueError as error:
             return emit_error(str(error), exit_code=2)
-        try:
-            resolved_mcp_config_paths = resolve_mcp_config_paths(project_root, mcp_config_paths)
-        except ValueError as error:
-            return emit_error(str(error), exit_code=2)
+        task = project_setup.task
+        task_metadata = project_setup.task_metadata
+        resolved_mcp_config_paths = project_setup.mcp_config_paths
         config_root = project_root
         execution_config = resolve_execution_config(
             config_root,
