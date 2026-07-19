@@ -11044,6 +11044,10 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Changed Python files have syntax errors.", feedback)
         self.assertIn("Final review changed files:", feedback)
         self.assertIn("M app.py", feedback)
+        self.assertIn("Next actions:", feedback)
+        self.assertIn("read_file_context", feedback)
+        self.assertIn("git_diff_contexts", feedback)
+        self.assertIn("rerun final_review", feedback)
 
     def test_completion_blocked_feedback_includes_checkpoint_failures(self) -> None:
         observations = [
@@ -11085,6 +11089,26 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(details["toolErrors"], ["read_file: Tool execution failed: boom"])
         self.assertIn("Tool errors:", feedback)
         self.assertIn("read_file: Tool execution failed: boom", feedback)
+        self.assertIn("Retry or replace the failed tool call", feedback)
+
+    def test_completion_blocked_feedback_includes_recovery_tools_for_plan_and_verification(self) -> None:
+        feedback = completion_module.format_completion_blocked_feedback(
+            [
+                "Task plan still has unfinished item(s): 1 in_progress.",
+                "1 suggested verification check(s) failed after the latest project change.",
+                "1 suggested verification check(s) are still pending after the latest project change.",
+            ],
+            {
+                "failedVerificationChecks": ["npm test (exit=1)"],
+                "pendingVerificationChecks": ["python -m unittest discover -s tests"],
+            },
+        )
+
+        self.assertIn("Next actions:", feedback)
+        self.assertIn("update_plan", feedback)
+        self.assertIn("run_session_verification", feedback)
+        self.assertIn("session_output_diagnostics", feedback)
+        self.assertIn("session_output_contexts", feedback)
 
     def test_run_agent_does_not_warn_when_suggested_check_runs_after_change(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
