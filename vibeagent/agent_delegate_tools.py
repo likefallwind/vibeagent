@@ -230,28 +230,21 @@ def execute_delegate_action(
                 auto_checkpoint_attempted,
                 (),
             )
-        execution = execute_parsed_tool_action(
+        return _execute_delegate_with_tool_layer(
             workspace,
             parsed,
-            observations,
-            steps,
-            iteration,
-            command_timeout_ms,
-            logger,
-            approval_handler,
-            tool_name,
-            auto_checkpoint_attempted,
-            execute_action_safely,
-            should_auto_checkpoint_before_action,
-            create_auto_checkpoint_before_action,
-            approval_policy,
-            hooks,
-            permissions,
+            observations=observations,
+            steps=steps,
+            iteration=iteration,
+            command_timeout_ms=command_timeout_ms,
+            logger=logger,
+            approval_handler=approval_handler,
+            tool_name=tool_name,
+            auto_checkpoint_attempted=auto_checkpoint_attempted,
+            approval_policy=approval_policy,
+            hooks=hooks,
+            permissions=permissions,
         )
-        if execution.auto_checkpoint is not None:
-            observations.append(execution.auto_checkpoint)
-        observations.extend(execution.additional_observations)
-        return execution.observation, execution.auto_checkpoint_attempted, execution.hook_results
     if tool_name in CODE_DELEGATE_EXCLUDED_TOOL_NAMES or action_type in CODE_DELEGATE_EXCLUDED_TOOL_NAMES:
         return (
             ToolErrorObservation(
@@ -263,6 +256,39 @@ def execute_delegate_action(
             (),
         )
 
+    return _execute_delegate_with_tool_layer(
+        workspace,
+        parsed,
+        observations=observations,
+        steps=steps,
+        iteration=iteration,
+        command_timeout_ms=command_timeout_ms,
+        logger=logger,
+        approval_handler=approval_handler,
+        tool_name=tool_name,
+        auto_checkpoint_attempted=auto_checkpoint_attempted,
+        approval_policy=approval_policy,
+        hooks=hooks,
+        permissions=permissions,
+    )
+
+
+def _execute_delegate_with_tool_layer(
+    workspace: RunWorkspace,
+    parsed: object,
+    *,
+    observations: list[Observation],
+    steps: list[TaskStep],
+    iteration: int,
+    command_timeout_ms: int,
+    logger: AgentLogger | None,
+    approval_handler: ApprovalHandler | None,
+    tool_name: str,
+    auto_checkpoint_attempted: bool,
+    approval_policy: ApprovalPolicy,
+    hooks: ProjectHooks,
+    permissions: ProjectPermissions,
+) -> tuple[Observation, bool, tuple[HookRunResult, ...]]:
     execution = execute_parsed_tool_action(
         workspace,
         parsed,
