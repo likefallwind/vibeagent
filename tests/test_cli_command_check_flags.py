@@ -93,3 +93,78 @@ class CliCommandCheckFlagTests(unittest.TestCase):
         get_command_check_report.assert_called_once_with(Path(base).resolve(), "sudo reboot", ".")
         format_command_check_report.assert_called_once_with(report)
         create_chat_client.assert_not_called()
+
+    def test_main_parses_interactive_preflight_cwd_options(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/command --cwd src -- python3 --version",
+                    "/check-run-seq --cwd src -- python3 --version ;; npm test",
+                    "/check-start --cwd web -- npm run dev",
+                    "/start --cwd web -- npm run dev",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_command_check_text", return_value="Command check:\n  ok: yes") as get_command_check_text,
+            patch("vibeagent.cli.get_check_run_sequence_text", return_value="Check run sequence:\n  ok: yes") as get_check_run_sequence_text,
+            patch("vibeagent.cli.get_check_start_text", return_value="Check start:\n  ok: yes") as get_check_start_text,
+            patch("vibeagent.cli.get_start_text", return_value="Start:\n  ok: yes") as get_start_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Command check:", output)
+        self.assertIn("Check run sequence:", output)
+        self.assertIn("Check start:", output)
+        self.assertIn("Start:", output)
+        get_command_check_text.assert_called_once_with(command="python3 --version", cwd="src")
+        get_check_run_sequence_text.assert_called_once_with(commands=["python3 --version", "npm test"], cwd="src")
+        get_check_start_text.assert_called_once_with(command="npm run dev", cwd="web")
+        get_start_text.assert_called_once_with(command="npm run dev", cwd="web")
+        create_chat_client.assert_not_called()
+
+    def test_main_reports_interactive_preflight_cwd_errors(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch(
+                "builtins.input",
+                side_effect=[
+                    "/command --cwd",
+                    "/command --cwd src",
+                    "/check-run-seq --cwd src",
+                    "/check-start --cwd app --cwd web -- npm run dev",
+                    "/start --cwd app --cwd web -- npm run dev",
+                    "/exit",
+                ],
+            ),
+            patch("vibeagent.cli.create_chat_client") as create_chat_client,
+            patch("vibeagent.cli.get_command_check_text") as get_command_check_text,
+            patch("vibeagent.cli.get_check_run_sequence_text") as get_check_run_sequence_text,
+            patch("vibeagent.cli.get_check_start_text") as get_check_start_text,
+            patch("vibeagent.cli.get_start_text") as get_start_text,
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Usage: /command [--cwd PATH] -- <cmd>", output)
+        self.assertIn("--cwd requires a value.", output)
+        self.assertIn("command is required.", output)
+        self.assertIn("Usage: /check-run-seq [--cwd PATH] -- <cmd> ;; <cmd>", output)
+        self.assertIn("at least one command is required.", output)
+        self.assertIn("Usage: /check-start [--cwd PATH] -- <cmd>", output)
+        self.assertIn("Usage: /start [--cwd PATH] -- <cmd>", output)
+        self.assertIn("--cwd can only be provided once.", output)
+        get_command_check_text.assert_not_called()
+        get_check_run_sequence_text.assert_not_called()
+        get_check_start_text.assert_not_called()
+        get_start_text.assert_not_called()
+        create_chat_client.assert_not_called()
