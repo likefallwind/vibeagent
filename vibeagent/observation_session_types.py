@@ -15,6 +15,7 @@ class SessionSummaryObservation:
     summary: str
     recent_sessions: list[str]
     message: str
+    latest_subagent_failures: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -179,6 +180,7 @@ class SessionAuditObservation:
     latest_completion_active_background_processes: list[str] = field(default_factory=list)
     latest_completion_denied_approvals: list[str] = field(default_factory=list)
     latest_completion_next_actions: list[str] = field(default_factory=list)
+    latest_subagent_failures: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -219,3 +221,4 @@ class SessionHandoffObservation:
     latest_completion_active_background_processes: list[str] = field(default_factory=list)
     latest_completion_denied_approvals: list[str] = field(default_factory=list)
     latest_completion_next_actions: list[str] = field(default_factory=list)
+    latest_subagent_failures: list[str] = field(default_factory=list)

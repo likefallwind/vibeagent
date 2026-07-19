@@ -40,6 +40,7 @@ class SessionHandoffDetails:
     latest_completion_active_background_processes: list[str] = field(default_factory=list)
     latest_completion_denied_approvals: list[str] = field(default_factory=list)
     latest_completion_next_actions: list[str] = field(default_factory=list)
+    latest_subagent_failures: list[str] = field(default_factory=list)
 
 
 def empty_session_handoff_details(status: str = "invalid", ready: bool | None = False) -> SessionHandoffDetails:
@@ -157,6 +158,11 @@ def extract_session_handoff_details(report: dict[str, object]) -> SessionHandoff
         if isinstance(blocker, str) and blocker.strip()
     ]
     completion_detail_kwargs = completion_detail_kwargs_from_report(completion)
+    latest_subagent_failures = [
+        str(failure).strip()
+        for failure in audit.get("latestSubagentFailures", [])
+        if isinstance(failure, str) and failure.strip()
+    ]
     return SessionHandoffDetails(
         ready=ready,
         status=status,
@@ -180,5 +186,6 @@ def extract_session_handoff_details(report: dict[str, object]) -> SessionHandoff
         completion_ready=completion_ready,
         completion_blockers=completion_blockers,
         latest_completion_blockers=latest_completion_blockers,
+        latest_subagent_failures=latest_subagent_failures,
         **completion_detail_kwargs,
     )

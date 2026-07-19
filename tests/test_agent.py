@@ -7156,6 +7156,31 @@ class AgentTests(unittest.TestCase):
         self.assertIn("plan and verification sections", instruction)
         self.assertIn("answer directly", instruction)
 
+    def test_next_action_instruction_guides_session_handoff_subagent_failures(self) -> None:
+        observation = SessionHandoffObservation(
+            kind="session_handoff",
+            run_id="run-1",
+            ok=True,
+            handoff="Session handoff:\n  session: run-1",
+            message="Session handoff has blocker(s).",
+            ready=True,
+            status="ready",
+            latest_subagent_failures=["delegate-1 failed: max iterations while editing retry loop"],
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session handoff reports latest subagent failure(s)", instruction)
+        self.assertIn("delegate-1 failed: max iterations", instruction)
+        self.assertIn("main agent context", instruction)
+        self.assertIn("retry once with a narrower delegated task", instruction)
+        self.assertIn("do not repeat the same delegation unchanged", instruction)
+        self.assertIn("session_failures", instruction)
+        self.assertIn("session_output_diagnostics", instruction)
+        self.assertIn("session_audit", instruction)
+        self.assertIn("session_verification", instruction)
+        self.assertIn("before finishing", instruction)
+
     def test_next_action_instruction_guides_session_summary_to_recovered_task_state(self) -> None:
         observation = SessionSummaryObservation(
             kind="session_summary",
@@ -7197,6 +7222,32 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Use update_plan to mark completed items", instruction)
         self.assertIn("Use run_session_verification to run pending recorded checks", instruction)
         self.assertIn("before trying to finish again", instruction)
+
+    def test_next_action_instruction_guides_session_summary_subagent_failures(self) -> None:
+        observation = SessionSummaryObservation(
+            kind="session_summary",
+            run_id="run-1",
+            ok=True,
+            summary=(
+                "Session: run-1\n"
+                "  status: active\n"
+                "  latestSubagentFailures:\n"
+                "    - delegate-2 failed: command denied\n"
+            ),
+            recent_sessions=[],
+            message="Read session summary for run-1.",
+        )
+
+        instruction = get_next_action_instruction("resume and finish task", [observation])
+
+        self.assertIn("Session summary reports latest subagent failure(s)", instruction)
+        self.assertIn("delegate-2 failed: command denied", instruction)
+        self.assertIn("main agent context", instruction)
+        self.assertIn("retry once with a narrower delegated task", instruction)
+        self.assertIn("do not repeat the same delegation unchanged", instruction)
+        self.assertIn("session_audit", instruction)
+        self.assertIn("session_verification", instruction)
+        self.assertIn("before finishing", instruction)
 
     def test_next_action_instruction_guides_ready_session_summary_to_finish(self) -> None:
         observation = SessionSummaryObservation(

@@ -217,6 +217,24 @@ def completion_next_action_labels(latest: Observation) -> list[str]:
     return []
 
 
+def subagent_failure_labels(latest: Observation) -> list[str]:
+    labels = [
+        str(failure).strip()
+        for failure in getattr(latest, "latest_subagent_failures", [])
+        if str(failure).strip()
+    ]
+    if labels:
+        return labels
+    for attr in ("audit", "handoff", "summary"):
+        labels = text_section_items(
+            getattr(latest, attr, ""),
+            ("latestSubagentFailures", "latestFailures"),
+        )
+        if labels:
+            return labels
+    return []
+
+
 def has_completion_blocker_signal(blockers: list[str], latest: Observation) -> bool:
     if getattr(latest, "completion_ready", None) is False:
         return True

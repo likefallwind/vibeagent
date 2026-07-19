@@ -10,6 +10,7 @@ from .prompt_next_action_session_formatting import (
     session_audit_process_labels,
     session_plan_appears_complete,
     session_plan_has_unfinished_work,
+    subagent_failure_labels,
     text_reports_ready,
     verification_command_labels,
 )
@@ -31,6 +32,15 @@ def _session_summary_next_action_instruction(base: str, latest: Observation) -> 
             f"{base} Session summary reports latest completion next action(s): "
             f"{format_next_action_items(next_actions, max_items=4)}. "
             "Follow them before trying to finish again."
+        )
+
+    subagent_failures = subagent_failure_labels(latest)
+    if subagent_failures:
+        return (
+            f"{base} Session summary reports latest subagent failure(s): "
+            f"{format_next_action_items(subagent_failures, max_items=4)}. "
+            "Continue the necessary work in the main agent context, or retry once with a narrower delegated task; "
+            "do not repeat the same delegation unchanged. Run session_audit or session_verification before finishing."
         )
 
     if text_reports_ready(summary):
@@ -246,6 +256,16 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
     pending = verification_command_labels(getattr(latest, "pending_commands", []))
     pending_plan_items = plan_item_labels(getattr(latest, "pending_plan_items", []))
     file_references = file_reference_labels(getattr(latest, "file_references", []))
+    subagent_failures = subagent_failure_labels(latest)
+    if subagent_failures:
+        return (
+            f"{base} Session handoff reports latest subagent failure(s): "
+            f"{format_next_action_items(subagent_failures, max_items=4)}. "
+            "Continue the necessary work in the main agent context, or retry once with a narrower delegated task; "
+            "do not repeat the same delegation unchanged. Use session_failures or session_output_diagnostics if more detail is needed, "
+            "then run session_audit or session_verification before finishing."
+        )
+
     if getattr(latest, "ready", None) is True:
         return (
             f"{base} Session handoff reports the recovered session is ready. "

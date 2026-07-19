@@ -11,6 +11,7 @@ from vibeagent.prompt_next_action_session_formatting import (
     session_audit_process_labels,
     session_plan_appears_complete,
     session_plan_has_unfinished_work,
+    subagent_failure_labels,
     text_section_items,
     text_reports_ready,
     verification_command_labels,
@@ -118,6 +119,41 @@ class PromptNextActionSessionFormattingTests(unittest.TestCase):
 
         self.assertEqual(completion_blocker_labels(observation), ["finish tests", "commit changes"])
         self.assertTrue(has_completion_blocker_signal([], observation))
+
+    def test_subagent_failures_use_structured_fields_or_report_sections(self) -> None:
+        structured_observation = SimpleNamespace(
+            latest_subagent_failures=[" delegate-1 failed: retry limit "],
+            audit="latestSubagentFailures:\n- ignored",
+            handoff="",
+            summary="",
+        )
+        handoff_observation = SimpleNamespace(
+            latest_subagent_failures=[],
+            audit="",
+            handoff="\n".join(
+                [
+                    "subagents:",
+                    "  latestFailures:",
+                    "    - delegate-2 failed: tool denied",
+                ]
+            ),
+            summary="",
+        )
+        summary_observation = SimpleNamespace(
+            latest_subagent_failures=[],
+            audit="",
+            handoff="",
+            summary="\n".join(
+                [
+                    "latestSubagentFailures:",
+                    "- delegate-3 failed: max iterations",
+                ]
+            ),
+        )
+
+        self.assertEqual(subagent_failure_labels(structured_observation), ["delegate-1 failed: retry limit"])
+        self.assertEqual(subagent_failure_labels(handoff_observation), ["delegate-2 failed: tool denied"])
+        self.assertEqual(subagent_failure_labels(summary_observation), ["delegate-3 failed: max iterations"])
 
     def test_labels_filter_empty_inputs(self) -> None:
         process = SimpleNamespace(process_id="p1", command="npm run dev", cwd="web")

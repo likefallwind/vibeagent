@@ -161,5 +161,6 @@ def execute_session_handoff_action(workspace: RunWorkspace, action: SessionHando
         completion_ready=details.completion_ready,
         completion_blockers=details.completion_blockers,
         latest_completion_blockers=details.latest_completion_blockers,
+        latest_subagent_failures=details.latest_subagent_failures,
         **completion_detail_kwargs_from_object(details),
     )

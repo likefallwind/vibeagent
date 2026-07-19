@@ -60,8 +60,11 @@ def execute_session_report_action(workspace: RunWorkspace, action: object) -> Ob
 
 def session_summary_observation(workspace: RunWorkspace, action: SessionSummaryAction) -> SessionSummaryObservation:
     run_id = select_session_run_id(action.run_id, workspace.run_id)
+    latest_subagent_failures: list[str] = []
     try:
-        summary_text = format_session_summary(summarize_session(workspace.root, run_id))
+        summary = summarize_session(workspace.root, run_id)
+        summary_text = format_session_summary(summary)
+        latest_subagent_failures = list(summary.latest_subagent_failures)
         ok = not summary_text.startswith("Session not found:")
         message = f"Read session summary for {run_id}." if ok else summary_text
     except ValueError as error:
@@ -76,6 +79,7 @@ def session_summary_observation(workspace: RunWorkspace, action: SessionSummaryA
         summary=summary_text,
         recent_sessions=recent_text.splitlines(),
         message=message,
+        latest_subagent_failures=latest_subagent_failures,
     )
 
 
