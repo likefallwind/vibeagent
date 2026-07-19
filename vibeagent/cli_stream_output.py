@@ -6,9 +6,8 @@ import sys
 from threading import Lock
 from typing import Any, TextIO
 
-from . import MACHINE_OUTPUT_SCHEMA_VERSION, __version__
 from .agent_result import AgentResult
-from .cli_machine_output import machine_result_status_fields
+from .cli_machine_output import machine_result_status_fields, machine_runtime_fields
 
 
 CODE_RESULT_SNAKE_CASE_ALIAS_KEYS = {
@@ -61,8 +60,7 @@ class JsonEventStream:
             self.sequence += 1
             record = {
                 "sequence": self.sequence,
-                "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
-                "version": __version__,
+                **machine_runtime_fields(),
                 **payload,
             }
             self.output.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
@@ -76,8 +74,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
     exit_code = code_result_exit_code(result)
     payload = {
         "kind": "code",
-        "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
-        "version": __version__,
+        **machine_runtime_fields(),
         "success": result.success,
         **machine_result_status_fields(status=result.status, stop_reason=stop_reason, exit_code=exit_code),
         "message": result.message,
@@ -121,8 +118,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
 def build_chat_result_payload(message: str) -> dict[str, object]:
     return {
         "kind": "chat",
-        "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
-        "version": __version__,
+        **machine_runtime_fields(),
         "success": True,
         **machine_result_status_fields(status="completed", stop_reason="completed", exit_code=0),
         "message": message,
@@ -152,8 +148,7 @@ def error_result_payload(
     stop_reason = "interrupted" if status == "interrupted" else "failed"
     payload: dict[str, object] = {
         "kind": kind,
-        "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
-        "version": __version__,
+        **machine_runtime_fields(),
         "success": False,
         **machine_result_status_fields(status=status, stop_reason=stop_reason, exit_code=exit_code),
         "error": error,

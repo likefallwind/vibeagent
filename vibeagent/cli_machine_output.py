@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+from . import MACHINE_OUTPUT_SCHEMA_VERSION, __version__
+
+
+def machine_runtime_fields() -> dict[str, object]:
+    return {
+        "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
+        "version": __version__,
+    }
+
 
 def machine_result_status_fields(
     *,

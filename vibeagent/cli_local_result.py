@@ -5,9 +5,8 @@ from collections.abc import Callable
 from collections.abc import Mapping
 from typing import TypeVar
 
-from . import MACHINE_OUTPUT_SCHEMA_VERSION, __version__
 from .cli_exit_codes import local_result_exit_code
-from .cli_machine_output import machine_result_status_fields
+from .cli_machine_output import machine_result_status_fields, machine_runtime_fields
 from .cli_output import print_output
 
 
@@ -32,8 +31,7 @@ def emit_local_result(args: argparse.Namespace, text: str, payload_extra: Mappin
     stop_reason = "completed" if exit_code == 0 else "failed"
     payload: dict[str, object] = {
         "kind": "local",
-        "schemaVersion": MACHINE_OUTPUT_SCHEMA_VERSION,
-        "version": __version__,
+        **machine_runtime_fields(),
         "success": exit_code == 0,
         **machine_result_status_fields(
             status=stop_reason,
