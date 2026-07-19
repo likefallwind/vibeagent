@@ -1,5 +1,3 @@
-import ast
-import inspect
 import tempfile
 import threading
 import time
@@ -14,6 +12,7 @@ from unittest.mock import patch
 import vibeagent.agent_completion as completion_module
 import vibeagent.agent_completion_verification as completion_verification_module
 import vibeagent.agent as agent_module
+import vibeagent.agent_observation_failure_kinds as observation_failure_kinds
 import vibeagent.types as types_module
 from vibeagent.actions import AGENT_TOOL_DEFINITIONS, execute_action
 from vibeagent.agent import run_agent
@@ -5686,20 +5685,7 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(result.steps[0].status, "failed")
 
     def test_observation_failed_covers_all_ok_observations(self) -> None:
-        source = inspect.getsource(agent_module.observation_failed)
-        tree = ast.parse(source)
-        handled_kinds: set[str] = set()
-
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Compare) or not isinstance(node.left, ast.Attribute) or node.left.attr != "kind":
-                continue
-            for comparator in node.comparators:
-                if isinstance(comparator, ast.Constant) and isinstance(comparator.value, str):
-                    handled_kinds.add(comparator.value)
-                elif isinstance(comparator, ast.Set):
-                    for item in comparator.elts:
-                        if isinstance(item, ast.Constant) and isinstance(item.value, str):
-                            handled_kinds.add(item.value)
+        handled_kinds = observation_failure_kinds.ok_observation_failure_kinds()
 
         ok_observation_kinds: set[str] = set()
         for candidate in vars(types_module).values():
