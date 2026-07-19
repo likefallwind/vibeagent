@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 import sys
 
@@ -13,6 +13,7 @@ from .cli_context import (
 )
 from .cli_input_format import StreamJsonTaskInput, resolve_json_task_input, resolve_stream_json_task_input
 from .cli_permission_overrides import build_permission_overrides
+from .cli_project_command_expansion import expand_one_shot_project_command
 
 
 def resolve_task_text(parts: Sequence[str], input_format: str = "text") -> str:
@@ -81,6 +82,20 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "permission_overrides": build_permission_overrides(args),
         "provider_args": args,
     }
+
+
+def resolve_one_shot_code_task(
+    task: str,
+    *,
+    request_mode: str,
+    project_root: Path,
+    expand_project_command_func: Callable[[Path, str], tuple[str, dict[str, object] | None]] = (
+        expand_one_shot_project_command
+    ),
+) -> tuple[str, dict[str, object] | None]:
+    if request_mode != "code":
+        return task, None
+    return expand_project_command_func(project_root, task)
 
 
 def build_resume_context_limit_kwargs(

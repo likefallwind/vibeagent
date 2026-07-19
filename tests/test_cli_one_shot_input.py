@@ -12,6 +12,7 @@ from vibeagent.cli_one_shot_input import (
     format_stream_assistant_context,
     merge_stream_system_prompt,
     resolve_input_resume_arg,
+    resolve_one_shot_code_task,
     resolve_one_shot_context_from_limits,
     resolve_task_input,
     resolve_task_text,
@@ -179,6 +180,45 @@ class CliOneShotInputTests(unittest.TestCase):
             ),
             {"max_files": 4, "max_checks": 2, "max_text": 500},
         )
+
+    def test_resolve_one_shot_code_task_skips_chat_mode_expansion(self) -> None:
+        calls: list[tuple[Path, str]] = []
+
+        task, metadata = resolve_one_shot_code_task(
+            "/fix bug",
+            request_mode="chat",
+            project_root=Path("/project"),
+            expand_project_command_func=lambda root, value: calls.append((root, value)) or ("expanded", {}),
+        )
+
+        self.assertEqual(task, "/fix bug")
+        self.assertIsNone(metadata)
+        self.assertEqual(calls, [])
+
+    def test_resolve_one_shot_code_task_expands_code_mode(self) -> None:
+        metadata = {"source": "project_command", "name": "fix"}
+
+        task, resolved_metadata = resolve_one_shot_code_task(
+            "/fix bug",
+            request_mode="code",
+            project_root=Path("/project"),
+            expand_project_command_func=lambda root, value: ("expanded task", metadata),
+        )
+
+        self.assertEqual(task, "expanded task")
+        self.assertIs(resolved_metadata, metadata)
+
+    def test_resolve_one_shot_code_task_preserves_expansion_errors(self) -> None:
+        def expand_project_command(root: Path, value: str):
+            raise ValueError("Unknown project command: /missing")
+
+        with self.assertRaisesRegex(ValueError, "Unknown project command"):
+            resolve_one_shot_code_task(
+                "/missing",
+                request_mode="code",
+                project_root=Path("/project"),
+                expand_project_command_func=expand_project_command,
+            )
 
     def test_resolve_one_shot_context_from_limits_passes_resume_limits(self) -> None:
         calls: list[tuple[str, object]] = []

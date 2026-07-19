@@ -12,6 +12,7 @@ from .cli_one_shot_agent_kwargs import build_one_shot_agent_kwargs
 from .cli_one_shot_input import (
     build_one_shot_kwargs_from_args,
     combine_optional_text,
+    resolve_one_shot_code_task,
     resolve_one_shot_context_from_limits,
     resolve_task_input,
     resolve_task_text,
@@ -32,7 +33,6 @@ from .cli_output import (
 )
 from .cli_output_mode import resolve_cli_output_mode
 from .cli_stream_output import JsonEventStream
-from .cli_project_command_expansion import expand_one_shot_project_command
 from .commands import get_compact_context, get_resume_context
 from .config import resolve_execution_config
 from .providers import create_chat_client
@@ -102,12 +102,14 @@ def run_one_shot(
         if not task.strip():
             return emit_error("No task provided.")
         project_root = resolve_project_root(base_dir) or Path.cwd()
-        task_metadata: dict[str, object] | None = None
-        if request_mode == "code":
-            try:
-                task, task_metadata = expand_one_shot_project_command(project_root, task)
-            except ValueError as error:
-                return emit_error(str(error), exit_code=2)
+        try:
+            task, task_metadata = resolve_one_shot_code_task(
+                task,
+                request_mode=request_mode,
+                project_root=project_root,
+            )
+        except ValueError as error:
+            return emit_error(str(error), exit_code=2)
         try:
             resolved_mcp_config_paths = resolve_mcp_config_paths(project_root, mcp_config_paths)
         except ValueError as error:
