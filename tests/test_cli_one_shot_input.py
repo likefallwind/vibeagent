@@ -1,5 +1,6 @@
 import io
 import json
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 
@@ -11,6 +12,7 @@ from vibeagent.cli_one_shot_input import (
     format_stream_assistant_context,
     merge_stream_system_prompt,
     resolve_input_resume_arg,
+    resolve_one_shot_context_from_limits,
     resolve_task_input,
     resolve_task_text,
 )
@@ -176,6 +178,94 @@ class CliOneShotInputTests(unittest.TestCase):
                 max_text=500,
             ),
             {"max_files": 4, "max_checks": 2, "max_text": 500},
+        )
+
+    def test_resolve_one_shot_context_from_limits_passes_resume_limits(self) -> None:
+        calls: list[tuple[str, object]] = []
+
+        def get_resume_context(run_id, project_root, **kwargs):
+            calls.append(("resume", (run_id, project_root, kwargs)))
+            return "run-1", "resume context", "ok"
+
+        def get_compact_context(run_id, project_root, **kwargs):
+            calls.append(("compact", (run_id, project_root, kwargs)))
+            return None, None, "not used"
+
+        context = resolve_one_shot_context_from_limits(
+            resume_arg="run-1",
+            compact_arg=None,
+            auto_compact=True,
+            project_root=Path("/project"),
+            resume_max_failures=3,
+            resume_max_files=None,
+            resume_max_commands=5,
+            resume_max_checks=None,
+            resume_max_output_chars=1200,
+            resume_max_text=None,
+            compact_max_files=9,
+            get_resume_context_func=get_resume_context,
+            get_compact_context_func=get_compact_context,
+        )
+
+        self.assertEqual(context.context, "resume context")
+        self.assertEqual(context.source, "resume")
+        self.assertEqual(context.run_id, "run-1")
+        self.assertEqual(
+            calls,
+            [
+                (
+                    "resume",
+                    (
+                        "run-1",
+                        Path("/project"),
+                        {"max_failures": 3, "max_commands": 5, "max_output_chars": 1200},
+                    ),
+                )
+            ],
+        )
+
+    def test_resolve_one_shot_context_from_limits_passes_compact_limits(self) -> None:
+        calls: list[tuple[str, object]] = []
+
+        def get_resume_context(run_id, project_root, **kwargs):
+            calls.append(("resume", (run_id, project_root, kwargs)))
+            return None, None, "not used"
+
+        def get_compact_context(run_id, project_root, **kwargs):
+            calls.append(("compact", (run_id, project_root, kwargs)))
+            return "run-2", "compact context", "ok"
+
+        context = resolve_one_shot_context_from_limits(
+            resume_arg=None,
+            compact_arg="run-2",
+            auto_compact=True,
+            project_root=Path("/project"),
+            resume_max_files=9,
+            compact_max_failures=None,
+            compact_max_files=4,
+            compact_max_commands=None,
+            compact_max_checks=2,
+            compact_max_output_chars=None,
+            compact_max_text=500,
+            get_resume_context_func=get_resume_context,
+            get_compact_context_func=get_compact_context,
+        )
+
+        self.assertEqual(context.context, "compact context")
+        self.assertEqual(context.source, "compact")
+        self.assertEqual(context.run_id, "run-2")
+        self.assertEqual(
+            calls,
+            [
+                (
+                    "compact",
+                    (
+                        "run-2",
+                        Path("/project"),
+                        {"max_files": 4, "max_checks": 2, "max_text": 500},
+                    ),
+                )
+            ],
         )
 
     def test_build_one_shot_kwargs_from_args_keeps_main_mapping(self) -> None:

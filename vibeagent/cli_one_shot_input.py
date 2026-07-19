@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+from pathlib import Path
 import sys
 
-from .cli_context import build_context_limit_kwargs
+from .cli_context import (
+    OneShotPriorContext,
+    SessionContextGetter,
+    build_context_limit_kwargs,
+    resolve_one_shot_prior_context,
+)
 from .cli_input_format import StreamJsonTaskInput, resolve_json_task_input, resolve_stream_json_task_input
 from .cli_permission_overrides import build_permission_overrides
 
@@ -112,6 +118,55 @@ def build_compact_context_limit_kwargs(
         max_checks=max_checks,
         max_output_chars=max_output_chars,
         max_text=max_text,
+    )
+
+
+def resolve_one_shot_context_from_limits(
+    *,
+    resume_arg: str | None,
+    compact_arg: str | None,
+    auto_compact: bool,
+    project_root: Path,
+    resume_max_failures: int | None = None,
+    resume_max_files: int | None = None,
+    resume_max_commands: int | None = None,
+    resume_max_checks: int | None = None,
+    resume_max_output_chars: int | None = None,
+    resume_max_text: int | None = None,
+    compact_max_failures: int | None = None,
+    compact_max_files: int | None = None,
+    compact_max_commands: int | None = None,
+    compact_max_checks: int | None = None,
+    compact_max_output_chars: int | None = None,
+    compact_max_text: int | None = None,
+    get_resume_context_func: SessionContextGetter,
+    get_compact_context_func: SessionContextGetter,
+) -> OneShotPriorContext:
+    resume_kwargs = build_resume_context_limit_kwargs(
+        max_failures=resume_max_failures,
+        max_files=resume_max_files,
+        max_commands=resume_max_commands,
+        max_checks=resume_max_checks,
+        max_output_chars=resume_max_output_chars,
+        max_text=resume_max_text,
+    )
+    compact_kwargs = build_compact_context_limit_kwargs(
+        max_failures=compact_max_failures,
+        max_files=compact_max_files,
+        max_commands=compact_max_commands,
+        max_checks=compact_max_checks,
+        max_output_chars=compact_max_output_chars,
+        max_text=compact_max_text,
+    )
+    return resolve_one_shot_prior_context(
+        resume_arg=resume_arg,
+        compact_arg=compact_arg,
+        auto_compact=auto_compact,
+        project_root=project_root,
+        resume_kwargs=resume_kwargs,
+        compact_kwargs=compact_kwargs,
+        get_resume_context_func=get_resume_context_func,
+        get_compact_context_func=get_compact_context_func,
     )
 
 
