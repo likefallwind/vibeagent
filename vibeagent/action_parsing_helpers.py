@@ -1,9 +1,15 @@
 from __future__ import annotations
 
-import math
-import re
 from typing import Any, Callable, TypeVar
 
+from .action_parsing_scalars import (
+    ActionParseError,
+    INT_STRING_PATTERN,
+    coerce_int,
+    parse_nonnegative_int,
+    parse_optional_nonnegative_int,
+    parse_optional_positive_int,
+)
 from .types import (
     DirectoryTransfer,
     EditOperation,
@@ -50,14 +56,7 @@ PLAN_ITEM_STATUS_ALIASES = {
 }
 PLAN_ITEM_STATUS_VALUES = set(PLAN_ITEM_STATUS_ALIASES)
 PLAN_ITEM_SCHEMA_STATUS_VALUES = ("complete", "completed", "done", "in-progress", "in_progress", "pending", "todo")
-INT_STRING_PATTERN = re.compile(r"^\d+(?:[_,]\d+)*(?:\.0+)?$")
 TransferRecord = TypeVar("TransferRecord")
-
-
-class ActionParseError(ValueError):
-    def __init__(self, message: str, raw: str):
-        super().__init__(message)
-        self.raw = raw
 
 
 def parse_code_rename_input(
@@ -416,54 +415,6 @@ def parse_edit_operations(value: Any, raw: str, action_type: str = "multi_edit_f
             raise ActionParseError(f"{action_type} edit {index} requires boolean replace_all.", raw)
         edits.append(EditOperation(old=old, new=new, replace_all=replace_all))
     return edits
-
-
-def coerce_int(value: Any) -> int | None:
-    if type(value) is int:
-        return value
-    if type(value) is float and math.isfinite(value) and value.is_integer():
-        return int(value)
-    if isinstance(value, str):
-        stripped = value.strip()
-        if not INT_STRING_PATTERN.fullmatch(stripped):
-            return None
-        normalized = stripped.replace("_", "").replace(",", "")
-        if normalized.isdigit():
-            return int(normalized)
-        whole, _fraction = normalized.split(".", 1)
-        return int(whole)
-    return None
-
-
-def parse_optional_positive_int(value: Any, name: str, raw: str, maximum: int | None) -> int | None:
-    if value is None:
-        return None
-    parsed = coerce_int(value)
-    if parsed is None or parsed < 1:
-        raise ActionParseError(f"{name} must be a positive integer.", raw)
-    if maximum is not None and parsed > maximum:
-        raise ActionParseError(f"{name} must be at most {maximum}.", raw)
-    return parsed
-
-
-def parse_optional_nonnegative_int(value: Any, name: str, raw: str, maximum: int | None) -> int | None:
-    if value is None:
-        return None
-    parsed = coerce_int(value)
-    if parsed is None or parsed < 0:
-        raise ActionParseError(f"{name} must be a non-negative integer.", raw)
-    if maximum is not None and parsed > maximum:
-        raise ActionParseError(f"{name} must be at most {maximum}.", raw)
-    return parsed
-
-
-def parse_nonnegative_int(value: Any, name: str, raw: str, maximum: int | None) -> int:
-    parsed = coerce_int(value)
-    if parsed is None or parsed < 0:
-        raise ActionParseError(f"{name} must be a non-negative integer.", raw)
-    if maximum is not None and parsed > maximum:
-        raise ActionParseError(f"{name} must be at most {maximum}.", raw)
-    return parsed
 
 
 def summarize_plan_update(action: UpdatePlanAction) -> str:
