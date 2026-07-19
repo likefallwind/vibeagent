@@ -10,12 +10,16 @@ from .chat import run_chat
 from .cli_context import build_context_limit_kwargs, resolve_one_shot_prior_context
 from .cli_config import build_provider_env, resolve_project_root
 from .cli_mcp_args import resolve_mcp_config_paths
-from .cli_machine_output import add_duration_fields
 from .cli_one_shot_input import (
     build_one_shot_kwargs_from_args,
     combine_optional_text,
     resolve_task_input,
     resolve_task_text,
+)
+from .cli_one_shot_output import (
+    build_one_shot_chat_payload,
+    build_one_shot_code_payload,
+    build_one_shot_error_payload,
 )
 from .cli_output import (
     build_approval_handler,
@@ -26,19 +30,13 @@ from .cli_output import (
     print_output,
     prompt_user_input,
 )
-from .cli_result_payloads import (
-    build_chat_result_payload,
-    build_code_result_payload,
-    error_result_payload,
-)
 from .cli_stream_output import JsonEventStream
 from .cli_project_command_expansion import expand_one_shot_project_command
 from .commands import get_compact_context, get_resume_context
-from .config import resolve_cost_rates, resolve_execution_config
+from .config import resolve_execution_config
 from .providers import create_chat_client
 from .project_trust import is_project_permissions_trusted
 from .session_event_observers import observe_session_events
-from .session_usage import build_run_cost_report, build_run_usage_report
 from .types import ApprovalPolicy
 from .workspace_core import create_run_workspace
 
@@ -93,10 +91,14 @@ def run_one_shot(
     stream = JsonEventStream() if stream_json else None
 
     def emit_error(error: str, *, kind: str = "error", status: str = "failed", exit_code: int = 1) -> int:
-        payload_exit_code = exit_code if machine_output else None
-        payload = error_result_payload(error, kind=kind, status=status, exit_code=payload_exit_code)
-        if machine_output:
-            add_duration_fields(payload, elapsed_milliseconds(started_at))
+        payload = build_one_shot_error_payload(
+            error,
+            machine_output=machine_output,
+            elapsed_ms=elapsed_milliseconds(started_at),
+            kind=kind,
+            status=status,
+            exit_code=exit_code,
+        )
         if stream is not None:
             stream.result(payload)
             return exit_code
@@ -143,11 +145,11 @@ def run_one_shot(
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
             )
-            payload = build_chat_result_payload(response)
-            if machine_output:
-                add_duration_fields(payload, elapsed_milliseconds(started_at))
-                payload["numTurns"] = 1
-                payload["num_turns"] = 1
+            payload = build_one_shot_chat_payload(
+                response,
+                machine_output=machine_output,
+                elapsed_ms=elapsed_milliseconds(started_at),
+            )
             if stream is not None:
                 stream.result(payload)
             else:
@@ -223,12 +225,14 @@ def run_one_shot(
             run_kwargs["workspace"] = stream_workspace
         with event_scope:
             result = run_agent_func(task, **run_kwargs)
-        result_payload = build_code_result_payload(result, prior_context)
-        if machine_output:
-            add_duration_fields(result_payload, elapsed_milliseconds(started_at))
-            result_payload["usage"] = build_run_usage_report(project_root, result.run_id)
-            cost_rates, cost_errors = resolve_cost_rates(provider_env)
-            result_payload["cost"] = build_run_cost_report(project_root, result.run_id, cost_rates, cost_errors)
+        result_payload = build_one_shot_code_payload(
+            result,
+            prior_context,
+            machine_output=machine_output,
+            elapsed_ms=elapsed_milliseconds(started_at),
+            project_root=project_root,
+            provider_env=provider_env,
+        )
         if stream is not None:
             stream.result(result_payload)
         elif output_json:
