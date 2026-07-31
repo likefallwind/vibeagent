@@ -229,6 +229,19 @@ local changes when asked, and resume from recorded session context.
   pass without ask-mode approval, read-before-write evidence, agent-run
   failing and passing verification, final review readiness, and completion
   readiness.
+- `tests.test_v1_live_dogfood.V1LiveDogfoodScriptTests.test_audit_session_events_rejects_side_effect_before_approval`
+  covers the transcript approval-order gate, confirming side-effect tool
+  results cannot pass the live audit unless an approved decision appears first.
+- `tests.test_v1_live_dogfood.V1LiveDogfoodScriptTests.test_audit_session_events_rejects_side_effect_path_outside_workspace`
+  covers the live transcript workspace boundary gate, confirming side-effect
+  file paths outside the throwaway repository block the live audit.
+- `tests.test_v1_live_dogfood.V1LiveDogfoodScriptTests.test_audit_session_events_rejects_secret_leakage`
+  covers the live transcript secret-safety gate, confirming high-confidence
+  credential-like text blocks the live audit.
+- `tests.test_v1_live_dogfood.V1LiveDogfoodScriptTests.test_audit_session_events_rejects_blocked_command_execution`
+  covers the live transcript command-safety gate, confirming commands rejected
+  by the project command safety rules block the live audit even if they appear
+  in recorded session events.
 - `tests.test_v1_live_dogfood.V1LiveDogfoodScriptTests.test_audit_session_events_accepts_complete_live_gate_evidence`
   covers the positive transcript audit path for a complete ask-mode run with
   inspection, approved edit and test actions, ready final review, and ready

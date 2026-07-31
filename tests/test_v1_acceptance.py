@@ -73,6 +73,10 @@ LIVE_DOGFOOD_TESTS = {
     "test_run_live_dogfood_feeds_ask_mode_approvals_and_reports_run_id",
     "test_audit_repo_fails_before_repair_and_passes_after_commit",
     "test_audit_session_events_requires_live_gate_evidence",
+    "test_audit_session_events_rejects_side_effect_before_approval",
+    "test_audit_session_events_rejects_side_effect_path_outside_workspace",
+    "test_audit_session_events_rejects_secret_leakage",
+    "test_audit_session_events_rejects_blocked_command_execution",
     "test_audit_session_events_accepts_complete_live_gate_evidence",
 }
 
