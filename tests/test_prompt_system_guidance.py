@@ -20,6 +20,10 @@ class PromptSystemGuidanceTests(unittest.TestCase):
         self.assertIn("search to find text inside files", SYSTEM_PROMPT)
         self.assertIn("search_contexts when you need matching lines plus surrounding source context", SYSTEM_PROMPT)
 
+    def test_system_prompt_guides_process_stdin_files(self) -> None:
+        self.assertIn("prefer write_process stdin_file", SYSTEM_PROMPT)
+        self.assertIn("provide either content or stdin_file, not both", SYSTEM_PROMPT)
+
 
 if __name__ == "__main__":
     unittest.main()

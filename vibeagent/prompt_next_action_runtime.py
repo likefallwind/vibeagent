@@ -82,7 +82,10 @@ def _read_process_next_action_instruction(base: str, latest: Observation) -> str
                 output_issues,
                 "decide whether they are relevant, edit or fix if needed, and rerun or continue only after confirming they are non-blocking.",
             )
-        return f"{base} Use the process output to continue, write_process if the process is waiting for input, or stop_process if it is no longer needed."
+        return (
+            f"{base} Use the process output to continue, check_write_process then write_process if the process is "
+            "waiting for input, prefer stdin_file for large or project-file-backed input, or stop_process if it is no longer needed."
+        )
     if process_exited_with_failure(latest):
         if output_issues:
             return inline_output_issue_instruction(
@@ -231,7 +234,10 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
         return f"{base} Use a listed process id with read_process, wait_process, write_process, or stop_process; use check_stop_all_processes if cleaning up all background commands."
     if latest.kind == "check_write_process":
         if latest.ok:
-            return f"{base} The process can receive stdin. Use write_process only if sending that input is necessary."
+            return (
+                f"{base} The process can receive stdin. Use write_process only if sending that input is necessary, "
+                "and use stdin_file instead of inline content for large or existing project-file input."
+            )
         return f"{base} The process cannot receive stdin, so inspect its output or choose another useful action."
     if latest.kind == "write_process":
         if latest.ok:
