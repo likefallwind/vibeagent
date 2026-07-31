@@ -77,6 +77,8 @@ GIT_PREVIEW_KINDS = {
     "check_git_push",
     "check_git_restore",
     "check_git_switch",
+    "check_git_stage",
+    "check_git_unstage",
     "check_git_stash",
     "check_git_stash_apply",
     "check_git_stash_drop",

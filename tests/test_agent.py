@@ -12369,6 +12369,49 @@ class AgentTests(unittest.TestCase):
 
         self.assertIsNone(stale_preview)
 
+    def test_approval_preview_summary_ignores_git_stage_preview_after_file_mutation(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.GitStageAction(type="git_stage", paths=["app.py"]),
+            [
+                types_module.CheckGitStageObservation(
+                    kind="check_git_stage",
+                    ok=True,
+                    paths=["app.py"],
+                    status=" M app.py\n",
+                    message="Can stage 1 path(s).",
+                ),
+                WriteFileObservation(
+                    kind="write_file",
+                    path="notes.md",
+                    ok=True,
+                    message="Wrote notes.md.",
+                    content="changed",
+                ),
+            ],
+        )
+        fresh_preview = agent_module.approval_preview_summary(
+            types_module.GitStageAction(type="git_stage", paths=["app.py"]),
+            [
+                WriteFileObservation(
+                    kind="write_file",
+                    path="notes.md",
+                    ok=True,
+                    message="Wrote notes.md.",
+                    content="changed",
+                ),
+                types_module.CheckGitStageObservation(
+                    kind="check_git_stage",
+                    ok=True,
+                    paths=["app.py"],
+                    status=" M app.py\n?? notes.md\n",
+                    message="Can stage 1 path(s) after rewrite.",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+        self.assertIn("after rewrite", fresh_preview or "")
+
     def test_approval_preview_summary_matches_git_commit_preview(self) -> None:
         preview = agent_module.approval_preview_summary(
             GitCommitAction(type="git_commit", message="update docs"),
