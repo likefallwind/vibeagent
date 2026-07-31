@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from .action_read_types import WriteFileItem
+
 
 @dataclass(frozen=True)
 class WriteFileObservation:
@@ -44,6 +46,7 @@ class WriteFilesObservation:
     files: list[WriteFileResult]
     ok: bool
     message: str
+    inputs: list[WriteFileItem] | None = None
 
 
 @dataclass(frozen=True)
@@ -52,6 +55,7 @@ class CheckWriteFilesObservation:
     files: list[CheckWriteFileResult]
     ok: bool
     message: str
+    inputs: list[WriteFileItem] | None = None
 
 
 @dataclass(frozen=True)

@@ -57,6 +57,7 @@ def execute_write_file_action(workspace: RunWorkspace, action: object) -> Observ
                 files=files,
                 ok=True,
                 message=f"Write can apply to {len(files)} file(s).",
+                inputs=action.files,
             )
         except ValueError as error:
             files = [
@@ -68,6 +69,7 @@ def execute_write_file_action(workspace: RunWorkspace, action: object) -> Observ
                 files=files,
                 ok=False,
                 message=str(error),
+                inputs=action.files,
             )
 
     if isinstance(action, WriteFilesAction):
@@ -79,6 +81,7 @@ def execute_write_file_action(workspace: RunWorkspace, action: object) -> Observ
                 files=files,
                 ok=True,
                 message=f"Wrote {len(files)} file(s).",
+                inputs=action.files,
             )
         except ValueError as error:
             files = [WriteFileResult(path=file.path, ok=False, message=str(error)) for file in action.files]
@@ -87,6 +90,7 @@ def execute_write_file_action(workspace: RunWorkspace, action: object) -> Observ
                 files=files,
                 ok=False,
                 message=str(error),
+                inputs=action.files,
             )
 
     return None

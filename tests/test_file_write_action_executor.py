@@ -3,8 +3,9 @@ import unittest
 from pathlib import Path
 
 from vibeagent.agent_approval_preview import approval_preview_summary
+from vibeagent.agent_tool_results import build_tool_result_payload
 from vibeagent.file_write_action_executor import execute_write_file_action
-from vibeagent.types import CheckWriteFileAction, WriteFileAction, WriteFileItem, WriteFilesAction
+from vibeagent.types import CheckWriteFileAction, CheckWriteFilesAction, WriteFileAction, WriteFileItem, WriteFilesAction
 from vibeagent.workspace import create_run_workspace
 
 
@@ -57,6 +58,41 @@ class FileWriteActionExecutorTests(unittest.TestCase):
             self.assertTrue(observation.ok)
             self.assertEqual(Path(base, "pkg", "a.py").read_text(encoding="utf-8"), "A = 1\n")
             self.assertEqual(Path(base, "pkg", "b.py").read_text(encoding="utf-8"), "B = 2\n")
+
+    def test_write_files_preview_matches_approval_by_file_content(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-write-executor-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            files = [
+                WriteFileItem(path="pkg/a.py", content="A = 1\n"),
+                WriteFileItem(path="pkg/b.py", content="B = 2\n"),
+            ]
+
+            observation = execute_write_file_action(
+                workspace,
+                CheckWriteFilesAction(type="check_write_files", files=files),
+            )
+
+            self.assertIsNotNone(observation)
+            self.assertEqual(observation.kind, "check_write_files")
+            self.assertEqual(observation.inputs, files)
+            matching_preview = approval_preview_summary(
+                WriteFilesAction(type="write_files", files=files),
+                [observation],
+            )
+            mismatched_preview = approval_preview_summary(
+                WriteFilesAction(
+                    type="write_files",
+                    files=[
+                        WriteFileItem(path="pkg/a.py", content="A = 1\n"),
+                        WriteFileItem(path="pkg/b.py", content="B = 3\n"),
+                    ],
+                ),
+                [observation],
+            )
+
+            self.assertIn("fileDiffs=", matching_preview or "")
+            self.assertIsNone(mismatched_preview)
+            self.assertNotIn("inputs", build_tool_result_payload(observation))
 
     def test_execute_write_file_action_returns_none_for_unhandled_actions(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-write-executor-") as base:

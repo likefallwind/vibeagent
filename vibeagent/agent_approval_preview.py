@@ -216,7 +216,11 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
     if kind in {"code_rename", "code_rename_preview"}:
         return ("code_rename", getattr(value, "symbol", ""), getattr(value, "new_name", ""), getattr(value, "path", None))
     if kind in {"write_files", "check_write_files"}:
-        return ("write_files", tuple(getattr(item, "path", "") for item in getattr(value, "files", [])))
+        input_files = getattr(value, "inputs", None) or getattr(value, "files", [])
+        return (
+            "write_files",
+            tuple((getattr(item, "path", ""), getattr(item, "content", "")) for item in input_files),
+        )
     if kind in {"delete_files", "check_delete_files", "create_dirs", "check_create_dirs", "delete_empty_dirs", "check_delete_empty_dirs", "git_stage", "check_git_stage", "git_unstage", "check_git_unstage", "git_restore", "check_git_restore"}:
         return (kind.replace("check_", ""), tuple(getattr(value, "paths", [])))
     if kind in {"move_file", "check_move_file", "copy_file", "check_copy_file", "move_dir", "check_move_dir", "copy_dir", "check_copy_dir"}:

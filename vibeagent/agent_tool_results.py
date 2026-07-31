@@ -48,6 +48,8 @@ def scrub_internal_preview_fingerprint_fields(result_payload: dict[str, object])
             result_payload.pop(key, None)
     if kind in {"patch_file", "check_patch", "patch_files", "check_patches"}:
         result_payload.pop("patch", None)
+    if kind in {"write_files", "check_write_files"}:
+        result_payload.pop("inputs", None)
 
 
 def record_tool_result_event(
