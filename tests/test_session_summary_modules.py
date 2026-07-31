@@ -2,6 +2,7 @@ import unittest
 
 from vibeagent import session_summary_completion_reports
 from vibeagent import session_summary_details
+from vibeagent import session_summary_model
 from vibeagent import session_summary_reports
 
 
@@ -43,6 +44,33 @@ class SessionSummaryModuleTests(unittest.TestCase):
             ),
             "task=inspect; agent=reviewer; mode=read_only; message=failed",
         )
+
+    def test_session_summary_model_tracks_usage_and_final_messages(self) -> None:
+        usage = session_summary_model.SessionModelUsageTotals()
+
+        usage.add_payload(
+            {
+                "input_tokens": 3,
+                "output_tokens": 4,
+                "total_tokens": 7,
+                "cache_creation_tokens": 2,
+                "cache_read_tokens": 1,
+            }
+        )
+        usage.add_payload({"input_tokens": 5, "output_tokens": 6})
+
+        self.assertEqual(usage.input_tokens, 8)
+        self.assertEqual(usage.output_tokens, 10)
+        self.assertEqual(usage.total_tokens, 18)
+        self.assertEqual(usage.cache_creation_tokens, 2)
+        self.assertEqual(usage.cache_read_tokens, 1)
+        self.assertEqual(session_summary_model.model_final_message([{"type": "text", "text": "done"}]), "done")
+        self.assertIsNone(
+            session_summary_model.model_final_message(
+                [{"type": "text", "text": "thinking"}, {"type": "tool_call", "name": "read_file"}]
+            )
+        )
+        self.assertEqual(session_summary_model.model_error_message({"message": " failed "}), "failed")
 
 
 if __name__ == "__main__":

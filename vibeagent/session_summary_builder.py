@@ -11,13 +11,11 @@ from .session_summary_helpers import (
     update_session_background_processes,
 )
 from .session_summary_details import parse_completion_detail_lists, subagent_failure_label
+from .session_summary_model import SessionModelUsageTotals, model_error_message, model_final_message
 from .session_types import SessionPlanItem, SessionProcessInfo, SessionSummary
 from .session_utils import (
     as_int,
-    has_tool_call_content,
     is_failed_tool_result,
-    model_text,
-    parse_usage_payload,
     session_dir,
 )
 from .session_verification_state import session_verification_from_events
@@ -34,11 +32,7 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
     approvals_requested = 0
     approvals_approved = 0
     approvals_denied = 0
-    input_tokens = 0
-    output_tokens = 0
-    total_tokens = 0
-    cache_creation_tokens = 0
-    cache_read_tokens = 0
+    usage_totals = SessionModelUsageTotals()
     task: str | None = None
     final_message: str | None = None
     latest_plan: list[SessionPlanItem] = []
@@ -107,23 +101,17 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
             elif approved is False:
                 approvals_denied += 1
         elif event.type in {"model", "subagent_model"}:
-            usage = parse_usage_payload(event.payload.get("usage"))
-            input_tokens += usage["input_tokens"]
-            output_tokens += usage["output_tokens"]
-            total_tokens += usage["total_tokens"]
-            cache_creation_tokens += usage["cache_creation_tokens"]
-            cache_read_tokens += usage["cache_read_tokens"]
+            usage_totals.add_payload(event.payload.get("usage"))
             if event.type == "model":
-                text = model_text(event.payload.get("content"))
-                has_tool_call = has_tool_call_content(event.payload.get("content"))
-                if text and not has_tool_call:
+                text = model_final_message(event.payload.get("content"))
+                if text:
                     final_message = text
                     completed = True
         elif event.type in {"model_error", "subagent_model_error"}:
             model_errors += 1
-            message = event.payload.get("message")
-            if isinstance(message, str) and message.strip():
-                latest_model_error = message.strip()
+            message = model_error_message(event.payload)
+            if message:
+                latest_model_error = message
             failed = True
         elif event.type == "subagent_started":
             subagents_started += 1
@@ -313,11 +301,11 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
         approvals_requested=approvals_requested,
         approvals_approved=approvals_approved,
         approvals_denied=approvals_denied,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-        total_tokens=total_tokens,
-        cache_creation_tokens=cache_creation_tokens,
-        cache_read_tokens=cache_read_tokens,
+        input_tokens=usage_totals.input_tokens,
+        output_tokens=usage_totals.output_tokens,
+        total_tokens=usage_totals.total_tokens,
+        cache_creation_tokens=usage_totals.cache_creation_tokens,
+        cache_read_tokens=usage_totals.cache_read_tokens,
         final_message=final_message,
         latest_plan=latest_plan,
         completed=completed,
