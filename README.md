@@ -404,7 +404,7 @@ background-process reads with status, match/timeout state, captured stdout/stder
 and any auto-extracted diagnostics or source contexts.
 `--json --check-write-process` and `--json --write-process` include structured
 stdin-write payloads with process ids, pids, running state, command/cwd metadata,
-content length, and write/preflight messages.
+content length, optional `stdinFile` source paths, and write/preflight messages.
 `--json --port-check`, `--json --http-check`, and `--json --http-fetch` include
 structured local-service verification payloads with reachability, status,
 matching state, timeout/body limits, bounded response bodies, and errors.
@@ -860,8 +860,8 @@ source snippets, `/find-files [--path PATH] [--max-matches N] [--regex] [--case-
 `/process-output-contexts <id> [chars] [--max-chars N] [--context-lines N] [--max-contexts N] [--max-bytes N]` to extract source contexts for file:line references in background process output,
 `/process-output-diagnostics <id> [chars] [--max-chars N] [--context-lines N] [--max-diagnostics N] [--max-contexts N] [--max-bytes N]` to summarize background process errors, warnings, failures, and referenced contexts,
 `/wait-process <id> [timeout-ms] [chars] [--timeout-ms N] [--max-chars N] [--stdout TEXT] [--stderr TEXT] [--regex]` to wait for a background process or output match,
-`/check-write-process <id> <text> [--stdin-file PATH]` to preview writing stdin text to one running background process; quote text with spaces,
-`/write-process <id> <text> [--stdin-file PATH]` to write stdin text to one running background process; quote text with spaces,
+`/check-write-process <id> <text> [--stdin-file PATH]` to preview writing stdin text or a project file to one running background process; quote text with spaces,
+`/write-process <id> <text> [--stdin-file PATH]` to write stdin text or a project file to one running background process; quote text with spaces,
 `/check-stop-process <id>` to preview stopping one VibeAgent-started background process,
 `/stop-process <id>` to stop one VibeAgent-started background process,
 `/check-stop-processes` or `/check-stop-all-processes` to preview stopping all VibeAgent-started background processes,
@@ -1501,7 +1501,7 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   `web_fetch` fetches bounded readable text from public technical documents after approval, rejects URL credentials and non-public destinations, and revalidates redirects;
   `check_start_command` does the same for long-running commands without starting a process;
   `wait_process` waits for a background process to exit, time out, or emit configured stdout/stderr text or regex without stopping it;
-  `check_write_process` validates that a running background process can receive stdin without writing input;
+  `check_write_process` validates that a running background process can receive stdin text or project-file-backed stdin without writing input;
   `check_stop_all_processes` previews all tracked background processes without stopping them;
   `check_stop_process` validates a background process id without stopping it.
   Large `git_diff`, `git_show`, and `git_blame` outputs are bounded with truncation metadata.
@@ -1543,8 +1543,8 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   error lines,
   `process_output_contexts` extracts source snippets for file:line references in recent background stdout/stderr,
   `process_output_diagnostics` summarizes errors, warnings, failures, and referenced source contexts in recent background stdout/stderr,
-  `check_write_process` validates that a running background process can receive stdin without writing input,
-  `write_process` sends exact text to a running background process stdin after approval when the starting runtime still owns stdin,
+  `check_write_process` validates that a running background process can receive stdin text or project-file-backed stdin without writing input,
+  `write_process` sends exact text or a project-relative `stdin_file` to a running background process stdin after approval when the starting runtime still owns stdin,
   process observations include both VibeAgent process ids and OS pids, and
   `stop_process` / `stop_all_processes` terminate only processes VibeAgent started
   for the current project registry.
