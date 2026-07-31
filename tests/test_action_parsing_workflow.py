@@ -27,6 +27,7 @@ class WorkflowActionParsingTests(unittest.TestCase):
         action = parse_tool_action(
             "todo_write",
             {
+                "explanation": "Reflect current progress",
                 "todos": [
                     {"content": "Inspect", "status": "pending"},
                     {"content": "Implement", "status": "in-progress", "activeForm": "Implementing"},
@@ -36,6 +37,7 @@ class WorkflowActionParsingTests(unittest.TestCase):
         )
 
         self.assertIsInstance(action, UpdatePlanAction)
+        self.assertEqual(action.explanation, "Reflect current progress")
         self.assertEqual([item.step for item in action.plan], ["Inspect", "Implement", "Verify"])
         self.assertEqual([item.status for item in action.plan], ["pending", "in_progress", "completed"])
         self.assertEqual([item.active_form for item in action.plan], [None, "Implementing", "Verifying"])

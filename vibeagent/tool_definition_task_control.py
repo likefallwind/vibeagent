@@ -185,6 +185,7 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "todos": {
                     **TODO_ARRAY_SCHEMA,
                 },
+                "explanation": {"type": "string"},
             },
             "anyOf": [
                 {"required": ["plan"]},

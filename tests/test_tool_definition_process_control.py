@@ -68,6 +68,7 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         self.assertEqual([branch["required"] for branch in claude_schema["anyOf"]], [["plan"], ["todos"]])
         self.assertIn("plan", claude_schema["properties"])
         self.assertIn("todos", claude_schema["properties"])
+        self.assertIn("explanation", claude_schema["properties"])
 
     def test_task_control_plan_and_todo_item_schemas_are_shared(self) -> None:
         update_plan = next(tool for tool in TASK_CONTROL_TOOL_DEFINITIONS if tool["name"] == "update_plan")
