@@ -119,6 +119,10 @@ class ReadingToolDefinitionTests(unittest.TestCase):
             grep_schema["properties"]["output_mode"]["enum"],
             ["lines", "content", "files_with_matches", "count"],
         )
+        self.assertIn("regex", grep_schema["properties"])
+        self.assertIn("case_sensitive", grep_schema["properties"])
+        self.assertNotIn("regex", grep_schema["required"])
+        self.assertNotIn("case_sensitive", grep_schema["required"])
 
 
 if __name__ == "__main__":

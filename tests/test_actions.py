@@ -2514,7 +2514,17 @@ class ActionTests(unittest.TestCase):
             "Glob",
             {"pattern": "**/*.py", "path": "src", "max_matches": 9, "include_dirs": True},
         )
-        grep_action = parse_tool_action("Grep", {"pattern": "needle", "path": "src", "head_limit": 7, "output_mode": "content"})
+        grep_action = parse_tool_action(
+            "Grep",
+            {
+                "pattern": "needle.*",
+                "path": "src",
+                "head_limit": 7,
+                "output_mode": "content",
+                "regex": True,
+                "case_sensitive": False,
+            },
+        )
         todo_write_action = parse_tool_action("TodoWrite", {"todos": [{"content": "Plan", "status": "completed"}]})
         todo_read_action = parse_tool_action("TodoRead", {})
 
@@ -2599,7 +2609,9 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(glob_action.max_matches, 9)
         self.assertTrue(glob_action.include_dirs)
         self.assertEqual(grep_action.type, "search")
-        self.assertEqual(grep_action.query, "needle")
+        self.assertEqual(grep_action.query, "needle.*")
+        self.assertTrue(grep_action.regex)
+        self.assertFalse(grep_action.case_sensitive)
         self.assertEqual(grep_action.max_matches, 7)
         self.assertEqual(grep_action.context_lines, 2)
         self.assertEqual(todo_write_action.type, "update_plan")

@@ -112,6 +112,8 @@ CLAUDE_SEARCH_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "type": {"type": "string"},
                 "output_mode": {"type": "string", "enum": ["lines", "content", "files_with_matches", "count"]},
                 "head_limit": {"type": "integer", "minimum": 1, "maximum": 500},
+                "regex": {"type": "boolean"},
+                "case_sensitive": {"type": "boolean"},
                 "-i": {"type": "boolean"},
                 "-C": {"type": "integer", "minimum": 0, "maximum": 5},
                 "-A": {"type": "integer", "minimum": 0, "maximum": 5},
