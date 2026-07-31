@@ -223,14 +223,41 @@ def preview_search_invalidated(
     expected_paths: frozenset[str] | None,
     observation: object,
 ) -> bool:
-    if expected_kind in GIT_PREVIEW_KINDS and observation_kind in GIT_MUTATION_OBSERVATION_KINDS:
+    if preview_invalidated_by_workspace_restore(expected_kind, observation_kind):
         return True
-    if expected_kind in WORKSPACE_PREVIEW_KINDS and observation_kind in CHECKPOINT_RESTORE_MUTATION_OBSERVATION_KINDS:
+    if checkpoint_restore_preview_invalidated_by_workspace_mutation(expected_kind, observation_kind):
         return True
-    if expected_kind in CHECKPOINT_RESTORE_PREVIEW_KINDS and observation_kind in WORKSPACE_MUTATION_OBSERVATION_KINDS:
+    if git_preview_invalidated_by_workspace_mutation(expected_kind, observation_kind):
         return True
-    if expected_kind in GIT_PREVIEW_KINDS and observation_kind in FILE_MUTATION_OBSERVATION_KINDS:
-        return True
+    return file_preview_invalidated_by_file_mutation(expected_kind, observation_kind, expected_paths, observation)
+
+
+def preview_invalidated_by_workspace_restore(expected_kind: str, observation_kind: object) -> bool:
+    return (
+        expected_kind in WORKSPACE_PREVIEW_KINDS
+        and observation_kind in CHECKPOINT_RESTORE_MUTATION_OBSERVATION_KINDS
+    )
+
+
+def checkpoint_restore_preview_invalidated_by_workspace_mutation(expected_kind: str, observation_kind: object) -> bool:
+    return (
+        expected_kind in CHECKPOINT_RESTORE_PREVIEW_KINDS
+        and observation_kind in WORKSPACE_MUTATION_OBSERVATION_KINDS
+    )
+
+
+def git_preview_invalidated_by_workspace_mutation(expected_kind: str, observation_kind: object) -> bool:
+    if expected_kind not in GIT_PREVIEW_KINDS:
+        return False
+    return observation_kind in GIT_MUTATION_OBSERVATION_KINDS or observation_kind in FILE_MUTATION_OBSERVATION_KINDS
+
+
+def file_preview_invalidated_by_file_mutation(
+    expected_kind: str,
+    observation_kind: object,
+    expected_paths: frozenset[str] | None,
+    observation: object,
+) -> bool:
     if expected_kind not in FILE_PREVIEW_KINDS or observation_kind not in FILE_MUTATION_OBSERVATION_KINDS:
         return False
     if expected_paths is None:
