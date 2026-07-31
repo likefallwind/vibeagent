@@ -312,7 +312,7 @@ def preview_file_diffs(files: object) -> list[object]:
 def file_diff_fingerprint_payload(files: list[object]) -> str:
     payload = [
         {
-            "path": str(getattr(file, "path", "") or ""),
+            "path": str(preview_path_attr(file)),
             "diff": str(getattr(file, "diff", "") or ""),
             "truncated": bool(getattr(file, "truncated", False)),
         }

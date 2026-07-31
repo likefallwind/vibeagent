@@ -13001,6 +13001,33 @@ class AgentTests(unittest.TestCase):
         self.assertIn("fileDiffsSha256=", second)
         self.assertNotEqual(first, second)
 
+    def test_file_diff_fingerprint_payload_normalizes_paths(self) -> None:
+        first = approval_preview_module.file_diff_fingerprint_payload(
+            [
+                types_module.CodeRenamePreviewFile(
+                    path="./src/app.ts",
+                    language="typescript",
+                    replacements=[],
+                    diff="abc",
+                    truncated=False,
+                )
+            ]
+        )
+        second = approval_preview_module.file_diff_fingerprint_payload(
+            [
+                types_module.CodeRenamePreviewFile(
+                    path="src/app.ts",
+                    language="typescript",
+                    replacements=[],
+                    diff="abc",
+                    truncated=False,
+                )
+            ]
+        )
+
+        self.assertEqual(first, second)
+        self.assertIn('"path":"src/app.ts"', first)
+
     def test_approval_preview_summary_matches_focused_test_selection_limits(self) -> None:
         preview_observation = CheckFocusedTestCommandsObservation(
             kind="check_focused_test_commands",
