@@ -14,16 +14,9 @@ PLAN_ITEM_SCHEMA: dict[str, Any] = {
         "status": {
             "type": "string",
             "enum": PLAN_ITEM_STATUS_ENUM,
-            "description": "Normalized status.",
         },
-        "activeForm": {
-            "type": "string",
-            "description": "Active wording.",
-        },
-        "active_form": {
-            "type": "string",
-            "description": "Alias for activeForm.",
-        },
+        "activeForm": {"type": "string"},
+        "active_form": {"type": "string"},
     },
     "required": ["step", "status"],
     "additionalProperties": False,
@@ -36,7 +29,6 @@ TODO_ITEM_SCHEMA: dict[str, Any] = {
         "status": {
             "type": "string",
             "enum": PLAN_ITEM_STATUS_ENUM,
-            "description": "Normalized status.",
         },
         "activeForm": {"type": "string"},
         "active_form": {"type": "string"},
@@ -64,6 +56,18 @@ TODO_ARRAY_SCHEMA: dict[str, Any] = {
     "minItems": 1,
     "maxItems": 20,
     "items": TODO_ITEM_SCHEMA,
+}
+
+EXIT_PLAN_MODE_PLAN_SCHEMA: dict[str, Any] = {
+    "oneOf": [
+        {"type": "string"},
+        {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": PLAN_ITEM_SCHEMA,
+        },
+    ],
 }
 
 
@@ -199,7 +203,7 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "description": "Claude-compatible alias for replacing the current task plan from plan-mode output.",
         "input_schema": {
             "type": "object",
-            "properties": {"plan": {"type": "string"}},
+            "properties": {"plan": EXIT_PLAN_MODE_PLAN_SCHEMA},
             "required": ["plan"],
             "additionalProperties": False,
         },

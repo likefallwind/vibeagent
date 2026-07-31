@@ -2436,6 +2436,15 @@ class ActionTests(unittest.TestCase):
         )
         agent_action = parse_tool_action("Agent", {"prompt": "Map the repo", "description": "Read-only scan"})
         exit_plan_action = parse_tool_action("ExitPlanMode", {"plan": "Implement the selected fix"})
+        structured_exit_plan_action = parse_tool_action(
+            "ExitPlanMode",
+            {
+                "plan": [
+                    {"step": "Inspect failing test", "status": "completed"},
+                    {"step": "Patch parser", "status": "in_progress", "active_form": "Patching parser"},
+                ]
+            },
+        )
         write_action = parse_tool_action("Write", {"file_path": "out.txt", "content": "ok\n"})
         edit_action = parse_tool_action("Edit", {"file_path": "app.py", "old_string": "old", "new_string": "new"})
         edit_replace_all_action = parse_tool_action("Edit", {"file_path": "app.py", "old_string": "old", "new_string": "new", "replace_all": "true"})
@@ -2497,6 +2506,10 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(exit_plan_action.type, "update_plan")
         self.assertEqual(exit_plan_action.plan[0].step, "Implement the selected fix")
         self.assertEqual(exit_plan_action.plan[0].status, "completed")
+        self.assertEqual(structured_exit_plan_action.type, "update_plan")
+        self.assertEqual([item.step for item in structured_exit_plan_action.plan], ["Inspect failing test", "Patch parser"])
+        self.assertEqual(structured_exit_plan_action.plan[1].status, "in_progress")
+        self.assertEqual(structured_exit_plan_action.plan[1].active_form, "Patching parser")
         self.assertEqual(write_action.type, "write_file")
         self.assertEqual(write_action.path, "out.txt")
         self.assertEqual(edit_action.type, "edit_file")

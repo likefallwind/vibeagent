@@ -9,7 +9,12 @@ from vibeagent.tool_definition_process_io import PROCESS_IO_TOOL_DEFINITIONS
 from vibeagent.tool_definition_process_output import PROCESS_OUTPUT_TOOL_DEFINITIONS
 from vibeagent.tool_definition_process_run import PROCESS_RUN_TOOL_DEFINITIONS
 from vibeagent.tool_definition_process_stop import PROCESS_STOP_TOOL_DEFINITIONS
-from vibeagent.tool_definition_task_control import PLAN_ITEM_SCHEMA, TASK_CONTROL_TOOL_DEFINITIONS, TODO_ITEM_SCHEMA
+from vibeagent.tool_definition_task_control import (
+    EXIT_PLAN_MODE_PLAN_SCHEMA,
+    PLAN_ITEM_SCHEMA,
+    TASK_CONTROL_TOOL_DEFINITIONS,
+    TODO_ITEM_SCHEMA,
+)
 
 
 class ProcessControlToolDefinitionTests(unittest.TestCase):
@@ -74,12 +79,15 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         update_plan = next(tool for tool in TASK_CONTROL_TOOL_DEFINITIONS if tool["name"] == "update_plan")
         todo_write = next(tool for tool in TASK_CONTROL_TOOL_DEFINITIONS if tool["name"] == "todo_write")
         claude_todo_write = next(tool for tool in TASK_CONTROL_TOOL_DEFINITIONS if tool["name"] == "TodoWrite")
+        exit_plan_mode = next(tool for tool in TASK_CONTROL_TOOL_DEFINITIONS if tool["name"] == "ExitPlanMode")
 
         self.assertIs(update_plan["input_schema"]["properties"]["plan"]["items"], PLAN_ITEM_SCHEMA)
         self.assertIs(todo_write["input_schema"]["properties"]["plan"]["items"], PLAN_ITEM_SCHEMA)
         self.assertIs(todo_write["input_schema"]["properties"]["todos"]["items"], TODO_ITEM_SCHEMA)
         self.assertIs(claude_todo_write["input_schema"]["properties"]["plan"]["items"], PLAN_ITEM_SCHEMA)
         self.assertIs(claude_todo_write["input_schema"]["properties"]["todos"]["items"], TODO_ITEM_SCHEMA)
+        self.assertIs(exit_plan_mode["input_schema"]["properties"]["plan"], EXIT_PLAN_MODE_PLAN_SCHEMA)
+        self.assertIs(EXIT_PLAN_MODE_PLAN_SCHEMA["oneOf"][1]["items"], PLAN_ITEM_SCHEMA)
         self.assertIn("activeForm", PLAN_ITEM_SCHEMA["properties"])
         self.assertIn("active_form", PLAN_ITEM_SCHEMA["properties"])
         self.assertIn("activeForm", TODO_ITEM_SCHEMA["properties"])
