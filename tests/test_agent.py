@@ -1082,6 +1082,7 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(
             details["nextActions"],
             [
+                "Use run_session_verification before trying to finish again.",
                 "Use run_session_verification to run pending recorded checks before trying to finish again.",
                 "Retry or replace the failed tool call after correcting its input; inspect the error message before continuing.",
             ],
@@ -11615,6 +11616,22 @@ class AgentTests(unittest.TestCase):
         self.assertIn("run_session_verification", feedback)
         self.assertIn("session_output_diagnostics", feedback)
         self.assertIn("session_output_contexts", feedback)
+
+    def test_completion_blocked_feedback_prefers_recorded_next_actions(self) -> None:
+        feedback = completion_module.format_completion_blocked_feedback(
+            ["1 suggested verification check(s) are still pending after the latest project change."],
+            {
+                "pendingVerificationChecks": ["npm test"],
+                "nextActions": ["Use run_session_verification before trying to finish again."],
+            },
+        )
+
+        self.assertIn("Next actions:", feedback)
+        self.assertIn("Use run_session_verification before trying to finish again.", feedback)
+        self.assertNotIn(
+            "Use run_session_verification to run pending recorded checks before trying to finish again.",
+            feedback,
+        )
 
     def test_run_agent_does_not_warn_when_suggested_check_runs_after_change(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:

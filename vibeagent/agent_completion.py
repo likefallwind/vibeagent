@@ -161,8 +161,21 @@ def build_completion_blocker_details(
     blocker_values = blockers if blockers is not None else build_completion_blockers(success, observations, [], verification_status)
     next_actions = completion_blocked_next_actions(blocker_values, details) if blocker_values else []
     if next_actions:
-        details["nextActions"] = next_actions
+        details["nextActions"] = merge_completion_next_actions(details.get("nextActions", []), next_actions)
     return details
+
+def merge_completion_next_actions(existing: list[str], generated: list[str]) -> list[str]:
+    actions: list[str] = []
+    seen: set[str] = set()
+    for action in [*existing, *generated]:
+        if not isinstance(action, str):
+            continue
+        label = action.strip()
+        if not label or label in seen:
+            continue
+        actions.append(label)
+        seen.add(label)
+    return actions
 
 def build_completion_warnings(
     success: bool,

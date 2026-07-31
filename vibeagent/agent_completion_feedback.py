@@ -40,7 +40,7 @@ def format_completion_blocked_feedback(blockers: list[str], details: dict[str, l
     if denied_approvals:
         lines.append("Denied approvals:")
         lines.extend(f"- {approval}" for approval in denied_approvals)
-    next_actions = completion_blocked_next_actions(blockers, details)
+    next_actions = details.get("nextActions", []) or completion_blocked_next_actions(blockers, details)
     if next_actions:
         lines.append("Next actions:")
         lines.extend(f"- {action}" for action in next_actions)
