@@ -26,6 +26,7 @@ def execute_write_file_action(workspace: RunWorkspace, action: object) -> Observ
                 ok=True,
                 message=f"Write can apply to {action.path}.",
                 diff=diff,
+                content=action.content,
             )
         except ValueError as error:
             return CheckWriteFileObservation(
@@ -34,14 +35,15 @@ def execute_write_file_action(workspace: RunWorkspace, action: object) -> Observ
                 ok=False,
                 message=str(error),
                 diff="",
+                content=action.content,
             )
 
     if isinstance(action, WriteFileAction):
         try:
             write_run_file(workspace, action.path, action.content)
-            return WriteFileObservation(kind="write_file", path=action.path, ok=True, message=f"Wrote {action.path}")
+            return WriteFileObservation(kind="write_file", path=action.path, ok=True, message=f"Wrote {action.path}", content=action.content)
         except ValueError as error:
-            return WriteFileObservation(kind="write_file", path=action.path, ok=False, message=str(error))
+            return WriteFileObservation(kind="write_file", path=action.path, ok=False, message=str(error), content=action.content)
 
     if isinstance(action, CheckWriteFilesAction):
         try:

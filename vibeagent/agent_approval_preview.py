@@ -167,8 +167,21 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
                 for edit in getattr(value, "edits", []) or []
             ),
         )
-    if kind in {"write_file", "check_write_file", "regex_replace", "check_regex_replace", "patch_file", "check_patch", "delete_file", "check_delete_file", "create_dir", "check_create_dir", "delete_empty_dir", "check_delete_empty_dir", "set_executable", "check_set_executable"}:
+    if kind in {"patch_file", "check_patch", "delete_file", "check_delete_file", "create_dir", "check_create_dir", "delete_empty_dir", "check_delete_empty_dir", "set_executable", "check_set_executable"}:
         return (kind.replace("check_", ""), getattr(value, "path", ""), getattr(value, "executable", None))
+    if kind in {"write_file", "check_write_file"}:
+        return ("write_file", getattr(value, "path", ""), getattr(value, "content", ""))
+    if kind in {"regex_replace", "check_regex_replace"}:
+        return (
+            "regex_replace",
+            getattr(value, "path", ""),
+            getattr(value, "pattern", ""),
+            getattr(value, "replacement", ""),
+            getattr(value, "count", 0),
+            getattr(value, "case_sensitive", True),
+            getattr(value, "multiline", False),
+            getattr(value, "max_replacements", 100),
+        )
     if kind in {"notebook_edit", "check_notebook_edit"}:
         return (
             "notebook_edit",

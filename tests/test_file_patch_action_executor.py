@@ -2,8 +2,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from vibeagent.agent_approval_preview import approval_preview_summary
 from vibeagent.file_patch_action_executor import execute_patch_file_action
-from vibeagent.types import CheckRegexReplaceAction, PatchFileAction
+from vibeagent.types import CheckRegexReplaceAction, PatchFileAction, RegexReplaceAction
 from vibeagent.workspace import create_run_workspace, write_run_file
 
 
@@ -27,7 +28,31 @@ class FilePatchActionExecutorTests(unittest.TestCase):
             self.assertEqual(observation.kind, "check_regex_replace")
             self.assertTrue(observation.ok)
             self.assertEqual(observation.replacements, 1)
+            self.assertEqual(observation.replacement, "new")
             self.assertEqual(Path(base, "app.py").read_text(encoding="utf-8"), "value = 'old'\n")
+
+            matching_preview = approval_preview_summary(
+                RegexReplaceAction(type="regex_replace", path="app.py", pattern="old", replacement="new"),
+                [observation],
+            )
+            mismatched_replacement_preview = approval_preview_summary(
+                RegexReplaceAction(type="regex_replace", path="app.py", pattern="old", replacement="different"),
+                [observation],
+            )
+            mismatched_flag_preview = approval_preview_summary(
+                RegexReplaceAction(
+                    type="regex_replace",
+                    path="app.py",
+                    pattern="old",
+                    replacement="new",
+                    case_sensitive=False,
+                ),
+                [observation],
+            )
+
+            self.assertIn("diffChars=", matching_preview or "")
+            self.assertIsNone(mismatched_replacement_preview)
+            self.assertIsNone(mismatched_flag_preview)
 
     def test_execute_patch_file_action_applies_single_file_patch(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-patch-executor-") as base:

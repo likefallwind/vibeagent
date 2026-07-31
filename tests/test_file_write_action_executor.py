@@ -2,8 +2,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from vibeagent.agent_approval_preview import approval_preview_summary
 from vibeagent.file_write_action_executor import execute_write_file_action
-from vibeagent.types import CheckWriteFileAction, WriteFileItem, WriteFilesAction
+from vibeagent.types import CheckWriteFileAction, WriteFileAction, WriteFileItem, WriteFilesAction
 from vibeagent.workspace import create_run_workspace
 
 
@@ -21,7 +22,20 @@ class FileWriteActionExecutorTests(unittest.TestCase):
             self.assertEqual(observation.kind, "check_write_file")
             self.assertTrue(observation.ok)
             self.assertIn("Write can apply", observation.message)
+            self.assertEqual(observation.content, "hello\n")
             self.assertFalse(Path(base, "note.txt").exists())
+
+            matching_preview = approval_preview_summary(
+                WriteFileAction(type="write_file", path="note.txt", content="hello\n"),
+                [observation],
+            )
+            mismatched_preview = approval_preview_summary(
+                WriteFileAction(type="write_file", path="note.txt", content="different\n"),
+                [observation],
+            )
+
+            self.assertIn("diffChars=", matching_preview or "")
+            self.assertIsNone(mismatched_preview)
 
     def test_execute_write_file_action_writes_multiple_files(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-write-executor-") as base:

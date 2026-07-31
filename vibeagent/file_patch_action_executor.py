@@ -55,6 +55,10 @@ def execute_patch_file_action(workspace: RunWorkspace, action: object) -> Observ
             ok=ok,
             message=message,
             diff=diff,
+            replacement=action.replacement,
+            case_sensitive=action.case_sensitive,
+            multiline=action.multiline,
+            max_replacements=action.max_replacements,
         )
 
     if isinstance(action, RegexReplaceAction):
@@ -85,6 +89,10 @@ def execute_patch_file_action(workspace: RunWorkspace, action: object) -> Observ
             ok=ok,
             message=message,
             diff=diff,
+            replacement=action.replacement,
+            case_sensitive=action.case_sensitive,
+            multiline=action.multiline,
+            max_replacements=action.max_replacements,
         )
 
     if isinstance(action, CheckPatchAction):

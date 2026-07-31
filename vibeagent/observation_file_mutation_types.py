@@ -10,6 +10,7 @@ class WriteFileObservation:
     path: str
     ok: bool
     message: str
+    content: str = ""
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,7 @@ class CheckWriteFileObservation:
     ok: bool
     message: str
     diff: str
+    content: str = ""
 
 
 @dataclass(frozen=True)

@@ -152,6 +152,10 @@ class RegexReplaceObservation:
     ok: bool
     message: str
     diff: str
+    replacement: str = ""
+    case_sensitive: bool = True
+    multiline: bool = False
+    max_replacements: int = 100
 
 
 @dataclass(frozen=True)
@@ -164,6 +168,10 @@ class CheckRegexReplaceObservation:
     ok: bool
     message: str
     diff: str
+    replacement: str = ""
+    case_sensitive: bool = True
+    multiline: bool = False
+    max_replacements: int = 100
 
 
 @dataclass(frozen=True)

@@ -24,9 +24,28 @@ def build_tool_result_payload(observation: Observation, hook_results: tuple[obje
     result_payload = redact_jsonable_payload(to_jsonable(observation))
     if not isinstance(result_payload, dict):
         result_payload = {"result": result_payload}
+    scrub_internal_preview_fingerprint_fields(result_payload)
     if hook_results:
         result_payload["hooks"] = redact_jsonable_payload(to_jsonable(hook_results))
     return result_payload
+
+
+def scrub_internal_preview_fingerprint_fields(result_payload: dict[str, object]) -> None:
+    kind = result_payload.get("kind")
+    if kind in {
+        "write_file",
+        "check_write_file",
+        "replace_lines",
+        "check_replace_lines",
+        "insert_lines",
+        "check_insert_lines",
+        "append_file",
+        "check_append_file",
+    }:
+        result_payload.pop("content", None)
+    if kind in {"regex_replace", "check_regex_replace"}:
+        for key in ("replacement", "case_sensitive", "multiline", "max_replacements"):
+            result_payload.pop(key, None)
 
 
 def record_tool_result_event(
