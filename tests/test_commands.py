@@ -6862,6 +6862,7 @@ class CommandTests(unittest.TestCase):
     def test_write_process_report_returns_structured_payload(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
+            (root / "input.txt").write_text("hello\\nfrom file\n", encoding="utf-8")
             observation = WriteProcessObservation(
                 kind="write_process",
                 process_id="bg-1",
@@ -6876,11 +6877,13 @@ class CommandTests(unittest.TestCase):
             with patch("vibeagent.process_commands.execute_action", return_value=observation) as execute_action:
                 report = get_write_process_report(root, "bg-1 hello\\n")
                 quoted_report = get_write_process_report(root, "bg-1 'hello world\\n'")
+                file_report = get_write_process_report(root, "bg-1 --stdin-file input.txt")
             usage = get_write_process_report(root)
             rendered = format_write_process_report_text(report)
 
             action = execute_action.call_args_list[0].args[1]
             quoted_action = execute_action.call_args_list[1].args[1]
+            file_action = execute_action.call_args_list[2].args[1]
 
         self.assertEqual(
             report,
@@ -6901,10 +6904,12 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(action.content, "hello\n")
         self.assertEqual(quoted_report["ok"], True)
         self.assertEqual(quoted_action.content, "hello world\n")
+        self.assertEqual(file_report["ok"], True)
+        self.assertEqual(file_action.content, "hello\\nfrom file\n")
         self.assertIn("Write process:", rendered)
         self.assertIn("contentChars: 6", rendered)
         self.assertFalse(usage["ok"])
-        self.assertIn("Usage: /write-process <id> <text>", str(usage["message"]))
+        self.assertIn("Usage: /write-process <id> <text> [--stdin-file PATH]", str(usage["message"]))
 
     def test_get_check_write_process_text_reports_preflight_result_or_usage(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
@@ -6943,6 +6948,7 @@ class CommandTests(unittest.TestCase):
     def test_check_write_process_report_returns_structured_payload(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
+            (root / "input.txt").write_text("hello\\nfrom file\n", encoding="utf-8")
             observation = CheckWriteProcessObservation(
                 kind="check_write_process",
                 process_id="bg-1",
@@ -6956,10 +6962,12 @@ class CommandTests(unittest.TestCase):
             )
             with patch("vibeagent.process_commands.execute_action", return_value=observation) as execute_action:
                 report = get_check_write_process_report(root, "bg-1 hello\\n")
+                file_report = get_check_write_process_report(root, "bg-1 --stdin-file=input.txt")
             usage = get_check_write_process_report(root)
             rendered = format_check_write_process_report_text(report)
 
-            action = execute_action.call_args.args[1]
+            action = execute_action.call_args_list[0].args[1]
+            file_action = execute_action.call_args_list[1].args[1]
 
         self.assertEqual(
             report,
@@ -6978,10 +6986,12 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(action.type, "check_write_process")
         self.assertEqual(action.process_id, "bg-1")
         self.assertEqual(action.content, "hello\n")
+        self.assertEqual(file_report["ok"], True)
+        self.assertEqual(file_action.content, "hello\\nfrom file\n")
         self.assertIn("Check write process:", rendered)
         self.assertIn("contentChars: 6", rendered)
         self.assertFalse(usage["ok"])
-        self.assertIn("Usage: /check-write-process <id> <text>", str(usage["message"]))
+        self.assertIn("Usage: /check-write-process <id> <text> [--stdin-file PATH]", str(usage["message"]))
 
     def test_get_check_stop_process_text_reports_preflight_or_usage(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
