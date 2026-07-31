@@ -50,6 +50,7 @@ def execute_line_file_action(workspace: RunWorkspace, action: object) -> Observa
             ok=ok,
             message=message,
             diff=diff,
+            content=action.content,
         )
 
     if isinstance(action, ReplaceLinesAction):
@@ -75,6 +76,7 @@ def execute_line_file_action(workspace: RunWorkspace, action: object) -> Observa
             ok=ok,
             message=message,
             diff=diff,
+            content=action.content,
         )
 
     if isinstance(action, CheckInsertLinesAction):
@@ -93,6 +95,7 @@ def execute_line_file_action(workspace: RunWorkspace, action: object) -> Observa
             ok=ok,
             message=message,
             diff=diff,
+            content=action.content,
         )
 
     if isinstance(action, InsertLinesAction):
@@ -111,6 +114,7 @@ def execute_line_file_action(workspace: RunWorkspace, action: object) -> Observa
             ok=ok,
             message=message,
             diff=diff,
+            content=action.content,
         )
 
     if isinstance(action, CheckAppendFileAction):
@@ -128,6 +132,7 @@ def execute_line_file_action(workspace: RunWorkspace, action: object) -> Observa
             ok=ok,
             message=message,
             diff=diff,
+            content=action.content,
         )
 
     if isinstance(action, AppendFileAction):
@@ -145,6 +150,7 @@ def execute_line_file_action(workspace: RunWorkspace, action: object) -> Observa
             ok=ok,
             message=message,
             diff=diff,
+            content=action.content,
         )
 
     return None

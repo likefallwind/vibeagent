@@ -85,6 +85,7 @@ class ReplaceLinesObservation:
     ok: bool
     message: str
     diff: str
+    content: str = ""
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,7 @@ class CheckReplaceLinesObservation:
     ok: bool
     message: str
     diff: str
+    content: str = ""
 
 
 @dataclass(frozen=True)
@@ -106,6 +108,7 @@ class InsertLinesObservation:
     ok: bool
     message: str
     diff: str
+    content: str = ""
 
 
 @dataclass(frozen=True)
@@ -116,6 +119,7 @@ class CheckInsertLinesObservation:
     ok: bool
     message: str
     diff: str
+    content: str = ""
 
 
 @dataclass(frozen=True)
@@ -125,6 +129,7 @@ class AppendFileObservation:
     ok: bool
     message: str
     diff: str
+    content: str = ""
 
 
 @dataclass(frozen=True)
@@ -134,6 +139,7 @@ class CheckAppendFileObservation:
     ok: bool
     message: str
     diff: str
+    content: str = ""
 
 
 @dataclass(frozen=True)

@@ -167,7 +167,7 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
                 for edit in getattr(value, "edits", []) or []
             ),
         )
-    if kind in {"write_file", "check_write_file", "append_file", "check_append_file", "regex_replace", "check_regex_replace", "patch_file", "check_patch", "delete_file", "check_delete_file", "create_dir", "check_create_dir", "delete_empty_dir", "check_delete_empty_dir", "set_executable", "check_set_executable"}:
+    if kind in {"write_file", "check_write_file", "regex_replace", "check_regex_replace", "patch_file", "check_patch", "delete_file", "check_delete_file", "create_dir", "check_create_dir", "delete_empty_dir", "check_delete_empty_dir", "set_executable", "check_set_executable"}:
         return (kind.replace("check_", ""), getattr(value, "path", ""), getattr(value, "executable", None))
     if kind in {"notebook_edit", "check_notebook_edit"}:
         return (
@@ -183,9 +183,17 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
     if kind in {"json_patch", "check_json_patch"}:
         return ("json_patch", getattr(value, "path", ""), getattr(value, "operation_count", len(getattr(value, "operations", []))))
     if kind in {"replace_lines", "check_replace_lines"}:
-        return ("replace_lines", getattr(value, "path", ""), getattr(value, "start_line", None), getattr(value, "end_line", None))
+        return (
+            "replace_lines",
+            getattr(value, "path", ""),
+            getattr(value, "start_line", None),
+            getattr(value, "end_line", None),
+            getattr(value, "content", ""),
+        )
     if kind in {"insert_lines", "check_insert_lines"}:
-        return ("insert_lines", getattr(value, "path", ""), getattr(value, "line", None))
+        return ("insert_lines", getattr(value, "path", ""), getattr(value, "line", None), getattr(value, "content", ""))
+    if kind in {"append_file", "check_append_file"}:
+        return ("append_file", getattr(value, "path", ""), getattr(value, "content", ""))
     if kind in {"replace_python_definition", "check_replace_python_definition"}:
         return ("replace_python_definition", getattr(value, "symbol", ""), getattr(value, "path", None))
     if kind in {"python_rename", "python_rename_preview"}:
