@@ -6,11 +6,11 @@ from .session_store import read_session_events
 from .session_summary_helpers import (
     checkpoint_result_id,
     parse_session_plan,
-    parse_string_list,
     session_changed_file_labels,
     session_check_failure_labels,
     update_session_background_processes,
 )
+from .session_summary_details import parse_completion_detail_lists, subagent_failure_label
 from .session_types import SessionPlanItem, SessionProcessInfo, SessionSummary
 from .session_utils import (
     as_int,
@@ -365,47 +365,6 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
         latest_subagent_failures=latest_subagent_failures,
         subagent_context_compacted_count=subagent_context_compacted_count,
     )
-
-
-def parse_completion_detail_lists(details: dict[object, object]) -> tuple[
-    list[str],
-    list[str],
-    list[str],
-    list[str],
-    list[str],
-    list[str],
-    list[str],
-    list[str],
-    list[str],
-]:
-    return (
-        parse_string_list(details.get("pendingVerificationChecks")),
-        parse_string_list(details.get("failedVerificationChecks")),
-        parse_string_list(details.get("finalReviewBlockingIssues")),
-        parse_string_list(details.get("finalReviewChangedFiles")),
-        parse_string_list(details.get("toolErrors")),
-        parse_string_list(details.get("checkpointFailures")),
-        parse_string_list(details.get("activeBackgroundProcesses")),
-        parse_string_list(details.get("deniedApprovals")),
-        parse_string_list(details.get("nextActions")),
-    )
-
-
-def subagent_failure_label(result: dict[object, object]) -> str | None:
-    parts: list[str] = []
-    task = result.get("task")
-    if isinstance(task, str) and task.strip():
-        parts.append(f"task={task.strip()}")
-    agent = result.get("agent")
-    if isinstance(agent, str) and agent.strip():
-        parts.append(f"agent={agent.strip()}")
-    mode = result.get("mode")
-    if isinstance(mode, str) and mode.strip():
-        parts.append(f"mode={mode.strip()}")
-    message = result.get("message")
-    if isinstance(message, str) and message.strip():
-        parts.append(f"message={message.strip()}")
-    return "; ".join(parts) if parts else None
 
 
 __all__ = [

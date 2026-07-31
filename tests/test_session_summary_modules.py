@@ -1,6 +1,7 @@
 import unittest
 
 from vibeagent import session_summary_completion_reports
+from vibeagent import session_summary_details
 from vibeagent import session_summary_reports
 
 
@@ -17,6 +18,30 @@ class SessionSummaryModuleTests(unittest.TestCase):
         self.assertIs(
             session_summary_reports.format_latest_completion_detail_lines,
             session_summary_completion_reports.format_latest_completion_detail_lines,
+        )
+
+    def test_session_summary_details_parse_completion_and_subagent_labels(self) -> None:
+        details = session_summary_details.parse_completion_detail_lists(
+            {
+                "pendingVerificationChecks": ["npm test", ""],
+                "failedVerificationChecks": ["pytest"],
+                "finalReviewBlockingIssues": ["syntax error"],
+                "finalReviewChangedFiles": ["M app.py"],
+                "toolErrors": ["read_file: boom"],
+                "checkpointFailures": ["checkpoint_create: failed"],
+                "activeBackgroundProcesses": ["proc-1"],
+                "deniedApprovals": ["write_file app.py"],
+                "nextActions": ["rerun checks"],
+            }
+        )
+
+        self.assertEqual(details[0], ["npm test"])
+        self.assertEqual(details[8], ["rerun checks"])
+        self.assertEqual(
+            session_summary_details.subagent_failure_label(
+                {"task": "inspect", "agent": "reviewer", "mode": "read_only", "message": "failed"}
+            ),
+            "task=inspect; agent=reviewer; mode=read_only; message=failed",
         )
 
 
