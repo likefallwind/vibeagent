@@ -12510,6 +12510,65 @@ class AgentTests(unittest.TestCase):
         self.assertIsNone(stale_preview)
         self.assertIn("Edit can apply to pkg/app.py", unrelated_directory_preview or "")
 
+    def test_approval_preview_summary_ignores_notebook_preview_after_file_mutation(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.NotebookEditAction(
+                type="notebook_edit",
+                path="analysis.ipynb",
+                cell_id="calc",
+                new_source="print(2)",
+            ),
+            [
+                types_module.CheckNotebookEditObservation(
+                    kind="check_notebook_edit",
+                    path="analysis.ipynb",
+                    ok=True,
+                    cell_number=1,
+                    cell_id="calc",
+                    message="Notebook edit can update cell 1.",
+                    diff="-print(1)\n+print(2)\n",
+                    new_source="print(2)",
+                ),
+                types_module.WriteFileObservation(
+                    kind="write_file",
+                    path="analysis.ipynb",
+                    ok=True,
+                    message="Wrote analysis.ipynb.",
+                    content="changed",
+                ),
+            ],
+        )
+        unrelated_mutation_preview = agent_module.approval_preview_summary(
+            types_module.NotebookEditAction(
+                type="notebook_edit",
+                path="analysis.ipynb",
+                cell_id="calc",
+                new_source="print(2)",
+            ),
+            [
+                types_module.CheckNotebookEditObservation(
+                    kind="check_notebook_edit",
+                    path="analysis.ipynb",
+                    ok=True,
+                    cell_number=1,
+                    cell_id="calc",
+                    message="Notebook edit can update cell 1.",
+                    diff="-print(1)\n+print(2)\n",
+                    new_source="print(2)",
+                ),
+                types_module.WriteFileObservation(
+                    kind="write_file",
+                    path="notes.md",
+                    ok=True,
+                    message="Wrote notes.md.",
+                    content="changed",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+        self.assertIn("Notebook edit can update cell 1", unrelated_mutation_preview or "")
+
     def test_approval_preview_summary_ignores_rename_preview_after_file_rename_mutation(self) -> None:
         stale_preview = agent_module.approval_preview_summary(
             types_module.CodeRenameAction(

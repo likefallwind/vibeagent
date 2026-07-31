@@ -101,6 +101,7 @@ FILE_PREVIEW_KINDS = {
     "check_write_file",
     "check_write_files",
     "check_edit_file",
+    "check_notebook_edit",
     "check_multi_edit_file",
     "check_replace_python_definition",
     "check_replace_lines",
@@ -135,6 +136,7 @@ FILE_MUTATION_OBSERVATION_KINDS = {
     "write_file",
     "write_files",
     "edit_file",
+    "notebook_edit",
     "multi_edit_file",
     "replace_python_definition",
     "replace_lines",
@@ -423,14 +425,7 @@ def structured_edit_preview_key(kind: str, value: object) -> tuple[Any, ...] | N
             getattr(value, "max_replacements", 100),
         )
     if kind in {"notebook_edit", "check_notebook_edit"}:
-        return (
-            "notebook_edit",
-            getattr(value, "path", ""),
-            getattr(value, "cell_id", None),
-            getattr(value, "cell_number", None),
-            getattr(value, "new_source", ""),
-            getattr(value, "cell_type", None),
-        )
+        return notebook_preview_key(value)
     if kind in {"json_set", "check_json_set"}:
         return (
             "json_set",
@@ -453,6 +448,18 @@ def structured_edit_preview_key(kind: str, value: object) -> tuple[Any, ...] | N
             json.dumps(operation_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
         )
     return None
+
+
+def notebook_preview_key(value: object) -> tuple[Any, ...]:
+    cell_id = getattr(value, "cell_id", None)
+    locator = ("cell_id", cell_id) if cell_id is not None else ("cell_number", getattr(value, "cell_number", None))
+    return (
+        "notebook_edit",
+        getattr(value, "path", ""),
+        locator,
+        getattr(value, "new_source", ""),
+        getattr(value, "cell_type", None),
+    )
 
 
 def code_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
