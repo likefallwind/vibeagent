@@ -106,6 +106,7 @@ class NotebookToolTests(unittest.TestCase):
                     "path": "analysis.ipynb",
                     "cell_number": 2,
                     "new_source": "value = 5\nvalue\n",
+                    "cell_type": "code",
                 },
             )
             edit_action = parse_tool_action(
@@ -114,6 +115,25 @@ class NotebookToolTests(unittest.TestCase):
                     "notebook_path": "analysis.ipynb",
                     "cell_number": 2,
                     "new_source": "value = 5\nvalue\n",
+                    "cell_type": "code",
+                },
+            )
+            mismatched_source_action = parse_tool_action(
+                "NotebookEdit",
+                {
+                    "notebook_path": "analysis.ipynb",
+                    "cell_number": 2,
+                    "new_source": "value = 6\nvalue\n",
+                    "cell_type": "code",
+                },
+            )
+            mismatched_type_action = parse_tool_action(
+                "NotebookEdit",
+                {
+                    "notebook_path": "analysis.ipynb",
+                    "cell_number": 2,
+                    "new_source": "value = 5\nvalue\n",
+                    "cell_type": "markdown",
                 },
             )
 
@@ -128,6 +148,10 @@ class NotebookToolTests(unittest.TestCase):
         self.assertIsNotNone(approval_preview)
         assert approval_preview is not None
         self.assertIn("diffChars=", approval_preview)
+        self.assertEqual(preview.new_source, "value = 5\nvalue\n")
+        self.assertEqual(preview.cell_type, "code")
+        self.assertIsNone(approval_preview_summary(mismatched_source_action, [preview]))
+        self.assertIsNone(approval_preview_summary(mismatched_type_action, [preview]))
 
     def test_notebook_edit_legacy_raw_text_mode_still_maps_to_text_edit(self) -> None:
         action = parse_tool_action(

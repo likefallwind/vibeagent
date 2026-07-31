@@ -164,6 +164,8 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
             getattr(value, "path", ""),
             getattr(value, "cell_id", None),
             getattr(value, "cell_number", None),
+            getattr(value, "new_source", ""),
+            getattr(value, "cell_type", None),
         )
     if kind in {"json_set", "check_json_set", "json_remove", "check_json_remove"}:
         return (kind.replace("check_", ""), getattr(value, "path", ""), getattr(value, "pointer", ""))

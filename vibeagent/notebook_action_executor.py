@@ -83,6 +83,8 @@ def preview_notebook_cell_edit(workspace: RunWorkspace, action: CheckNotebookEdi
             cell_id=action.cell_id,
             message=f"Notebook edit can apply to cell {cell_index + 1} in {action.path}.",
             diff=diff,
+            new_source=action.new_source,
+            cell_type=action.cell_type,
         )
     except ValueError as error:
         return CheckNotebookEditObservation(
@@ -93,6 +95,8 @@ def preview_notebook_cell_edit(workspace: RunWorkspace, action: CheckNotebookEdi
             cell_id=action.cell_id,
             message=str(error),
             diff="",
+            new_source=action.new_source,
+            cell_type=action.cell_type,
         )
 
 
@@ -108,6 +112,8 @@ def edit_notebook_cell(workspace: RunWorkspace, action: NotebookEditAction) -> N
             cell_id=cell_id,
             message=f"Edited notebook cell {cell_index + 1} in {action.path}.",
             diff=diff,
+            new_source=action.new_source,
+            cell_type=action.cell_type,
         )
     except ValueError as error:
         return NotebookEditObservation(
@@ -118,6 +124,8 @@ def edit_notebook_cell(workspace: RunWorkspace, action: NotebookEditAction) -> N
             cell_id=action.cell_id,
             message=str(error),
             diff="",
+            new_source=action.new_source,
+            cell_type=action.cell_type,
         )
 
 

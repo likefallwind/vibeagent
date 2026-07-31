@@ -38,6 +38,8 @@ class CheckNotebookEditObservation:
     cell_id: str | None
     message: str
     diff: str = ""
+    new_source: str = ""
+    cell_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -49,3 +51,5 @@ class NotebookEditObservation:
     cell_id: str | None
     message: str
     diff: str = ""
+    new_source: str = ""
+    cell_type: str | None = None
