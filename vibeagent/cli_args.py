@@ -4,6 +4,7 @@ import argparse
 from collections.abc import Sequence
 
 from .cli_parse_core import nonnegative_int, positive_int, timeout_ms
+from .cli_checkpoint_args import add_checkpoint_local_arguments
 from .cli_code_intel_args import add_code_intel_local_arguments, add_code_intel_option_arguments
 from .cli_compat_args import add_compat_arguments, normalize_compat_arguments
 from .cli_edit_args import add_edit_local_arguments, add_edit_option_arguments
@@ -152,17 +153,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         timeout_ms=timeout_ms,
     )
     add_session_local_arguments(parser, local)
-    local.add_argument("--checkpoint", nargs="?", const="", metavar="LABEL", help="Save current git status, diffs, and ordinary untracked files as a local checkpoint and exit.")
-    local.add_argument("--checkpoints", action="store_true", help="List saved local checkpoints and exit.")
-    local.add_argument("--checkpoint-show", metavar="ID", help="Show one saved local checkpoint and exit.")
-    local.add_argument("--checkpoint-diff", metavar="ID", help="Show saved staged and unstaged checkpoint patches and exit.")
-    local.add_argument("--checkpoint-status", metavar="ID", help="Compare current git status and diffs with a saved checkpoint and exit.")
-    local.add_argument("--check-checkpoint-restore", metavar="ID", help="Preview restoring tracked staged/unstaged changes and saved untracked files from a checkpoint and exit.")
-    local.add_argument("--checkpoint-restore", metavar="ID", help="Restore tracked staged/unstaged changes and saved untracked files from a checkpoint and exit.")
-    local.add_argument("--check-checkpoint-delete", metavar="ID", help="Preview deleting one saved local checkpoint and exit.")
-    local.add_argument("--checkpoint-delete", metavar="ID", help="Delete one saved local checkpoint and exit.")
-    local.add_argument("--check-checkpoint-prune", metavar="N", help="Preview deleting older checkpoints while keeping the newest N and exit.")
-    local.add_argument("--checkpoint-prune", metavar="N", help="Delete older checkpoints while keeping the newest N and exit.")
+    add_checkpoint_local_arguments(local)
     local.add_argument("--usage", action="store_true", help="Show local session usage and exit.")
     local.add_argument("--cost", action="store_true", help="Show configured cost estimate and exit.")
     local.add_argument("--save-config", action="store_true", help="Save non-secret provider defaults to .vibeagent/config.json and exit.")
