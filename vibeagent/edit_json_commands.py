@@ -6,18 +6,23 @@ import sys
 
 from .actions import execute_action as _default_execute_action
 from .edit_command_parsing import (
-    parse_json_patch_argument,
     parse_json_remove_argument,
     parse_json_set_argument,
+)
+from .edit_json_patch_commands import (
+    format_json_patch_observation,
+    format_json_patch_report_text,
+    get_check_json_patch_report,
+    get_check_json_patch_text,
+    get_json_patch_report,
+    get_json_patch_text,
+    serialize_json_patch_report,
 )
 from .edit_usage_report_helpers import line_edit_usage_report
 from .local_command_workspace import local_command_workspace
 from .types import (
-    CheckJsonPatchAction,
     CheckJsonRemoveAction,
     CheckJsonSetAction,
-    JsonPatchAction,
-    JsonPatchOperation,
     JsonRemoveAction,
     JsonSetAction,
 )
@@ -239,90 +244,6 @@ def get_json_remove_report(
     return serialize_json_pointer_report(root, observation)
 
 
-def get_check_json_patch_text(
-    project_root: str | Path = ".",
-    argument: str | None = None,
-    *,
-    path: str | None = None,
-    operations: object = None,
-) -> str:
-    return format_json_patch_report_text(
-        "Check JSON patch:",
-        get_check_json_patch_report(project_root, argument, path=path, operations=operations),
-    )
-
-
-def get_check_json_patch_report(
-    project_root: str | Path = ".",
-    argument: str | None = None,
-    *,
-    path: str | None = None,
-    operations: object = None,
-) -> dict[str, object]:
-    root = Path(project_root).resolve()
-    try:
-        parsed_path, parsed_operations = parse_json_patch_argument(
-            argument,
-            path=path,
-            operations=operations,
-            usage="/check-json-patch <path> <json-ops-array>",
-        )
-    except ValueError as error:
-        return line_edit_usage_report(
-            root,
-            "check_json_patch",
-            "/check-json-patch <path> <json-ops-array>",
-            error,
-            path=path,
-            fields={"operations": {"total": 0, "items": []}},
-        )
-    workspace = local_command_workspace(root, "local-check-json-patch")
-    observation = _execute_action(workspace, CheckJsonPatchAction(type="check_json_patch", path=parsed_path, operations=parsed_operations))
-    return serialize_json_patch_report(root, observation, operations=parsed_operations)
-
-
-def get_json_patch_text(
-    project_root: str | Path = ".",
-    argument: str | None = None,
-    *,
-    path: str | None = None,
-    operations: object = None,
-) -> str:
-    return format_json_patch_report_text(
-        "JSON patch:",
-        get_json_patch_report(project_root, argument, path=path, operations=operations),
-    )
-
-
-def get_json_patch_report(
-    project_root: str | Path = ".",
-    argument: str | None = None,
-    *,
-    path: str | None = None,
-    operations: object = None,
-) -> dict[str, object]:
-    root = Path(project_root).resolve()
-    try:
-        parsed_path, parsed_operations = parse_json_patch_argument(
-            argument,
-            path=path,
-            operations=operations,
-            usage="/json-patch <path> <json-ops-array>",
-        )
-    except ValueError as error:
-        return line_edit_usage_report(
-            root,
-            "json_patch",
-            "/json-patch <path> <json-ops-array>",
-            error,
-            path=path,
-            fields={"operations": {"total": 0, "items": []}},
-        )
-    workspace = local_command_workspace(root, "local-json-patch")
-    observation = _execute_action(workspace, JsonPatchAction(type="json_patch", path=parsed_path, operations=parsed_operations))
-    return serialize_json_patch_report(root, observation, operations=parsed_operations)
-
-
 def format_json_pointer_observation(title: str, root: Path, observation: object) -> str:
     return format_json_pointer_report_text(title, serialize_json_pointer_report(root, observation))
 
@@ -360,47 +281,6 @@ def format_json_pointer_report_text(title: str, report: dict[str, object]) -> st
         f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
         f"  path: {report.get('path') or ''}",
         f"  pointer: {report.get('pointer') or ''}",
-        f"  message: {message}",
-    ]
-    diff_report = report.get("diff") if isinstance(report.get("diff"), dict) else {}
-    diff = str(diff_report.get("text") or "")
-    if diff:
-        lines.append("  diff:")
-        for diff_line in diff.splitlines():
-            lines.append(f"    {diff_line}")
-    return "\n".join(lines)
-
-
-def format_json_patch_observation(title: str, root: Path, observation: object) -> str:
-    return format_json_patch_report_text(title, serialize_json_patch_report(root, observation))
-
-
-def serialize_json_patch_report(root: Path, observation: object, *, operations: list[JsonPatchOperation] | None = None) -> dict[str, object]:
-    operation_items = _plain_data(operations or [])
-    diff = str(getattr(observation, "diff", "") or "")
-    operation_count = int(getattr(observation, "operation_count", len(operation_items)) or 0)
-    return {
-        "projectRoot": str(root),
-        "kind": str(getattr(observation, "kind", "") or ""),
-        "ok": bool(getattr(observation, "ok", False)),
-        "path": str(getattr(observation, "path", "") or ""),
-        "operations": {"total": operation_count, "items": operation_items},
-        "message": str(getattr(observation, "message", "") or ""),
-        "diff": {"text": diff, "lines": diff.splitlines(), "lineCount": len(diff.splitlines())},
-    }
-
-
-def format_json_patch_report_text(title: str, report: dict[str, object]) -> str:
-    message = str(report.get("message") or "")
-    if message.startswith("Usage:"):
-        return message
-    operations_report = report.get("operations") if isinstance(report.get("operations"), dict) else {}
-    lines = [
-        title,
-        f"  projectRoot: {report.get('projectRoot') or '.'}",
-        f"  ok: {'yes' if bool(report.get('ok')) else 'no'}",
-        f"  path: {report.get('path') or ''}",
-        f"  operations: {int(operations_report.get('total', 0) or 0)}",
         f"  message: {message}",
     ]
     diff_report = report.get("diff") if isinstance(report.get("diff"), dict) else {}
