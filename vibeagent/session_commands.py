@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .session import build_session_audit_report, build_session_handoff_report, build_session_resume_context, get_last_session_id
 from .session_accounting_commands import (
     format_cost_report_text as _format_cost_report_text,
     format_sessions_report_text as _format_sessions_report_text,
@@ -48,6 +47,12 @@ from .session_output_commands import (
     get_session_output_diagnostics_report,
     get_session_output_diagnostics_text,
 )
+from .session_readiness_commands import (
+    get_compact_context as _get_compact_context,
+    get_resume_context as _get_resume_context,
+    get_session_audit_report as _get_session_audit_report,
+    get_session_handoff_report as _get_session_handoff_report,
+)
 from .session_verification_commands import (
     format_run_session_verification_report_text,
     get_run_session_verification_report,
@@ -55,7 +60,6 @@ from .session_verification_commands import (
     get_session_verification_report,
     get_session_verification_text,
 )
-from .session_input import normalize_optional_run_id
 
 
 def get_sessions_text(project_root: str | Path = ".") -> str:
@@ -205,35 +209,15 @@ def get_session_audit_report(
     max_checks: int = 50,
     max_text: int = 300,
 ) -> dict[str, object]:
-    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
-    if not selected:
-        return {
-            "session": None,
-            "exists": False,
-            "ok": False,
-            "ready": False,
-            "status": "missing",
-            "message": "No sessions found.",
-        }
-    try:
-        return build_session_audit_report(
-            project_root,
-            selected,
-            max_failures=max_failures,
-            max_files=max_files,
-            max_commands=max_commands,
-            max_checks=max_checks,
-            max_text=max_text,
-        )
-    except ValueError as error:
-        return {
-            "session": selected,
-            "exists": False,
-            "ok": False,
-            "ready": False,
-            "status": "invalid",
-            "message": str(error),
-        }
+    return _get_session_audit_report(
+        project_root,
+        run_id,
+        max_failures=max_failures,
+        max_files=max_files,
+        max_commands=max_commands,
+        max_checks=max_checks,
+        max_text=max_text,
+    )
 
 
 def get_session_audit_text(
@@ -296,36 +280,16 @@ def get_session_handoff_report(
     max_output_chars: int = 1_000,
     max_text: int = 500,
 ) -> dict[str, object]:
-    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
-    if not selected:
-        return {
-            "session": None,
-            "exists": False,
-            "ok": False,
-            "ready": False,
-            "status": "missing",
-            "message": "No sessions found.",
-        }
-    try:
-        return build_session_handoff_report(
-            project_root,
-            selected,
-            max_failures=max_failures,
-            max_files=max_files,
-            max_commands=max_commands,
-            max_checks=max_checks,
-            max_output_chars=max_output_chars,
-            max_text=max_text,
-        )
-    except ValueError as error:
-        return {
-            "session": selected,
-            "exists": False,
-            "ok": False,
-            "ready": False,
-            "status": "invalid",
-            "message": str(error),
-        }
+    return _get_session_handoff_report(
+        project_root,
+        run_id,
+        max_failures=max_failures,
+        max_files=max_files,
+        max_commands=max_commands,
+        max_checks=max_checks,
+        max_output_chars=max_output_chars,
+        max_text=max_text,
+    )
 
 
 def format_session_handoff_report_text(report: dict[str, object]) -> str:
@@ -342,12 +306,9 @@ def get_resume_context(
     max_output_chars: int = 1_000,
     max_text: int = 500,
 ) -> tuple[str | None, str | None, str]:
-    if run_id and run_id.strip().lower() in {"off", "clear", "none"}:
-        return None, None, "Resume context cleared."
-    return _load_session_context(
+    return _get_resume_context(
         run_id,
         project_root,
-        success_label="Resume context",
         max_failures=max_failures,
         max_files=max_files,
         max_commands=max_commands,
@@ -367,10 +328,9 @@ def get_compact_context(
     max_output_chars: int = 1_000,
     max_text: int = 500,
 ) -> tuple[str | None, str | None, str]:
-    return _load_session_context(
+    return _get_compact_context(
         run_id,
         project_root,
-        success_label="Compacted context",
         max_failures=max_failures,
         max_files=max_files,
         max_commands=max_commands,
@@ -378,34 +338,3 @@ def get_compact_context(
         max_output_chars=max_output_chars,
         max_text=max_text,
     )
-
-
-def _load_session_context(
-    run_id: str | None,
-    project_root: str | Path,
-    *,
-    success_label: str,
-    max_failures: int,
-    max_files: int,
-    max_commands: int,
-    max_checks: int,
-    max_output_chars: int,
-    max_text: int,
-) -> tuple[str | None, str | None, str]:
-    selected = normalize_optional_run_id(run_id) or get_last_session_id(project_root)
-    if not selected:
-        return None, None, "No sessions found."
-    try:
-        context = build_session_resume_context(
-            project_root,
-            selected,
-            max_failures=max_failures,
-            max_files=max_files,
-            max_commands=max_commands,
-            max_checks=max_checks,
-            max_output_chars=max_output_chars,
-            max_text=max_text,
-        )
-    except ValueError as error:
-        return None, None, str(error)
-    return selected, context, f"{success_label} loaded from session {selected}."
