@@ -157,6 +157,27 @@ class ProcessIORuntimeModuleTests(unittest.TestCase):
         self.assertIn("Command can run", matching_preview or "")
         self.assertIsNone(custom_timeout_preview)
 
+    def test_run_command_preview_matches_normalized_cwd(self) -> None:
+        observation = CommandCheckObservation(
+            kind="command_check",
+            ok=True,
+            command="npm test",
+            cwd="web",
+            cwd_ok=True,
+            blocked=False,
+            block_reason=None,
+            executable_available=True,
+            missing_tool=None,
+            message="Command can run.",
+        )
+
+        matching_preview = approval_preview_summary(
+            RunCommandAction(type="run_command", command="npm test", cwd="./web"),
+            [observation],
+        )
+
+        self.assertIn("Command can run", matching_preview or "")
+
     def test_run_commands_preview_matches_approval_by_command_parameters(self) -> None:
         command = RunCommandItem(command="python3 -m unittest", timeout_ms=1000)
         observation = CheckRunCommandsObservation(
@@ -221,6 +242,27 @@ class ProcessIORuntimeModuleTests(unittest.TestCase):
 
         self.assertIn("Command can run", matching_preview or "")
         self.assertIsNone(custom_output_limit_preview)
+
+    def test_start_command_preview_matches_normalized_cwd(self) -> None:
+        observation = CheckStartCommandObservation(
+            kind="check_start_command",
+            ok=True,
+            command="python3 -m http.server",
+            cwd="web",
+            cwd_ok=True,
+            blocked=False,
+            block_reason=None,
+            executable_available=True,
+            missing_tool=None,
+            message="Command can run.",
+        )
+
+        matching_preview = approval_preview_summary(
+            StartCommandAction(type="start_command", command="python3 -m http.server", cwd="./web"),
+            [observation],
+        )
+
+        self.assertIn("Command can run", matching_preview or "")
 
     def test_run_suggested_checks_preview_matches_runtime_options(self) -> None:
         observation = CheckSuggestedChecksObservation(

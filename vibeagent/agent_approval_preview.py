@@ -408,6 +408,10 @@ def preview_path_tuple(paths: object) -> tuple[object, ...]:
     return tuple(preview_path_value(path, path) for path in paths or [])
 
 
+def preview_cwd_value(cwd: object) -> object:
+    return preview_path_value(cwd or ".", ".")
+
+
 def approval_preview_key(value: object) -> tuple[Any, ...]:
     kind = str(getattr(value, "kind", getattr(value, "type", "")))
     edit_key = edit_preview_key(kind, value)
@@ -589,7 +593,7 @@ def run_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
         return (
             "start_command",
             getattr(value, "command", ""),
-            getattr(value, "cwd", None) or ".",
+            preview_cwd_value(getattr(value, "cwd", None)),
             getattr(value, "max_output_chars", None),
         )
     if kind in {"run_commands", "check_run_commands"}:
@@ -630,7 +634,7 @@ def run_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
 def command_item_preview_key(value: object) -> tuple[Any, ...]:
     return (
         getattr(value, "command", ""),
-        getattr(value, "cwd", None) or ".",
+        preview_cwd_value(getattr(value, "cwd", None)),
         getattr(value, "timeout_ms", None),
         getattr(value, "max_output_chars", None),
         getattr(value, "extract_output_contexts", False),
