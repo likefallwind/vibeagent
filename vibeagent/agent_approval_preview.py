@@ -114,6 +114,11 @@ CHECKPOINT_RESTORE_MUTATION_OBSERVATION_KINDS = {
     "checkpoint_restore",
 }
 
+COMMAND_MUTATION_OBSERVATION_KINDS = {
+    "run_command",
+    "run_commands",
+}
+
 FILE_PREVIEW_KINDS = {
     "check_write_file",
     "check_write_files",
@@ -189,6 +194,7 @@ WORKSPACE_MUTATION_OBSERVATION_KINDS = (
     FILE_MUTATION_OBSERVATION_KINDS
     | GIT_MUTATION_OBSERVATION_KINDS
     | CHECKPOINT_RESTORE_MUTATION_OBSERVATION_KINDS
+    | COMMAND_MUTATION_OBSERVATION_KINDS
 )
 
 
@@ -236,6 +242,8 @@ def preview_search_invalidated(
         return True
     if git_preview_invalidated_by_workspace_mutation(expected_kind, observation_kind):
         return True
+    if file_preview_invalidated_by_broad_workspace_mutation(expected_kind, observation_kind):
+        return True
     return file_preview_invalidated_by_file_mutation(expected_kind, observation_kind, expected_paths, observation)
 
 
@@ -256,7 +264,17 @@ def checkpoint_restore_preview_invalidated_by_workspace_mutation(expected_kind: 
 def git_preview_invalidated_by_workspace_mutation(expected_kind: str, observation_kind: object) -> bool:
     if expected_kind not in GIT_PREVIEW_KINDS:
         return False
-    return observation_kind in GIT_MUTATION_OBSERVATION_KINDS or observation_kind in FILE_MUTATION_OBSERVATION_KINDS
+    return (
+        observation_kind in GIT_MUTATION_OBSERVATION_KINDS
+        or observation_kind in FILE_MUTATION_OBSERVATION_KINDS
+        or observation_kind in COMMAND_MUTATION_OBSERVATION_KINDS
+    )
+
+
+def file_preview_invalidated_by_broad_workspace_mutation(expected_kind: str, observation_kind: object) -> bool:
+    if expected_kind not in FILE_PREVIEW_KINDS:
+        return False
+    return observation_kind in GIT_MUTATION_OBSERVATION_KINDS or observation_kind in COMMAND_MUTATION_OBSERVATION_KINDS
 
 
 def file_preview_invalidated_by_file_mutation(
