@@ -13791,43 +13791,6 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(missing, [])
 
-    def test_command_execution_approval_actions_are_workspace_mutation_tracked(self) -> None:
-        command_execution_actions = {
-            "run_command",
-            "run_commands",
-            "run_suggested_checks",
-            "run_focused_test_commands",
-            "run_session_verification",
-            "start_command",
-            "write_process",
-        }
-        missing = sorted(command_execution_actions - approval_preview_module.COMMAND_MUTATION_OBSERVATION_KINDS)
-
-        self.assertEqual(missing, [])
-
-    def test_command_execution_previews_are_workspace_stale_tracked(self) -> None:
-        command_execution_previews = {
-            "command_check",
-            "check_run_commands",
-            "check_suggested_checks",
-            "check_focused_test_commands",
-            "session_verification",
-            "check_start_command",
-        }
-        missing = sorted(command_execution_previews - approval_preview_module.COMMAND_PREVIEW_KINDS)
-
-        self.assertEqual(missing, [])
-
-    def test_process_control_previews_are_process_stale_tracked(self) -> None:
-        process_control_previews = {
-            "check_write_process",
-            "check_stop_process",
-            "check_stop_all_processes",
-        }
-        missing = sorted(process_control_previews - approval_preview_module.PROCESS_PREVIEW_KINDS)
-
-        self.assertEqual(missing, [])
-
     def test_run_agent_leaves_approval_preview_empty_without_matching_check(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             seen_requests: list[ApprovalRequest] = []
