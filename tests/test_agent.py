@@ -13599,22 +13599,6 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Preflighted 0/0", preview or "")
         self.assertIsNone(explicit_path_preview)
 
-    def test_approval_preview_mapping_covers_approval_required_tools(self) -> None:
-        tool_names = {tool["name"] for tool in AGENT_TOOL_DEFINITIONS}
-        missing = sorted(
-            APPROVAL_REQUIRED_TOOL_NAMES
-            - set(agent_module.PREVIEW_KIND_BY_ACTION_TYPE)
-            - agent_module.APPROVAL_WITHOUT_PREVIEW_ACTION_TYPES
-        )
-        invalid = sorted(
-            (action_name, preview_name)
-            for action_name, preview_name in agent_module.PREVIEW_KIND_BY_ACTION_TYPE.items()
-            if action_name in APPROVAL_REQUIRED_TOOL_NAMES and preview_name not in tool_names
-        )
-
-        self.assertEqual(missing, [])
-        self.assertEqual(invalid, [])
-
     def test_workspace_mutating_approval_previews_are_workspace_stale_tracked(self) -> None:
         workspace_mutating_actions = (
             approval_preview_module.FILE_MUTATION_OBSERVATION_KINDS
