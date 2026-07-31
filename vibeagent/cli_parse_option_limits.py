@@ -32,7 +32,10 @@ def parse_interactive_option_limit_argument(
             value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return {}, f"{usage}\n  error: {error}", True
-            kwargs[option_specs[flag]] = int(value)
+            keyword = option_specs[flag]
+            if keyword in kwargs:
+                return {}, f"{usage}\n  error: provide {flag} at most once.", True
+            kwargs[keyword] = int(value)
             continue
         return {}, f"{usage}\n  error: Unknown option: {part}", True
 

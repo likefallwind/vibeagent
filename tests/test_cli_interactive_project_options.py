@@ -45,6 +45,7 @@ class CliInteractiveProjectOptionsTests(unittest.TestCase):
                 side_effect=[
                     "/checks --max-checks 0",
                     "/checks --unknown 1",
+                    "/checks --max-checks 1 --max-checks 2",
                     "/checks package.json",
                     "/exit",
                 ],
@@ -60,6 +61,7 @@ class CliInteractiveProjectOptionsTests(unittest.TestCase):
         self.assertIn("Usage: /checks [--max-checks N]", output)
         self.assertIn("--max-checks must be a positive integer.", output)
         self.assertIn("Unknown option: --unknown", output)
+        self.assertIn("provide --max-checks at most once.", output)
         get_checks_text.assert_not_called()
         create_chat_client.assert_not_called()
 

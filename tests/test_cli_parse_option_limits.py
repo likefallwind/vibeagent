@@ -51,6 +51,16 @@ class CliParseOptionLimitTests(unittest.TestCase):
         self.assertEqual((kwargs, handled), ({}, True))
         self.assertIn("--max-files must be a positive integer.", error or "")
 
+    def test_parse_option_limit_argument_reports_duplicate_flags(self) -> None:
+        kwargs, error, handled = parse_interactive_option_limit_argument(
+            "--max-files 2 --max-files 3",
+            "Usage",
+            {"--max-files": "max_files"},
+        )
+
+        self.assertEqual((kwargs, handled), ({}, True))
+        self.assertIn("provide --max-files at most once.", error or "")
+
     def test_commands_entrypoint_keeps_existing_shape(self) -> None:
         self.assertEqual(
             parse_interactive_commands_argument("--max-commands 2 --max-files=3"),
