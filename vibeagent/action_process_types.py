@@ -155,14 +155,16 @@ class WaitProcessAction:
 class CheckWriteProcessAction:
     type: Literal["check_write_process"]
     process_id: str
-    content: str
+    content: str | None = None
+    stdin_file: str | None = None
 
 
 @dataclass(frozen=True)
 class WriteProcessAction:
     type: Literal["write_process"]
     process_id: str
-    content: str
+    content: str | None = None
+    stdin_file: str | None = None
 
 
 @dataclass(frozen=True)

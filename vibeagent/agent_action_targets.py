@@ -260,7 +260,9 @@ def build_action_target(action: object) -> str:
     if isinstance(action, (t.WaitProcessAction, t.CheckStopProcessAction)):
         return action.process_id
     if isinstance(action, (t.CheckWriteProcessAction, t.WriteProcessAction)):
-        return f"{action.process_id} ({len(action.content)} chars)"
+        if action.stdin_file is not None:
+            return f"{action.process_id} (stdin_file: {action.stdin_file})"
+        return f"{action.process_id} ({len(action.content or '')} chars)"
     if isinstance(action, t.SessionSummaryAction):
         return action.run_id or "current session"
     if isinstance(action, t.SessionPlanAction):

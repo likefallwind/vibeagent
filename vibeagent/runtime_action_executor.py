@@ -18,6 +18,7 @@ from .process_runtime import (
     wait_background_process,
     write_background_process,
 )
+from .cli_process_stdin import read_project_stdin_file
 from .runtime_checks import (
     build_command_check_observation,
     build_command_preflight,
@@ -35,6 +36,7 @@ from .types import (
     CheckStopAllProcessesAction,
     CheckStopProcessAction,
     CheckWriteProcessAction,
+    CheckWriteProcessObservation,
     CommandCheckAction,
     CommandResult,
     EnvironmentInfoAction,
@@ -58,8 +60,33 @@ from .types import (
     StopProcessAction,
     WaitProcessAction,
     WriteProcessAction,
+    WriteProcessObservation,
 )
 from .workspace import RunWorkspace, read_environment_info
+
+
+def _write_process_content(workspace: RunWorkspace, action: CheckWriteProcessAction | WriteProcessAction) -> str:
+    if action.stdin_file is not None:
+        return read_project_stdin_file(workspace.root, action.stdin_file, "stdin_file")
+    return action.content or ""
+
+
+def _write_process_file_error_observation(
+    action: CheckWriteProcessAction | WriteProcessAction,
+    error: ValueError,
+) -> CheckWriteProcessObservation | WriteProcessObservation:
+    observation_type = CheckWriteProcessObservation if isinstance(action, CheckWriteProcessAction) else WriteProcessObservation
+    return observation_type(
+        kind=action.type,
+        process_id=action.process_id,
+        pid=None,
+        ok=False,
+        running=False,
+        command=None,
+        cwd=None,
+        content_chars=0,
+        message=f"Cannot read stdin_file for process {action.process_id}: {error}",
+    )
 
 
 def execute_runtime_action(
@@ -219,10 +246,18 @@ def execute_runtime_action(
         )
 
     if isinstance(action, CheckWriteProcessAction):
-        return check_write_background_process(workspace.root, action.process_id, action.content)
+        try:
+            content = _write_process_content(workspace, action)
+        except ValueError as error:
+            return _write_process_file_error_observation(action, error)
+        return check_write_background_process(workspace.root, action.process_id, content)
 
     if isinstance(action, WriteProcessAction):
-        return write_background_process(workspace.root, action.process_id, action.content)
+        try:
+            content = _write_process_content(workspace, action)
+        except ValueError as error:
+            return _write_process_file_error_observation(action, error)
+        return write_background_process(workspace.root, action.process_id, content)
 
     if isinstance(action, ListProcessesAction):
         return list_background_processes(workspace.root)

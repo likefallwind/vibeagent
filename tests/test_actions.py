@@ -280,6 +280,22 @@ def minimal_schema_value_with_optional_property(schema: dict[str, Any], property
     properties = schema.get("properties", {})
     if not isinstance(value, dict) or property_name not in properties:
         return value
+    choices = schema.get("oneOf")
+    if isinstance(choices, list):
+        for choice in choices:
+            if not isinstance(choice, dict):
+                continue
+            required = choice.get("required", [])
+            if isinstance(required, list) and property_name in required:
+                branch_value = minimal_schema_value(
+                    {
+                        "type": "object",
+                        "properties": properties,
+                        "required": list(dict.fromkeys(list(schema.get("required", [])) + [str(item) for item in required])),
+                    }
+                )
+                if isinstance(branch_value, dict):
+                    return branch_value
     value[property_name] = minimal_schema_value(properties[property_name], property_name=property_name)
     dependent_required = schema.get("dependentRequired", {})
     if isinstance(dependent_required, dict):
@@ -788,6 +804,8 @@ class ActionTests(unittest.TestCase):
             ),
             ("check_write_process", {"process_id": "abc123", "content": "hello\n"}, "check_write_process"),
             ("write_process", {"process_id": "abc123", "content": "hello\n"}, "write_process"),
+            ("check_write_process", {"process_id": "abc123", "stdin_file": "input.txt"}, "check_write_process"),
+            ("write_process", {"process_id": "abc123", "stdin_file": "input.txt"}, "write_process"),
             ("list_processes", {}, "list_processes"),
             ("check_stop_all_processes", {}, "check_stop_all_processes"),
             ("check_stop_process", {"process_id": "abc123"}, "check_stop_process"),
@@ -2143,11 +2161,20 @@ class ActionTests(unittest.TestCase):
         with self.assertRaisesRegex(ActionParseError, "check_write_process action requires non-empty content"):
             parse_tool_action("check_write_process", {"process_id": "abc123", "content": ""})
 
+        with self.assertRaisesRegex(ActionParseError, "check_write_process action requires either content or stdin_file"):
+            parse_tool_action("check_write_process", {"process_id": "abc123", "content": "hello\n", "stdin_file": "input.txt"})
+
+        with self.assertRaisesRegex(ActionParseError, "check_write_process action stdin_file must be a non-empty string"):
+            parse_tool_action("check_write_process", {"process_id": "abc123", "stdin_file": ""})
+
         with self.assertRaisesRegex(ActionParseError, "write_process action requires a non-empty process_id"):
             parse_tool_action("write_process", {"content": "hello\n"})
 
         with self.assertRaisesRegex(ActionParseError, "write_process action requires non-empty content"):
             parse_tool_action("write_process", {"process_id": "abc123", "content": ""})
+
+        with self.assertRaisesRegex(ActionParseError, "write_process action requires either content or stdin_file"):
+            parse_tool_action("write_process", {"process_id": "abc123", "content": "hello\n", "stdin_file": "input.txt"})
 
         with self.assertRaisesRegex(ActionParseError, "check_stop_process action requires a non-empty process_id"):
             parse_tool_action("check_stop_process", {"process_id": ""})
@@ -9888,6 +9915,7 @@ class ActionTests(unittest.TestCase):
     def test_execute_background_process_actions_report_errors(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-actions-") as base:
             workspace = create_run_workspace(base, "test-run")
+            Path(base, "input.txt").write_text("hello\\nfrom file\n", encoding="utf-8")
 
             blocked = execute_action(workspace, StartCommandAction(type="start_command", command="sudo reboot"))
             network_pipe = execute_action(
@@ -9908,6 +9936,14 @@ class ActionTests(unittest.TestCase):
             write = execute_action(
                 workspace,
                 WriteProcessAction(type="write_process", process_id="missing", content="hello\n"),
+            )
+            check_write_file = execute_action(
+                workspace,
+                CheckWriteProcessAction(type="check_write_process", process_id="missing", stdin_file="input.txt"),
+            )
+            write_file_escape = execute_action(
+                workspace,
+                WriteProcessAction(type="write_process", process_id="missing", stdin_file="../input.txt"),
             )
             check_stop = execute_action(workspace, CheckStopProcessAction(type="check_stop_process", process_id="missing"))
             stopped = execute_action(workspace, StopProcessAction(type="stop_process", process_id="missing"))
@@ -9943,6 +9979,14 @@ class ActionTests(unittest.TestCase):
         self.assertFalse(write.ok)
         self.assertIsNone(write.pid)
         self.assertIn("Unknown background process id", write.message)
+        self.assertEqual(check_write_file.kind, "check_write_process")
+        self.assertFalse(check_write_file.ok)
+        self.assertEqual(check_write_file.content_chars, len("hello\\nfrom file\n"))
+        self.assertIn("Unknown background process id", check_write_file.message)
+        self.assertEqual(write_file_escape.kind, "write_process")
+        self.assertFalse(write_file_escape.ok)
+        self.assertIn("Cannot read stdin_file", write_file_escape.message)
+        self.assertIn("Path escapes the project directory", write_file_escape.message)
         self.assertEqual(check_stop.kind, "check_stop_process")
         self.assertFalse(check_stop.ok)
         self.assertIsNone(check_stop.pid)

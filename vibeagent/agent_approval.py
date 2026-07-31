@@ -342,9 +342,14 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             ),
         )
     if isinstance(action, t.WriteProcessAction):
+        target = (
+            f"{action.process_id} (stdin_file: {action.stdin_file})"
+            if action.stdin_file is not None
+            else f"{action.process_id} ({len(action.content or '')} chars)"
+        )
         return t.ApprovalRequest(
             action_type="write_process",
-            target=f"{action.process_id} ({len(action.content)} chars)",
+            target=target,
             risk="This will write input to a running background process.",
         )
     if isinstance(action, t.StopProcessAction):

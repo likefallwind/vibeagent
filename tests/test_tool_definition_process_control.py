@@ -36,6 +36,13 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
             ["read_process", "process_output_contexts", "process_output_diagnostics"],
         )
         self.assertEqual([tool["name"] for tool in PROCESS_IO_TOOL_DEFINITIONS], ["wait_process", "check_write_process", "write_process"])
+        check_write = next(tool for tool in PROCESS_IO_TOOL_DEFINITIONS if tool["name"] == "check_write_process")
+        write = next(tool for tool in PROCESS_IO_TOOL_DEFINITIONS if tool["name"] == "write_process")
+        for tool in (check_write, write):
+            schema = tool["input_schema"]
+            self.assertEqual(schema["required"], ["process_id"])
+            self.assertIn("stdin_file", schema["properties"])
+            self.assertEqual([branch["required"] for branch in schema["oneOf"]], [["content"], ["stdin_file"]])
         self.assertEqual(
             [tool["name"] for tool in PROCESS_STOP_TOOL_DEFINITIONS],
             ["list_processes", "check_stop_all_processes", "check_stop_process", "stop_all_processes", "stop_process"],

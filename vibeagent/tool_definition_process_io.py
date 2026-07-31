@@ -42,7 +42,7 @@ PROCESS_IO_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "check_write_process",
-        "description": "Preview whether text can be written to stdin of a running background command without writing it.",
+        "description": "Preview whether text or project-file content can be written to stdin of a running background command without writing it.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -51,14 +51,19 @@ PROCESS_IO_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "string",
                     "description": "Exact text intended for stdin. Include \\n when pressing Enter is required.",
                 },
+                "stdin_file": {
+                    "type": "string",
+                    "description": "Project-relative UTF-8 file to use as stdin content instead of content.",
+                },
             },
-            "required": ["process_id", "content"],
+            "required": ["process_id"],
+            "oneOf": [{"required": ["content"]}, {"required": ["stdin_file"]}],
             "additionalProperties": False,
         },
     },
     {
         "name": "write_process",
-        "description": "Write exact text to stdin of a running background command started by start_command.",
+        "description": "Write exact text or project-file content to stdin of a running background command started by start_command.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -67,8 +72,13 @@ PROCESS_IO_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "string",
                     "description": "Exact text to write to stdin. Include \\n when pressing Enter is required.",
                 },
+                "stdin_file": {
+                    "type": "string",
+                    "description": "Project-relative UTF-8 file to use as stdin content instead of content.",
+                },
             },
-            "required": ["process_id", "content"],
+            "required": ["process_id"],
+            "oneOf": [{"required": ["content"]}, {"required": ["stdin_file"]}],
             "additionalProperties": False,
         },
     },

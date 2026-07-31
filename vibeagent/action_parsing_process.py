@@ -67,6 +67,20 @@ def _parse_process_id(value: Any, raw: str, action_type: str) -> str:
     return value
 
 
+def _parse_write_process_content(value: dict[str, Any], raw: str, action_type: str) -> tuple[str | None, str | None]:
+    content = value.get("content")
+    stdin_file = value.get("stdin_file")
+    if content is not None and stdin_file is not None:
+        raise ActionParseError(f"{action_type} action requires either content or stdin_file, not both.", raw)
+    if stdin_file is not None:
+        if not isinstance(stdin_file, str) or not stdin_file.strip():
+            raise ActionParseError(f"{action_type} action stdin_file must be a non-empty string when provided.", raw)
+        return None, stdin_file
+    if not isinstance(content, str) or content == "":
+        raise ActionParseError(f"{action_type} action requires non-empty content.", raw)
+    return content, None
+
+
 def _parse_timeout_ms(value: Any, raw: str) -> int | None:
     timeout_ms = parse_optional_positive_int(value, "timeout_ms", raw, maximum=600_000)
     if timeout_ms is not None and timeout_ms < 100:
@@ -251,17 +265,13 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
 
     if action_type == "check_write_process":
         process_id = _parse_process_id(value.get("process_id"), raw, "check_write_process")
-        content = value.get("content")
-        if not isinstance(content, str) or content == "":
-            raise ActionParseError("check_write_process action requires non-empty content.", raw)
-        return CheckWriteProcessAction(type="check_write_process", process_id=process_id, content=content)
+        content, stdin_file = _parse_write_process_content(value, raw, "check_write_process")
+        return CheckWriteProcessAction(type="check_write_process", process_id=process_id, content=content, stdin_file=stdin_file)
 
     if action_type == "write_process":
         process_id = _parse_process_id(value.get("process_id"), raw, "write_process")
-        content = value.get("content")
-        if not isinstance(content, str) or content == "":
-            raise ActionParseError("write_process action requires non-empty content.", raw)
-        return WriteProcessAction(type="write_process", process_id=process_id, content=content)
+        content, stdin_file = _parse_write_process_content(value, raw, "write_process")
+        return WriteProcessAction(type="write_process", process_id=process_id, content=content, stdin_file=stdin_file)
 
     if action_type == "list_processes":
         return ListProcessesAction(type="list_processes")
