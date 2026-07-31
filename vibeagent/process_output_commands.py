@@ -7,6 +7,15 @@ import sys
 from .actions import execute_action as _default_execute_action
 from .local_command_workspace import local_command_workspace
 from .output_serialization import serialize_output_context_result, serialize_output_diagnostic
+from .process_output_report_builders import (
+    PROCESS_OUTPUT_CONTEXTS_USAGE,
+    PROCESS_OUTPUT_DIAGNOSTICS_USAGE,
+    process_output_contexts_usage_report,
+    process_output_diagnostics_usage_report,
+    usage_error,
+    validate_process_output_context_limits,
+    validate_process_output_diagnostic_limits,
+)
 from .process_request_parsing import parse_process_request
 from .process_report_helpers import (
     format_process_output_contexts_report_text,
@@ -14,9 +23,6 @@ from .process_report_helpers import (
     process_status_text,
 )
 from .types import ProcessOutputContextsAction, ProcessOutputDiagnosticsAction
-
-PROCESS_OUTPUT_CONTEXTS_USAGE = "Usage: /process-output-contexts <id> [chars]"
-PROCESS_OUTPUT_DIAGNOSTICS_USAGE = "Usage: /process-output-diagnostics <id> [chars]"
 
 
 def _execute_action(*args: object, **kwargs: object) -> object:
@@ -73,19 +79,19 @@ def get_process_output_contexts_report(
     try:
         selected_process_id, selected_max = parse_process_request(argument, process_id, max_output_chars)
     except ValueError as error:
-        return _process_output_contexts_usage_report(
+        return process_output_contexts_usage_report(
             root,
             process_id or "",
             max_output_chars,
-            _usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, error),
+            usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, error),
         )
-    message = _validate_process_output_context_limits(
+    message = validate_process_output_context_limits(
         context_lines=context_lines,
         max_contexts=max_contexts,
         max_bytes_per_context=max_bytes_per_context,
     )
     if message:
-        return _process_output_contexts_usage_report(root, selected_process_id, selected_max, message)
+        return process_output_contexts_usage_report(root, selected_process_id, selected_max, message)
 
     workspace = local_command_workspace(root, "local-process-output-contexts")
     observation = _execute_action(
@@ -100,7 +106,7 @@ def get_process_output_contexts_report(
         ),
     )
     if observation.kind != "process_output_contexts":
-        return _process_output_contexts_usage_report(
+        return process_output_contexts_usage_report(
             root,
             selected_process_id,
             selected_max,
@@ -171,7 +177,7 @@ def get_process_output_diagnostics_report(
     try:
         selected_process_id, selected_max = parse_process_request(argument, process_id, max_output_chars)
     except ValueError as error:
-        return _process_output_diagnostics_usage_report(
+        return process_output_diagnostics_usage_report(
             root,
             process_id or "",
             max_output_chars,
@@ -179,16 +185,16 @@ def get_process_output_diagnostics_report(
             max_diagnostics,
             max_contexts,
             max_bytes_per_context,
-            _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, error),
+            usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, error),
         )
-    message = _validate_process_output_diagnostic_limits(
+    message = validate_process_output_diagnostic_limits(
         context_lines=context_lines,
         max_diagnostics=max_diagnostics,
         max_contexts=max_contexts,
         max_bytes_per_context=max_bytes_per_context,
     )
     if message:
-        return _process_output_diagnostics_usage_report(
+        return process_output_diagnostics_usage_report(
             root,
             selected_process_id,
             selected_max,
@@ -213,7 +219,7 @@ def get_process_output_diagnostics_report(
         ),
     )
     if observation.kind != "process_output_diagnostics":
-        return _process_output_diagnostics_usage_report(
+        return process_output_diagnostics_usage_report(
             root,
             selected_process_id,
             selected_max,
@@ -249,109 +255,4 @@ def get_process_output_diagnostics_report(
         "diagnosticsTruncated": observation.diagnostics_truncated,
         "contextsTruncated": observation.contexts_truncated,
         "message": observation.message,
-    }
-
-
-def _validate_process_output_context_limits(
-    *,
-    context_lines: int,
-    max_contexts: int,
-    max_bytes_per_context: int,
-) -> str:
-    if context_lines < 0:
-        return _usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, "context_lines must be at least 0.")
-    if context_lines > 500:
-        return _usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, "context_lines must be at most 500.")
-    if max_contexts < 1:
-        return _usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, "max_contexts must be at least 1.")
-    if max_contexts > 100:
-        return _usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, "max_contexts must be at most 100.")
-    if max_bytes_per_context < 1_000:
-        return _usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, "max_bytes_per_context must be at least 1000.")
-    if max_bytes_per_context > 200_000:
-        return _usage_error(PROCESS_OUTPUT_CONTEXTS_USAGE, "max_bytes_per_context must be at most 200000.")
-    return ""
-
-
-def _validate_process_output_diagnostic_limits(
-    *,
-    context_lines: int,
-    max_diagnostics: int,
-    max_contexts: int,
-    max_bytes_per_context: int,
-) -> str:
-    if context_lines < 0:
-        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "context_lines must be at least 0.")
-    if context_lines > 500:
-        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "context_lines must be at most 500.")
-    if max_diagnostics < 1:
-        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "max_diagnostics must be at least 1.")
-    if max_diagnostics > 200:
-        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "max_diagnostics must be at most 200.")
-    if max_contexts < 1:
-        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "max_contexts must be at least 1.")
-    if max_contexts > 100:
-        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "max_contexts must be at most 100.")
-    if max_bytes_per_context < 1_000:
-        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "max_bytes_per_context must be at least 1000.")
-    if max_bytes_per_context > 200_000:
-        return _usage_error(PROCESS_OUTPUT_DIAGNOSTICS_USAGE, "max_bytes_per_context must be at most 200000.")
-    return ""
-
-
-def _usage_error(usage: str, error: object) -> str:
-    return f"{usage}\nError: {error}"
-
-
-def _process_output_contexts_usage_report(
-    root: Path,
-    process_id: str,
-    max_output_chars: int | None,
-    message: str,
-) -> dict[str, object]:
-    return {
-        "projectRoot": str(root),
-        "ok": False,
-        "processId": process_id,
-        "pid": None,
-        "status": "unknown",
-        "contexts": {"ok": 0, "total": 0, "items": []},
-        "totalRefs": 0,
-        "maxOutputChars": max_output_chars,
-        "stdoutChars": 0,
-        "stderrChars": 0,
-        "truncated": False,
-        "message": message,
-    }
-
-
-def _process_output_diagnostics_usage_report(
-    root: Path,
-    process_id: str,
-    max_output_chars: int | None,
-    context_lines: int,
-    max_diagnostics: int,
-    max_contexts: int,
-    max_bytes_per_context: int,
-    message: str,
-) -> dict[str, object]:
-    return {
-        "projectRoot": str(root),
-        "ok": False,
-        "processId": process_id,
-        "pid": None,
-        "status": "unknown",
-        "diagnostics": {"shown": 0, "total": 0, "items": []},
-        "contexts": {"ok": 0, "total": 0, "items": []},
-        "totalRefs": 0,
-        "maxOutputChars": max_output_chars,
-        "stdoutChars": 0,
-        "stderrChars": 0,
-        "contextLines": context_lines,
-        "maxDiagnostics": max_diagnostics,
-        "maxContexts": max_contexts,
-        "maxBytesPerContext": max_bytes_per_context,
-        "diagnosticsTruncated": False,
-        "contextsTruncated": False,
-        "message": message,
     }
