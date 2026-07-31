@@ -81,22 +81,27 @@ def format_subagent_failure_lines(observation: object) -> list[str]:
     return [f"latestSubagentFailure: {failure}" for failure in failures[:20]]
 
 
+def format_completion_recovery_lines(observation: object, *, include_ready: bool = True) -> list[str]:
+    lines: list[str] = []
+    completion_ready = getattr(observation, "completion_ready", None)
+    if include_ready and completion_ready is not None:
+        lines.append(f"completionReady: {str(completion_ready).lower()}")
+    lines.extend(
+        f"completionBlocker: {blocker}"
+        for blocker in getattr(observation, "completion_blockers", [])[:20]
+    )
+    lines.extend(
+        f"latestCompletionBlocker: {blocker}"
+        for blocker in getattr(observation, "latest_completion_blockers", [])[:20]
+    )
+    lines.extend(completion_detail_prompt_lines(observation))
+    return lines
+
+
 def format_session_observation(index: int, observation: object) -> str | None:
     if observation.kind == "session_summary":
         subagent_failure_lines = format_subagent_failure_lines(observation)
-        completion_ready = getattr(observation, "completion_ready", None)
-        completion_lines = []
-        if completion_ready is not None:
-            completion_lines.append(f"completionReady: {str(completion_ready).lower()}")
-        completion_lines.extend(
-            f"completionBlocker: {blocker}"
-            for blocker in getattr(observation, "completion_blockers", [])[:20]
-        )
-        completion_lines.extend(
-            f"latestCompletionBlocker: {blocker}"
-            for blocker in getattr(observation, "latest_completion_blockers", [])[:20]
-        )
-        completion_lines.extend(completion_detail_prompt_lines(observation))
+        completion_lines = format_completion_recovery_lines(observation)
         return "\n".join(
             [
                 f"{index}. session_summary {observation.run_id}: {observation.message}",
@@ -258,15 +263,7 @@ def format_session_observation(index: int, observation: object) -> str | None:
             )
             for process in observation.active_background_processes[:20]
         ]
-        completion_ready = getattr(observation, "completion_ready", None)
-        completion_lines = []
-        if completion_ready is not None:
-            completion_lines.append(f"completionReady: {str(completion_ready).lower()}")
-        completion_lines.extend(f"completionBlocker: {blocker}" for blocker in observation.completion_blockers[:20])
-        completion_lines.extend(
-            f"latestCompletionBlocker: {blocker}" for blocker in observation.latest_completion_blockers[:20]
-        )
-        completion_lines.extend(completion_detail_prompt_lines(observation))
+        completion_lines = format_completion_recovery_lines(observation)
         subagent_failure_lines = format_subagent_failure_lines(observation)
         file_lines = format_file_reference_lines(
             getattr(observation, "file_references", []),
@@ -351,15 +348,7 @@ def format_session_observation(index: int, observation: object) -> str | None:
         completion_ready = getattr(observation, "completion_ready", None)
         if completion_ready is not None:
             readiness_lines.append(f"completionReady: {str(completion_ready).lower()}")
-        completion_lines = [
-            f"completionBlocker: {blocker}"
-            for blocker in getattr(observation, "completion_blockers", [])[:20]
-        ]
-        completion_lines.extend(
-            f"latestCompletionBlocker: {blocker}"
-            for blocker in getattr(observation, "latest_completion_blockers", [])[:20]
-        )
-        completion_lines.extend(completion_detail_prompt_lines(observation))
+        completion_lines = format_completion_recovery_lines(observation, include_ready=False)
         subagent_failure_lines = format_subagent_failure_lines(observation)
         return "\n".join(
             [
