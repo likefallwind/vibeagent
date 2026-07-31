@@ -3,12 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 from .session_audit_readiness import session_audit_blockers, session_pending_plan_items
-from .session_summary_reports import (
-    CHECKPOINT_RESTORE_HINT,
-    final_review_ready_label,
-    final_review_resolution_suffix,
-    format_final_review_failure_lines,
-    format_latest_completion_detail_lines,
+from .session_audit_text_sections import (
+    append_checkpoint_lines,
+    append_completion_lines,
+    append_final_review_lines,
 )
 from .session_types import SessionSummary
 from .session_utils import compact
@@ -34,34 +32,8 @@ def format_session_handoff_readiness(
         f"  ready: {'yes' if not blockers else 'no'}",
         f"  status: {'ready' if not blockers else 'blocked'}",
     ]
-    if summary.final_review_seen:
-        ready = final_review_ready_label(summary.final_review_ready)
-        lines.append(
-            "  finalReview: "
-            f"ready={ready}, "
-            f"blocking={summary.final_review_blocking_issues}, "
-            f"warnings={summary.final_review_warnings}"
-            f"{final_review_resolution_suffix(summary)}"
-        )
-        if summary.final_review_changed_files:
-            lines.append("  finalReviewChangedFiles:")
-            lines.extend(f"    - {compact(path, max_text)}" for path in summary.final_review_changed_files[:20])
-            if len(summary.final_review_changed_files) > 20:
-                lines.append(f"    - ... {len(summary.final_review_changed_files) - 20} more")
-        lines.extend(format_final_review_failure_lines(summary, indent="  ", max_text=max_text))
-    else:
-        lines.append("  finalReview: not run")
-    if summary.checkpoints_created:
-        checkpoint_line = (
-            "  checkpoints: "
-            f"created={summary.checkpoints_created}, "
-            f"auto={summary.auto_checkpoints_created}"
-        )
-        if summary.latest_checkpoint_id:
-            checkpoint_line += f", latest={compact(summary.latest_checkpoint_id, max_text)}"
-        lines.append(checkpoint_line)
-        if summary.latest_checkpoint_id:
-            lines.append(f"  restoreHint: {CHECKPOINT_RESTORE_HINT}")
+    append_final_review_lines(lines, summary, max_text=max_text, include_counts=False, changed_file_limit=20)
+    append_checkpoint_lines(lines, summary, max_text=max_text)
     if summary.background_processes_started or summary.active_background_processes:
         lines.append(
             "  backgroundProcesses: "
@@ -85,22 +57,7 @@ def format_session_handoff_readiness(
         lines.extend(f"    - {compact(blocker, max_text)}" for blocker in blockers)
     else:
         lines.append("    - none")
-    if summary.completion_ready is not None:
-        lines.append(f"  completionReady: {'yes' if summary.completion_ready else 'no'}")
-    if summary.completion_blockers:
-        lines.append("  completionBlockers:")
-        lines.extend(f"    - {compact(blocker, max_text)}" for blocker in summary.completion_blockers)
-    latest_detail_lines = format_latest_completion_detail_lines(summary, indent="  ", max_text=max_text)
-    if summary.completion_blocked_count:
-        lines.append(f"  completionBlocked: {summary.completion_blocked_count}")
-        if summary.latest_completion_blockers:
-            lines.append("  latestCompletionBlockers:")
-            lines.extend(f"    - {compact(blocker, max_text)}" for blocker in summary.latest_completion_blockers)
-    if latest_detail_lines:
-        lines.extend(latest_detail_lines)
-    if summary.completion_warnings:
-        lines.append("  completionWarnings:")
-        lines.extend(f"    - {compact(warning, max_text)}" for warning in summary.completion_warnings)
+    append_completion_lines(lines, summary, max_text=max_text)
     return "\n".join(lines)
 
 
@@ -138,34 +95,8 @@ def format_session_audit_from_parts(
     ]
     if summary.task:
         lines.append(f"  task: {compact(summary.task, max_text)}")
-    if summary.checkpoints_created:
-        checkpoint_line = (
-            "  checkpoints: "
-            f"created={summary.checkpoints_created}, "
-            f"auto={summary.auto_checkpoints_created}"
-        )
-        if summary.latest_checkpoint_id:
-            checkpoint_line += f", latest={compact(summary.latest_checkpoint_id, max_text)}"
-        lines.append(checkpoint_line)
-        if summary.latest_checkpoint_id:
-            lines.append(f"  restoreHint: {CHECKPOINT_RESTORE_HINT}")
-    if summary.final_review_seen:
-        ready = final_review_ready_label(summary.final_review_ready)
-        lines.append(
-            "  finalReview: "
-            f"ready={ready}, "
-            f"blocking={summary.final_review_blocking_issues}, "
-            f"warnings={summary.final_review_warnings}, "
-            f"files={summary.final_review_files}, "
-            f"suggestedChecks={summary.final_review_suggested_checks}"
-            f"{final_review_resolution_suffix(summary)}"
-        )
-        if summary.final_review_changed_files:
-            lines.append("  finalReviewChangedFiles:")
-            lines.extend(f"    - {compact(path, max_text)}" for path in summary.final_review_changed_files)
-        lines.extend(format_final_review_failure_lines(summary, indent="  ", max_text=max_text))
-    else:
-        lines.append("  finalReview: not run")
+    append_checkpoint_lines(lines, summary, max_text=max_text)
+    append_final_review_lines(lines, summary, max_text=max_text, include_counts=True)
 
     lines.append("  backgroundProcesses:")
     lines.append(f"    started: {summary.background_processes_started}")
@@ -195,23 +126,7 @@ def format_session_audit_from_parts(
     else:
         lines.append("    - none")
 
-    if summary.completion_ready is not None:
-        lines.append(f"  completionReady: {'yes' if summary.completion_ready else 'no'}")
-    if summary.completion_blockers:
-        lines.append("  completionBlockers:")
-        lines.extend(f"    - {compact(blocker, max_text)}" for blocker in summary.completion_blockers)
-    latest_detail_lines = format_latest_completion_detail_lines(summary, indent="  ", max_text=max_text)
-    if summary.completion_blocked_count:
-        lines.append(f"  completionBlocked: {summary.completion_blocked_count}")
-        if summary.latest_completion_blockers:
-            lines.append("  latestCompletionBlockers:")
-            lines.extend(f"    - {compact(blocker, max_text)}" for blocker in summary.latest_completion_blockers)
-    if latest_detail_lines:
-        lines.extend(latest_detail_lines)
-
-    if summary.completion_warnings:
-        lines.append("  completionWarnings:")
-        lines.extend(f"    - {compact(warning, max_text)}" for warning in summary.completion_warnings)
+    append_completion_lines(lines, summary, max_text=max_text)
 
     lines.append("  verification:")
     lines.append(f"    verified: {len(summary.verification_checks)}")
