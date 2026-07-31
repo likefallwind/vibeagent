@@ -55,6 +55,8 @@ def scrub_internal_preview_fingerprint_fields(result_payload: dict[str, object])
             result_payload.pop(key, None)
     if kind in {"json_patch", "check_json_patch"}:
         result_payload.pop("operations", None)
+    if kind in {"write_process", "check_write_process"}:
+        result_payload.pop("content_sha256", None)
 
 
 def record_tool_result_event(

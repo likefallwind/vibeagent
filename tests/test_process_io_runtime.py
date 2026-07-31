@@ -5,6 +5,9 @@ import tempfile
 import unittest
 
 from vibeagent import process_io_runtime, process_runtime, process_wait_runtime
+from vibeagent.agent_approval_preview import approval_preview_summary
+from vibeagent.agent_tool_results import build_tool_result_payload
+from vibeagent.types import CheckWriteProcessObservation, WriteProcessAction
 
 
 class ProcessIORuntimeModuleTests(unittest.TestCase):
@@ -79,9 +82,38 @@ class ProcessIORuntimeModuleTests(unittest.TestCase):
         self.assertEqual(check_write.kind, "check_write_process")
         self.assertFalse(check_write.ok)
         self.assertIn("Unknown background process id", check_write.message)
+        self.assertTrue(check_write.content_sha256)
         self.assertEqual(write.kind, "write_process")
         self.assertFalse(write.ok)
         self.assertIn("Unknown background process id", write.message)
+        self.assertEqual(write.content_sha256, check_write.content_sha256)
+
+    def test_write_process_preview_matches_approval_by_content_hash(self) -> None:
+        observation = CheckWriteProcessObservation(
+            kind="check_write_process",
+            process_id="proc-1",
+            pid=123,
+            ok=True,
+            running=True,
+            command="python3 app.py",
+            cwd=".",
+            content_chars=6,
+            content_sha256=process_io_runtime.write_process_content_sha256("alpha\n"),
+            message="Can write 6 character(s) to process proc-1.",
+        )
+
+        matching_preview = approval_preview_summary(
+            WriteProcessAction(type="write_process", process_id="proc-1", content="alpha\n"),
+            [observation],
+        )
+        mismatched_same_length_preview = approval_preview_summary(
+            WriteProcessAction(type="write_process", process_id="proc-1", content="bravo\n"),
+            [observation],
+        )
+
+        self.assertIn("Can write 6 character", matching_preview or "")
+        self.assertIsNone(mismatched_same_length_preview)
+        self.assertNotIn("content_sha256", build_tool_result_payload(observation))
 
 
 if __name__ == "__main__":

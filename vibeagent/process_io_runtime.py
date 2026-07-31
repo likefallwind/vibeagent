@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 import re
 import subprocess
@@ -26,6 +27,10 @@ def _background_processes() -> dict[str, Any]:
     runtime_module = sys.modules.get("vibeagent.process_runtime")
     value = getattr(runtime_module, "BACKGROUND_PROCESSES", None) if runtime_module is not None else None
     return value if isinstance(value, dict) else {}
+
+
+def write_process_content_sha256(content: str) -> str:
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 def _filter_output_lines(text: str, pattern: str | None) -> str:
@@ -190,6 +195,7 @@ def wait_background_process(
 
 
 def check_write_background_process(root: Path, process_id: str, content: str) -> CheckWriteProcessObservation:
+    content_sha256 = write_process_content_sha256(content)
     background = _background_processes().get(process_id)
     if background is None:
         record = read_persistent_process_record(root, process_id)
@@ -210,6 +216,7 @@ def check_write_background_process(root: Path, process_id: str, content: str) ->
                 cwd=record.cwd,
                 content_chars=len(content),
                 message=message,
+                content_sha256=content_sha256,
             )
         return CheckWriteProcessObservation(
             kind="check_write_process",
@@ -221,6 +228,7 @@ def check_write_background_process(root: Path, process_id: str, content: str) ->
             cwd=None,
             content_chars=len(content),
             message="Unknown background process id.",
+            content_sha256=content_sha256,
         )
 
     exit_code = background.process.poll()
@@ -244,10 +252,12 @@ def check_write_background_process(root: Path, process_id: str, content: str) ->
         cwd=background.cwd,
         content_chars=len(content),
         message=message,
+        content_sha256=content_sha256,
     )
 
 
 def write_background_process(root: Path, process_id: str, content: str) -> WriteProcessObservation:
+    content_sha256 = write_process_content_sha256(content)
     background = _background_processes().get(process_id)
     if background is None:
         record = read_persistent_process_record(root, process_id)
@@ -268,6 +278,7 @@ def write_background_process(root: Path, process_id: str, content: str) -> Write
                 cwd=record.cwd,
                 content_chars=len(content),
                 message=message,
+                content_sha256=content_sha256,
             )
         return WriteProcessObservation(
             kind="write_process",
@@ -279,6 +290,7 @@ def write_background_process(root: Path, process_id: str, content: str) -> Write
             cwd=None,
             content_chars=len(content),
             message="Unknown background process id.",
+            content_sha256=content_sha256,
         )
 
     exit_code = background.process.poll()
@@ -296,6 +308,7 @@ def write_background_process(root: Path, process_id: str, content: str) -> Write
             cwd=background.cwd,
             content_chars=len(content),
             message=f"Cannot write to process {process_id}; process has exited.",
+            content_sha256=content_sha256,
         )
     if stdin is None or stdin.closed:
         return WriteProcessObservation(
@@ -308,6 +321,7 @@ def write_background_process(root: Path, process_id: str, content: str) -> Write
             cwd=background.cwd,
             content_chars=len(content),
             message=f"Cannot write to process {process_id}; stdin is closed.",
+            content_sha256=content_sha256,
         )
 
     try:
@@ -324,6 +338,7 @@ def write_background_process(root: Path, process_id: str, content: str) -> Write
             cwd=background.cwd,
             content_chars=len(content),
             message=f"Failed to write to process {process_id}: {error}.",
+            content_sha256=content_sha256,
         )
 
     return WriteProcessObservation(
@@ -336,4 +351,5 @@ def write_background_process(root: Path, process_id: str, content: str) -> Write
         cwd=background.cwd,
         content_chars=len(content),
         message=f"Wrote {len(content)} character(s) to process {process_id}.",
+        content_sha256=content_sha256,
     )

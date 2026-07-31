@@ -179,6 +179,7 @@ class CheckWriteProcessObservation:
     cwd: str | None
     content_chars: int
     message: str
+    content_sha256: str = ""
 
 
 @dataclass(frozen=True)
@@ -192,6 +193,7 @@ class WriteProcessObservation:
     cwd: str | None
     content_chars: int
     message: str
+    content_sha256: str = ""
 
 
 @dataclass(frozen=True)

@@ -300,7 +300,11 @@ def run_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
     if kind in {"run_session_verification", "session_verification"}:
         return ("run_session_verification", getattr(value, "run_id", None))
     if kind in {"write_process", "check_write_process"}:
-        return ("write_process", getattr(value, "process_id", ""), getattr(value, "content_chars", len(getattr(value, "content", ""))))
+        content_sha256 = getattr(value, "content_sha256", "")
+        content = getattr(value, "content", None)
+        if not content_sha256 and isinstance(content, str):
+            content_sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        return ("write_process", getattr(value, "process_id", ""), content_sha256)
     if kind in {"stop_process", "check_stop_process"}:
         return ("stop_process", getattr(value, "process_id", ""))
     if kind in {"stop_all_processes", "check_stop_all_processes"}:
