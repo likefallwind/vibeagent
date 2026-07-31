@@ -317,7 +317,7 @@ class CliStreamJsonTests(unittest.TestCase):
         records = [json.loads(line) for line in stdout.getvalue().splitlines()]
         loaded = next(record["event"] for record in records if record["type"] == "event" and record["event"]["type"] == "permissions_loaded")
         self.assertEqual(exit_code, 0)
-        self.assertEqual(loaded["count"], 2)
+        self.assertEqual(loaded["count"], 4)
         self.assertIn("<cli --permission-mode acceptEdits>", loaded["sources"])
         self.assertIn("<cli --permission-mode acceptEdits>", loaded["trusted_allow_sources"])
 

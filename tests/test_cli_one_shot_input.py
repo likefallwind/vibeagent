@@ -432,7 +432,7 @@ class CliOneShotInputTests(unittest.TestCase):
                 self.assertEqual(kwargs["approval_policy"], expected)
                 self.assertIsNone(cli_module.validate_cli_args(args))
 
-                expected_rules = ["Edit", "NotebookEdit"] if value == "acceptEdits" else []
+                expected_rules = ["Write", "Edit", "MultiEdit", "NotebookEdit"] if value == "acceptEdits" else []
                 self.assertEqual([rule.raw for rule in kwargs["permission_overrides"].rules], expected_rules)
 
     def test_cli_dangerously_skip_permissions_maps_to_allow_for_code_tasks(self) -> None:
@@ -480,11 +480,16 @@ class CliOneShotInputTests(unittest.TestCase):
         permissions = kwargs["permission_overrides"]
 
         self.assertEqual(kwargs["approval_policy"], "ask")
-        self.assertEqual([rule.effect for rule in permissions.rules], ["allow", "allow"])
-        self.assertEqual([rule.raw for rule in permissions.rules], ["Edit", "NotebookEdit"])
+        self.assertEqual([rule.effect for rule in permissions.rules], ["allow", "allow", "allow", "allow"])
+        self.assertEqual([rule.raw for rule in permissions.rules], ["Write", "Edit", "MultiEdit", "NotebookEdit"])
         self.assertEqual(
             [rule.source for rule in permissions.rules],
-            ["<cli --permission-mode acceptEdits>", "<cli --permission-mode acceptEdits>"],
+            [
+                "<cli --permission-mode acceptEdits>",
+                "<cli --permission-mode acceptEdits>",
+                "<cli --permission-mode acceptEdits>",
+                "<cli --permission-mode acceptEdits>",
+            ],
         )
         self.assertEqual(permissions.trusted_allow_sources, ("<cli --permission-mode acceptEdits>",))
 

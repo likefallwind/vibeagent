@@ -278,7 +278,10 @@ class V1AcceptanceTests(unittest.TestCase):
     def test_readme_documents_accept_edits_file_permission_scope(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-        self.assertIn("`acceptEdits` -> `ask` plus automatic `Edit` and `NotebookEdit` allow rules", readme)
+        self.assertIn(
+            "`acceptEdits` -> `ask` plus automatic `Write`, `Edit`, `MultiEdit`, and `NotebookEdit` allow rules",
+            readme,
+        )
 
 
 if __name__ == "__main__":

@@ -186,7 +186,7 @@ local changes when asked, and resume from recorded session context.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_stream_json_accept_edits_auto_allows_claude_edit`
   runs the same real CLI `stream-json` path with `--permission-mode
   acceptEdits` and without an explicit `Edit` allowed-tool override, confirming
-  the Claude-compatible edit is approved by the `acceptEdits` permission source
+  Claude-compatible file edit tools are approved by the `acceptEdits` permission source
   while other side-effecting tools still require explicit trusted rules.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_stream_json_accept_edits_auto_allows_claude_notebook_edit`
   runs a real CLI `stream-json` notebook repair with `--permission-mode

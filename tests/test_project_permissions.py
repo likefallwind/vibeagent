@@ -99,9 +99,14 @@ class ProjectPermissionConfigTests(unittest.TestCase):
     def test_accept_edits_permission_mode_allows_file_edits_but_not_commands(self) -> None:
         overrides = build_permission_overrides(parse_args(["--permission-mode", "acceptEdits", "inspect"]))
         write_action = parse_tool_action("write_file", {"path": "src/app.py", "content": "x = 1\n"})
+        claude_write_action = parse_tool_action("Write", {"file_path": "src/new.py", "content": "x = 1\n"})
         multi_edit_action = parse_tool_action(
             "multi_edit_file",
             {"path": "src/app.py", "edits": [{"old": "x = 0", "new": "x = 1"}]},
+        )
+        claude_multi_edit_action = parse_tool_action(
+            "MultiEdit",
+            {"file_path": "src/app.py", "edits": [{"old_string": "x = 0", "new_string": "x = 1"}]},
         )
         notebook_action = parse_tool_action(
             "notebook_edit",
@@ -109,10 +114,12 @@ class ProjectPermissionConfigTests(unittest.TestCase):
         )
         command_action = parse_tool_action("run_command", {"command": "python3 -m unittest"})
 
-        self.assertEqual([rule.raw for rule in overrides.rules], ["Edit", "NotebookEdit"])
+        self.assertEqual([rule.raw for rule in overrides.rules], ["Write", "Edit", "MultiEdit", "NotebookEdit"])
         self.assertEqual(overrides.trusted_allow_sources, (ACCEPT_EDITS_SOURCE,))
         self.assertEqual(match_project_permission(overrides, "write_file", write_action).effect, "allow")
+        self.assertEqual(match_project_permission(overrides, "Write", claude_write_action).effect, "allow")
         self.assertEqual(match_project_permission(overrides, "multi_edit_file", multi_edit_action).effect, "allow")
+        self.assertEqual(match_project_permission(overrides, "MultiEdit", claude_multi_edit_action).effect, "allow")
         self.assertEqual(match_project_permission(overrides, "notebook_edit", notebook_action).effect, "allow")
         self.assertIsNone(match_project_permission(overrides, "run_command", command_action))
 

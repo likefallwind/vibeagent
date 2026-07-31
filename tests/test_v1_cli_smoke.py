@@ -969,7 +969,7 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn("permissions_loaded", event_types)
         self.assertIn("permission_rule_evaluated", event_types)
         self.assertNotIn("approval_requested", event_types)
-        self.assertEqual(permissions["count"], 9)
+        self.assertEqual(permissions["count"], 11)
         self.assertIn("<cli --allowed-tools>", permissions["sources"])
         self.assertIn("<cli --permission-mode acceptEdits>", permissions["sources"])
         self.assertIn("<cli --permission-mode acceptEdits>", permissions["trusted_allow_sources"])
@@ -977,7 +977,7 @@ class V1CliSmokeTests(unittest.TestCase):
             any(
                 event["tool"] == "Edit"
                 and event["effect"] == "allow"
-                and event["rule"] == "Edit"
+                and event["rule"] in {"Write", "Edit"}
                 and event["source"] == "<cli --permission-mode acceptEdits>"
                 and event["subjects"] == ["calc.py"]
                 for event in permission_evaluations
@@ -1034,7 +1034,7 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn("permissions_loaded", event_types)
         self.assertIn("permission_rule_evaluated", event_types)
         self.assertNotIn("approval_requested", event_types)
-        self.assertEqual(permissions["count"], 9)
+        self.assertEqual(permissions["count"], 11)
         self.assertIn("<cli --allowed-tools>", permissions["sources"])
         self.assertIn("<cli --permission-mode acceptEdits>", permissions["sources"])
         self.assertIn("<cli --permission-mode acceptEdits>", permissions["trusted_allow_sources"])
@@ -1093,7 +1093,7 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn("permissions_loaded", event_types)
         self.assertIn("permission_rule_evaluated", event_types)
         self.assertNotIn("approval_requested", event_types)
-        self.assertEqual(permissions["count"], 3)
+        self.assertEqual(permissions["count"], 5)
         self.assertIn("<cli --permission-mode acceptEdits>", permissions["sources"])
         self.assertIn("<cli --disallowed-tools>", permissions["sources"])
         self.assertTrue(

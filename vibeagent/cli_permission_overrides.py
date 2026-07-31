@@ -9,7 +9,7 @@ from .workspace_permissions import ProjectPermissions, permission_rules_from_val
 ALLOWED_TOOLS_SOURCE = "<cli --allowed-tools>"
 DISALLOWED_TOOLS_SOURCE = "<cli --disallowed-tools>"
 ACCEPT_EDITS_SOURCE = "<cli --permission-mode acceptEdits>"
-ACCEPT_EDITS_RULES = ("Edit", "NotebookEdit")
+ACCEPT_EDITS_RULES = ("Write", "Edit", "MultiEdit", "NotebookEdit")
 
 
 def add_permission_override_arguments(parser: argparse.ArgumentParser) -> None:
