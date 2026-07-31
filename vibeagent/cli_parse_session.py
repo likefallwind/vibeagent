@@ -30,6 +30,8 @@ def parse_interactive_transcript_argument(
             value, error = parse_interactive_positive_option(part, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
+            if "max_events" in kwargs:
+                return None, {}, f"{usage}\n  error: provide --max-events at most once."
             kwargs["max_events"] = int(value)
             index += 2
             continue
@@ -37,6 +39,8 @@ def parse_interactive_transcript_argument(
             value, error = parse_interactive_positive_option("--max-events", part.split("=", 1)[1])
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
+            if "max_events" in kwargs:
+                return None, {}, f"{usage}\n  error: provide --max-events at most once."
             kwargs["max_events"] = int(value)
             index += 1
             continue
@@ -45,6 +49,8 @@ def parse_interactive_transcript_argument(
             value, error = parse_interactive_positive_option(part, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
+            if "max_text" in kwargs:
+                return None, {}, f"{usage}\n  error: provide --max-text at most once."
             kwargs["max_text"] = int(value)
             index += 2
             continue
@@ -52,6 +58,8 @@ def parse_interactive_transcript_argument(
             value, error = parse_interactive_positive_option("--max-text", part.split("=", 1)[1])
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
+            if "max_text" in kwargs:
+                return None, {}, f"{usage}\n  error: provide --max-text at most once."
             kwargs["max_text"] = int(value)
             index += 1
             continue
@@ -86,10 +94,14 @@ def parse_interactive_session_search_argument(
         if part == "--run":
             if index + 1 >= len(parts):
                 return None, None, {}, f"{usage}\n  error: --run requires a value."
+            if run_id is not None:
+                return None, None, {}, f"{usage}\n  error: provide --run at most once."
             run_id = normalize_optional_run_id(parts[index + 1])
             index += 2
             continue
         if part.startswith("--run="):
+            if run_id is not None:
+                return None, None, {}, f"{usage}\n  error: provide --run at most once."
             run_id = normalize_optional_run_id(part.split("=", 1)[1])
             index += 1
             continue
@@ -98,6 +110,8 @@ def parse_interactive_session_search_argument(
             value, error = parse_interactive_positive_option(part, raw_value)
             if error:
                 return None, None, {}, f"{usage}\n  error: {error}"
+            if "max_matches" in kwargs:
+                return None, None, {}, f"{usage}\n  error: provide --max-matches at most once."
             kwargs["max_matches"] = int(value)
             index += 2
             continue
@@ -105,6 +119,8 @@ def parse_interactive_session_search_argument(
             value, error = parse_interactive_positive_option("--max-matches", part.split("=", 1)[1])
             if error:
                 return None, None, {}, f"{usage}\n  error: {error}"
+            if "max_matches" in kwargs:
+                return None, None, {}, f"{usage}\n  error: provide --max-matches at most once."
             kwargs["max_matches"] = int(value)
             index += 1
             continue
@@ -113,6 +129,8 @@ def parse_interactive_session_search_argument(
             value, error = parse_interactive_positive_option(part, raw_value)
             if error:
                 return None, None, {}, f"{usage}\n  error: {error}"
+            if "max_text" in kwargs:
+                return None, None, {}, f"{usage}\n  error: provide --max-text at most once."
             kwargs["max_text"] = int(value)
             index += 2
             continue
@@ -120,10 +138,14 @@ def parse_interactive_session_search_argument(
             value, error = parse_interactive_positive_option("--max-text", part.split("=", 1)[1])
             if error:
                 return None, None, {}, f"{usage}\n  error: {error}"
+            if "max_text" in kwargs:
+                return None, None, {}, f"{usage}\n  error: provide --max-text at most once."
             kwargs["max_text"] = int(value)
             index += 1
             continue
         if part == "--case-sensitive":
+            if kwargs.get("case_sensitive") is True:
+                return None, None, {}, f"{usage}\n  error: provide --case-sensitive at most once."
             kwargs["case_sensitive"] = True
             index += 1
             continue

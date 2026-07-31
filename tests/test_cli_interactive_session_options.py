@@ -48,7 +48,13 @@ class CliInteractiveSessionOptionsTests(unittest.TestCase):
                 "builtins.input",
                 side_effect=[
                     "/transcript --max-events nope",
+                    "/transcript --max-events 1 --max-events 2",
+                    "/transcript --max-text 100 --max-text=120",
                     "/session-search --max-matches 0 needle",
+                    "/session-search --run run-1 --run run-2 needle",
+                    "/session-search --max-matches 1 --max-matches=2 needle",
+                    "/session-search --max-text 100 --max-text 120 needle",
+                    "/session-search --case-sensitive --case-sensitive needle",
                     "/session-search --unknown needle",
                     "/exit",
                 ],
@@ -64,8 +70,13 @@ class CliInteractiveSessionOptionsTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("Usage: /transcript [run-id] [--max-events N] [--max-text N]", output)
         self.assertIn("--max-events must be a positive integer.", output)
+        self.assertIn("provide --max-events at most once.", output)
+        self.assertIn("provide --max-text at most once.", output)
         self.assertIn("Usage: /session-search [--run run-id] [--max-matches N] [--case-sensitive] [--max-text N] <query>", output)
         self.assertIn("--max-matches must be a positive integer.", output)
+        self.assertIn("provide --run at most once.", output)
+        self.assertIn("provide --max-matches at most once.", output)
+        self.assertIn("provide --case-sensitive at most once.", output)
         self.assertIn("Unknown option: --unknown", output)
         get_transcript_text.assert_not_called()
         get_session_search_text.assert_not_called()
