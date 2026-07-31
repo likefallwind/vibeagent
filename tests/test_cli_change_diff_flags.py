@@ -374,6 +374,7 @@ class CliChangeDiffFlagTests(unittest.TestCase):
                 side_effect=[
                     "/diff --max-chars 0 app.py",
                     "/diff --max-chars 99 app.py",
+                    "/diff --max-chars 1000 --max-chars=2000 app.py",
                     "/exit",
                 ],
             ),
@@ -388,6 +389,7 @@ class CliChangeDiffFlagTests(unittest.TestCase):
         self.assertIn("Usage: /diff [--staged|--cached] [--max-chars N] [path]", output)
         self.assertIn("--max-chars must be a positive integer.", output)
         self.assertIn("max_chars must be at least 100.", output)
+        self.assertIn("provide --max-chars at most once.", output)
         get_diff_text.assert_called_once_with(argument="app.py", max_chars=99)
         create_chat_client.assert_not_called()
 

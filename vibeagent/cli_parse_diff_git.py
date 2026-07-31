@@ -27,6 +27,7 @@ def parse_interactive_diff_argument(argument: str | None) -> tuple[str | None, i
 
     diff_parts: list[str] = []
     max_chars = 12_000
+    kwargs: dict[str, int] = {}
     index = 0
     while index < len(parts):
         part = parts[index]
@@ -41,6 +42,10 @@ def parse_interactive_diff_argument(argument: str | None) -> tuple[str | None, i
             value, error = parse_interactive_positive_option("--max-chars", raw_value)
             if error:
                 return None, 12_000, f"{usage}\n  error: {error}"
+            duplicate_error = duplicate_option_error(kwargs, "max_chars", "--max-chars", usage)
+            if duplicate_error:
+                return None, 12_000, duplicate_error
+            kwargs["max_chars"] = int(value)
             max_chars = int(value)
             continue
         diff_parts.append(part)
