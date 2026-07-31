@@ -56,7 +56,7 @@ class ActionToolAliasTests(unittest.TestCase):
         )
         notebook_action = parse_tool_action(
             "NotebookRead",
-            {"notebook_path": "analysis.ipynb", "offset": 0, "limit": 3, "include_outputs": "true"},
+            {"notebook_path": "analysis.ipynb", "offset": 0, "limit": 3, "include_outputs": "true", "max_source_chars": 1234},
         )
         string_offset_action = parse_tool_action("Read", {"file_path": "app.py", "offset": "0", "limit": "5"})
         notebook_string_offset_action = parse_tool_action(
@@ -83,6 +83,7 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertEqual(notebook_string_offset_action.start_cell, 1)
         self.assertEqual(notebook_string_offset_action.cell_count, 3)
         self.assertTrue(notebook_action.include_outputs)
+        self.assertEqual(notebook_action.max_source_chars, 1234)
         self.assertFalse(notebook_without_outputs.include_outputs)
 
     def test_claude_edit_replace_all_maps_to_literal_regex_replace(self) -> None:

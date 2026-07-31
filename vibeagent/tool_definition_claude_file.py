@@ -59,6 +59,7 @@ CLAUDE_READ_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "offset": {"type": "integer", "minimum": 0},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 2000},
                 "include_outputs": {"type": "boolean"},
+                "max_source_chars": {"type": "integer", "minimum": 1, "maximum": 20000},
             },
             "required": ["notebook_path"],
             "additionalProperties": False,

@@ -49,7 +49,10 @@ class NotebookToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="vibeagent-notebook-") as base:
             root = Path(base)
             write_notebook(root / "analysis.ipynb")
-            action = parse_tool_action("NotebookRead", {"notebook_path": "analysis.ipynb", "offset": 0, "limit": 2})
+            action = parse_tool_action(
+                "NotebookRead",
+                {"notebook_path": "analysis.ipynb", "offset": 0, "limit": 2, "max_source_chars": 6},
+            )
 
             observation = execute_action(create_run_workspace(root), action)
 
@@ -59,7 +62,9 @@ class NotebookToolTests(unittest.TestCase):
         self.assertEqual(observation.total_cells, 2)
         self.assertEqual(observation.cells[0].cell_id, "intro")
         self.assertEqual(observation.cells[0].cell_type, "markdown")
-        self.assertIn("# Title", observation.cells[0].source)
+        self.assertEqual(action.max_source_chars, 6)
+        self.assertEqual(observation.cells[0].source, "# Titl")
+        self.assertTrue(observation.cells[0].source_truncated)
         self.assertEqual(observation.cells[1].execution_count, 3)
         self.assertIn("cell 2 id=calc type=code", format_observations([observation]))
 

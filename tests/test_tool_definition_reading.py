@@ -72,6 +72,8 @@ class ReadingToolDefinitionTests(unittest.TestCase):
         notebook_edit_schema = tools["NotebookEdit"]["input_schema"]
 
         self.assertIn("include_outputs", notebook_read_schema["properties"])
+        self.assertIn("max_source_chars", notebook_read_schema["properties"])
+        self.assertNotIn("max_source_chars", notebook_read_schema["required"])
         self.assertEqual(notebook_edit_schema["required"], ["notebook_path"])
         self.assertIn({"required": ["cell_id", "new_source"]}, notebook_edit_schema["anyOf"])
         self.assertIn({"required": ["cell_number", "new_source"]}, notebook_edit_schema["anyOf"])
