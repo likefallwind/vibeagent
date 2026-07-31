@@ -44,6 +44,8 @@ def parse_interactive_process_output_argument(
             value, error = parser(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
+            if keyword == "max_output_chars" and legacy_max_chars is not None:
+                return None, {}, f"{usage}\n  error: provide either --max-chars or positional chars, not both."
             duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error

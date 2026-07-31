@@ -465,7 +465,7 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertEqual(process_kwargs, {})
         self.assertIn("provide --max-chars at most once.", process_error or "")
         self.assertEqual(process_positional_kwargs, {})
-        self.assertIn("provide --max-chars at most once.", process_positional_error or "")
+        self.assertIn("provide either --max-chars or positional chars, not both.", process_positional_error or "")
         self.assertTrue(port_handled)
         self.assertEqual(port_kwargs, {})
         self.assertIn("provide --host at most once.", port_error or "")

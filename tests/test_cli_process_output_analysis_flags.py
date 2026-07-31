@@ -62,6 +62,7 @@ class CliProcessOutputAnalysisFlagTests(unittest.TestCase):
                     "/process-output-contexts bg-1 --max-diagnostics 2",
                     "/process-output-contexts bg-1 --max-chars 999",
                     "/process-output-diagnostics bg-1 999",
+                    "/process-output-diagnostics bg-1 1200 --max-chars 1300",
                     "/exit",
                 ],
             ),
@@ -81,6 +82,7 @@ class CliProcessOutputAnalysisFlagTests(unittest.TestCase):
         self.assertIn("Unknown option: --max-diagnostics", output)
         self.assertIn("max chars must be at least 1000.", output)
         self.assertIn("invalid max chars: 999", output)
+        self.assertIn("provide either --max-chars or positional chars, not both.", output)
         get_process_output_contexts_text.assert_not_called()
         get_process_output_diagnostics_text.assert_not_called()
         create_chat_client.assert_not_called()
