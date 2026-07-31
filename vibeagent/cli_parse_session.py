@@ -23,46 +23,29 @@ def parse_interactive_transcript_argument(
         return None, {}, f"{usage}\n  error: {error}"
     run_id: str | None = None
     kwargs: dict[str, int] = {}
+    value_options = {
+        "--max-events": "max_events",
+        "--max-text": "max_text",
+    }
     index = 0
     while index < len(parts):
         part = parts[index]
-        if part == "--max-events":
-            raw_value = parts[index + 1] if index + 1 < len(parts) else None
-            value, error = parse_interactive_positive_option(part, raw_value)
+        flag = part.split("=", 1)[0] if part.startswith("--") else part
+        if flag in value_options:
+            if "=" in part:
+                raw_value = part.split("=", 1)[1]
+                index += 1
+            else:
+                raw_value = parts[index + 1] if index + 1 < len(parts) else None
+                index += 2
+            value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
-            if "max_events" in kwargs:
-                return None, {}, f"{usage}\n  error: provide --max-events at most once."
-            kwargs["max_events"] = int(value)
-            index += 2
-            continue
-        if part.startswith("--max-events="):
-            value, error = parse_interactive_positive_option("--max-events", part.split("=", 1)[1])
-            if error:
-                return None, {}, f"{usage}\n  error: {error}"
-            if "max_events" in kwargs:
-                return None, {}, f"{usage}\n  error: provide --max-events at most once."
-            kwargs["max_events"] = int(value)
-            index += 1
-            continue
-        if part == "--max-text":
-            raw_value = parts[index + 1] if index + 1 < len(parts) else None
-            value, error = parse_interactive_positive_option(part, raw_value)
-            if error:
-                return None, {}, f"{usage}\n  error: {error}"
-            if "max_text" in kwargs:
-                return None, {}, f"{usage}\n  error: provide --max-text at most once."
-            kwargs["max_text"] = int(value)
-            index += 2
-            continue
-        if part.startswith("--max-text="):
-            value, error = parse_interactive_positive_option("--max-text", part.split("=", 1)[1])
-            if error:
-                return None, {}, f"{usage}\n  error: {error}"
-            if "max_text" in kwargs:
-                return None, {}, f"{usage}\n  error: provide --max-text at most once."
-            kwargs["max_text"] = int(value)
-            index += 1
+            keyword = value_options[flag]
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error
+            kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):
             return None, {}, f"{usage}\n  error: Unknown option: {part}"
@@ -86,6 +69,10 @@ def parse_interactive_session_search_argument(
     run_id: str | None = None
     query_parts: list[str] = []
     kwargs: dict[str, int | bool] = {}
+    value_options = {
+        "--max-matches": "max_matches",
+        "--max-text": "max_text",
+    }
     index = 0
     while index < len(parts):
         part = parts[index]
@@ -106,43 +93,22 @@ def parse_interactive_session_search_argument(
             run_id = normalize_optional_run_id(part.split("=", 1)[1])
             index += 1
             continue
-        if part == "--max-matches":
-            raw_value = parts[index + 1] if index + 1 < len(parts) else None
-            value, error = parse_interactive_positive_option(part, raw_value)
+        flag = part.split("=", 1)[0] if part.startswith("--") else part
+        if flag in value_options:
+            if "=" in part:
+                raw_value = part.split("=", 1)[1]
+                index += 1
+            else:
+                raw_value = parts[index + 1] if index + 1 < len(parts) else None
+                index += 2
+            value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return None, None, {}, f"{usage}\n  error: {error}"
-            if "max_matches" in kwargs:
-                return None, None, {}, f"{usage}\n  error: provide --max-matches at most once."
-            kwargs["max_matches"] = int(value)
-            index += 2
-            continue
-        if part.startswith("--max-matches="):
-            value, error = parse_interactive_positive_option("--max-matches", part.split("=", 1)[1])
-            if error:
-                return None, None, {}, f"{usage}\n  error: {error}"
-            if "max_matches" in kwargs:
-                return None, None, {}, f"{usage}\n  error: provide --max-matches at most once."
-            kwargs["max_matches"] = int(value)
-            index += 1
-            continue
-        if part == "--max-text":
-            raw_value = parts[index + 1] if index + 1 < len(parts) else None
-            value, error = parse_interactive_positive_option(part, raw_value)
-            if error:
-                return None, None, {}, f"{usage}\n  error: {error}"
-            if "max_text" in kwargs:
-                return None, None, {}, f"{usage}\n  error: provide --max-text at most once."
-            kwargs["max_text"] = int(value)
-            index += 2
-            continue
-        if part.startswith("--max-text="):
-            value, error = parse_interactive_positive_option("--max-text", part.split("=", 1)[1])
-            if error:
-                return None, None, {}, f"{usage}\n  error: {error}"
-            if "max_text" in kwargs:
-                return None, None, {}, f"{usage}\n  error: provide --max-text at most once."
-            kwargs["max_text"] = int(value)
-            index += 1
+            keyword = value_options[flag]
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, None, {}, duplicate_error
+            kwargs[keyword] = int(value)
             continue
         if part == "--case-sensitive":
             if kwargs.get("case_sensitive") is True:
