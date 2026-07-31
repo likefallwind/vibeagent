@@ -86,30 +86,7 @@ from .action_notebook_types import (
     NotebookReadAction,
 )
 from .action_mcp_types import McpCallAction, McpServersAction, McpToolsAction
-from .action_process_types import (
-    CheckRunCommandsAction,
-    CheckStartCommandAction,
-    CheckStopAllProcessesAction,
-    CheckStopProcessAction,
-    CheckWriteProcessAction,
-    CommandCheckAction,
-    EnvironmentInfoAction,
-    HttpCheckAction,
-    HttpFetchAction,
-    WebFetchAction,
-    ListProcessesAction,
-    PortCheckAction,
-    ProcessOutputContextsAction,
-    ProcessOutputDiagnosticsAction,
-    ReadProcessAction,
-    RunCommandAction,
-    RunCommandsAction,
-    StartCommandAction,
-    StopAllProcessesAction,
-    StopProcessAction,
-    WaitProcessAction,
-    WriteProcessAction,
-)
+from .action_process_union_types import ProcessAgentAction
 from .action_project_types import (
     CheckFocusedTestCommandsAction,
     CheckSuggestedChecksAction,
@@ -272,14 +249,7 @@ AgentAction: TypeAlias = (
     | SkillAction
     | ProjectTodosAction
     | ProjectOverviewAction
-    | CommandCheckAction
-    | CheckRunCommandsAction
-    | CheckStartCommandAction
-    | PortCheckAction
-    | HttpCheckAction
-    | HttpFetchAction
-    | WebFetchAction
-    | EnvironmentInfoAction
+    | ProcessAgentAction
     | GitDiffAction
     | GitDiffHunksAction
     | GitDiffContextsAction
@@ -311,20 +281,6 @@ AgentAction: TypeAlias = (
     | CheckCheckpointPruneAction
     | CheckpointPruneAction
     | FileEditAgentAction
-    | RunCommandAction
-    | RunCommandsAction
-    | StartCommandAction
-    | ReadProcessAction
-    | ProcessOutputContextsAction
-    | ProcessOutputDiagnosticsAction
-    | WaitProcessAction
-    | CheckWriteProcessAction
-    | WriteProcessAction
-    | ListProcessesAction
-    | CheckStopAllProcessesAction
-    | CheckStopProcessAction
-    | StopProcessAction
-    | StopAllProcessesAction
     | UpdatePlanAction
     | AskUserAction
     | DelegateTaskAction
