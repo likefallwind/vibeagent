@@ -323,12 +323,19 @@ def git_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
 def run_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
     if kind in {"run_command", "command_check", "start_command", "check_start_command"}:
         normalized = "run_command" if kind == "command_check" else kind.replace("check_", "")
-        return (normalized, getattr(value, "command", ""), getattr(value, "cwd", None) or ".")
+        return (
+            normalized,
+            command_item_preview_key(value),
+        )
     if kind in {"run_commands", "check_run_commands"}:
         commands = getattr(value, "commands", None)
         if commands is None:
             commands = getattr(value, "checks", [])
-        return ("run_commands", tuple((getattr(item, "command", ""), getattr(item, "cwd", None) or ".") for item in commands))
+        return (
+            "run_commands",
+            tuple(command_item_preview_key(item) for item in commands),
+            getattr(value, "stop_on_failure", True),
+        )
     if kind in {"run_suggested_checks", "check_suggested_checks"}:
         return ("run_suggested_checks", getattr(value, "max_commands", None))
     if kind in {"run_focused_test_commands", "check_focused_test_commands"}:
@@ -352,6 +359,21 @@ def run_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
     if kind in {"stop_all_processes", "check_stop_all_processes"}:
         return ("stop_all_processes",)
     return None
+
+
+def command_item_preview_key(value: object) -> tuple[Any, ...]:
+    return (
+        getattr(value, "command", ""),
+        getattr(value, "cwd", None) or ".",
+        getattr(value, "timeout_ms", None),
+        getattr(value, "max_output_chars", None),
+        getattr(value, "extract_output_contexts", False),
+        getattr(value, "extract_output_diagnostics", False),
+        getattr(value, "context_lines", 5),
+        getattr(value, "max_diagnostics", 50),
+        getattr(value, "max_contexts", 20),
+        getattr(value, "max_bytes_per_context", 20_000),
+    )
 
 
 def git_stash_preview_message(value: object) -> str:

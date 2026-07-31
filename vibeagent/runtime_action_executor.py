@@ -81,6 +81,7 @@ def execute_runtime_action(
             ok=failed_count == 0,
             checks=checks,
             message=f"Preflighted {len(checks)} command(s); {failed_count} failed.",
+            commands=action.commands,
         )
 
     if isinstance(action, CheckStartCommandAction):

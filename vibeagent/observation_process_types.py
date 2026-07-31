@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+from .action_process_types import RunCommandItem
 from .observation_read_types import OutputContextResult, OutputDiagnostic
 
 
@@ -65,6 +66,7 @@ class CheckRunCommandsObservation:
     ok: bool
     checks: list[CommandCheckObservation]
     message: str
+    commands: list[RunCommandItem] | None = None
 
 
 @dataclass(frozen=True)

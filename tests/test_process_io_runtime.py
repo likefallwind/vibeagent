@@ -7,7 +7,15 @@ import unittest
 from vibeagent import process_io_runtime, process_runtime, process_wait_runtime
 from vibeagent.agent_approval_preview import approval_preview_summary
 from vibeagent.agent_tool_results import build_tool_result_payload
-from vibeagent.types import CheckWriteProcessObservation, WriteProcessAction
+from vibeagent.types import (
+    CheckRunCommandsObservation,
+    CheckWriteProcessObservation,
+    CommandCheckObservation,
+    RunCommandAction,
+    RunCommandItem,
+    RunCommandsAction,
+    WriteProcessAction,
+)
 
 
 class ProcessIORuntimeModuleTests(unittest.TestCase):
@@ -114,6 +122,71 @@ class ProcessIORuntimeModuleTests(unittest.TestCase):
         self.assertIn("Can write 6 character", matching_preview or "")
         self.assertIsNone(mismatched_same_length_preview)
         self.assertNotIn("content_sha256", build_tool_result_payload(observation))
+
+    def test_run_command_preview_matches_default_execution_parameters(self) -> None:
+        observation = CommandCheckObservation(
+            kind="command_check",
+            ok=True,
+            command="python3 -m unittest",
+            cwd=".",
+            cwd_ok=True,
+            blocked=False,
+            block_reason=None,
+            executable_available=True,
+            missing_tool=None,
+            message="Command can run.",
+        )
+
+        matching_preview = approval_preview_summary(
+            RunCommandAction(type="run_command", command="python3 -m unittest"),
+            [observation],
+        )
+        custom_timeout_preview = approval_preview_summary(
+            RunCommandAction(type="run_command", command="python3 -m unittest", timeout_ms=100),
+            [observation],
+        )
+
+        self.assertIn("Command can run", matching_preview or "")
+        self.assertIsNone(custom_timeout_preview)
+
+    def test_run_commands_preview_matches_approval_by_command_parameters(self) -> None:
+        command = RunCommandItem(command="python3 -m unittest", timeout_ms=1000)
+        observation = CheckRunCommandsObservation(
+            kind="check_run_commands",
+            ok=True,
+            checks=[
+                CommandCheckObservation(
+                    kind="command_check",
+                    ok=True,
+                    command=command.command,
+                    cwd=".",
+                    cwd_ok=True,
+                    blocked=False,
+                    block_reason=None,
+                    executable_available=True,
+                    missing_tool=None,
+                    message="Command can run.",
+                )
+            ],
+            commands=[command],
+            message="Preflighted 1 command(s); 0 failed.",
+        )
+
+        matching_preview = approval_preview_summary(
+            RunCommandsAction(type="run_commands", commands=[command]),
+            [observation],
+        )
+        mismatched_timeout_preview = approval_preview_summary(
+            RunCommandsAction(
+                type="run_commands",
+                commands=[RunCommandItem(command="python3 -m unittest", timeout_ms=2000)],
+            ),
+            [observation],
+        )
+
+        self.assertIn("commands=1", matching_preview or "")
+        self.assertIsNone(mismatched_timeout_preview)
+        self.assertNotIn("commands", build_tool_result_payload(observation))
 
 
 if __name__ == "__main__":
