@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 import vibeagent.agent_completion as completion_module
 import vibeagent.agent_completion_verification as completion_verification_module
+import vibeagent.agent_approval_preview as approval_preview_module
 import vibeagent.agent as agent_module
 import vibeagent.agent_observation_failure_kinds as observation_failure_kinds
 import vibeagent.types as types_module
@@ -13074,6 +13075,21 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(missing, [])
         self.assertEqual(invalid, [])
+
+    def test_workspace_mutating_approval_previews_are_workspace_stale_tracked(self) -> None:
+        workspace_mutating_actions = (
+            approval_preview_module.FILE_MUTATION_OBSERVATION_KINDS
+            | approval_preview_module.GIT_MUTATION_OBSERVATION_KINDS
+            | approval_preview_module.CHECKPOINT_RESTORE_MUTATION_OBSERVATION_KINDS
+        )
+        missing = sorted(
+            (action_name, preview_name)
+            for action_name, preview_name in approval_preview_module.PREVIEW_KIND_BY_ACTION_TYPE.items()
+            if action_name in workspace_mutating_actions
+            and preview_name not in approval_preview_module.WORKSPACE_PREVIEW_KINDS
+        )
+
+        self.assertEqual(missing, [])
 
     def test_run_agent_leaves_approval_preview_empty_without_matching_check(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
