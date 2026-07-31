@@ -232,7 +232,7 @@ def parse_interactive_http_argument(
     positional_contains = " ".join(positional[1:]).strip() or None
     if positional_contains is not None:
         if "contains" in kwargs:
-            return None, {}, f"{usage}\n  error: contains can only be provided once.", True
+            return None, {}, f"{usage}\n  error: provide either --contains or positional contains, not both.", True
         kwargs["contains"] = positional_contains
     return url, kwargs, None, True
 

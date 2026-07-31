@@ -351,6 +351,7 @@ class CliHttpRuntimeFlagTests(unittest.TestCase):
                 side_effect=[
                     "/http --timeout-ms 99 -- http://127.0.0.1:5173",
                     "/http http://127.0.0.1:5173 --contains",
+                    "/http --contains ready http://127.0.0.1:5173 positional",
                     "/http --contains ready",
                     "/http http://127.0.0.1:5173 --unknown 1",
                     "/http-fetch --max-body-chars 0 -- http://127.0.0.1:5173/app",
@@ -370,6 +371,7 @@ class CliHttpRuntimeFlagTests(unittest.TestCase):
         self.assertIn("Usage: /http <url> [contains]", output)
         self.assertIn("--timeout-ms must be at least 100.", output)
         self.assertIn("--contains requires a value.", output)
+        self.assertIn("provide either --contains or positional contains, not both.", output)
         self.assertIn("url is required.", output)
         self.assertIn("Unknown option: --unknown", output)
         self.assertIn("Usage: /http-fetch <url>", output)
