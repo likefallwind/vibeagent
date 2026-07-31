@@ -172,8 +172,10 @@ class SuggestedChecksCommandTests(unittest.TestCase):
             )
 
             text = get_run_suggested_checks_text(root, "1", timeout_ms=10_000, max_output_chars=2_000)
+            named_text = get_run_suggested_checks_text(root, "--max-checks=1", timeout_ms=10_000, max_output_chars=2_000)
 
         self.assertIn("Run suggested checks:", text)
+        self.assertIn("Run suggested checks:", named_text)
         self.assertIn("suggestedChecks:", text)
         self.assertIn("command: python -m unittest discover -s tests", text)
         self.assertIn("cwd: .", text)
@@ -196,9 +198,17 @@ class SuggestedChecksCommandTests(unittest.TestCase):
             )
 
             report = get_run_suggested_checks_report(root, "1", timeout_ms=10_000, max_output_chars=2_000)
+            named_report = get_run_suggested_checks_report(root, "--max-checks 1", timeout_ms=10_000, max_output_chars=2_000)
+            invalid_report = get_run_suggested_checks_report(root, "--max-checks 0", timeout_ms=10_000, max_output_chars=2_000)
             rendered = format_run_suggested_checks_report_text(report)
 
         self.assertTrue(report["ok"])
+        self.assertTrue(named_report["ok"])
+        self.assertEqual(named_report["ran"], 1)
+        self.assertEqual(
+            format_run_suggested_checks_report_text(invalid_report),
+            "Usage: /run-suggested-checks [max|--max-checks N]\nError: max must be at least 1.",
+        )
         self.assertEqual(report["suggestedChecks"]["shown"], 1)
         self.assertEqual(report["ran"], 1)
         self.assertFalse(report["stoppedEarly"])

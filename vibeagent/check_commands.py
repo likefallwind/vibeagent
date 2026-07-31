@@ -27,7 +27,7 @@ from .workspace import suggest_project_checks
 from .workflow_commands import format_review_check
 
 CHECK_SUGGESTED_CHECKS_USAGE = "Usage: /check-suggested-checks [max|--max-checks N]"
-RUN_SUGGESTED_CHECKS_USAGE = "Usage: /run-suggested-checks [max]"
+RUN_SUGGESTED_CHECKS_USAGE = "Usage: /run-suggested-checks [max|--max-checks N]"
 
 
 def _usage_error(usage: str, error: object) -> str:
