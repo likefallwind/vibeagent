@@ -33,8 +33,10 @@ from vibeagent.cli_parse_read import (
 from vibeagent import cli_parse_run
 from vibeagent.cli_parse_run import (
     parse_interactive_check_run_sequence_argument,
+    parse_interactive_run_focused_tests_argument,
     parse_interactive_run_argument,
     parse_interactive_run_sequence_argument,
+    parse_interactive_run_suggested_checks_argument,
 )
 from vibeagent.cli_parse_session import (
     parse_interactive_session_detail_argument,
@@ -484,6 +486,33 @@ class CliParseModuleTests(unittest.TestCase):
             (preview_commands, cwd, preview_error, preview_handled),
             (["echo one", "echo two"], "src", None, True),
         )
+
+    def test_run_parsers_reject_duplicate_options(self) -> None:
+        _, run_kwargs, run_error, run_handled = parse_interactive_run_argument(
+            "--timeout-ms 1000 --timeout-ms=2000 -- python -m unittest"
+        )
+        _, seq_kwargs, seq_error, seq_handled = parse_interactive_run_sequence_argument(
+            "--continue-on-failure --stop-on-failure -- echo one"
+        )
+        _, focused_kwargs, focused_error, focused_handled = parse_interactive_run_focused_tests_argument(
+            "--max-paths 1 --max-paths=2 -- tests"
+        )
+        _, suggested_kwargs, suggested_error, suggested_handled = parse_interactive_run_suggested_checks_argument(
+            "--output-contexts --output-contexts"
+        )
+
+        self.assertTrue(run_handled)
+        self.assertEqual(run_kwargs, {})
+        self.assertIn("provide --timeout-ms at most once.", run_error or "")
+        self.assertTrue(seq_handled)
+        self.assertEqual(seq_kwargs, {})
+        self.assertIn("provide --stop-on-failure at most once.", seq_error or "")
+        self.assertTrue(focused_handled)
+        self.assertEqual(focused_kwargs, {})
+        self.assertIn("provide --max-paths at most once.", focused_error or "")
+        self.assertTrue(suggested_handled)
+        self.assertEqual(suggested_kwargs, {})
+        self.assertIn("provide --output-contexts at most once.", suggested_error or "")
 
 
 if __name__ == "__main__":
