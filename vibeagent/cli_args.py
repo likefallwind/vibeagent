@@ -13,6 +13,7 @@ from .cli_git_args import (
     add_git_history_option_arguments,
     add_git_local_arguments,
 )
+from .cli_inspection_args import add_inspection_arguments
 from .cli_local_flag_detection import (
     LOCAL_FLAG_ARG_NAMES,
     has_local_flag as _has_local_flag,
@@ -35,8 +36,6 @@ from .cli_runtime_args import (
 )
 from .cli_session_args import add_session_limit_arguments, add_session_local_arguments
 from .cli_workflow_args import add_workflow_local_arguments, add_workflow_option_arguments
-from .tool_categories import valid_tool_categories
-from .tool_search_options import tool_search_approval_choices
 
 
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
@@ -49,35 +48,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     mode.add_argument("--chat", action="store_true", help="Run the one-shot task in daily conversation mode.")
     mode.add_argument("--code", action="store_true", help="Run the one-shot task in coding mode. This is the default.")
     local = parser.add_mutually_exclusive_group()
-    parser.add_argument(
-        "--model",
-        nargs="?",
-        const=True,
-        metavar="MODEL",
-        help="Show model provider configuration and exit, or set the model for a one-shot task when MODEL is provided.",
-    )
-    local.add_argument("--version", action="store_true", help="Show VibeAgent version and exit.")
-    local.add_argument("--config", action="store_true", help="Show resolved provider and execution configuration and exit.")
-    local.add_argument("--tools", action="store_true", help="Show model tool names by category and exit.")
-    local.add_argument("--tool", metavar="NAME", help="Show one model tool's description and input schema and exit.")
-    local.add_argument("--tool-search", metavar="QUERY", help="Search model tools by name, description, category, or input fields and exit.")
-    parser.add_argument("--tool-search-max", type=positive_int, default=20, metavar="N", help="Maximum matching tools to show with --tool-search.")
-    parser.add_argument(
-        "--tool-search-category",
-        choices=valid_tool_categories(),
-        help="Optional category filter for --tool-search.",
-    )
-    parser.add_argument(
-        "--tool-search-approval",
-        choices=tool_search_approval_choices(),
-        default="any",
-        help="Optional approval filter for --tool-search.",
-    )
-    local.add_argument("--permissions", action="store_true", help="Show approval-gated tools and hard command blocks and exit.")
-    local.add_argument("--sandbox-status", action="store_true", help="Show command sandbox configuration and availability and exit.")
-    local.add_argument("--trust-status", action="store_true", help="Show persistent permission trust for the active project and exit.")
-    local.add_argument("--trust-project", action="store_true", help="Persist trust in permission allow rules for the active project and exit.")
-    local.add_argument("--untrust-project", action="store_true", help="Remove persistent permission trust for the active project and exit.")
+    add_inspection_arguments(parser, local, positive_int=positive_int)
     add_project_check_local_arguments(local)
     add_project_check_option_arguments(parser, positive_int=positive_int)
     add_runtime_local_arguments(local)
