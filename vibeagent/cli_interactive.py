@@ -27,7 +27,7 @@ from .cli_project_command_expansion import (
     project_command_task_metadata,
 )
 from .cli_project_local_flags import run_interactive_project_command, run_interactive_project_state_command
-from .cli_read_local_flags import run_interactive_read_command
+from .cli_interactive_read_commands import run_interactive_read_command
 from .cli_review_local_flags import run_interactive_review_command
 from .cli_runtime_local_flags import run_interactive_runtime_command
 from .cli_session_local_flags import run_interactive_resume_command, run_interactive_session_command
