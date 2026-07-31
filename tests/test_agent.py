@@ -12254,6 +12254,93 @@ class AgentTests(unittest.TestCase):
         self.assertIn("would delete 2", prune_preview or "")
         self.assertIsNone(mismatched_delete_preview)
 
+    def test_approval_preview_summary_ignores_older_file_success_after_failed_matching_preview(self) -> None:
+        preview = agent_module.approval_preview_summary(
+            types_module.EditFileAction(type="edit_file", path="app.py", old="old", new="new"),
+            [
+                types_module.CheckEditFileObservation(
+                    kind="check_edit_file",
+                    path="app.py",
+                    ok=True,
+                    message="Edit can apply to app.py.",
+                    diff="-old\n+new\n",
+                    old="old",
+                    new="new",
+                ),
+                types_module.CheckEditFileObservation(
+                    kind="check_edit_file",
+                    path="app.py",
+                    ok=False,
+                    message="Edit cannot apply to app.py.",
+                    diff="",
+                    old="old",
+                    new="new",
+                ),
+            ],
+        )
+
+        self.assertIsNone(preview)
+
+    def test_approval_preview_summary_uses_newer_file_success_after_older_failed_preview(self) -> None:
+        preview = agent_module.approval_preview_summary(
+            types_module.EditFileAction(type="edit_file", path="app.py", old="old", new="new"),
+            [
+                types_module.CheckEditFileObservation(
+                    kind="check_edit_file",
+                    path="app.py",
+                    ok=False,
+                    message="Edit cannot apply to app.py.",
+                    diff="",
+                    old="old",
+                    new="new",
+                ),
+                types_module.CheckEditFileObservation(
+                    kind="check_edit_file",
+                    path="app.py",
+                    ok=True,
+                    message="Edit can apply to app.py after refresh.",
+                    diff="-old\n+new\n",
+                    old="old",
+                    new="new",
+                ),
+            ],
+        )
+
+        self.assertIn("after refresh", preview or "")
+
+    def test_approval_preview_summary_ignores_older_command_success_after_failed_matching_preview(self) -> None:
+        preview = agent_module.approval_preview_summary(
+            types_module.RunCommandAction(type="run_command", command="python scripts/update.py"),
+            [
+                CommandCheckObservation(
+                    kind="command_check",
+                    ok=True,
+                    command="python scripts/update.py",
+                    cwd=".",
+                    cwd_ok=True,
+                    blocked=False,
+                    block_reason=None,
+                    executable_available=True,
+                    missing_tool=None,
+                    message="Command can run.",
+                ),
+                CommandCheckObservation(
+                    kind="command_check",
+                    ok=False,
+                    command="python scripts/update.py",
+                    cwd=".",
+                    cwd_ok=True,
+                    blocked=False,
+                    block_reason=None,
+                    executable_available=True,
+                    missing_tool=None,
+                    message="Command cannot run.",
+                ),
+            ],
+        )
+
+        self.assertIsNone(preview)
+
     def test_approval_preview_summary_ignores_checkpoint_restore_preview_after_file_mutation(self) -> None:
         stale_preview = agent_module.approval_preview_summary(
             CheckpointRestoreAction(type="checkpoint_restore", checkpoint_id="ckpt-1"),

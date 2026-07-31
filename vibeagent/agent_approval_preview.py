@@ -54,10 +54,10 @@ def approval_preview_summary(action: object, observations: list[Observation]) ->
     for observation in reversed(observations):
         observation_kind = getattr(observation, "kind", None)
         if observation_kind == expected_kind:
-            if getattr(observation, "ok", True) is not True:
-                continue
             if approval_preview_key(observation) != expected_key:
                 continue
+            if getattr(observation, "ok", True) is not True:
+                return None
             return summarize_preview_observation(observation)
         if preview_search_invalidated(expected_kind, observation_kind, expected_paths, observation):
             return None
