@@ -34,6 +34,7 @@ from .cli_runtime_args import (
     add_runtime_run_option_arguments,
 )
 from .cli_session_args import add_session_limit_arguments, add_session_local_arguments
+from .cli_workflow_args import add_workflow_local_arguments, add_workflow_option_arguments
 from .tool_categories import valid_tool_categories
 from .tool_search_options import tool_search_approval_choices
 
@@ -91,16 +92,8 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     local.add_argument("--context", action="store_true", help="Show project context sources and exit.")
     local.add_argument("--init", nargs="?", const="AGENTS.md", metavar="FILE", help="Create a starter AGENTS.md or CLAUDE.md and exit.")
     local.add_argument("--doctor", action="store_true", help="Show local diagnostics and exit.")
-    local.add_argument("--review", action="store_true", help="Review current git changes, syntax checks, and suggested commands and exit.")
-    parser.add_argument("--review-max-files", type=positive_int, default=200, metavar="N", help="Maximum changed files to show with --review.")
-    parser.add_argument("--review-max-checks", type=positive_int, default=5, metavar="N", help="Maximum suggested checks to show with --review.")
-    local.add_argument("--handoff", action="store_true", help="Show final handoff review, checks, changed files, and latest plan and exit.")
-    parser.add_argument("--handoff-max-files", type=positive_int, default=200, metavar="N", help="Maximum changed files to show with --handoff.")
-    parser.add_argument("--handoff-max-checks", type=positive_int, default=10, metavar="N", help="Maximum suggested checks to show with --handoff.")
-    parser.add_argument("--handoff-max-status-chars", type=positive_int, default=4_000, metavar="N", help="Maximum git status characters to show with --handoff.")
-    parser.add_argument("--handoff-max-plan-chars", type=positive_int, default=4_000, metavar="N", help="Maximum latest-plan characters to show with --handoff.")
-    local.add_argument("--changes", action="store_true", help="Show a structured changed-file summary and exit.")
-    parser.add_argument("--changes-max-files", type=positive_int, default=200, metavar="N", help="Maximum changed files to show with --changes.")
+    add_workflow_local_arguments(local)
+    add_workflow_option_arguments(parser, positive_int=positive_int)
     local.add_argument("--diff", nargs="?", const="", metavar="ARGS", help="Show current git diff. Optional ARGS: '--staged [path]' or '[path]'.")
     local.add_argument("--diff-hunks", nargs="?", const="", metavar="ARGS", help="Show structured git diff hunks. Optional ARGS: '--staged [path]' or '[path]'.")
     local.add_argument("--diff-contexts", nargs="?", const="", metavar="ARGS", help="Show source context around git diff hunks. Optional ARGS: '--staged [path]' or '[path]'.")
