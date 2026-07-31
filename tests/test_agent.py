@@ -1060,6 +1060,33 @@ class AgentTests(unittest.TestCase):
             ["Recovered session reports completion blocker(s): 1 suggested verification check(s) are still pending."],
         )
 
+    def test_completion_details_include_blocked_session_summary_recovery_actions(self) -> None:
+        observation = SessionSummaryObservation(
+            kind="session_summary",
+            run_id="prior-run",
+            ok=True,
+            summary="Session: prior-run\n  status: blocked",
+            recent_sessions=[],
+            message="Read session summary for prior-run.",
+            completion_ready=False,
+            completion_blockers=["1 suggested verification check(s) are still pending."],
+            latest_completion_pending_verification_checks=["npm test"],
+            latest_completion_tool_errors=["read_file: Tool execution failed: boom"],
+            latest_completion_next_actions=["Use run_session_verification before trying to finish again."],
+        )
+
+        details = completion_module.build_completion_blocker_details(True, [observation])
+
+        self.assertEqual(details["pendingVerificationChecks"], ["npm test"])
+        self.assertEqual(details["toolErrors"], ["read_file: Tool execution failed: boom"])
+        self.assertEqual(
+            details["nextActions"],
+            [
+                "Use run_session_verification to run pending recorded checks before trying to finish again.",
+                "Retry or replace the failed tool call after correcting its input; inspect the error message before continuing.",
+            ],
+        )
+
     def test_completion_blockers_clear_blocked_session_summary_after_ready_verification(self) -> None:
         summary = SessionSummaryObservation(
             kind="session_summary",
@@ -1089,8 +1116,10 @@ class AgentTests(unittest.TestCase):
         )
 
         blockers = completion_module.build_completion_blockers(True, [summary, verification], [])
+        details = completion_module.build_completion_blocker_details(True, [summary, verification])
 
         self.assertEqual(blockers, [])
+        self.assertEqual(details, {})
 
     def test_run_agent_feedback_names_denied_approval_before_finish(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
