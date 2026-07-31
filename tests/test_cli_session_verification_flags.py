@@ -321,6 +321,9 @@ class CliSessionVerificationFlagTests(unittest.TestCase):
                     "/run-session-verification --timeout-ms 99",
                     "/run-session-verification --context-lines -1",
                     "/run-session-verification --output-contexts=true",
+                    "/run-session-verification --max-checks 1 --max-checks=2",
+                    "/run-session-verification --output-contexts --output-contexts",
+                    "/run-session-verification --continue-on-failure --stop-on-failure",
                     "/exit",
                 ],
             ),
@@ -336,6 +339,9 @@ class CliSessionVerificationFlagTests(unittest.TestCase):
         self.assertIn("--timeout-ms must be at least 100.", output)
         self.assertIn("--context-lines must be a non-negative integer.", output)
         self.assertIn("--output-contexts does not take a value.", output)
+        self.assertIn("provide --max-checks at most once.", output)
+        self.assertIn("provide --output-contexts at most once.", output)
+        self.assertIn("provide --stop-on-failure at most once.", output)
         get_run_session_verification_text.assert_not_called()
         create_chat_client.assert_not_called()
 

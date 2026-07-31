@@ -243,6 +243,8 @@ def parse_interactive_run_session_verification_argument(
             if "=" in part:
                 return None, {}, f"{usage}\n  error: {flag} does not take a value."
             keyword, value = bool_options[flag]
+            if keyword in kwargs:
+                return None, {}, f"{usage}\n  error: provide {flag} at most once."
             kwargs[keyword] = value
             index += 1
             continue
@@ -262,6 +264,8 @@ def parse_interactive_run_session_verification_argument(
                 value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
+            if keyword in kwargs:
+                return None, {}, f"{usage}\n  error: provide {flag} at most once."
             kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):
