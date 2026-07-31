@@ -169,7 +169,7 @@ class V1AcceptanceTests(unittest.TestCase):
         )
         self.assertEqual(
             package["scripts"]["test:v1:release"],
-            "npm run test:install && npm run test:v1:full",
+            "npm run build && npm run test:install && npm run test:v1:full",
         )
 
     def test_package_version_metadata_stays_in_sync(self) -> None:
@@ -256,6 +256,8 @@ class V1AcceptanceTests(unittest.TestCase):
         readiness = READINESS_PATH.read_text(encoding="utf-8")
 
         self.assertIn("npm run test:v1:release", readiness)
+        self.assertIn("npm run build", readiness)
+        self.assertIn("python3 -m compileall -q vibeagent", readiness)
         self.assertIn("npm run test:install", readiness)
         self.assertIn("scripts/install_smoke.py", readiness)
         self.assertIn("fresh virtual environment", readiness)

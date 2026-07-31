@@ -250,8 +250,8 @@ local changes when asked, and resume from recorded session context.
 
 - Package metadata and runtime version report VibeAgent `1.0.0`.
 - `npm run test:v1` passes from a clean worktree.
-- `npm run test:v1:release` passes from a clean worktree, including install
-  smoke and the full deterministic v1 gate.
+- `npm run test:v1:release` passes from a clean worktree, including compile
+  checks, install smoke, and the full deterministic v1 gate.
 - The full unit suite passes from a clean worktree.
 - A dedicated 1.0 acceptance test confirms every gate above maps to concrete
   tools and regression tests.

@@ -14,19 +14,22 @@ npm run test:v1:release
 That release gate expands to:
 
 ```sh
+npm run build
 npm run test:install
 npm run test:v1:full
 ```
 
 This gate must run:
 
+- `python3 -m compileall -q vibeagent`
 - `python3 scripts/install_smoke.py`
 - `npm run test:v1`
 - `python3 -m unittest discover -s tests -q`
 
-Passing this gate proves the package installs from outside the repository, both
-CLI entrypoints start, and the deterministic 1.0 acceptance suite, real CLI
-smoke paths, and full unit suite are internally consistent.
+Passing this gate proves all package modules compile, the package installs from
+outside the repository, both CLI entrypoints start, and the deterministic 1.0
+acceptance suite, real CLI smoke paths, and full unit suite are internally
+consistent.
 
 ## Automated Evidence
 
