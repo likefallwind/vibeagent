@@ -128,6 +128,7 @@ class CliWriteProcessFlagTests(unittest.TestCase):
                     side_effect=[
                         "/write-process bg-1 text --stdin-file input.txt",
                         "/write-process bg-1 --stdin-file",
+                        "/write-process bg-1 --stdin-file input.txt --stdin-file=input.txt",
                         "/write-process bg-1 --stdin-file ../input.txt",
                         "/exit",
                     ],
@@ -142,6 +143,7 @@ class CliWriteProcessFlagTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("text and --stdin-file cannot be used together", output)
         self.assertIn("--stdin-file requires a value", output)
+        self.assertIn("provide --stdin-file at most once", output)
         self.assertIn("Path escapes the project directory", output)
         get_write_process_text.assert_not_called()
         create_chat_client.assert_not_called()

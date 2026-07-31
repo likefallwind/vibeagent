@@ -136,7 +136,7 @@ def parse_interactive_write_process_argument(
             break
         if part == "--stdin-file" or part.startswith("--stdin-file="):
             if stdin_file is not None:
-                return None, None, f"{usage}\n  error: --stdin-file can only be provided once."
+                return None, None, f"{usage}\n  error: provide --stdin-file at most once."
             if part.startswith("--stdin-file="):
                 stdin_file = part.split("=", 1)[1]
                 index += 1
