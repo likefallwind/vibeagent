@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from vibeagent import process_io_runtime, process_runtime, process_wait_runtime
-from vibeagent.agent_approval_preview import approval_preview_summary
+from vibeagent.agent_approval_preview import approval_preview_summary, command_check_fingerprint_payload
 from vibeagent.agent_tool_results import build_tool_result_payload
 from vibeagent.types import (
     CheckFocusedTestCommandsObservation,
@@ -177,6 +177,43 @@ class ProcessIORuntimeModuleTests(unittest.TestCase):
         )
 
         self.assertIn("Command can run", matching_preview or "")
+
+    def test_command_check_fingerprint_payload_normalizes_cwd(self) -> None:
+        first = command_check_fingerprint_payload(
+            [
+                CommandCheckObservation(
+                    kind="command_check",
+                    ok=True,
+                    command="npm test",
+                    cwd="./web",
+                    cwd_ok=True,
+                    blocked=False,
+                    block_reason=None,
+                    executable_available=True,
+                    missing_tool=None,
+                    message="Command can run.",
+                )
+            ]
+        )
+        second = command_check_fingerprint_payload(
+            [
+                CommandCheckObservation(
+                    kind="command_check",
+                    ok=True,
+                    command="npm test",
+                    cwd="web",
+                    cwd_ok=True,
+                    blocked=False,
+                    block_reason=None,
+                    executable_available=True,
+                    missing_tool=None,
+                    message="Command can run.",
+                )
+            ]
+        )
+
+        self.assertEqual(first, second)
+        self.assertIn('"cwd":"web"', first)
 
     def test_run_commands_preview_matches_approval_by_command_parameters(self) -> None:
         command = RunCommandItem(command="python3 -m unittest", timeout_ms=1000)

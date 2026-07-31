@@ -293,7 +293,7 @@ def command_check_fingerprint_payload(checks: list[object]) -> str:
     payload = [
         {
             "command": str(getattr(check, "command", "") or ""),
-            "cwd": str(getattr(check, "cwd", ".") or "."),
+            "cwd": str(preview_cwd_value(getattr(check, "cwd", None))),
             "ok": bool(getattr(check, "ok", False)),
             "blocked": bool(getattr(check, "blocked", False)),
             "missing_tool": getattr(check, "missing_tool", None),
