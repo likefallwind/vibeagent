@@ -564,6 +564,7 @@ class CliLocalInspectionFlagTests(unittest.TestCase):
                     "/run-suggested-checks --output-diagnostics=true -- 2",
                     "/run-suggested-checks --output-contexts -- 1 2",
                     "/run-suggested-checks --max-checks 1 -- 2",
+                    "/run-suggested-checks --max-checks 1 --max-checks 2",
                     "/exit",
                 ],
             ),
@@ -581,5 +582,6 @@ class CliLocalInspectionFlagTests(unittest.TestCase):
         self.assertIn("--output-diagnostics does not take a value.", output)
         self.assertIn("expected at most one max value.", output)
         self.assertIn("provide either --max-checks or trailing max, not both.", output)
+        self.assertIn("provide --max-checks at most once.", output)
         get_run_suggested_checks_text.assert_not_called()
         create_chat_client.assert_not_called()

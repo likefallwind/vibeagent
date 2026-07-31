@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shlex
 
+from .check_limit_parsing import parse_named_suggested_checks_limit
 from .cli_parse_core import (
     parse_interactive_nonnegative_option,
     parse_interactive_positive_option,
@@ -372,7 +373,17 @@ def parse_interactive_run_suggested_checks_argument(
             else:
                 raw_value = parts[index + 1] if index + 1 < len(parts) else None
                 index += 2
-            if value_type == "timeout":
+            if flag == "--max-checks":
+                if "max_checks" in kwargs:
+                    return None, {}, f"{usage}\n  error: provide --max-checks at most once.", True
+                try:
+                    value = parse_named_suggested_checks_limit(raw_value)
+                except ValueError as error:
+                    return None, {}, f"{usage}\n  error: {error}", True
+                if value <= 0:
+                    return None, {}, f"{usage}\n  error: --max-checks must be a positive integer.", True
+                error = None
+            elif value_type == "timeout":
                 value, error = parse_interactive_timeout_option(flag, raw_value)
             elif value_type == "nonnegative":
                 value, error = parse_interactive_nonnegative_option(flag, raw_value)
