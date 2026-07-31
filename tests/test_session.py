@@ -1848,6 +1848,58 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(report["failures"]["items"][3]["name"], "delegate_task")
         self.assertEqual(missing, "Session not found: missing")
 
+    def test_format_session_failures_reports_source_linked_output_issues(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "run_suggested_checks",
+                        "result": {
+                            "kind": "run_suggested_checks",
+                            "ok": False,
+                            "results": [
+                                {
+                                    "command": "python3 -m unittest tests.test_agent",
+                                    "exit_code": 0,
+                                    "stdout": "tests/test_agent.py:42: warning: suspicious assertion\n",
+                                    "stderr": "",
+                                    "timed_out": False,
+                                    "signal": None,
+                                    "cwd": ".",
+                                    "output_diagnostics": [
+                                        {
+                                            "severity": "warning",
+                                            "output_line": 1,
+                                            "text": "suspicious assertion",
+                                            "path": "tests/test_agent.py",
+                                            "line": 42,
+                                        }
+                                    ],
+                                }
+                            ],
+                            "message": "Suggested checks produced source-linked output diagnostics.",
+                        },
+                    }
+                ],
+            )
+
+            text = format_session_failures(root, "run-1", max_failures=5, max_text=160)
+            report = build_session_failures_report(root, "run-1", max_failures=5, max_text=160)
+
+        self.assertIn("failures: 1", text)
+        self.assertIn("#1 command: run_suggested_checks[1]", text)
+        self.assertIn("python3 -m unittest tests.test_agent", text)
+        self.assertIn("exit=0", text)
+        self.assertIn("timedOut=no", text)
+        self.assertIn("outputIssues=tests/test_agent.py:42 warning: suspicious assertion", text)
+        self.assertEqual(report["failures"]["items"][0]["type"], "command")
+        self.assertIn("outputIssues=tests/test_agent.py:42 warning: suspicious assertion", report["failures"]["items"][0]["detail"])
+
     def test_format_session_handoff_reports_safe_recovery_bundle(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
             root = Path(base)
