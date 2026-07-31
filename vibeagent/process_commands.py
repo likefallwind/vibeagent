@@ -28,7 +28,7 @@ from .process_stop_commands import (
     get_stop_process_text,
     serialize_stopped_process_info,
 )
-from .process_wait_write_commands import (
+from .process_wait_commands import (
     format_wait_process_report_text,
     get_wait_process_report,
     get_wait_process_text,
