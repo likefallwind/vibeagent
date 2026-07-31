@@ -10,6 +10,7 @@ from vibeagent import workspace_file_helpers
 from vibeagent import workspace_file_read
 from vibeagent import workspace_project_info
 from vibeagent import workspace_project_metadata
+from vibeagent import workspace_python_definitions
 from vibeagent import workspace_python_intel
 from vibeagent import workspace_python_symbols
 from vibeagent.workspace import (
@@ -139,6 +140,25 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIs(workspace_python_intel.collect_python_rename_replacements, workspace_python_symbols.collect_python_rename_replacements)
         self.assertIs(workspace_python_intel.apply_python_rename_replacements, workspace_python_symbols.apply_python_rename_replacements)
         self.assertIs(workspace_python_intel.python_call_name, workspace_python_symbols.python_call_name)
+
+    def test_workspace_python_intel_reexports_definition_helpers(self) -> None:
+        self.assertIs(
+            workspace_python_intel.collect_python_definition_matches,
+            workspace_python_definitions.collect_python_definition_matches,
+        )
+        self.assertIs(workspace_python_intel.find_python_definitions, workspace_python_definitions.find_python_definitions)
+        self.assertIs(
+            workspace_python_intel.preview_replace_python_definition,
+            workspace_python_definitions.preview_replace_python_definition,
+        )
+        self.assertIs(
+            workspace_python_intel.python_definition_start_line,
+            workspace_python_definitions.python_definition_start_line,
+        )
+        self.assertIs(
+            workspace_python_intel.replace_python_definition,
+            workspace_python_definitions.replace_python_definition,
+        )
 
     def test_workspace_file_read_reexports_file_helpers(self) -> None:
         self.assertIs(workspace_file_read.truncate_utf8_text_bytes, workspace_file_helpers.truncate_utf8_text_bytes)
