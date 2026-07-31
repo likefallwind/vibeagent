@@ -115,18 +115,18 @@ def parse_interactive_write_process_argument(
     *,
     project_root: str | Path = ".",
     usage: str = "Usage: /write-process <id> <text> [--stdin-file PATH]",
-) -> tuple[str | None, str | None, str | None]:
+) -> tuple[str | None, str | None, str | None, str | None]:
     if not argument:
-        return None, None, f"{usage}\n  error: process id is required."
+        return None, None, None, f"{usage}\n  error: process id is required."
     if "--stdin-file" not in argument:
-        return None, None, None
+        return None, None, None, None
     try:
         parsed = parse_process_stdin_file_argument(argument, project_root=project_root)
     except ValueError as error:
-        return None, None, f"{usage}\n  error: {error}"
+        return None, None, None, f"{usage}\n  error: {error}"
     if not parsed.process_id:
-        return None, None, f"{usage}\n  error: process id is required."
+        return None, None, None, f"{usage}\n  error: process id is required."
     content = parsed.content
     if content is None or content == "":
-        return None, None, f"{usage}\n  error: stdin text is required."
-    return parsed.process_id, content.replace("\\r", "\r").replace("\\n", "\n").replace("\\t", "\t"), None
+        return None, None, None, f"{usage}\n  error: stdin text is required."
+    return parsed.process_id, None, parsed.stdin_file, None

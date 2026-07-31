@@ -6881,6 +6881,7 @@ class CommandTests(unittest.TestCase):
                 file_report = get_write_process_report(root, "bg-1 --stdin-file input.txt")
             usage = get_write_process_report(root)
             rendered = format_write_process_report_text(report)
+            missing_file_report = get_write_process_report(root, "missing --stdin-file input.txt")
 
             action = execute_action.call_args_list[0].args[1]
             quoted_action = execute_action.call_args_list[1].args[1]
@@ -6907,7 +6908,10 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(quoted_report["ok"], True)
         self.assertEqual(quoted_action.content, "hello world\n")
         self.assertEqual(file_report["ok"], True)
-        self.assertEqual(file_action.content, "hello\\nfrom file\n")
+        self.assertIsNone(file_action.content)
+        self.assertEqual(file_action.stdin_file, "input.txt")
+        self.assertFalse(missing_file_report["ok"])
+        self.assertEqual(missing_file_report["stdinFile"], "input.txt")
         self.assertIn("Write process:", rendered)
         self.assertIn("contentChars: 6", rendered)
         self.assertIn("stdinFile: .", rendered)
@@ -6992,7 +6996,8 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(action.process_id, "bg-1")
         self.assertEqual(action.content, "hello\n")
         self.assertEqual(file_report["ok"], True)
-        self.assertEqual(file_action.content, "hello\\nfrom file\n")
+        self.assertIsNone(file_action.content)
+        self.assertEqual(file_action.stdin_file, "input.txt")
         self.assertIn("Check write process:", rendered)
         self.assertIn("contentChars: 6", rendered)
         self.assertFalse(usage["ok"])

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -54,9 +55,9 @@ class ProcessWaitWriteCommandModuleTests(unittest.TestCase):
             self.assertEqual(get_write_process_text(root, "bg-1 hello\\n"), "write rendered")
             self.assertEqual(get_check_write_process_text(root, "bg-1 hello\\n"), "check rendered")
 
-        get_write.assert_called_once_with(root, "bg-1 hello\\n", None, None)
+        get_write.assert_called_once_with(root, "bg-1 hello\\n", None, None, None)
         format_write.assert_called_once_with(write_report)
-        get_check.assert_called_once_with(root, "bg-1 hello\\n", None, None)
+        get_check.assert_called_once_with(root, "bg-1 hello\\n", None, None, None)
         format_check.assert_called_once_with(check_report)
 
     def test_parse_wait_process_request_preserves_unspecified_max_chars(self) -> None:
@@ -72,9 +73,23 @@ class ProcessWaitWriteCommandModuleTests(unittest.TestCase):
             parse_wait_process_request("bg-1 2000 3000 extra", process_id="bg-2")
 
     def test_parse_write_process_request_unquotes_single_stdin_argument(self) -> None:
-        self.assertEqual(parse_write_process_request("bg-1 'hello world\\n'"), ("bg-1", "hello world\n"))
-        self.assertEqual(parse_write_process_request("bg-1 hello  world\\n"), ("bg-1", "hello  world\n"))
-        self.assertEqual(parse_write_process_request("bg-1 'unterminated"), ("bg-1", "'unterminated"))
+        self.assertEqual(parse_write_process_request("bg-1 'hello world\\n'"), ("bg-1", "hello world\n", None))
+        self.assertEqual(parse_write_process_request("bg-1 hello  world\\n"), ("bg-1", "hello  world\n", None))
+        self.assertEqual(parse_write_process_request("bg-1 'unterminated"), ("bg-1", "'unterminated", None))
+
+    def test_parse_write_process_request_preserves_stdin_file_source(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-process-write-") as base:
+            root = Path(base)
+            (root / "input.txt").write_text("hello\n", encoding="utf-8")
+
+            self.assertEqual(
+                parse_write_process_request("bg-1 --stdin-file input.txt", project_root=root),
+                ("bg-1", None, "input.txt"),
+            )
+            self.assertEqual(
+                parse_write_process_request(process_id="bg-1", stdin_file="input.txt", project_root=root),
+                ("bg-1", None, "input.txt"),
+            )
 
 
 if __name__ == "__main__":

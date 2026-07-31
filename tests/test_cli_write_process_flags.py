@@ -23,7 +23,7 @@ class CliWriteProcessFlagTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 1)
         self.assertIn("Write process:", stdout.getvalue())
-        get_write_process_text.assert_called_once_with(Path(base).resolve(), process_id="bg-1", content="hello\\n")
+        get_write_process_text.assert_called_once_with(Path(base).resolve(), process_id="bg-1", content="hello\\n", stdin_file=None)
         create_chat_client.assert_not_called()
 
     def test_main_runs_check_write_process_local_flag_without_creating_client(self) -> None:
@@ -39,7 +39,7 @@ class CliWriteProcessFlagTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Check write process:", stdout.getvalue())
-        get_check_write_process_text.assert_called_once_with(Path(base).resolve(), process_id="bg-1", content="hello\\n")
+        get_check_write_process_text.assert_called_once_with(Path(base).resolve(), process_id="bg-1", content="hello\\n", stdin_file=None)
         create_chat_client.assert_not_called()
 
     def test_main_reads_write_process_stdin_from_project_file(self) -> None:
@@ -65,8 +65,8 @@ class CliWriteProcessFlagTests(unittest.TestCase):
 
         self.assertEqual(check_exit, 0)
         self.assertEqual(write_exit, 0)
-        get_check_write_process_text.assert_called_once_with(root.resolve(), process_id="bg-1", content="hello\nfrom file\n")
-        get_write_process_text.assert_called_once_with(root.resolve(), process_id="bg-1", content="hello\nfrom file\n")
+        get_check_write_process_text.assert_called_once_with(root.resolve(), process_id="bg-1", content=None, stdin_file="input.txt")
+        get_write_process_text.assert_called_once_with(root.resolve(), process_id="bg-1", content=None, stdin_file="input.txt")
         create_chat_client.assert_not_called()
         create_chat_client_write.assert_not_called()
 
@@ -112,8 +112,8 @@ class CliWriteProcessFlagTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("Check write process:", output)
         self.assertIn("Write process:", output)
-        get_check_write_process_text.assert_called_once_with(process_id="bg-1", content="hello\nfrom file\n")
-        get_write_process_text.assert_called_once_with(process_id="bg-1", content="hello\nfrom file\n")
+        get_check_write_process_text.assert_called_once_with(process_id="bg-1", content=None, stdin_file="input.txt")
+        get_write_process_text.assert_called_once_with(process_id="bg-1", content=None, stdin_file="input.txt")
         create_chat_client.assert_not_called()
 
     def test_main_reports_interactive_write_process_stdin_file_errors(self) -> None:
@@ -196,13 +196,13 @@ class CliWriteProcessFlagTests(unittest.TestCase):
         self.assertEqual(check_exit, 0)
         self.assertTrue(check_payload["success"])
         self.assertEqual(check_payload["checkWriteProcess"], check_report)
-        get_check_write_process_report.assert_called_once_with(Path(base).resolve(), process_id="bg-1", content="hello\\n")
+        get_check_write_process_report.assert_called_once_with(Path(base).resolve(), process_id="bg-1", content="hello\\n", stdin_file=None)
         format_check_write_process_report.assert_called_once_with(check_report)
         create_chat_client.assert_not_called()
         self.assertEqual(write_exit, 1)
         self.assertFalse(write_payload["success"])
         self.assertEqual(write_payload["status"], "failed")
         self.assertEqual(write_payload["writeProcess"], write_report)
-        get_write_process_report.assert_called_once_with(Path(base).resolve(), process_id="missing", content="hello\\n")
+        get_write_process_report.assert_called_once_with(Path(base).resolve(), process_id="missing", content="hello\\n", stdin_file=None)
         format_write_process_report.assert_called_once_with(write_report)
         create_chat_client_write.assert_not_called()

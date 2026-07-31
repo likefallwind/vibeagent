@@ -140,6 +140,7 @@ class CliParseModuleTests(unittest.TestCase):
 
             self.assertEqual(parsed.process_id, "bg-1")
             self.assertEqual(parsed.content, "hello\n")
+            self.assertEqual(parsed.stdin_file, "input.txt")
             self.assertEqual(inline_conflict, "text and --stdin-file cannot be used together.")
             self.assertEqual(duplicate, "provide --stdin-file at most once.")
             with self.assertRaisesRegex(ValueError, "--stdin-file is not a file: dir"):

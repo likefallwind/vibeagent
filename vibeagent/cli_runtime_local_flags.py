@@ -8,10 +8,11 @@ from .cli_local_result import local_text_or_report
 from .cli_process_stdin import read_project_stdin_file
 
 
-def _resolve_write_stdin_content(args: argparse.Namespace, root: str | Path) -> str | None:
+def _resolve_write_stdin_kwargs(args: argparse.Namespace, root: str | Path) -> dict[str, str | None]:
     if args.write_stdin_file is None:
-        return args.write_stdin
-    return read_project_stdin_file(root, args.write_stdin_file, "--write-stdin-file")
+        return {"content": args.write_stdin, "stdin_file": None}
+    read_project_stdin_file(root, args.write_stdin_file, "--write-stdin-file")
+    return {"content": None, "stdin_file": args.write_stdin_file}
 
 
 def run_runtime_local_flag(
@@ -93,7 +94,7 @@ def run_runtime_local_flag(
             lambda: commands["get_wait_process_text"](root, **wait_process_kwargs),
         )
     if args.check_write_process is not None:
-        write_kwargs = {"process_id": args.check_write_process, "content": _resolve_write_stdin_content(args, root)}
+        write_kwargs = {"process_id": args.check_write_process, **_resolve_write_stdin_kwargs(args, root)}
         return local_text_or_report(
             args,
             "checkWriteProcess",
@@ -102,7 +103,7 @@ def run_runtime_local_flag(
             lambda: commands["get_check_write_process_text"](root, **write_kwargs),
         )
     if args.write_process is not None:
-        write_kwargs = {"process_id": args.write_process, "content": _resolve_write_stdin_content(args, root)}
+        write_kwargs = {"process_id": args.write_process, **_resolve_write_stdin_kwargs(args, root)}
         return local_text_or_report(
             args,
             "writeProcess",
@@ -187,7 +188,7 @@ def _write_process(command: Any, commands: dict[str, Any], *, check: bool) -> st
         if check
         else "Usage: /write-process <id> <text> [--stdin-file PATH]"
     )
-    process_id, content, error = commands["parse_interactive_write_process_argument"](
+    process_id, content, stdin_file, error = commands["parse_interactive_write_process_argument"](
         command.argument,
         project_root=Path.cwd(),
         usage=usage,
@@ -195,9 +196,9 @@ def _write_process(command: Any, commands: dict[str, Any], *, check: bool) -> st
     if error:
         return error
     getter = commands["get_check_write_process_text"] if check else commands["get_write_process_text"]
-    if process_id is None and content is None:
+    if process_id is None and content is None and stdin_file is None:
         return getter(argument=command.argument)
-    return getter(process_id=process_id, content=content)
+    return getter(process_id=process_id, content=content, stdin_file=stdin_file)
 
 
 def run_interactive_runtime_command(command: Any, commands: dict[str, Any]) -> str | None:

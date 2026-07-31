@@ -11,6 +11,7 @@ from .workspace_resolve import resolve_inside_run
 class ProcessStdinArgument:
     process_id: str | None
     content: str | None
+    stdin_file: str | None = None
 
 
 def read_project_stdin_file(project_root: str | Path, relative_path: str, option_name: str) -> str:
@@ -69,4 +70,4 @@ def parse_process_stdin_file_argument(
         raise ValueError(f"text and {option_name} cannot be used together.")
     if stdin_file is not None:
         content = read_project_stdin_file(project_root, stdin_file, option_name)
-    return ProcessStdinArgument(process_id=process_id, content=content)
+    return ProcessStdinArgument(process_id=process_id, content=content, stdin_file=stdin_file)
