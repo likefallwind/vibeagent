@@ -12626,7 +12626,7 @@ class AgentTests(unittest.TestCase):
 
     def test_approval_preview_summary_matches_normalized_file_paths(self) -> None:
         edit_preview = agent_module.approval_preview_summary(
-            types_module.EditFileAction(type="edit_file", path="./app.py", old="old", new="new"),
+            types_module.EditFileAction(type="edit_file", path="./src/../app.py", old="old", new="new"),
             [
                 types_module.CheckEditFileObservation(
                     kind="check_edit_file",
@@ -12640,7 +12640,7 @@ class AgentTests(unittest.TestCase):
             ],
         )
         git_stage_preview = agent_module.approval_preview_summary(
-            types_module.GitStageAction(type="git_stage", paths=["./app.py"]),
+            types_module.GitStageAction(type="git_stage", paths=["./web/../app.py"]),
             [
                 types_module.CheckGitStageObservation(
                     kind="check_git_stage",

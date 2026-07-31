@@ -381,9 +381,15 @@ def paths_overlap_or_nested(left: frozenset[str], right: frozenset[str]) -> bool
 
 
 def normalize_preview_path(path: str) -> str:
-    return "/".join(
-        part for part in path.replace("\\", "/").split("/") if part and part != "."
-    )
+    parts: list[str] = []
+    for part in path.replace("\\", "/").split("/"):
+        if not part or part == ".":
+            continue
+        if part == ".." and parts and parts[-1] != "..":
+            parts.pop()
+            continue
+        parts.append(part)
+    return "/".join(parts)
 
 
 def preview_path_value(path: object, default: object = "") -> object:
