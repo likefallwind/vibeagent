@@ -117,6 +117,9 @@ CHECKPOINT_RESTORE_MUTATION_OBSERVATION_KINDS = {
 COMMAND_MUTATION_OBSERVATION_KINDS = {
     "run_command",
     "run_commands",
+    "run_focused_test_commands",
+    "run_session_verification",
+    "run_suggested_checks",
     "start_command",
     "write_process",
 }
