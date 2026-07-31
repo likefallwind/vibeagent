@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 import shlex
 
-from .cli_parse_core import parse_interactive_nonnegative_option, parse_interactive_positive_option
+from .cli_parse_core import duplicate_option_error, parse_interactive_nonnegative_option, parse_interactive_positive_option
 
 
 def build_diff_argument(diff_argument: str | None, staged: bool, task_parts: Sequence[str]) -> str | None:
@@ -97,8 +97,9 @@ def parse_interactive_diff_detail_argument(
             value, error = parser(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
-            if keyword in kwargs:
-                return None, {}, f"{usage}\n  error: provide {flag} at most once."
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error
             kwargs[keyword] = int(value)
             continue
         if part.startswith("--") and part not in {"--staged", "--cached", "--"}:

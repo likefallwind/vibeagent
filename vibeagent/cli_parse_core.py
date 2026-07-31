@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 import json
 
 from .process_request_parsing import validate_max_output_chars
@@ -37,6 +37,12 @@ def build_focused_tests_kwargs(args: argparse.Namespace) -> dict[str, int]:
     if args.focused_tests_max_commands is not None:
         kwargs["max_commands"] = args.focused_tests_max_commands
     return kwargs
+
+
+def duplicate_option_error(kwargs: Mapping[str, object], keyword: str, flag: str, usage: str) -> str | None:
+    if keyword in kwargs:
+        return f"{usage}\n  error: provide {flag} at most once."
+    return None
 
 
 def positive_int(value: str) -> int:

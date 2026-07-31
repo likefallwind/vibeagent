@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import shlex
 
-from .cli_parse_core import parse_interactive_positive_option
+from .cli_parse_core import duplicate_option_error, parse_interactive_positive_option
 
 
 ReadPathKwargs = dict[str, int | bool]
@@ -54,8 +54,9 @@ def parse_interactive_read_path_options(
             if error:
                 return None, {}, error, True
             keyword = boolean_options[flag]
-            if keyword in kwargs:
-                return None, {}, f"{usage}\n  error: provide {flag} at most once.", True
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error, True
             kwargs[keyword] = value
             index += 1
             continue
@@ -65,8 +66,9 @@ def parse_interactive_read_path_options(
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
             keyword = option_specs[flag]
-            if keyword in kwargs:
-                return None, {}, f"{usage}\n  error: provide {flag} at most once.", True
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error, True
             kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):

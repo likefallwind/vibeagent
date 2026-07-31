@@ -2,13 +2,7 @@ from __future__ import annotations
 
 import shlex
 
-from .cli_parse_core import parse_interactive_nonnegative_option, parse_interactive_positive_option
-
-
-def _duplicate_option_error(kwargs: dict[str, int], keyword: str, flag: str, usage: str) -> str | None:
-    if keyword in kwargs:
-        return f"{usage}\n  error: provide {flag} at most once."
-    return None
+from .cli_parse_core import duplicate_option_error, parse_interactive_nonnegative_option, parse_interactive_positive_option
 
 
 def parse_interactive_test_paths_argument(
@@ -61,7 +55,7 @@ def parse_interactive_test_paths_argument(
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
             keyword = option_specs[flag]
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = int(value)
@@ -154,7 +148,7 @@ def parse_interactive_python_symbol_argument(
                     return None, None, {}, f"{usage}\n  error: provide {flag} at most once.", True
                 path = str(value)
             else:
-                duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+                duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
                 if duplicate_error:
                     return None, None, {}, duplicate_error, True
                 kwargs[keyword] = int(value)
@@ -221,7 +215,7 @@ def _parse_interactive_path_options_argument(
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
             keyword = option_specs[flag]
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = int(value)

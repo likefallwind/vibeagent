@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import shlex
 
-from .cli_parse_core import parse_interactive_nonnegative_option, parse_interactive_positive_option
+from .cli_parse_core import duplicate_option_error, parse_interactive_nonnegative_option, parse_interactive_positive_option
 
 
 QueryKwargs = dict[str, int | str | bool]
@@ -43,8 +43,9 @@ def parse_interactive_query_argument(
             if "=" in part:
                 return None, {}, f"{usage}\n  error: {flag} does not take a value.", True
             keyword, value = bool_options[flag]
-            if keyword in kwargs:
-                return None, {}, f"{usage}\n  error: provide {flag} at most once.", True
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error, True
             kwargs[keyword] = value
             index += 1
             continue
@@ -54,8 +55,9 @@ def parse_interactive_query_argument(
             value, error = _parse_query_value(flag, raw_value, value_type)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            if keyword in kwargs:
-                return None, {}, f"{usage}\n  error: provide {flag} at most once.", True
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error, True
             kwargs[keyword] = value
             continue
         if part.startswith("--"):

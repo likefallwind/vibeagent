@@ -3,17 +3,12 @@ from __future__ import annotations
 import shlex
 
 from .cli_parse_core import (
+    duplicate_option_error,
     parse_interactive_max_chars_option,
     parse_interactive_nonnegative_option,
     parse_interactive_positive_option,
     parse_interactive_timeout_option,
 )
-
-
-def _duplicate_option_error(kwargs: dict[str, int | str | bool], keyword: str, flag: str, usage: str) -> str | None:
-    if keyword in kwargs:
-        return f"{usage}\n  error: provide {flag} at most once."
-    return None
 
 
 def parse_interactive_process_output_argument(
@@ -49,8 +44,9 @@ def parse_interactive_process_output_argument(
             value, error = parser(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
-            if keyword in kwargs:
-                return None, {}, f"{usage}\n  error: provide {flag} at most once."
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error
             kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):
@@ -130,7 +126,7 @@ def parse_interactive_port_argument(
                     value, error = raw_value, None
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = value
@@ -193,7 +189,7 @@ def parse_interactive_http_argument(
             if "=" in part:
                 return None, {}, f"{usage}\n  error: {flag} does not take a value.", True
             keyword = bool_options[flag]
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = True
@@ -220,7 +216,7 @@ def parse_interactive_http_argument(
                     value, error = raw_value, None
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = value
@@ -291,8 +287,9 @@ def parse_interactive_http_fetch_argument(
                 value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            if keyword in kwargs:
-                return None, {}, f"{usage}\n  error: provide {flag} at most once.", True
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error, True
             kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):

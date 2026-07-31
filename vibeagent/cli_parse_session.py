@@ -3,6 +3,7 @@ from __future__ import annotations
 import shlex
 
 from .cli_parse_core import (
+    duplicate_option_error,
     parse_interactive_nonnegative_option,
     parse_interactive_positive_option,
     parse_interactive_timeout_option,
@@ -188,8 +189,9 @@ def parse_interactive_session_detail_argument(
             value, error = parser(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
-            if keyword in kwargs:
-                return None, {}, f"{usage}\n  error: provide {flag} at most once."
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error
             kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):
@@ -243,8 +245,9 @@ def parse_interactive_run_session_verification_argument(
             if "=" in part:
                 return None, {}, f"{usage}\n  error: {flag} does not take a value."
             keyword, value = bool_options[flag]
-            if keyword in kwargs:
-                return None, {}, f"{usage}\n  error: provide {flag} at most once."
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error
             kwargs[keyword] = value
             index += 1
             continue
@@ -264,8 +267,9 @@ def parse_interactive_run_session_verification_argument(
                 value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
-            if keyword in kwargs:
-                return None, {}, f"{usage}\n  error: provide {flag} at most once."
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error
             kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):

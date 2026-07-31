@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import shlex
-from collections.abc import Mapping
 
 from .check_limit_parsing import parse_named_suggested_checks_limit
 from .cli_parse_core import (
+    duplicate_option_error,
     parse_interactive_nonnegative_option,
     parse_interactive_positive_option,
     parse_interactive_timeout_option,
@@ -14,17 +14,6 @@ from .cli_parse_cwd_command import (
     parse_interactive_cwd_command_argument,
 )
 from .cli_parse_process_run import parse_interactive_wait_process_argument
-
-
-def _duplicate_option_error(
-    kwargs: Mapping[str, object],
-    keyword: str,
-    flag: str,
-    usage: str,
-) -> str | None:
-    if keyword in kwargs:
-        return f"{usage}\n  error: provide {flag} at most once."
-    return None
 
 
 def parse_interactive_run_argument(
@@ -83,7 +72,7 @@ def parse_interactive_run_argument(
             if "=" in part:
                 return None, {}, f"{usage}\n  error: {flag} does not take a value.", True
             keyword = bool_options[flag]
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = True
@@ -110,7 +99,7 @@ def parse_interactive_run_argument(
                     value, error = raw_value, None
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = value
@@ -183,7 +172,7 @@ def parse_interactive_run_sequence_argument(
             if "=" in part:
                 return None, {}, f"{usage}\n  error: {flag} does not take a value.", True
             keyword, value = bool_options[flag]
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = value
@@ -210,7 +199,7 @@ def parse_interactive_run_sequence_argument(
                     value, error = raw_value, None
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = value
@@ -300,7 +289,7 @@ def parse_interactive_run_focused_tests_argument(
             if "=" in part:
                 return None, {}, f"{usage}\n  error: {flag} does not take a value.", True
             keyword, value = bool_options[flag]
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = value
@@ -322,7 +311,7 @@ def parse_interactive_run_focused_tests_argument(
                 value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = int(value)
@@ -393,7 +382,7 @@ def parse_interactive_run_suggested_checks_argument(
             if "=" in part:
                 return None, {}, f"{usage}\n  error: {flag} does not take a value.", True
             keyword, value = bool_options[flag]
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = value
@@ -425,7 +414,7 @@ def parse_interactive_run_suggested_checks_argument(
                 value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = int(value)

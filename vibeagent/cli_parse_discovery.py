@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import shlex
-from collections.abc import Mapping
 
-from .cli_parse_core import parse_interactive_nonnegative_option, parse_interactive_positive_option
+from .cli_parse_core import duplicate_option_error, parse_interactive_nonnegative_option, parse_interactive_positive_option
 from .cli_parse_discovery_queries import parse_interactive_query_argument
 from .cli_parse_option_limits import parse_interactive_option_limit_argument
 
@@ -33,12 +32,6 @@ def _split_named_parts(
     if not uses_named_options:
         return None, None, False
     return parts, None, True
-
-
-def _duplicate_option_error(kwargs: Mapping[str, object], keyword: str, flag: str, usage: str) -> str | None:
-    if keyword in kwargs:
-        return f"{usage}\n  error: provide {flag} at most once."
-    return None
 
 
 def parse_interactive_search_argument(
@@ -135,7 +128,7 @@ def parse_interactive_overview_argument(
             if error:
                 return {}, f"{usage}\n  error: {error}", True
             keyword = option_specs[flag]
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return {}, duplicate_error, True
             kwargs[keyword] = int(value)
@@ -183,7 +176,7 @@ def parse_interactive_repo_map_argument(
             value, error = parser(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = int(value)
@@ -229,7 +222,7 @@ def parse_interactive_glob_argument(
         flag = _option_flag(part)
         if flag in boolean_options:
             keyword = boolean_options[flag]
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             if "=" in part:
@@ -252,7 +245,7 @@ def parse_interactive_glob_argument(
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
             keyword = option_specs[flag]
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = int(value)
@@ -303,7 +296,7 @@ def parse_interactive_todos_argument(
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
             keyword = option_specs[flag]
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = int(value)

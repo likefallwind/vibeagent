@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import shlex
 
-from .cli_parse_core import parse_interactive_positive_option
+from .cli_parse_core import duplicate_option_error, parse_interactive_positive_option
 
 
 def parse_interactive_option_limit_argument(
@@ -33,8 +33,9 @@ def parse_interactive_option_limit_argument(
             if error:
                 return {}, f"{usage}\n  error: {error}", True
             keyword = option_specs[flag]
-            if keyword in kwargs:
-                return {}, f"{usage}\n  error: provide {flag} at most once.", True
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return {}, duplicate_error, True
             kwargs[keyword] = int(value)
             continue
         return {}, f"{usage}\n  error: Unknown option: {part}", True

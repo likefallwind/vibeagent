@@ -2,14 +2,8 @@ from __future__ import annotations
 
 import shlex
 
-from .cli_parse_core import parse_interactive_nonnegative_option, parse_interactive_positive_option
+from .cli_parse_core import duplicate_option_error, parse_interactive_nonnegative_option, parse_interactive_positive_option
 from .cli_parse_read_paths import parse_interactive_read_path_options
-
-
-def _duplicate_option_error(kwargs: dict[str, int], keyword: str, flag: str, usage: str) -> str | None:
-    if keyword in kwargs:
-        return f"{usage}\n  error: provide {flag} at most once."
-    return None
 
 
 def parse_interactive_output_analysis_argument(
@@ -61,7 +55,7 @@ def parse_interactive_output_analysis_argument(
             value, error = parser(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = int(value)
@@ -123,7 +117,7 @@ def parse_interactive_max_bytes_argument(
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
             keyword = option_specs[flag]
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = int(value)
@@ -258,7 +252,7 @@ def parse_interactive_tree_argument(
             value, error = parser(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = int(value)
@@ -320,7 +314,7 @@ def parse_interactive_symbols_argument(
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
             keyword = option_specs[flag]
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error, True
             kwargs[keyword] = int(value)

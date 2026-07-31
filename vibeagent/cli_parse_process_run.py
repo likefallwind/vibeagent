@@ -4,17 +4,12 @@ from pathlib import Path
 import shlex
 
 from .cli_parse_core import (
+    duplicate_option_error,
     parse_interactive_max_chars_option,
     parse_interactive_positive_option,
     parse_interactive_timeout_option,
 )
 from .cli_process_stdin import read_project_stdin_file
-
-
-def _duplicate_option_error(kwargs: dict[str, int | str | bool], keyword: str, flag: str, usage: str) -> str | None:
-    if keyword in kwargs:
-        return f"{usage}\n  error: provide {flag} at most once."
-    return None
 
 
 def parse_interactive_wait_process_argument(
@@ -54,7 +49,7 @@ def parse_interactive_wait_process_argument(
             if "=" in part:
                 return None, {}, f"{usage}\n  error: {flag} does not take a value."
             keyword = bool_options[flag]
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error
             kwargs[keyword] = True
@@ -83,7 +78,7 @@ def parse_interactive_wait_process_argument(
                     value, error = raw_value, None
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
-            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            duplicate_error = duplicate_option_error(kwargs, keyword, flag, usage)
             if duplicate_error:
                 return None, {}, duplicate_error
             kwargs[keyword] = value
