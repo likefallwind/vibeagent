@@ -57,12 +57,21 @@ CLAUDE_READ_TOOL_DEFINITIONS: list[dict[str, Any]] = [
 CLAUDE_SEARCH_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "LS",
-        "description": "Claude-compatible alias for listing a project directory.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "path": {"type": "string"},
                 "ignore": {"type": "array", "items": {"type": "string"}, "maxItems": 50},
+                "max_depth": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                },
+                "max_entries": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000,
+                },
             },
             "required": ["path"],
             "additionalProperties": False,

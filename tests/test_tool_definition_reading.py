@@ -100,6 +100,17 @@ class ReadingToolDefinitionTests(unittest.TestCase):
         self.assertNotIn("max_matches", glob_schema["required"])
         self.assertNotIn("include_dirs", glob_schema["required"])
 
+    def test_claude_ls_schema_exposes_supported_tree_limits(self) -> None:
+        tools = {tool["name"]: tool for tool in CLAUDE_FILE_TOOL_DEFINITIONS}
+        ls_schema = tools["LS"]["input_schema"]
+
+        self.assertIn("ignore", ls_schema["properties"])
+        self.assertEqual(ls_schema["properties"]["max_depth"]["maximum"], 10)
+        self.assertEqual(ls_schema["properties"]["max_entries"]["maximum"], 1000)
+        self.assertNotIn("ignore", ls_schema["required"])
+        self.assertNotIn("max_depth", ls_schema["required"])
+        self.assertNotIn("max_entries", ls_schema["required"])
+
     def test_claude_grep_schema_exposes_all_supported_output_modes(self) -> None:
         tools = {tool["name"]: tool for tool in CLAUDE_FILE_TOOL_DEFINITIONS}
         grep_schema = tools["Grep"]["input_schema"]
