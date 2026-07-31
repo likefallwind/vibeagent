@@ -12464,6 +12464,52 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Edit can apply to app.py", unrelated_mutation_preview or "")
         self.assertIn("after rewrite", fresh_preview or "")
 
+    def test_approval_preview_summary_ignores_file_preview_after_parent_dir_mutation(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.EditFileAction(type="edit_file", path="pkg/app.py", old="old", new="new"),
+            [
+                types_module.CheckEditFileObservation(
+                    kind="check_edit_file",
+                    path="pkg/app.py",
+                    ok=True,
+                    message="Edit can apply to pkg/app.py.",
+                    diff="-old\n+new\n",
+                    old="old",
+                    new="new",
+                ),
+                types_module.MoveDirectoryObservation(
+                    kind="move_dir",
+                    source="pkg",
+                    destination="archive/pkg",
+                    ok=True,
+                    message="Moved pkg.",
+                ),
+            ],
+        )
+        unrelated_directory_preview = agent_module.approval_preview_summary(
+            types_module.EditFileAction(type="edit_file", path="pkg/app.py", old="old", new="new"),
+            [
+                types_module.CheckEditFileObservation(
+                    kind="check_edit_file",
+                    path="pkg/app.py",
+                    ok=True,
+                    message="Edit can apply to pkg/app.py.",
+                    diff="-old\n+new\n",
+                    old="old",
+                    new="new",
+                ),
+                types_module.CreateDirectoryObservation(
+                    kind="create_dir",
+                    path="docs",
+                    ok=True,
+                    message="Created docs.",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+        self.assertIn("Edit can apply to pkg/app.py", unrelated_directory_preview or "")
+
     def test_approval_preview_summary_fingerprints_diff_content(self) -> None:
         first = agent_module.summarize_preview_observation(
             types_module.CheckGitStashObservation(

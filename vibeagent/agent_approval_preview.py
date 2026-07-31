@@ -114,6 +114,19 @@ FILE_PREVIEW_KINDS = {
     "check_patches",
     "check_delete_file",
     "check_delete_files",
+    "check_move_file",
+    "check_move_files",
+    "check_copy_file",
+    "check_copy_files",
+    "check_move_dir",
+    "check_move_dirs",
+    "check_copy_dir",
+    "check_copy_dirs",
+    "check_create_dir",
+    "check_create_dirs",
+    "check_delete_empty_dir",
+    "check_delete_empty_dirs",
+    "check_set_executable",
 }
 
 FILE_MUTATION_OBSERVATION_KINDS = {
@@ -133,6 +146,19 @@ FILE_MUTATION_OBSERVATION_KINDS = {
     "patch_files",
     "delete_file",
     "delete_files",
+    "move_file",
+    "move_files",
+    "copy_file",
+    "copy_files",
+    "move_dir",
+    "move_dirs",
+    "copy_dir",
+    "copy_dirs",
+    "create_dir",
+    "create_dirs",
+    "delete_empty_dir",
+    "delete_empty_dirs",
+    "set_executable",
 }
 
 
@@ -181,7 +207,7 @@ def preview_search_invalidated(
     if expected_paths is None:
         return True
     changed_paths = observation_paths(observation)
-    return bool(changed_paths & expected_paths)
+    return paths_overlap_or_nested(changed_paths, expected_paths)
 
 
 def summarize_preview_observation(observation: object) -> str:
@@ -278,6 +304,30 @@ def observation_paths(value: object) -> frozenset[str]:
             if isinstance(transfer_path, str) and transfer_path:
                 paths.add(transfer_path)
     return frozenset(paths)
+
+
+def paths_overlap_or_nested(left: frozenset[str], right: frozenset[str]) -> bool:
+    for left_path in left:
+        normalized_left = normalize_preview_path(left_path)
+        if not normalized_left:
+            continue
+        for right_path in right:
+            normalized_right = normalize_preview_path(right_path)
+            if not normalized_right:
+                continue
+            if (
+                normalized_left == normalized_right
+                or normalized_left.startswith(f"{normalized_right}/")
+                or normalized_right.startswith(f"{normalized_left}/")
+            ):
+                return True
+    return False
+
+
+def normalize_preview_path(path: str) -> str:
+    return "/".join(
+        part for part in path.replace("\\", "/").split("/") if part and part != "."
+    )
 
 
 def approval_preview_key(value: object) -> tuple[Any, ...]:
