@@ -12510,6 +12510,113 @@ class AgentTests(unittest.TestCase):
         self.assertIsNone(stale_preview)
         self.assertIn("Edit can apply to pkg/app.py", unrelated_directory_preview or "")
 
+    def test_approval_preview_summary_ignores_rename_preview_after_file_rename_mutation(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.CodeRenameAction(
+                type="code_rename",
+                symbol="runAgent",
+                new_name="executeAgent",
+                path="src",
+            ),
+            [
+                types_module.CodeRenamePreviewObservation(
+                    kind="code_rename_preview",
+                    symbol="runAgent",
+                    new_name="executeAgent",
+                    path="src",
+                    files=[
+                        types_module.CodeRenamePreviewFile(
+                            path="src/app.ts",
+                            language="typescript",
+                            replacements=[],
+                            diff="-runAgent\n+executeAgent\n",
+                            truncated=False,
+                        )
+                    ],
+                    total_replacements=1,
+                    total_files=1,
+                    truncated=False,
+                    ok=True,
+                    errors=[],
+                    message="Found 1 code rename replacement(s) across 1 file(s).",
+                ),
+                types_module.PythonRenameObservation(
+                    kind="python_rename",
+                    symbol="run_agent",
+                    new_name="execute_agent",
+                    path="src",
+                    files=[
+                        types_module.PythonRenamePreviewFile(
+                            path="src/app.py",
+                            replacements=[],
+                            diff="-run_agent\n+execute_agent\n",
+                            truncated=False,
+                        )
+                    ],
+                    total_replacements=1,
+                    total_files=1,
+                    ok=True,
+                    errors=[],
+                    message="Renamed 1 Python reference.",
+                    diff="-run_agent\n+execute_agent\n",
+                ),
+            ],
+        )
+        unrelated_rename_preview = agent_module.approval_preview_summary(
+            types_module.CodeRenameAction(
+                type="code_rename",
+                symbol="runAgent",
+                new_name="executeAgent",
+                path="web",
+            ),
+            [
+                types_module.CodeRenamePreviewObservation(
+                    kind="code_rename_preview",
+                    symbol="runAgent",
+                    new_name="executeAgent",
+                    path="web",
+                    files=[
+                        types_module.CodeRenamePreviewFile(
+                            path="web/app.ts",
+                            language="typescript",
+                            replacements=[],
+                            diff="-runAgent\n+executeAgent\n",
+                            truncated=False,
+                        )
+                    ],
+                    total_replacements=1,
+                    total_files=1,
+                    truncated=False,
+                    ok=True,
+                    errors=[],
+                    message="Found 1 code rename replacement(s) across 1 file(s).",
+                ),
+                types_module.PythonRenameObservation(
+                    kind="python_rename",
+                    symbol="run_agent",
+                    new_name="execute_agent",
+                    path="src",
+                    files=[
+                        types_module.PythonRenamePreviewFile(
+                            path="src/app.py",
+                            replacements=[],
+                            diff="-run_agent\n+execute_agent\n",
+                            truncated=False,
+                        )
+                    ],
+                    total_replacements=1,
+                    total_files=1,
+                    ok=True,
+                    errors=[],
+                    message="Renamed 1 Python reference.",
+                    diff="-run_agent\n+execute_agent\n",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+        self.assertIn("Found 1 code rename", unrelated_rename_preview or "")
+
     def test_approval_preview_summary_fingerprints_diff_content(self) -> None:
         first = agent_module.summarize_preview_observation(
             types_module.CheckGitStashObservation(
