@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from vibeagent import workflow_commands, workflow_diff_commands, workflow_diff_utils
+from vibeagent import workflow_commands, workflow_diff_commands, workflow_diff_utils, workflow_plain_diff_commands
 
 
 class WorkflowDiffCommandsTests(unittest.TestCase):
@@ -16,6 +16,9 @@ class WorkflowDiffCommandsTests(unittest.TestCase):
         )
         self.assertIs(workflow_commands.parse_diff_argument, workflow_diff_commands.parse_diff_argument)
         self.assertIs(workflow_commands.clip_with_flag, workflow_diff_commands.clip_with_flag)
+        self.assertIs(workflow_diff_commands.get_diff_report, workflow_plain_diff_commands.get_diff_report)
+        self.assertIs(workflow_diff_commands.get_diff_text, workflow_plain_diff_commands.get_diff_text)
+        self.assertIs(workflow_diff_commands.format_diff_report_text, workflow_plain_diff_commands.format_diff_report_text)
 
     def test_diff_utils_keep_validation_behavior(self) -> None:
         self.assertEqual(workflow_diff_utils.parse_diff_argument("--staged app.py"), (True, "app.py"))
