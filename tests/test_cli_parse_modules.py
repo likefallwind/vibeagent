@@ -28,7 +28,12 @@ from vibeagent.cli_parse_discovery import (
 )
 from vibeagent.cli_parse_diff_git import build_diff_argument, parse_interactive_diff_argument
 from vibeagent.cli_parse_process_run import parse_interactive_wait_process_argument, parse_interactive_write_process_argument
-from vibeagent.cli_parse_runtime_checks import parse_interactive_http_argument, parse_interactive_port_argument
+from vibeagent.cli_parse_runtime_checks import (
+    parse_interactive_http_argument,
+    parse_interactive_http_fetch_argument,
+    parse_interactive_port_argument,
+    parse_interactive_process_output_argument,
+)
 from vibeagent.cli_parse_read import (
     parse_interactive_read_argument,
     parse_interactive_read_files_argument,
@@ -410,6 +415,51 @@ class CliParseModuleTests(unittest.TestCase):
             (url, http_kwargs, http_error, http_handled),
             ("http://127.0.0.1:8000", {"timeout_ms": 2000, "max_body_chars": 100, "contains": "ready", "regex": True}, None, True),
         )
+
+    def test_runtime_and_process_parsers_reject_duplicate_options(self) -> None:
+        _, wait_kwargs, wait_error = parse_interactive_wait_process_argument(
+            "bg-1 --timeout-ms 1000 --timeout-ms=2000"
+        )
+        _, wait_positional_kwargs, wait_positional_error = parse_interactive_wait_process_argument(
+            "bg-1 1000 --timeout-ms=2000"
+        )
+        _, process_kwargs, process_error = parse_interactive_process_output_argument(
+            "bg-1 --max-chars 1000 --max-chars=2000",
+            "Usage: /process-output <id> [chars] [--max-chars N]",
+            {"--max-chars": ("max_output_chars", False)},
+        )
+        _, process_positional_kwargs, process_positional_error = parse_interactive_process_output_argument(
+            "bg-1 1000 --max-chars=2000",
+            "Usage: /process-output <id> [chars] [--max-chars N]",
+            {"--max-chars": ("max_output_chars", False)},
+        )
+        _, port_kwargs, port_error, port_handled = parse_interactive_port_argument(
+            "--host 127.0.0.1 --host=0.0.0.0 5173"
+        )
+        _, http_kwargs, http_error, http_handled = parse_interactive_http_argument(
+            "--regex --regex http://127.0.0.1:8000"
+        )
+        _, fetch_kwargs, fetch_error, fetch_handled = parse_interactive_http_fetch_argument(
+            "--max-body-chars 100 --max-body-chars=200 http://127.0.0.1:8000"
+        )
+
+        self.assertEqual(wait_kwargs, {})
+        self.assertIn("provide --timeout-ms at most once.", wait_error or "")
+        self.assertEqual(wait_positional_kwargs, {})
+        self.assertIn("provide either --timeout-ms or positional timeout-ms, not both.", wait_positional_error or "")
+        self.assertEqual(process_kwargs, {})
+        self.assertIn("provide --max-chars at most once.", process_error or "")
+        self.assertEqual(process_positional_kwargs, {})
+        self.assertIn("provide --max-chars at most once.", process_positional_error or "")
+        self.assertTrue(port_handled)
+        self.assertEqual(port_kwargs, {})
+        self.assertIn("provide --host at most once.", port_error or "")
+        self.assertTrue(http_handled)
+        self.assertEqual(http_kwargs, {})
+        self.assertIn("provide --regex at most once.", http_error or "")
+        self.assertTrue(fetch_handled)
+        self.assertEqual(fetch_kwargs, {})
+        self.assertIn("provide --max-body-chars at most once.", fetch_error or "")
 
     def test_discovery_parsers_keep_existing_behavior(self) -> None:
         query, search_kwargs, search_error, search_handled = parse_interactive_search_argument(

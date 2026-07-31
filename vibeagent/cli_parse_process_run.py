@@ -11,6 +11,12 @@ from .cli_parse_core import (
 from .cli_process_stdin import read_project_stdin_file
 
 
+def _duplicate_option_error(kwargs: dict[str, int | str | bool], keyword: str, flag: str, usage: str) -> str | None:
+    if keyword in kwargs:
+        return f"{usage}\n  error: provide {flag} at most once."
+    return None
+
+
 def parse_interactive_wait_process_argument(
     argument: str | None,
 ) -> tuple[str | None, dict[str, int | str | bool], str | None]:
@@ -47,7 +53,11 @@ def parse_interactive_wait_process_argument(
         if flag in bool_options:
             if "=" in part:
                 return None, {}, f"{usage}\n  error: {flag} does not take a value."
-            kwargs[bool_options[flag]] = True
+            keyword = bool_options[flag]
+            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error
+            kwargs[keyword] = True
             index += 1
             continue
         if flag in value_options:
@@ -73,6 +83,9 @@ def parse_interactive_wait_process_argument(
                     value, error = raw_value, None
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
+            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error
             kwargs[keyword] = value
             continue
         if part.startswith("--"):
@@ -86,11 +99,15 @@ def parse_interactive_wait_process_argument(
         return None, {}, usage
     process_id = positional[0]
     if len(positional) >= 2:
+        if "timeout_ms" in kwargs:
+            return None, {}, f"{usage}\n  error: provide either --timeout-ms or positional timeout-ms, not both."
         value, error = parse_interactive_timeout_option("[timeout-ms]", positional[1])
         if error:
             return None, {}, f"{usage}\n  error: invalid timeout ms: {positional[1]}"
         kwargs["timeout_ms"] = int(value)
     if len(positional) == 3:
+        if "max_output_chars" in kwargs:
+            return None, {}, f"{usage}\n  error: provide either --max-chars or positional chars, not both."
         value, error = parse_interactive_max_chars_option("[chars]", positional[2])
         if error:
             return None, {}, f"{usage}\n  error: invalid max chars: {positional[2]}"

@@ -10,6 +10,12 @@ from .cli_parse_core import (
 )
 
 
+def _duplicate_option_error(kwargs: dict[str, int | str | bool], keyword: str, flag: str, usage: str) -> str | None:
+    if keyword in kwargs:
+        return f"{usage}\n  error: provide {flag} at most once."
+    return None
+
+
 def parse_interactive_process_output_argument(
     argument: str | None,
     usage: str,
@@ -43,6 +49,8 @@ def parse_interactive_process_output_argument(
             value, error = parser(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
+            if keyword in kwargs:
+                return None, {}, f"{usage}\n  error: provide {flag} at most once."
             kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):
@@ -52,6 +60,8 @@ def parse_interactive_process_output_argument(
             index += 1
             continue
         if legacy_max_chars is None:
+            if "max_output_chars" in kwargs:
+                return None, {}, f"{usage}\n  error: provide either --max-chars or positional chars, not both."
             value, error = parse_interactive_max_chars_option("[chars]", part)
             if error:
                 return None, {}, f"{usage}\n  error: invalid max chars: {part}"
@@ -120,6 +130,9 @@ def parse_interactive_port_argument(
                     value, error = raw_value, None
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
+            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error, True
             kwargs[keyword] = value
             continue
         if part.startswith("--"):
@@ -179,7 +192,11 @@ def parse_interactive_http_argument(
         if flag in bool_options:
             if "=" in part:
                 return None, {}, f"{usage}\n  error: {flag} does not take a value.", True
-            kwargs[bool_options[flag]] = True
+            keyword = bool_options[flag]
+            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error, True
+            kwargs[keyword] = True
             index += 1
             continue
         if flag in value_options:
@@ -203,6 +220,9 @@ def parse_interactive_http_argument(
                     value, error = raw_value, None
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
+            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error, True
             kwargs[keyword] = value
             continue
         if part.startswith("--"):
@@ -271,6 +291,8 @@ def parse_interactive_http_fetch_argument(
                 value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
+            if keyword in kwargs:
+                return None, {}, f"{usage}\n  error: provide {flag} at most once.", True
             kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):
