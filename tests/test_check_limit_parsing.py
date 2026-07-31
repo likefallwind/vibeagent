@@ -1,6 +1,10 @@
 import unittest
 
-from vibeagent.check_limit_parsing import parse_suggested_checks_limit
+from vibeagent.check_limit_parsing import (
+    parse_named_suggested_checks_limit,
+    parse_suggested_checks_limit,
+    parse_suggested_checks_limit_parts,
+)
 
 
 class CheckLimitParsingTests(unittest.TestCase):
@@ -33,3 +37,16 @@ class CheckLimitParsingTests(unittest.TestCase):
             parse_suggested_checks_limit("0")
         with self.assertRaisesRegex(ValueError, "max must be at most 10"):
             parse_suggested_checks_limit("11")
+
+    def test_parse_suggested_checks_limit_parts_separates_named_and_positional_values(self) -> None:
+        self.assertEqual(parse_suggested_checks_limit_parts(["--max-checks", "2"]), (2, []))
+        self.assertEqual(parse_suggested_checks_limit_parts(["--max-checks=3"]), (3, []))
+        self.assertEqual(parse_suggested_checks_limit_parts(["4"]), (None, ["4"]))
+        self.assertEqual(parse_suggested_checks_limit_parts(["--", "5"]), (None, ["5"]))
+
+    def test_parse_named_suggested_checks_limit_reports_missing_or_non_integer_values(self) -> None:
+        self.assertEqual(parse_named_suggested_checks_limit("2"), 2)
+        with self.assertRaisesRegex(ValueError, "--max-checks requires a value"):
+            parse_named_suggested_checks_limit(None)
+        with self.assertRaisesRegex(ValueError, "--max-checks must be an integer"):
+            parse_named_suggested_checks_limit("two")
