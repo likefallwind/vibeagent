@@ -10,6 +10,7 @@ from vibeagent.cli_parse_core import build_focused_tests_kwargs, parse_cli_json_
 from vibeagent.cli_process_stdin import read_project_stdin_file
 from vibeagent.cli_parse_code_intel import (
     parse_interactive_python_call_graph_argument,
+    parse_interactive_python_deps_argument,
     parse_interactive_python_symbol_argument,
     parse_interactive_test_paths_argument,
 )
@@ -457,6 +458,45 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertEqual((path_arg, test_kwargs, test_error, test_handled), ("src/app.py tests/test_app.py", {"max_paths": 2, "max_candidates": 3, "max_commands": 4}, None, True))
         self.assertEqual((symbol, path, symbol_kwargs, symbol_error, symbol_handled), ("handle_request", "src/app.py", {"max_matches": 5, "context_lines": 2, "max_bytes_per_context": 100}, None, True))
         self.assertEqual((graph_path, graph_kwargs, graph_error, graph_handled), ("src/app.py", {"max_files": 2, "max_edges": 7}, None, True))
+
+    def test_code_intel_parsers_reject_duplicate_options(self) -> None:
+        _, test_kwargs, test_error, test_handled = parse_interactive_test_paths_argument(
+            "--max-candidates 2 --max-candidates=3 -- src/app.py",
+            "Usage: /related-tests [path...]",
+        )
+        _, symbol_path, symbol_kwargs, symbol_error, symbol_handled = parse_interactive_python_symbol_argument(
+            "--path src/app.py --path tests/test_app.py -- run_agent",
+            command_name="python-symbol",
+        )
+        _, context_path, context_kwargs, context_error, context_handled = parse_interactive_python_symbol_argument(
+            "--context-lines 1 --context-lines=2 -- run_agent",
+            command_name="python-ref-contexts",
+            include_context=True,
+        )
+        _, deps_kwargs, deps_error, deps_handled = parse_interactive_python_deps_argument(
+            "--max-files 2 --max-files=3 -- src"
+        )
+        _, graph_kwargs, graph_error, graph_handled = parse_interactive_python_call_graph_argument(
+            "--max-edges 5 --max-edges=6 -- src"
+        )
+
+        self.assertTrue(test_handled)
+        self.assertEqual(test_kwargs, {})
+        self.assertIn("provide --max-candidates at most once.", test_error or "")
+        self.assertTrue(symbol_handled)
+        self.assertIsNone(symbol_path)
+        self.assertEqual(symbol_kwargs, {})
+        self.assertIn("provide --path at most once.", symbol_error or "")
+        self.assertTrue(context_handled)
+        self.assertIsNone(context_path)
+        self.assertEqual(context_kwargs, {})
+        self.assertIn("provide --context-lines at most once.", context_error or "")
+        self.assertTrue(deps_handled)
+        self.assertEqual(deps_kwargs, {})
+        self.assertIn("provide --max-files at most once.", deps_error or "")
+        self.assertTrue(graph_handled)
+        self.assertEqual(graph_kwargs, {})
+        self.assertIn("provide --max-edges at most once.", graph_error or "")
 
     def test_run_parsers_keep_existing_behavior(self) -> None:
         command, kwargs, error, handled = parse_interactive_run_argument(

@@ -5,6 +5,12 @@ import shlex
 from .cli_parse_core import parse_interactive_nonnegative_option, parse_interactive_positive_option
 
 
+def _duplicate_option_error(kwargs: dict[str, int], keyword: str, flag: str, usage: str) -> str | None:
+    if keyword in kwargs:
+        return f"{usage}\n  error: provide {flag} at most once."
+    return None
+
+
 def parse_interactive_test_paths_argument(
     argument: str | None,
     usage: str,
@@ -54,7 +60,11 @@ def parse_interactive_test_paths_argument(
             value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            kwargs[option_specs[flag]] = int(value)
+            keyword = option_specs[flag]
+            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error, True
+            kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):
             return None, {}, f"{usage}\n  error: Unknown option: {part}", True
@@ -140,8 +150,13 @@ def parse_interactive_python_symbol_argument(
             if error:
                 return None, None, {}, f"{usage}\n  error: {error}", True
             if keyword == "path":
+                if path is not None:
+                    return None, None, {}, f"{usage}\n  error: provide {flag} at most once.", True
                 path = str(value)
             else:
+                duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+                if duplicate_error:
+                    return None, None, {}, duplicate_error, True
                 kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):
@@ -205,7 +220,11 @@ def _parse_interactive_path_options_argument(
             value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            kwargs[option_specs[flag]] = int(value)
+            keyword = option_specs[flag]
+            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error, True
+            kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):
             return None, {}, f"{usage}\n  error: Unknown option: {part}", True
