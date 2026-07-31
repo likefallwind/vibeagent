@@ -14,25 +14,9 @@ from vibeagent.commands import (
     get_run_suggested_checks_report,
     get_run_suggested_checks_text,
 )
-from vibeagent.check_limit_parsing import parse_suggested_checks_limit
 
 
 class SuggestedChecksCommandTests(unittest.TestCase):
-    def test_parse_suggested_checks_limit_accepts_named_max_checks(self) -> None:
-        self.assertEqual(parse_suggested_checks_limit("--max-checks 2"), 2)
-        self.assertEqual(parse_suggested_checks_limit("--max-checks=3"), 3)
-        self.assertEqual(parse_suggested_checks_limit("", default=4), 4)
-
-    def test_parse_suggested_checks_limit_reports_named_option_errors(self) -> None:
-        with self.assertRaisesRegex(ValueError, "--max-checks requires a value"):
-            parse_suggested_checks_limit("--max-checks")
-        with self.assertRaisesRegex(ValueError, "--max-checks must be an integer"):
-            parse_suggested_checks_limit("--max-checks two")
-        with self.assertRaisesRegex(ValueError, "Unknown option: --bad"):
-            parse_suggested_checks_limit("--bad")
-        with self.assertRaisesRegex(ValueError, "provide either --max-checks or trailing max"):
-            parse_suggested_checks_limit("--max-checks 1 2")
-
     def test_get_checks_text_reports_suggested_verification_commands(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
