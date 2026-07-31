@@ -16,6 +16,7 @@ from .cli_local_flag_detection import (
 )
 from .cli_output_args import add_output_arguments, normalize_output_arguments
 from .cli_one_shot_args import add_one_shot_arguments
+from .cli_process_args import add_process_local_arguments, add_process_option_arguments
 from .cli_session_args import add_session_limit_arguments, add_session_local_arguments
 from .tool_categories import valid_tool_categories
 from .tool_search_options import tool_search_approval_choices
@@ -178,18 +179,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     local.add_argument("--code-rename-preview", nargs=2, metavar=("SYMBOL", "NEW_NAME"), help="Preview a non-Python source symbol or literal rename and exit.")
     local.add_argument("--code-rename", nargs=2, metavar=("SYMBOL", "NEW_NAME"), help="Rename a non-Python source symbol or literal and exit.")
     add_git_local_arguments(local)
-    local.add_argument("--env", action="store_true", help="Show local OS, runtime, and tool availability and exit.")
-    local.add_argument("--processes", action="store_true", help="Show VibeAgent-started background processes and exit.")
-    local.add_argument("--process-output", metavar="ID", help="Show captured stdout and stderr for one VibeAgent-started background process and exit.")
-    local.add_argument("--process-output-contexts", metavar="ID", help="Extract file:line source contexts from one background process output and exit.")
-    local.add_argument("--process-output-diagnostics", metavar="ID", help="Summarize diagnostics from one background process output and exit.")
-    local.add_argument("--wait-process", metavar="ID", help="Wait briefly for one VibeAgent-started background process and exit.")
-    local.add_argument("--check-write-process", metavar="ID", help="Preview writing stdin text to one VibeAgent-started background process and exit.")
-    local.add_argument("--write-process", metavar="ID", help="Write stdin text to one VibeAgent-started background process and exit.")
-    local.add_argument("--check-stop-process", metavar="ID", help="Preview stopping one VibeAgent-started background process and exit.")
-    local.add_argument("--stop-process", metavar="ID", help="Stop one VibeAgent-started background process and exit.")
-    local.add_argument("--check-stop-all-processes", action="store_true", help="Preview stopping all VibeAgent-started background processes and exit.")
-    local.add_argument("--stop-all-processes", action="store_true", help="Stop all VibeAgent-started background processes and exit.")
+    add_process_local_arguments(local)
     local.add_argument("--status", action="store_true", help="Show default non-interactive status and exit.")
     local.add_argument("--context", action="store_true", help="Show project context sources and exit.")
     local.add_argument("--init", nargs="?", const="AGENTS.md", metavar="FILE", help="Create a starter AGENTS.md or CLAUDE.md and exit.")
@@ -298,18 +288,12 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--tail-lines", type=positive_int, default=80, metavar="N", help="Trailing line count for --tail.")
     parser.add_argument("--tail-max-bytes", type=positive_int, metavar="N", help="Maximum bytes to read with --tail.")
     add_git_history_option_arguments(parser, positive_int=positive_int)
-    parser.add_argument("--process-max-chars", type=positive_int, metavar="N", help="Maximum captured output characters for --process-output, --process-output-contexts, or --process-output-diagnostics.")
-    parser.add_argument("--process-output-context-lines", type=nonnegative_int, default=5, metavar="N", help="Context lines around each extracted process output reference.")
-    parser.add_argument("--process-output-context-max", type=positive_int, default=20, metavar="N", help="Maximum extracted process output contexts.")
-    parser.add_argument("--process-output-context-max-bytes", type=positive_int, default=20_000, metavar="N", help="Maximum bytes per extracted process output context.")
-    parser.add_argument("--process-output-diagnostic-max", type=positive_int, default=50, metavar="N", help="Maximum diagnostic lines to show with --process-output-diagnostics.")
-    parser.add_argument("--wait-timeout-ms", type=timeout_ms, default=5_000, metavar="N", help="Maximum milliseconds to wait with --wait-process.")
-    parser.add_argument("--wait-max-chars", type=positive_int, metavar="N", help="Maximum captured output characters for --wait-process.")
-    parser.add_argument("--wait-stdout", metavar="TEXT", help="Return early when --wait-process stdout contains TEXT.")
-    parser.add_argument("--wait-stderr", metavar="TEXT", help="Return early when --wait-process stderr contains TEXT.")
-    parser.add_argument("--wait-regex", action="store_true", help="Treat --wait-stdout or --wait-stderr as a regular expression.")
-    parser.add_argument("--write-stdin", metavar="TEXT", help="Stdin text for --check-write-process or --write-process. Quote text with spaces; use \\n when pressing Enter is required.")
-    parser.add_argument("--write-stdin-file", metavar="PATH", help="Project-relative UTF-8 file to use as stdin text for --check-write-process or --write-process.")
+    add_process_option_arguments(
+        parser,
+        positive_int=positive_int,
+        nonnegative_int=nonnegative_int,
+        timeout_ms=timeout_ms,
+    )
     parser.add_argument("--regex-count", type=nonnegative_int, default=0, metavar="N", help="Maximum replacements for --check-regex-replace or --regex-replace. Use 0 for all.")
     parser.add_argument("--regex-max-replacements", type=positive_int, default=100, metavar="N", help="Safety cap for --check-regex-replace or --regex-replace.")
     parser.add_argument("--regex-ignore-case", action="store_true", help="Use case-insensitive matching with --check-regex-replace or --regex-replace.")
