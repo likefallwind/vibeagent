@@ -15,20 +15,22 @@ def normalize_preview_path(path: str) -> str:
 
 def paths_overlap_or_nested(left: frozenset[str], right: frozenset[str]) -> bool:
     for left_path in left:
-        normalized_left = normalize_preview_path(left_path)
-        if not normalized_left:
-            continue
+        normalized_left = normalize_preview_overlap_path(left_path)
         for right_path in right:
-            normalized_right = normalize_preview_path(right_path)
-            if not normalized_right:
-                continue
+            normalized_right = normalize_preview_overlap_path(right_path)
             if (
-                normalized_left == normalized_right
+                normalized_left == "."
+                or normalized_right == "."
+                or normalized_left == normalized_right
                 or normalized_left.startswith(f"{normalized_right}/")
                 or normalized_right.startswith(f"{normalized_left}/")
             ):
                 return True
     return False
+
+
+def normalize_preview_overlap_path(path: str) -> str:
+    return normalize_preview_path(path) or "."
 
 
 def preview_path_value(path: object, default: object = "") -> object:

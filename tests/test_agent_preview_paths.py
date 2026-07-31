@@ -5,6 +5,7 @@ import unittest
 
 from vibeagent.agent_preview_paths import (
     normalize_preview_path,
+    normalize_preview_overlap_path,
     paths_overlap_or_nested,
     preview_cwd_value,
     preview_optional_path_attr,
@@ -28,6 +29,7 @@ class AgentPreviewPathTests(unittest.TestCase):
     def test_preview_path_values_handle_root_and_non_string_defaults(self) -> None:
         self.assertEqual(preview_path_value("."), ".")
         self.assertEqual(preview_path_value("./"), ".")
+        self.assertEqual(normalize_preview_overlap_path("./"), ".")
         self.assertEqual(preview_path_value(None, "fallback"), "fallback")
         self.assertEqual(preview_path_attr(SimpleNamespace(path="./src/../app.py")), "app.py")
         self.assertIsNone(preview_optional_path_attr(SimpleNamespace(path=None)))
@@ -39,6 +41,8 @@ class AgentPreviewPathTests(unittest.TestCase):
         self.assertTrue(paths_overlap_or_nested(frozenset({"pkg/../app.py"}), frozenset({"./app.py"})))
         self.assertTrue(paths_overlap_or_nested(frozenset({"pkg/app.py"}), frozenset({"./pkg"})))
         self.assertTrue(paths_overlap_or_nested(frozenset({"./pkg"}), frozenset({"pkg/app.py"})))
+        self.assertTrue(paths_overlap_or_nested(frozenset({"."}), frozenset({"pkg/app.py"})))
+        self.assertTrue(paths_overlap_or_nested(frozenset({"pkg/app.py"}), frozenset({"./"})))
         self.assertFalse(paths_overlap_or_nested(frozenset({"pkg-old/app.py"}), frozenset({"pkg"})))
         self.assertFalse(paths_overlap_or_nested(frozenset({"pkg"}), frozenset({"pkg-old/app.py"})))
 
