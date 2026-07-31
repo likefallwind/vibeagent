@@ -4015,6 +4015,51 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Session:", result.observations[0].summary)
         self.assertEqual(result.steps[0].status, "completed")
 
+    def test_session_summary_observation_carries_completion_recovery_details(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            events_dir = root / ".vibeagent" / "sessions" / "prior-run"
+            events_dir.mkdir(parents=True)
+            (events_dir / "events.jsonl").write_text(
+                json.dumps(
+                    {
+                        "type": "result",
+                        "success": True,
+                        "status": "blocked",
+                        "message": "Needs verification.",
+                        "completion_ready": False,
+                        "completion_blockers": ["1 suggested verification check(s) are still pending."],
+                        "completion_details": {
+                            "pendingVerificationChecks": ["npm test"],
+                            "toolErrors": ["read_file: Tool execution failed: boom"],
+                            "nextActions": ["Use run_session_verification before trying to finish again."],
+                        },
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "session_summary", "input": {"run_id": "prior-run"}}],
+                    [{"type": "text", "text": "Read prior session summary."}],
+                ]
+            )
+
+            result = run_agent("read prior session summary", base_dir=root, client=client, max_iterations=2)
+
+        observation = result.observations[0]
+        self.assertTrue(result.success)
+        self.assertEqual(observation.kind, "session_summary")
+        self.assertFalse(observation.completion_ready)
+        self.assertEqual(observation.completion_blockers, ["1 suggested verification check(s) are still pending."])
+        self.assertEqual(observation.latest_completion_pending_verification_checks, ["npm test"])
+        self.assertEqual(observation.latest_completion_tool_errors, ["read_file: Tool execution failed: boom"])
+        self.assertEqual(
+            observation.latest_completion_next_actions,
+            ["Use run_session_verification before trying to finish again."],
+        )
+
     def test_run_agent_allows_session_plan_without_approval_handler(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             client = MockClient(
@@ -4499,6 +4544,11 @@ class AgentTests(unittest.TestCase):
                     summary="Session: run-1\n  status: blocked",
                     recent_sessions=[],
                     message="Read session summary for run-1.",
+                    completion_ready=False,
+                    completion_blockers=["1 suggested verification check(s) are still pending."],
+                    latest_completion_pending_verification_checks=["npm test"],
+                    latest_completion_tool_errors=["read_file: Tool execution failed: boom"],
+                    latest_completion_next_actions=["Use run_session_verification before trying to finish again."],
                     latest_subagent_failures=["task=Inspect; agent=reader; mode=explore; message=failed."],
                 )
             ]
@@ -4506,6 +4556,11 @@ class AgentTests(unittest.TestCase):
 
         self.assertIn("session_summary run-1", text)
         self.assertIn("ok: true", text)
+        self.assertIn("completionReady: false", text)
+        self.assertIn("completionBlocker: 1 suggested verification check(s) are still pending.", text)
+        self.assertIn("latestCompletionPendingCheck: npm test", text)
+        self.assertIn("latestCompletionToolError: read_file: Tool execution failed: boom", text)
+        self.assertIn("latestCompletionNextAction: Use run_session_verification before trying to finish again.", text)
         self.assertIn("latestSubagentFailure: task=Inspect; agent=reader; mode=explore; message=failed.", text)
         self.assertIn("summary:", text)
 

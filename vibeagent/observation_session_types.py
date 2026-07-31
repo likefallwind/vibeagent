@@ -15,6 +15,18 @@ class SessionSummaryObservation:
     summary: str
     recent_sessions: list[str]
     message: str
+    completion_ready: bool | None = None
+    completion_blockers: list[str] = field(default_factory=list)
+    latest_completion_blockers: list[str] = field(default_factory=list)
+    latest_completion_pending_verification_checks: list[str] = field(default_factory=list)
+    latest_completion_failed_verification_checks: list[str] = field(default_factory=list)
+    latest_completion_final_review_issues: list[str] = field(default_factory=list)
+    latest_completion_final_review_changed_files: list[str] = field(default_factory=list)
+    latest_completion_tool_errors: list[str] = field(default_factory=list)
+    latest_completion_checkpoint_failures: list[str] = field(default_factory=list)
+    latest_completion_active_background_processes: list[str] = field(default_factory=list)
+    latest_completion_denied_approvals: list[str] = field(default_factory=list)
+    latest_completion_next_actions: list[str] = field(default_factory=list)
     latest_subagent_failures: list[str] = field(default_factory=list)
 
 

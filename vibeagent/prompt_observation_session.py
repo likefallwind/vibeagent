@@ -84,10 +84,24 @@ def format_subagent_failure_lines(observation: object) -> list[str]:
 def format_session_observation(index: int, observation: object) -> str | None:
     if observation.kind == "session_summary":
         subagent_failure_lines = format_subagent_failure_lines(observation)
+        completion_ready = getattr(observation, "completion_ready", None)
+        completion_lines = []
+        if completion_ready is not None:
+            completion_lines.append(f"completionReady: {str(completion_ready).lower()}")
+        completion_lines.extend(
+            f"completionBlocker: {blocker}"
+            for blocker in getattr(observation, "completion_blockers", [])[:20]
+        )
+        completion_lines.extend(
+            f"latestCompletionBlocker: {blocker}"
+            for blocker in getattr(observation, "latest_completion_blockers", [])[:20]
+        )
+        completion_lines.extend(completion_detail_prompt_lines(observation))
         return "\n".join(
             [
                 f"{index}. session_summary {observation.run_id}: {observation.message}",
                 f"ok: {str(observation.ok).lower()}",
+                *completion_lines,
                 *subagent_failure_lines,
                 f"summary:\n{truncate(observation.summary)}",
                 f"recent:\n{truncate(chr(10).join(observation.recent_sessions))}",

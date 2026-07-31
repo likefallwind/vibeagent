@@ -20,6 +20,7 @@ from .session import (
     summarize_session,
 )
 from .session_action_helpers import select_session_run_id, session_file_references
+from .session_completion_detail_fields import completion_detail_kwargs_from_object
 from .types import (
     Observation,
     SessionCommandsAction,
@@ -61,10 +62,18 @@ def execute_session_report_action(workspace: RunWorkspace, action: object) -> Ob
 def session_summary_observation(workspace: RunWorkspace, action: SessionSummaryAction) -> SessionSummaryObservation:
     run_id = select_session_run_id(action.run_id, workspace.run_id)
     latest_subagent_failures: list[str] = []
+    completion_kwargs: dict[str, list[str]] = {}
+    completion_ready: bool | None = None
+    completion_blockers: list[str] = []
+    latest_completion_blockers: list[str] = []
     try:
         summary = summarize_session(workspace.root, run_id)
         summary_text = format_session_summary(summary)
         latest_subagent_failures = list(summary.latest_subagent_failures)
+        completion_ready = summary.completion_ready
+        completion_blockers = list(summary.completion_blockers)
+        latest_completion_blockers = list(summary.latest_completion_blockers)
+        completion_kwargs = completion_detail_kwargs_from_object(summary)
         ok = not summary_text.startswith("Session not found:")
         message = f"Read session summary for {run_id}." if ok else summary_text
     except ValueError as error:
@@ -79,7 +88,11 @@ def session_summary_observation(workspace: RunWorkspace, action: SessionSummaryA
         summary=summary_text,
         recent_sessions=recent_text.splitlines(),
         message=message,
+        completion_ready=completion_ready,
+        completion_blockers=completion_blockers,
+        latest_completion_blockers=latest_completion_blockers,
         latest_subagent_failures=latest_subagent_failures,
+        **completion_kwargs,
     )
 
 
