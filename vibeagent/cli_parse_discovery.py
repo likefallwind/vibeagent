@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shlex
+from collections.abc import Mapping
 
 from .cli_parse_core import parse_interactive_nonnegative_option, parse_interactive_positive_option
 from .cli_parse_discovery_queries import parse_interactive_query_argument
@@ -32,6 +33,12 @@ def _split_named_parts(
     if not uses_named_options:
         return None, None, False
     return parts, None, True
+
+
+def _duplicate_option_error(kwargs: Mapping[str, object], keyword: str, flag: str, usage: str) -> str | None:
+    if keyword in kwargs:
+        return f"{usage}\n  error: provide {flag} at most once."
+    return None
 
 
 def parse_interactive_search_argument(
@@ -127,7 +134,11 @@ def parse_interactive_overview_argument(
             value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return {}, f"{usage}\n  error: {error}", True
-            kwargs[option_specs[flag]] = int(value)
+            keyword = option_specs[flag]
+            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return {}, duplicate_error, True
+            kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):
             return {}, f"{usage}\n  error: Unknown option: {part}", True
@@ -172,6 +183,9 @@ def parse_interactive_repo_map_argument(
             value, error = parser(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
+            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error, True
             kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):
@@ -214,13 +228,17 @@ def parse_interactive_glob_argument(
             break
         flag = _option_flag(part)
         if flag in boolean_options:
+            keyword = boolean_options[flag]
+            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error, True
             if "=" in part:
                 raw_value = part.split("=", 1)[1].strip().lower()
                 if raw_value not in {"1", "true", "yes", "on", "0", "false", "no", "off"}:
                     return None, {}, f"{usage}\n  error: {flag} must be a boolean.", True
-                kwargs[boolean_options[flag]] = raw_value in {"1", "true", "yes", "on"}
+                kwargs[keyword] = raw_value in {"1", "true", "yes", "on"}
             else:
-                kwargs[boolean_options[flag]] = True
+                kwargs[keyword] = True
             index += 1
             continue
         if flag in option_specs:
@@ -233,7 +251,11 @@ def parse_interactive_glob_argument(
             value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            kwargs[option_specs[flag]] = int(value)
+            keyword = option_specs[flag]
+            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error, True
+            kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):
             return None, {}, f"{usage}\n  error: Unknown option: {part}", True
@@ -280,7 +302,11 @@ def parse_interactive_todos_argument(
             value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            kwargs[option_specs[flag]] = int(value)
+            keyword = option_specs[flag]
+            duplicate_error = _duplicate_option_error(kwargs, keyword, flag, usage)
+            if duplicate_error:
+                return None, {}, duplicate_error, True
+            kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):
             return None, {}, f"{usage}\n  error: Unknown option: {part}", True

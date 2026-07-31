@@ -19,9 +19,12 @@ from vibeagent.cli_parse_cwd_command import (
     parse_interactive_cwd_command_argument,
 )
 from vibeagent.cli_parse_discovery import (
+    parse_interactive_find_files_argument,
     parse_interactive_glob_argument,
     parse_interactive_overview_argument,
+    parse_interactive_repo_map_argument,
     parse_interactive_search_argument,
+    parse_interactive_todos_argument,
 )
 from vibeagent.cli_parse_diff_git import build_diff_argument, parse_interactive_diff_argument
 from vibeagent.cli_parse_process_run import parse_interactive_wait_process_argument, parse_interactive_write_process_argument
@@ -424,6 +427,46 @@ class CliParseModuleTests(unittest.TestCase):
         )
         self.assertEqual((pattern, glob_kwargs, glob_error, glob_handled), ("*.py", {"include_dirs": True, "max_matches": 4}, None, True))
         self.assertEqual((overview_kwargs, overview_error, overview_handled), ({"max_files": 3, "max_commands": 2, "max_checks": 1}, None, True))
+
+    def test_discovery_parsers_reject_duplicate_options(self) -> None:
+        _, search_kwargs, search_error, search_handled = parse_interactive_search_argument(
+            "--path src --path tests -- TODO",
+            include_max_bytes=False,
+        )
+        _, find_kwargs, find_error, find_handled = parse_interactive_find_files_argument(
+            "--case-sensitive --case-insensitive test"
+        )
+        overview_kwargs, overview_error, overview_handled = parse_interactive_overview_argument(
+            "--max-files 3 --max-files=4"
+        )
+        _, repo_kwargs, repo_error, repo_handled = parse_interactive_repo_map_argument(
+            "--max-depth 1 --max-depth=2 src"
+        )
+        _, glob_kwargs, glob_error, glob_handled = parse_interactive_glob_argument(
+            "--include-dirs --include-dirs=false -- *.py"
+        )
+        _, todos_kwargs, todos_error, todos_handled = parse_interactive_todos_argument(
+            "--max-items 5 --max-items=6 -- src"
+        )
+
+        self.assertTrue(search_handled)
+        self.assertEqual(search_kwargs, {})
+        self.assertIn("provide --path at most once.", search_error or "")
+        self.assertTrue(find_handled)
+        self.assertEqual(find_kwargs, {})
+        self.assertIn("provide --case-insensitive at most once.", find_error or "")
+        self.assertTrue(overview_handled)
+        self.assertEqual(overview_kwargs, {})
+        self.assertIn("provide --max-files at most once.", overview_error or "")
+        self.assertTrue(repo_handled)
+        self.assertEqual(repo_kwargs, {})
+        self.assertIn("provide --max-depth at most once.", repo_error or "")
+        self.assertTrue(glob_handled)
+        self.assertEqual(glob_kwargs, {})
+        self.assertIn("provide --include-dirs at most once.", glob_error or "")
+        self.assertTrue(todos_handled)
+        self.assertEqual(todos_kwargs, {})
+        self.assertIn("provide --max-items at most once.", todos_error or "")
 
     def test_read_parsers_keep_existing_behavior(self) -> None:
         read_arg, read_kwargs, read_error, read_handled = parse_interactive_read_argument(

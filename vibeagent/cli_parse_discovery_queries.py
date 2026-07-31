@@ -43,6 +43,8 @@ def parse_interactive_query_argument(
             if "=" in part:
                 return None, {}, f"{usage}\n  error: {flag} does not take a value.", True
             keyword, value = bool_options[flag]
+            if keyword in kwargs:
+                return None, {}, f"{usage}\n  error: provide {flag} at most once.", True
             kwargs[keyword] = value
             index += 1
             continue
@@ -52,6 +54,8 @@ def parse_interactive_query_argument(
             value, error = _parse_query_value(flag, raw_value, value_type)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
+            if keyword in kwargs:
+                return None, {}, f"{usage}\n  error: provide {flag} at most once.", True
             kwargs[keyword] = value
             continue
         if part.startswith("--"):
