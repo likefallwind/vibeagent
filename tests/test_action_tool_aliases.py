@@ -16,6 +16,7 @@ from vibeagent.action_parsing_helpers import ActionParseError
 from vibeagent.action_tool_alias_utils import truthy_alias_bool
 from vibeagent.prompts import format_observations
 from vibeagent.types import (
+    ListTreeAction,
     ReadFileAction,
     ReadProcessAction,
     MultiEditAction,
@@ -295,6 +296,27 @@ class ActionToolAliasTests(unittest.TestCase):
         self.assertFalse(action.case_sensitive)
         self.assertFalse(string_action.case_sensitive)
         self.assertTrue(false_action.case_sensitive)
+
+    def test_claude_ls_ignore_executes_filtered_tree_listing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-alias-") as base:
+            root = Path(base)
+            (root / "src" / "generated").mkdir(parents=True)
+            (root / "src" / "app.py").write_text("print('app')\n", encoding="utf-8")
+            (root / "src" / "generated" / "out.py").write_text("print('generated')\n", encoding="utf-8")
+            (root / "src" / "debug.log").write_text("debug\n", encoding="utf-8")
+            action = parse_tool_action(
+                "LS",
+                {"path": "src", "ignore": ["generated/**", "*.log"], "max_depth": 3},
+            )
+
+            observation = execute_action(create_run_workspace(root), action)
+
+        self.assertIsInstance(action, ListTreeAction)
+        self.assertEqual(action.ignore, ("generated/**", "*.log"))
+        self.assertEqual(observation.kind, "list_tree")
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.ignore, ("generated/**", "*.log"))
+        self.assertEqual(observation.entries, ["src/app.py"])
 
     def test_claude_grep_glob_maps_to_file_glob(self) -> None:
         action = parse_tool_action("Grep", {"pattern": "needle", "glob": "*.py"})

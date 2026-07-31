@@ -1981,6 +1981,31 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(file_tree, ["src/app.py"])
         self.assertEqual(file_total, 1)
 
+    def test_list_project_tree_ignore_matches_scoped_relative_paths(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            workspace = create_run_workspace(base, "test-run")
+            write_run_file(workspace, "src/app.py", "print('app')\n")
+            write_run_file(workspace, "src/generated/out.py", "print('generated')\n")
+            write_run_file(workspace, "src/debug.log", "debug\n")
+
+            scoped, scoped_total = list_project_tree(
+                workspace,
+                "src",
+                max_depth=3,
+                ignore=("generated/**", "*.log"),
+            )
+            root_scoped, root_scoped_total = list_project_tree(
+                workspace,
+                "src",
+                max_depth=3,
+                ignore=("src/generated/**", "src/*.log"),
+            )
+
+        self.assertEqual(scoped, ["src/app.py"])
+        self.assertEqual(scoped_total, 1)
+        self.assertEqual(root_scoped, ["src/app.py"])
+        self.assertEqual(root_scoped_total, 1)
+
     def test_list_project_tree_rejects_invalid_bounds_and_unsafe_paths(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
             workspace = create_run_workspace(base, "test-run")

@@ -189,7 +189,11 @@ def list_project_tree(
                 continue
             suffix = "/" if resolved.is_dir() else ""
             relative = f"{resolved.relative_to(root).as_posix()}{suffix}"
-            if list_tree_entry_matches_ignore(relative, ignore_globs):
+            base_relative = f"{resolved.relative_to(base).as_posix()}{suffix}"
+            if list_tree_entry_matches_ignore(relative, ignore_globs) or list_tree_entry_matches_ignore(
+                base_relative,
+                ignore_globs,
+            ):
                 continue
             entries.append(relative)
             if resolved.is_dir():
