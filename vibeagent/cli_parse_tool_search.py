@@ -53,12 +53,16 @@ def parse_interactive_tool_search_argument(argument: str | None) -> tuple[str | 
 
 def _apply_tool_search_option(flag: str, raw_value: str | None, kwargs: dict[str, object]) -> str | None:
     if flag == "--max":
+        if "max_matches" in kwargs:
+            return f"provide {flag} at most once."
         value, error = parse_interactive_positive_option(flag, raw_value)
         if error:
             return error
         kwargs["max_matches"] = value
         return None
     if flag == "--category":
+        if "category" in kwargs:
+            return f"provide {flag} at most once."
         if raw_value is None:
             return f"{flag} requires a value."
         category = raw_value.strip()
@@ -68,6 +72,8 @@ def _apply_tool_search_option(flag: str, raw_value: str | None, kwargs: dict[str
         kwargs["category"] = category
         return None
     if flag == "--approval":
+        if "approval_required" in kwargs:
+            return f"provide {flag} at most once."
         if raw_value is None:
             return f"{flag} requires a value."
         approval = raw_value.strip()
