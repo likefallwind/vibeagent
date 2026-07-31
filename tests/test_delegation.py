@@ -6,6 +6,7 @@ from pathlib import Path
 from vibeagent.action_parsing import ActionParseError, parse_tool_action
 from vibeagent.actions import AGENT_TOOL_DEFINITIONS, execute_action
 from vibeagent.agent import run_agent
+from vibeagent import agent_delegate, agent_delegate_context
 from vibeagent.agent_delegate import (
     DELEGATE_TOOL_DEFINITIONS,
     code_delegate_initial_tool_names,
@@ -40,6 +41,19 @@ class DelegationClient:
 
 
 class DelegationTests(unittest.TestCase):
+    def test_delegate_context_helpers_live_in_context_module(self) -> None:
+        self.assertIs(agent_delegate.DELEGATE_SYSTEM_PROMPT, agent_delegate_context.DELEGATE_SYSTEM_PROMPT)
+        self.assertIs(agent_delegate.CODE_DELEGATE_SYSTEM_PROMPT, agent_delegate_context.CODE_DELEGATE_SYSTEM_PROMPT)
+        self.assertIs(agent_delegate.build_delegate_messages, agent_delegate_context.build_delegate_messages)
+        self.assertIs(
+            agent_delegate.compact_delegate_message_history,
+            agent_delegate_context.compact_delegate_message_history,
+        )
+        self.assertIs(
+            agent_delegate.build_compacted_delegate_context,
+            agent_delegate_context.build_compacted_delegate_context,
+        )
+
     def test_parse_delegate_task_normalizes_limits_and_context(self) -> None:
         action = parse_tool_action(
             "delegate_task",
