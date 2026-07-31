@@ -9,7 +9,7 @@ from .cli_parse_core import (
     parse_interactive_positive_option,
     parse_interactive_timeout_option,
 )
-from .cli_process_stdin import read_project_stdin_file
+from .cli_process_stdin import parse_process_stdin_file_argument
 
 
 def parse_interactive_wait_process_argument(
@@ -121,51 +121,12 @@ def parse_interactive_write_process_argument(
     if "--stdin-file" not in argument:
         return None, None, None
     try:
-        parts = shlex.split(argument)
+        parsed = parse_process_stdin_file_argument(argument, project_root=project_root)
     except ValueError as error:
         return None, None, f"{usage}\n  error: {error}"
-
-    process_id: str | None = None
-    content_parts: list[str] = []
-    stdin_file: str | None = None
-    index = 0
-    while index < len(parts):
-        part = parts[index]
-        if part == "--":
-            content_parts.extend(parts[index + 1 :])
-            break
-        if part == "--stdin-file" or part.startswith("--stdin-file="):
-            if stdin_file is not None:
-                return None, None, f"{usage}\n  error: provide --stdin-file at most once."
-            if part.startswith("--stdin-file="):
-                stdin_file = part.split("=", 1)[1]
-                index += 1
-            else:
-                if index + 1 >= len(parts):
-                    return None, None, f"{usage}\n  error: --stdin-file requires a value."
-                stdin_file = parts[index + 1]
-                index += 2
-            if stdin_file == "":
-                return None, None, f"{usage}\n  error: --stdin-file must be a non-empty path."
-            continue
-        if part.startswith("--"):
-            return None, None, f"{usage}\n  error: Unknown option: {part}"
-        if process_id is None:
-            process_id = part
-        else:
-            content_parts.append(part)
-        index += 1
-
-    if not process_id:
+    if not parsed.process_id:
         return None, None, f"{usage}\n  error: process id is required."
-    content = " ".join(content_parts) if content_parts else None
-    if stdin_file is not None and content is not None:
-        return None, None, f"{usage}\n  error: text and --stdin-file cannot be used together."
-    if stdin_file is not None:
-        try:
-            content = read_project_stdin_file(project_root, stdin_file, "--stdin-file")
-        except ValueError as error:
-            return None, None, f"{usage}\n  error: {error}"
+    content = parsed.content
     if content is None or content == "":
         return None, None, f"{usage}\n  error: stdin text is required."
-    return process_id, content.replace("\\r", "\r").replace("\\n", "\n").replace("\\t", "\t"), None
+    return parsed.process_id, content.replace("\\r", "\r").replace("\\n", "\n").replace("\\t", "\t"), None

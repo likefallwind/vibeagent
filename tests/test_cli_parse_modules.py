@@ -7,7 +7,7 @@ from pathlib import Path
 
 from vibeagent import cli_parsing
 from vibeagent.cli_parse_core import build_focused_tests_kwargs, parse_cli_json_value, timeout_ms
-from vibeagent.cli_process_stdin import read_project_stdin_file
+from vibeagent.cli_process_stdin import parse_process_stdin_file_argument, read_project_stdin_file
 from vibeagent.cli_parse_code_intel import (
     parse_interactive_python_call_graph_argument,
     parse_interactive_python_deps_argument,
@@ -123,6 +123,25 @@ class CliParseModuleTests(unittest.TestCase):
             (root / "dir").mkdir()
 
             self.assertEqual(read_project_stdin_file(root, "input.txt", "--stdin-file"), "hello\n")
+            parsed = parse_process_stdin_file_argument("bg-1 --stdin-file input.txt", project_root=root)
+            inline_conflict = None
+            duplicate = None
+            try:
+                parse_process_stdin_file_argument("bg-1 text --stdin-file input.txt", project_root=root)
+            except ValueError as error:
+                inline_conflict = str(error)
+            try:
+                parse_process_stdin_file_argument(
+                    "bg-1 --stdin-file input.txt --stdin-file=input.txt",
+                    project_root=root,
+                )
+            except ValueError as error:
+                duplicate = str(error)
+
+            self.assertEqual(parsed.process_id, "bg-1")
+            self.assertEqual(parsed.content, "hello\n")
+            self.assertEqual(inline_conflict, "text and --stdin-file cannot be used together.")
+            self.assertEqual(duplicate, "provide --stdin-file at most once.")
             with self.assertRaisesRegex(ValueError, "--stdin-file is not a file: dir"):
                 read_project_stdin_file(root, "dir", "--stdin-file")
             with self.assertRaisesRegex(ValueError, "Path escapes the project directory"):

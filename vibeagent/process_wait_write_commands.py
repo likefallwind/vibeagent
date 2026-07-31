@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-import shlex
 import sys
 
 from .actions import execute_action as _default_execute_action
-from .cli_process_stdin import read_project_stdin_file
+from .cli_process_stdin import parse_process_stdin_file_argument
 from .local_command_workspace import local_command_workspace
 from .process_request_parsing import parse_positive_decimal, parse_single_quoted_argument, split_process_argument, validate_max_output_chars
 from .process_report_helpers import (
@@ -397,7 +396,9 @@ def parse_write_process_request(
         if process_id is not None or content is not None:
             raise ValueError("write-process argument cannot be combined with explicit process_id or content.")
         if "--stdin-file" in argument:
-            selected_process_id, selected_content = _parse_write_process_stdin_file_argument(argument, project_root)
+            parsed = parse_process_stdin_file_argument(argument, project_root=project_root)
+            selected_process_id = parsed.process_id
+            selected_content = parsed.content
             if not selected_process_id:
                 raise ValueError("process id is required.")
             if selected_content is None or selected_content == "":
@@ -413,51 +414,6 @@ def parse_write_process_request(
     if selected_content is None or selected_content == "":
         raise ValueError("stdin text is required.")
     return selected_process_id, decode_stdin_escapes(selected_content)
-
-
-def _parse_write_process_stdin_file_argument(argument: str, project_root: str | Path) -> tuple[str | None, str | None]:
-    try:
-        parts = shlex.split(argument)
-    except ValueError as error:
-        raise ValueError(str(error)) from error
-
-    process_id: str | None = None
-    content_parts: list[str] = []
-    stdin_file: str | None = None
-    index = 0
-    while index < len(parts):
-        part = parts[index]
-        if part == "--":
-            content_parts.extend(parts[index + 1 :])
-            break
-        if part == "--stdin-file" or part.startswith("--stdin-file="):
-            if stdin_file is not None:
-                raise ValueError("provide --stdin-file at most once.")
-            if part.startswith("--stdin-file="):
-                stdin_file = part.split("=", 1)[1]
-                index += 1
-            else:
-                if index + 1 >= len(parts):
-                    raise ValueError("--stdin-file requires a value.")
-                stdin_file = parts[index + 1]
-                index += 2
-            if stdin_file == "":
-                raise ValueError("--stdin-file must be a non-empty path.")
-            continue
-        if part.startswith("--"):
-            raise ValueError(f"Unknown option: {part}")
-        if process_id is None:
-            process_id = part
-        else:
-            content_parts.append(part)
-        index += 1
-
-    content = " ".join(content_parts) if content_parts else None
-    if stdin_file is not None and content is not None:
-        raise ValueError("text and --stdin-file cannot be used together.")
-    if stdin_file is not None:
-        content = read_project_stdin_file(project_root, stdin_file, "--stdin-file")
-    return process_id, content
 
 
 def decode_stdin_escapes(value: str) -> str:
