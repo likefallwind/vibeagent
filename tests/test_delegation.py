@@ -54,6 +54,14 @@ class DelegationTests(unittest.TestCase):
         code_action = parse_tool_action("delegate_task", {"task": "Implement auth", "mode": "code"})
         self.assertEqual(code_action.mode, "code")
 
+        claude_code_action = parse_tool_action(
+            "Task",
+            {"prompt": "Implement auth", "description": "Use code mode", "mode": "code"},
+        )
+        self.assertEqual(claude_code_action.task, "Implement auth")
+        self.assertEqual(claude_code_action.context, "Use code mode")
+        self.assertEqual(claude_code_action.mode, "code")
+
     def test_parse_delegate_task_rejects_invalid_inputs(self) -> None:
         invalid_inputs = [
             {},
@@ -69,6 +77,15 @@ class DelegationTests(unittest.TestCase):
         for tool_input in invalid_inputs:
             with self.subTest(tool_input=tool_input), self.assertRaises(ActionParseError):
                 parse_tool_action("delegate_task", tool_input)
+
+    def test_claude_delegate_schemas_expose_mode(self) -> None:
+        tools = {str(tool["name"]): tool for tool in AGENT_TOOL_DEFINITIONS}
+
+        for name in ("Task", "Agent"):
+            with self.subTest(name=name):
+                schema = tools[name]["input_schema"]
+                self.assertEqual(schema["properties"]["mode"]["enum"], ["explore", "code"])
+                self.assertNotIn("mode", schema["required"])
 
     def test_delegate_tool_catalog_excludes_mutation_execution_and_recursion(self) -> None:
         names = {str(tool["name"]) for tool in DELEGATE_TOOL_DEFINITIONS}
