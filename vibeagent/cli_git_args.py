@@ -40,6 +40,12 @@ def add_git_local_arguments(local: argparse._MutuallyExclusiveGroup) -> None:
     local.add_argument("--git-switch", metavar="BRANCH", help="Switch or create a local branch and exit.")
 
 
+def add_git_diff_local_arguments(local: argparse._MutuallyExclusiveGroup) -> None:
+    local.add_argument("--diff", nargs="?", const="", metavar="ARGS", help="Show current git diff. Optional ARGS: '--staged [path]' or '[path]'.")
+    local.add_argument("--diff-hunks", nargs="?", const="", metavar="ARGS", help="Show structured git diff hunks. Optional ARGS: '--staged [path]' or '[path]'.")
+    local.add_argument("--diff-contexts", nargs="?", const="", metavar="ARGS", help="Show source context around git diff hunks. Optional ARGS: '--staged [path]' or '[path]'.")
+
+
 def add_git_diff_option_arguments(
     parser: argparse.ArgumentParser,
     *,

@@ -9,6 +9,7 @@ from .cli_code_intel_args import add_code_intel_local_arguments, add_code_intel_
 from .cli_compat_args import add_compat_arguments, normalize_compat_arguments
 from .cli_edit_args import add_edit_local_arguments, add_edit_option_arguments
 from .cli_git_args import (
+    add_git_diff_local_arguments,
     add_git_diff_option_arguments,
     add_git_history_option_arguments,
     add_git_local_arguments,
@@ -65,9 +66,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     local.add_argument("--doctor", action="store_true", help="Show local diagnostics and exit.")
     add_workflow_local_arguments(local)
     add_workflow_option_arguments(parser, positive_int=positive_int)
-    local.add_argument("--diff", nargs="?", const="", metavar="ARGS", help="Show current git diff. Optional ARGS: '--staged [path]' or '[path]'.")
-    local.add_argument("--diff-hunks", nargs="?", const="", metavar="ARGS", help="Show structured git diff hunks. Optional ARGS: '--staged [path]' or '[path]'.")
-    local.add_argument("--diff-contexts", nargs="?", const="", metavar="ARGS", help="Show source context around git diff hunks. Optional ARGS: '--staged [path]' or '[path]'.")
+    add_git_diff_local_arguments(local)
     add_git_diff_option_arguments(
         parser,
         positive_int=positive_int,
