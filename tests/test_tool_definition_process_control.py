@@ -82,6 +82,7 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         self.assertIn("activeForm", PLAN_ITEM_SCHEMA["properties"])
         self.assertIn("active_form", PLAN_ITEM_SCHEMA["properties"])
         self.assertIn("activeForm", TODO_ITEM_SCHEMA["properties"])
+        self.assertIn("active_form", TODO_ITEM_SCHEMA["properties"])
 
     def test_task_control_status_schemas_accept_aliases(self) -> None:
         self.assertEqual(

@@ -14,7 +14,7 @@ PLAN_ITEM_SCHEMA: dict[str, Any] = {
         "status": {
             "type": "string",
             "enum": PLAN_ITEM_STATUS_ENUM,
-            "description": "Status is normalized internally to pending, in_progress, or completed.",
+            "description": "Normalized status.",
         },
         "activeForm": {
             "type": "string",
@@ -36,9 +36,10 @@ TODO_ITEM_SCHEMA: dict[str, Any] = {
         "status": {
             "type": "string",
             "enum": PLAN_ITEM_STATUS_ENUM,
-            "description": "Status is normalized internally to pending, in_progress, or completed.",
+            "description": "Normalized status.",
         },
         "activeForm": {"type": "string"},
+        "active_form": {"type": "string"},
     },
     "required": ["content", "status"],
     "additionalProperties": True,
