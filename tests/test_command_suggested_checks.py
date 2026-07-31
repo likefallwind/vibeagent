@@ -14,7 +14,7 @@ from vibeagent.commands import (
     get_run_suggested_checks_report,
     get_run_suggested_checks_text,
 )
-from vibeagent.check_commands import parse_suggested_checks_limit
+from vibeagent.check_limit_parsing import parse_suggested_checks_limit
 
 
 class SuggestedChecksCommandTests(unittest.TestCase):
