@@ -156,7 +156,18 @@ def file_diff_fingerprint_payload(files: list[object]) -> str:
 
 def approval_preview_key(value: object) -> tuple[Any, ...]:
     kind = str(getattr(value, "kind", getattr(value, "type", "")))
-    if kind in {"write_file", "check_write_file", "edit_file", "check_edit_file", "multi_edit_file", "check_multi_edit_file", "append_file", "check_append_file", "regex_replace", "check_regex_replace", "patch_file", "check_patch", "delete_file", "check_delete_file", "create_dir", "check_create_dir", "delete_empty_dir", "check_delete_empty_dir", "set_executable", "check_set_executable"}:
+    if kind in {"edit_file", "check_edit_file"}:
+        return (kind.replace("check_", ""), getattr(value, "path", ""), getattr(value, "old", ""), getattr(value, "new", ""))
+    if kind in {"multi_edit_file", "check_multi_edit_file"}:
+        return (
+            kind.replace("check_", ""),
+            getattr(value, "path", ""),
+            tuple(
+                (getattr(edit, "old", ""), getattr(edit, "new", ""), getattr(edit, "replace_all", False))
+                for edit in getattr(value, "edits", []) or []
+            ),
+        )
+    if kind in {"write_file", "check_write_file", "append_file", "check_append_file", "regex_replace", "check_regex_replace", "patch_file", "check_patch", "delete_file", "check_delete_file", "create_dir", "check_create_dir", "delete_empty_dir", "check_delete_empty_dir", "set_executable", "check_set_executable"}:
         return (kind.replace("check_", ""), getattr(value, "path", ""), getattr(value, "executable", None))
     if kind in {"notebook_edit", "check_notebook_edit"}:
         return (

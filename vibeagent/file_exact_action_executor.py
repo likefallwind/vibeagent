@@ -30,6 +30,8 @@ def execute_exact_file_action(workspace: RunWorkspace, action: object) -> Observ
             ok=ok,
             message=message,
             diff=diff,
+            old=action.old,
+            new=action.new,
         )
 
     if isinstance(action, EditFileAction):
@@ -47,6 +49,8 @@ def execute_exact_file_action(workspace: RunWorkspace, action: object) -> Observ
             ok=ok,
             message=message,
             diff=diff,
+            old=action.old,
+            new=action.new,
         )
 
     if isinstance(action, CheckMultiEditAction):
@@ -68,6 +72,7 @@ def execute_exact_file_action(workspace: RunWorkspace, action: object) -> Observ
             ok=ok,
             message=message,
             diff=diff,
+            edits=action.edits,
         )
 
     if isinstance(action, MultiEditAction):
@@ -89,6 +94,7 @@ def execute_exact_file_action(workspace: RunWorkspace, action: object) -> Observ
             ok=ok,
             message=message,
             diff=diff,
+            edits=action.edits,
         )
 
     return None

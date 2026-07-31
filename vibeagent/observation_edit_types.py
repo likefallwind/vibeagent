@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from .action_types import DirectoryTransfer, MoveFileTransfer
+from .action_types import DirectoryTransfer, EditOperation, MoveFileTransfer
 
 
 @dataclass(frozen=True)
@@ -13,6 +13,8 @@ class EditFileObservation:
     ok: bool
     message: str
     diff: str
+    old: str = ""
+    new: str = ""
 
 
 @dataclass(frozen=True)
@@ -22,6 +24,8 @@ class CheckEditFileObservation:
     ok: bool
     message: str
     diff: str
+    old: str = ""
+    new: str = ""
 
 
 @dataclass(frozen=True)
@@ -31,6 +35,7 @@ class MultiEditObservation:
     ok: bool
     message: str
     diff: str
+    edits: list[EditOperation] | None = None
 
 
 @dataclass(frozen=True)
@@ -40,6 +45,7 @@ class CheckMultiEditObservation:
     ok: bool
     message: str
     diff: str
+    edits: list[EditOperation] | None = None
 
 
 @dataclass(frozen=True)
