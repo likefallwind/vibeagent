@@ -17,6 +17,12 @@ from .cli_local_flag_detection import (
 from .cli_output_args import add_output_arguments, normalize_output_arguments
 from .cli_one_shot_args import add_one_shot_arguments
 from .cli_process_args import add_process_local_arguments, add_process_option_arguments
+from .cli_runtime_args import (
+    add_runtime_connection_option_arguments,
+    add_runtime_local_arguments,
+    add_runtime_network_local_arguments,
+    add_runtime_run_option_arguments,
+)
 from .cli_session_args import add_session_limit_arguments, add_session_local_arguments
 from .tool_categories import valid_tool_categories
 from .tool_search_options import tool_search_approval_choices
@@ -75,15 +81,8 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     local.add_argument("--manifests", action="store_true", help="Show package and pyproject manifest metadata and exit.")
     local.add_argument("--instructions", action="store_true", help="Show AGENTS.md and CLAUDE.md instruction sources and exit.")
     local.add_argument("--todos", nargs="?", const="", metavar="PATH", help="Show TODO, FIXME, HACK, XXX, and BUG markers and exit.")
-    local.add_argument("--command-check", "--command", dest="command_check", metavar="COMMAND", help="Preview whether one shell command can run and exit.")
-    local.add_argument("--run-command", "--run", dest="run_command", metavar="COMMAND", help="Run one finite shell command with safety checks and exit.")
-    local.add_argument("--check-run-commands", nargs="+", metavar="COMMAND", help="Preview a short ordered command sequence and exit.")
-    local.add_argument("--run-commands", nargs="+", metavar="COMMAND", help="Run a short ordered command sequence and exit.")
-    local.add_argument("--check-start-command", metavar="COMMAND", help="Preview starting one long-running shell command and exit.")
-    local.add_argument("--start-command", "--start", dest="start_command", metavar="COMMAND", help="Start one long-running shell command and exit.")
-    local.add_argument("--port-check", type=positive_int, metavar="PORT", help="Check whether one local TCP port is reachable and exit.")
-    local.add_argument("--http-check", metavar="URL", help="Check HTTP status and optional response text and exit.")
-    local.add_argument("--http-fetch", metavar="URL", help="Fetch bounded HTTP response metadata and body text and exit.")
+    add_runtime_local_arguments(local)
+    add_runtime_network_local_arguments(local, positive_int=positive_int)
     local.add_argument("--overview", action="store_true", help="Show a compact project orientation bundle and exit.")
     local.add_argument("--repo-map", nargs="?", const="", metavar="PATH", help="Show a bounded repository tree and source symbol map and exit.")
     local.add_argument("--search", metavar="QUERY", help="Search project text with gitignore and safety filtering and exit.")
@@ -202,15 +201,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         positive_int=positive_int,
         nonnegative_int=nonnegative_int,
     )
-    parser.add_argument("--command-cwd", metavar="PATH", help="Project-relative command cwd for --command-check or --command.")
-    parser.add_argument("--run-cwd", metavar="PATH", help="Project-relative command cwd for --run-command, --run, --run-commands, or --check-run-commands.")
-    parser.add_argument("--start-cwd", metavar="PATH", help="Project-relative command cwd for --check-start-command, --start-command, or --start.")
-    parser.add_argument("--port-host", default="127.0.0.1", metavar="HOST", help="TCP host for --port-check.")
-    parser.add_argument("--port-timeout-ms", type=timeout_ms, default=1_000, metavar="N", help="Maximum milliseconds for --port-check.")
-    parser.add_argument("--http-timeout-ms", type=timeout_ms, metavar="N", help="Maximum milliseconds for --http-check or --http-fetch.")
-    parser.add_argument("--http-max-body-chars", type=positive_int, metavar="N", help="Maximum response body characters for --http-check or --http-fetch.")
-    parser.add_argument("--http-contains", metavar="TEXT", help="Require response body text for --http-check.")
-    parser.add_argument("--http-regex", action="store_true", help="Treat --http-contains as a regular expression.")
+    add_runtime_connection_option_arguments(
+        parser,
+        positive_int=positive_int,
+        timeout_ms=timeout_ms,
+    )
     parser.add_argument("--search-path", metavar="PATH", help="Project-relative search scope for --search.")
     parser.add_argument("--search-max-matches", type=positive_int, metavar="N", help="Maximum matches to show with --search or --search-contexts.")
     parser.add_argument("--search-regex", action="store_true", help="Treat --search or --search-contexts query as a regular expression.")
@@ -298,17 +293,12 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--regex-max-replacements", type=positive_int, default=100, metavar="N", help="Safety cap for --check-regex-replace or --regex-replace.")
     parser.add_argument("--regex-ignore-case", action="store_true", help="Use case-insensitive matching with --check-regex-replace or --regex-replace.")
     parser.add_argument("--regex-multiline", action="store_true", help="Let ^ and $ match line boundaries with --check-regex-replace or --regex-replace.")
-    parser.add_argument("--run-timeout-ms", type=timeout_ms, default=30_000, metavar="N", help="Maximum milliseconds for --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.")
-    parser.add_argument("--run-max-chars", type=positive_int, default=12_000, metavar="N", help="Maximum stdout/stderr characters for --run-command, --run, --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.")
-    parser.add_argument("--run-continue-on-failure", action="store_true", help="Continue after a failing command with --run-commands, --run-suggested-checks, --run-focused-tests, or --run-session-verification.")
-    parser.add_argument("--run-session-no-failed", action="store_true", help="Do not rerun failed checks with --run-session-verification.")
-    parser.add_argument("--run-session-no-pending", action="store_true", help="Do not run pending checks with --run-session-verification.")
-    parser.add_argument("--run-output-contexts", action="store_true", help="Extract file:line source contexts from finite run output, including session verification reruns.")
-    parser.add_argument("--run-output-diagnostics", action="store_true", help="Summarize errors, warnings, and failures from finite run output, including session verification reruns.")
-    parser.add_argument("--run-output-context-lines", type=nonnegative_int, default=5, metavar="N", help="Context lines around each extracted run output reference.")
-    parser.add_argument("--run-output-diagnostic-max", type=positive_int, default=50, metavar="N", help="Maximum diagnostic lines to show with --run-output-diagnostics or failed-command auto-diagnostics.")
-    parser.add_argument("--run-output-context-max", type=positive_int, default=20, metavar="N", help="Maximum extracted run output contexts.")
-    parser.add_argument("--run-output-context-max-bytes", type=positive_int, default=20_000, metavar="N", help="Maximum bytes per extracted run output context.")
+    add_runtime_run_option_arguments(
+        parser,
+        positive_int=positive_int,
+        nonnegative_int=nonnegative_int,
+        timeout_ms=timeout_ms,
+    )
     add_session_local_arguments(parser, local)
     local.add_argument("--checkpoint", nargs="?", const="", metavar="LABEL", help="Save current git status, diffs, and ordinary untracked files as a local checkpoint and exit.")
     local.add_argument("--checkpoints", action="store_true", help="List saved local checkpoints and exit.")
