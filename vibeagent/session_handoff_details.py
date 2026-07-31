@@ -129,6 +129,20 @@ def _pending_plan_items(audit: dict[str, object]) -> tuple[list[dict[str, str]],
     return items, pending_plan_count, plan_items_count, plan_in_progress
 
 
+def _latest_subagent_failures(audit: dict[str, object]) -> list[str]:
+    summary = audit.get("summary") if isinstance(audit.get("summary"), dict) else {}
+    values = summary.get("latestSubagentFailures")
+    if not isinstance(values, list):
+        values = audit.get("latestSubagentFailures")
+    if not isinstance(values, list):
+        return []
+    return [
+        str(failure).strip()
+        for failure in values
+        if isinstance(failure, str) and failure.strip()
+    ]
+
+
 def extract_session_handoff_details(report: dict[str, object]) -> SessionHandoffDetails:
     ready = report.get("ready") if isinstance(report.get("ready"), bool) else None
     status = str(report.get("status") or "")
@@ -158,11 +172,7 @@ def extract_session_handoff_details(report: dict[str, object]) -> SessionHandoff
         if isinstance(blocker, str) and blocker.strip()
     ]
     completion_detail_kwargs = completion_detail_kwargs_from_report(completion)
-    latest_subagent_failures = [
-        str(failure).strip()
-        for failure in audit.get("latestSubagentFailures", [])
-        if isinstance(failure, str) and failure.strip()
-    ]
+    latest_subagent_failures = _latest_subagent_failures(audit)
     return SessionHandoffDetails(
         ready=ready,
         status=status,

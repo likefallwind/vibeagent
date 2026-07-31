@@ -41,6 +41,44 @@ class SessionHandoffDetailsTests(unittest.TestCase):
         )
         self.assertEqual(details.latest_completion_denied_approvals, ["write_file note.txt: Denied by policy."])
 
+    def test_extracts_latest_subagent_failures_from_audit_summary(self) -> None:
+        report = {
+            "ready": False,
+            "status": "blocked",
+            "audit": {
+                "summary": {
+                    "latestSubagentFailures": [
+                        " task=Inspect; agent=context-reader; mode=read-only; message=failed. ",
+                        "",
+                        123,
+                    ],
+                },
+            },
+        }
+
+        details = extract_session_handoff_details(report)
+
+        self.assertEqual(
+            details.latest_subagent_failures,
+            ["task=Inspect; agent=context-reader; mode=read-only; message=failed."],
+        )
+
+    def test_extracts_legacy_top_level_latest_subagent_failures(self) -> None:
+        report = {
+            "ready": False,
+            "status": "blocked",
+            "audit": {
+                "latestSubagentFailures": [" task=Legacy; agent=reader; mode=explore; message=failed. "],
+            },
+        }
+
+        details = extract_session_handoff_details(report)
+
+        self.assertEqual(
+            details.latest_subagent_failures,
+            ["task=Legacy; agent=reader; mode=explore; message=failed."],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
