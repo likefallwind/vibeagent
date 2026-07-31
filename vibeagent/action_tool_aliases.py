@@ -4,7 +4,7 @@ from collections.abc import Callable
 import re
 from typing import Any
 
-from .action_parsing_helpers import coerce_int
+from .action_parsing_helpers import ActionParseError, coerce_int
 from .action_tool_alias_sets import (
     BASH_TOOL_NAMES,
     CLAUDE_MCP_TOOL_NAME_PATTERN,
@@ -195,7 +195,13 @@ def _is_zero_offset_alias(value: Any) -> bool:
 def _normalize_claude_read_file_input(value: dict[str, Any]) -> dict[str, Any]:
     normalized = _normalize_read_file_input(value)
     if "read_range" in normalized and "start_line" not in normalized and "line_count" not in normalized:
-        normalized.update(_normalize_read_range_alias(normalized["read_range"]))
+        range_fields = _normalize_read_range_alias(normalized["read_range"])
+        if not range_fields:
+            raise ActionParseError(
+                "Read tool read_range must be an inclusive range object, [start, end], or 'start-end'.",
+                repr(value),
+            )
+        normalized.update(range_fields)
     normalized.pop("read_range", None)
     if _is_zero_offset_alias(normalized.get("start_line")):
         normalized["start_line"] = 1

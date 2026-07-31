@@ -16,7 +16,20 @@ CLAUDE_READ_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "read_range": {
                     "description": "Inclusive line range: object, [start,end], or 'start-end'.",
                     "oneOf": [
-                        {"type": "object"},
+                        {
+                            "type": "object",
+                            "properties": {
+                                "start": {"type": "integer", "minimum": 1},
+                                "end": {"type": "integer", "minimum": 1},
+                                "start_line": {"type": "integer", "minimum": 1},
+                                "end_line": {"type": "integer", "minimum": 1},
+                            },
+                            "anyOf": [
+                                {"required": ["start", "end"]},
+                                {"required": ["start_line", "end_line"]},
+                            ],
+                            "additionalProperties": False,
+                        },
                         {"type": "array", "minItems": 2, "maxItems": 2},
                         {"type": "string"},
                     ],

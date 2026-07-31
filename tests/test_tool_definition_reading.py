@@ -85,6 +85,9 @@ class ReadingToolDefinitionTests(unittest.TestCase):
 
         self.assertIn("read_range", read_schema["properties"])
         self.assertEqual(len(read_range_schema["oneOf"]), 3)
+        self.assertEqual(set(read_range_schema["oneOf"][0]["properties"]), {"start", "end", "start_line", "end_line"})
+        self.assertEqual([branch["required"] for branch in read_range_schema["oneOf"][0]["anyOf"]], [["start", "end"], ["start_line", "end_line"]])
+        self.assertFalse(read_range_schema["oneOf"][0]["additionalProperties"])
         self.assertIn("max_bytes", read_schema["properties"])
         self.assertIn("show_line_numbers", read_schema["properties"])
         self.assertNotIn("read_range", read_schema["required"])

@@ -2659,6 +2659,11 @@ class ActionTests(unittest.TestCase):
         self.assertEqual((string_range.start_line, string_range.line_count), (7, 3))
         self.assertEqual((explicit_offset.start_line, explicit_offset.line_count), (2, 5))
 
+        with self.assertRaisesRegex(ActionParseError, "read_range must be an inclusive range"):
+            parse_tool_action("Read", {"file_path": "README.md", "read_range": {"start": 10}})
+        with self.assertRaisesRegex(ActionParseError, "read_range must be an inclusive range"):
+            parse_tool_action("Read", {"file_path": "README.md", "read_range": "bad"})
+
     def test_documented_claude_tool_call_aliases_are_registered(self) -> None:
         documented = {
             "Agent",
