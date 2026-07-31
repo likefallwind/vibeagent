@@ -130,6 +130,29 @@ class V1LiveDogfoodScriptTests(unittest.TestCase):
 
         self.assertIn("unapproved=1", details["side effects had prior approval"])
 
+    def test_audit_session_events_rejects_side_effect_path_outside_workspace(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-live-dogfood-events-") as base:
+            root = Path(base)
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {"type": "task", "task": "fix", "approval_policy": "ask"},
+                    {"type": "tool_call", "iteration": 1, "id": "read", "name": "Read", "input": {"file_path": "calc.py"}},
+                    {"type": "tool_result", "iteration": 1, "id": "read", "name": "Read", "result": {"kind": "read_file", "ok": True}},
+                    {"type": "tool_call", "iteration": 2, "id": "edit", "name": "Edit", "input": {"file_path": "../outside.py"}},
+                    {"type": "approval_requested", "iteration": 2, "request": {"action_type": "edit_file", "target": "../outside.py"}},
+                    {"type": "approval_decision", "iteration": 2, "decision": {"approved": True}},
+                    {"type": "tool_result", "iteration": 2, "id": "edit", "name": "Edit", "result": {"kind": "edit_file", "ok": True, "path": "../outside.py"}},
+                    {"type": "result", "success": True, "status": "completed", "completion_ready": True},
+                ],
+            )
+
+            checks = live_dogfood_v1.audit_session_events(root, run_id="run-1")
+            details = {check.name: check.detail for check in checks}
+
+        self.assertIn("outside=2", details["side effect paths stayed inside workspace"])
+
     def test_audit_session_events_accepts_complete_live_gate_evidence(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-live-dogfood-events-") as base:
             root = Path(base)

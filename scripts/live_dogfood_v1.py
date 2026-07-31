@@ -54,6 +54,7 @@ SIDE_EFFECT_TOOL_NAMES = {
     "MultiEdit",
     "Bash",
 }
+PATH_FIELD_NAMES = frozenset({"path", "paths", "file_path", "file_paths", "notebook_path", "cwd", "files"})
 
 
 @dataclass(frozen=True)
@@ -225,6 +226,58 @@ def side_effects_have_prior_approval(events: list[dict[str, object]]) -> tuple[b
     )
 
 
+def _event_is_side_effect(event: dict[str, object]) -> bool:
+    return _tool_event_name(event) in SIDE_EFFECT_TOOL_NAMES or _tool_result_kind(event) in SIDE_EFFECT_TOOL_NAMES
+
+
+def side_effect_paths_within_workspace(root: Path, events: list[dict[str, object]]) -> tuple[bool, str]:
+    root = root.resolve()
+    checked = 0
+    outside: list[str] = []
+    for event in events:
+        if event.get("type") not in {"tool_call", "tool_result"} or not _event_is_side_effect(event):
+            continue
+        for path in _event_path_values(event):
+            checked += 1
+            if not _path_is_within(root, path):
+                outside.append(path)
+    detail = f"checked={checked} outside={len(outside)}"
+    if outside:
+        detail += f" first={outside[0]}"
+    return not outside, detail
+
+
+def _event_path_values(value: object, *, field_name: str | None = None) -> list[str]:
+    if isinstance(value, dict):
+        paths: list[str] = []
+        for key, item in value.items():
+            key_text = str(key)
+            if key_text in PATH_FIELD_NAMES:
+                paths.extend(_event_path_values(item, field_name=key_text))
+            elif isinstance(item, (dict, list)):
+                paths.extend(_event_path_values(item))
+        return paths
+    if isinstance(value, list):
+        paths: list[str] = []
+        for item in value:
+            paths.extend(_event_path_values(item, field_name=field_name))
+        return paths
+    if field_name in PATH_FIELD_NAMES and isinstance(value, str) and value.strip():
+        return [value.strip()]
+    return []
+
+
+def _path_is_within(root: Path, path: str) -> bool:
+    try:
+        candidate = Path(path)
+        if not candidate.is_absolute():
+            candidate = root / candidate
+        candidate.resolve().relative_to(root)
+    except (OSError, ValueError):
+        return False
+    return True
+
+
 def audit_session_events(root: Path, *, run_id: str) -> list[CheckResult]:
     events = load_session_events(root, run_id)
     results: list[CheckResult] = []
@@ -272,6 +325,14 @@ def audit_session_events(root: Path, *, run_id: str) -> list[CheckResult]:
             "side effects had prior approval",
             approved_before_side_effect,
             approval_order_detail,
+        )
+    )
+    paths_within_workspace, path_detail = side_effect_paths_within_workspace(root, events)
+    results.append(
+        CheckResult(
+            "side effect paths stayed inside workspace",
+            paths_within_workspace,
+            path_detail,
         )
     )
 
