@@ -454,35 +454,34 @@ class ProjectAgentProfileTests(unittest.TestCase):
 
     def test_code_profile_bash_alias_allows_background_bash(self) -> None:
         approvals: list[str] = []
-        client = ProfileClient(
-            [
-                [
-                    {
-                        "type": "tool_call",
-                        "id": "bash-1",
-                        "name": "Bash",
-                        "input": {"command": "python3 -c \"print('ready')\"", "run_in_background": True},
-                    }
-                ],
-                [
-                    {
-                        "type": "tool_call",
-                        "id": "output-1",
-                        "name": "BashOutput",
-                        "input": {"bash_id": "missing-process"},
-                    }
-                ],
-                [
-                    {
-                        "type": "tool_call",
-                        "id": "kill-1",
-                        "name": "KillBash",
-                        "input": {"bash_id": "missing-process"},
-                    }
-                ],
-                [{"type": "text", "text": "Checked and stopped the command."}],
-            ]
-        )
+
+        class BackgroundBashClient(ProfileClient):
+            def __init__(self) -> None:
+                super().__init__([])
+
+            def complete(self, messages, tools=None, max_tokens=4096, temperature=0.2, timeout_ms=120_000):
+                self.messages.append(list(messages))
+                self.tool_names.append([str(tool["name"]) for tool in tools or []])
+                if len(self.messages) == 1:
+                    content = [
+                        {
+                            "type": "tool_call",
+                            "id": "bash-1",
+                            "name": "Bash",
+                            "input": {"command": "python3 -c \"print('ready')\"", "run_in_background": True},
+                        }
+                    ]
+                elif len(self.messages) == 2:
+                    process_id = json.loads(self.messages[-1][-1].content[0]["content"])["process_id"]
+                    content = [{"type": "tool_call", "id": "output-1", "name": "BashOutput", "input": {"bash_id": process_id}}]
+                elif len(self.messages) == 3:
+                    process_id = json.loads(self.messages[-2][-1].content[0]["content"])["process_id"]
+                    content = [{"type": "tool_call", "id": "kill-1", "name": "KillBash", "input": {"bash_id": process_id}}]
+                else:
+                    content = [{"type": "text", "text": "Checked and stopped the command."}]
+                return AssistantResponse(content=content, raw={"content": content})
+
+        client = BackgroundBashClient()
         with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
             root = Path(base)
             _write_agent(
@@ -517,12 +516,33 @@ class ProjectAgentProfileTests(unittest.TestCase):
 
         self.assertEqual(
             loaded["tools"],
-            ["Bash", "BashOutput", "KillBash", "read_process", "run_command", "start_command", "stop_process"],
+            [
+                "Bash",
+                "BashOutput",
+                "KillBash",
+                "process_output_contexts",
+                "process_output_diagnostics",
+                "read_process",
+                "run_command",
+                "start_command",
+                "stop_process",
+            ],
         )
         self.assertTrue(observation.ok)
         self.assertEqual(
             set(client.tool_names[0]),
-            {"Bash", "BashOutput", "KillBash", "finish", "read_process", "run_command", "start_command", "stop_process"},
+            {
+                "Bash",
+                "BashOutput",
+                "KillBash",
+                "finish",
+                "process_output_contexts",
+                "process_output_diagnostics",
+                "read_process",
+                "run_command",
+                "start_command",
+                "stop_process",
+            },
         )
         result = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual(result["kind"], "start_command")

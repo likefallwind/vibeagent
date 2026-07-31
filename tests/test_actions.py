@@ -322,7 +322,19 @@ class ActionTests(unittest.TestCase):
     def test_profile_tool_names_expand_input_sensitive_claude_aliases(self) -> None:
         self.assertEqual(
             profile_tool_names("Bash"),
-            frozenset({"Bash", "BashOutput", "KillBash", "read_process", "run_command", "start_command", "stop_process"}),
+            frozenset(
+                {
+                    "Bash",
+                    "BashOutput",
+                    "KillBash",
+                    "process_output_contexts",
+                    "process_output_diagnostics",
+                    "read_process",
+                    "run_command",
+                    "start_command",
+                    "stop_process",
+                }
+            ),
         )
         self.assertEqual(profile_tool_names("Edit"), frozenset({"Edit", "edit_file", "regex_replace"}))
         self.assertEqual(profile_tool_names("NotebookEdit"), frozenset({"NotebookEdit", "edit_file", "notebook_edit", "regex_replace"}))
@@ -2435,6 +2447,28 @@ class ActionTests(unittest.TestCase):
         )
         foreground_bash_action = parse_tool_action("Bash", {"command": "npm test", "run_in_background": "false"})
         bash_output_action = parse_tool_action("BashOutput", {"bash_id": "proc-1", "max_output_chars": 2000})
+        bash_output_contexts_action = parse_tool_action(
+            "BashOutput",
+            {
+                "bash_id": "proc-1",
+                "extract_output_contexts": True,
+                "context_lines": 3,
+                "max_contexts": 4,
+                "max_bytes_per_context": 5000,
+            },
+        )
+        bash_output_diagnostics_action = parse_tool_action(
+            "BashOutput",
+            {
+                "bash_id": "proc-1",
+                "extract_output_contexts": True,
+                "extract_output_diagnostics": True,
+                "context_lines": 2,
+                "max_diagnostics": 6,
+                "max_contexts": 7,
+                "max_bytes_per_context": 8000,
+            },
+        )
         kill_bash_action = parse_tool_action("KillBash", {"bash_id": "proc-1"})
         web_fetch_action = parse_tool_action("WebFetch", {"url": "https://docs.python.org/3/"})
         ask_user_action = parse_tool_action("AskUserQuestion", {"prompt": "Which option?", "options": ["A", "B"]})
@@ -2504,6 +2538,17 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(bash_output_action.type, "read_process")
         self.assertEqual(bash_output_action.process_id, "proc-1")
         self.assertEqual(bash_output_action.max_output_chars, 2000)
+        self.assertIsInstance(bash_output_contexts_action, ProcessOutputContextsAction)
+        self.assertEqual(bash_output_contexts_action.process_id, "proc-1")
+        self.assertEqual(bash_output_contexts_action.context_lines, 3)
+        self.assertEqual(bash_output_contexts_action.max_contexts, 4)
+        self.assertEqual(bash_output_contexts_action.max_bytes_per_context, 5000)
+        self.assertIsInstance(bash_output_diagnostics_action, ProcessOutputDiagnosticsAction)
+        self.assertEqual(bash_output_diagnostics_action.process_id, "proc-1")
+        self.assertEqual(bash_output_diagnostics_action.context_lines, 2)
+        self.assertEqual(bash_output_diagnostics_action.max_diagnostics, 6)
+        self.assertEqual(bash_output_diagnostics_action.max_contexts, 7)
+        self.assertEqual(bash_output_diagnostics_action.max_bytes_per_context, 8000)
         self.assertEqual(kill_bash_action.type, "stop_process")
         self.assertEqual(kill_bash_action.process_id, "proc-1")
         self.assertEqual(web_fetch_action.type, "web_fetch")

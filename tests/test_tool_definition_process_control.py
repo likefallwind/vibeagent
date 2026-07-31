@@ -124,6 +124,21 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         self.assertTrue(optional_names.issubset(schema["properties"]))
         self.assertTrue(optional_names.isdisjoint(schema["required"]))
 
+    def test_claude_bash_output_schema_exposes_output_extraction_flags(self) -> None:
+        bash_output = next(tool for tool in CLAUDE_PROCESS_TOOL_DEFINITIONS if tool["name"] == "BashOutput")
+        schema = bash_output["input_schema"]
+        optional_names = {
+            "extract_output_contexts",
+            "extract_output_diagnostics",
+            "context_lines",
+            "max_diagnostics",
+            "max_contexts",
+            "max_bytes_per_context",
+        }
+
+        self.assertTrue(optional_names.issubset(schema["properties"]))
+        self.assertTrue(optional_names.isdisjoint(schema["required"]))
+
 
 if __name__ == "__main__":
     unittest.main()

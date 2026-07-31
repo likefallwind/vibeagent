@@ -41,7 +41,7 @@ CLAUDE_PROCESS_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "BashOutput",
-        "description": "Claude-compatible alias for reading recent stdout/stderr from a background command.",
+        "description": "Claude-compatible alias for reading background command output.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -50,12 +50,16 @@ CLAUDE_PROCESS_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "integer",
                     "minimum": 1000,
                     "maximum": 50000,
-                    "description": "Optional maximum characters to keep for each output stream.",
                 },
                 "filter": {
                     "type": "string",
-                    "description": "Optional regex used to keep only matching output lines.",
                 },
+                "extract_output_contexts": {"type": "boolean"},
+                "extract_output_diagnostics": {"type": "boolean"},
+                "context_lines": {"type": "integer", "minimum": 0, "maximum": 500},
+                "max_diagnostics": {"type": "integer", "minimum": 1, "maximum": 200},
+                "max_contexts": {"type": "integer", "minimum": 1, "maximum": 100},
+                "max_bytes_per_context": {"type": "integer", "minimum": 1000, "maximum": 200000},
             },
             "required": ["bash_id"],
             "additionalProperties": False,

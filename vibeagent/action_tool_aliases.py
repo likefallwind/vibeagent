@@ -68,6 +68,10 @@ def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, d
             dict(tool_input),
             {"run_in_background", "timeout", "timeout_ms"},
         )
+    if name == "BashOutput":
+        output_action = _normalize_bash_output_action(tool_input)
+        if output_action is not None:
+            return output_action
     if name == "NotebookEdit" and "old_string" in tool_input and "new_string" in tool_input:
         if truthy_alias_bool(tool_input.get("replace_all")):
             return "regex_replace", _normalize_edit_replace_all_input(tool_input)
@@ -141,6 +145,19 @@ def _normalize_ask_user_input(value: dict[str, Any]) -> dict[str, Any]:
 
 def _normalize_bash_input(value: dict[str, Any]) -> dict[str, Any]:
     return _rename_fields(value, {"timeout": "timeout_ms"})
+
+
+def _normalize_bash_output_action(value: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
+    normalized = _normalize_process_alias_input(value)
+    normalized.pop("extract_output_contexts", None)
+    normalized.pop("extract_output_diagnostics", None)
+    normalized.pop("filter", None)
+    if truthy_alias_bool(value.get("extract_output_diagnostics")):
+        return "process_output_diagnostics", normalized
+    if truthy_alias_bool(value.get("extract_output_contexts")):
+        normalized.pop("max_diagnostics", None)
+        return "process_output_contexts", normalized
+    return None
 
 
 def _normalize_read_file_input(value: dict[str, Any]) -> dict[str, Any]:

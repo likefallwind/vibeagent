@@ -110,7 +110,7 @@ CLAUDE_TOOL_ALIASES = {
     "Agent": frozenset({"delegate_task"}),
     "AskUserQuestion": frozenset({"ask_user"}),
     "Bash": BASH_TOOL_NAMES,
-    "BashOutput": frozenset({"read_process"}),
+    "BashOutput": frozenset({"process_output_contexts", "process_output_diagnostics", "read_process"}),
     "Edit": FILE_EDIT_TOOL_NAMES,
     "ExitPlanMode": frozenset({"update_plan"}),
     "Glob": frozenset({"glob"}),
@@ -129,7 +129,17 @@ CLAUDE_TOOL_ALIASES = {
 }
 PROFILE_TOOL_ALIAS_EXPANSIONS = {
     "Bash": frozenset(
-        {"Bash", "BashOutput", "KillBash", "read_process", "run_command", "start_command", "stop_process"}
+        {
+            "Bash",
+            "BashOutput",
+            "KillBash",
+            "process_output_contexts",
+            "process_output_diagnostics",
+            "read_process",
+            "run_command",
+            "start_command",
+            "stop_process",
+        }
     ),
     "Edit": frozenset({"Edit", "edit_file", "regex_replace"}),
     "Glob": frozenset({"Glob", "glob"}),
