@@ -36,6 +36,7 @@ from .cli_runtime_args import (
     add_runtime_run_option_arguments,
 )
 from .cli_session_args import add_session_limit_arguments, add_session_local_arguments
+from .cli_status_args import add_status_local_arguments
 from .cli_workflow_args import add_workflow_local_arguments, add_workflow_option_arguments
 
 
@@ -60,10 +61,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     add_edit_local_arguments(local)
     add_git_local_arguments(local)
     add_process_local_arguments(local)
-    local.add_argument("--status", action="store_true", help="Show default non-interactive status and exit.")
-    local.add_argument("--context", action="store_true", help="Show project context sources and exit.")
-    local.add_argument("--init", nargs="?", const="AGENTS.md", metavar="FILE", help="Create a starter AGENTS.md or CLAUDE.md and exit.")
-    local.add_argument("--doctor", action="store_true", help="Show local diagnostics and exit.")
+    add_status_local_arguments(local)
     add_workflow_local_arguments(local)
     add_workflow_option_arguments(parser, positive_int=positive_int)
     add_git_diff_local_arguments(local)
