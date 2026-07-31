@@ -37,54 +37,7 @@ from .action_code_intel_types import (
     PythonSymbolsAction,
     ReplacePythonDefinitionAction,
 )
-from .action_file_edit_types import (
-    AppendFileAction,
-    CheckAppendFileAction,
-    CheckCopyDirectoriesAction,
-    CheckCopyDirectoryAction,
-    CheckCopyFileAction,
-    CheckCopyFilesAction,
-    CheckCreateDirectoriesAction,
-    CheckCreateDirectoryAction,
-    CheckDeleteEmptyDirectoriesAction,
-    CheckDeleteEmptyDirectoryAction,
-    CheckDeleteFileAction,
-    CheckDeleteFilesAction,
-    CheckEditFileAction,
-    CheckInsertLinesAction,
-    CheckMoveDirectoriesAction,
-    CheckMoveDirectoryAction,
-    CheckMoveFileAction,
-    CheckMoveFilesAction,
-    CheckMultiEditAction,
-    CheckPatchAction,
-    CheckPatchesAction,
-    CheckRegexReplaceAction,
-    CheckReplaceLinesAction,
-    CheckSetExecutableAction,
-    CopyDirectoriesAction,
-    CopyDirectoryAction,
-    CopyFileAction,
-    CopyFilesAction,
-    CreateDirectoriesAction,
-    CreateDirectoryAction,
-    DeleteEmptyDirectoriesAction,
-    DeleteEmptyDirectoryAction,
-    DeleteFileAction,
-    DeleteFilesAction,
-    EditFileAction,
-    InsertLinesAction,
-    MoveDirectoriesAction,
-    MoveDirectoryAction,
-    MoveFileAction,
-    MoveFilesAction,
-    MultiEditAction,
-    PatchFileAction,
-    PatchFilesAction,
-    RegexReplaceAction,
-    ReplaceLinesAction,
-    SetExecutableAction,
-)
+from .action_file_edit_union_types import FileEditAgentAction
 from .action_git_types import (
     CheckGitCommitAction,
     CheckGitFetchAction,
@@ -130,8 +83,6 @@ from .action_json_types import (
     JsonSetAction,
 )
 from .action_notebook_types import (
-    CheckNotebookEditAction,
-    NotebookEditAction,
     NotebookReadAction,
 )
 from .action_mcp_types import McpCallAction, McpServersAction, McpToolsAction
@@ -359,54 +310,7 @@ AgentAction: TypeAlias = (
     | CheckpointDeleteAction
     | CheckCheckpointPruneAction
     | CheckpointPruneAction
-    | CheckEditFileAction
-    | EditFileAction
-    | CheckNotebookEditAction
-    | NotebookEditAction
-    | MultiEditAction
-    | CheckMultiEditAction
-    | CheckReplaceLinesAction
-    | ReplaceLinesAction
-    | CheckInsertLinesAction
-    | InsertLinesAction
-    | CheckAppendFileAction
-    | AppendFileAction
-    | RegexReplaceAction
-    | CheckRegexReplaceAction
-    | CheckPatchAction
-    | CheckPatchesAction
-    | PatchFileAction
-    | PatchFilesAction
-    | CheckDeleteFileAction
-    | DeleteFileAction
-    | CheckDeleteFilesAction
-    | DeleteFilesAction
-    | CheckMoveFileAction
-    | MoveFileAction
-    | CheckMoveFilesAction
-    | MoveFilesAction
-    | CheckCopyFileAction
-    | CopyFileAction
-    | CheckCopyFilesAction
-    | CopyFilesAction
-    | CheckMoveDirectoryAction
-    | MoveDirectoryAction
-    | CheckMoveDirectoriesAction
-    | MoveDirectoriesAction
-    | CheckCopyDirectoryAction
-    | CopyDirectoryAction
-    | CheckCopyDirectoriesAction
-    | CopyDirectoriesAction
-    | CheckCreateDirectoryAction
-    | CreateDirectoryAction
-    | CheckCreateDirectoriesAction
-    | CreateDirectoriesAction
-    | CheckDeleteEmptyDirectoryAction
-    | DeleteEmptyDirectoryAction
-    | CheckDeleteEmptyDirectoriesAction
-    | DeleteEmptyDirectoriesAction
-    | CheckSetExecutableAction
-    | SetExecutableAction
+    | FileEditAgentAction
     | RunCommandAction
     | RunCommandsAction
     | StartCommandAction
