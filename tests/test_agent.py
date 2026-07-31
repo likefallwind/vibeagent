@@ -1041,6 +1041,57 @@ class AgentTests(unittest.TestCase):
         self.assertEqual([event["type"] for event in events if event["type"] == "completion_blocked"], ["completion_blocked"])
         self.assertEqual([item.kind for item in result.observations], ["update_plan", "finish", "update_plan", "finish"])
 
+    def test_completion_blockers_include_blocked_session_summary_recovery_state(self) -> None:
+        observation = SessionSummaryObservation(
+            kind="session_summary",
+            run_id="prior-run",
+            ok=True,
+            summary="Session: prior-run\n  status: blocked",
+            recent_sessions=[],
+            message="Read session summary for prior-run.",
+            completion_ready=False,
+            completion_blockers=["1 suggested verification check(s) are still pending."],
+        )
+
+        blockers = completion_module.build_completion_blockers(True, [observation], [])
+
+        self.assertEqual(
+            blockers,
+            ["Recovered session reports completion blocker(s): 1 suggested verification check(s) are still pending."],
+        )
+
+    def test_completion_blockers_clear_blocked_session_summary_after_ready_verification(self) -> None:
+        summary = SessionSummaryObservation(
+            kind="session_summary",
+            run_id="prior-run",
+            ok=True,
+            summary="Session: prior-run\n  status: blocked",
+            recent_sessions=[],
+            message="Read session summary for prior-run.",
+            completion_ready=False,
+            completion_blockers=["1 suggested verification check(s) are still pending."],
+        )
+        verification = SessionVerificationObservation(
+            kind="session_verification",
+            run_id="prior-run",
+            ok=True,
+            verification="Session verification:\n  status: ready",
+            verified_commands=[],
+            pending_commands=[],
+            failed_commands=[],
+            verified_count=0,
+            pending_count=0,
+            failed_count=0,
+            verification_truncated=False,
+            message="Read session verification for prior-run.",
+            ready=True,
+            status="ready",
+        )
+
+        blockers = completion_module.build_completion_blockers(True, [summary, verification], [])
+
+        self.assertEqual(blockers, [])
+
     def test_run_agent_feedback_names_denied_approval_before_finish(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             client = MockClient(

@@ -42,6 +42,7 @@ from .types import Observation, PlanItem
 
 IGNORED_COMPLETION_FINAL_REVIEW_WARNINGS = frozenset({"No changed files detected."})
 MAX_COMPLETION_FINAL_REVIEW_WARNINGS = 5
+SESSION_RECOVERY_COMPLETION_KINDS = frozenset({"session_summary", "session_audit", "session_handoff"})
 VerificationStatus = tuple[list[str], list[str], list[str]]
 
 
@@ -234,7 +235,41 @@ def build_completion_blockers(
         blockers.append(f"{len(failed_verification_checks)} suggested verification check(s) failed after the latest project change.")
     if pending_verification_checks:
         blockers.append(f"{len(pending_verification_checks)} suggested verification check(s) are still pending after the latest project change.")
+    blockers.extend(build_session_recovery_completion_blockers(observations))
     return blockers
+
+def build_session_recovery_completion_blockers(observations: list[Observation]) -> list[str]:
+    for observation in reversed(observations):
+        if session_recovery_ready_observation(observation):
+            return []
+        if observation.kind not in SESSION_RECOVERY_COMPLETION_KINDS:
+            continue
+        if getattr(observation, "completion_ready", None) is not False:
+            continue
+        labels = session_recovery_completion_blocker_labels(observation)
+        if not labels:
+            return ["Recovered session reports completion is not ready."]
+        return [f"Recovered session reports completion blocker(s): {summarize('; '.join(labels[:3]), 240)}"]
+    return []
+
+def session_recovery_ready_observation(observation: Observation) -> bool:
+    if observation.kind == "final_review" and getattr(observation, "ready", None) is True:
+        return True
+    if observation.kind not in {"session_verification", "session_audit", "session_handoff"}:
+        return False
+    if getattr(observation, "ready", None) is True:
+        return True
+    status = str(getattr(observation, "status", "") or "").strip().casefold()
+    return status == "ready"
+
+def session_recovery_completion_blocker_labels(observation: Observation) -> list[str]:
+    labels: list[str] = []
+    for attr in ("completion_blockers", "latest_completion_blockers"):
+        values = getattr(observation, attr, [])
+        if not isinstance(values, list):
+            continue
+        labels.extend(str(value).strip() for value in values if isinstance(value, str) and value.strip())
+    return labels
 
 def resolve_completion_verification_status(
     success: bool,
