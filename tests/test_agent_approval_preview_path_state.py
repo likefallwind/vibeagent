@@ -11,6 +11,7 @@ class ApprovalPreviewPathStateTests(unittest.TestCase):
         observation = SimpleNamespace(
             path="app.py",
             definition_path="pkg/core.py",
+            stdin_file="input.txt",
             paths=["docs/a.md"],
             files=[SimpleNamespace(path="src/item.py")],
             inputs=[SimpleNamespace(path="generated.txt")],
@@ -25,6 +26,7 @@ class ApprovalPreviewPathStateTests(unittest.TestCase):
                 {
                     "app.py",
                     "pkg/core.py",
+                    "input.txt",
                     "docs/a.md",
                     "src/item.py",
                     "generated.txt",

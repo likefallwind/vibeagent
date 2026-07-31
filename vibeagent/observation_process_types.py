@@ -182,6 +182,7 @@ class CheckWriteProcessObservation:
     content_chars: int
     message: str
     content_sha256: str = ""
+    stdin_file: str | None = None
 
 
 @dataclass(frozen=True)
@@ -196,6 +197,7 @@ class WriteProcessObservation:
     content_chars: int
     message: str
     content_sha256: str = ""
+    stdin_file: str | None = None
 
 
 @dataclass(frozen=True)

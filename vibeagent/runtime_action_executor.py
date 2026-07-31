@@ -86,6 +86,7 @@ def _write_process_file_error_observation(
         cwd=None,
         content_chars=0,
         message=f"Cannot read stdin_file for process {action.process_id}: {error}",
+        stdin_file=action.stdin_file,
     )
 
 
@@ -250,14 +251,16 @@ def execute_runtime_action(
             content = _write_process_content(workspace, action)
         except ValueError as error:
             return _write_process_file_error_observation(action, error)
-        return check_write_background_process(workspace.root, action.process_id, content)
+        observation = check_write_background_process(workspace.root, action.process_id, content)
+        return replace(observation, stdin_file=action.stdin_file)
 
     if isinstance(action, WriteProcessAction):
         try:
             content = _write_process_content(workspace, action)
         except ValueError as error:
             return _write_process_file_error_observation(action, error)
-        return write_background_process(workspace.root, action.process_id, content)
+        observation = write_background_process(workspace.root, action.process_id, content)
+        return replace(observation, stdin_file=action.stdin_file)
 
     if isinstance(action, ListProcessesAction):
         return list_background_processes(workspace.root)

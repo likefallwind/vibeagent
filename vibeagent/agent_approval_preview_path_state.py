@@ -64,6 +64,9 @@ def observation_paths(value: object) -> frozenset[str]:
     definition_path = getattr(value, "definition_path", None)
     if isinstance(definition_path, str) and definition_path:
         paths.add(definition_path)
+    stdin_file = getattr(value, "stdin_file", None)
+    if isinstance(stdin_file, str) and stdin_file:
+        paths.add(stdin_file)
     for attr in ("paths", "files"):
         for item in getattr(value, attr, []) or []:
             if isinstance(item, str) and item:

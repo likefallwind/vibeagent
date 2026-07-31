@@ -249,6 +249,7 @@ def format_runtime_observation(index: int, observation: object) -> str | None:
                 f"running: {str(observation.running).lower()}",
                 f"cwd: {observation.cwd or 'none'}",
                 f"contentChars: {observation.content_chars}",
+                f"stdinFile: {observation.stdin_file or 'none'}",
                 f"command: {observation.command or 'none'}",
             ]
         )

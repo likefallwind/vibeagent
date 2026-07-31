@@ -8,6 +8,7 @@ from pathlib import Path
 from vibeagent.agent_hooks import HookRunResult
 from vibeagent.agent_tool_results import (
     ToolObservationContext,
+    build_tool_result_payload,
     record_subagent_tool_observation,
     record_subagent_tool_result_event,
     record_tool_observation,
@@ -15,11 +16,31 @@ from vibeagent.agent_tool_results import (
     record_tool_result_observation,
 )
 from vibeagent.session import read_session_events
-from vibeagent.types import CommandResult, RunCommandObservation, WriteFileObservation
+from vibeagent.types import CommandResult, RunCommandObservation, WriteFileObservation, WriteProcessObservation
 from vibeagent.workspace import create_run_workspace
 
 
 class AgentToolResultsTests(unittest.TestCase):
+    def test_write_process_tool_payload_keeps_stdin_file_without_hash(self) -> None:
+        payload = build_tool_result_payload(
+            WriteProcessObservation(
+                kind="write_process",
+                process_id="proc-1",
+                pid=123,
+                ok=True,
+                running=True,
+                command="python repl.py",
+                cwd=".",
+                content_chars=12,
+                message="Wrote process input.",
+                content_sha256="internal-fingerprint",
+                stdin_file="input.txt",
+            )
+        )
+
+        self.assertEqual(payload["stdin_file"], "input.txt")
+        self.assertNotIn("content_sha256", payload)
+
     def test_record_tool_result_event_redacts_hooks_and_preserves_auto_flag(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-tool-results-") as base:
             workspace = create_run_workspace(Path(base), "run-1")

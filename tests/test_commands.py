@@ -6854,6 +6854,7 @@ class CommandTests(unittest.TestCase):
         self.assertIn("command: .", missing)
         self.assertIn("cwd: .", missing)
         self.assertIn("contentChars: 6", missing)
+        self.assertIn("stdinFile: .", missing)
         self.assertIn("Unknown background process id.", missing)
         self.assertIn("Usage: /write-process <id> <text>", usage)
         self.assertIn("process id is required", usage)
@@ -6896,6 +6897,7 @@ class CommandTests(unittest.TestCase):
                 "command": "python3 repl.py",
                 "cwd": ".",
                 "contentChars": 6,
+                "stdinFile": "",
                 "message": "Wrote 6 character(s) to process bg-1.",
             },
         )
@@ -6908,6 +6910,7 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(file_action.content, "hello\\nfrom file\n")
         self.assertIn("Write process:", rendered)
         self.assertIn("contentChars: 6", rendered)
+        self.assertIn("stdinFile: .", rendered)
         self.assertFalse(usage["ok"])
         self.assertIn("Usage: /write-process <id> <text> [--stdin-file PATH]", str(usage["message"]))
 
@@ -6940,6 +6943,7 @@ class CommandTests(unittest.TestCase):
         self.assertIn("command: python3 repl.py", rendered)
         self.assertIn("cwd: .", rendered)
         self.assertIn("contentChars: 6", rendered)
+        self.assertIn("stdinFile: .", rendered)
         self.assertIn("can receive stdin", rendered)
         self.assertIn("Usage: /check-write-process <id> <text>", usage)
         self.assertIn("process id is required", usage)
@@ -6980,6 +6984,7 @@ class CommandTests(unittest.TestCase):
                 "command": "python3 repl.py",
                 "cwd": ".",
                 "contentChars": 6,
+                "stdinFile": "",
                 "message": "Can write 6 character(s) to process bg-1.",
             },
         )

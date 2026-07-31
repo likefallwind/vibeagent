@@ -364,6 +364,7 @@ def _format_write_like_process_report_text(title: str, report: dict[str, object]
         f"  command: {report.get('command') or '.'}",
         f"  cwd: {report.get('cwd') or '.'}",
         f"  contentChars: {int(report.get('contentChars', 0) or 0)}",
+        f"  stdinFile: {report.get('stdinFile') or '.'}",
         f"  message: {report.get('message') or ''}",
     ]
     return "\n".join(lines)
@@ -379,6 +380,7 @@ def serialize_write_process_report(root: Path, observation: object) -> dict[str,
         "command": str(getattr(observation, "command", "") or ""),
         "cwd": str(getattr(observation, "cwd", "") or ""),
         "contentChars": int(getattr(observation, "content_chars", 0) or 0),
+        "stdinFile": str(getattr(observation, "stdin_file", "") or ""),
         "message": str(getattr(observation, "message", "") or ""),
     }
 
