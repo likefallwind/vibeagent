@@ -2423,6 +2423,10 @@ class ActionTests(unittest.TestCase):
                 "timeout": 1000.0,
                 "extract_output_contexts": True,
                 "extract_output_diagnostics": True,
+                "context_lines": 3,
+                "max_diagnostics": 4,
+                "max_contexts": 5,
+                "max_bytes_per_context": 6000,
             },
         )
         background_bash_action = parse_tool_action(
@@ -2488,6 +2492,10 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(bash_action.timeout_ms, 1000)
         self.assertTrue(bash_action.extract_output_contexts)
         self.assertTrue(bash_action.extract_output_diagnostics)
+        self.assertEqual(bash_action.context_lines, 3)
+        self.assertEqual(bash_action.max_diagnostics, 4)
+        self.assertEqual(bash_action.max_contexts, 5)
+        self.assertEqual(bash_action.max_bytes_per_context, 6000)
         self.assertEqual(background_bash_action.type, "start_command")
         self.assertEqual(background_bash_action.command, "npm run dev")
         self.assertEqual(background_bash_action.max_output_chars, 3000)
