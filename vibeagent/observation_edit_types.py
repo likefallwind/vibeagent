@@ -181,6 +181,7 @@ class CheckPatchObservation:
     ok: bool
     message: str
     diff: str
+    patch: str = ""
 
 
 @dataclass(frozen=True)
@@ -190,6 +191,7 @@ class CheckPatchesObservation:
     ok: bool
     message: str
     diff: str
+    patch: str = ""
 
 
 @dataclass(frozen=True)
@@ -199,6 +201,7 @@ class PatchFileObservation:
     ok: bool
     message: str
     diff: str
+    patch: str = ""
 
 
 @dataclass(frozen=True)
@@ -208,6 +211,7 @@ class PatchFilesObservation:
     ok: bool
     message: str
     diff: str
+    patch: str = ""
 
 
 @dataclass(frozen=True)

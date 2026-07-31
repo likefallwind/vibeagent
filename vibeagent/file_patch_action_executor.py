@@ -110,6 +110,7 @@ def execute_patch_file_action(workspace: RunWorkspace, action: object) -> Observ
             ok=ok,
             message=message,
             diff=diff,
+            patch=action.patch,
         )
 
     if isinstance(action, CheckPatchesAction):
@@ -129,6 +130,7 @@ def execute_patch_file_action(workspace: RunWorkspace, action: object) -> Observ
             ok=ok,
             message=message,
             diff=diff,
+            patch=action.patch,
         )
 
     if isinstance(action, PatchFileAction):
@@ -146,6 +148,7 @@ def execute_patch_file_action(workspace: RunWorkspace, action: object) -> Observ
             ok=ok,
             message=message,
             diff=diff,
+            patch=action.patch,
         )
 
     if isinstance(action, PatchFilesAction):
@@ -165,6 +168,7 @@ def execute_patch_file_action(workspace: RunWorkspace, action: object) -> Observ
             ok=ok,
             message=message,
             diff=diff,
+            patch=action.patch,
         )
 
     return None

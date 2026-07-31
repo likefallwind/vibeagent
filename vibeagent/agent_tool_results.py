@@ -46,6 +46,8 @@ def scrub_internal_preview_fingerprint_fields(result_payload: dict[str, object])
     if kind in {"regex_replace", "check_regex_replace"}:
         for key in ("replacement", "case_sensitive", "multiline", "max_replacements"):
             result_payload.pop(key, None)
+    if kind in {"patch_file", "check_patch", "patch_files", "check_patches"}:
+        result_payload.pop("patch", None)
 
 
 def record_tool_result_event(

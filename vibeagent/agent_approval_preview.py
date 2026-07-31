@@ -167,8 +167,10 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
                 for edit in getattr(value, "edits", []) or []
             ),
         )
-    if kind in {"patch_file", "check_patch", "delete_file", "check_delete_file", "create_dir", "check_create_dir", "delete_empty_dir", "check_delete_empty_dir", "set_executable", "check_set_executable"}:
+    if kind in {"delete_file", "check_delete_file", "create_dir", "check_create_dir", "delete_empty_dir", "check_delete_empty_dir", "set_executable", "check_set_executable"}:
         return (kind.replace("check_", ""), getattr(value, "path", ""), getattr(value, "executable", None))
+    if kind in {"patch_file", "check_patch"}:
+        return ("patch_file", getattr(value, "path", ""), getattr(value, "patch", ""))
     if kind in {"write_file", "check_write_file"}:
         return ("write_file", getattr(value, "path", ""), getattr(value, "content", ""))
     if kind in {"regex_replace", "check_regex_replace"}:
@@ -225,7 +227,7 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
             tuple((getattr(item, "source", ""), getattr(item, "destination", "")) for item in getattr(value, "transfers", [])),
         )
     if kind in {"patch_files", "check_patches"}:
-        return ("patch_files",)
+        return ("patch_files", getattr(value, "patch", ""))
     git_key = git_preview_key(kind, value)
     if git_key is not None:
         return git_key
