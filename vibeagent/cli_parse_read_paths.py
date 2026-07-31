@@ -53,7 +53,10 @@ def parse_interactive_read_path_options(
             value, error = _parse_boolean_option(part, flag, usage)
             if error:
                 return None, {}, error, True
-            kwargs[boolean_options[flag]] = value
+            keyword = boolean_options[flag]
+            if keyword in kwargs:
+                return None, {}, f"{usage}\n  error: provide {flag} at most once.", True
+            kwargs[keyword] = value
             index += 1
             continue
         if flag in option_specs:
@@ -61,7 +64,10 @@ def parse_interactive_read_path_options(
             value, error = parse_interactive_positive_option(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}", True
-            kwargs[option_specs[flag]] = int(value)
+            keyword = option_specs[flag]
+            if keyword in kwargs:
+                return None, {}, f"{usage}\n  error: provide {flag} at most once.", True
+            kwargs[keyword] = int(value)
             continue
         if part.startswith("--"):
             return None, {}, f"{usage}\n  error: Unknown option: {part}", True
