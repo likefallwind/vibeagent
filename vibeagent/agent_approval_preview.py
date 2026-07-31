@@ -321,11 +321,17 @@ def git_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
 
 
 def run_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
-    if kind in {"run_command", "command_check", "start_command", "check_start_command"}:
-        normalized = "run_command" if kind == "command_check" else kind.replace("check_", "")
+    if kind in {"run_command", "command_check"}:
         return (
-            normalized,
+            "run_command",
             command_item_preview_key(value),
+        )
+    if kind in {"start_command", "check_start_command"}:
+        return (
+            "start_command",
+            getattr(value, "command", ""),
+            getattr(value, "cwd", None) or ".",
+            getattr(value, "max_output_chars", None),
         )
     if kind in {"run_commands", "check_run_commands"}:
         commands = getattr(value, "commands", None)

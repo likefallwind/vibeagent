@@ -9,11 +9,13 @@ from vibeagent.agent_approval_preview import approval_preview_summary
 from vibeagent.agent_tool_results import build_tool_result_payload
 from vibeagent.types import (
     CheckRunCommandsObservation,
+    CheckStartCommandObservation,
     CheckWriteProcessObservation,
     CommandCheckObservation,
     RunCommandAction,
     RunCommandItem,
     RunCommandsAction,
+    StartCommandAction,
     WriteProcessAction,
 )
 
@@ -187,6 +189,32 @@ class ProcessIORuntimeModuleTests(unittest.TestCase):
         self.assertIn("commands=1", matching_preview or "")
         self.assertIsNone(mismatched_timeout_preview)
         self.assertNotIn("commands", build_tool_result_payload(observation))
+
+    def test_start_command_preview_matches_default_output_limit(self) -> None:
+        observation = CheckStartCommandObservation(
+            kind="check_start_command",
+            ok=True,
+            command="python3 -m http.server",
+            cwd=".",
+            cwd_ok=True,
+            blocked=False,
+            block_reason=None,
+            executable_available=True,
+            missing_tool=None,
+            message="Command can run.",
+        )
+
+        matching_preview = approval_preview_summary(
+            StartCommandAction(type="start_command", command="python3 -m http.server"),
+            [observation],
+        )
+        custom_output_limit_preview = approval_preview_summary(
+            StartCommandAction(type="start_command", command="python3 -m http.server", max_output_chars=1000),
+            [observation],
+        )
+
+        self.assertIn("Command can run", matching_preview or "")
+        self.assertIsNone(custom_output_limit_preview)
 
 
 if __name__ == "__main__":
