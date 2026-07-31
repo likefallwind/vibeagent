@@ -3,6 +3,20 @@ from __future__ import annotations
 import shlex
 
 
+def _parse_cwd_value(parts: list[str], index: int, part: str, usage: str) -> tuple[str | None, int, str | None]:
+    if part.startswith("--cwd="):
+        cwd = part.split("=", 1)[1]
+        next_index = index + 1
+    else:
+        if index + 1 >= len(parts):
+            return None, index, f"{usage}\n  error: --cwd requires a value."
+        cwd = parts[index + 1]
+        next_index = index + 2
+    if cwd == "":
+        return None, next_index, f"{usage}\n  error: --cwd must be a non-empty path."
+    return cwd, next_index, None
+
+
 def parse_interactive_cwd_command_argument(
     argument: str | None,
     usage: str,
@@ -38,15 +52,10 @@ def parse_interactive_cwd_command_argument(
             break
         if part == "--cwd" or part.startswith("--cwd="):
             if cwd is not None:
-                return None, None, f"{usage}\n  error: --cwd can only be provided once.", True
-            if part.startswith("--cwd="):
-                cwd = part.split("=", 1)[1]
-                index += 1
-            else:
-                if index + 1 >= len(parts):
-                    return None, None, f"{usage}\n  error: --cwd requires a value.", True
-                cwd = parts[index + 1]
-                index += 2
+                return None, None, f"{usage}\n  error: provide --cwd at most once.", True
+            cwd, index, error = _parse_cwd_value(parts, index, part, usage)
+            if error:
+                return None, None, error, True
             continue
         command_parts.extend(parts[index:])
         break
@@ -92,15 +101,10 @@ def parse_interactive_check_run_sequence_argument(
             break
         if part == "--cwd" or part.startswith("--cwd="):
             if cwd is not None:
-                return None, None, f"{usage}\n  error: --cwd can only be provided once.", True
-            if part.startswith("--cwd="):
-                cwd = part.split("=", 1)[1]
-                index += 1
-            else:
-                if index + 1 >= len(parts):
-                    return None, None, f"{usage}\n  error: --cwd requires a value.", True
-                cwd = parts[index + 1]
-                index += 2
+                return None, None, f"{usage}\n  error: provide --cwd at most once.", True
+            cwd, index, error = _parse_cwd_value(parts, index, part, usage)
+            if error:
+                return None, None, error, True
             continue
         command_parts.extend(parts[index:])
         break

@@ -162,7 +162,7 @@ class CliCommandCheckFlagTests(unittest.TestCase):
         self.assertIn("at least one command is required.", output)
         self.assertIn("Usage: /check-start [--cwd PATH] -- <cmd>", output)
         self.assertIn("Usage: /start [--cwd PATH] -- <cmd>", output)
-        self.assertIn("--cwd can only be provided once.", output)
+        self.assertIn("provide --cwd at most once.", output)
         get_command_check_text.assert_not_called()
         get_check_run_sequence_text.assert_not_called()
         get_check_start_text.assert_not_called()

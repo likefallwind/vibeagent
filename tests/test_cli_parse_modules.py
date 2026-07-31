@@ -620,6 +620,31 @@ class CliParseModuleTests(unittest.TestCase):
             (["echo one", "echo two"], "src", None, True),
         )
 
+    def test_cwd_command_parsers_reject_duplicate_and_empty_cwd(self) -> None:
+        command, cwd, error, handled = parse_interactive_cwd_command_argument(
+            "--cwd src --cwd tests -- python -m unittest",
+            "Usage: /check-command [--cwd PATH] -- <cmd>",
+        )
+        empty_command, empty_cwd, empty_error, empty_handled = parse_interactive_cwd_command_argument(
+            "--cwd= -- python -m unittest",
+            "Usage: /check-command [--cwd PATH] -- <cmd>",
+        )
+        commands, seq_cwd, seq_error, seq_handled = parse_cwd_check_run_sequence_argument(
+            "--cwd src --cwd=tests -- echo one ;; echo two"
+        )
+        empty_commands, empty_seq_cwd, empty_seq_error, empty_seq_handled = parse_cwd_check_run_sequence_argument(
+            "--cwd= -- echo one ;; echo two"
+        )
+
+        self.assertEqual((command, cwd, handled), (None, None, True))
+        self.assertIn("provide --cwd at most once.", error or "")
+        self.assertEqual((empty_command, empty_cwd, empty_handled), (None, None, True))
+        self.assertIn("--cwd must be a non-empty path.", empty_error or "")
+        self.assertEqual((commands, seq_cwd, seq_handled), (None, None, True))
+        self.assertIn("provide --cwd at most once.", seq_error or "")
+        self.assertEqual((empty_commands, empty_seq_cwd, empty_seq_handled), (None, None, True))
+        self.assertIn("--cwd must be a non-empty path.", empty_seq_error or "")
+
     def test_run_parsers_reject_duplicate_options(self) -> None:
         _, run_kwargs, run_error, run_handled = parse_interactive_run_argument(
             "--timeout-ms 1000 --timeout-ms=2000 -- python -m unittest"
