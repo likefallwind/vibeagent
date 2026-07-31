@@ -97,6 +97,8 @@ def parse_interactive_diff_detail_argument(
             value, error = parser(flag, raw_value)
             if error:
                 return None, {}, f"{usage}\n  error: {error}"
+            if keyword in kwargs:
+                return None, {}, f"{usage}\n  error: provide {flag} at most once."
             kwargs[keyword] = int(value)
             continue
         if part.startswith("--") and part not in {"--staged", "--cached", "--"}:

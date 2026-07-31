@@ -431,7 +431,9 @@ class CliChangeDiffFlagTests(unittest.TestCase):
                 "builtins.input",
                 side_effect=[
                     "/diff-hunks --max-hunks 0 app.py",
+                    "/diff-hunks --max-hunks 1 --max-hunks 2 app.py",
                     "/diff-contexts --context-lines -1 app.py",
+                    "/diff-contexts --context-lines 1 --context-lines 2 app.py",
                     "/diff-contexts --unknown app.py",
                     "/exit",
                 ],
@@ -447,8 +449,10 @@ class CliChangeDiffFlagTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("Usage: /diff-hunks [--staged|--cached] [--max-hunks N] [--max-lines N] [path]", output)
         self.assertIn("--max-hunks must be a positive integer.", output)
+        self.assertIn("provide --max-hunks at most once.", output)
         self.assertIn("Usage: /diff-contexts [--staged|--cached] [--context-lines N] [--max-hunks N] [--max-bytes N] [path]", output)
         self.assertIn("--context-lines must be a non-negative integer.", output)
+        self.assertIn("provide --context-lines at most once.", output)
         self.assertIn("Unknown option: --unknown", output)
         get_diff_hunks_text.assert_not_called()
         get_diff_contexts_text.assert_not_called()
