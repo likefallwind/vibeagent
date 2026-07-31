@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from vibeagent.command_safety import get_blocked_command_reason
+from vibeagent.final_review_secret_scan import secret_like_line_label
 from vibeagent.session import get_last_session_id, summarize_session
 from vibeagent.session_commands import get_session_handoff_report
 from vibeagent.session_handoff_details import extract_session_handoff_details
@@ -55,6 +57,7 @@ SIDE_EFFECT_TOOL_NAMES = {
     "Bash",
 }
 PATH_FIELD_NAMES = frozenset({"path", "paths", "file_path", "file_paths", "notebook_path", "cwd", "files"})
+COMMAND_FIELD_NAMES = frozenset({"command", "cmd"})
 
 
 @dataclass(frozen=True)
@@ -184,6 +187,72 @@ def _event_command(event: dict[str, object]) -> str:
     if isinstance(nested, dict) and isinstance(nested.get("command"), str):
         return str(nested.get("command"))
     return ""
+
+
+def transcript_has_no_secret_leakage(events: list[dict[str, object]]) -> tuple[bool, str]:
+    findings: list[str] = []
+    for event in events:
+        for value in _event_string_values(event):
+            for line in value.splitlines() or [value]:
+                label = secret_like_line_label(line)
+                if label:
+                    findings.append(label)
+                    break
+    detail = f"findings={len(findings)}"
+    if findings:
+        detail += f" first={findings[0]}"
+    return not findings, detail
+
+
+def transcript_has_no_blocked_commands(events: list[dict[str, object]]) -> tuple[bool, str]:
+    blocked: list[str] = []
+    checked = 0
+    for event in events:
+        for command in _event_command_values(event):
+            checked += 1
+            reason = get_blocked_command_reason(command)
+            if reason:
+                blocked.append(reason)
+    detail = f"checked={checked} blocked={len(blocked)}"
+    if blocked:
+        detail += f" first={blocked[0]}"
+    return not blocked, detail
+
+
+def _event_string_values(value: object) -> list[str]:
+    if isinstance(value, dict):
+        values: list[str] = []
+        for item in value.values():
+            values.extend(_event_string_values(item))
+        return values
+    if isinstance(value, list):
+        values: list[str] = []
+        for item in value:
+            values.extend(_event_string_values(item))
+        return values
+    if isinstance(value, str) and value.strip():
+        return [value]
+    return []
+
+
+def _event_command_values(value: object, *, field_name: str | None = None) -> list[str]:
+    if isinstance(value, dict):
+        commands: list[str] = []
+        for key, item in value.items():
+            key_text = str(key)
+            if key_text in COMMAND_FIELD_NAMES:
+                commands.extend(_event_command_values(item, field_name=key_text))
+            elif isinstance(item, (dict, list)):
+                commands.extend(_event_command_values(item))
+        return commands
+    if isinstance(value, list):
+        commands: list[str] = []
+        for item in value:
+            commands.extend(_event_command_values(item, field_name=field_name))
+        return commands
+    if field_name in COMMAND_FIELD_NAMES and isinstance(value, str) and value.strip():
+        return [value.strip()]
+    return []
 
 
 def _event_succeeded(event: dict[str, object]) -> bool | None:
@@ -333,6 +402,22 @@ def audit_session_events(root: Path, *, run_id: str) -> list[CheckResult]:
             "side effect paths stayed inside workspace",
             paths_within_workspace,
             path_detail,
+        )
+    )
+    no_secret_leakage, secret_detail = transcript_has_no_secret_leakage(events)
+    results.append(
+        CheckResult(
+            "transcript has no high-confidence secret leakage",
+            no_secret_leakage,
+            secret_detail,
+        )
+    )
+    no_blocked_commands, command_detail = transcript_has_no_blocked_commands(events)
+    results.append(
+        CheckResult(
+            "transcript has no blocked command execution",
+            no_blocked_commands,
+            command_detail,
         )
     )
 

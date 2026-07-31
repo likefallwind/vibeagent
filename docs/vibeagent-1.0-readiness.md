@@ -98,8 +98,10 @@ python3 scripts/live_dogfood_v1.py --prepare --force --run --audit-after-run
 
 The audit checks both repository state and session transcript evidence: ask-mode
 approval policy, inspection before side effects, approval requests and approved
-decisions, agent-run failing and passing unittest verification, ready final
-review, ready completion, and ready session handoff.
+decisions, prior approval for side effects, workspace-bound side-effect paths,
+transcript secret leakage, blocked command execution, agent-run failing and
+passing unittest verification, ready final review, ready completion, and ready
+session handoff.
 
 ## Current Decision
 

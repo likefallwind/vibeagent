@@ -153,6 +153,60 @@ class V1LiveDogfoodScriptTests(unittest.TestCase):
 
         self.assertIn("outside=2", details["side effect paths stayed inside workspace"])
 
+    def test_audit_session_events_rejects_secret_leakage(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-live-dogfood-events-") as base:
+            root = Path(base)
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {"type": "task", "task": "fix", "approval_policy": "ask"},
+                    {"type": "tool_call", "iteration": 1, "id": "read", "name": "Read", "input": {"file_path": "calc.py"}},
+                    {"type": "tool_result", "iteration": 1, "id": "read", "name": "Read", "result": {"kind": "read_file", "ok": True}},
+                    {
+                        "type": "model",
+                        "iteration": 1,
+                        "content": [{"type": "text", "text": "OPENAI_COMPAT_API_KEY=sk-liveleakage12345678901234567890"}],
+                    },
+                    {"type": "result", "success": True, "status": "completed", "completion_ready": True},
+                ],
+            )
+
+            checks = live_dogfood_v1.audit_session_events(root, run_id="run-1")
+            details = {check.name: check.detail for check in checks}
+
+        self.assertIn("findings=1", details["transcript has no high-confidence secret leakage"])
+        self.assertIn("OPENAI_COMPAT_API_KEY", details["transcript has no high-confidence secret leakage"])
+
+    def test_audit_session_events_rejects_blocked_command_execution(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-live-dogfood-events-") as base:
+            root = Path(base)
+            write_session_events(
+                root,
+                "run-1",
+                [
+                    {"type": "task", "task": "fix", "approval_policy": "ask"},
+                    {"type": "tool_call", "iteration": 1, "id": "read", "name": "Read", "input": {"file_path": "calc.py"}},
+                    {"type": "tool_result", "iteration": 1, "id": "read", "name": "Read", "result": {"kind": "read_file", "ok": True}},
+                    {"type": "tool_call", "iteration": 2, "id": "bad", "name": "Bash", "input": {"command": "rm -rf /"}},
+                    {"type": "approval_requested", "iteration": 2, "request": {"action_type": "run_command", "target": "rm -rf /"}},
+                    {"type": "approval_decision", "iteration": 2, "decision": {"approved": True}},
+                    {
+                        "type": "tool_result",
+                        "iteration": 2,
+                        "id": "bad",
+                        "name": "Bash",
+                        "result": {"kind": "run_command", "ok": False, "command": "rm -rf /"},
+                    },
+                    {"type": "result", "success": True, "status": "completed", "completion_ready": True},
+                ],
+            )
+
+            checks = live_dogfood_v1.audit_session_events(root, run_id="run-1")
+            details = {check.name: check.detail for check in checks}
+
+        self.assertIn("blocked=2", details["transcript has no blocked command execution"])
+
     def test_audit_session_events_accepts_complete_live_gate_evidence(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-live-dogfood-events-") as base:
             root = Path(base)
