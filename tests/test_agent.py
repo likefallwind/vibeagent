@@ -12370,6 +12370,34 @@ class AgentTests(unittest.TestCase):
 
         self.assertIsNone(stale_preview)
 
+    def test_approval_preview_summary_ignores_command_preview_after_file_mutation(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.RunCommandAction(type="run_command", command="python scripts/update.py"),
+            [
+                CommandCheckObservation(
+                    kind="command_check",
+                    ok=True,
+                    command="python scripts/update.py",
+                    cwd=".",
+                    cwd_ok=True,
+                    blocked=False,
+                    block_reason=None,
+                    executable_available=True,
+                    missing_tool=None,
+                    message="Command can run.",
+                ),
+                WriteFileObservation(
+                    kind="write_file",
+                    path="scripts/update.py",
+                    ok=True,
+                    message="Wrote scripts/update.py.",
+                    content="print('updated')\n",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+
     def test_approval_preview_summary_ignores_file_preview_after_start_command(self) -> None:
         stale_preview = agent_module.approval_preview_summary(
             types_module.EditFileAction(type="edit_file", path="app.py", old="old", new="new"),
@@ -12393,6 +12421,52 @@ class AgentTests(unittest.TestCase):
                     message="Started process.",
                     stdout_path=".vibeagent/processes/proc-1.out",
                     stderr_path=".vibeagent/processes/proc-1.err",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+
+    def test_approval_preview_summary_ignores_suggested_checks_preview_after_file_mutation(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.RunSuggestedChecksAction(type="run_suggested_checks", max_commands=1),
+            [
+                CheckSuggestedChecksObservation(
+                    kind="check_suggested_checks",
+                    ok=True,
+                    checks=[
+                        CommandCheckObservation(
+                            kind="command_check",
+                            ok=True,
+                            command="python scripts/generate.py",
+                            cwd=".",
+                            cwd_ok=True,
+                            blocked=False,
+                            block_reason=None,
+                            executable_available=True,
+                            missing_tool=None,
+                            message="Command can run.",
+                        )
+                    ],
+                    suggested_checks=[
+                        SuggestedCheck(
+                            command="python scripts/generate.py",
+                            cwd=".",
+                            source="pyproject.toml",
+                            reason="project check",
+                        )
+                    ],
+                    total=1,
+                    truncated=False,
+                    max_commands=1,
+                    message="Preflighted 1 suggested check.",
+                ),
+                WriteFileObservation(
+                    kind="write_file",
+                    path="pyproject.toml",
+                    ok=True,
+                    message="Wrote pyproject.toml.",
+                    content="[project]\n",
                 ),
             ],
         )
@@ -12546,6 +12620,43 @@ class AgentTests(unittest.TestCase):
 
         self.assertIsNone(stale_preview)
 
+    def test_approval_preview_summary_ignores_focused_tests_preview_after_git_mutation(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.RunFocusedTestCommandsAction(
+                type="run_focused_test_commands",
+                paths=["app.py"],
+                max_paths=5,
+                max_candidates=20,
+                max_commands=1,
+            ),
+            [
+                CheckFocusedTestCommandsObservation(
+                    kind="check_focused_test_commands",
+                    ok=True,
+                    checks=[],
+                    focused_commands=[],
+                    target_paths=["app.py"],
+                    total=0,
+                    truncated=False,
+                    max_commands=1,
+                    related_tests_total=0,
+                    message="Preflighted 0/0 focused test command(s); 0 failed.",
+                    max_paths=5,
+                    max_candidates=20,
+                    requested_paths=["app.py"],
+                ),
+                GitStageObservation(
+                    kind="git_stage",
+                    paths=["app.py"],
+                    ok=True,
+                    status="M  app.py\n",
+                    message="Staged 1 path(s).",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+
     def test_approval_preview_summary_ignores_git_preview_after_focused_test_commands(self) -> None:
         stale_preview = agent_module.approval_preview_summary(
             types_module.GitPushAction(type="git_push"),
@@ -12593,6 +12704,42 @@ class AgentTests(unittest.TestCase):
                     stopped_early=False,
                     skipped_unavailable=0,
                     message="Ran 1 focused test command.",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+
+    def test_approval_preview_summary_ignores_session_verification_preview_after_command_mutation(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.RunSessionVerificationAction(type="run_session_verification", run_id="run-1"),
+            [
+                SessionVerificationObservation(
+                    kind="session_verification",
+                    run_id="run-1",
+                    ok=True,
+                    verification="Session verification:\n  ready: yes",
+                    verified_commands=[],
+                    pending_commands=[],
+                    failed_commands=[],
+                    verified_count=0,
+                    pending_count=0,
+                    failed_count=0,
+                    verification_truncated=False,
+                    message="Session verification is ready.",
+                    ready=True,
+                    status="ready",
+                ),
+                RunCommandObservation(
+                    kind="run_command",
+                    result=CommandResult(
+                        command="python scripts/update.py",
+                        exit_code=0,
+                        stdout="",
+                        stderr="",
+                        timed_out=False,
+                        signal=None,
+                    ),
                 ),
             ],
         )
@@ -13545,6 +13692,19 @@ class AgentTests(unittest.TestCase):
             "write_process",
         }
         missing = sorted(command_execution_actions - approval_preview_module.COMMAND_MUTATION_OBSERVATION_KINDS)
+
+        self.assertEqual(missing, [])
+
+    def test_command_execution_previews_are_workspace_stale_tracked(self) -> None:
+        command_execution_previews = {
+            "command_check",
+            "check_run_commands",
+            "check_suggested_checks",
+            "check_focused_test_commands",
+            "session_verification",
+            "check_start_command",
+        }
+        missing = sorted(command_execution_previews - approval_preview_module.COMMAND_PREVIEW_KINDS)
 
         self.assertEqual(missing, [])
 

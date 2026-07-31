@@ -114,6 +114,15 @@ CHECKPOINT_RESTORE_MUTATION_OBSERVATION_KINDS = {
     "checkpoint_restore",
 }
 
+COMMAND_PREVIEW_KINDS = {
+    "command_check",
+    "check_run_commands",
+    "check_suggested_checks",
+    "check_focused_test_commands",
+    "session_verification",
+    "check_start_command",
+}
+
 COMMAND_MUTATION_OBSERVATION_KINDS = {
     "run_command",
     "run_commands",
@@ -245,6 +254,8 @@ def preview_search_invalidated(
         return True
     if checkpoint_restore_preview_invalidated_by_workspace_mutation(expected_kind, observation_kind):
         return True
+    if command_preview_invalidated_by_workspace_mutation(expected_kind, observation_kind):
+        return True
     if git_preview_invalidated_by_workspace_mutation(expected_kind, observation_kind):
         return True
     if file_preview_invalidated_by_broad_workspace_mutation(expected_kind, observation_kind):
@@ -264,6 +275,10 @@ def checkpoint_restore_preview_invalidated_by_workspace_mutation(expected_kind: 
         expected_kind in CHECKPOINT_RESTORE_PREVIEW_KINDS
         and observation_kind in WORKSPACE_MUTATION_OBSERVATION_KINDS
     )
+
+
+def command_preview_invalidated_by_workspace_mutation(expected_kind: str, observation_kind: object) -> bool:
+    return expected_kind in COMMAND_PREVIEW_KINDS and observation_kind in WORKSPACE_MUTATION_OBSERVATION_KINDS
 
 
 def git_preview_invalidated_by_workspace_mutation(expected_kind: str, observation_kind: object) -> bool:
