@@ -4489,6 +4489,26 @@ class AgentTests(unittest.TestCase):
         self.assertIn("latestSubagentFailure: task=Inspect; agent=reader; mode=explore; message=failed.", text)
         self.assertIn("active_process: bg-1 pid=1234 cwd=web command=npm run dev", text)
 
+    def test_format_observations_renders_session_summary_subagent_failures(self) -> None:
+        text = format_observations(
+            [
+                SessionSummaryObservation(
+                    kind="session_summary",
+                    run_id="run-1",
+                    ok=True,
+                    summary="Session: run-1\n  status: blocked",
+                    recent_sessions=[],
+                    message="Read session summary for run-1.",
+                    latest_subagent_failures=["task=Inspect; agent=reader; mode=explore; message=failed."],
+                )
+            ]
+        )
+
+        self.assertIn("session_summary run-1", text)
+        self.assertIn("ok: true", text)
+        self.assertIn("latestSubagentFailure: task=Inspect; agent=reader; mode=explore; message=failed.", text)
+        self.assertIn("summary:", text)
+
     def test_format_observations_renders_session_verification_readiness(self) -> None:
         text = format_observations(
             [

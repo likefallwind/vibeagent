@@ -83,10 +83,12 @@ def format_subagent_failure_lines(observation: object) -> list[str]:
 
 def format_session_observation(index: int, observation: object) -> str | None:
     if observation.kind == "session_summary":
+        subagent_failure_lines = format_subagent_failure_lines(observation)
         return "\n".join(
             [
                 f"{index}. session_summary {observation.run_id}: {observation.message}",
                 f"ok: {str(observation.ok).lower()}",
+                *subagent_failure_lines,
                 f"summary:\n{truncate(observation.summary)}",
                 f"recent:\n{truncate(chr(10).join(observation.recent_sessions))}",
             ]
