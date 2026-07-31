@@ -8,14 +8,20 @@ from vibeagent import process_io_runtime, process_runtime, process_wait_runtime
 from vibeagent.agent_approval_preview import approval_preview_summary
 from vibeagent.agent_tool_results import build_tool_result_payload
 from vibeagent.types import (
+    CheckFocusedTestCommandsObservation,
     CheckRunCommandsObservation,
+    CheckSuggestedChecksObservation,
     CheckStartCommandObservation,
     CheckWriteProcessObservation,
     CommandCheckObservation,
+    FocusedTestCommand,
     RunCommandAction,
     RunCommandItem,
     RunCommandsAction,
+    RunFocusedTestCommandsAction,
+    RunSuggestedChecksAction,
     StartCommandAction,
+    SuggestedCheck,
     WriteProcessAction,
 )
 
@@ -215,6 +221,103 @@ class ProcessIORuntimeModuleTests(unittest.TestCase):
 
         self.assertIn("Command can run", matching_preview or "")
         self.assertIsNone(custom_output_limit_preview)
+
+    def test_run_suggested_checks_preview_matches_runtime_options(self) -> None:
+        observation = CheckSuggestedChecksObservation(
+            kind="check_suggested_checks",
+            ok=True,
+            checks=[
+                CommandCheckObservation(
+                    kind="command_check",
+                    ok=True,
+                    command="python -m unittest discover -s tests",
+                    cwd=".",
+                    cwd_ok=True,
+                    blocked=False,
+                    block_reason=None,
+                    executable_available=True,
+                    missing_tool=None,
+                    message="Command can run.",
+                )
+            ],
+            suggested_checks=[
+                SuggestedCheck(
+                    command="python -m unittest discover -s tests",
+                    cwd=".",
+                    source="tests",
+                    reason="unittest tests found",
+                )
+            ],
+            total=1,
+            truncated=False,
+            max_commands=1,
+            message="Preflighted 1/1 suggested check command(s); 0 failed; all available.",
+        )
+
+        matching_preview = approval_preview_summary(
+            RunSuggestedChecksAction(type="run_suggested_checks", max_commands=1),
+            [observation],
+        )
+        custom_timeout_preview = approval_preview_summary(
+            RunSuggestedChecksAction(type="run_suggested_checks", max_commands=1, timeout_ms=1000),
+            [observation],
+        )
+
+        self.assertIn("commands=1", matching_preview or "")
+        self.assertIsNone(custom_timeout_preview)
+
+    def test_run_focused_test_commands_preview_matches_runtime_options(self) -> None:
+        observation = CheckFocusedTestCommandsObservation(
+            kind="check_focused_test_commands",
+            ok=True,
+            checks=[
+                CommandCheckObservation(
+                    kind="command_check",
+                    ok=True,
+                    command="python -m unittest tests.test_app",
+                    cwd=".",
+                    cwd_ok=True,
+                    blocked=False,
+                    block_reason=None,
+                    executable_available=True,
+                    missing_tool=None,
+                    message="Command can run.",
+                )
+            ],
+            focused_commands=[
+                FocusedTestCommand(
+                    command="python -m unittest tests.test_app",
+                    cwd=".",
+                    test_path="tests/test_app.py",
+                    source="related_tests",
+                    reason="related test",
+                )
+            ],
+            target_paths=["app.py"],
+            total=1,
+            truncated=False,
+            max_commands=1,
+            related_tests_total=1,
+            message="Preflighted 1/1 focused test command(s); 0 failed; all available.",
+            requested_paths=["app.py"],
+        )
+
+        matching_preview = approval_preview_summary(
+            RunFocusedTestCommandsAction(type="run_focused_test_commands", paths=["app.py"], max_commands=1),
+            [observation],
+        )
+        custom_output_preview = approval_preview_summary(
+            RunFocusedTestCommandsAction(
+                type="run_focused_test_commands",
+                paths=["app.py"],
+                max_commands=1,
+                max_output_chars=1000,
+            ),
+            [observation],
+        )
+
+        self.assertIn("commands=1", matching_preview or "")
+        self.assertIsNone(custom_output_preview)
 
 
 if __name__ == "__main__":

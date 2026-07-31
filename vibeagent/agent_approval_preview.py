@@ -343,7 +343,7 @@ def run_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
             getattr(value, "stop_on_failure", True),
         )
     if kind in {"run_suggested_checks", "check_suggested_checks"}:
-        return ("run_suggested_checks", getattr(value, "max_commands", None))
+        return ("run_suggested_checks", getattr(value, "max_commands", None), run_option_preview_key(value))
     if kind in {"run_focused_test_commands", "check_focused_test_commands"}:
         return (
             "run_focused_test_commands",
@@ -351,6 +351,7 @@ def run_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
             getattr(value, "max_paths", None),
             getattr(value, "max_candidates", None),
             getattr(value, "max_commands", None),
+            run_option_preview_key(value),
         )
     if kind in {"run_session_verification", "session_verification"}:
         return ("run_session_verification", getattr(value, "run_id", None))
@@ -373,6 +374,20 @@ def command_item_preview_key(value: object) -> tuple[Any, ...]:
         getattr(value, "cwd", None) or ".",
         getattr(value, "timeout_ms", None),
         getattr(value, "max_output_chars", None),
+        getattr(value, "extract_output_contexts", False),
+        getattr(value, "extract_output_diagnostics", False),
+        getattr(value, "context_lines", 5),
+        getattr(value, "max_diagnostics", 50),
+        getattr(value, "max_contexts", 20),
+        getattr(value, "max_bytes_per_context", 20_000),
+    )
+
+
+def run_option_preview_key(value: object) -> tuple[Any, ...]:
+    return (
+        getattr(value, "timeout_ms", None),
+        getattr(value, "max_output_chars", None),
+        getattr(value, "stop_on_failure", True),
         getattr(value, "extract_output_contexts", False),
         getattr(value, "extract_output_diagnostics", False),
         getattr(value, "context_lines", 5),
