@@ -214,6 +214,7 @@ class CliInteractiveSessionOptionsTests(unittest.TestCase):
                     "/session-files --max-files 0",
                     "/session-audit --max-checks 0",
                     "/session-handoff --max-checks 0",
+                    "/session-handoff --max-checks 1 --max-checks 2",
                     "/session-handoff --unknown run-1",
                     "/resume --max-checks 0",
                     "/resume --max-output-chars -1",
@@ -243,6 +244,7 @@ class CliInteractiveSessionOptionsTests(unittest.TestCase):
         self.assertIn("--max-files must be a positive integer.", output)
         self.assertIn("Usage: /session-audit [run-id]", output)
         self.assertIn("Usage: /session-handoff [run-id]", output)
+        self.assertIn("provide --max-checks at most once.", output)
         self.assertIn("Usage: /resume [run-id|off] [--max-failures N]", output)
         self.assertIn("Usage: /compact [run-id] [--max-failures N]", output)
         self.assertIn("Unknown option: --unknown", output)
