@@ -12395,6 +12395,75 @@ class AgentTests(unittest.TestCase):
         self.assertIsNone(stale_preview)
         self.assertIn("Push can send 2", fresh_preview or "")
 
+    def test_approval_preview_summary_ignores_file_preview_after_same_path_mutation(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.EditFileAction(type="edit_file", path="app.py", old="old", new="new"),
+            [
+                types_module.CheckEditFileObservation(
+                    kind="check_edit_file",
+                    path="app.py",
+                    ok=True,
+                    message="Edit can apply to app.py.",
+                    diff="-old\n+new\n",
+                    old="old",
+                    new="new",
+                ),
+                types_module.WriteFileObservation(
+                    kind="write_file",
+                    path="app.py",
+                    ok=True,
+                    message="Wrote app.py",
+                    content="changed\n",
+                ),
+            ],
+        )
+        unrelated_mutation_preview = agent_module.approval_preview_summary(
+            types_module.EditFileAction(type="edit_file", path="app.py", old="old", new="new"),
+            [
+                types_module.CheckEditFileObservation(
+                    kind="check_edit_file",
+                    path="app.py",
+                    ok=True,
+                    message="Edit can apply to app.py.",
+                    diff="-old\n+new\n",
+                    old="old",
+                    new="new",
+                ),
+                types_module.WriteFileObservation(
+                    kind="write_file",
+                    path="other.py",
+                    ok=True,
+                    message="Wrote other.py",
+                    content="changed\n",
+                ),
+            ],
+        )
+        fresh_preview = agent_module.approval_preview_summary(
+            types_module.EditFileAction(type="edit_file", path="app.py", old="old", new="new"),
+            [
+                types_module.WriteFileObservation(
+                    kind="write_file",
+                    path="app.py",
+                    ok=True,
+                    message="Wrote app.py",
+                    content="changed\n",
+                ),
+                types_module.CheckEditFileObservation(
+                    kind="check_edit_file",
+                    path="app.py",
+                    ok=True,
+                    message="Edit can apply to app.py after rewrite.",
+                    diff="-old\n+new\n",
+                    old="old",
+                    new="new",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+        self.assertIn("Edit can apply to app.py", unrelated_mutation_preview or "")
+        self.assertIn("after rewrite", fresh_preview or "")
+
     def test_approval_preview_summary_fingerprints_diff_content(self) -> None:
         first = agent_module.summarize_preview_observation(
             types_module.CheckGitStashObservation(
