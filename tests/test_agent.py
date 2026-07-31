@@ -7,6 +7,7 @@ import json
 import subprocess
 import urllib.error
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import vibeagent.agent_completion as completion_module
@@ -8410,7 +8411,15 @@ class AgentTests(unittest.TestCase):
         from vibeagent.prompt_next_action_runtime import RUNTIME_NEXT_ACTION_KINDS
         from vibeagent.prompt_next_action_session import SESSION_NEXT_ACTION_KINDS
 
-        aliases = {"python_traceback": "output_diagnostics"}
+        aliases = {
+            "AskUserQuestion": "ask_user",
+            "ExitPlanMode": "update_plan",
+            "TodoRead": "session_plan",
+            "TodoWrite": "update_plan",
+            "python_traceback": "output_diagnostics",
+            "todo_read": "session_plan",
+            "todo_write": "update_plan",
+        }
         routed_kinds = (
             CHECKPOINT_NEXT_ACTION_KINDS
             | COMPLETION_NEXT_ACTION_KINDS
@@ -8425,6 +8434,18 @@ class AgentTests(unittest.TestCase):
         tool_kinds = {aliases.get(tool["name"], tool["name"]) for tool in AGENT_TOOL_DEFINITIONS}
 
         self.assertEqual([], sorted(tool_kinds - routed_kinds))
+
+    def test_session_next_action_kind_set_only_contains_handled_observation_kinds(self) -> None:
+        from vibeagent.prompt_next_action_session import SESSION_NEXT_ACTION_KINDS, session_next_action_instruction
+
+        for kind in SESSION_NEXT_ACTION_KINDS:
+            with self.subTest(kind=kind):
+                instruction = session_next_action_instruction(
+                    "Choose the next response.",
+                    SimpleNamespace(kind=kind, ok=True),
+                )
+
+            self.assertIn("Choose the next response.", instruction)
 
     def test_next_action_instruction_guides_dirty_git_status_to_inspection(self) -> None:
         observation = GitStatusObservation(
