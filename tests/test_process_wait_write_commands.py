@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from vibeagent import process_commands
+from vibeagent import process_commands, process_write_commands
 from vibeagent.process_wait_write_commands import (
     decode_stdin_escapes,
     format_check_write_process_report_text,
@@ -29,15 +29,21 @@ class ProcessWaitWriteCommandModuleTests(unittest.TestCase):
         self.assertIs(process_commands.get_wait_process_text, get_wait_process_text)
         self.assertIs(process_commands.format_wait_process_report_text, format_wait_process_report_text)
         self.assertIs(process_commands.get_write_process_report, get_write_process_report)
+        self.assertIs(process_commands.get_write_process_report, process_write_commands.get_write_process_report)
         self.assertIs(process_commands.get_write_process_text, get_write_process_text)
+        self.assertIs(process_commands.get_write_process_text, process_write_commands.get_write_process_text)
         self.assertIs(process_commands.format_write_process_report_text, format_write_process_report_text)
+        self.assertIs(process_commands.format_write_process_report_text, process_write_commands.format_write_process_report_text)
         self.assertIs(process_commands.get_check_write_process_report, get_check_write_process_report)
         self.assertIs(process_commands.get_check_write_process_text, get_check_write_process_text)
         self.assertIs(process_commands.format_check_write_process_report_text, format_check_write_process_report_text)
         self.assertIs(process_commands.parse_wait_process_request, parse_wait_process_request)
         self.assertIs(process_commands.parse_write_process_request, parse_write_process_request)
+        self.assertIs(process_commands.parse_write_process_request, process_write_commands.parse_write_process_request)
         self.assertIs(process_commands.serialize_write_process_report, serialize_write_process_report)
+        self.assertIs(process_commands.serialize_write_process_report, process_write_commands.serialize_write_process_report)
         self.assertIs(process_commands.decode_stdin_escapes, decode_stdin_escapes)
+        self.assertIs(process_commands.decode_stdin_escapes, process_write_commands.decode_stdin_escapes)
 
     def test_decode_stdin_escapes_decodes_process_and_edit_command_content(self) -> None:
         self.assertEqual(decode_stdin_escapes("a\\nb\\tc\\r"), "a\nb\tc\r")
