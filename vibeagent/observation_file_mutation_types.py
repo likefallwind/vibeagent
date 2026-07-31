@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
+from .action_json_types import JsonPatchOperation
 from .action_read_types import WriteFileItem
 
 
@@ -66,6 +67,8 @@ class JsonSetObservation:
     ok: bool
     message: str
     diff: str
+    value: Any = None
+    create_missing: bool = False
 
 
 @dataclass(frozen=True)
@@ -76,6 +79,8 @@ class CheckJsonSetObservation:
     ok: bool
     message: str
     diff: str
+    value: Any = None
+    create_missing: bool = False
 
 
 @dataclass(frozen=True)
@@ -106,6 +111,7 @@ class JsonPatchObservation:
     ok: bool
     message: str
     diff: str
+    operations: list[JsonPatchOperation] | None = None
 
 
 @dataclass(frozen=True)
@@ -116,3 +122,4 @@ class CheckJsonPatchObservation:
     ok: bool
     message: str
     diff: str
+    operations: list[JsonPatchOperation] | None = None

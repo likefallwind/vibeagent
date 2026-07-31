@@ -49,6 +49,8 @@ def execute_json_action(workspace, action: AgentAction) -> Observation | None:
             ok=ok,
             message=message,
             diff=diff,
+            value=action.value,
+            create_missing=action.create_missing,
         )
 
     if isinstance(action, JsonSetAction):
@@ -73,6 +75,8 @@ def execute_json_action(workspace, action: AgentAction) -> Observation | None:
             ok=ok,
             message=message,
             diff=diff,
+            value=action.value,
+            create_missing=action.create_missing,
         )
 
     if isinstance(action, CheckJsonRemoveAction):
@@ -128,6 +132,7 @@ def execute_json_action(workspace, action: AgentAction) -> Observation | None:
             ok=ok,
             message=message,
             diff=diff,
+            operations=action.operations,
         )
 
     if isinstance(action, JsonPatchAction):
@@ -147,6 +152,7 @@ def execute_json_action(workspace, action: AgentAction) -> Observation | None:
             ok=ok,
             message=message,
             diff=diff,
+            operations=action.operations,
         )
 
     return None

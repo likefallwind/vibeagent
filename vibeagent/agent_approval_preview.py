@@ -193,10 +193,27 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
             getattr(value, "new_source", ""),
             getattr(value, "cell_type", None),
         )
-    if kind in {"json_set", "check_json_set", "json_remove", "check_json_remove"}:
+    if kind in {"json_set", "check_json_set"}:
+        return (
+            "json_set",
+            getattr(value, "path", ""),
+            getattr(value, "pointer", ""),
+            json.dumps(getattr(value, "value", None), ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+            getattr(value, "create_missing", False),
+        )
+    if kind in {"json_remove", "check_json_remove"}:
         return (kind.replace("check_", ""), getattr(value, "path", ""), getattr(value, "pointer", ""))
     if kind in {"json_patch", "check_json_patch"}:
-        return ("json_patch", getattr(value, "path", ""), getattr(value, "operation_count", len(getattr(value, "operations", []))))
+        operations = getattr(value, "operations", None) or []
+        operation_payload = [
+            {"op": getattr(operation, "op", ""), "path": getattr(operation, "path", ""), "value": getattr(operation, "value", None)}
+            for operation in operations
+        ]
+        return (
+            "json_patch",
+            getattr(value, "path", ""),
+            json.dumps(operation_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+        )
     if kind in {"replace_lines", "check_replace_lines"}:
         return (
             "replace_lines",
