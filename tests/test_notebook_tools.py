@@ -138,6 +138,24 @@ class NotebookToolTests(unittest.TestCase):
         self.assertEqual(action.type, "edit_file")
         self.assertEqual(action.path, "analysis.ipynb")
 
+    def test_notebook_edit_prefers_structured_cell_edit_when_new_source_is_present(self) -> None:
+        action = parse_tool_action(
+            "NotebookEdit",
+            {
+                "notebook_path": "analysis.ipynb",
+                "cell_id": "calc",
+                "new_source": "value = 8\n",
+                "old_string": '"old"',
+                "new_string": '"new"',
+            },
+        )
+
+        self.assertIsInstance(action, NotebookEditAction)
+        self.assertEqual(action.type, "notebook_edit")
+        self.assertEqual(action.path, "analysis.ipynb")
+        self.assertEqual(action.cell_id, "calc")
+        self.assertEqual(action.new_source, "value = 8\n")
+
 
 if __name__ == "__main__":
     unittest.main()

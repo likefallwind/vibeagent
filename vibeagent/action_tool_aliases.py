@@ -72,7 +72,7 @@ def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, d
         output_action = _normalize_bash_output_action(tool_input)
         if output_action is not None:
             return output_action
-    if name == "NotebookEdit" and "old_string" in tool_input and "new_string" in tool_input:
+    if name == "NotebookEdit" and "new_source" not in tool_input and "old_string" in tool_input and "new_string" in tool_input:
         if truthy_alias_bool(tool_input.get("replace_all")):
             return "regex_replace", _normalize_edit_replace_all_input(tool_input)
         return "edit_file", _normalize_edit_file_input(tool_input)
