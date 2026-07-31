@@ -12655,6 +12655,53 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Edit can apply to app.py", edit_preview or "")
         self.assertIn("Can stage 1", git_stage_preview or "")
 
+    def test_approval_preview_summary_invalidates_normalized_file_paths(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.EditFileAction(type="edit_file", path="pkg/../app.py", old="old", new="new"),
+            [
+                types_module.CheckEditFileObservation(
+                    kind="check_edit_file",
+                    path="app.py",
+                    ok=True,
+                    message="Edit can apply to app.py.",
+                    diff="-old\n+new\n",
+                    old="old",
+                    new="new",
+                ),
+                types_module.WriteFileObservation(
+                    kind="write_file",
+                    path="./app.py",
+                    ok=True,
+                    message="Wrote app.py.",
+                    content="changed\n",
+                ),
+            ],
+        )
+        unrelated_preview = agent_module.approval_preview_summary(
+            types_module.EditFileAction(type="edit_file", path="pkg/../app.py", old="old", new="new"),
+            [
+                types_module.CheckEditFileObservation(
+                    kind="check_edit_file",
+                    path="app.py",
+                    ok=True,
+                    message="Edit can apply to app.py.",
+                    diff="-old\n+new\n",
+                    old="old",
+                    new="new",
+                ),
+                types_module.WriteFileObservation(
+                    kind="write_file",
+                    path="pkg/other.py",
+                    ok=True,
+                    message="Wrote pkg/other.py.",
+                    content="changed\n",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+        self.assertIn("Edit can apply to app.py", unrelated_preview or "")
+
     def test_approval_preview_summary_ignores_file_preview_after_parent_dir_mutation(self) -> None:
         stale_preview = agent_module.approval_preview_summary(
             types_module.EditFileAction(type="edit_file", path="pkg/app.py", old="old", new="new"),
