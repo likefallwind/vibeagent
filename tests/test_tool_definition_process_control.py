@@ -109,6 +109,15 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         self.assertIn("max_output_chars", schema["properties"])
         self.assertNotIn("max_output_chars", schema["required"])
 
+    def test_claude_bash_schema_exposes_output_extraction_flags(self) -> None:
+        bash = next(tool for tool in CLAUDE_PROCESS_TOOL_DEFINITIONS if tool["name"] == "Bash")
+        schema = bash["input_schema"]
+
+        self.assertIn("extract_output_contexts", schema["properties"])
+        self.assertIn("extract_output_diagnostics", schema["properties"])
+        self.assertNotIn("extract_output_contexts", schema["required"])
+        self.assertNotIn("extract_output_diagnostics", schema["required"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,7 +6,7 @@ from typing import Any
 CLAUDE_PROCESS_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "Bash",
-        "description": "Claude-compatible alias for running a shell command after approval. Set run_in_background for long-running commands.",
+        "description": "Claude-compatible alias for running a shell command after approval.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -32,6 +32,8 @@ CLAUDE_PROCESS_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "string",
                     "description": "Optional project-relative directory to run in. Defaults to the project root.",
                 },
+                "extract_output_contexts": {"type": "boolean"},
+                "extract_output_diagnostics": {"type": "boolean"},
             },
             "required": ["command"],
             "additionalProperties": False,
