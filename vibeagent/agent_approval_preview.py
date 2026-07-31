@@ -97,6 +97,14 @@ GIT_MUTATION_OBSERVATION_KINDS = {
     "git_commit",
 }
 
+CHECKPOINT_RESTORE_PREVIEW_KINDS = {
+    "check_checkpoint_restore",
+}
+
+CHECKPOINT_RESTORE_MUTATION_OBSERVATION_KINDS = {
+    "checkpoint_restore",
+}
+
 FILE_PREVIEW_KINDS = {
     "check_write_file",
     "check_write_files",
@@ -167,6 +175,13 @@ FILE_MUTATION_OBSERVATION_KINDS = {
     "set_executable",
 }
 
+WORKSPACE_PREVIEW_KINDS = FILE_PREVIEW_KINDS | GIT_PREVIEW_KINDS | CHECKPOINT_RESTORE_PREVIEW_KINDS
+WORKSPACE_MUTATION_OBSERVATION_KINDS = (
+    FILE_MUTATION_OBSERVATION_KINDS
+    | GIT_MUTATION_OBSERVATION_KINDS
+    | CHECKPOINT_RESTORE_MUTATION_OBSERVATION_KINDS
+)
+
 
 def attach_approval_preview(
     request: ApprovalRequest,
@@ -207,6 +222,12 @@ def preview_search_invalidated(
     observation: object,
 ) -> bool:
     if expected_kind in GIT_PREVIEW_KINDS and observation_kind in GIT_MUTATION_OBSERVATION_KINDS:
+        return True
+    if expected_kind in WORKSPACE_PREVIEW_KINDS and observation_kind in CHECKPOINT_RESTORE_MUTATION_OBSERVATION_KINDS:
+        return True
+    if expected_kind in CHECKPOINT_RESTORE_PREVIEW_KINDS and observation_kind in WORKSPACE_MUTATION_OBSERVATION_KINDS:
+        return True
+    if expected_kind in GIT_PREVIEW_KINDS and observation_kind in FILE_MUTATION_OBSERVATION_KINDS:
         return True
     if expected_kind not in FILE_PREVIEW_KINDS or observation_kind not in FILE_MUTATION_OBSERVATION_KINDS:
         return False

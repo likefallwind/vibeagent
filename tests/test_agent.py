@@ -12253,6 +12253,122 @@ class AgentTests(unittest.TestCase):
         self.assertIn("would delete 2", prune_preview or "")
         self.assertIsNone(mismatched_delete_preview)
 
+    def test_approval_preview_summary_ignores_checkpoint_restore_preview_after_file_mutation(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            CheckpointRestoreAction(type="checkpoint_restore", checkpoint_id="ckpt-1"),
+            [
+                CheckCheckpointRestoreObservation(
+                    kind="check_checkpoint_restore",
+                    ok=True,
+                    checkpoint_id="ckpt-1",
+                    can_restore=True,
+                    saved_head="abc123",
+                    current_head="abc123",
+                    saved_untracked_files=0,
+                    current_untracked_files=0,
+                    staged_patch_chars=10,
+                    unstaged_patch_chars=20,
+                    message="Checkpoint restore can apply.",
+                ),
+                WriteFileObservation(
+                    kind="write_file",
+                    path="app.py",
+                    ok=True,
+                    message="Wrote app.py.",
+                    content="changed",
+                ),
+            ],
+        )
+        fresh_preview = agent_module.approval_preview_summary(
+            CheckpointRestoreAction(type="checkpoint_restore", checkpoint_id="ckpt-1"),
+            [
+                WriteFileObservation(
+                    kind="write_file",
+                    path="app.py",
+                    ok=True,
+                    message="Wrote app.py.",
+                    content="changed",
+                ),
+                CheckCheckpointRestoreObservation(
+                    kind="check_checkpoint_restore",
+                    ok=True,
+                    checkpoint_id="ckpt-1",
+                    can_restore=True,
+                    saved_head="abc123",
+                    current_head="abc123",
+                    saved_untracked_files=0,
+                    current_untracked_files=1,
+                    staged_patch_chars=10,
+                    unstaged_patch_chars=30,
+                    message="Checkpoint restore can apply after rewrite.",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+        self.assertIn("after rewrite", fresh_preview or "")
+
+    def test_approval_preview_summary_ignores_file_preview_after_checkpoint_restore(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.EditFileAction(type="edit_file", path="app.py", old="old", new="new"),
+            [
+                types_module.CheckEditFileObservation(
+                    kind="check_edit_file",
+                    path="app.py",
+                    ok=True,
+                    message="Edit can apply to app.py.",
+                    diff="-old\n+new\n",
+                    old="old",
+                    new="new",
+                ),
+                CheckpointRestoreObservation(
+                    kind="checkpoint_restore",
+                    ok=True,
+                    checkpoint_id="ckpt-1",
+                    restored=True,
+                    matches=True,
+                    saved_head="abc123",
+                    current_head="abc123",
+                    saved_untracked_files=0,
+                    current_untracked_files=0,
+                    staged_patch_chars=0,
+                    unstaged_patch_chars=0,
+                    message="Restored checkpoint.",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+
+    def test_approval_preview_summary_ignores_git_preview_after_file_mutation(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.GitPushAction(type="git_push"),
+            [
+                CheckGitPushObservation(
+                    kind="check_git_push",
+                    ok=True,
+                    remote="origin",
+                    branch="main",
+                    current="abc123",
+                    upstream="origin/main",
+                    ahead=1,
+                    behind=0,
+                    worktree_clean=True,
+                    status="",
+                    message="Push can send 1 commit(s).",
+                ),
+                WriteFileObservation(
+                    kind="write_file",
+                    path="app.py",
+                    ok=True,
+                    message="Wrote app.py.",
+                    content="changed",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+
     def test_approval_preview_summary_matches_git_commit_preview(self) -> None:
         preview = agent_module.approval_preview_summary(
             GitCommitAction(type="git_commit", message="update docs"),
