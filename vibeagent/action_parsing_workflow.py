@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .action_parsing_helpers import ActionParseError, normalize_plan_item_status, parse_plan_items
+from .action_parsing_helpers import ActionParseError, normalize_plan_item_status, parse_active_form, parse_plan_items
 from .types import AskUserAction, FinishAction, PlanItem, UpdatePlanAction
 
 
@@ -90,7 +90,7 @@ def parse_todo_items(value: Any, raw: str) -> list[PlanItem]:
             raise ActionParseError(f"todo_write item {index} has an invalid status.", raw)
         if status == "in_progress":
             in_progress_count += 1
-        items.append(PlanItem(step=content.strip(), status=status))
+        items.append(PlanItem(step=content.strip(), status=status, active_form=parse_active_form(item)))
 
     if in_progress_count > 1:
         raise ActionParseError("todo_write action allows at most one in_progress item.", raw)

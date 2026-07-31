@@ -121,7 +121,7 @@ def format_session_summary_report_text(report: dict[str, object]) -> str:
     plan_items = [item for item in plan.get("items", []) if isinstance(item, dict)] if isinstance(plan.get("items"), list) else []
     if plan_items:
         lines.append("  plan:")
-        lines.extend(f"    - {item.get('status')}: {_clip(str(item.get('step') or ''), 160)}" for item in plan_items)
+        lines.extend(f"    - {_format_plan_item_line(item, max_step=160)}" for item in plan_items)
     if bool(final_review.get("seen")):
         ready_value = final_review.get("ready")
         ready = "yes" if ready_value is True else "no" if ready_value is False else "unknown"
@@ -225,10 +225,18 @@ def format_session_plan_report_text(report: dict[str, object]) -> str:
     items = [item for item in report.get("items", []) if isinstance(item, dict)] if isinstance(report.get("items"), list) else []
     if items:
         lines.append("  items:")
-        lines.extend(f"    - {item.get('status')}: {_clip(str(item.get('step') or ''), 200)}" for item in items)
+        lines.extend(f"    - {_format_plan_item_line(item, max_step=200)}" for item in items)
     else:
         lines.append("  items: none")
     return "\n".join(lines)
+
+
+def _format_plan_item_line(item: dict[str, object], *, max_step: int) -> str:
+    text = f"{item.get('status')}: {_clip(str(item.get('step') or ''), max_step)}"
+    active_form = item.get("activeForm")
+    if isinstance(active_form, str) and active_form.strip():
+        text += f" (activeForm: {_clip(active_form, 120)})"
+    return text
 
 
 def get_transcript_text(

@@ -59,7 +59,8 @@ def parse_plan_items(value: Any, raw: str) -> list[PlanItem]:
             raise ActionParseError(f"update_plan item {index} has an invalid status.", raw)
         if status == "in_progress":
             in_progress_count += 1
-        items.append(PlanItem(step=step.strip(), status=status))
+        active_form = parse_active_form(item)
+        items.append(PlanItem(step=step.strip(), status=status, active_form=active_form))
 
     if in_progress_count > 1:
         raise ActionParseError("update_plan action allows at most one in_progress item.", raw)
@@ -70,6 +71,15 @@ def normalize_plan_item_status(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
     return PLAN_ITEM_STATUS_ALIASES.get(value.strip().lower())
+
+
+def parse_active_form(item: dict[str, Any]) -> str | None:
+    value = item.get("active_form")
+    if value is None:
+        value = item.get("activeForm")
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return value.strip()
 
 
 def summarize_plan_update(action: UpdatePlanAction) -> str:

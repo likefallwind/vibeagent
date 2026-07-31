@@ -69,7 +69,16 @@ def parse_session_plan(value: Any) -> list[SessionPlanItem]:
             continue
         if status not in {"pending", "in_progress", "completed"}:
             continue
-        items.append(SessionPlanItem(step=step.strip(), status=status))
+        active_form = item.get("active_form")
+        if active_form is None:
+            active_form = item.get("activeForm")
+        items.append(
+            SessionPlanItem(
+                step=step.strip(),
+                status=status,
+                active_form=active_form.strip() if isinstance(active_form, str) and active_form.strip() else None,
+            )
+        )
     return items
 
 

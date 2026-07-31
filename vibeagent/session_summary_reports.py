@@ -293,10 +293,18 @@ def format_session_plan(summary: SessionSummary) -> str:
         lines.append(f"  task: {compact(summary.task, 240)}")
     if summary.latest_plan:
         lines.append("  items:")
-        lines.extend(f"    - {item.status}: {compact(item.step, 200)}" for item in summary.latest_plan)
+        lines.extend(f"    - {format_session_plan_item(item)}" for item in summary.latest_plan)
     else:
         lines.append("  items: none")
     return "\n".join(lines)
+
+
+def format_session_plan_item(item: Any) -> str:
+    text = f"{item.status}: {compact(item.step, 200)}"
+    active_form = getattr(item, "active_form", None)
+    if isinstance(active_form, str) and active_form.strip():
+        text += f" (activeForm: {compact(active_form, 120)})"
+    return text
 
 
 def session_plan_status(summary: SessionSummary) -> str:
@@ -326,6 +334,7 @@ def build_session_plan_report(summary: SessionSummary) -> dict[str, Any]:
             {
                 "status": item.status,
                 "step": item.step,
+                **({"activeForm": item.active_form} if item.active_form else {}),
             }
             for item in summary.latest_plan
         ],

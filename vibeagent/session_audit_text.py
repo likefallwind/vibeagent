@@ -156,7 +156,10 @@ def format_session_audit_from_parts(
         lines.append(f"    items: {len(summary.latest_plan)}")
         lines.append(f"    inProgress: {'yes' if 'in_progress' in plan_statuses else 'no'}")
         for item in pending_plan_items[:max_failures]:
-            lines.append(f"    - {item.status}: {compact(item.step, max_text)}")
+            line = f"    - {item.status}: {compact(item.step, max_text)}"
+            if item.active_form:
+                line += f" (activeForm: {compact(item.active_form, max_text)})"
+            lines.append(line)
     else:
         lines.append("    items: 0")
 

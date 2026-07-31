@@ -2801,14 +2801,15 @@ class SessionTests(unittest.TestCase):
                             "kind": "update_plan",
                             "plan": [
                                 {"step": "Implement feature", "status": "completed"},
-                                {"step": "Run verification", "status": "in_progress"},
+                                {"step": "Run verification", "status": "in_progress", "active_form": "Running verification"},
                             ],
                         },
                     },
                 ],
             )
 
-            text = format_session_plan(summarize_session(root, "run-1"))
+            summary = summarize_session(root, "run-1")
+            text = format_session_plan(summary)
 
         self.assertIn("Plan:", text)
         self.assertIn("session: run-1", text)
@@ -2816,6 +2817,8 @@ class SessionTests(unittest.TestCase):
         self.assertIn("task: Ship the feature.", text)
         self.assertIn("completed: Implement feature", text)
         self.assertIn("in_progress: Run verification", text)
+        self.assertIn("activeForm: Running verification", text)
+        self.assertEqual(summary.latest_plan[1].active_form, "Running verification")
         self.assertNotIn("Old step", text)
 
     def test_build_session_resume_context_uses_handoff_without_tool_payloads(self) -> None:

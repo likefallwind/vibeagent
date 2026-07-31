@@ -37,6 +37,7 @@ class WorkflowActionParsingTests(unittest.TestCase):
         self.assertIsInstance(action, UpdatePlanAction)
         self.assertEqual([item.step for item in action.plan], ["Inspect", "Implement", "Verify"])
         self.assertEqual([item.status for item in action.plan], ["pending", "in_progress", "completed"])
+        self.assertEqual([item.active_form for item in action.plan], [None, "Implementing", None])
 
 
 if __name__ == "__main__":

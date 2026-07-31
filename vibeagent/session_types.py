@@ -9,6 +9,7 @@ from typing import Any
 class SessionPlanItem:
     step: str
     status: str
+    active_form: str | None = None
 
 
 @dataclass(frozen=True)

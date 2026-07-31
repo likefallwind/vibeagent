@@ -84,7 +84,7 @@ def format_observations(observations: list[Observation]) -> str:
                 "\n".join(
                     [
                         f"{index}. update_plan: {observation.message}",
-                        *[f"- {item.status}: {item.step}" for item in observation.plan],
+                        *[f"- {format_observation_plan_item(item)}" for item in observation.plan],
                     ]
                 )
             )
@@ -92,3 +92,13 @@ def format_observations(observations: list[Observation]) -> str:
             lines.append(f"{index}. {observation.kind}: {getattr(observation, 'message', '')}")
 
     return "\n\n".join(lines)
+
+
+def format_observation_plan_item(item: object) -> str:
+    status = getattr(item, "status", "")
+    step = getattr(item, "step", "")
+    text = f"{status}: {step}"
+    active_form = getattr(item, "active_form", None)
+    if active_form:
+        text += f" (activeForm: {active_form})"
+    return text

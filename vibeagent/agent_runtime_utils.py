@@ -103,7 +103,7 @@ def build_compacted_agent_context(
     ]
     if current_plan:
         sections.append("Current task plan:")
-        sections.extend(f"- {item.status}: {item.step}" for item in current_plan)
+        sections.extend(f"- {format_compacted_plan_item(item)}" for item in current_plan)
     if original_prior_context:
         compacted_prior = compact_session_context(original_prior_context)
         if compacted_prior:
@@ -116,6 +116,13 @@ def build_compacted_agent_context(
     )
     compacted = "\n".join(sections)
     return compact_session_context(compacted, max_context_length) or ""
+
+
+def format_compacted_plan_item(item: PlanItem) -> str:
+    text = f"{item.status}: {item.step}"
+    if item.active_form:
+        text += f" (activeForm: {item.active_form})"
+    return text
 
 
 def list_files_action_path(action: object) -> str | None:

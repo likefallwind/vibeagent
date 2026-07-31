@@ -51,7 +51,7 @@ TODO_PLAN_ARRAY_SCHEMA: dict[str, Any] = {
 
 TODO_ARRAY_SCHEMA: dict[str, Any] = {
     "type": "array",
-    "description": "Claude-style todo items. content is mapped to the plan step; activeForm is accepted but not stored separately.",
+    "description": "Claude-style todo items. content is mapped to the plan step; activeForm is stored as optional active task wording.",
     "minItems": 1,
     "maxItems": 20,
     "items": TODO_ITEM_SCHEMA,

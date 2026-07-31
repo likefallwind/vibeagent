@@ -87,7 +87,11 @@ def build_session_audit_report_from_parts(
                 "shown": min(len(pending_plan_items), max_failures),
                 "truncated": len(pending_plan_items) > max_failures,
                 "items": [
-                    {"status": item.status, "step": compact(item.step, max_text)}
+                    {
+                        "status": item.status,
+                        "step": compact(item.step, max_text),
+                        **({"activeForm": compact(item.active_form, max_text)} if item.active_form else {}),
+                    }
                     for item in pending_plan_items[:max_failures]
                 ],
             },

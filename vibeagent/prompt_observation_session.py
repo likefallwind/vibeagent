@@ -338,7 +338,11 @@ def format_session_observation(index: int, observation: object) -> str | None:
                 f"inProgress={str(bool(getattr(observation, 'plan_in_progress', False))).lower()}"
             )
             for item in pending_plan_items[:20]:
-                plan_lines.append(f"plan_item: {item.get('status') or ''}: {item.get('step') or ''}")
+                line = f"plan_item: {item.get('status') or ''}: {item.get('step') or ''}"
+                active_form = item.get("activeForm")
+                if isinstance(active_form, str) and active_form.strip():
+                    line += f" (activeForm: {active_form})"
+                plan_lines.append(line)
         file_lines = format_file_reference_lines(
             getattr(observation, "file_references", []),
             int(getattr(observation, "file_count", 0) or 0),

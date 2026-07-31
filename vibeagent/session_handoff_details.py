@@ -125,7 +125,11 @@ def _pending_plan_items(audit: dict[str, object]) -> tuple[list[dict[str, str]],
         step = str(item.get("step") or "").strip()
         status_value = str(item.get("status") or "").strip()
         if step:
-            items.append({"status": status_value, "step": step})
+            record = {"status": status_value, "step": step}
+            active_form = str(item.get("activeForm") or "").strip()
+            if active_form:
+                record["activeForm"] = active_form
+            items.append(record)
     return items, pending_plan_count, plan_items_count, plan_in_progress
 
 

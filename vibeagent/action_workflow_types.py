@@ -11,6 +11,7 @@ PlanItemStatus: TypeAlias = Literal["pending", "in_progress", "completed"]
 class PlanItem:
     step: str
     status: PlanItemStatus
+    active_form: str | None = None
 
 
 @dataclass(frozen=True)

@@ -2389,22 +2389,25 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(write_action.type, "update_plan")
         self.assertEqual([item.step for item in write_action.plan], ["Inspect files", "Run tests"])
         self.assertEqual([item.status for item in write_action.plan], ["completed", "in_progress"])
+        self.assertEqual([item.active_form for item in write_action.plan], ["Inspecting files", "Running tests"])
         self.assertEqual(read_action.type, "session_plan")
 
         plan_write_action = parse_tool_action(
             "todo_write",
-            {"plan": [{"step": "Verify schema", "status": "completed"}]},
+            {"plan": [{"step": "Verify schema", "status": "completed", "activeForm": "Verifying schema"}]},
         )
         claude_plan_write_action = parse_tool_action(
             "TodoWrite",
-            {"plan": [{"step": "Verify Claude schema", "status": "done"}]},
+            {"plan": [{"step": "Verify Claude schema", "status": "done", "active_form": "Verifying Claude schema"}]},
         )
         self.assertEqual(plan_write_action.type, "update_plan")
         self.assertEqual(plan_write_action.plan[0].step, "Verify schema")
         self.assertEqual(plan_write_action.plan[0].status, "completed")
+        self.assertEqual(plan_write_action.plan[0].active_form, "Verifying schema")
         self.assertEqual(claude_plan_write_action.type, "update_plan")
         self.assertEqual(claude_plan_write_action.plan[0].step, "Verify Claude schema")
         self.assertEqual(claude_plan_write_action.plan[0].status, "completed")
+        self.assertEqual(claude_plan_write_action.plan[0].active_form, "Verifying Claude schema")
 
         with self.assertRaisesRegex(ActionParseError, "todo_write action requires a non-empty todos list"):
             parse_tool_action("todo_write", {})
@@ -5981,7 +5984,7 @@ class ActionTests(unittest.TestCase):
             (workspace.session_dir / "events.jsonl").write_text(
                 '{"type":"task","task":"Build feature"}\n'
                 '{"type":"tool_call","iteration":1,"id":"1","name":"update_plan","input":{"plan":[{"step":"SECRET_STEP","status":"pending"}]}}\n'
-                '{"type":"tool_result","iteration":1,"id":"1","name":"update_plan","result":{"kind":"update_plan","plan":[{"step":"Inspect files","status":"completed"},{"step":"Run tests","status":"in_progress"}],"message":"Updated plan."}}\n',
+                '{"type":"tool_result","iteration":1,"id":"1","name":"update_plan","result":{"kind":"update_plan","plan":[{"step":"Inspect files","status":"completed"},{"step":"Run tests","status":"in_progress","active_form":"Running tests"}],"message":"Updated plan."}}\n',
                 encoding="utf-8",
             )
 
@@ -5994,6 +5997,7 @@ class ActionTests(unittest.TestCase):
         self.assertIn("Plan:", observation.plan)
         self.assertIn("completed: Inspect files", observation.plan)
         self.assertIn("in_progress: Run tests", observation.plan)
+        self.assertIn("activeForm: Running tests", observation.plan)
         self.assertNotIn("SECRET_STEP", observation.plan)
         self.assertEqual(invalid.kind, "session_plan")
         self.assertFalse(invalid.ok)
@@ -6474,7 +6478,7 @@ class ActionTests(unittest.TestCase):
             workspace = create_run_workspace(base, "run-1")
             (workspace.session_dir / "events.jsonl").write_text(
                 '{"type":"task","task":"Resume the work."}\n'
-                '{"type":"tool_result","iteration":1,"name":"update_plan","result":{"kind":"update_plan","plan":[{"step":"Inspect","status":"completed"},{"step":"Test","status":"in_progress"}],"message":"Plan updated."}}\n'
+                '{"type":"tool_result","iteration":1,"name":"update_plan","result":{"kind":"update_plan","plan":[{"step":"Inspect","status":"completed"},{"step":"Test","status":"in_progress","active_form":"Testing"}],"message":"Plan updated."}}\n'
                 '{"type":"tool_call","iteration":2,"id":"1","name":"write_file","input":{"path":"src/app.py","content":"SECRET_CONTENT"}}\n'
                 '{"type":"tool_result","iteration":3,"name":"run_command","result":{"kind":"run_command","result":{"command":"python3 -m unittest","exit_code":1,"stdout":"failure line","stderr":"AssertionError","timed_out":false,"signal":null,"cwd":"."}}}\n'
                 '{"type":"tool_result","iteration":3,"name":"start_command","result":{"kind":"start_command","ok":true,"process_id":"bg-1","pid":1234,"command":"npm run dev","cwd":"web"}}\n'
@@ -6539,7 +6543,8 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(observation.plan_items_count, 2)
         self.assertTrue(observation.plan_in_progress)
         self.assertEqual(observation.pending_plan_count, 1)
-        self.assertEqual(observation.pending_plan_items, [{"status": "in_progress", "step": "Test"}])
+        self.assertEqual(observation.pending_plan_items, [{"status": "in_progress", "step": "Test", "activeForm": "Testing"}])
+        self.assertIn("activeForm: Testing", observation.handoff)
         self.assertEqual(observation.file_count, 1)
         self.assertEqual(observation.shown_file_count, 1)
         self.assertFalse(observation.files_truncated)

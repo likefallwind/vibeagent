@@ -148,7 +148,11 @@ def format_session_audit_report_text(report: dict[str, object]) -> str:
         pending = plan.get("pending") if isinstance(plan.get("pending"), dict) else {}
         pending_items = [item for item in pending.get("items", []) if isinstance(item, dict)] if isinstance(pending.get("items"), list) else []
         for item in pending_items:
-            lines.append(f"    - {item.get('status') or ''}: {item.get('step') or ''}")
+            line = f"    - {item.get('status') or ''}: {item.get('step') or ''}"
+            active_form = item.get("activeForm")
+            if isinstance(active_form, str) and active_form.strip():
+                line += f" (activeForm: {active_form})"
+            lines.append(line)
 
     _append_audit_failures(lines, failures)
     _append_audit_commands(lines, commands)

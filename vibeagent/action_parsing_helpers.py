@@ -15,6 +15,7 @@ from .action_parsing_plan import (
     PLAN_ITEM_STATUS_ALIASES,
     PLAN_ITEM_STATUS_VALUES,
     normalize_plan_item_status,
+    parse_active_form,
     parse_plan_items,
     summarize_plan_update,
 )

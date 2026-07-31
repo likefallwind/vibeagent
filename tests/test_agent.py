@@ -894,9 +894,12 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result.status, "completed")
         self.assertEqual([item.step for item in result.plan], ["Inspect files", "Run tests"])
         self.assertEqual([item.status for item in result.plan], ["completed", "completed"])
+        self.assertEqual([item.active_form for item in result.plan], ["Inspecting files", "Running tests"])
         self.assertEqual([item.kind for item in result.observations], ["update_plan"])
         self.assertIn("todo_write", [event.get("name") for event in events if event["type"] == "tool_call"])
         self.assertIn("todo_write", [event.get("name") for event in events if event["type"] == "tool_result"])
+        plan_result = next(event for event in events if event["type"] == "tool_result" and event.get("name") == "todo_write")
+        self.assertEqual(plan_result["result"]["plan"][0]["active_form"], "Inspecting files")
 
     def test_run_agent_accepts_claude_todo_write_tool_alias(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
