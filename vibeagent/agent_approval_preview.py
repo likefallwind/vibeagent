@@ -156,6 +156,34 @@ def file_diff_fingerprint_payload(files: list[object]) -> str:
 
 def approval_preview_key(value: object) -> tuple[Any, ...]:
     kind = str(getattr(value, "kind", getattr(value, "type", "")))
+    edit_key = edit_preview_key(kind, value)
+    if edit_key is not None:
+        return edit_key
+    file_key = file_preview_key(kind, value)
+    if file_key is not None:
+        return file_key
+    structured_key = structured_edit_preview_key(kind, value)
+    if structured_key is not None:
+        return structured_key
+    code_key = code_preview_key(kind, value)
+    if code_key is not None:
+        return code_key
+    transfer_key = transfer_preview_key(kind, value)
+    if transfer_key is not None:
+        return transfer_key
+    git_key = git_preview_key(kind, value)
+    if git_key is not None:
+        return git_key
+    workflow_key = workflow_preview_key(kind, value)
+    if workflow_key is not None:
+        return workflow_key
+    run_key = run_preview_key(kind, value)
+    if run_key is not None:
+        return run_key
+    return (kind,)
+
+
+def edit_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
     if kind in {"edit_file", "check_edit_file"}:
         return (kind.replace("check_", ""), getattr(value, "path", ""), getattr(value, "old", ""), getattr(value, "new", ""))
     if kind in {"multi_edit_file", "check_multi_edit_file"}:
@@ -167,12 +195,42 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
                 for edit in getattr(value, "edits", []) or []
             ),
         )
-    if kind in {"delete_file", "check_delete_file", "create_dir", "check_create_dir", "delete_empty_dir", "check_delete_empty_dir", "set_executable", "check_set_executable"}:
-        return (kind.replace("check_", ""), getattr(value, "path", ""), getattr(value, "executable", None))
+    if kind in {"replace_lines", "check_replace_lines"}:
+        return (
+            "replace_lines",
+            getattr(value, "path", ""),
+            getattr(value, "start_line", None),
+            getattr(value, "end_line", None),
+            getattr(value, "content", ""),
+        )
+    if kind in {"insert_lines", "check_insert_lines"}:
+        return ("insert_lines", getattr(value, "path", ""), getattr(value, "line", None), getattr(value, "content", ""))
+    if kind in {"append_file", "check_append_file"}:
+        return ("append_file", getattr(value, "path", ""), getattr(value, "content", ""))
     if kind in {"patch_file", "check_patch"}:
         return ("patch_file", getattr(value, "path", ""), getattr(value, "patch", ""))
+    if kind in {"patch_files", "check_patches"}:
+        return ("patch_files", getattr(value, "patch", ""))
+    return None
+
+
+def file_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
     if kind in {"write_file", "check_write_file"}:
         return ("write_file", getattr(value, "path", ""), getattr(value, "content", ""))
+    if kind in {"write_files", "check_write_files"}:
+        input_files = getattr(value, "inputs", None) or getattr(value, "files", [])
+        return (
+            "write_files",
+            tuple((getattr(item, "path", ""), getattr(item, "content", "")) for item in input_files),
+        )
+    if kind in {"delete_file", "check_delete_file", "create_dir", "check_create_dir", "delete_empty_dir", "check_delete_empty_dir", "set_executable", "check_set_executable"}:
+        return (kind.replace("check_", ""), getattr(value, "path", ""), getattr(value, "executable", None))
+    if kind in {"delete_files", "check_delete_files", "create_dirs", "check_create_dirs", "delete_empty_dirs", "check_delete_empty_dirs", "git_stage", "check_git_stage", "git_unstage", "check_git_unstage", "git_restore", "check_git_restore"}:
+        return (kind.replace("check_", ""), tuple(getattr(value, "paths", [])))
+    return None
+
+
+def structured_edit_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
     if kind in {"regex_replace", "check_regex_replace"}:
         return (
             "regex_replace",
@@ -214,32 +272,20 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
             getattr(value, "path", ""),
             json.dumps(operation_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
         )
-    if kind in {"replace_lines", "check_replace_lines"}:
-        return (
-            "replace_lines",
-            getattr(value, "path", ""),
-            getattr(value, "start_line", None),
-            getattr(value, "end_line", None),
-            getattr(value, "content", ""),
-        )
-    if kind in {"insert_lines", "check_insert_lines"}:
-        return ("insert_lines", getattr(value, "path", ""), getattr(value, "line", None), getattr(value, "content", ""))
-    if kind in {"append_file", "check_append_file"}:
-        return ("append_file", getattr(value, "path", ""), getattr(value, "content", ""))
+    return None
+
+
+def code_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
     if kind in {"replace_python_definition", "check_replace_python_definition"}:
         return ("replace_python_definition", getattr(value, "symbol", ""), getattr(value, "path", None))
     if kind in {"python_rename", "python_rename_preview"}:
         return ("python_rename", getattr(value, "symbol", ""), getattr(value, "new_name", ""), getattr(value, "path", None))
     if kind in {"code_rename", "code_rename_preview"}:
         return ("code_rename", getattr(value, "symbol", ""), getattr(value, "new_name", ""), getattr(value, "path", None))
-    if kind in {"write_files", "check_write_files"}:
-        input_files = getattr(value, "inputs", None) or getattr(value, "files", [])
-        return (
-            "write_files",
-            tuple((getattr(item, "path", ""), getattr(item, "content", "")) for item in input_files),
-        )
-    if kind in {"delete_files", "check_delete_files", "create_dirs", "check_create_dirs", "delete_empty_dirs", "check_delete_empty_dirs", "git_stage", "check_git_stage", "git_unstage", "check_git_unstage", "git_restore", "check_git_restore"}:
-        return (kind.replace("check_", ""), tuple(getattr(value, "paths", [])))
+    return None
+
+
+def transfer_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
     if kind in {"move_file", "check_move_file", "copy_file", "check_copy_file", "move_dir", "check_move_dir", "copy_dir", "check_copy_dir"}:
         return (kind.replace("check_", ""), getattr(value, "source", ""), getattr(value, "destination", ""))
     if kind in {"move_files", "check_move_files", "copy_files", "check_copy_files", "move_dirs", "check_move_dirs", "copy_dirs", "check_copy_dirs"}:
@@ -247,19 +293,15 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
             kind.replace("check_", ""),
             tuple((getattr(item, "source", ""), getattr(item, "destination", "")) for item in getattr(value, "transfers", [])),
         )
-    if kind in {"patch_files", "check_patches"}:
-        return ("patch_files", getattr(value, "patch", ""))
-    git_key = git_preview_key(kind, value)
-    if git_key is not None:
-        return git_key
+    return None
+
+
+def workflow_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
     if kind in {"checkpoint_restore", "check_checkpoint_restore", "checkpoint_delete", "check_checkpoint_delete"}:
         return (kind.replace("check_", ""), getattr(value, "checkpoint_id", ""))
     if kind in {"checkpoint_prune", "check_checkpoint_prune"}:
         return ("checkpoint_prune", getattr(value, "keep_last", None))
-    run_key = run_preview_key(kind, value)
-    if run_key is not None:
-        return run_key
-    return (kind,)
+    return None
 
 
 def git_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
