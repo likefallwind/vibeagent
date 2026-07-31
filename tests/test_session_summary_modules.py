@@ -2,6 +2,7 @@ import unittest
 
 from vibeagent import session_summary_completion_reports
 from vibeagent import session_summary_details
+from vibeagent import session_summary_final_review
 from vibeagent import session_summary_model
 from vibeagent import session_summary_reports
 
@@ -71,6 +72,32 @@ class SessionSummaryModuleTests(unittest.TestCase):
             )
         )
         self.assertEqual(session_summary_model.model_error_message({"message": " failed "}), "failed")
+
+    def test_session_summary_final_review_parses_readiness_fields(self) -> None:
+        review = session_summary_final_review.parse_final_review_summary(
+            {
+                "ready": False,
+                "blocking_issues": ["syntax"],
+                "warnings": ["large diff"],
+                "total_files": 3,
+                "files": [{"status": "M", "path": "app.py"}],
+                "suggested_checks_total": 2,
+                "suggested_checks": ["npm test"],
+                "message": " review blocked ",
+                "python": [{"path": "app.py", "ok": False, "message": "SyntaxError"}],
+                "config": [{"path": "pyproject.toml", "ok": False, "message": "invalid"}],
+            }
+        )
+
+        self.assertFalse(review.ready)
+        self.assertEqual(review.blocking_issues, 1)
+        self.assertEqual(review.warnings, 1)
+        self.assertEqual(review.files, 3)
+        self.assertEqual(review.changed_files, ["M app.py"])
+        self.assertEqual(review.suggested_checks, 2)
+        self.assertEqual(review.message, " review blocked ")
+        self.assertEqual(review.python_failures, ["app.py: SyntaxError"])
+        self.assertEqual(review.config_failures, ["pyproject.toml: invalid"])
 
 
 if __name__ == "__main__":

@@ -6,11 +6,10 @@ from .session_store import read_session_events
 from .session_summary_helpers import (
     checkpoint_result_id,
     parse_session_plan,
-    session_changed_file_labels,
-    session_check_failure_labels,
     update_session_background_processes,
 )
 from .session_summary_details import parse_completion_detail_lists, subagent_failure_label
+from .session_summary_final_review import parse_final_review_summary
 from .session_summary_model import SessionModelUsageTotals, model_error_message, model_final_message
 from .session_types import SessionPlanItem, SessionProcessInfo, SessionSummary
 from .session_utils import (
@@ -169,19 +168,16 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
                     latest_plan = parse_session_plan(result.get("plan"))
                 if kind == "final_review":
                     final_review_seen = True
-                    ready = result.get("ready")
-                    final_review_ready = ready if isinstance(ready, bool) else None
-                    final_review_blocking_issues = len(result["blocking_issues"]) if isinstance(result.get("blocking_issues"), list) else 0
-                    final_review_warnings = len(result["warnings"]) if isinstance(result.get("warnings"), list) else 0
-                    total_files = as_int(result.get("total_files"))
-                    final_review_files = total_files if total_files is not None else len(result["files"]) if isinstance(result.get("files"), list) else 0
-                    final_review_changed_files = session_changed_file_labels(result.get("files"))
-                    total_checks = as_int(result.get("suggested_checks_total"))
-                    final_review_suggested_checks = total_checks if total_checks is not None else len(result["suggested_checks"]) if isinstance(result.get("suggested_checks"), list) else 0
-                    review_message = result.get("message")
-                    final_review_message = review_message if isinstance(review_message, str) and review_message.strip() else None
-                    final_review_python_failures = session_check_failure_labels(result.get("python"))
-                    final_review_config_failures = session_check_failure_labels(result.get("config"))
+                    review = parse_final_review_summary(result)
+                    final_review_ready = review.ready
+                    final_review_blocking_issues = review.blocking_issues
+                    final_review_warnings = review.warnings
+                    final_review_files = review.files
+                    final_review_changed_files = review.changed_files
+                    final_review_suggested_checks = review.suggested_checks
+                    final_review_message = review.message
+                    final_review_python_failures = review.python_failures
+                    final_review_config_failures = review.config_failures
                 update_session_background_processes(
                     active_background_processes,
                     result,
