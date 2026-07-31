@@ -12624,6 +12624,37 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Edit can apply to app.py", unrelated_mutation_preview or "")
         self.assertIn("after rewrite", fresh_preview or "")
 
+    def test_approval_preview_summary_matches_normalized_file_paths(self) -> None:
+        edit_preview = agent_module.approval_preview_summary(
+            types_module.EditFileAction(type="edit_file", path="./app.py", old="old", new="new"),
+            [
+                types_module.CheckEditFileObservation(
+                    kind="check_edit_file",
+                    path="app.py",
+                    ok=True,
+                    message="Edit can apply to app.py.",
+                    diff="-old\n+new\n",
+                    old="old",
+                    new="new",
+                )
+            ],
+        )
+        git_stage_preview = agent_module.approval_preview_summary(
+            types_module.GitStageAction(type="git_stage", paths=["./app.py"]),
+            [
+                types_module.CheckGitStageObservation(
+                    kind="check_git_stage",
+                    ok=True,
+                    paths=["app.py"],
+                    status=" M app.py\n",
+                    message="Can stage 1 path(s).",
+                )
+            ],
+        )
+
+        self.assertIn("Edit can apply to app.py", edit_preview or "")
+        self.assertIn("Can stage 1", git_stage_preview or "")
+
     def test_approval_preview_summary_ignores_file_preview_after_parent_dir_mutation(self) -> None:
         stale_preview = agent_module.approval_preview_summary(
             types_module.EditFileAction(type="edit_file", path="pkg/app.py", old="old", new="new"),
