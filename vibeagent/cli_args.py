@@ -15,6 +15,7 @@ from .cli_git_args import (
     add_git_local_arguments,
 )
 from .cli_inspection_args import add_inspection_arguments
+from .cli_local_report_args import add_local_report_arguments
 from .cli_local_flag_detection import (
     LOCAL_FLAG_ARG_NAMES,
     has_local_flag as _has_local_flag,
@@ -115,9 +116,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     )
     add_session_local_arguments(parser, local)
     add_checkpoint_local_arguments(local)
-    local.add_argument("--usage", action="store_true", help="Show local session usage and exit.")
-    local.add_argument("--cost", action="store_true", help="Show configured cost estimate and exit.")
-    local.add_argument("--save-config", action="store_true", help="Save non-secret provider defaults to .vibeagent/config.json and exit.")
+    add_local_report_arguments(local)
     add_one_shot_arguments(
         parser,
         positive_int=positive_int,
