@@ -133,6 +133,24 @@ COMMAND_MUTATION_OBSERVATION_KINDS = {
     "write_process",
 }
 
+PROCESS_PREVIEW_KINDS = {
+    "check_write_process",
+    "check_stop_process",
+    "check_stop_all_processes",
+}
+
+PROCESS_STATE_OBSERVATION_KINDS = {
+    "start_command",
+    "read_process",
+    "process_output_contexts",
+    "process_output_diagnostics",
+    "wait_process",
+    "write_process",
+    "list_processes",
+    "stop_process",
+    "stop_all_processes",
+}
+
 FILE_PREVIEW_KINDS = {
     "check_write_file",
     "check_write_files",
@@ -256,6 +274,8 @@ def preview_search_invalidated(
         return True
     if command_preview_invalidated_by_workspace_mutation(expected_kind, observation_kind):
         return True
+    if process_preview_invalidated_by_process_state(expected_kind, observation_kind):
+        return True
     if git_preview_invalidated_by_workspace_mutation(expected_kind, observation_kind):
         return True
     if file_preview_invalidated_by_broad_workspace_mutation(expected_kind, observation_kind):
@@ -279,6 +299,10 @@ def checkpoint_restore_preview_invalidated_by_workspace_mutation(expected_kind: 
 
 def command_preview_invalidated_by_workspace_mutation(expected_kind: str, observation_kind: object) -> bool:
     return expected_kind in COMMAND_PREVIEW_KINDS and observation_kind in WORKSPACE_MUTATION_OBSERVATION_KINDS
+
+
+def process_preview_invalidated_by_process_state(expected_kind: str, observation_kind: object) -> bool:
+    return expected_kind in PROCESS_PREVIEW_KINDS and observation_kind in PROCESS_STATE_OBSERVATION_KINDS
 
 
 def git_preview_invalidated_by_workspace_mutation(expected_kind: str, observation_kind: object) -> bool:

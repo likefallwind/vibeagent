@@ -12746,6 +12746,116 @@ class AgentTests(unittest.TestCase):
 
         self.assertIsNone(stale_preview)
 
+    def test_approval_preview_summary_ignores_write_process_preview_after_process_read(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.WriteProcessAction(type="write_process", process_id="proc-1", content="hello\n"),
+            [
+                types_module.CheckWriteProcessObservation(
+                    kind="check_write_process",
+                    process_id="proc-1",
+                    pid=123,
+                    ok=True,
+                    running=True,
+                    command="python server.py",
+                    cwd=".",
+                    content_chars=6,
+                    message="Can write process input.",
+                    content_sha256="5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03",
+                ),
+                ReadProcessObservation(
+                    kind="read_process",
+                    process_id="proc-1",
+                    pid=123,
+                    ok=True,
+                    running=False,
+                    exit_code=0,
+                    signal=None,
+                    stdout="done\n",
+                    stderr="",
+                    max_output_chars=12000,
+                    message="Process exited.",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+
+    def test_approval_preview_summary_ignores_stop_process_preview_after_wait_process(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.StopProcessAction(type="stop_process", process_id="proc-1"),
+            [
+                types_module.CheckStopProcessObservation(
+                    kind="check_stop_process",
+                    process_id="proc-1",
+                    pid=123,
+                    ok=True,
+                    command="python server.py",
+                    cwd=".",
+                    running=True,
+                    exit_code=None,
+                    signal=None,
+                    message="Can stop process.",
+                ),
+                WaitProcessObservation(
+                    kind="wait_process",
+                    process_id="proc-1",
+                    pid=123,
+                    ok=True,
+                    running=False,
+                    timed_out=False,
+                    matched=False,
+                    matched_stream=None,
+                    matched_pattern=None,
+                    timeout_ms=1000,
+                    exit_code=0,
+                    signal=None,
+                    stdout="done\n",
+                    stderr="",
+                    max_output_chars=12000,
+                    message="Process exited.",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+
+    def test_approval_preview_summary_ignores_stop_all_processes_preview_after_start_command(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            StopAllProcessesAction(type="stop_all_processes"),
+            [
+                types_module.CheckStopAllProcessesObservation(
+                    kind="check_stop_all_processes",
+                    ok=True,
+                    processes=[
+                        ProcessInfo(
+                            process_id="proc-1",
+                            pid=123,
+                            command="python server.py",
+                            cwd=".",
+                            running=True,
+                            exit_code=None,
+                            signal=None,
+                        )
+                    ],
+                    running_count=1,
+                    message="Can stop 1 process.",
+                ),
+                StartCommandObservation(
+                    kind="start_command",
+                    process_id="proc-2",
+                    pid=124,
+                    command="python worker.py",
+                    cwd=".",
+                    ok=True,
+                    message="Started process.",
+                    stdout_path=".vibeagent/processes/proc-2.out",
+                    stderr_path=".vibeagent/processes/proc-2.err",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+
     def test_approval_preview_summary_ignores_checkpoint_restore_preview_after_run_command(self) -> None:
         stale_preview = agent_module.approval_preview_summary(
             CheckpointRestoreAction(type="checkpoint_restore", checkpoint_id="ckpt-1"),
@@ -13705,6 +13815,16 @@ class AgentTests(unittest.TestCase):
             "check_start_command",
         }
         missing = sorted(command_execution_previews - approval_preview_module.COMMAND_PREVIEW_KINDS)
+
+        self.assertEqual(missing, [])
+
+    def test_process_control_previews_are_process_stale_tracked(self) -> None:
+        process_control_previews = {
+            "check_write_process",
+            "check_stop_process",
+            "check_stop_all_processes",
+        }
+        missing = sorted(process_control_previews - approval_preview_module.PROCESS_PREVIEW_KINDS)
 
         self.assertEqual(missing, [])
 
