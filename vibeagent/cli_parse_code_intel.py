@@ -164,7 +164,7 @@ def parse_interactive_python_symbol_argument(
         return None, None, {}, usage, True
     if len(symbol_parts) == 2:
         if path is not None:
-            return None, None, {}, f"{usage}\n  error: path can only be provided once.", True
+            return None, None, {}, f"{usage}\n  error: provide either --path or positional path, not both.", True
         path = symbol_parts[1]
     return symbol_parts[0], path, kwargs, None, True
 

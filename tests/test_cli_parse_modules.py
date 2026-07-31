@@ -461,6 +461,19 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertEqual(fetch_kwargs, {})
         self.assertIn("provide --max-body-chars at most once.", fetch_error or "")
 
+    def test_code_intel_symbol_parser_rejects_named_and_positional_path(self) -> None:
+        symbol, path, kwargs, error, handled = parse_interactive_python_symbol_argument(
+            "--path src/app.py -- run_agent tests/test_app.py",
+            command_name="python-defs",
+        )
+
+        self.assertTrue(handled)
+        self.assertIsNone(symbol)
+        self.assertIsNone(path)
+        self.assertEqual(kwargs, {})
+        self.assertIn("Usage: /python-defs", error or "")
+        self.assertIn("provide either --path or positional path, not both.", error or "")
+
     def test_discovery_parsers_keep_existing_behavior(self) -> None:
         query, search_kwargs, search_error, search_handled = parse_interactive_search_argument(
             "--path vibeagent --regex --context-lines 2 --max-bytes 100 -- TODO",
