@@ -40,68 +40,7 @@ from .observation_common_types import (
     UpdatePlanObservation,
     UserInputObservation,
 )
-from .observation_edit_types import (
-    AppendFileObservation,
-    CheckAppendFileObservation,
-    CheckCopyDirectoriesObservation,
-    CheckCopyDirectoryObservation,
-    CheckCopyFileObservation,
-    CheckCopyFilesObservation,
-    CheckCreateDirectoriesObservation,
-    CheckCreateDirectoryObservation,
-    CheckDeleteEmptyDirectoriesObservation,
-    CheckDeleteEmptyDirectoryObservation,
-    CheckDeleteFileObservation,
-    CheckDeleteFilesObservation,
-    CheckEditFileObservation,
-    CheckInsertLinesObservation,
-    CheckMoveDirectoriesObservation,
-    CheckMoveDirectoryObservation,
-    CheckMoveFileObservation,
-    CheckMoveFilesObservation,
-    CheckMultiEditObservation,
-    CheckPatchObservation,
-    CheckPatchesObservation,
-    CheckRegexReplaceObservation,
-    CheckReplaceLinesObservation,
-    CheckReplacePythonDefinitionObservation,
-    CheckSetExecutableObservation,
-    CopyDirectoriesObservation,
-    CopyDirectoryObservation,
-    CopyFileObservation,
-    CopyFilesObservation,
-    CreateDirectoriesObservation,
-    CreateDirectoryObservation,
-    DeleteEmptyDirectoriesObservation,
-    DeleteEmptyDirectoryObservation,
-    DeleteFileObservation,
-    DeleteFilesObservation,
-    EditFileObservation,
-    InsertLinesObservation,
-    MoveDirectoriesObservation,
-    MoveDirectoryObservation,
-    MoveFileObservation,
-    MoveFilesObservation,
-    MultiEditObservation,
-    PatchFileObservation,
-    PatchFilesObservation,
-    RegexReplaceObservation,
-    ReplaceLinesObservation,
-    ReplacePythonDefinitionObservation,
-    SetExecutableObservation,
-)
-from .observation_file_mutation_types import (
-    CheckJsonPatchObservation,
-    CheckJsonRemoveObservation,
-    CheckJsonSetObservation,
-    CheckWriteFileObservation,
-    CheckWriteFilesObservation,
-    JsonPatchObservation,
-    JsonRemoveObservation,
-    JsonSetObservation,
-    WriteFileObservation,
-    WriteFilesObservation,
-)
+from .observation_edit_union_types import EditObservation, FileMutationObservation
 from .observation_git_types import (
     CheckGitCommitObservation,
     CheckGitFetchObservation,
@@ -236,10 +175,7 @@ from .observation_session_types import (
 
 # Unified envelope returned from one agent step.
 Observation: TypeAlias = (
-    CheckWriteFileObservation
-    | WriteFileObservation
-    | CheckWriteFilesObservation
-    | WriteFilesObservation
+    FileMutationObservation
     | ListFilesObservation
     | ListTreeObservation
     | RepoMapObservation
@@ -259,12 +195,6 @@ Observation: TypeAlias = (
     | CodeOutlineObservation
     | PythonCheckObservation
     | ConfigCheckObservation
-    | CheckJsonSetObservation
-    | JsonSetObservation
-    | CheckJsonRemoveObservation
-    | JsonRemoveObservation
-    | CheckJsonPatchObservation
-    | JsonPatchObservation
     | McpServersObservation
     | McpToolsObservation
     | McpCallObservation
@@ -370,56 +300,9 @@ Observation: TypeAlias = (
     | CheckpointDeleteObservation
     | CheckCheckpointPruneObservation
     | CheckpointPruneObservation
-    | CheckEditFileObservation
-    | EditFileObservation
+    | EditObservation
     | CheckNotebookEditObservation
     | NotebookEditObservation
-    | MultiEditObservation
-    | CheckMultiEditObservation
-    | CheckReplacePythonDefinitionObservation
-    | ReplacePythonDefinitionObservation
-    | CheckReplaceLinesObservation
-    | ReplaceLinesObservation
-    | CheckInsertLinesObservation
-    | InsertLinesObservation
-    | CheckAppendFileObservation
-    | AppendFileObservation
-    | RegexReplaceObservation
-    | CheckRegexReplaceObservation
-    | CheckPatchObservation
-    | CheckPatchesObservation
-    | PatchFileObservation
-    | PatchFilesObservation
-    | CheckDeleteFileObservation
-    | DeleteFileObservation
-    | CheckDeleteFilesObservation
-    | DeleteFilesObservation
-    | CheckMoveFileObservation
-    | MoveFileObservation
-    | CheckMoveFilesObservation
-    | MoveFilesObservation
-    | CheckCopyFileObservation
-    | CopyFileObservation
-    | CheckCopyFilesObservation
-    | CopyFilesObservation
-    | CheckMoveDirectoryObservation
-    | MoveDirectoryObservation
-    | CheckMoveDirectoriesObservation
-    | MoveDirectoriesObservation
-    | CheckCopyDirectoryObservation
-    | CopyDirectoryObservation
-    | CheckCopyDirectoriesObservation
-    | CopyDirectoriesObservation
-    | CheckCreateDirectoryObservation
-    | CreateDirectoryObservation
-    | CheckCreateDirectoriesObservation
-    | CreateDirectoriesObservation
-    | CheckDeleteEmptyDirectoryObservation
-    | DeleteEmptyDirectoryObservation
-    | CheckDeleteEmptyDirectoriesObservation
-    | DeleteEmptyDirectoriesObservation
-    | CheckSetExecutableObservation
-    | SetExecutableObservation
     | RunCommandObservation
     | RunCommandsObservation
     | StartCommandObservation
