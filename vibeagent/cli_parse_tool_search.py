@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import shlex
 
-from .cli_parse_core import parse_interactive_positive_option
+from .cli_parse_core import duplicate_option_error, parse_interactive_positive_option
 from .tool_categories import valid_tool_categories
 from .tool_search_options import tool_search_approval_choices, tool_search_approval_filter
 
@@ -14,7 +14,7 @@ def parse_interactive_tool_search_argument(argument: str | None) -> tuple[str | 
     try:
         parts = shlex.split(argument)
     except ValueError as error:
-        return None, {}, f"{usage}\n{error}"
+        return None, {}, f"{usage}\n  error: {error}"
 
     kwargs: dict[str, object] = {}
     query_parts: list[str] = []
@@ -24,23 +24,23 @@ def parse_interactive_tool_search_argument(argument: str | None) -> tuple[str | 
         if part in {"--max", "--category", "--approval"}:
             index += 1
             raw_value = parts[index] if index < len(parts) else None
-            error = _apply_tool_search_option(part, raw_value, kwargs)
+            error = _apply_tool_search_option(part, raw_value, kwargs, usage)
             if error:
-                return None, {}, f"{usage}\n{error}"
+                return None, {}, error
         elif part.startswith("--max="):
-            error = _apply_tool_search_option("--max", part.split("=", 1)[1], kwargs)
+            error = _apply_tool_search_option("--max", part.split("=", 1)[1], kwargs, usage)
             if error:
-                return None, {}, f"{usage}\n{error}"
+                return None, {}, error
         elif part.startswith("--category="):
-            error = _apply_tool_search_option("--category", part.split("=", 1)[1], kwargs)
+            error = _apply_tool_search_option("--category", part.split("=", 1)[1], kwargs, usage)
             if error:
-                return None, {}, f"{usage}\n{error}"
+                return None, {}, error
         elif part.startswith("--approval="):
-            error = _apply_tool_search_option("--approval", part.split("=", 1)[1], kwargs)
+            error = _apply_tool_search_option("--approval", part.split("=", 1)[1], kwargs, usage)
             if error:
-                return None, {}, f"{usage}\n{error}"
+                return None, {}, error
         elif part.startswith("--"):
-            return None, {}, f"{usage}\nUnknown option: {part}"
+            return None, {}, f"{usage}\n  error: Unknown option: {part}"
         else:
             query_parts.append(part)
         index += 1
@@ -51,35 +51,38 @@ def parse_interactive_tool_search_argument(argument: str | None) -> tuple[str | 
     return query, kwargs, None
 
 
-def _apply_tool_search_option(flag: str, raw_value: str | None, kwargs: dict[str, object]) -> str | None:
+def _apply_tool_search_option(flag: str, raw_value: str | None, kwargs: dict[str, object], usage: str) -> str | None:
     if flag == "--max":
-        if "max_matches" in kwargs:
-            return f"provide {flag} at most once."
+        duplicate_error = duplicate_option_error(kwargs, "max_matches", flag, usage)
+        if duplicate_error:
+            return duplicate_error
         value, error = parse_interactive_positive_option(flag, raw_value)
         if error:
-            return error
+            return f"{usage}\n  error: {error}"
         kwargs["max_matches"] = value
         return None
     if flag == "--category":
-        if "category" in kwargs:
-            return f"provide {flag} at most once."
+        duplicate_error = duplicate_option_error(kwargs, "category", flag, usage)
+        if duplicate_error:
+            return duplicate_error
         if raw_value is None:
-            return f"{flag} requires a value."
+            return f"{usage}\n  error: {flag} requires a value."
         category = raw_value.strip()
         valid_categories = valid_tool_categories()
         if category not in valid_categories:
-            return f"{flag} must be one of: {', '.join(sorted(valid_categories))}."
+            return f"{usage}\n  error: {flag} must be one of: {', '.join(sorted(valid_categories))}."
         kwargs["category"] = category
         return None
     if flag == "--approval":
-        if "approval_required" in kwargs:
-            return f"provide {flag} at most once."
+        duplicate_error = duplicate_option_error(kwargs, "approval_required", flag, usage)
+        if duplicate_error:
+            return duplicate_error
         if raw_value is None:
-            return f"{flag} requires a value."
+            return f"{usage}\n  error: {flag} requires a value."
         approval = raw_value.strip()
         choices = tool_search_approval_choices()
         if approval not in choices:
-            return f"{flag} must be one of: {', '.join(choices)}."
+            return f"{usage}\n  error: {flag} must be one of: {', '.join(choices)}."
         kwargs["approval_required"] = tool_search_approval_filter(approval)
         return None
-    return f"Unknown option: {flag}"
+    return f"{usage}\n  error: Unknown option: {flag}"

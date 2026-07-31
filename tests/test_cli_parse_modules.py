@@ -380,7 +380,7 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertIsNone(query)
         self.assertEqual(kwargs, {})
         self.assertIn("Usage: /tool-search", error or "")
-        self.assertIn("--category must be one of:", error or "")
+        self.assertIn("error: --category must be one of:", error or "")
 
     def test_tool_search_parser_rejects_unknown_approval_filter(self) -> None:
         query, kwargs, error = parse_interactive_tool_search_argument("--approval maybe verification")
@@ -388,13 +388,28 @@ class CliParseModuleTests(unittest.TestCase):
         self.assertIsNone(query)
         self.assertEqual(kwargs, {})
         self.assertIn("Usage: /tool-search", error or "")
-        self.assertIn("--approval must be one of: any, yes, no.", error or "")
+        self.assertIn("error: --approval must be one of: any, yes, no.", error or "")
 
     def test_tool_search_parser_rejects_duplicate_filter_options(self) -> None:
         for argument, expected in [
             ("--max 2 --max 3 verification", "provide --max at most once."),
             ("--category session --category project verification", "provide --category at most once."),
             ("--approval yes --approval no verification", "provide --approval at most once."),
+        ]:
+            with self.subTest(argument=argument):
+                query, kwargs, error = parse_interactive_tool_search_argument(argument)
+
+                self.assertIsNone(query)
+                self.assertEqual(kwargs, {})
+                self.assertIn("Usage: /tool-search", error or "")
+                self.assertIn(f"error: {expected}", error or "")
+
+    def test_tool_search_parser_reports_standard_option_errors(self) -> None:
+        for argument, expected in [
+            ("--max", "error: --max requires a value."),
+            ("--unknown verification", "error: Unknown option: --unknown"),
+            ("--category", "error: --category requires a value."),
+            ("--approval", "error: --approval requires a value."),
         ]:
             with self.subTest(argument=argument):
                 query, kwargs, error = parse_interactive_tool_search_argument(argument)
