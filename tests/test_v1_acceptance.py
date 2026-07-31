@@ -167,6 +167,10 @@ class V1AcceptanceTests(unittest.TestCase):
             package["scripts"]["test:v1:full"],
             "npm run test:v1 && python3 -m unittest discover -s tests -q",
         )
+        self.assertEqual(
+            package["scripts"]["test:v1:release"],
+            "npm run test:install && npm run test:v1:full",
+        )
 
     def test_package_version_metadata_stays_in_sync(self) -> None:
         pyproject = tomllib.loads(PYPROJECT_PATH.read_text(encoding="utf-8"))
@@ -246,11 +250,12 @@ class V1AcceptanceTests(unittest.TestCase):
         self.assertIn("docs/vibeagent-1.0-readiness.md", plan)
         self.assertIn("Verified 1.0 Exit Criteria", plan)
         self.assertIn(f"VibeAgent `{__version__}`", plan)
-        self.assertIn("npm run test:v1:full", plan)
+        self.assertIn("npm run test:v1:release", plan)
 
     def test_readiness_audit_names_automated_and_live_provider_gates(self) -> None:
         readiness = READINESS_PATH.read_text(encoding="utf-8")
 
+        self.assertIn("npm run test:v1:release", readiness)
         self.assertIn("npm run test:install", readiness)
         self.assertIn("scripts/install_smoke.py", readiness)
         self.assertIn("fresh virtual environment", readiness)

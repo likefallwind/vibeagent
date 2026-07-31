@@ -8,6 +8,12 @@ evidence for calling VibeAgent 1.0 complete.
 Run from a clean worktree:
 
 ```sh
+npm run test:v1:release
+```
+
+That release gate expands to:
+
+```sh
 npm run test:install
 npm run test:v1:full
 ```
