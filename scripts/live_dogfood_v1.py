@@ -200,6 +200,31 @@ def _event_succeeded(event: dict[str, object]) -> bool | None:
     return None
 
 
+def side_effects_have_prior_approval(events: list[dict[str, object]]) -> tuple[bool, str]:
+    approved_decisions = 0
+    side_effect_results = 0
+    unapproved_side_effects = 0
+    for event in events:
+        if event.get("type") == "approval_decision":
+            decision = event.get("decision")
+            if isinstance(decision, dict) and decision.get("approved") is True:
+                approved_decisions += 1
+            continue
+        if event.get("type") != "tool_result":
+            continue
+        if _tool_event_name(event) not in SIDE_EFFECT_TOOL_NAMES and _tool_result_kind(event) not in SIDE_EFFECT_TOOL_NAMES:
+            continue
+        side_effect_results += 1
+        if approved_decisions <= 0:
+            unapproved_side_effects += 1
+            continue
+        approved_decisions -= 1
+    return (
+        unapproved_side_effects == 0,
+        f"side_effects={side_effect_results} unapproved={unapproved_side_effects}",
+    )
+
+
 def audit_session_events(root: Path, *, run_id: str) -> list[CheckResult]:
     events = load_session_events(root, run_id)
     results: list[CheckResult] = []
@@ -239,6 +264,14 @@ def audit_session_events(root: Path, *, run_id: str) -> list[CheckResult]:
             and len(approval_decisions) >= len(approval_requests)
             and not denied,
             f"requests={len(approval_requests)} denied={len(denied)} approved={len(approval_decisions) - len(denied)}",
+        )
+    )
+    approved_before_side_effect, approval_order_detail = side_effects_have_prior_approval(events)
+    results.append(
+        CheckResult(
+            "side effects had prior approval",
+            approved_before_side_effect,
+            approval_order_detail,
         )
     )
 
