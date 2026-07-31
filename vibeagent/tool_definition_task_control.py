@@ -16,6 +16,14 @@ PLAN_ITEM_SCHEMA: dict[str, Any] = {
             "enum": PLAN_ITEM_STATUS_ENUM,
             "description": "Status is normalized internally to pending, in_progress, or completed.",
         },
+        "activeForm": {
+            "type": "string",
+            "description": "Active wording.",
+        },
+        "active_form": {
+            "type": "string",
+            "description": "Alias for activeForm.",
+        },
     },
     "required": ["step", "status"],
     "additionalProperties": False,
@@ -51,7 +59,7 @@ TODO_PLAN_ARRAY_SCHEMA: dict[str, Any] = {
 
 TODO_ARRAY_SCHEMA: dict[str, Any] = {
     "type": "array",
-    "description": "Claude-style todo items. content is mapped to the plan step; activeForm is stored as optional active task wording.",
+    "description": "Claude-style todo items. content maps to step; activeForm is stored.",
     "minItems": 1,
     "maxItems": 20,
     "items": TODO_ITEM_SCHEMA,

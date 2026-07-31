@@ -79,6 +79,9 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         self.assertIs(todo_write["input_schema"]["properties"]["todos"]["items"], TODO_ITEM_SCHEMA)
         self.assertIs(claude_todo_write["input_schema"]["properties"]["plan"]["items"], PLAN_ITEM_SCHEMA)
         self.assertIs(claude_todo_write["input_schema"]["properties"]["todos"]["items"], TODO_ITEM_SCHEMA)
+        self.assertIn("activeForm", PLAN_ITEM_SCHEMA["properties"])
+        self.assertIn("active_form", PLAN_ITEM_SCHEMA["properties"])
+        self.assertIn("activeForm", TODO_ITEM_SCHEMA["properties"])
 
     def test_task_control_status_schemas_accept_aliases(self) -> None:
         self.assertEqual(

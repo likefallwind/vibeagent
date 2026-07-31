@@ -13,14 +13,15 @@ class WorkflowActionParsingTests(unittest.TestCase):
             {
                 "plan": [
                     {"step": "Inspect", "status": "todo"},
-                    {"step": "Implement", "status": "in-progress"},
-                    {"step": "Verify", "status": "done"},
+                    {"step": "Implement", "status": "in-progress", "activeForm": "Implementing"},
+                    {"step": "Verify", "status": "done", "active_form": "Verifying"},
                 ]
             },
         )
 
         self.assertIsInstance(action, UpdatePlanAction)
         self.assertEqual([item.status for item in action.plan], ["pending", "in_progress", "completed"])
+        self.assertEqual([item.active_form for item in action.plan], [None, "Implementing", "Verifying"])
 
     def test_todo_write_normalizes_status_aliases(self) -> None:
         action = parse_tool_action(
