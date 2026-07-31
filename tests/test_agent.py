@@ -12336,6 +12336,65 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Can stash 1", default_preview or "")
         self.assertIsNone(mismatched_preview)
 
+    def test_approval_preview_summary_ignores_git_preview_after_newer_git_mutation(self) -> None:
+        stale_preview = agent_module.approval_preview_summary(
+            types_module.GitPushAction(type="git_push"),
+            [
+                types_module.CheckGitPushObservation(
+                    kind="check_git_push",
+                    ok=True,
+                    remote="origin",
+                    branch="main",
+                    current="abc123",
+                    upstream="origin/main",
+                    ahead=1,
+                    behind=0,
+                    worktree_clean=True,
+                    status="",
+                    message="Push can send 1 commit(s).",
+                ),
+                types_module.GitCommitObservation(
+                    kind="git_commit",
+                    ok=True,
+                    head_before="abc123",
+                    head_after="def456",
+                    status="",
+                    message="Committed staged changes.",
+                    message_text="follow-up",
+                ),
+            ],
+        )
+        fresh_preview = agent_module.approval_preview_summary(
+            types_module.GitPushAction(type="git_push"),
+            [
+                types_module.GitCommitObservation(
+                    kind="git_commit",
+                    ok=True,
+                    head_before="abc123",
+                    head_after="def456",
+                    status="",
+                    message="Committed staged changes.",
+                    message_text="follow-up",
+                ),
+                types_module.CheckGitPushObservation(
+                    kind="check_git_push",
+                    ok=True,
+                    remote="origin",
+                    branch="main",
+                    current="def456",
+                    upstream="origin/main",
+                    ahead=2,
+                    behind=0,
+                    worktree_clean=True,
+                    status="",
+                    message="Push can send 2 commit(s).",
+                ),
+            ],
+        )
+
+        self.assertIsNone(stale_preview)
+        self.assertIn("Push can send 2", fresh_preview or "")
+
     def test_approval_preview_summary_fingerprints_diff_content(self) -> None:
         first = agent_module.summarize_preview_observation(
             types_module.CheckGitStashObservation(
