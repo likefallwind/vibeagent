@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from .action_results import build_python_rename_preview_files, build_reference_context_results
+from .action_results import build_reference_context_results
 from .python_action_reports import python_call_graph_message, python_found_message
+from .python_rename_action_executor import execute_python_rename_action
 from .types import (
     AgentAction,
     CheckReplacePythonDefinitionAction,
@@ -28,21 +29,17 @@ from .types import (
     PythonReferencesAction,
     PythonReferencesObservation,
     PythonRenameAction,
-    PythonRenameObservation,
     PythonRenamePreviewAction,
-    PythonRenamePreviewObservation,
     ReplacePythonDefinitionAction,
     ReplacePythonDefinitionObservation,
 )
 from .workspace import (
-    apply_python_rename,
     check_python_syntax,
     find_python_calls,
     find_python_definitions,
     find_python_references,
     inspect_python_call_graph,
     inspect_python_dependencies,
-    preview_python_rename,
     preview_replace_python_definition,
     replace_python_definition,
 )
@@ -351,87 +348,9 @@ def execute_python_action(workspace, action: AgentAction) -> Observation | None:
         )
 
     if isinstance(action, PythonRenamePreviewAction):
-        try:
-            preview = preview_python_rename(
-                workspace,
-                action.symbol,
-                action.new_name,
-                relative_path=action.path,
-                max_files=action.max_files,
-                max_replacements=action.max_replacements,
-            )
-            files = build_python_rename_preview_files(preview)
-            message = str(preview["message"])
-            if bool(preview["truncated"]):
-                message += f" Showing first {action.max_replacements} replacement(s)."
-            errors = list(preview["errors"])
-            if errors:
-                message += f" Skipped {len(errors)} file(s)."
-            return PythonRenamePreviewObservation(
-                kind="python_rename_preview",
-                symbol=action.symbol,
-                new_name=action.new_name,
-                path=action.path,
-                files=files,
-                total_replacements=int(preview["total_replacements"]),
-                total_files=int(preview["total_files"]),
-                truncated=bool(preview["truncated"]),
-                ok=True,
-                errors=errors,
-                message=message,
-            )
-        except ValueError as error:
-            return PythonRenamePreviewObservation(
-                kind="python_rename_preview",
-                symbol=action.symbol,
-                new_name=action.new_name,
-                path=action.path,
-                files=[],
-                total_replacements=0,
-                total_files=0,
-                truncated=False,
-                ok=False,
-                errors=[],
-                message=str(error),
-            )
+        return execute_python_rename_action(workspace, action)
 
     if isinstance(action, PythonRenameAction):
-        try:
-            result = apply_python_rename(
-                workspace,
-                action.symbol,
-                action.new_name,
-                relative_path=action.path,
-                max_files=action.max_files,
-                max_replacements=action.max_replacements,
-            )
-            files = build_python_rename_preview_files(result)
-            return PythonRenameObservation(
-                kind="python_rename",
-                symbol=action.symbol,
-                new_name=action.new_name,
-                path=action.path,
-                files=files,
-                total_replacements=int(result["total_replacements"]),
-                total_files=int(result["total_files"]),
-                ok=True,
-                errors=[],
-                message=f"Renamed {action.symbol} to {action.new_name} in {len(files)} file(s).",
-                diff=str(result["diff"]),
-            )
-        except ValueError as error:
-            return PythonRenameObservation(
-                kind="python_rename",
-                symbol=action.symbol,
-                new_name=action.new_name,
-                path=action.path,
-                files=[],
-                total_replacements=0,
-                total_files=0,
-                ok=False,
-                errors=[],
-                message=str(error),
-                diff="",
-            )
+        return execute_python_rename_action(workspace, action)
 
     return None
