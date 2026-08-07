@@ -1,6 +1,6 @@
 import unittest
 
-from vibeagent import workspace_edit_ops, workspace_regex_edit_ops, workspace_text_edit_ops
+from vibeagent import workspace_edit_ops, workspace_line_edit_ops, workspace_regex_edit_ops, workspace_text_edit_ops
 
 
 class WorkspaceTextEditOpsModuleTests(unittest.TestCase):
@@ -17,6 +17,12 @@ class WorkspaceTextEditOpsModuleTests(unittest.TestCase):
         self.assertIs(workspace_edit_ops.preview_replace_project_file_lines, workspace_text_edit_ops.preview_replace_project_file_lines)
         self.assertIs(workspace_edit_ops.insert_project_file_lines, workspace_text_edit_ops.insert_project_file_lines)
         self.assertIs(workspace_edit_ops.preview_insert_project_file_lines, workspace_text_edit_ops.preview_insert_project_file_lines)
+        self.assertIs(workspace_text_edit_ops.replace_project_file_lines, workspace_line_edit_ops.replace_project_file_lines)
+        self.assertIs(workspace_text_edit_ops.preview_replace_project_file_lines, workspace_line_edit_ops.preview_replace_project_file_lines)
+        self.assertIs(workspace_text_edit_ops.build_replace_lines, workspace_line_edit_ops.build_replace_lines)
+        self.assertIs(workspace_text_edit_ops.insert_project_file_lines, workspace_line_edit_ops.insert_project_file_lines)
+        self.assertIs(workspace_text_edit_ops.preview_insert_project_file_lines, workspace_line_edit_ops.preview_insert_project_file_lines)
+        self.assertIs(workspace_text_edit_ops.build_insert_lines, workspace_line_edit_ops.build_insert_lines)
         self.assertIs(workspace_edit_ops.append_project_file, workspace_text_edit_ops.append_project_file)
         self.assertIs(workspace_edit_ops.preview_append_project_file, workspace_text_edit_ops.preview_append_project_file)
         self.assertIs(workspace_edit_ops.regex_replace_project_file, workspace_text_edit_ops.regex_replace_project_file)
