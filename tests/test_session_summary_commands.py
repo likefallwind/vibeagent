@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import unittest
 
-from vibeagent import session_commands, session_plan_commands, session_summary_commands, session_summary_formatting
+from vibeagent import (
+    session_commands,
+    session_plan_commands,
+    session_summary_commands,
+    session_summary_formatting,
+    session_transcript_commands,
+)
 
 
 class SessionSummaryCommandsTests(unittest.TestCase):
@@ -39,6 +45,12 @@ class SessionSummaryCommandsTests(unittest.TestCase):
             session_summary_commands.format_session_plan_report_text,
             session_plan_commands.format_session_plan_report_text,
         )
+        self.assertIs(
+            session_summary_commands.format_session_transcript_report_text,
+            session_transcript_commands.format_session_transcript_report_text,
+        )
+        self.assertIs(session_summary_commands.get_transcript_report, session_transcript_commands.get_transcript_report)
+        self.assertIs(session_summary_commands.get_transcript_text, session_transcript_commands.get_transcript_text)
         self.assertIs(session_summary_commands.get_plan_report, session_plan_commands.get_plan_report)
         self.assertIs(session_summary_commands.get_plan_text, session_plan_commands.get_plan_text)
 
