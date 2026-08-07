@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from .action_parsing_helpers import ActionParseError, parse_nonnegative_int, parse_optional_positive_int, parse_path_list
+from .action_parsing_git_fields import (
+    parse_git_branch_create,
+    parse_git_commit_message,
+    parse_git_path_list,
+    parse_git_stash_options,
+    parse_git_stash_ref,
+    parse_optional_git_remote,
+)
+from .action_parsing_helpers import ActionParseError, parse_nonnegative_int, parse_optional_positive_int
 from .types import (
     CheckGitCommitAction,
     CheckGitFetchAction,
@@ -77,15 +85,6 @@ GIT_ACTION_TYPES = {
     "check_git_commit",
     "git_commit",
 }
-
-
-def parse_git_path_list(value: dict[str, Any], raw: str, action_name: str) -> list[str]:
-    paths = value.get("paths")
-    if paths is None and "path" in value:
-        paths = value.get("path")
-    if isinstance(paths, str):
-        paths = [paths]
-    return parse_path_list(paths, raw, action_name, maximum=100)
 
 
 def parse_git_action(action_type: object, value: dict[str, Any], raw: str) -> object | None:
@@ -218,20 +217,16 @@ def parse_git_action(action_type: object, value: dict[str, Any], raw: str) -> ob
         )
 
     if action_type == "check_git_fetch":
-        remote = value.get("remote")
-        if remote is not None and not isinstance(remote, str):
-            raise ActionParseError("check_git_fetch action remote must be a string when provided.", raw)
-        if isinstance(remote, str) and not remote.strip():
-            raise ActionParseError("check_git_fetch action remote must be non-empty when provided.", raw)
-        return CheckGitFetchAction(type="check_git_fetch", remote=remote.strip() if isinstance(remote, str) else None)
+        return CheckGitFetchAction(
+            type="check_git_fetch",
+            remote=parse_optional_git_remote(value, raw, "check_git_fetch"),
+        )
 
     if action_type == "git_fetch":
-        remote = value.get("remote")
-        if remote is not None and not isinstance(remote, str):
-            raise ActionParseError("git_fetch action remote must be a string when provided.", raw)
-        if isinstance(remote, str) and not remote.strip():
-            raise ActionParseError("git_fetch action remote must be non-empty when provided.", raw)
-        return GitFetchAction(type="git_fetch", remote=remote.strip() if isinstance(remote, str) else None)
+        return GitFetchAction(
+            type="git_fetch",
+            remote=parse_optional_git_remote(value, raw, "git_fetch"),
+        )
 
     if action_type == "check_git_pull":
         return CheckGitPullAction(type="check_git_pull")
@@ -246,21 +241,11 @@ def parse_git_action(action_type: object, value: dict[str, Any], raw: str) -> ob
         return GitPushAction(type="git_push")
 
     if action_type == "check_git_switch":
-        branch = value.get("branch")
-        create = value.get("create", False)
-        if not isinstance(branch, str) or not branch.strip():
-            raise ActionParseError("check_git_switch action requires a non-empty branch.", raw)
-        if type(create) is not bool:
-            raise ActionParseError("check_git_switch action create must be a boolean when provided.", raw)
+        branch, create = parse_git_branch_create(value, raw, "check_git_switch")
         return CheckGitSwitchAction(type="check_git_switch", branch=branch.strip(), create=create)
 
     if action_type == "git_switch":
-        branch = value.get("branch")
-        create = value.get("create", False)
-        if not isinstance(branch, str) or not branch.strip():
-            raise ActionParseError("git_switch action requires a non-empty branch.", raw)
-        if type(create) is not bool:
-            raise ActionParseError("git_switch action create must be a boolean when provided.", raw)
+        branch, create = parse_git_branch_create(value, raw, "git_switch")
         return GitSwitchAction(type="git_switch", branch=branch.strip(), create=create)
 
     if action_type == "check_git_stage":
@@ -286,61 +271,47 @@ def parse_git_action(action_type: object, value: dict[str, Any], raw: str) -> ob
         return GitStashesAction(type="git_stashes", max_entries=max_entries)
 
     if action_type == "check_git_stash":
-        message = value.get("message")
-        include_untracked = value.get("include_untracked", False)
-        if message is not None and not isinstance(message, str):
-            raise ActionParseError("check_git_stash action message must be a string when provided.", raw)
-        if not isinstance(include_untracked, bool):
-            raise ActionParseError("check_git_stash action include_untracked must be a boolean when provided.", raw)
+        message, include_untracked = parse_git_stash_options(value, raw, "check_git_stash")
         return CheckGitStashAction(type="check_git_stash", message=message, include_untracked=include_untracked)
 
     if action_type == "git_stash":
-        message = value.get("message")
-        include_untracked = value.get("include_untracked", False)
-        if message is not None and not isinstance(message, str):
-            raise ActionParseError("git_stash action message must be a string when provided.", raw)
-        if not isinstance(include_untracked, bool):
-            raise ActionParseError("git_stash action include_untracked must be a boolean when provided.", raw)
+        message, include_untracked = parse_git_stash_options(value, raw, "git_stash")
         return GitStashAction(type="git_stash", message=message, include_untracked=include_untracked)
 
     if action_type == "check_git_stash_apply":
-        stash_ref = value.get("stash_ref")
-        if not isinstance(stash_ref, str) or not stash_ref.strip():
-            raise ActionParseError("check_git_stash_apply action requires a non-empty stash_ref.", raw)
-        return CheckGitStashApplyAction(type="check_git_stash_apply", stash_ref=stash_ref.strip())
+        return CheckGitStashApplyAction(
+            type="check_git_stash_apply",
+            stash_ref=parse_git_stash_ref(value, raw, "check_git_stash_apply"),
+        )
 
     if action_type == "git_stash_apply":
-        stash_ref = value.get("stash_ref")
-        if not isinstance(stash_ref, str) or not stash_ref.strip():
-            raise ActionParseError("git_stash_apply action requires a non-empty stash_ref.", raw)
-        return GitStashApplyAction(type="git_stash_apply", stash_ref=stash_ref.strip())
+        return GitStashApplyAction(
+            type="git_stash_apply",
+            stash_ref=parse_git_stash_ref(value, raw, "git_stash_apply"),
+        )
 
     if action_type == "check_git_stash_drop":
-        stash_ref = value.get("stash_ref")
-        if not isinstance(stash_ref, str) or not stash_ref.strip():
-            raise ActionParseError("check_git_stash_drop action requires a non-empty stash_ref.", raw)
-        return CheckGitStashDropAction(type="check_git_stash_drop", stash_ref=stash_ref.strip())
+        return CheckGitStashDropAction(
+            type="check_git_stash_drop",
+            stash_ref=parse_git_stash_ref(value, raw, "check_git_stash_drop"),
+        )
 
     if action_type == "git_stash_drop":
-        stash_ref = value.get("stash_ref")
-        if not isinstance(stash_ref, str) or not stash_ref.strip():
-            raise ActionParseError("git_stash_drop action requires a non-empty stash_ref.", raw)
-        return GitStashDropAction(type="git_stash_drop", stash_ref=stash_ref.strip())
+        return GitStashDropAction(
+            type="git_stash_drop",
+            stash_ref=parse_git_stash_ref(value, raw, "git_stash_drop"),
+        )
 
     if action_type == "check_git_commit":
-        message = value.get("message")
-        if not isinstance(message, str) or not message.strip():
-            raise ActionParseError("check_git_commit action requires a non-empty string message.", raw)
-        if len(message.strip()) > 500:
-            raise ActionParseError("check_git_commit action message must be at most 500 characters.", raw)
-        return CheckGitCommitAction(type="check_git_commit", message=message.strip())
+        return CheckGitCommitAction(
+            type="check_git_commit",
+            message=parse_git_commit_message(value, raw, "check_git_commit"),
+        )
 
     if action_type == "git_commit":
-        message = value.get("message")
-        if not isinstance(message, str) or not message.strip():
-            raise ActionParseError("git_commit action requires a non-empty string message.", raw)
-        if len(message.strip()) > 500:
-            raise ActionParseError("git_commit action message must be at most 500 characters.", raw)
-        return GitCommitAction(type="git_commit", message=message.strip())
+        return GitCommitAction(
+            type="git_commit",
+            message=parse_git_commit_message(value, raw, "git_commit"),
+        )
 
     raise AssertionError(f"Unhandled git action type: {action_type!r}")
