@@ -1,23 +1,27 @@
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from .action_parsing_helpers import (
     ActionParseError,
-    parse_nonnegative_int,
     parse_optional_positive_int,
     parse_run_command_items,
 )
+from .action_parsing_process_fields import (
+    parse_command,
+    parse_optional_command_output_chars,
+    parse_optional_description,
+    parse_output_context_options,
+    parse_process_id,
+    parse_timeout_ms,
+    parse_write_process_content,
+)
+from .action_parsing_process_read import PROCESS_READ_ACTION_TYPES, parse_process_read_action
 from .types import (
     CheckStartCommandAction,
     CheckStopAllProcessesAction,
     CheckStopProcessAction,
     CheckWriteProcessAction,
-    ListProcessesAction,
-    ProcessOutputContextsAction,
-    ProcessOutputDiagnosticsAction,
-    ReadProcessAction,
     RunCommandAction,
     RunCommandsAction,
     StartCommandAction,
@@ -28,18 +32,14 @@ from .types import (
 )
 
 
-PROCESS_ACTION_TYPES = {
+PROCESS_ACTION_TYPES = PROCESS_READ_ACTION_TYPES | {
     "run_command",
     "run_commands",
     "check_start_command",
     "start_command",
-    "read_process",
-    "process_output_contexts",
-    "process_output_diagnostics",
     "wait_process",
     "check_write_process",
     "write_process",
-    "list_processes",
     "check_stop_all_processes",
     "check_stop_process",
     "stop_all_processes",
@@ -47,101 +47,16 @@ PROCESS_ACTION_TYPES = {
 }
 
 
-def _parse_command(value: Any, raw: str, action_type: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise ActionParseError(f"{action_type} action requires a non-empty command.", raw)
-    return value
-
-
-def _parse_optional_description(value: Any, raw: str, action_type: str) -> str | None:
-    if value is None:
-        return None
-    if not isinstance(value, str) or not value.strip():
-        raise ActionParseError(f"{action_type} action description must be a non-empty string when provided.", raw)
-    return value.strip()
-
-
-def _parse_process_id(value: Any, raw: str, action_type: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise ActionParseError(f"{action_type} action requires a non-empty process_id.", raw)
-    return value
-
-
-def _parse_write_process_content(value: dict[str, Any], raw: str, action_type: str) -> tuple[str | None, str | None]:
-    content = value.get("content")
-    stdin_file = value.get("stdin_file")
-    if content is not None and stdin_file is not None:
-        raise ActionParseError(f"{action_type} action requires either content or stdin_file, not both.", raw)
-    if stdin_file is not None:
-        if not isinstance(stdin_file, str) or not stdin_file.strip():
-            raise ActionParseError(f"{action_type} action stdin_file must be a non-empty string when provided.", raw)
-        return None, stdin_file
-    if not isinstance(content, str) or content == "":
-        raise ActionParseError(f"{action_type} action requires non-empty content.", raw)
-    return content, None
-
-
-def _parse_timeout_ms(value: Any, raw: str) -> int | None:
-    timeout_ms = parse_optional_positive_int(value, "timeout_ms", raw, maximum=600_000)
-    if timeout_ms is not None and timeout_ms < 100:
-        raise ActionParseError("timeout_ms must be at least 100.", raw)
-    return timeout_ms
-
-
-def _parse_optional_command_output_chars(value: Any, raw: str) -> int | None:
-    max_output_chars = parse_optional_positive_int(value, "max_output_chars", raw, maximum=50_000)
-    if max_output_chars is not None and max_output_chars < 1_000:
-        raise ActionParseError("max_output_chars must be at least 1000.", raw)
-    return max_output_chars
-
-
-def _parse_optional_output_filter(value: Any, raw: str) -> str | None:
-    if value is None:
-        return None
-    if not isinstance(value, str) or not value.strip():
-        raise ActionParseError("output_filter must be a non-empty string when provided.", raw)
-    pattern = value.strip()
-    try:
-        re.compile(pattern)
-    except re.error as error:
-        raise ActionParseError(f"output_filter must be a valid regex: {error}.", raw) from error
-    return pattern
-
-
-def _parse_bounded_output_chars(value: Any, raw: str, maximum: int) -> int:
-    if not isinstance(value, int):
-        raise ActionParseError("max_output_chars must be an integer.", raw)
-    if value < 0:
-        raise ActionParseError("max_output_chars must be at least 0.", raw)
-    if value > maximum:
-        raise ActionParseError(f"max_output_chars must be at most {maximum}.", raw)
-    return value
-
-
-def _parse_output_context_options(
-    value: dict[str, Any],
-    raw: str,
-    default_context_lines: int,
-) -> tuple[int, int, int]:
-    context_lines = parse_nonnegative_int(value.get("context_lines", default_context_lines), "context_lines", raw, maximum=500)
-    max_contexts = parse_optional_positive_int(value.get("max_contexts", 20), "max_contexts", raw, maximum=100) or 20
-    max_bytes_per_context = parse_optional_positive_int(
-        value.get("max_bytes_per_context", 20_000),
-        "max_bytes_per_context",
-        raw,
-        maximum=200_000,
-    ) or 20_000
-    if max_bytes_per_context < 1000:
-        raise ActionParseError("max_bytes_per_context must be at least 1000.", raw)
-    return context_lines, max_contexts, max_bytes_per_context
-
-
 def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -> object | None:
     if action_type not in PROCESS_ACTION_TYPES:
         return None
 
+    read_action = parse_process_read_action(action_type, value, raw)
+    if read_action is not None:
+        return read_action
+
     if action_type == "run_command":
-        command = _parse_command(value.get("command"), raw, "run_command")
+        command = parse_command(value.get("command"), raw, "run_command")
         cwd = value.get("cwd")
         if cwd is not None and not isinstance(cwd, str):
             raise ActionParseError("run_command action cwd must be a string when provided.", raw)
@@ -151,7 +66,7 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
         extract_output_diagnostics = value.get("extract_output_diagnostics", False)
         if not isinstance(extract_output_diagnostics, bool):
             raise ActionParseError("run_command action extract_output_diagnostics must be a boolean.", raw)
-        context_lines, max_contexts, max_bytes_per_context = _parse_output_context_options(
+        context_lines, max_contexts, max_bytes_per_context = parse_output_context_options(
             value,
             raw,
             default_context_lines=5,
@@ -160,10 +75,10 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
         return RunCommandAction(
             type="run_command",
             command=command,
-            timeout_ms=_parse_timeout_ms(value.get("timeout_ms"), raw),
+            timeout_ms=parse_timeout_ms(value.get("timeout_ms"), raw),
             cwd=cwd,
-            description=_parse_optional_description(value.get("description"), raw, "run_command"),
-            max_output_chars=_parse_optional_command_output_chars(value.get("max_output_chars"), raw),
+            description=parse_optional_description(value.get("description"), raw, "run_command"),
+            max_output_chars=parse_optional_command_output_chars(value.get("max_output_chars"), raw),
             extract_output_contexts=extract_output_contexts,
             extract_output_diagnostics=extract_output_diagnostics,
             context_lines=context_lines,
@@ -183,14 +98,14 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
         )
 
     if action_type == "check_start_command":
-        command = _parse_command(value.get("command"), raw, "check_start_command")
+        command = parse_command(value.get("command"), raw, "check_start_command")
         cwd = value.get("cwd")
         if cwd is not None and not isinstance(cwd, str):
             raise ActionParseError("check_start_command action cwd must be a string when provided.", raw)
         return CheckStartCommandAction(type="check_start_command", command=command, cwd=cwd)
 
     if action_type == "start_command":
-        command = _parse_command(value.get("command"), raw, "start_command")
+        command = parse_command(value.get("command"), raw, "start_command")
         cwd = value.get("cwd")
         if cwd is not None and not isinstance(cwd, str):
             raise ActionParseError("start_command action cwd must be a string when provided.", raw)
@@ -198,52 +113,12 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
             type="start_command",
             command=command,
             cwd=cwd,
-            max_output_chars=_parse_optional_command_output_chars(value.get("max_output_chars"), raw),
-            description=_parse_optional_description(value.get("description"), raw, "start_command"),
-        )
-
-    if action_type == "read_process":
-        return ReadProcessAction(
-            type="read_process",
-            process_id=_parse_process_id(value.get("process_id"), raw, "read_process"),
-            max_output_chars=_parse_optional_command_output_chars(value.get("max_output_chars"), raw),
-            output_filter=_parse_optional_output_filter(value.get("output_filter"), raw),
-        )
-
-    if action_type == "process_output_contexts":
-        context_lines, max_contexts, max_bytes_per_context = _parse_output_context_options(
-            value,
-            raw,
-            default_context_lines=5,
-        )
-        return ProcessOutputContextsAction(
-            type="process_output_contexts",
-            process_id=_parse_process_id(value.get("process_id"), raw, "process_output_contexts"),
-            max_output_chars=_parse_optional_command_output_chars(value.get("max_output_chars"), raw),
-            context_lines=context_lines,
-            max_contexts=max_contexts,
-            max_bytes_per_context=max_bytes_per_context,
-        )
-
-    if action_type == "process_output_diagnostics":
-        context_lines, max_contexts, max_bytes_per_context = _parse_output_context_options(
-            value,
-            raw,
-            default_context_lines=2,
-        )
-        max_diagnostics = parse_optional_positive_int(value.get("max_diagnostics", 50), "max_diagnostics", raw, maximum=200) or 50
-        return ProcessOutputDiagnosticsAction(
-            type="process_output_diagnostics",
-            process_id=_parse_process_id(value.get("process_id"), raw, "process_output_diagnostics"),
-            max_output_chars=_parse_optional_command_output_chars(value.get("max_output_chars"), raw),
-            context_lines=context_lines,
-            max_diagnostics=max_diagnostics,
-            max_contexts=max_contexts,
-            max_bytes_per_context=max_bytes_per_context,
+            max_output_chars=parse_optional_command_output_chars(value.get("max_output_chars"), raw),
+            description=parse_optional_description(value.get("description"), raw, "start_command"),
         )
 
     if action_type == "wait_process":
-        process_id = _parse_process_id(value.get("process_id"), raw, "wait_process")
+        process_id = parse_process_id(value.get("process_id"), raw, "wait_process")
         stdout_contains = value.get("stdout_contains")
         stderr_contains = value.get("stderr_contains")
         regex = value.get("regex", False)
@@ -256,25 +131,22 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
         return WaitProcessAction(
             type="wait_process",
             process_id=process_id,
-            timeout_ms=_parse_timeout_ms(value.get("timeout_ms"), raw),
+            timeout_ms=parse_timeout_ms(value.get("timeout_ms"), raw),
             stdout_contains=stdout_contains,
             stderr_contains=stderr_contains,
             regex=regex,
-            max_output_chars=_parse_optional_command_output_chars(value.get("max_output_chars"), raw),
+            max_output_chars=parse_optional_command_output_chars(value.get("max_output_chars"), raw),
         )
 
     if action_type == "check_write_process":
-        process_id = _parse_process_id(value.get("process_id"), raw, "check_write_process")
-        content, stdin_file = _parse_write_process_content(value, raw, "check_write_process")
+        process_id = parse_process_id(value.get("process_id"), raw, "check_write_process")
+        content, stdin_file = parse_write_process_content(value, raw, "check_write_process")
         return CheckWriteProcessAction(type="check_write_process", process_id=process_id, content=content, stdin_file=stdin_file)
 
     if action_type == "write_process":
-        process_id = _parse_process_id(value.get("process_id"), raw, "write_process")
-        content, stdin_file = _parse_write_process_content(value, raw, "write_process")
+        process_id = parse_process_id(value.get("process_id"), raw, "write_process")
+        content, stdin_file = parse_write_process_content(value, raw, "write_process")
         return WriteProcessAction(type="write_process", process_id=process_id, content=content, stdin_file=stdin_file)
-
-    if action_type == "list_processes":
-        return ListProcessesAction(type="list_processes")
 
     if action_type == "check_stop_all_processes":
         return CheckStopAllProcessesAction(type="check_stop_all_processes")
@@ -282,7 +154,7 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
     if action_type == "check_stop_process":
         return CheckStopProcessAction(
             type="check_stop_process",
-            process_id=_parse_process_id(value.get("process_id"), raw, "check_stop_process"),
+            process_id=parse_process_id(value.get("process_id"), raw, "check_stop_process"),
         )
 
     if action_type == "stop_all_processes":
@@ -291,7 +163,7 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
     if action_type == "stop_process":
         return StopProcessAction(
             type="stop_process",
-            process_id=_parse_process_id(value.get("process_id"), raw, "stop_process"),
+            process_id=parse_process_id(value.get("process_id"), raw, "stop_process"),
         )
 
     raise AssertionError(f"Unhandled process action type: {action_type!r}")
