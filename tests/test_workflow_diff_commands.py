@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import unittest
 
-from vibeagent import workflow_commands, workflow_diff_commands, workflow_diff_utils, workflow_plain_diff_commands
+from vibeagent import (
+    workflow_commands,
+    workflow_diff_commands,
+    workflow_diff_hunk_commands,
+    workflow_diff_utils,
+    workflow_plain_diff_commands,
+)
 
 
 class WorkflowDiffCommandsTests(unittest.TestCase):
@@ -19,6 +25,14 @@ class WorkflowDiffCommandsTests(unittest.TestCase):
         self.assertIs(workflow_diff_commands.get_diff_report, workflow_plain_diff_commands.get_diff_report)
         self.assertIs(workflow_diff_commands.get_diff_text, workflow_plain_diff_commands.get_diff_text)
         self.assertIs(workflow_diff_commands.format_diff_report_text, workflow_plain_diff_commands.format_diff_report_text)
+        self.assertIs(workflow_diff_commands.get_diff_hunks_report, workflow_diff_hunk_commands.get_diff_hunks_report)
+        self.assertIs(workflow_diff_commands.get_diff_hunks_text, workflow_diff_hunk_commands.get_diff_hunks_text)
+        self.assertIs(
+            workflow_diff_commands.format_diff_hunks_report_text,
+            workflow_diff_hunk_commands.format_diff_hunks_report_text,
+        )
+        self.assertIs(workflow_diff_commands.serialize_diff_hunk, workflow_diff_hunk_commands.serialize_diff_hunk)
+        self.assertIs(workflow_diff_commands.format_diff_hunk_lines, workflow_diff_hunk_commands.format_diff_hunk_lines)
 
     def test_diff_utils_keep_validation_behavior(self) -> None:
         self.assertEqual(workflow_diff_utils.parse_diff_argument("--staged app.py"), (True, "app.py"))
