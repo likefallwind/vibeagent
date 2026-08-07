@@ -6,7 +6,7 @@ from pathlib import Path
 from vibeagent.action_parsing import ActionParseError, parse_tool_action
 from vibeagent.actions import AGENT_TOOL_DEFINITIONS, execute_action
 from vibeagent.agent import run_agent
-from vibeagent import agent_delegate, agent_delegate_context
+from vibeagent import agent_delegate, agent_delegate_completion, agent_delegate_context
 from vibeagent.agent_delegate import (
     DELEGATE_TOOL_DEFINITIONS,
     code_delegate_initial_tool_names,
@@ -53,6 +53,20 @@ class DelegationTests(unittest.TestCase):
             agent_delegate.build_compacted_delegate_context,
             agent_delegate_context.build_compacted_delegate_context,
         )
+
+    def test_delegate_completion_helpers_live_in_completion_module(self) -> None:
+        self.assertIs(agent_delegate.clip_delegate_summary, agent_delegate_completion.clip_delegate_summary)
+        self.assertIs(agent_delegate.delegate_completion_message, agent_delegate_completion.delegate_completion_message)
+        self.assertIs(agent_delegate.finish_delegate_task, agent_delegate_completion.finish_delegate_task)
+
+    def test_delegate_completion_helpers_format_messages(self) -> None:
+        explore_action = parse_tool_action("delegate_task", {"task": "Inspect"})
+        code_action = parse_tool_action("delegate_task", {"task": "Patch", "mode": "code"})
+
+        self.assertEqual(agent_delegate_completion.delegate_completion_message(explore_action), "Subagent completed the investigation.")
+        self.assertEqual(agent_delegate_completion.delegate_completion_message(code_action), "Subagent completed the coding task.")
+        self.assertEqual(agent_delegate_completion.clip_delegate_summary("  short  "), "short")
+        self.assertEqual(agent_delegate_completion.clip_delegate_summary("abcdef", max_chars=3), "abc\n[delegate summary truncated]")
 
     def test_parse_delegate_task_normalizes_limits_and_context(self) -> None:
         action = parse_tool_action(
