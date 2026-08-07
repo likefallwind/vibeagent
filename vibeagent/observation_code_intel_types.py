@@ -36,42 +36,8 @@ from .observation_code_reference_types import (
     PythonReferencesObservation,
     ReferenceContextResult,
 )
+from .observation_python_call_types import PythonCall, PythonCallGraphObservation, PythonCallsObservation
 from .observation_read_types import CodeOutlineResult, PythonSymbol
-
-
-@dataclass(frozen=True)
-class PythonCall:
-    path: str
-    line: int
-    column: int
-    callee: str
-    caller: str | None
-    context: str
-
-
-@dataclass(frozen=True)
-class PythonCallsObservation:
-    kind: Literal["python_calls"]
-    symbol: str
-    path: str | None
-    calls: list[PythonCall]
-    total: int
-    truncated: bool
-    ok: bool
-    errors: list[str]
-    message: str
-
-
-@dataclass(frozen=True)
-class PythonCallGraphObservation:
-    kind: Literal["python_call_graph"]
-    path: str | None
-    edges: list[PythonCall]
-    total: int
-    truncated: bool
-    ok: bool
-    errors: list[str]
-    message: str
 
 
 @dataclass(frozen=True)
