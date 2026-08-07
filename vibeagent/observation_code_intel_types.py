@@ -11,6 +11,12 @@ from .observation_code_dependency_types import (
     PythonDependenciesResult,
     PythonImportRef,
 )
+from .observation_code_definition_types import (
+    CodeDefinition,
+    CodeDefinitionsObservation,
+    PythonDefinition,
+    PythonDefinitionsObservation,
+)
 from .observation_code_rename_types import (
     CodeRenameObservation,
     CodeRenamePreviewFile,
@@ -31,59 +37,6 @@ from .observation_code_reference_types import (
     ReferenceContextResult,
 )
 from .observation_read_types import CodeOutlineResult, PythonSymbol
-
-
-@dataclass(frozen=True)
-class CodeDefinition:
-    path: str
-    language: str
-    name: str
-    kind: str
-    line: int
-    end_line: int
-    content: str
-    truncated: bool
-    message: str
-
-
-@dataclass(frozen=True)
-class CodeDefinitionsObservation:
-    kind: Literal["code_definitions"]
-    symbol: str
-    path: str | None
-    definitions: list[CodeDefinition]
-    total: int
-    truncated: bool
-    ok: bool
-    errors: list[str]
-    message: str
-
-
-@dataclass(frozen=True)
-class PythonDefinition:
-    path: str
-    name: str
-    qualified_name: str
-    kind: Literal["class", "function", "async_function"]
-    line: int
-    end_line: int
-    parent: str | None
-    content: str
-    truncated: bool
-    message: str
-
-
-@dataclass(frozen=True)
-class PythonDefinitionsObservation:
-    kind: Literal["python_definitions"]
-    symbol: str
-    path: str | None
-    definitions: list[PythonDefinition]
-    total: int
-    truncated: bool
-    ok: bool
-    errors: list[str]
-    message: str
 
 
 @dataclass(frozen=True)
