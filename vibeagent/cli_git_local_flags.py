@@ -6,6 +6,7 @@ from typing import Any
 
 from .cli_git_read_local_flags import run_git_read_local_flag
 from .cli_git_remote_local_flags import run_git_remote_local_flag
+from .cli_git_stash_local_flags import run_git_stash_local_flag
 from .cli_local_result import local_text_or_report
 
 
@@ -21,56 +22,9 @@ def run_git_local_flag(
     remote_result = run_git_remote_local_flag(args, project_root, commands)
     if remote_result is not None:
         return remote_result
-    if args.check_git_stash is not None:
-        stash_arg = commands["build_stash_argument"](args.check_git_stash, args.stash_include_untracked)
-        return local_text_or_report(
-            args,
-            "checkGitStash",
-            lambda: commands["get_check_stash_report"](root, stash_arg),
-            lambda report: commands["format_git_stash_report_text"]("Check stash", report),
-            lambda: commands["get_check_stash_text"](root, stash_arg),
-        )
-    if args.git_stash is not None:
-        stash_arg = commands["build_stash_argument"](args.git_stash, args.stash_include_untracked)
-        return local_text_or_report(
-            args,
-            "gitStash",
-            lambda: commands["get_stash_report"](root, stash_arg),
-            lambda report: commands["format_git_stash_report_text"]("Stash", report),
-            lambda: commands["get_stash_text"](root, stash_arg),
-        )
-    if args.check_git_stash_apply is not None:
-        return local_text_or_report(
-            args,
-            "checkGitStashApply",
-            lambda: commands["get_check_stash_apply_report"](root, args.check_git_stash_apply),
-            lambda report: commands["format_git_stash_apply_report_text"]("Check stash apply", report),
-            lambda: commands["get_check_stash_apply_text"](root, args.check_git_stash_apply),
-        )
-    if args.git_stash_apply is not None:
-        return local_text_or_report(
-            args,
-            "gitStashApply",
-            lambda: commands["get_stash_apply_report"](root, args.git_stash_apply),
-            lambda report: commands["format_git_stash_apply_report_text"]("Stash apply", report),
-            lambda: commands["get_stash_apply_text"](root, args.git_stash_apply),
-        )
-    if args.check_git_stash_drop is not None:
-        return local_text_or_report(
-            args,
-            "checkGitStashDrop",
-            lambda: commands["get_check_stash_drop_report"](root, args.check_git_stash_drop),
-            lambda report: commands["format_git_stash_drop_report_text"]("Check stash drop", report),
-            lambda: commands["get_check_stash_drop_text"](root, args.check_git_stash_drop),
-        )
-    if args.git_stash_drop is not None:
-        return local_text_or_report(
-            args,
-            "gitStashDrop",
-            lambda: commands["get_stash_drop_report"](root, args.git_stash_drop),
-            lambda report: commands["format_git_stash_drop_report_text"]("Stash drop", report),
-            lambda: commands["get_stash_drop_text"](root, args.git_stash_drop),
-        )
+    stash_result = run_git_stash_local_flag(args, project_root, commands)
+    if stash_result is not None:
+        return stash_result
     if args.check_git_stage is not None:
         return local_text_or_report(
             args,
