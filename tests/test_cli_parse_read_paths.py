@@ -11,6 +11,10 @@ from vibeagent.cli_parse_read import (
     parse_interactive_tree_argument,
 )
 from vibeagent.cli_parse_read_paths import parse_interactive_read_path_options
+from vibeagent.cli_parse_read_tree_symbols import (
+    parse_interactive_symbols_argument as parse_interactive_symbols_argument_impl,
+    parse_interactive_tree_argument as parse_interactive_tree_argument_impl,
+)
 
 
 class CliParseReadPathTests(unittest.TestCase):
@@ -80,6 +84,8 @@ class CliParseReadPathTests(unittest.TestCase):
         self.assertIn("provide --line-numbers at most once.", error or "")
 
     def test_read_entrypoints_preserve_existing_return_shapes(self) -> None:
+        self.assertIs(parse_interactive_tree_argument, parse_interactive_tree_argument_impl)
+        self.assertIs(parse_interactive_symbols_argument, parse_interactive_symbols_argument_impl)
         self.assertEqual(
             parse_interactive_read_argument(
                 "--line-numbers --max-bytes 80 -- src/app.py 10:12"
