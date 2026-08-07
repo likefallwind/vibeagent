@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from vibeagent import git_commands
-from vibeagent import git_history_commands, git_history_report_helpers
+from vibeagent import git_history_commands, git_history_report_helpers, git_index_report_helpers, git_local_report_helpers
 from vibeagent.git_read_commands import (
     _clip,
     _indent_block,
@@ -230,6 +230,13 @@ class GitCommandModuleTests(unittest.TestCase):
         self.assertIs(git_commands.format_git_commit_report_text, format_git_commit_report_text)
         self.assertIs(git_commands.format_git_restore_report_text, format_git_restore_report_text)
         self.assertIs(git_commands.format_git_switch_report_text, format_git_switch_report_text)
+
+    def test_git_local_report_helpers_reexports_index_helpers(self) -> None:
+        self.assertIs(git_local_report_helpers.git_index_usage_report, git_index_report_helpers.git_index_usage_report)
+        self.assertIs(git_local_report_helpers.git_index_unexpected_report, git_index_report_helpers.git_index_unexpected_report)
+        self.assertIs(git_local_report_helpers.git_index_observation_report, git_index_report_helpers.git_index_observation_report)
+        self.assertIs(git_local_report_helpers.format_git_index_report_text, git_index_report_helpers.format_git_index_report_text)
+        self.assertIs(git_local_report_helpers.format_git_index_text, git_index_report_helpers.format_git_index_text)
 
     def test_stash_text_helpers_resolve_compatibility_patch_targets(self) -> None:
         root = Path(".").resolve()
