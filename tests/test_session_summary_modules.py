@@ -4,6 +4,7 @@ from vibeagent import session_summary_completion_reports
 from vibeagent import session_summary_details
 from vibeagent import session_summary_final_review
 from vibeagent import session_summary_model
+from vibeagent import session_summary_report_builders
 from vibeagent import session_summary_reports
 from vibeagent import session_tool_result_failures
 from vibeagent import session_utils
@@ -11,6 +12,22 @@ from vibeagent import session_utils
 
 class SessionSummaryModuleTests(unittest.TestCase):
     def test_session_summary_reports_reexports_completion_helpers(self) -> None:
+        self.assertIs(
+            session_summary_reports.build_session_summary_report,
+            session_summary_report_builders.build_session_summary_report,
+        )
+        self.assertIs(
+            session_summary_reports.build_session_plan_report,
+            session_summary_report_builders.build_session_plan_report,
+        )
+        self.assertIs(
+            session_summary_reports.session_summary_status,
+            session_summary_report_builders.session_summary_status,
+        )
+        self.assertIs(
+            session_summary_reports.session_plan_status,
+            session_summary_report_builders.session_plan_status,
+        )
         self.assertIs(
             session_summary_reports.final_review_resolved_by_completion,
             session_summary_completion_reports.final_review_resolved_by_completion,
