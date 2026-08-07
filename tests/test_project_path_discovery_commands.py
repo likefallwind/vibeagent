@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from vibeagent import project_discovery_commands, project_path_discovery_commands
+from vibeagent import project_path_discovery_formatting
 
 
 class ProjectPathDiscoveryCommandsTests(unittest.TestCase):
@@ -18,6 +19,28 @@ class ProjectPathDiscoveryCommandsTests(unittest.TestCase):
         self.assertIs(project_discovery_commands.get_tree_text, project_path_discovery_commands.get_tree_text)
         self.assertIs(project_discovery_commands.get_tree_report, project_path_discovery_commands.get_tree_report)
         self.assertIs(project_discovery_commands.format_tree_report_text, project_path_discovery_commands.format_tree_report_text)
+
+    def test_path_discovery_commands_reexports_formatting_helpers(self) -> None:
+        self.assertIs(
+            project_path_discovery_commands.format_find_files_report_text,
+            project_path_discovery_formatting.format_find_files_report_text,
+        )
+        self.assertIs(
+            project_path_discovery_commands.format_glob_report_text,
+            project_path_discovery_formatting.format_glob_report_text,
+        )
+        self.assertIs(
+            project_path_discovery_commands.format_tree_report_text,
+            project_path_discovery_formatting.format_tree_report_text,
+        )
+        self.assertIs(
+            project_path_discovery_commands._path_matches_failure_report,
+            project_path_discovery_formatting.path_matches_failure_report,
+        )
+        self.assertIs(
+            project_path_discovery_commands._tree_failure_report,
+            project_path_discovery_formatting.tree_failure_report,
+        )
 
     def test_find_files_report_handles_matches_directories_and_usage(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
