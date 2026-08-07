@@ -5,6 +5,7 @@ import unittest
 from vibeagent import (
     session_commands,
     session_plan_commands,
+    session_search_commands,
     session_summary_commands,
     session_summary_formatting,
     session_transcript_commands,
@@ -49,6 +50,13 @@ class SessionSummaryCommandsTests(unittest.TestCase):
             session_summary_commands.format_session_transcript_report_text,
             session_transcript_commands.format_session_transcript_report_text,
         )
+        self.assertIs(
+            session_summary_commands.format_session_search_report_text,
+            session_search_commands.format_session_search_report_text,
+        )
+        self.assertIs(session_summary_commands.get_session_search_report, session_search_commands.get_session_search_report)
+        self.assertIs(session_summary_commands.get_session_search_text, session_search_commands.get_session_search_text)
+        self.assertIs(session_summary_commands.SESSION_SEARCH_USAGE, session_search_commands.SESSION_SEARCH_USAGE)
         self.assertIs(session_summary_commands.get_transcript_report, session_transcript_commands.get_transcript_report)
         self.assertIs(session_summary_commands.get_transcript_text, session_transcript_commands.get_transcript_text)
         self.assertIs(session_summary_commands.get_plan_report, session_plan_commands.get_plan_report)
