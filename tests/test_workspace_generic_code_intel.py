@@ -2,6 +2,7 @@ import unittest
 
 from vibeagent import workspace_code_intel
 from vibeagent import workspace_generic_code_intel
+from vibeagent import workspace_generic_code_lookup
 
 
 class WorkspaceGenericCodeIntelTests(unittest.TestCase):
@@ -17,6 +18,16 @@ class WorkspaceGenericCodeIntelTests(unittest.TestCase):
         for name in names:
             with self.subTest(name=name):
                 self.assertIs(getattr(workspace_code_intel, name), getattr(workspace_generic_code_intel, name))
+
+    def test_generic_code_intel_reexports_lookup_helpers(self) -> None:
+        for name in [
+            "read_code_outline",
+            "inspect_code_dependencies",
+            "find_code_references",
+            "find_code_definitions",
+        ]:
+            with self.subTest(name=name):
+                self.assertIs(getattr(workspace_generic_code_intel, name), getattr(workspace_generic_code_lookup, name))
 
 
 if __name__ == "__main__":
