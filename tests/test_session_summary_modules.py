@@ -5,6 +5,8 @@ from vibeagent import session_summary_details
 from vibeagent import session_summary_final_review
 from vibeagent import session_summary_model
 from vibeagent import session_summary_reports
+from vibeagent import session_tool_result_failures
+from vibeagent import session_utils
 
 
 class SessionSummaryModuleTests(unittest.TestCase):
@@ -98,6 +100,27 @@ class SessionSummaryModuleTests(unittest.TestCase):
         self.assertEqual(review.message, " review blocked ")
         self.assertEqual(review.python_failures, ["app.py: SyntaxError"])
         self.assertEqual(review.config_failures, ["pyproject.toml: invalid"])
+
+    def test_session_utils_reexports_tool_result_failure_classifier(self) -> None:
+        self.assertIs(session_utils.is_failed_tool_result, session_tool_result_failures.is_failed_tool_result)
+
+    def test_tool_result_failure_classifier_handles_key_result_shapes(self) -> None:
+        self.assertTrue(session_tool_result_failures.is_failed_tool_result({"kind": "tool_error"}))
+        self.assertTrue(
+            session_tool_result_failures.is_failed_tool_result(
+                {"kind": "read_files", "files": [{"ok": True}, {"ok": False}]}
+            )
+        )
+        self.assertTrue(
+            session_tool_result_failures.is_failed_tool_result(
+                {"kind": "run_command", "result": {"exit_code": 1, "timed_out": False}}
+            )
+        )
+        self.assertFalse(
+            session_tool_result_failures.is_failed_tool_result(
+                {"kind": "run_command", "result": {"exit_code": 0, "timed_out": False}}
+            )
+        )
 
 
 if __name__ == "__main__":
