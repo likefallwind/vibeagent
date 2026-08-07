@@ -4,6 +4,7 @@ import unittest
 
 from vibeagent import (
     workflow_commands,
+    workflow_diff_context_commands,
     workflow_diff_commands,
     workflow_diff_hunk_commands,
     workflow_diff_utils,
@@ -33,6 +34,19 @@ class WorkflowDiffCommandsTests(unittest.TestCase):
         )
         self.assertIs(workflow_diff_commands.serialize_diff_hunk, workflow_diff_hunk_commands.serialize_diff_hunk)
         self.assertIs(workflow_diff_commands.format_diff_hunk_lines, workflow_diff_hunk_commands.format_diff_hunk_lines)
+        self.assertIs(
+            workflow_diff_commands.get_diff_contexts_report,
+            workflow_diff_context_commands.get_diff_contexts_report,
+        )
+        self.assertIs(workflow_diff_commands.get_diff_contexts_text, workflow_diff_context_commands.get_diff_contexts_text)
+        self.assertIs(
+            workflow_diff_commands.format_diff_contexts_report_text,
+            workflow_diff_context_commands.format_diff_contexts_report_text,
+        )
+        self.assertIs(
+            workflow_diff_commands.serialize_file_context_result,
+            workflow_diff_context_commands.serialize_file_context_result,
+        )
 
     def test_diff_utils_keep_validation_behavior(self) -> None:
         self.assertEqual(workflow_diff_utils.parse_diff_argument("--staged app.py"), (True, "app.py"))
