@@ -9,6 +9,7 @@ from vibeagent import workspace_code_language
 from vibeagent import workspace_file_helpers
 from vibeagent import workspace_file_read
 from vibeagent import workspace_environment_info, workspace_project_info
+from vibeagent import workspace_project_commands
 from vibeagent import workspace_project_instructions
 from vibeagent import workspace_project_metadata
 from vibeagent import workspace_python_definitions
@@ -143,6 +144,9 @@ class WorkspaceTests(unittest.TestCase):
         )
         self.assertIs(workspace_project_info.project_instruction_scope, workspace_project_instructions.project_instruction_scope)
         self.assertIs(workspace_project_info.project_instruction_sort_key, workspace_project_instructions.project_instruction_sort_key)
+        self.assertIs(workspace_project_info.read_project_command_hints, workspace_project_commands.read_project_command_hints)
+        self.assertIs(workspace_project_info.read_project_commands, workspace_project_commands.read_project_commands)
+        self.assertIs(workspace_project_info.format_command_hint, workspace_project_commands.format_command_hint)
 
     def test_workspace_python_intel_reexports_symbol_helpers(self) -> None:
         self.assertIs(workspace_python_intel.collect_python_call_graph_edges, workspace_python_symbols.collect_python_call_graph_edges)
