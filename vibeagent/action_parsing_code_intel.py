@@ -4,27 +4,25 @@ from typing import Any
 
 from .action_parsing_helpers import (
     ActionParseError,
-    parse_code_rename_input,
     parse_nonnegative_int,
     parse_optional_positive_int,
 )
+from .action_parsing_code_rename import (
+    parse_code_rename_action,
+    parse_python_rename_action,
+    parse_replace_python_definition_action,
+)
 from .types import (
-    CheckReplacePythonDefinitionAction,
     CodeDefinitionsAction,
     CodeDependenciesAction,
     CodeReferenceContextsAction,
     CodeReferencesAction,
-    CodeRenameAction,
-    CodeRenamePreviewAction,
     PythonCallGraphAction,
     PythonCallsAction,
     PythonDefinitionsAction,
     PythonDependenciesAction,
     PythonReferenceContextsAction,
     PythonReferencesAction,
-    PythonRenameAction,
-    PythonRenamePreviewAction,
-    ReplacePythonDefinitionAction,
 )
 
 
@@ -51,6 +49,16 @@ CODE_INTEL_ACTION_TYPES = {
 def parse_code_intel_action(action_type: object, value: dict[str, Any], raw: str) -> object | None:
     if action_type not in CODE_INTEL_ACTION_TYPES:
         return None
+
+    rename_action = parse_code_rename_action(action_type, value, raw)
+    if rename_action is not None:
+        return rename_action
+    replace_definition_action = parse_replace_python_definition_action(action_type, value, raw)
+    if replace_definition_action is not None:
+        return replace_definition_action
+    python_rename_action = parse_python_rename_action(action_type, value, raw)
+    if python_rename_action is not None:
+        return python_rename_action
 
     if action_type == "python_dependencies":
         path = value.get("path")
@@ -141,38 +149,6 @@ def parse_code_intel_action(action_type: object, value: dict[str, Any], raw: str
             max_lines=max_lines,
         )
 
-    if action_type == "code_rename_preview":
-        symbol, new_name, path, max_files, max_replacements = parse_code_rename_input(
-            value,
-            raw,
-            "code_rename_preview",
-            default_max_replacements=500,
-        )
-        return CodeRenamePreviewAction(
-            type="code_rename_preview",
-            symbol=symbol,
-            new_name=new_name,
-            path=path,
-            max_files=max_files,
-            max_replacements=max_replacements,
-        )
-
-    if action_type == "code_rename":
-        symbol, new_name, path, max_files, max_replacements = parse_code_rename_input(
-            value,
-            raw,
-            "code_rename",
-            default_max_replacements=2000,
-        )
-        return CodeRenameAction(
-            type="code_rename",
-            symbol=symbol,
-            new_name=new_name,
-            path=path,
-            max_files=max_files,
-            max_replacements=max_replacements,
-        )
-
     if action_type == "python_definitions":
         symbol = value.get("symbol")
         path = value.get("path")
@@ -206,40 +182,6 @@ def parse_code_intel_action(action_type: object, value: dict[str, Any], raw: str
             symbol=symbol.strip(),
             path=path,
             max_matches=max_matches,
-        )
-
-    if action_type == "check_replace_python_definition":
-        symbol = value.get("symbol")
-        content = value.get("content")
-        path = value.get("path")
-        if not isinstance(symbol, str) or not symbol.strip():
-            raise ActionParseError("check_replace_python_definition action requires a non-empty symbol.", raw)
-        if not isinstance(content, str) or not content.strip():
-            raise ActionParseError("check_replace_python_definition action requires non-empty string content.", raw)
-        if path is not None and not isinstance(path, str):
-            raise ActionParseError("check_replace_python_definition action path must be a string when provided.", raw)
-        return CheckReplacePythonDefinitionAction(
-            type="check_replace_python_definition",
-            symbol=symbol.strip(),
-            content=content,
-            path=path,
-        )
-
-    if action_type == "replace_python_definition":
-        symbol = value.get("symbol")
-        content = value.get("content")
-        path = value.get("path")
-        if not isinstance(symbol, str) or not symbol.strip():
-            raise ActionParseError("replace_python_definition action requires a non-empty symbol.", raw)
-        if not isinstance(content, str) or not content.strip():
-            raise ActionParseError("replace_python_definition action requires non-empty string content.", raw)
-        if path is not None and not isinstance(path, str):
-            raise ActionParseError("replace_python_definition action path must be a string when provided.", raw)
-        return ReplacePythonDefinitionAction(
-            type="replace_python_definition",
-            symbol=symbol.strip(),
-            content=content,
-            path=path,
         )
 
     if action_type == "python_call_graph":
@@ -290,52 +232,6 @@ def parse_code_intel_action(action_type: object, value: dict[str, Any], raw: str
             max_matches=max_matches,
             context_lines=context_lines,
             max_bytes_per_context=max_bytes_per_context,
-        )
-
-    if action_type == "python_rename_preview":
-        symbol = value.get("symbol")
-        new_name = value.get("new_name")
-        path = value.get("path")
-        max_files = value.get("max_files", 100)
-        max_replacements = value.get("max_replacements", 500)
-        if not isinstance(symbol, str) or not symbol.strip():
-            raise ActionParseError("python_rename_preview action requires a non-empty symbol.", raw)
-        if not isinstance(new_name, str) or not new_name.strip():
-            raise ActionParseError("python_rename_preview action requires a non-empty new_name.", raw)
-        if path is not None and not isinstance(path, str):
-            raise ActionParseError("python_rename_preview action path must be a string when provided.", raw)
-        max_files = parse_optional_positive_int(max_files, "max_files", raw, maximum=500) or 100
-        max_replacements = parse_optional_positive_int(max_replacements, "max_replacements", raw, maximum=2000) or 500
-        return PythonRenamePreviewAction(
-            type="python_rename_preview",
-            symbol=symbol.strip(),
-            new_name=new_name.strip(),
-            path=path,
-            max_files=max_files,
-            max_replacements=max_replacements,
-        )
-
-    if action_type == "python_rename":
-        symbol = value.get("symbol")
-        new_name = value.get("new_name")
-        path = value.get("path")
-        max_files = value.get("max_files", 100)
-        max_replacements = value.get("max_replacements", 2000)
-        if not isinstance(symbol, str) or not symbol.strip():
-            raise ActionParseError("python_rename action requires a non-empty symbol.", raw)
-        if not isinstance(new_name, str) or not new_name.strip():
-            raise ActionParseError("python_rename action requires a non-empty new_name.", raw)
-        if path is not None and not isinstance(path, str):
-            raise ActionParseError("python_rename action path must be a string when provided.", raw)
-        max_files = parse_optional_positive_int(max_files, "max_files", raw, maximum=500) or 100
-        max_replacements = parse_optional_positive_int(max_replacements, "max_replacements", raw, maximum=2000) or 2000
-        return PythonRenameAction(
-            type="python_rename",
-            symbol=symbol.strip(),
-            new_name=new_name.strip(),
-            path=path,
-            max_files=max_files,
-            max_replacements=max_replacements,
         )
 
     raise AssertionError(f"Unhandled code intelligence action type: {action_type!r}")
