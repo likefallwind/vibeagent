@@ -4,6 +4,8 @@ import unittest
 
 from vibeagent import config
 from vibeagent import config_costs
+from vibeagent import session_costs
+from vibeagent import session_usage
 
 
 @dataclass(frozen=True)
@@ -17,6 +19,15 @@ class TestCostRates:
 class ConfigCostsTests(unittest.TestCase):
     def test_config_reexports_cost_rate_parser(self) -> None:
         self.assertIs(config.parse_cost_rate, config_costs.parse_cost_rate)
+
+    def test_session_usage_reexports_cost_helpers(self) -> None:
+        self.assertIs(session_usage.decimal_rate_string, session_costs.decimal_rate_string)
+        self.assertIs(session_usage.decimal_usd_string, session_costs.decimal_usd_string)
+        self.assertIs(session_usage.format_usd, session_costs.format_usd)
+        self.assertIs(session_usage.missing_cost_rate_names, session_costs.missing_cost_rate_names)
+        self.assertIs(session_usage.serialize_cost_rates, session_costs.serialize_cost_rates)
+        self.assertIs(session_usage.token_cost, session_costs.token_cost)
+        self.assertIs(session_usage.usage_has_tokens, session_costs.usage_has_tokens)
 
     def test_cost_rate_helpers_keep_existing_behavior(self) -> None:
         self.assertEqual(config_costs.parse_cost_rate("0.25", "RATE"), (Decimal("0.25"), None))
