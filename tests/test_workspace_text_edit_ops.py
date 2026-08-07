@@ -2,6 +2,7 @@ import unittest
 
 from vibeagent import (
     workspace_edit_ops,
+    workspace_exact_edit_ops,
     workspace_line_edit_ops,
     workspace_regex_edit_ops,
     workspace_text_edit_ops,
@@ -25,6 +26,13 @@ class WorkspaceTextEditOpsModuleTests(unittest.TestCase):
         self.assertIs(workspace_edit_ops.preview_edit_project_file, workspace_text_edit_ops.preview_edit_project_file)
         self.assertIs(workspace_edit_ops.multi_edit_project_file, workspace_text_edit_ops.multi_edit_project_file)
         self.assertIs(workspace_edit_ops.preview_multi_edit_project_file, workspace_text_edit_ops.preview_multi_edit_project_file)
+        self.assertIs(workspace_text_edit_ops.edit_project_file, workspace_exact_edit_ops.edit_project_file)
+        self.assertIs(workspace_text_edit_ops.preview_edit_project_file, workspace_exact_edit_ops.preview_edit_project_file)
+        self.assertIs(workspace_text_edit_ops.build_edit_file, workspace_exact_edit_ops.build_edit_file)
+        self.assertIs(workspace_text_edit_ops.multi_edit_project_file, workspace_exact_edit_ops.multi_edit_project_file)
+        self.assertIs(workspace_text_edit_ops.preview_multi_edit_project_file, workspace_exact_edit_ops.preview_multi_edit_project_file)
+        self.assertIs(workspace_text_edit_ops.build_multi_edit, workspace_exact_edit_ops.build_multi_edit)
+        self.assertIs(workspace_text_edit_ops.EditSpec, workspace_exact_edit_ops.EditSpec)
         self.assertIs(workspace_edit_ops.replace_project_file_lines, workspace_text_edit_ops.replace_project_file_lines)
         self.assertIs(workspace_edit_ops.preview_replace_project_file_lines, workspace_text_edit_ops.preview_replace_project_file_lines)
         self.assertIs(workspace_edit_ops.insert_project_file_lines, workspace_text_edit_ops.insert_project_file_lines)
