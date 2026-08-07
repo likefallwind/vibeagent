@@ -1,21 +1,14 @@
 from __future__ import annotations
 
 from .file_directory_copy_action_executor import execute_directory_copy_action
+from .file_directory_create_action_executor import execute_directory_create_action
 from .file_directory_move_action_executor import execute_directory_move_action
 from .file_executable_action_executor import execute_executable_file_action
 from .types import (
-    CheckCreateDirectoryAction,
-    CheckCreateDirectoryObservation,
-    CheckCreateDirectoriesAction,
-    CheckCreateDirectoriesObservation,
     CheckDeleteEmptyDirectoryAction,
     CheckDeleteEmptyDirectoryObservation,
     CheckDeleteEmptyDirectoriesAction,
     CheckDeleteEmptyDirectoriesObservation,
-    CreateDirectoryAction,
-    CreateDirectoryObservation,
-    CreateDirectoriesAction,
-    CreateDirectoriesObservation,
     DeleteEmptyDirectoryAction,
     DeleteEmptyDirectoryObservation,
     DeleteEmptyDirectoriesAction,
@@ -24,12 +17,8 @@ from .types import (
 )
 from .workspace import (
     RunWorkspace,
-    create_project_directories,
-    create_project_directory,
     delete_project_empty_directories,
     delete_project_empty_directory,
-    preview_create_project_directories,
-    preview_create_project_directory,
     preview_delete_project_empty_directories,
     preview_delete_project_empty_directory,
 )
@@ -48,65 +37,9 @@ def execute_directory_file_action(workspace: RunWorkspace, action: object) -> Ob
     if copy_observation is not None:
         return copy_observation
 
-    if isinstance(action, CheckCreateDirectoryAction):
-        try:
-            preview_create_project_directory(workspace, action.path)
-            ok = True
-            message = f"Directory creation can apply to {action.path}."
-        except ValueError as error:
-            ok = False
-            message = str(error)
-        return CheckCreateDirectoryObservation(
-            kind="check_create_dir",
-            path=action.path,
-            ok=ok,
-            message=message,
-        )
-
-    if isinstance(action, CheckCreateDirectoriesAction):
-        try:
-            preview_create_project_directories(workspace, action.paths)
-            ok = True
-            message = f"Directory creation can apply to {len(action.paths)} path(s)."
-        except ValueError as error:
-            ok = False
-            message = str(error)
-        return CheckCreateDirectoriesObservation(
-            kind="check_create_dirs",
-            paths=action.paths,
-            ok=ok,
-            message=message,
-        )
-
-    if isinstance(action, CreateDirectoryAction):
-        try:
-            create_project_directory(workspace, action.path)
-            ok = True
-            message = f"Created directory {action.path}."
-        except ValueError as error:
-            ok = False
-            message = str(error)
-        return CreateDirectoryObservation(
-            kind="create_dir",
-            path=action.path,
-            ok=ok,
-            message=message,
-        )
-
-    if isinstance(action, CreateDirectoriesAction):
-        try:
-            create_project_directories(workspace, action.paths)
-            ok = True
-            message = f"Created {len(action.paths)} directory path(s)."
-        except ValueError as error:
-            ok = False
-            message = str(error)
-        return CreateDirectoriesObservation(
-            kind="create_dirs",
-            paths=action.paths,
-            ok=ok,
-            message=message,
-        )
+    create_observation = execute_directory_create_action(workspace, action)
+    if create_observation is not None:
+        return create_observation
 
     if isinstance(action, CheckDeleteEmptyDirectoryAction):
         try:
