@@ -20,7 +20,7 @@ from .project_focused_test_reports import (
     serialize_related_test_candidates,
     usage_message,
 )
-from .project_context_formatting import (
+from .project_test_formatting import (
     format_check_focused_test_commands_report_text,
     format_focused_test_commands_report_text,
     format_related_tests_report_text,
