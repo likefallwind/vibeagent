@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from vibeagent import git_commands
+from vibeagent import git_history_commands, git_history_report_helpers
 from vibeagent.git_read_commands import (
     _clip,
     _indent_block,
@@ -120,6 +121,26 @@ class GitCommandModuleTests(unittest.TestCase):
         self.assertIs(get_blame_text, history_get_blame_text)
         self.assertIs(parse_log_request, history_parse_log_request)
         self.assertIs(parse_show_request, history_parse_show_request)
+
+    def test_git_history_commands_reexports_report_helpers(self) -> None:
+        self.assertIs(git_history_commands._split_nonempty_lines, git_history_report_helpers.split_nonempty_lines)
+        self.assertIs(git_history_commands._usage_error, git_history_report_helpers.usage_error)
+        self.assertIs(git_history_commands._git_output_payload, git_history_report_helpers.git_output_payload)
+        self.assertIs(git_history_commands._git_log_items, git_history_report_helpers.git_log_items)
+
+    def test_git_history_report_helpers_parse_output_payloads(self) -> None:
+        self.assertEqual(git_history_report_helpers.split_nonempty_lines("one\n\n two \n"), ["one", " two "])
+        self.assertEqual(
+            git_history_report_helpers.git_output_payload("a\nb\n", truncated=True, max_output_chars=1000),
+            {"text": "a\nb\n", "chars": 4, "lines": 2, "truncated": True, "maxOutputChars": 1000},
+        )
+        self.assertEqual(
+            git_history_report_helpers.git_log_items("abc123 subject line\n\ndef456 another\n"),
+            [
+                {"hash": "abc123", "subject": "subject line", "raw": "abc123 subject line"},
+                {"hash": "def456", "subject": "another", "raw": "def456 another"},
+            ],
+        )
 
     def test_git_history_text_helpers_resolve_compatibility_patch_targets(self) -> None:
         root = Path(".").resolve()

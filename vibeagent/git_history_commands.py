@@ -7,6 +7,12 @@ import sys
 
 from .actions import execute_action as _default_execute_action
 from .read_command_parsing import parse_read_request
+from .git_history_report_helpers import (
+    git_log_items as _git_log_items,
+    git_output_payload as _git_output_payload,
+    split_nonempty_lines as _split_nonempty_lines,
+    usage_error as _usage_error,
+)
 from .git_read_report_helpers import format_blame_report_text, format_log_report_text, format_show_report_text
 from .local_command_workspace import local_command_workspace
 from .types import GitBlameAction, GitLogAction, GitShowAction
@@ -28,39 +34,6 @@ def _git_command_function(name: str, default: Callable[..., object]) -> Callable
     commands_module = sys.modules.get("vibeagent.git_commands")
     candidate = getattr(commands_module, name, None) if commands_module is not None else None
     return candidate if callable(candidate) else default
-
-
-def _split_nonempty_lines(value: str) -> list[str]:
-    return [line for line in value.splitlines() if line.strip()]
-
-
-def _usage_error(usage: str, error: object) -> str:
-    return f"{usage}\nError: {error}"
-
-
-def _git_output_payload(output: str, *, truncated: bool, max_output_chars: int) -> dict[str, object]:
-    lines = output.splitlines()
-    return {
-        "text": output,
-        "chars": len(output),
-        "lines": len(lines),
-        "truncated": truncated,
-        "maxOutputChars": max_output_chars,
-    }
-
-
-def _git_log_items(log: str) -> list[dict[str, object]]:
-    items: list[dict[str, object]] = []
-    for line in _split_nonempty_lines(log):
-        short_hash, _, subject = line.partition(" ")
-        items.append(
-            {
-                "hash": short_hash,
-                "subject": subject,
-                "raw": line,
-            }
-        )
-    return items
 
 
 def get_log_text(project_root: str | Path = ".", argument: str | None = None, max_count: int = 5) -> str:
