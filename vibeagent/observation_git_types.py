@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from .observation_git_conflict_types import GitConflictMarker, GitConflictStatus, GitConflictsObservation
 from .observation_git_read_types import (
     GitBlameObservation,
     GitDiffContext,
@@ -29,35 +30,6 @@ class GitStatusObservation:
     kind: Literal["git_status"]
     ok: bool
     status: str
-    message: str
-
-
-@dataclass(frozen=True)
-class GitConflictStatus:
-    path: str
-    status: str
-
-
-@dataclass(frozen=True)
-class GitConflictMarker:
-    path: str
-    line: int
-    marker: str
-    text: str
-
-
-@dataclass(frozen=True)
-class GitConflictsObservation:
-    kind: Literal["git_conflicts"]
-    ok: bool
-    path: str
-    unmerged: list[GitConflictStatus]
-    unmerged_total: int
-    markers: list[GitConflictMarker]
-    markers_total: int
-    scanned_files: int
-    total_files: int
-    truncated: bool
     message: str
 
 
