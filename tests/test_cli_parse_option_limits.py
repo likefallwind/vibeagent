@@ -6,8 +6,11 @@ from vibeagent import cli_parsing
 from vibeagent.cli_parse_discovery import (
     parse_interactive_commands_argument,
     parse_interactive_option_limit_argument as discovery_parse_option_limit_argument,
+    parse_interactive_repo_map_argument,
+    parse_interactive_todos_argument,
 )
 from vibeagent.cli_parse_option_limits import parse_interactive_option_limit_argument
+from vibeagent.cli_parse_path_limits import parse_optional_path_limit_argument
 
 
 class CliParseOptionLimitTests(unittest.TestCase):
@@ -65,6 +68,29 @@ class CliParseOptionLimitTests(unittest.TestCase):
         self.assertEqual(
             parse_interactive_commands_argument("--max-commands 2 --max-files=3"),
             ({"max_commands": 2, "max_files": 3}, None, True),
+        )
+
+    def test_path_limit_parser_accepts_optional_path_and_limit_options(self) -> None:
+        self.assertEqual(
+            parse_optional_path_limit_argument(
+                "src --max-depth 0 --max-files=3",
+                usage="Usage",
+                option_specs={
+                    "--max-depth": ("max_depth", "nonnegative"),
+                    "--max-files": ("max_files", "positive"),
+                },
+            ),
+            ("src", {"max_depth": 0, "max_files": 3}, None, True),
+        )
+
+    def test_path_limit_entrypoints_keep_existing_shapes(self) -> None:
+        self.assertEqual(
+            parse_interactive_repo_map_argument("src --max-depth 1 --max-files=4 --max-symbols 5"),
+            ("src", {"max_depth": 1, "max_files": 4, "max_symbols": 5}, None, True),
+        )
+        self.assertEqual(
+            parse_interactive_todos_argument("--max-items 3 --max-files=4 -- docs"),
+            ("docs", {"max_items": 3, "max_files": 4}, None, True),
         )
 
 
