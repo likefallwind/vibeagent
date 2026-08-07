@@ -1,6 +1,12 @@
 import unittest
 
-from vibeagent import workspace_edit_ops, workspace_line_edit_ops, workspace_regex_edit_ops, workspace_text_edit_ops
+from vibeagent import (
+    workspace_edit_ops,
+    workspace_line_edit_ops,
+    workspace_regex_edit_ops,
+    workspace_text_edit_ops,
+    workspace_write_edit_ops,
+)
 
 
 class WorkspaceTextEditOpsModuleTests(unittest.TestCase):
@@ -9,6 +15,12 @@ class WorkspaceTextEditOpsModuleTests(unittest.TestCase):
         self.assertIs(workspace_edit_ops.preview_write_run_file, workspace_text_edit_ops.preview_write_run_file)
         self.assertIs(workspace_edit_ops.write_run_files, workspace_text_edit_ops.write_run_files)
         self.assertIs(workspace_edit_ops.preview_write_run_files, workspace_text_edit_ops.preview_write_run_files)
+        self.assertIs(workspace_text_edit_ops.write_run_file, workspace_write_edit_ops.write_run_file)
+        self.assertIs(workspace_text_edit_ops.preview_write_run_file, workspace_write_edit_ops.preview_write_run_file)
+        self.assertIs(workspace_text_edit_ops.build_write_file, workspace_write_edit_ops.build_write_file)
+        self.assertIs(workspace_text_edit_ops.write_run_files, workspace_write_edit_ops.write_run_files)
+        self.assertIs(workspace_text_edit_ops.preview_write_run_files, workspace_write_edit_ops.preview_write_run_files)
+        self.assertIs(workspace_text_edit_ops.prepare_write_run_files, workspace_write_edit_ops.prepare_write_run_files)
         self.assertIs(workspace_edit_ops.edit_project_file, workspace_text_edit_ops.edit_project_file)
         self.assertIs(workspace_edit_ops.preview_edit_project_file, workspace_text_edit_ops.preview_edit_project_file)
         self.assertIs(workspace_edit_ops.multi_edit_project_file, workspace_text_edit_ops.multi_edit_project_file)
