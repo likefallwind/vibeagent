@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .action_parsing_helpers import directory_transfer_pairs
+from .file_directory_move_action_executor import execute_directory_move_action
 from .file_executable_action_executor import execute_executable_file_action
 from .types import (
     CheckCreateDirectoryAction,
@@ -15,10 +16,6 @@ from .types import (
     CheckDeleteEmptyDirectoryObservation,
     CheckDeleteEmptyDirectoriesAction,
     CheckDeleteEmptyDirectoriesObservation,
-    CheckMoveDirectoryAction,
-    CheckMoveDirectoryObservation,
-    CheckMoveDirectoriesAction,
-    CheckMoveDirectoriesObservation,
     CopyDirectoryAction,
     CopyDirectoryObservation,
     CopyDirectoriesAction,
@@ -31,10 +28,6 @@ from .types import (
     DeleteEmptyDirectoryObservation,
     DeleteEmptyDirectoriesAction,
     DeleteEmptyDirectoriesObservation,
-    MoveDirectoryAction,
-    MoveDirectoryObservation,
-    MoveDirectoriesAction,
-    MoveDirectoriesObservation,
     Observation,
 )
 from .workspace import (
@@ -45,16 +38,12 @@ from .workspace import (
     create_project_directory,
     delete_project_empty_directories,
     delete_project_empty_directory,
-    move_project_directories,
-    move_project_directory,
     preview_copy_project_directories,
     preview_copy_project_directory,
     preview_create_project_directories,
     preview_create_project_directory,
     preview_delete_project_empty_directories,
     preview_delete_project_empty_directory,
-    preview_move_project_directories,
-    preview_move_project_directory,
 )
 
 
@@ -63,67 +52,9 @@ def execute_directory_file_action(workspace: RunWorkspace, action: object) -> Ob
     if executable_observation is not None:
         return executable_observation
 
-    if isinstance(action, CheckMoveDirectoryAction):
-        try:
-            preview_move_project_directory(workspace, action.source, action.destination)
-            ok = True
-            message = f"Directory move can apply from {action.source} to {action.destination}."
-        except ValueError as error:
-            ok = False
-            message = str(error)
-        return CheckMoveDirectoryObservation(
-            kind="check_move_dir",
-            source=action.source,
-            destination=action.destination,
-            ok=ok,
-            message=message,
-        )
-
-    if isinstance(action, MoveDirectoryAction):
-        try:
-            move_project_directory(workspace, action.source, action.destination)
-            ok = True
-            message = f"Moved directory {action.source} to {action.destination}."
-        except ValueError as error:
-            ok = False
-            message = str(error)
-        return MoveDirectoryObservation(
-            kind="move_dir",
-            source=action.source,
-            destination=action.destination,
-            ok=ok,
-            message=message,
-        )
-
-    if isinstance(action, CheckMoveDirectoriesAction):
-        try:
-            preview_move_project_directories(workspace, directory_transfer_pairs(action.transfers))
-            ok = True
-            message = f"Directory move can apply to {len(action.transfers)} transfer(s)."
-        except ValueError as error:
-            ok = False
-            message = str(error)
-        return CheckMoveDirectoriesObservation(
-            kind="check_move_dirs",
-            transfers=action.transfers,
-            ok=ok,
-            message=message,
-        )
-
-    if isinstance(action, MoveDirectoriesAction):
-        try:
-            move_project_directories(workspace, directory_transfer_pairs(action.transfers))
-            ok = True
-            message = f"Moved {len(action.transfers)} directory transfer(s)."
-        except ValueError as error:
-            ok = False
-            message = str(error)
-        return MoveDirectoriesObservation(
-            kind="move_dirs",
-            transfers=action.transfers,
-            ok=ok,
-            message=message,
-        )
+    move_observation = execute_directory_move_action(workspace, action)
+    if move_observation is not None:
+        return move_observation
 
     if isinstance(action, CheckCopyDirectoryAction):
         try:

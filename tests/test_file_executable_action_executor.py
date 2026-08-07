@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from vibeagent.file_directory_action_executor import execute_directory_file_action
+from vibeagent.file_directory_move_action_executor import execute_directory_move_action
 from vibeagent.file_executable_action_executor import execute_executable_file_action
 from vibeagent.types import CheckSetExecutableAction, SetExecutableAction
 from vibeagent.workspace import create_run_workspace
@@ -57,6 +58,12 @@ class FileExecutableActionExecutorTests(unittest.TestCase):
             workspace = create_run_workspace(base, "test-run")
 
             self.assertIsNone(execute_executable_file_action(workspace, object()))
+
+    def test_execute_directory_move_action_returns_none_for_unhandled_actions(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-directory-move-executor-") as base:
+            workspace = create_run_workspace(base, "test-run")
+
+            self.assertIsNone(execute_directory_move_action(workspace, object()))
 
 
 if __name__ == "__main__":
