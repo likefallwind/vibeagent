@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .action_parsing_helpers import directory_transfer_pairs
+from .file_directory_copy_action_executor import execute_directory_copy_action
 from .file_directory_move_action_executor import execute_directory_move_action
 from .file_executable_action_executor import execute_executable_file_action
 from .types import (
@@ -8,18 +8,10 @@ from .types import (
     CheckCreateDirectoryObservation,
     CheckCreateDirectoriesAction,
     CheckCreateDirectoriesObservation,
-    CheckCopyDirectoryAction,
-    CheckCopyDirectoryObservation,
-    CheckCopyDirectoriesAction,
-    CheckCopyDirectoriesObservation,
     CheckDeleteEmptyDirectoryAction,
     CheckDeleteEmptyDirectoryObservation,
     CheckDeleteEmptyDirectoriesAction,
     CheckDeleteEmptyDirectoriesObservation,
-    CopyDirectoryAction,
-    CopyDirectoryObservation,
-    CopyDirectoriesAction,
-    CopyDirectoriesObservation,
     CreateDirectoryAction,
     CreateDirectoryObservation,
     CreateDirectoriesAction,
@@ -32,14 +24,10 @@ from .types import (
 )
 from .workspace import (
     RunWorkspace,
-    copy_project_directory,
-    copy_project_directories,
     create_project_directories,
     create_project_directory,
     delete_project_empty_directories,
     delete_project_empty_directory,
-    preview_copy_project_directories,
-    preview_copy_project_directory,
     preview_create_project_directories,
     preview_create_project_directory,
     preview_delete_project_empty_directories,
@@ -56,67 +44,9 @@ def execute_directory_file_action(workspace: RunWorkspace, action: object) -> Ob
     if move_observation is not None:
         return move_observation
 
-    if isinstance(action, CheckCopyDirectoryAction):
-        try:
-            preview_copy_project_directory(workspace, action.source, action.destination)
-            ok = True
-            message = f"Directory copy can apply from {action.source} to {action.destination}."
-        except ValueError as error:
-            ok = False
-            message = str(error)
-        return CheckCopyDirectoryObservation(
-            kind="check_copy_dir",
-            source=action.source,
-            destination=action.destination,
-            ok=ok,
-            message=message,
-        )
-
-    if isinstance(action, CheckCopyDirectoriesAction):
-        try:
-            preview_copy_project_directories(workspace, directory_transfer_pairs(action.transfers))
-            ok = True
-            message = f"Directory copy can apply to {len(action.transfers)} transfer(s)."
-        except ValueError as error:
-            ok = False
-            message = str(error)
-        return CheckCopyDirectoriesObservation(
-            kind="check_copy_dirs",
-            transfers=action.transfers,
-            ok=ok,
-            message=message,
-        )
-
-    if isinstance(action, CopyDirectoryAction):
-        try:
-            copy_project_directory(workspace, action.source, action.destination)
-            ok = True
-            message = f"Copied directory {action.source} to {action.destination}."
-        except ValueError as error:
-            ok = False
-            message = str(error)
-        return CopyDirectoryObservation(
-            kind="copy_dir",
-            source=action.source,
-            destination=action.destination,
-            ok=ok,
-            message=message,
-        )
-
-    if isinstance(action, CopyDirectoriesAction):
-        try:
-            copy_project_directories(workspace, directory_transfer_pairs(action.transfers))
-            ok = True
-            message = f"Copied {len(action.transfers)} directory transfer(s)."
-        except ValueError as error:
-            ok = False
-            message = str(error)
-        return CopyDirectoriesObservation(
-            kind="copy_dirs",
-            transfers=action.transfers,
-            ok=ok,
-            message=message,
-        )
+    copy_observation = execute_directory_copy_action(workspace, action)
+    if copy_observation is not None:
+        return copy_observation
 
     if isinstance(action, CheckCreateDirectoryAction):
         try:
