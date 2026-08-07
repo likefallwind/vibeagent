@@ -9,6 +9,11 @@ from .observation_project_check_types import (
     SuggestChecksObservation,
     SuggestedCheck,
 )
+from .observation_project_command_types import (
+    ProjectCommand,
+    ProjectCommandsObservation,
+    ToolSearchObservation,
+)
 from .observation_project_test_types import (
     CheckFocusedTestCommandsObservation,
     FocusedTestCommand,
@@ -32,44 +37,6 @@ from .observation_project_resource_types import (
     SkillObservation,
 )
 from .observation_runtime_types import RuntimeToolInfo
-
-
-@dataclass(frozen=True)
-class ProjectCommand:
-    file: str
-    cwd: str
-    source: str
-    command: str
-    detail: str
-    available: bool
-    missing_tool: str | None = None
-
-
-@dataclass(frozen=True)
-class ProjectCommandsObservation:
-    kind: Literal["project_commands"]
-    ok: bool
-    commands: list[ProjectCommand]
-    total: int
-    truncated: bool
-    total_files: int
-    scanned_files: int
-    message: str
-
-
-@dataclass(frozen=True)
-class ToolSearchObservation:
-    kind: Literal["tool_search"]
-    ok: bool
-    query: str
-    matches: list[dict[str, object]]
-    total: int
-    shown: int
-    truncated: bool
-    category: str | None
-    approval_required: bool | None
-    suggestions: list[str]
-    message: str
 
 
 @dataclass(frozen=True)
