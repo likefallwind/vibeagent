@@ -7,6 +7,7 @@ from unittest.mock import patch
 from vibeagent import git_commands
 from vibeagent import (
     git_fetch_report_helpers,
+    git_blame_commands,
     git_history_commands,
     git_history_report_helpers,
     git_index_report_helpers,
@@ -127,6 +128,8 @@ class GitCommandModuleTests(unittest.TestCase):
         self.assertIs(get_show_text, history_get_show_text)
         self.assertIs(get_blame_report, history_get_blame_report)
         self.assertIs(get_blame_text, history_get_blame_text)
+        self.assertIs(history_get_blame_report, git_blame_commands.get_blame_report)
+        self.assertIs(history_get_blame_text, git_blame_commands.get_blame_text)
         self.assertIs(parse_log_request, history_parse_log_request)
         self.assertIs(parse_show_request, history_parse_show_request)
         self.assertIs(history_get_log_report, git_log_commands.get_log_report)
