@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from vibeagent import workspace_path_discovery, workspace_search, workspace_tree_ignore
+from vibeagent import workspace_path_discovery, workspace_repo_map, workspace_search, workspace_tree_ignore
 
 
 class WorkspacePathDiscoveryTests(unittest.TestCase):
@@ -19,6 +19,9 @@ class WorkspacePathDiscoveryTests(unittest.TestCase):
     def test_path_discovery_reexports_tree_ignore_helpers(self) -> None:
         self.assertIs(workspace_path_discovery.normalize_list_tree_ignore, workspace_tree_ignore.normalize_list_tree_ignore)
         self.assertIs(workspace_path_discovery.list_tree_entry_matches_ignore, workspace_tree_ignore.list_tree_entry_matches_ignore)
+
+    def test_path_discovery_reexports_repo_map_helper(self) -> None:
+        self.assertIs(workspace_path_discovery.build_repo_map, workspace_repo_map.build_repo_map)
 
     def test_tree_ignore_helpers_normalize_and_match_patterns(self) -> None:
         ignore = workspace_tree_ignore.normalize_list_tree_ignore((" generated\\** ", "*.log"))
