@@ -9,6 +9,8 @@ from vibeagent.agent_action_descriptions import (
     log_action as compat_log_action,
 )
 from vibeagent.agent_approval import build_approval_request
+from vibeagent.agent_action_label_file_ops import build_file_operation_step_label
+from vibeagent.agent_action_label_process_ops import build_process_step_label
 from vibeagent.agent_action_labels import build_step_label
 from vibeagent.agent_action_logging import log_action
 from vibeagent.agent_action_targets import build_action_target
@@ -25,6 +27,23 @@ class AgentActionDescriptionTests(unittest.TestCase):
 
         self.assertEqual(build_step_label(action), "Run python3 -m unittest in tests")
         self.assertEqual(build_action_target(action), "python3 -m unittest (cwd: tests)")
+
+    def test_file_operation_step_labels_are_split_from_public_entrypoint(self) -> None:
+        action = t.CreateDirectoryAction(type="create_dir", path="reports")
+
+        self.assertEqual(build_file_operation_step_label(action), "Create directory reports")
+        self.assertEqual(build_step_label(action), "Create directory reports")
+
+    def test_process_step_labels_are_split_from_public_entrypoint(self) -> None:
+        action = t.StartCommandAction(
+            type="start_command",
+            command="python -m http.server",
+            cwd="docs",
+            description="Start docs server",
+        )
+
+        self.assertEqual(build_process_step_label(action), "Start: Start docs server in docs")
+        self.assertEqual(build_step_label(action), "Start: Start docs server in docs")
 
     def test_action_targets_reuse_approval_command_target_format(self) -> None:
         action = t.CheckRunCommandsAction(
