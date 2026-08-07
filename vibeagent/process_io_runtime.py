@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
-import re
 import subprocess
 import sys
 from typing import Any
 
+from .process_io_helpers import filter_output_lines as _filter_output_lines
+from .process_io_helpers import write_process_content_sha256
 from .process_lifecycle import close_background_handles, signal_name
 from .process_registry import (
     persistent_process_running,
@@ -27,17 +27,6 @@ def _background_processes() -> dict[str, Any]:
     runtime_module = sys.modules.get("vibeagent.process_runtime")
     value = getattr(runtime_module, "BACKGROUND_PROCESSES", None) if runtime_module is not None else None
     return value if isinstance(value, dict) else {}
-
-
-def write_process_content_sha256(content: str) -> str:
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()
-
-
-def _filter_output_lines(text: str, pattern: str | None) -> str:
-    if pattern is None:
-        return text
-    regex = re.compile(pattern)
-    return "".join(line for line in text.splitlines(keepends=True) if regex.search(line))
 
 
 def read_background_process(

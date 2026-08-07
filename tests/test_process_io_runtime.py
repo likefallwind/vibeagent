@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from vibeagent import process_io_runtime, process_runtime, process_wait_runtime
+from vibeagent import process_io_helpers, process_io_runtime, process_runtime, process_wait_runtime
 from vibeagent.agent_approval_preview import approval_preview_summary, command_check_fingerprint_payload
 from vibeagent.agent_tool_results import build_tool_result_payload
 from vibeagent.types import (
@@ -40,6 +40,19 @@ class ProcessIORuntimeModuleTests(unittest.TestCase):
         self.assertIs(process_io_runtime.wait_background_process_output, process_wait_runtime.wait_background_process_output)
         self.assertIs(process_io_runtime.match_process_output, process_wait_runtime.match_process_output)
         self.assertIs(process_io_runtime.read_text_tail, process_wait_runtime.read_text_tail)
+        self.assertIs(process_io_runtime.write_process_content_sha256, process_io_helpers.write_process_content_sha256)
+        self.assertIs(process_io_runtime._filter_output_lines, process_io_helpers.filter_output_lines)
+
+    def test_process_io_helpers_hash_and_filter_output(self) -> None:
+        self.assertEqual(
+            process_io_helpers.write_process_content_sha256("alpha\n"),
+            process_io_runtime.write_process_content_sha256("alpha\n"),
+        )
+        self.assertEqual(
+            process_io_helpers.filter_output_lines("ok\nERROR app.py:1\nok again\n", r"ERROR|again"),
+            "ERROR app.py:1\nok again\n",
+        )
+        self.assertEqual(process_io_helpers.filter_output_lines("all\nlines\n", None), "all\nlines\n")
 
     def test_match_process_output_supports_plain_and_regex_patterns(self) -> None:
         self.assertEqual(
