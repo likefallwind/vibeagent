@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from vibeagent import session_commands, session_output_commands
+from vibeagent import session_commands, session_output_commands, session_output_formatting
 
 
 class SessionOutputCommandModuleTests(unittest.TestCase):
@@ -24,6 +24,15 @@ class SessionOutputCommandModuleTests(unittest.TestCase):
             session_output_commands.format_session_output_contexts_report_text,
         )
         self.assertIs(
+            session_output_commands.format_session_output_contexts_report_text,
+            session_output_formatting.format_session_output_contexts_report_text,
+        )
+        self.assertIs(
+            session_output_commands._format_output_context_item_text,
+            session_output_formatting.format_output_context_item_text,
+        )
+        self.assertIs(session_output_commands._indent_block, session_output_formatting.indent_block)
+        self.assertIs(
             session_commands.get_session_output_diagnostics_text,
             session_output_commands.get_session_output_diagnostics_text,
         )
@@ -38,6 +47,10 @@ class SessionOutputCommandModuleTests(unittest.TestCase):
         self.assertIs(
             session_commands.format_session_output_diagnostics_report_text,
             session_output_commands.format_session_output_diagnostics_report_text,
+        )
+        self.assertIs(
+            session_output_commands.format_session_output_diagnostics_report_text,
+            session_output_formatting.format_session_output_diagnostics_report_text,
         )
 
 
