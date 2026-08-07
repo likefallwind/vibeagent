@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import shlex
 
 from .actions import execute_action
 from .check_report_helpers import serialize_not_run_focused_test_commands
@@ -9,8 +8,8 @@ from .local_runtime_commands import (
     command_results_clean,
     serialize_command_result,
     sum_command_result_duration_ms,
-    validate_run_output_context_options,
 )
+from .project_focused_test_validation import parse_related_tests_argument, validate_run_focused_test_options
 from .project_focused_test_reports import (
     empty_check_focused_test_commands_report,
     empty_focused_test_commands_report,
@@ -19,7 +18,6 @@ from .project_focused_test_reports import (
     serialize_command_check_items,
     serialize_focused_test_command_items,
     serialize_related_test_candidates,
-    usage_error,
     usage_message,
 )
 from .project_context_formatting import (
@@ -290,23 +288,17 @@ def get_run_focused_test_commands_report(
         paths = parse_related_tests_argument(argument)
     except ValueError as error:
         return failure(usage_message(RUN_FOCUSED_TESTS_USAGE, error))
-    if timeout_ms < 100:
-        return failure(usage_error(RUN_FOCUSED_TESTS_USAGE, "timeout_ms must be at least 100."))
-    if timeout_ms > 600_000:
-        return failure(usage_error(RUN_FOCUSED_TESTS_USAGE, "timeout_ms must be at most 600000."))
-    if max_output_chars < 1_000:
-        return failure(usage_error(RUN_FOCUSED_TESTS_USAGE, "max_output_chars must be at least 1000."))
-    if max_output_chars > 50_000:
-        return failure(usage_error(RUN_FOCUSED_TESTS_USAGE, "max_output_chars must be at most 50000."))
-    output_context_error = validate_run_output_context_options(
+    options_error = validate_run_focused_test_options(
+        usage=RUN_FOCUSED_TESTS_USAGE,
+        timeout_ms=timeout_ms,
+        max_output_chars=max_output_chars,
         context_lines=context_lines,
         max_diagnostics=max_diagnostics,
         max_contexts=max_contexts,
         max_bytes_per_context=max_bytes_per_context,
-        usage=RUN_FOCUSED_TESTS_USAGE,
     )
-    if output_context_error:
-        return failure(output_context_error)
+    if options_error:
+        return failure(options_error)
 
     workspace = create_local_workspace(root, "local-run-focused-tests")
     observation = execute_action(
@@ -361,15 +353,3 @@ def get_run_focused_test_commands_report(
         "results": [serialize_command_result(result, index=index) for index, result in enumerate(results, start=1)],
         "message": observation.message,
     }
-
-
-def parse_related_tests_argument(argument: str | None) -> list[str] | None:
-    if not argument or not argument.strip():
-        return None
-    try:
-        parts = shlex.split(argument)
-    except ValueError as error:
-        raise ValueError(str(error)) from error
-    if any(part.startswith("-") for part in parts):
-        raise ValueError("options are not supported.")
-    return parts or None
