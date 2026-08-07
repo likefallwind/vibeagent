@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from vibeagent import tool_catalog, tool_catalog_core, tool_catalog_search
+from vibeagent import tool_catalog, tool_catalog_core, tool_catalog_reports, tool_catalog_search
 from vibeagent.tool_catalog import (
     format_tool_search_report_text,
     get_tool_search_report,
@@ -24,6 +24,14 @@ class ToolCatalogTests(unittest.TestCase):
         self.assertIs(tool_catalog.get_tool_search_report, tool_catalog_search.get_tool_search_report)
         self.assertIs(tool_catalog.get_tool_search_text, tool_catalog_search.get_tool_search_text)
         self.assertIs(tool_catalog.format_tool_search_report_text, tool_catalog_search.format_tool_search_report_text)
+        self.assertIs(tool_catalog.get_tools_report, tool_catalog_reports.get_tools_report)
+        self.assertIs(tool_catalog.get_tools_text, tool_catalog_reports.get_tools_text)
+        self.assertIs(tool_catalog.format_tools_report_text, tool_catalog_reports.format_tools_report_text)
+        self.assertIs(tool_catalog.get_tool_report, tool_catalog_reports.get_tool_report)
+        self.assertIs(tool_catalog.get_tool_text, tool_catalog_reports.get_tool_text)
+        self.assertIs(tool_catalog.format_tool_report_text, tool_catalog_reports.format_tool_report_text)
+        self.assertIs(tool_catalog.wrap_tool_names, tool_catalog_reports.wrap_tool_names)
+        self.assertIs(tool_catalog.format_tool_property, tool_catalog_reports.format_tool_property)
 
     def test_tool_search_matches_names_descriptions_and_properties(self) -> None:
         report = get_tool_search_report("verification", max_matches=10)
