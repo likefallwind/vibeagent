@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from vibeagent import project_context_commands, project_focused_test_commands
+from vibeagent import project_context_commands, project_focused_test_commands, project_run_focused_test_commands
 
 
 class ProjectFocusedTestCommandsTests(unittest.TestCase):
@@ -15,6 +15,14 @@ class ProjectFocusedTestCommandsTests(unittest.TestCase):
         self.assertIs(project_context_commands.get_check_focused_test_commands_report, project_focused_test_commands.get_check_focused_test_commands_report)
         self.assertIs(project_context_commands.get_run_focused_test_commands_text, project_focused_test_commands.get_run_focused_test_commands_text)
         self.assertIs(project_context_commands.get_run_focused_test_commands_report, project_focused_test_commands.get_run_focused_test_commands_report)
+        self.assertIs(
+            project_focused_test_commands.get_run_focused_test_commands_text,
+            project_run_focused_test_commands.get_run_focused_test_commands_text,
+        )
+        self.assertIs(
+            project_focused_test_commands.get_run_focused_test_commands_report,
+            project_run_focused_test_commands.get_run_focused_test_commands_report,
+        )
         self.assertIs(project_context_commands.parse_related_tests_argument, project_focused_test_commands.parse_related_tests_argument)
 
     def test_parse_related_tests_argument_rejects_options(self) -> None:
