@@ -20,6 +20,12 @@ from .process_wait_runtime import (
     wait_background_process_output,
     wait_persistent_process,
 )
+from .process_write_runtime import (
+    persistent_check_write_observation,
+    persistent_write_observation,
+    unknown_check_write_observation,
+    unknown_write_observation,
+)
 from .types import CheckWriteProcessObservation, ReadProcessObservation, WaitProcessObservation, WriteProcessObservation
 
 
@@ -190,33 +196,16 @@ def check_write_background_process(root: Path, process_id: str, content: str) ->
         record = read_persistent_process_record(root, process_id)
         if record is not None:
             running = persistent_process_running(record)
-            message = (
-                f"Cannot write to process {process_id}; stdin is only available in the runtime that started it."
-                if running
-                else f"Cannot write to process {process_id}; process has exited."
-            )
-            return CheckWriteProcessObservation(
-                kind="check_write_process",
+            return persistent_check_write_observation(
                 process_id=process_id,
-                pid=record.pid,
-                ok=False,
+                record=record,
                 running=running,
-                command=record.command,
-                cwd=record.cwd,
-                content_chars=len(content),
-                message=message,
+                content=content,
                 content_sha256=content_sha256,
             )
-        return CheckWriteProcessObservation(
-            kind="check_write_process",
+        return unknown_check_write_observation(
             process_id=process_id,
-            pid=None,
-            ok=False,
-            running=False,
-            command=None,
-            cwd=None,
-            content_chars=len(content),
-            message="Unknown background process id.",
+            content=content,
             content_sha256=content_sha256,
         )
 
@@ -252,33 +241,16 @@ def write_background_process(root: Path, process_id: str, content: str) -> Write
         record = read_persistent_process_record(root, process_id)
         if record is not None:
             running = persistent_process_running(record)
-            message = (
-                f"Cannot write to process {process_id}; stdin is only available in the runtime that started it."
-                if running
-                else f"Cannot write to process {process_id}; process has exited."
-            )
-            return WriteProcessObservation(
-                kind="write_process",
+            return persistent_write_observation(
                 process_id=process_id,
-                pid=record.pid,
-                ok=False,
+                record=record,
                 running=running,
-                command=record.command,
-                cwd=record.cwd,
-                content_chars=len(content),
-                message=message,
+                content=content,
                 content_sha256=content_sha256,
             )
-        return WriteProcessObservation(
-            kind="write_process",
+        return unknown_write_observation(
             process_id=process_id,
-            pid=None,
-            ok=False,
-            running=False,
-            command=None,
-            cwd=None,
-            content_chars=len(content),
-            message="Unknown background process id.",
+            content=content,
             content_sha256=content_sha256,
         )
 

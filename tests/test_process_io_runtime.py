@@ -4,9 +4,10 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from vibeagent import process_io_helpers, process_io_runtime, process_runtime, process_wait_runtime
+from vibeagent import process_io_helpers, process_io_runtime, process_runtime, process_wait_runtime, process_write_runtime
 from vibeagent.agent_approval_preview import approval_preview_summary, command_check_fingerprint_payload
 from vibeagent.agent_tool_results import build_tool_result_payload
+from vibeagent.process_registry import PersistentProcessRecord
 from vibeagent.types import (
     CheckFocusedTestCommandsObservation,
     CheckRunCommandsObservation,
@@ -42,6 +43,45 @@ class ProcessIORuntimeModuleTests(unittest.TestCase):
         self.assertIs(process_io_runtime.read_text_tail, process_wait_runtime.read_text_tail)
         self.assertIs(process_io_runtime.write_process_content_sha256, process_io_helpers.write_process_content_sha256)
         self.assertIs(process_io_runtime._filter_output_lines, process_io_helpers.filter_output_lines)
+
+    def test_process_write_runtime_builds_unavailable_observations(self) -> None:
+        record = PersistentProcessRecord(
+            id="proc-1",
+            command="python app.py",
+            cwd=".",
+            pid=123,
+            stdout_path=Path("out.log"),
+            stderr_path=Path("err.log"),
+        )
+        content_sha256 = process_io_helpers.write_process_content_sha256("hello\n")
+
+        check = process_write_runtime.persistent_check_write_observation(
+            process_id="proc-1",
+            record=record,
+            running=True,
+            content="hello\n",
+            content_sha256=content_sha256,
+        )
+        write = process_write_runtime.persistent_write_observation(
+            process_id="proc-1",
+            record=record,
+            running=False,
+            content="hello\n",
+            content_sha256=content_sha256,
+        )
+        unknown = process_write_runtime.unknown_write_observation(
+            process_id="missing",
+            content="hello\n",
+            content_sha256=content_sha256,
+        )
+
+        self.assertEqual(check.kind, "check_write_process")
+        self.assertFalse(check.ok)
+        self.assertIn("stdin is only available", check.message)
+        self.assertEqual(write.kind, "write_process")
+        self.assertFalse(write.running)
+        self.assertIn("process has exited", write.message)
+        self.assertEqual(unknown.message, "Unknown background process id.")
 
     def test_process_io_helpers_hash_and_filter_output(self) -> None:
         self.assertEqual(
