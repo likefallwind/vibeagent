@@ -5,7 +5,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 from vibeagent import git_commands
-from vibeagent import git_history_commands, git_history_report_helpers, git_index_report_helpers, git_local_report_helpers
+from vibeagent import (
+    git_fetch_report_helpers,
+    git_history_commands,
+    git_history_report_helpers,
+    git_index_report_helpers,
+    git_local_report_helpers,
+)
 from vibeagent.git_read_commands import (
     _clip,
     _indent_block,
@@ -199,6 +205,7 @@ class GitCommandModuleTests(unittest.TestCase):
 
     def test_git_sync_commands_reexports_report_helpers(self) -> None:
         self.assertIs(format_git_fetch_report_text, sync_report_format_git_fetch_report_text)
+        self.assertIs(format_git_fetch_report_text, git_fetch_report_helpers.format_git_fetch_report_text)
         self.assertIs(format_git_sync_preview_report_text, sync_report_format_git_sync_preview_report_text)
         self.assertIs(format_git_pull_report_text, sync_report_format_git_pull_report_text)
         self.assertIs(format_git_push_report_text, sync_report_format_git_push_report_text)
