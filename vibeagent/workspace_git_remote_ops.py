@@ -8,10 +8,7 @@ from .workspace_git_sync_preview import (
     git_fetch_result_payload,
     git_pull_result_payload,
     git_push_result_payload,
-    git_sync_detached_head_payload,
-    git_sync_dirty_worktree_payload,
-    git_sync_missing_upstream_payload,
-    git_sync_preview_payload,
+    git_upstream_sync_preview_payload,
     pull_readiness,
     push_readiness,
 )
@@ -135,55 +132,17 @@ def preview_pull_git_upstream(workspace: RunWorkspace) -> dict[str, object]:
     info = read_git_info(workspace)
     status = _read_git_status(workspace)
     current = str(info["branch"]) if info["ok"] else ""
-    if not info["ok"]:
-        return git_sync_preview_payload(ok=False, message=str(info["message"]))
-    if not current:
-        return git_sync_detached_head_payload(
-            operation="pull",
-            ahead=int(info["ahead"]),
-            behind=int(info["behind"]),
-            status=status.stdout if status.ok else "",
-        )
-    upstream = str(info["upstream"])
-    upstream_parts = read_git_upstream_parts(workspace, current)
+    upstream_parts = read_git_upstream_parts(workspace, current) if current else _missing_upstream_parts()
     clean = status.ok and not git_status_has_non_runtime_changes(status.stdout)
-    if not upstream or not upstream_parts["ok"]:
-        return git_sync_missing_upstream_payload(
-            remote=str(upstream_parts["remote"]),
-            branch=str(upstream_parts["branch"]),
-            current=current,
-            upstream=upstream,
-            ahead=int(info["ahead"]),
-            behind=int(info["behind"]),
-            worktree_clean=clean,
-            status=status.stdout if status.ok else "",
-        )
-    if not clean:
-        return git_sync_dirty_worktree_payload(
-            operation="pulling",
-            remote=str(upstream_parts["remote"]),
-            branch=str(upstream_parts["branch"]),
-            current=current,
-            upstream=upstream,
-            ahead=int(info["ahead"]),
-            behind=int(info["behind"]),
-            status=status.stdout if status.ok else "",
-        )
-
-    ahead = int(info["ahead"])
-    behind = int(info["behind"])
-    ok, message = pull_readiness(ahead, behind, upstream=upstream, current=current)
-    return git_sync_preview_payload(
-        ok=ok,
-        remote=str(upstream_parts["remote"]),
-        branch=str(upstream_parts["branch"]),
+    return git_upstream_sync_preview_payload(
+        operation="pull",
+        dirty_operation="pulling",
+        info=info,
         current=current,
-        upstream=upstream,
-        ahead=ahead,
-        behind=behind,
-        worktree_clean=True,
+        upstream_parts=upstream_parts,
+        worktree_clean=clean,
         status=status.stdout if status.ok else "",
-        message=message,
+        readiness=pull_readiness,
     )
 
 
@@ -233,56 +192,17 @@ def preview_push_git_upstream(workspace: RunWorkspace) -> dict[str, object]:
     info = read_git_info(workspace)
     status = _read_git_status(workspace)
     current = str(info["branch"]) if info["ok"] else ""
-    if not info["ok"]:
-        return git_sync_preview_payload(ok=False, message=str(info["message"]))
-    if not current:
-        return git_sync_detached_head_payload(
-            operation="push",
-            ahead=int(info["ahead"]),
-            behind=int(info["behind"]),
-            status=status.stdout if status.ok else "",
-        )
-
-    upstream = str(info["upstream"])
-    upstream_parts = read_git_upstream_parts(workspace, current)
+    upstream_parts = read_git_upstream_parts(workspace, current) if current else _missing_upstream_parts()
     clean = status.ok and not git_status_has_non_runtime_changes(status.stdout)
-    if not upstream or not upstream_parts["ok"]:
-        return git_sync_missing_upstream_payload(
-            remote=str(upstream_parts["remote"]),
-            branch=str(upstream_parts["branch"]),
-            current=current,
-            upstream=upstream,
-            ahead=int(info["ahead"]),
-            behind=int(info["behind"]),
-            worktree_clean=clean,
-            status=status.stdout if status.ok else "",
-        )
-    if not clean:
-        return git_sync_dirty_worktree_payload(
-            operation="pushing",
-            remote=str(upstream_parts["remote"]),
-            branch=str(upstream_parts["branch"]),
-            current=current,
-            upstream=upstream,
-            ahead=int(info["ahead"]),
-            behind=int(info["behind"]),
-            status=status.stdout if status.ok else "",
-        )
-
-    ahead = int(info["ahead"])
-    behind = int(info["behind"])
-    ok, message = push_readiness(ahead, behind, upstream=upstream, current=current)
-    return git_sync_preview_payload(
-        ok=ok,
-        remote=str(upstream_parts["remote"]),
-        branch=str(upstream_parts["branch"]),
+    return git_upstream_sync_preview_payload(
+        operation="push",
+        dirty_operation="pushing",
+        info=info,
         current=current,
-        upstream=upstream,
-        ahead=ahead,
-        behind=behind,
-        worktree_clean=True,
+        upstream_parts=upstream_parts,
+        worktree_clean=clean,
         status=status.stdout if status.ok else "",
-        message=message,
+        readiness=push_readiness,
     )
 
 
@@ -331,6 +251,14 @@ def read_git_upstream_parts(workspace: RunWorkspace, branch: str) -> dict[str, o
         "ok": bool(remote and upstream_branch),
         "remote": remote,
         "branch": upstream_branch,
+    }
+
+
+def _missing_upstream_parts() -> dict[str, object]:
+    return {
+        "ok": False,
+        "remote": "",
+        "branch": "",
     }
 
 

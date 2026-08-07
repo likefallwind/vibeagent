@@ -10,6 +10,7 @@ from vibeagent.workspace_git_sync_preview import (
     git_sync_dirty_worktree_payload,
     git_sync_missing_upstream_payload,
     git_sync_preview_payload,
+    git_upstream_sync_preview_payload,
     pull_readiness,
     push_readiness,
 )
@@ -191,6 +192,54 @@ class WorkspaceGitSyncPreviewTests(unittest.TestCase):
                 "status": "",
                 "message": "pushed",
             },
+        )
+
+    def test_git_upstream_sync_preview_payload_applies_shared_preflight(self) -> None:
+        info = {
+            "ok": True,
+            "branch": "main",
+            "upstream": "origin/main",
+            "ahead": 2,
+            "behind": 0,
+        }
+        upstream_parts = {"ok": True, "remote": "origin", "branch": "main"}
+
+        self.assertEqual(
+            git_upstream_sync_preview_payload(
+                operation="push",
+                dirty_operation="pushing",
+                info=info,
+                current="main",
+                upstream_parts=upstream_parts,
+                worktree_clean=True,
+                status="",
+                readiness=push_readiness,
+            ),
+            {
+                "ok": True,
+                "remote": "origin",
+                "branch": "main",
+                "current": "main",
+                "upstream": "origin/main",
+                "ahead": 2,
+                "behind": 0,
+                "worktree_clean": True,
+                "status": "",
+                "message": "Can push 2 commit(s) from main to origin/main.",
+            },
+        )
+        self.assertEqual(
+            git_upstream_sync_preview_payload(
+                operation="push",
+                dirty_operation="pushing",
+                info=info,
+                current="main",
+                upstream_parts=upstream_parts,
+                worktree_clean=False,
+                status=" M app.py",
+                readiness=push_readiness,
+            )["message"],
+            "Working tree has uncommitted changes; commit or clean changes before pushing.",
         )
 
     def test_pull_readiness_keeps_existing_ahead_behind_decisions(self) -> None:

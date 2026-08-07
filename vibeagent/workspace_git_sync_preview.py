@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 
 def git_sync_preview_payload(
     *,
@@ -84,6 +86,68 @@ def git_sync_dirty_worktree_payload(
         behind=behind,
         status=status,
         message=f"Working tree has uncommitted changes; commit or clean changes before {operation}.",
+    )
+
+
+def git_upstream_sync_preview_payload(
+    *,
+    operation: str,
+    dirty_operation: str,
+    info: dict[str, object],
+    current: str,
+    upstream_parts: dict[str, object],
+    worktree_clean: bool,
+    status: str,
+    readiness: Callable[..., tuple[bool, str]],
+) -> dict[str, object]:
+    if not info["ok"]:
+        return git_sync_preview_payload(ok=False, message=str(info["message"]))
+    if not current:
+        return git_sync_detached_head_payload(
+            operation=operation,
+            ahead=int(info["ahead"]),
+            behind=int(info["behind"]),
+            status=status,
+        )
+
+    upstream = str(info["upstream"])
+    if not upstream or not upstream_parts["ok"]:
+        return git_sync_missing_upstream_payload(
+            remote=str(upstream_parts["remote"]),
+            branch=str(upstream_parts["branch"]),
+            current=current,
+            upstream=upstream,
+            ahead=int(info["ahead"]),
+            behind=int(info["behind"]),
+            worktree_clean=worktree_clean,
+            status=status,
+        )
+    if not worktree_clean:
+        return git_sync_dirty_worktree_payload(
+            operation=dirty_operation,
+            remote=str(upstream_parts["remote"]),
+            branch=str(upstream_parts["branch"]),
+            current=current,
+            upstream=upstream,
+            ahead=int(info["ahead"]),
+            behind=int(info["behind"]),
+            status=status,
+        )
+
+    ahead = int(info["ahead"])
+    behind = int(info["behind"])
+    ok, message = readiness(ahead, behind, upstream=upstream, current=current)
+    return git_sync_preview_payload(
+        ok=ok,
+        remote=str(upstream_parts["remote"]),
+        branch=str(upstream_parts["branch"]),
+        current=current,
+        upstream=upstream,
+        ahead=ahead,
+        behind=behind,
+        worktree_clean=True,
+        status=status,
+        message=message,
     )
 
 
