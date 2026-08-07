@@ -12,6 +12,7 @@ from vibeagent import (
     process_runtime,
     process_wait_action_runtime,
     process_wait_runtime,
+    process_write_action_runtime,
     process_write_runtime,
 )
 from vibeagent.agent_approval_preview import approval_preview_summary, command_check_fingerprint_payload
@@ -44,6 +45,8 @@ class ProcessIORuntimeModuleTests(unittest.TestCase):
         self.assertIs(process_runtime.write_background_process, process_io_runtime.write_background_process)
         self.assertIs(process_io_runtime.read_background_process, process_read_runtime.read_background_process)
         self.assertIs(process_io_runtime.wait_background_process, process_wait_action_runtime.wait_background_process)
+        self.assertIs(process_io_runtime.check_write_background_process, process_write_action_runtime.check_write_background_process)
+        self.assertIs(process_io_runtime.write_background_process, process_write_action_runtime.write_background_process)
         self.assertIs(process_runtime.wait_persistent_process, process_wait_runtime.wait_persistent_process)
         self.assertIs(process_runtime.wait_background_process_output, process_wait_runtime.wait_background_process_output)
         self.assertIs(process_runtime.match_process_output, process_wait_runtime.match_process_output)
