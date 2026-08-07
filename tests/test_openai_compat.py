@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch
 
+from vibeagent import openai_compat, openai_compat_messages
 from vibeagent.openai_compat import OpenAICompatibleClient, build_request_body, extract_content, extract_usage, get_openai_compatible_defaults
 from vibeagent.types import ChatMessage
 
@@ -20,6 +21,12 @@ class FakeHttpResponse:
 
 
 class OpenAICompatibleTests(unittest.TestCase):
+    def test_openai_compat_reexports_message_conversion_helpers(self) -> None:
+        self.assertIs(openai_compat.flatten_messages, openai_compat_messages.flatten_messages)
+        self.assertIs(openai_compat.flatten_tool_results, openai_compat_messages.flatten_tool_results)
+        self.assertIs(openai_compat.tool_to_openai, openai_compat_messages.tool_to_openai)
+        self.assertIs(openai_compat.tool_call_to_openai, openai_compat_messages.tool_call_to_openai)
+
     def test_defaults_target_deepseek_unless_overridden(self) -> None:
         self.assertEqual(get_openai_compatible_defaults({})["base_url"], "https://api.deepseek.com")
         self.assertEqual(get_openai_compatible_defaults({})["model"], "deepseek-chat")
