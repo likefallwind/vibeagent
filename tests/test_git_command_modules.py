@@ -11,6 +11,7 @@ from vibeagent import (
     git_history_report_helpers,
     git_index_report_helpers,
     git_local_report_helpers,
+    git_show_commands,
 )
 from vibeagent.git_read_commands import (
     _clip,
@@ -127,6 +128,9 @@ class GitCommandModuleTests(unittest.TestCase):
         self.assertIs(get_blame_text, history_get_blame_text)
         self.assertIs(parse_log_request, history_parse_log_request)
         self.assertIs(parse_show_request, history_parse_show_request)
+        self.assertIs(history_get_show_report, git_show_commands.get_show_report)
+        self.assertIs(history_get_show_text, git_show_commands.get_show_text)
+        self.assertIs(history_parse_show_request, git_show_commands.parse_show_request)
 
     def test_git_history_commands_reexports_report_helpers(self) -> None:
         self.assertIs(git_history_commands._split_nonempty_lines, git_history_report_helpers.split_nonempty_lines)
