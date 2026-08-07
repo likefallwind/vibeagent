@@ -8,7 +8,12 @@ from .session_summary_helpers import (
     parse_session_plan,
     update_session_background_processes,
 )
-from .session_summary_details import parse_completion_detail_lists, subagent_failure_label
+from .session_summary_details import (
+    empty_completion_detail_lists,
+    merge_nonempty_completion_detail_lists,
+    parse_completion_detail_lists,
+    subagent_failure_label,
+)
 from .session_summary_final_review import parse_final_review_summary
 from .session_summary_model import SessionModelUsageTotals, model_error_message, model_final_message
 from .session_types import SessionPlanItem, SessionProcessInfo, SessionSummary
@@ -52,15 +57,7 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
     completion_blockers: list[str] = []
     completion_blocked_count = 0
     latest_completion_blockers: list[str] = []
-    latest_completion_pending_verification_checks: list[str] = []
-    latest_completion_failed_verification_checks: list[str] = []
-    latest_completion_final_review_issues: list[str] = []
-    latest_completion_final_review_changed_files: list[str] = []
-    latest_completion_tool_errors: list[str] = []
-    latest_completion_checkpoint_failures: list[str] = []
-    latest_completion_active_background_processes: list[str] = []
-    latest_completion_denied_approvals: list[str] = []
-    latest_completion_next_actions: list[str] = []
+    latest_completion_details = empty_completion_detail_lists()
     completion_warnings: list[str] = []
     verification_checks: list[str] = []
     pending_verification_checks: list[str] = []
@@ -136,27 +133,9 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
                 latest_completion_blockers = [item for item in blockers if isinstance(item, str) and item.strip()]
             details = event.payload.get("details")
             if isinstance(details, dict):
-                (
-                    latest_completion_pending_verification_checks,
-                    latest_completion_failed_verification_checks,
-                    latest_completion_final_review_issues,
-                    latest_completion_final_review_changed_files,
-                    latest_completion_tool_errors,
-                    latest_completion_checkpoint_failures,
-                    latest_completion_active_background_processes,
-                    latest_completion_denied_approvals,
-                    latest_completion_next_actions,
-                ) = parse_completion_detail_lists(details)
+                latest_completion_details = parse_completion_detail_lists(details)
             else:
-                latest_completion_pending_verification_checks = []
-                latest_completion_failed_verification_checks = []
-                latest_completion_final_review_issues = []
-                latest_completion_final_review_changed_files = []
-                latest_completion_tool_errors = []
-                latest_completion_checkpoint_failures = []
-                latest_completion_active_background_processes = []
-                latest_completion_denied_approvals = []
-                latest_completion_next_actions = []
+                latest_completion_details = empty_completion_detail_lists()
         elif event.type == "tool_result":
             result = event.payload.get("result")
             if isinstance(result, dict):
@@ -220,35 +199,10 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
                 completion_warnings = [item for item in result_warnings if isinstance(item, str) and item.strip()]
             result_details = event.payload.get("completion_details")
             if isinstance(result_details, dict):
-                (
-                    result_pending_checks,
-                    result_failed_checks,
-                    result_final_review_issues,
-                    result_final_review_changed_files,
-                    result_tool_errors,
-                    result_checkpoint_failures,
-                    result_active_background_processes,
-                    result_denied_approvals,
-                    result_next_actions,
-                ) = parse_completion_detail_lists(result_details)
-                if result_pending_checks:
-                    latest_completion_pending_verification_checks = result_pending_checks
-                if result_failed_checks:
-                    latest_completion_failed_verification_checks = result_failed_checks
-                if result_final_review_issues:
-                    latest_completion_final_review_issues = result_final_review_issues
-                if result_final_review_changed_files:
-                    latest_completion_final_review_changed_files = result_final_review_changed_files
-                if result_tool_errors:
-                    latest_completion_tool_errors = result_tool_errors
-                if result_checkpoint_failures:
-                    latest_completion_checkpoint_failures = result_checkpoint_failures
-                if result_active_background_processes:
-                    latest_completion_active_background_processes = result_active_background_processes
-                if result_denied_approvals:
-                    latest_completion_denied_approvals = result_denied_approvals
-                if result_next_actions:
-                    latest_completion_next_actions = result_next_actions
+                latest_completion_details = merge_nonempty_completion_detail_lists(
+                    latest_completion_details,
+                    parse_completion_detail_lists(result_details),
+                )
             result_checks = event.payload.get("verification_checks")
             if isinstance(result_checks, list):
                 verification_payload_seen = True
@@ -321,15 +275,15 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
         completion_blockers=completion_blockers,
         completion_blocked_count=completion_blocked_count,
         latest_completion_blockers=latest_completion_blockers,
-        latest_completion_pending_verification_checks=latest_completion_pending_verification_checks,
-        latest_completion_failed_verification_checks=latest_completion_failed_verification_checks,
-        latest_completion_final_review_issues=latest_completion_final_review_issues,
-        latest_completion_final_review_changed_files=latest_completion_final_review_changed_files,
-        latest_completion_tool_errors=latest_completion_tool_errors,
-        latest_completion_checkpoint_failures=latest_completion_checkpoint_failures,
-        latest_completion_active_background_processes=latest_completion_active_background_processes,
-        latest_completion_denied_approvals=latest_completion_denied_approvals,
-        latest_completion_next_actions=latest_completion_next_actions,
+        latest_completion_pending_verification_checks=latest_completion_details.pending_verification_checks,
+        latest_completion_failed_verification_checks=latest_completion_details.failed_verification_checks,
+        latest_completion_final_review_issues=latest_completion_details.final_review_issues,
+        latest_completion_final_review_changed_files=latest_completion_details.final_review_changed_files,
+        latest_completion_tool_errors=latest_completion_details.tool_errors,
+        latest_completion_checkpoint_failures=latest_completion_details.checkpoint_failures,
+        latest_completion_active_background_processes=latest_completion_details.active_background_processes,
+        latest_completion_denied_approvals=latest_completion_details.denied_approvals,
+        latest_completion_next_actions=latest_completion_details.next_actions,
         completion_warnings=completion_warnings,
         verification_checks=verification_checks,
         pending_verification_checks=pending_verification_checks,

@@ -39,14 +39,36 @@ class SessionSummaryModuleTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(details[0], ["npm test"])
-        self.assertEqual(details[8], ["rerun checks"])
+        self.assertEqual(details.pending_verification_checks, ["npm test"])
+        self.assertEqual(details.next_actions, ["rerun checks"])
         self.assertEqual(
             session_summary_details.subagent_failure_label(
                 {"task": "inspect", "agent": "reviewer", "mode": "read_only", "message": "failed"}
             ),
             "task=inspect; agent=reviewer; mode=read_only; message=failed",
         )
+
+    def test_session_summary_details_merges_only_nonempty_completion_updates(self) -> None:
+        previous = session_summary_details.parse_completion_detail_lists(
+            {
+                "pendingVerificationChecks": ["npm test"],
+                "failedVerificationChecks": ["pytest"],
+                "nextActions": ["rerun checks"],
+            }
+        )
+        updates = session_summary_details.parse_completion_detail_lists(
+            {
+                "pendingVerificationChecks": [],
+                "failedVerificationChecks": ["npm test"],
+                "nextActions": ["finish"],
+            }
+        )
+
+        merged = session_summary_details.merge_nonempty_completion_detail_lists(previous, updates)
+
+        self.assertEqual(merged.pending_verification_checks, ["npm test"])
+        self.assertEqual(merged.failed_verification_checks, ["npm test"])
+        self.assertEqual(merged.next_actions, ["finish"])
 
     def test_session_summary_model_tracks_usage_and_final_messages(self) -> None:
         usage = session_summary_model.SessionModelUsageTotals()
