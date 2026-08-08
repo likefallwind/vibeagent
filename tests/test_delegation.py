@@ -6,7 +6,7 @@ from pathlib import Path
 from vibeagent.action_parsing import ActionParseError, parse_tool_action
 from vibeagent.actions import AGENT_TOOL_DEFINITIONS, execute_action
 from vibeagent.agent import run_agent
-from vibeagent import agent_delegate, agent_delegate_completion, agent_delegate_context
+from vibeagent import agent_delegate, agent_delegate_completion, agent_delegate_context, agent_delegate_loop
 from vibeagent.agent_delegate import (
     DELEGATE_TOOL_DEFINITIONS,
     code_delegate_initial_tool_names,
@@ -58,6 +58,9 @@ class DelegationTests(unittest.TestCase):
         self.assertIs(agent_delegate.clip_delegate_summary, agent_delegate_completion.clip_delegate_summary)
         self.assertIs(agent_delegate.delegate_completion_message, agent_delegate_completion.delegate_completion_message)
         self.assertIs(agent_delegate.finish_delegate_task, agent_delegate_completion.finish_delegate_task)
+
+    def test_delegate_iteration_loop_lives_in_loop_module(self) -> None:
+        self.assertIs(agent_delegate.run_delegate_iterations, agent_delegate_loop.run_delegate_iterations)
 
     def test_delegate_completion_helpers_format_messages(self) -> None:
         explore_action = parse_tool_action("delegate_task", {"task": "Inspect"})

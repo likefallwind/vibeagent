@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import replace
 from collections.abc import Callable
+from dataclasses import replace
 
-from .agent_delegate_tools import (
-    DELEGATE_TOOL_DEFINITIONS,
-    code_delegate_initial_tool_names,
-    delegate_tool_definitions,
-    execute_delegate_tool_call,
-)
+from .agent_delegate_completion import clip_delegate_summary, delegate_completion_message, finish_delegate_task
 from .agent_delegate_context import (
     CODE_DELEGATE_SYSTEM_PROMPT,
     DELEGATE_MESSAGE_COMPACT_THRESHOLD,
@@ -17,22 +12,19 @@ from .agent_delegate_context import (
     build_delegate_messages,
     compact_delegate_message_history,
 )
-from .agent_delegate_completion import clip_delegate_summary, delegate_completion_message, finish_delegate_task
-from .agent_model import complete_with_retries
-from .agent_runtime_utils import (
-    append_session_event,
-    content_blocks_to_text,
-    normalize_assistant_content,
-    to_jsonable,
+from .agent_delegate_loop import DelegateLoopContext, run_delegate_iterations
+from .agent_delegate_tools import (
+    DELEGATE_TOOL_DEFINITIONS,
+    code_delegate_initial_tool_names,
+    delegate_tool_definitions,
+    execute_delegate_tool_call,
 )
-from .agent_tool_results import record_subagent_tool_observation
+from .agent_runtime_utils import append_session_event
 from .types import (
     AgentLogger,
     ApprovalHandler,
     ApprovalPolicy,
     ChatClient,
-    ChatMessage,
-    ContentBlock,
     DelegateTaskAction,
     DelegateTaskObservation,
     Observation,
@@ -65,32 +57,105 @@ def execute_delegate_task_action(
     permissions: ProjectPermissions = ProjectPermissions(),
     cancel_requested: Callable[[], bool] | None = None,
 ) -> DelegateTaskObservation:
-    profile: dict[str, object] | None = None
-    profile_error: str | None = None
-    if action.agent:
-        try:
-            profile = read_project_agent(workspace, action.agent)
-            action = replace(action, mode=str(profile["mode"]))
-        except ValueError as error:
-            profile_error = str(error)
+    profile, profile_error = _load_delegate_profile(workspace, action)
+    if profile is not None:
+        action = replace(action, mode=str(profile["mode"]))
     profile_prompt = str(profile["prompt"]) if profile is not None else None
-    profile_tools = profile.get("tools") if profile is not None else None
-    allowed_tool_names = (
-        frozenset(str(name) for name in profile_tools) | {"finish"}
-        if isinstance(profile_tools, list)
-        else None
-    )
-    messages = build_delegate_messages(workspace, action, profile_prompt=profile_prompt)
-    tool_calls_used: list[str] = []
+    allowed_tool_names = _profile_tool_names(profile)
     observations = parent_observations if action.mode == "code" and parent_observations is not None else []
     steps = parent_steps if action.mode == "code" and parent_steps is not None else []
-    delegate_observation_start = len(observations)
-    auto_checkpoint_attempted = False
+    messages = build_delegate_messages(workspace, action, profile_prompt=profile_prompt)
+
+    _record_delegate_start(workspace, action, parent_iteration, subagent_id, approval_policy, logger)
+    policy_error = _delegate_policy_error(action, approval_policy, profile_error)
+    if policy_error is not None:
+        return finish_delegate_task(
+            workspace,
+            action,
+            subagent_id,
+            ok=False,
+            summary="",
+            iterations=0,
+            tool_calls=[],
+            message=policy_error,
+            logger=logger,
+        )
+
     active_tool_names = (
         code_delegate_initial_tool_names(approval_policy, allowed_tool_names)
         if action.mode == "code"
         else set()
     )
+    return run_delegate_iterations(
+        DelegateLoopContext(
+            workspace=workspace,
+            action=action,
+            client=client,
+            messages=messages,
+            observations=observations,
+            steps=steps,
+            parent_iteration=parent_iteration,
+            subagent_id=subagent_id,
+            profile_prompt=profile_prompt,
+            allowed_tool_names=allowed_tool_names,
+            active_tool_names=active_tool_names,
+            delegate_observation_start=len(observations),
+            max_output_tokens=max_output_tokens,
+            model_retries=model_retries,
+            model_retry_delay_ms=model_retry_delay_ms,
+            model_timeout_ms=model_timeout_ms,
+            command_timeout_ms=command_timeout_ms,
+            logger=logger,
+            approval_handler=approval_handler,
+            approval_policy=approval_policy,
+            hooks=hooks,
+            permissions=permissions,
+            cancel_requested=cancel_requested,
+        )
+    )
+
+
+def _load_delegate_profile(
+    workspace: RunWorkspace,
+    action: DelegateTaskAction,
+) -> tuple[dict[str, object] | None, str | None]:
+    if not action.agent:
+        return None, None
+    try:
+        return read_project_agent(workspace, action.agent), None
+    except ValueError as error:
+        return None, str(error)
+
+
+def _profile_tool_names(profile: dict[str, object] | None) -> frozenset[str] | None:
+    profile_tools = profile.get("tools") if profile is not None else None
+    if not isinstance(profile_tools, list):
+        return None
+    return frozenset(str(name) for name in profile_tools) | {"finish"}
+
+
+def _delegate_policy_error(
+    action: DelegateTaskAction,
+    approval_policy: ApprovalPolicy,
+    profile_error: str | None,
+) -> str | None:
+    if profile_error is not None:
+        return f"Project agent profile could not be loaded: {profile_error}"
+    if action.run_in_background and action.mode != "explore":
+        return "Background task delegation only supports explore mode, including project agent profiles."
+    if action.mode == "code" and approval_policy == "plan":
+        return "Code delegation is unavailable while Plan mode is active."
+    return None
+
+
+def _record_delegate_start(
+    workspace: RunWorkspace,
+    action: DelegateTaskAction,
+    parent_iteration: int,
+    subagent_id: str,
+    approval_policy: ApprovalPolicy,
+    logger: AgentLogger | None,
+) -> None:
     append_session_event(
         workspace.session_dir,
         "subagent_started",
@@ -107,252 +172,3 @@ def execute_delegate_task_action(
     )
     if logger:
         logger(f"{action.mode} subagent started", action.task)
-
-    if profile_error is not None:
-        return finish_delegate_task(
-            workspace,
-            action,
-            subagent_id,
-            ok=False,
-            summary="",
-            iterations=0,
-            tool_calls=tool_calls_used,
-            message=f"Project agent profile could not be loaded: {profile_error}",
-            logger=logger,
-        )
-
-    if action.run_in_background and action.mode != "explore":
-        return finish_delegate_task(
-            workspace,
-            action,
-            subagent_id,
-            ok=False,
-            summary="",
-            iterations=0,
-            tool_calls=tool_calls_used,
-            message="Background task delegation only supports explore mode, including project agent profiles.",
-            logger=logger,
-        )
-
-    if action.mode == "code" and approval_policy == "plan":
-        return finish_delegate_task(
-            workspace,
-            action,
-            subagent_id,
-            ok=False,
-            summary="",
-            iterations=0,
-            tool_calls=tool_calls_used,
-            message="Code delegation is unavailable while Plan mode is active.",
-            logger=logger,
-        )
-
-    for child_iteration in range(1, action.max_iterations + 1):
-        if cancel_requested is not None and cancel_requested():
-            return finish_delegate_task(
-                workspace,
-                action,
-                subagent_id,
-                ok=False,
-                summary="",
-                iterations=child_iteration - 1,
-                tool_calls=tool_calls_used,
-                message="Background subagent task was cancelled.",
-                logger=logger,
-                cancelled=True,
-            )
-        response, error_message = complete_with_retries(
-            client,
-            messages,
-            tools=delegate_tool_definitions(
-                action.mode,
-                active_tool_names,
-                approval_policy,
-                allowed_tool_names,
-            ),
-            max_output_tokens=max_output_tokens,
-            model_retries=model_retries,
-            model_retry_delay_ms=model_retry_delay_ms,
-            model_timeout_ms=model_timeout_ms,
-            iteration=child_iteration,
-            session_dir=workspace.session_dir,
-            logger=logger,
-            error_event_type="subagent_model_error",
-            error_event_extra={"subagent_id": subagent_id, "parent_iteration": parent_iteration},
-        )
-        if response is None:
-            return finish_delegate_task(
-                workspace,
-                action,
-                subagent_id,
-                ok=False,
-                summary="",
-                iterations=child_iteration,
-                tool_calls=tool_calls_used,
-                message=error_message or "Subagent model request failed.",
-                logger=logger,
-            )
-
-        if cancel_requested is not None and cancel_requested():
-            return finish_delegate_task(
-                workspace,
-                action,
-                subagent_id,
-                ok=False,
-                summary="",
-                iterations=child_iteration,
-                tool_calls=tool_calls_used,
-                message="Background subagent task was cancelled.",
-                logger=logger,
-                cancelled=True,
-            )
-
-        assistant_content = normalize_assistant_content(response.content if hasattr(response, "content") else response)
-        model_payload = {
-            "subagent_id": subagent_id,
-            "parent_iteration": parent_iteration,
-            "iteration": child_iteration,
-            "content": assistant_content,
-        }
-        usage = getattr(response, "usage", None)
-        if usage is not None:
-            model_payload["usage"] = to_jsonable(usage)
-        append_session_event(workspace.session_dir, "subagent_model", model_payload)
-        messages.append(ChatMessage(role="assistant", content=assistant_content))
-
-        tool_calls = [block for block in assistant_content if block.get("type") == "tool_call"]
-        if not tool_calls:
-            summary = content_blocks_to_text(assistant_content).strip()
-            if summary:
-                return finish_delegate_task(
-                    workspace,
-                    action,
-                    subagent_id,
-                    ok=True,
-                    summary=clip_delegate_summary(summary),
-                    iterations=child_iteration,
-                    tool_calls=tool_calls_used,
-                    message=delegate_completion_message(action),
-                    logger=logger,
-                )
-            return finish_delegate_task(
-                workspace,
-                action,
-                subagent_id,
-                ok=False,
-                summary="",
-                iterations=child_iteration,
-                tool_calls=tool_calls_used,
-                message="Subagent response did not include text or a tool call.",
-                logger=logger,
-            )
-
-        tool_results: list[ContentBlock] = []
-        for block in tool_calls:
-            if cancel_requested is not None and cancel_requested():
-                return finish_delegate_task(
-                    workspace,
-                    action,
-                    subagent_id,
-                    ok=False,
-                    summary="",
-                    iterations=child_iteration,
-                    tool_calls=tool_calls_used,
-                    message="Background subagent task was cancelled.",
-                    logger=logger,
-                    cancelled=True,
-                )
-            tool_id = str(block.get("id") or "")
-            tool_name = str(block.get("name") or "")
-            tool_input = block.get("input") or {}
-            tool_calls_used.append(tool_name)
-            append_session_event(
-                workspace.session_dir,
-                "subagent_tool_call",
-                {
-                    "subagent_id": subagent_id,
-                    "parent_iteration": parent_iteration,
-                    "iteration": child_iteration,
-                    "id": tool_id,
-                    "name": tool_name,
-                    "input": tool_input,
-                },
-            )
-            execution = execute_delegate_tool_call(
-                workspace,
-                mode=action.mode,
-                tool_name=tool_name,
-                tool_input=tool_input,
-                active_tool_names=active_tool_names,
-                observations=observations,
-                steps=steps,
-                iteration=child_iteration,
-                command_timeout_ms=command_timeout_ms,
-                logger=logger,
-                approval_handler=approval_handler,
-                approval_policy=approval_policy,
-                auto_checkpoint_attempted=auto_checkpoint_attempted,
-                allowed_tool_names=allowed_tool_names,
-                hooks=hooks,
-                permissions=permissions,
-            )
-            auto_checkpoint_attempted = execution.auto_checkpoint_attempted
-            if execution.finish_action is not None:
-                summary = clip_delegate_summary(execution.finish_action.message)
-                return finish_delegate_task(
-                    workspace,
-                    action,
-                    subagent_id,
-                    ok=bool(summary),
-                    summary=summary,
-                    iterations=child_iteration,
-                    tool_calls=tool_calls_used,
-                    message=(
-                        delegate_completion_message(action)
-                        if summary
-                        else "Subagent finish call did not include a report."
-                    ),
-                    logger=logger,
-                    tool_event={
-                        "parent_iteration": parent_iteration,
-                        "iteration": child_iteration,
-                        "id": tool_id,
-                        "name": tool_name,
-                    },
-                )
-            observation = execution.observation
-            if observation is None:
-                continue
-            tool_results.append(record_subagent_tool_observation(
-                workspace,
-                subagent_id=subagent_id,
-                parent_iteration=parent_iteration,
-                iteration=child_iteration,
-                tool_id=tool_id,
-                tool_name=tool_name,
-                observation=observation,
-                hook_results=execution.hook_results,
-            ))
-        messages.append(ChatMessage(role="user", content=tool_results))
-        messages = compact_delegate_message_history(
-            workspace,
-            action,
-            messages,
-            observations[delegate_observation_start:],
-            parent_iteration=parent_iteration,
-            child_iteration=child_iteration,
-            subagent_id=subagent_id,
-            profile_prompt=profile_prompt,
-        )
-
-    return finish_delegate_task(
-        workspace,
-        action,
-        subagent_id,
-        ok=False,
-        summary="",
-        iterations=action.max_iterations,
-        tool_calls=tool_calls_used,
-        message=f"Subagent reached iteration limit ({action.max_iterations}) before completing the delegated task.",
-        logger=logger,
-    )
