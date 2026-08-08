@@ -8,6 +8,7 @@ class ConfigProviderTests(unittest.TestCase):
     def test_config_reexports_provider_helpers(self) -> None:
         names = [
             "MINIMAX_PROVIDER",
+            "ANTHROPIC_PROVIDER",
             "OPENAI_COMPATIBLE_PROVIDERS",
             "ApiKeyInfo",
             "ProviderConfig",
@@ -41,6 +42,13 @@ class ConfigProviderTests(unittest.TestCase):
         self.assertEqual(provider.model, "model")
         self.assertEqual(provider.base_url, "https://example.test")
         self.assertEqual(provider.api_key, "key")
+
+        anthropic = config_provider.resolve_provider_config(
+            {"VIBEAGENT_PROVIDER": "anthropic", "ANTHROPIC_API_KEY": "claude-key"}
+        )
+        self.assertEqual(anthropic.model, "claude-sonnet-5")
+        self.assertEqual(anthropic.base_url, "https://api.anthropic.com")
+        self.assertEqual(anthropic.api_key_source, "ANTHROPIC_API_KEY")
 
 
 if __name__ == "__main__":

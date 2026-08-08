@@ -1,5 +1,11 @@
 import unittest
+import argparse
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
+from vibeagent.anthropic import AnthropicClient, MissingAnthropicApiKeyError
+from vibeagent.cli_config import build_provider_env
 from vibeagent.minimax import MiniMaxClient
 from vibeagent.openai_compat import OpenAICompatibleClient
 from vibeagent.providers import create_chat_client, get_provider_name
@@ -36,6 +42,42 @@ class ProviderTests(unittest.TestCase):
         self.assertIsInstance(client, OpenAICompatibleClient)
         self.assertEqual(client.model, "deepseek-reasoner")
         self.assertEqual(client.base_url, "https://deepseek.example")
+
+    def test_create_chat_client_builds_anthropic_client_from_env_mapping(self) -> None:
+        client = create_chat_client(
+            {
+                "VIBEAGENT_PROVIDER": "anthropic",
+                "ANTHROPIC_AUTH_TOKEN": "gateway-token",
+                "ANTHROPIC_MODEL": "claude-sonnet-4-6",
+                "ANTHROPIC_BASE_URL": "https://gateway.example/anthropic/",
+            }
+        )
+
+        self.assertIsInstance(client, AnthropicClient)
+        self.assertEqual(client.model, "claude-sonnet-4-6")
+        self.assertEqual(client.base_url, "https://gateway.example/anthropic")
+        self.assertTrue(client.use_auth_token)
+
+    def test_anthropic_provider_requires_a_key(self) -> None:
+        with self.assertRaises(MissingAnthropicApiKeyError):
+            create_chat_client({"VIBEAGENT_PROVIDER": "anthropic"})
+
+    def test_cli_overrides_route_to_anthropic_environment(self) -> None:
+        args = argparse.Namespace(
+            provider="anthropic",
+            model="claude-sonnet-4-6",
+            model_name=None,
+            base_url="https://gateway.example/anthropic",
+            api_key="temporary-key",
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-anthropic-") as base, patch.dict("os.environ", {}, clear=True):
+            env = build_provider_env(args, Path(base))
+
+        self.assertEqual(env["VIBEAGENT_PROVIDER"], "anthropic")
+        self.assertEqual(env["ANTHROPIC_MODEL"], "claude-sonnet-4-6")
+        self.assertEqual(env["ANTHROPIC_BASE_URL"], "https://gateway.example/anthropic")
+        self.assertEqual(env["ANTHROPIC_API_KEY"], "temporary-key")
+        self.assertNotIn("OPENAI_COMPAT_API_KEY", env)
 
 
 if __name__ == "__main__":

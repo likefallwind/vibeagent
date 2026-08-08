@@ -36,6 +36,20 @@ If you paste a value like `Bearer sk-...`, VibeAgent strips the `Bearer` prefix 
 By default VibeAgent calls MiniMax's Anthropic-compatible endpoint at
 `https://api.minimaxi.com/anthropic/v1/messages`.
 
+To use Anthropic's Claude Messages API directly:
+
+```sh
+export VIBEAGENT_PROVIDER="anthropic"
+export ANTHROPIC_API_KEY="..."
+```
+
+The Anthropic adapter defaults to `claude-sonnet-5` at
+`https://api.anthropic.com/v1/messages`. Override it with `ANTHROPIC_MODEL` and
+`ANTHROPIC_BASE_URL`. Anthropic-format gateways can use
+`ANTHROPIC_AUTH_TOKEN`; VibeAgent sends that value as a bearer token instead of
+an `x-api-key`. Claude 5 requests omit sampling temperature as required by
+those models.
+
 To use DeepSeek or another OpenAI-compatible tool-calling API, switch provider:
 
 ```sh

@@ -21,6 +21,7 @@ from .config_execution import (
     resolve_execution_config as resolve_config_execution,
 )
 from .config_provider import (
+    ANTHROPIC_PROVIDER,
     MINIMAX_PROVIDER,
     OPENAI_COMPATIBLE_PROVIDERS,
     ApiKeyInfo,
@@ -39,6 +40,8 @@ SECRET_PROJECT_CONFIG_KEYS = {
     "api_key",
     "apikey",
     "DEEPSEEK_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
     "MINIMAX_API",
     "MINIMAX_API_KEY",
     "OPENAI_COMPAT_API_KEY",

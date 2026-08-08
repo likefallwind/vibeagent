@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Mapping
 
 MINIMAX_PROVIDER = "minimax"
+ANTHROPIC_PROVIDER = "anthropic"
 OPENAI_COMPATIBLE_PROVIDERS = {"deepseek", "openai-compatible", "openai_compatible"}
 
 
@@ -34,6 +35,15 @@ def resolve_provider_config(env: Mapping[str, str | None] | None = None) -> Prov
             provider=provider,
             model=source.get("MINIMAX_MODEL") or generic_model or "MiniMax-M2.7",
             base_url=(source.get("MINIMAX_BASE_URL") or generic_base_url or "https://api.minimaxi.com/anthropic").rstrip("/"),
+            api_key=key.value if key else None,
+            api_key_source=key.name if key else None,
+        )
+    if provider == ANTHROPIC_PROVIDER:
+        key = get_first_api_key(source, ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"))
+        return ProviderConfig(
+            provider=provider,
+            model=source.get("ANTHROPIC_MODEL") or generic_model or "claude-sonnet-5",
+            base_url=(source.get("ANTHROPIC_BASE_URL") or generic_base_url or "https://api.anthropic.com").rstrip("/"),
             api_key=key.value if key else None,
             api_key_source=key.name if key else None,
         )

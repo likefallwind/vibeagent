@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Mapping
 
-from .config import OPENAI_COMPATIBLE_PROVIDERS, get_provider_name as get_config_provider_name, resolve_provider_config
+from .anthropic import AnthropicClient, MissingAnthropicApiKeyError
+from .config import ANTHROPIC_PROVIDER, OPENAI_COMPATIBLE_PROVIDERS, get_provider_name as get_config_provider_name, resolve_provider_config
 from .minimax import MiniMaxClient, MissingMiniMaxApiKeyError
 from .openai_compat import MissingOpenAICompatibleApiKeyError, OpenAICompatibleClient
 from .types import ChatClient
@@ -21,6 +22,15 @@ def create_chat_client(env: Mapping[str, str | None] | None = None) -> ChatClien
             api_key=config.api_key,
             base_url=config.base_url,
             model=config.model,
+        )
+    if config.provider == ANTHROPIC_PROVIDER:
+        if not config.api_key:
+            raise MissingAnthropicApiKeyError()
+        return AnthropicClient(
+            api_key=config.api_key,
+            base_url=config.base_url,
+            model=config.model,
+            use_auth_token=config.api_key_source == "ANTHROPIC_AUTH_TOKEN",
         )
     if config.provider in OPENAI_COMPATIBLE_PROVIDERS:
         if not config.api_key:
@@ -48,7 +58,7 @@ def get_model_text(env: Mapping[str, str | None] | None = None) -> str:
                 f"  apiKey: {'configured via ' + config.api_key_source if config.api_key_source else 'missing'}",
             ]
         )
-    if config.provider in OPENAI_COMPATIBLE_PROVIDERS:
+    if config.provider == ANTHROPIC_PROVIDER or config.provider in OPENAI_COMPATIBLE_PROVIDERS:
         return "\n".join(
             [
                 f"Model provider: {config.provider}",

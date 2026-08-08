@@ -33,18 +33,24 @@ def build_provider_env(args: argparse.Namespace | None, project_root: Path | Non
     if arg_model_name:
         if provider == "minimax":
             env["MINIMAX_MODEL"] = arg_model_name
+        elif provider == "anthropic":
+            env["ANTHROPIC_MODEL"] = arg_model_name
         else:
             env["OPENAI_COMPAT_MODEL"] = arg_model_name
             env["DEEPSEEK_MODEL"] = arg_model_name
     if arg_base_url:
         if provider == "minimax":
             env["MINIMAX_BASE_URL"] = arg_base_url
+        elif provider == "anthropic":
+            env["ANTHROPIC_BASE_URL"] = arg_base_url
         else:
             env["OPENAI_COMPAT_BASE_URL"] = arg_base_url
             env["DEEPSEEK_BASE_URL"] = arg_base_url
     if arg_api_key:
         if provider == "minimax":
             env["MINIMAX_API_KEY"] = arg_api_key
+        elif provider == "anthropic":
+            env["ANTHROPIC_API_KEY"] = arg_api_key
         else:
             env["OPENAI_COMPAT_API_KEY"] = arg_api_key
             env["DEEPSEEK_API_KEY"] = arg_api_key
