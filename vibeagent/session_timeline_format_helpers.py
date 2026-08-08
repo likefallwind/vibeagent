@@ -102,6 +102,9 @@ def context_compaction_suffix(payload: dict[str, Any]) -> list[str]:
     retained_observations = payload.get("retained_observations")
     if isinstance(retained_observations, int):
         suffix.append(f"retained={retained_observations}")
+    retained_images = payload.get("retained_image_tool_results")
+    if isinstance(retained_images, int) and retained_images:
+        suffix.append(f"images={retained_images}")
     return suffix
 
 

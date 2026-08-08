@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from .agent_multimodal import pending_image_tool_exchange, pending_image_tool_result_count
 from .agent_runtime_utils import (
+    AGENT_MESSAGE_COMPACT_CHAR_THRESHOLD,
     AGENT_COMPACT_CONTEXT_MAX_LENGTH,
     AGENT_COMPACT_OBSERVATION_LIMIT,
     append_session_event,
+    compaction_threshold_reason,
     compact_session_context,
     message_history_char_count,
 )
@@ -30,6 +33,7 @@ Answer directly when complete, or call finish with the report."""
 
 
 DELEGATE_MESSAGE_COMPACT_THRESHOLD = 12
+DELEGATE_MESSAGE_COMPACT_CHAR_THRESHOLD = AGENT_MESSAGE_COMPACT_CHAR_THRESHOLD
 
 
 def build_delegate_messages(
@@ -71,12 +75,16 @@ def compact_delegate_message_history(
     subagent_id: str,
     profile_prompt: str | None = None,
     threshold: int = DELEGATE_MESSAGE_COMPACT_THRESHOLD,
+    char_threshold: int = DELEGATE_MESSAGE_COMPACT_CHAR_THRESHOLD,
     observation_limit: int = AGENT_COMPACT_OBSERVATION_LIMIT,
     max_context_length: int = AGENT_COMPACT_CONTEXT_MAX_LENGTH,
     force: bool = False,
-    reason: str = "message_threshold",
+    reason: str | None = None,
 ) -> list[ChatMessage]:
-    if len(messages) <= threshold and not force:
+    previous_chars = message_history_char_count(messages)
+    message_threshold_reached = len(messages) > threshold
+    char_threshold_reached = previous_chars > char_threshold
+    if not force and not message_threshold_reached and not char_threshold_reached:
         return messages
 
     context = build_compacted_delegate_context(
@@ -90,10 +98,12 @@ def compact_delegate_message_history(
         replace(action, context=context),
         profile_prompt=profile_prompt,
     )
-    previous_chars = message_history_char_count(messages)
+    pending_image_exchange = pending_image_tool_exchange(messages)
+    compacted_messages.extend(pending_image_exchange)
     new_chars = message_history_char_count(compacted_messages)
-    if compacted_messages == messages or (force and new_chars >= previous_chars):
+    if compacted_messages == messages or ((force or char_threshold_reached) and new_chars >= previous_chars):
         return messages
+    resolved_reason = reason or compaction_threshold_reason(message_threshold_reached, char_threshold_reached)
     append_session_event(
         workspace.session_dir,
         "subagent_context_compacted",
@@ -109,7 +119,8 @@ def compact_delegate_message_history(
             "new_chars": new_chars,
             "observations": len(observations),
             "retained_observations": min(len(observations), observation_limit),
-            "reason": reason,
+            "retained_image_tool_results": pending_image_tool_result_count(messages),
+            "reason": resolved_reason,
         },
     )
     return compacted_messages

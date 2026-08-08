@@ -20,6 +20,33 @@ def append_tool_results_and_compact(
     append_system_prompt: str | None,
 ) -> list[ChatMessage]:
     messages.append(ChatMessage(role="user", content=tool_results))
+    return compact_agent_context_if_needed(
+        task=task,
+        workspace=workspace,
+        messages=messages,
+        observations=observations,
+        plan=plan,
+        original_prior_context=original_prior_context,
+        iteration=iteration,
+        approval_policy=approval_policy,
+        system_prompt=system_prompt,
+        append_system_prompt=append_system_prompt,
+    )
+
+
+def compact_agent_context_if_needed(
+    *,
+    task: str,
+    workspace: RunWorkspace,
+    messages: list[ChatMessage],
+    observations: list[Observation],
+    plan: list[PlanItem],
+    original_prior_context: str | None,
+    iteration: int,
+    approval_policy: ApprovalPolicy,
+    system_prompt: str | None,
+    append_system_prompt: str | None,
+) -> list[ChatMessage]:
     return compact_agent_message_history(
         task,
         workspace,

@@ -1276,6 +1276,9 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   main-agent and subagent loop also recognizes provider context-limit errors,
   force-compacts accumulated observations, and retries once when compaction
   actually reduces the message history without consuming the normal retry budget.
+  Between model turns, histories above 96,000 serialized characters compact
+  proactively even when the message-count threshold has not been reached; any
+  pending image tool exchange is retained intact until the model consumes it.
   Each request is bounded by `model_timeout_ms`, each failed attempt is recorded as a
   `model_error` event, and unrecovered failures also produce a failed `result`
   event so interrupted sessions remain auditable and resumable. Every run

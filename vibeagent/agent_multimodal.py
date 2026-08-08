@@ -65,3 +65,44 @@ def strip_consumed_tool_images(messages: list[ChatMessage]) -> None:
                 compacted.append(block)
         if changed:
             messages[index] = ChatMessage(role=message.role, content=compacted)
+
+
+def pending_image_tool_exchange(messages: list[ChatMessage]) -> tuple[ChatMessage, ...]:
+    if len(messages) < 2:
+        return ()
+    assistant_message = messages[-2]
+    result_message = messages[-1]
+    if assistant_message.role != "assistant" or result_message.role != "user":
+        return ()
+    if not isinstance(assistant_message.content, list) or not isinstance(result_message.content, list):
+        return ()
+
+    image_result_ids = {
+        str(block.get("tool_call_id") or block.get("tool_use_id") or "")
+        for block in result_message.content
+        if _tool_result_contains_image(block)
+    }
+    tool_call_ids = {
+        str(block.get("id") or "")
+        for block in assistant_message.content
+        if block.get("type") == "tool_call"
+    }
+    if image_result_ids and image_result_ids.issubset(tool_call_ids):
+        return assistant_message, result_message
+    return ()
+
+
+def pending_image_tool_result_count(messages: list[ChatMessage]) -> int:
+    exchange = pending_image_tool_exchange(messages)
+    if not exchange:
+        return 0
+    result_message = exchange[-1]
+    if not isinstance(result_message.content, list):
+        return 0
+    return sum(1 for block in result_message.content if _tool_result_contains_image(block))
+
+
+def _tool_result_contains_image(block: ContentBlock) -> bool:
+    if block.get("type") != "tool_result" or not isinstance(block.get("content"), list):
+        return False
+    return any(isinstance(item, dict) and item.get("type") == "image" for item in block["content"])

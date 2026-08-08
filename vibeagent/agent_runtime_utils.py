@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .action_parsing import ActionParseError
+from .agent_multimodal import pending_image_tool_exchange, pending_image_tool_result_count
 from .agent_observation_utils import summarize
 from .prompt_observations import format_observations
 from .prompts import build_messages
@@ -18,6 +19,7 @@ from .workspace_core import RunWorkspace
 
 
 AGENT_MESSAGE_COMPACT_THRESHOLD = 18
+AGENT_MESSAGE_COMPACT_CHAR_THRESHOLD = 96_000
 AGENT_COMPACT_OBSERVATION_LIMIT = 20
 AGENT_COMPACT_CONTEXT_MAX_LENGTH = 12_000
 _SESSION_EVENT_WRITE_LOCK = RLock()
@@ -66,9 +68,13 @@ def compact_agent_message_history(
     system_prompt: str | None = None,
     append_system_prompt: str | None = None,
     force: bool = False,
-    reason: str = "message_threshold",
+    reason: str | None = None,
+    char_threshold: int = AGENT_MESSAGE_COMPACT_CHAR_THRESHOLD,
 ) -> list[ChatMessage]:
-    if len(messages) <= threshold and not force:
+    previous_chars = message_history_char_count(messages)
+    message_threshold_reached = len(messages) > threshold
+    char_threshold_reached = previous_chars > char_threshold
+    if not force and not message_threshold_reached and not char_threshold_reached:
         return messages
 
     prior_context = build_compacted_agent_context(
@@ -87,10 +93,12 @@ def compact_agent_message_history(
         system_prompt=system_prompt,
         append_system_prompt=append_system_prompt,
     )
-    previous_chars = message_history_char_count(messages)
+    pending_image_exchange = pending_image_tool_exchange(messages)
+    compacted_messages.extend(pending_image_exchange)
     new_chars = message_history_char_count(compacted_messages)
-    if compacted_messages == messages or (force and new_chars >= previous_chars):
+    if compacted_messages == messages or ((force or char_threshold_reached) and new_chars >= previous_chars):
         return messages
+    resolved_reason = reason or compaction_threshold_reason(message_threshold_reached, char_threshold_reached)
     append_session_event(
         workspace.session_dir,
         "context_compacted",
@@ -103,10 +111,19 @@ def compact_agent_message_history(
             "observations": len(observations),
             "plan_items": len(plan),
             "retained_observations": min(len(observations), observation_limit),
-            "reason": reason,
+            "retained_image_tool_results": pending_image_tool_result_count(messages),
+            "reason": resolved_reason,
         },
     )
     return compacted_messages
+
+
+def compaction_threshold_reason(message_threshold_reached: bool, char_threshold_reached: bool) -> str:
+    if message_threshold_reached and char_threshold_reached:
+        return "message_and_char_threshold"
+    if char_threshold_reached:
+        return "char_threshold"
+    return "message_threshold"
 
 
 def build_compacted_agent_context(

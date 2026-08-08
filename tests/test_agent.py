@@ -311,6 +311,82 @@ class AgentTests(unittest.TestCase):
         self.assertNotIn("retry_reason", model_errors[0])
         self.assertFalse(any(row["type"] == "context_compacted" for row in rows))
 
+    def test_run_agent_proactively_compacts_large_tool_output_by_character_count(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-context-size-") as base:
+            root = Path(base)
+            root.joinpath("large.txt").write_text("x" * 110_000 + "\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "read-large",
+                            "name": "read_file",
+                            "input": {"path": "large.txt", "max_bytes": 120_000},
+                        }
+                    ],
+                    [{"type": "text", "text": "Large file inspected."}],
+                ]
+            )
+
+            result = run_agent("inspect large.txt", base_dir=root, client=client, max_iterations=2)
+            rows = [
+                json.loads(line)
+                for line in root.joinpath(".vibeagent", "sessions", result.run_id, "events.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        compactions = [row for row in rows if row["type"] == "context_compacted"]
+        self.assertTrue(result.success)
+        self.assertEqual([len(messages) for messages in client.messages], [2, 2])
+        self.assertEqual(len(compactions), 1)
+        self.assertEqual(compactions[0]["reason"], "char_threshold")
+        self.assertEqual(compactions[0]["previous_messages"], 4)
+        self.assertGreater(compactions[0]["previous_chars"], 96_000)
+        self.assertLess(compactions[0]["new_chars"], compactions[0]["previous_chars"])
+
+    def test_run_agent_compacts_large_completion_blocker_feedback_before_next_request(self) -> None:
+        client = MockClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "plan-start",
+                        "name": "update_plan",
+                        "input": {"plan": [{"step": "Finish inspection", "status": "in_progress"}]},
+                    }
+                ],
+                [{"type": "text", "text": "x" * 110_000}],
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "plan-done",
+                        "name": "update_plan",
+                        "input": {"plan": [{"step": "Finish inspection", "status": "completed"}]},
+                    }
+                ],
+                [{"type": "text", "text": "Inspection complete."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-context-feedback-") as base:
+            root = Path(base)
+            result = run_agent("inspect the project", base_dir=root, client=client, max_iterations=4)
+            rows = [
+                json.loads(line)
+                for line in root.joinpath(".vibeagent", "sessions", result.run_id, "events.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        compactions = [row for row in rows if row["type"] == "context_compacted"]
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "Inspection complete.")
+        self.assertEqual([len(messages) for messages in client.messages], [2, 4, 2, 4])
+        self.assertEqual(len(compactions), 1)
+        self.assertEqual(compactions[0]["iteration"], 3)
+        self.assertEqual(compactions[0]["reason"], "char_threshold")
+
     def test_run_agent_records_model_token_usage_without_raw_response_payload(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             client = MockClient(

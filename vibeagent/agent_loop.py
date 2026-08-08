@@ -4,7 +4,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from .agent_message_flow import append_tool_results_and_compact, recover_agent_context_limit
+from .agent_message_flow import (
+    append_tool_results_and_compact,
+    compact_agent_context_if_needed,
+    recover_agent_context_limit,
+)
 from .agent_model_turn import handle_no_tool_call_response, record_model_turn
 from .agent_multimodal import strip_consumed_tool_images
 from .agent_parallel_execution import execute_parallel_tool_call_batch
@@ -76,6 +80,19 @@ def run_agent_loop(
         # Tool loop: provider-neutral tool_call blocks -> local execution -> tool_result blocks.
         if logger:
             logger("thinking", f"iteration {iteration}/{max_iterations}")
+
+        messages = compact_agent_context_if_needed(
+            task=task,
+            workspace=current_workspace,
+            messages=messages,
+            observations=observations,
+            plan=plan,
+            original_prior_context=prior_context,
+            iteration=iteration,
+            approval_policy=approval_policy,
+            system_prompt=system_prompt,
+            append_system_prompt=append_system_prompt,
+        )
 
         response, model_error_message = runtime.complete_with_retries(
             client,

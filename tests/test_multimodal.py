@@ -7,8 +7,10 @@ from pathlib import Path
 
 from vibeagent.actions import execute_action, parse_tool_action
 from vibeagent.agent import run_agent
+from vibeagent.agent_runtime_utils import compact_agent_message_history
 from vibeagent.minimax import message_to_minimax
 from vibeagent.openai_compat import flatten_messages
+from vibeagent.prompts import build_messages
 from vibeagent.types import AssistantResponse, ChatMessage, ContentBlock, ViewImageAction
 from vibeagent.workspace import create_run_workspace
 
@@ -123,6 +125,64 @@ class ViewImageTests(unittest.TestCase):
         self.assertIn("image payload consumed by model", third_messages)
         self.assertNotIn(encoded, events)
         self.assertNotIn('"data":', events)
+
+    def test_character_compaction_retains_pending_image_tool_exchange(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-image-compaction-") as base:
+            workspace = create_run_workspace(Path(base))
+            messages = build_messages("Inspect image", workspace)
+            messages.extend(
+                [
+                    ChatMessage(
+                        role="assistant",
+                        content=[{"type": "tool_call", "id": "old-1", "name": "read_file", "input": {}}],
+                    ),
+                    ChatMessage(
+                        role="user",
+                        content=[{"type": "tool_result", "tool_call_id": "old-1", "content": "x" * 110_000}],
+                    ),
+                    ChatMessage(
+                        role="assistant",
+                        content=[{"type": "tool_call", "id": "image-1", "name": "view_image", "input": {}}],
+                    ),
+                    ChatMessage(
+                        role="user",
+                        content=[
+                            {
+                                "type": "tool_result",
+                                "tool_call_id": "image-1",
+                                "content": [
+                                    {"type": "text", "text": "image metadata"},
+                                    {
+                                        "type": "image",
+                                        "source": {
+                                            "type": "base64",
+                                            "media_type": "image/png",
+                                            "data": "A" * 100_000,
+                                        },
+                                    },
+                                ],
+                            }
+                        ],
+                    ),
+                ]
+            )
+            pending_exchange = tuple(messages[-2:])
+
+            compacted = compact_agent_message_history(
+                "Inspect image",
+                workspace,
+                messages,
+                [],
+                [],
+                None,
+                2,
+            )
+            event = json.loads(workspace.session_dir.joinpath("events.jsonl").read_text(encoding="utf-8").splitlines()[0])
+
+        self.assertEqual(tuple(compacted[-2:]), pending_exchange)
+        self.assertEqual(event["reason"], "char_threshold")
+        self.assertEqual(event["retained_image_tool_results"], 1)
+        self.assertLess(event["new_chars"], event["previous_chars"])
 
 
 if __name__ == "__main__":

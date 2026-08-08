@@ -269,6 +269,50 @@ class DelegationTests(unittest.TestCase):
         self.assertEqual(compactions[0].payload["previous_messages"], 4)
         self.assertEqual(compactions[0].payload["new_messages"], 2)
 
+    def test_subagent_proactively_compacts_large_tool_output_by_character_count(self) -> None:
+        client = DelegationClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "read-large",
+                        "name": "read_file",
+                        "input": {"path": "large.txt", "max_bytes": 120_000},
+                    }
+                ],
+                [{"type": "text", "text": "Large-file evidence collected."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-context-size-") as base:
+            root = Path(base)
+            root.joinpath("large.txt").write_text("x" * 110_000 + "\n", encoding="utf-8")
+            workspace = create_run_workspace(root)
+            action = parse_tool_action("delegate_task", {"task": "Inspect large.txt", "max_iterations": 2})
+
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+            events = read_session_events(root, workspace.run_id)
+
+        compactions = [event for event in events if event.type == "subagent_context_compacted"]
+        self.assertTrue(observation.ok)
+        self.assertEqual([len(messages) for messages in client.messages], [2, 2])
+        self.assertEqual(len(compactions), 1)
+        self.assertEqual(compactions[0].payload["reason"], "char_threshold")
+        self.assertEqual(compactions[0].payload["previous_messages"], 4)
+        self.assertGreater(compactions[0].payload["previous_chars"], 96_000)
+        self.assertLess(compactions[0].payload["new_chars"], compactions[0].payload["previous_chars"])
+
     def test_subagent_tool_results_use_shared_redaction_for_model_and_session_events(self) -> None:
         client = DelegationClient(
             [
@@ -732,6 +776,7 @@ class DelegationTests(unittest.TestCase):
                 "new_chars": 6000,
                 "observations": 6,
                 "retained_observations": 6,
+                "retained_image_tool_results": 1,
                 "reason": "context_limit_error",
             },
         )
@@ -761,6 +806,7 @@ class DelegationTests(unittest.TestCase):
         self.assertIn("chars=24000->6000", compacted_summary)
         self.assertIn("observations=6", compacted_summary)
         self.assertIn("retained=6", compacted_summary)
+        self.assertIn("images=1", compacted_summary)
         self.assertIn("reason=context_limit_error", compacted_summary)
         main_summary = format_session_event_timeline_item(main_compacted)
         self.assertIn("compacted agent context", main_summary)
