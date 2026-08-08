@@ -51,6 +51,8 @@ from .action_git_types import (
     CheckGitStashDropAction,
     CheckGitSwitchAction,
     CheckGitUnstageAction,
+    EnterWorktreeAction,
+    ExitWorktreeAction,
     GitBlameAction,
     GitBranchesAction,
     GitChangesAction,
@@ -205,6 +207,8 @@ AgentAction: TypeAlias = (
     | SearchContextsAction
     | FindFilesAction
     | GlobAction
+    | EnterWorktreeAction
+    | ExitWorktreeAction
     | GitStatusAction
     | GitConflictsAction
     | GitInfoAction

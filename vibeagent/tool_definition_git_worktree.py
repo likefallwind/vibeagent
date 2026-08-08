@@ -5,6 +5,38 @@ from typing import Any
 
 GIT_WORKTREE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
+        "name": "EnterWorktree",
+        "description": "Create an isolated git worktree and switch this agent session into it, or switch into an existing worktree from the same repository. Creating a worktree requires approval.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Optional safe name for a new worktree. A unique name is generated when omitted.",
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Optional path of an existing registered worktree from the same repository.",
+                },
+            },
+            "oneOf": [
+                {"required": ["name"], "not": {"required": ["path"]}},
+                {"required": ["path"], "not": {"required": ["name"]}},
+                {"maxProperties": 0},
+            ],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "ExitWorktree",
+        "description": "Switch this agent session from an isolated linked worktree back to the repository's main checkout. The linked worktree and all of its changes are preserved.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "check_git_switch",
         "description": "Validate switching to an existing local branch or creating a new local branch without changing HEAD.",
         "input_schema": {

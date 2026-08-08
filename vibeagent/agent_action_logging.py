@@ -42,6 +42,8 @@ def _target_process_id(action: object) -> object:
 
 
 ACTION_LOG_SPECS: dict[str, tuple[str, ActionTargetBuilder]] = {
+    "enter_worktree": ("entering worktree", _target_action),
+    "exit_worktree": ("exiting worktree", _target_action),
     "list_files": ("listing files", _target_optional_path),
     "list_tree": ("listing tree", _target_optional_path),
     "repo_map": ("mapping repo", _target_action),

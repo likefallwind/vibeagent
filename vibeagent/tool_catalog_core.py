@@ -22,6 +22,7 @@ APPROVAL_REQUIRED_TOOL_NAMES = {
     "delete_file",
     "delete_files",
     "edit_file",
+    "enter_worktree",
     "notebook_edit",
     "git_commit",
     "git_fetch",
@@ -111,6 +112,8 @@ def tool_category(name: str) -> str:
     if name.startswith("checkpoint_") or name.startswith("check_checkpoint_"):
         return "checkpoint"
     if name.startswith("git_") or name.startswith("check_git_"):
+        return "git"
+    if name in {"EnterWorktree", "ExitWorktree"}:
         return "git"
     if name in {
         "Bash",

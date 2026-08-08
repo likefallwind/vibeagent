@@ -49,6 +49,12 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             target=f"{action.branch}{' (create)' if action.create else ''}",
             risk="This will change the current git branch in the active project.",
         )
+    if isinstance(action, t.EnterWorktreeAction):
+        return t.ApprovalRequest(
+            action_type="enter_worktree",
+            target=action.path or action.name or "generated isolated worktree",
+            risk="This will create git metadata and switch subsequent agent tools into an isolated worktree.",
+        )
     if isinstance(action, t.GitFetchAction):
         return t.ApprovalRequest(
             action_type="git_fetch",

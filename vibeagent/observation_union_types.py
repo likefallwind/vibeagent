@@ -55,6 +55,8 @@ from .observation_git_types import (
     CheckGitStashObservation,
     CheckGitSwitchObservation,
     CheckGitUnstageObservation,
+    EnterWorktreeObservation,
+    ExitWorktreeObservation,
     GitBlameObservation,
     GitBranchesObservation,
     GitChangesObservation,
@@ -219,6 +221,8 @@ Observation: TypeAlias = (
     | SearchContextsObservation
     | FindFilesObservation
     | GlobObservation
+    | EnterWorktreeObservation
+    | ExitWorktreeObservation
     | GitStatusObservation
     | GitConflictsObservation
     | GitInfoObservation

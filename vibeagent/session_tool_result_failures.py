@@ -4,6 +4,8 @@ from typing import Any
 
 
 OK_FIELD_FAILURE_KINDS = {
+    "enter_worktree",
+    "exit_worktree",
     "check_write_file",
     "write_file",
     "check_write_files",

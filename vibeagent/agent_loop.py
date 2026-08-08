@@ -20,6 +20,7 @@ from .agent_tool_registry import (
     activate_tools_from_observations,
     agent_tool_definitions,
 )
+from .agent_workspace_transition import apply_workspace_transition
 from .types import (
     AgentLogger,
     ApprovalHandler,
@@ -237,6 +238,11 @@ def run_agent_loop(
             observation = sequential.observation
             plan = sequential.plan
             auto_checkpoint_attempted = sequential.auto_checkpoint_attempted
+            current_workspace = apply_workspace_transition(
+                current_workspace,
+                observation,
+                iteration=iteration,
+            )
 
             if observation.kind == "finish":
                 blocked_completion_feedback = runtime.completion_blocked_feedback_if_needed(

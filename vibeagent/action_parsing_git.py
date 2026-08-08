@@ -10,7 +10,7 @@ from .action_parsing_git_fields import (
     parse_git_stash_ref,
     parse_optional_git_remote,
 )
-from .action_parsing_helpers import parse_optional_positive_int
+from .action_parsing_helpers import ActionParseError, parse_optional_positive_int
 from .action_parsing_git_read import GIT_READ_ACTION_TYPES, parse_git_read_action
 from .types import (
     CheckGitCommitAction,
@@ -24,6 +24,8 @@ from .types import (
     CheckGitStashDropAction,
     CheckGitSwitchAction,
     CheckGitUnstageAction,
+    EnterWorktreeAction,
+    ExitWorktreeAction,
     GitCommitAction,
     GitFetchAction,
     GitPullAction,
@@ -40,6 +42,8 @@ from .types import (
 
 
 GIT_ACTION_TYPES = GIT_READ_ACTION_TYPES | {
+    "enter_worktree",
+    "exit_worktree",
     "check_git_fetch",
     "git_fetch",
     "check_git_pull",
@@ -69,6 +73,24 @@ GIT_ACTION_TYPES = GIT_READ_ACTION_TYPES | {
 def parse_git_action(action_type: object, value: dict[str, Any], raw: str) -> object | None:
     if action_type not in GIT_ACTION_TYPES:
         return None
+
+    if action_type == "enter_worktree":
+        name = value.get("name")
+        path = value.get("path")
+        if name is not None and (not isinstance(name, str) or not name.strip()):
+            raise ActionParseError("EnterWorktree name must be a non-empty string.", raw)
+        if path is not None and (not isinstance(path, str) or not path.strip()):
+            raise ActionParseError("EnterWorktree path must be a non-empty string.", raw)
+        if name is not None and path is not None:
+            raise ActionParseError("EnterWorktree accepts name or path, not both.", raw)
+        return EnterWorktreeAction(
+            type="enter_worktree",
+            name=name.strip() if isinstance(name, str) else None,
+            path=path.strip() if isinstance(path, str) else None,
+        )
+
+    if action_type == "exit_worktree":
+        return ExitWorktreeAction(type="exit_worktree")
 
     read_action = parse_git_read_action(action_type, value, raw)
     if read_action is not None:

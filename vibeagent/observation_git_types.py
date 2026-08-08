@@ -26,6 +26,27 @@ from .observation_git_sync_types import (
 
 
 @dataclass(frozen=True)
+class EnterWorktreeObservation:
+    kind: Literal["enter_worktree"]
+    ok: bool
+    path: str
+    branch: str
+    created: bool
+    previous_root: str
+    message: str
+
+
+@dataclass(frozen=True)
+class ExitWorktreeObservation:
+    kind: Literal["exit_worktree"]
+    ok: bool
+    path: str
+    previous_root: str
+    preserved_worktree: str
+    message: str
+
+
+@dataclass(frozen=True)
 class GitStatusObservation:
     kind: Literal["git_status"]
     ok: bool

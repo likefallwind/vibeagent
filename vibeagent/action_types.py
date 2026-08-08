@@ -99,6 +99,8 @@ from .action_git_types import (
     CheckGitStashDropAction,
     CheckGitSwitchAction,
     CheckGitUnstageAction,
+    EnterWorktreeAction,
+    ExitWorktreeAction,
     GitBlameAction,
     GitBranchesAction,
     GitChangesAction,

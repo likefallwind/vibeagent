@@ -169,6 +169,12 @@ def background_task_activation_names(observation: object) -> list[str]:
     return []
 
 
+def worktree_activation_names(observation: object) -> list[str]:
+    if getattr(observation, "kind", None) == "enter_worktree" and getattr(observation, "ok", False):
+        return ["ExitWorktree"]
+    return []
+
+
 def activate_tools_for_run(
     workspace: RunWorkspace,
     active_names: set[str],
@@ -244,6 +250,20 @@ def activate_tools_from_observations(
             requested_names,
             iteration,
             source="background_task",
+            approval_policy=approval_policy,
+            excluded_names=excluded_names,
+        )
+    )
+    requested_names = []
+    for observation in observations:
+        requested_names.extend(worktree_activation_names(observation))
+    activated.extend(
+        activate_tools_for_run(
+            workspace,
+            active_names,
+            requested_names,
+            iteration,
+            source="worktree",
             approval_policy=approval_policy,
             excluded_names=excluded_names,
         )

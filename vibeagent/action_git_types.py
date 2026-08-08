@@ -5,6 +5,18 @@ from typing import Literal
 
 
 @dataclass(frozen=True)
+class EnterWorktreeAction:
+    type: Literal["enter_worktree"]
+    name: str | None = None
+    path: str | None = None
+
+
+@dataclass(frozen=True)
+class ExitWorktreeAction:
+    type: Literal["exit_worktree"]
+
+
+@dataclass(frozen=True)
 class GitStatusAction:
     type: Literal["git_status"]
 

@@ -33,6 +33,8 @@ class GitToolDefinitionTests(unittest.TestCase):
         self.assertEqual(
             [tool["name"] for tool in GIT_WORKTREE_TOOL_DEFINITIONS],
             [
+                "EnterWorktree",
+                "ExitWorktree",
                 "check_git_switch",
                 "git_switch",
                 "check_git_stage",

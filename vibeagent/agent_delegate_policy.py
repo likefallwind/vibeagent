@@ -9,4 +9,15 @@ DELEGATE_TOOL_NAMES = frozenset(
     if not name.startswith("check_") and name not in {"final_review"}
 )
 READ_ONLY_CLAUDE_DELEGATE_TOOL_NAMES = frozenset({"Glob", "Grep", "LS", "NotebookRead", "Read", "TodoRead"})
-CODE_DELEGATE_EXCLUDED_TOOL_NAMES = frozenset({"ask_user", "delegate_task", "todo_write", "update_plan"})
+CODE_DELEGATE_EXCLUDED_TOOL_NAMES = frozenset(
+    {
+        "EnterWorktree",
+        "ExitWorktree",
+        "ask_user",
+        "delegate_task",
+        "enter_worktree",
+        "exit_worktree",
+        "todo_write",
+        "update_plan",
+    }
+)

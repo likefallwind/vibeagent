@@ -15,6 +15,7 @@ class RunWorkspace:
     project_config_trusted: bool = False
     mcp_config_paths: tuple[Path, ...] = ()
     strict_mcp_config: bool = False
+    root_history: tuple[Path, ...] = ()
 
 
 @dataclass(frozen=True)

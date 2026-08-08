@@ -5,11 +5,16 @@ from .git_info_action_executor import execute_git_info_action
 from .git_read_action_executor import execute_git_read_action
 from .git_remote_action_executor import execute_git_remote_action
 from .git_stash_action_executor import execute_git_stash_action
+from .git_worktree_action_executor import execute_git_worktree_action
 from .types import Observation
 from .workspace import RunWorkspace
 
 
 def execute_git_action(workspace: RunWorkspace, action: object) -> Observation | None:
+    worktree_observation = execute_git_worktree_action(workspace, action)
+    if worktree_observation is not None:
+        return worktree_observation
+
     info_observation = execute_git_info_action(workspace, action)
     if info_observation is not None:
         return info_observation

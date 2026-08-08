@@ -8,6 +8,10 @@ from .types import Observation
 
 
 CORE_GIT_NEXT_ACTION_KINDS = {
+    "EnterWorktree",
+    "ExitWorktree",
+    "enter_worktree",
+    "exit_worktree",
     "git_status",
     "git_changes",
     "git_diff",
@@ -170,6 +174,20 @@ def _git_commit_next_action_instruction(base: str, latest: Observation) -> str:
 def git_next_action_instruction(base: str, latest: Observation) -> str:
     if latest.kind in EXTENDED_GIT_NEXT_ACTION_KINDS:
         return extended_git_next_action_instruction(base, latest)
+    if latest.kind == "enter_worktree":
+        if getattr(latest, "ok", False):
+            return (
+                f"{base} The active project root is now the isolated worktree at {latest.path}. "
+                "Continue all reads, edits, commands, and verification there; use ExitWorktree only when returning to the main checkout is intended."
+            )
+        return f"{base} Worktree entry failed. Inspect the error, choose another safe name or registered path, or continue in the current project root."
+    if latest.kind == "exit_worktree":
+        if getattr(latest, "ok", False):
+            return (
+                f"{base} The active project root is back at {latest.path}. The linked worktree remains at "
+                f"{latest.preserved_worktree}; inspect or integrate its changes explicitly."
+            )
+        return f"{base} Worktree exit failed. The current project root is unchanged; inspect the error before continuing."
     if latest.kind == "git_status":
         return _git_status_next_action_instruction(base, latest)
     if latest.kind == "git_changes":

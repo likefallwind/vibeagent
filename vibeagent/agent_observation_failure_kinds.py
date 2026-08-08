@@ -7,6 +7,8 @@ DIRECT_FAILURE_KINDS = {
 }
 
 OK_FLAG_FAILURE_KINDS = {
+    "enter_worktree",
+    "exit_worktree",
     "delegate_task",
     "task_output",
     "task_stop",

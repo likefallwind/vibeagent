@@ -7,6 +7,10 @@ from . import types as t
 
 
 def build_step_label(action: object) -> str:
+    if isinstance(action, t.EnterWorktreeAction):
+        return f"Enter worktree {action.path or action.name or 'generated'}"
+    if isinstance(action, t.ExitWorktreeAction):
+        return "Exit worktree"
     label = build_file_operation_step_label(action)
     if label is not None:
         return label

@@ -250,6 +250,8 @@ from .observation_git_types import (
     CheckGitStashObservation,
     CheckGitSwitchObservation,
     CheckGitUnstageObservation,
+    EnterWorktreeObservation,
+    ExitWorktreeObservation,
     GitBlameObservation,
     GitBranchInfo,
     GitBranchesObservation,

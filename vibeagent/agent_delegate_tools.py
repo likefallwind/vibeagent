@@ -250,7 +250,7 @@ def execute_delegate_action(
             ToolErrorObservation(
                 kind="tool_error",
                 tool=tool_name or "unknown",
-                message="Subagent tool is not allowed because coding subagents cannot ask the user, update the parent plan, or delegate again.",
+                message="Subagent tool is not allowed because coding subagents cannot ask the user, update the parent plan, or delegate again; they also cannot switch the parent workspace.",
             ),
             auto_checkpoint_attempted,
             (),

@@ -9,6 +9,20 @@ from .prompt_observation_utils import truncate
 
 
 def format_git_observation(index: int, observation: object) -> str | None:
+    if observation.kind == "enter_worktree":
+        return (
+            f"{index}. enter_worktree: {observation.message} ok={str(observation.ok).lower()} "
+            f"created={str(observation.created).lower()} branch={observation.branch or 'none'} "
+            f"root={observation.path or observation.previous_root}"
+        )
+
+    if observation.kind == "exit_worktree":
+        return (
+            f"{index}. exit_worktree: {observation.message} ok={str(observation.ok).lower()} "
+            f"root={observation.path or observation.previous_root} "
+            f"preserved={observation.preserved_worktree or 'none'}"
+        )
+
     if observation.kind == "git_status":
         return "\n".join(
             [
