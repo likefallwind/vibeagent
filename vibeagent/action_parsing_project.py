@@ -107,7 +107,13 @@ def parse_project_action(action_type: object, value: dict[str, Any], raw: str) -
         max_bytes = parse_optional_positive_int(value.get("max_bytes", 20_000), "max_bytes", raw, maximum=50_000) or 20_000
         if max_bytes < 200:
             raise ActionParseError("max_bytes must be at least 200.", raw)
-        return SkillAction(type="skill", name=name.strip(), max_bytes=max_bytes)
+        arguments = value.get("arguments")
+        if arguments is not None and (not isinstance(arguments, str) or not arguments.strip()):
+            raise ActionParseError("skill action arguments must be a non-empty string when provided.", raw)
+        arguments = arguments.strip() if isinstance(arguments, str) else None
+        if arguments is not None and len(arguments) > 4_000:
+            raise ActionParseError("skill action arguments must contain at most 4000 characters.", raw)
+        return SkillAction(type="skill", name=name.strip(), max_bytes=max_bytes, arguments=arguments)
 
     if action_type == "project_todos":
         path = value.get("path")

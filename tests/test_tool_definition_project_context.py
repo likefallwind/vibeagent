@@ -31,6 +31,7 @@ class ProjectContextToolDefinitionTests(unittest.TestCase):
             [
                 "project_commands",
                 "tool_search",
+                "ToolSearch",
                 "related_tests",
                 "focused_test_commands",
                 "check_focused_test_commands",
@@ -40,6 +41,7 @@ class ProjectContextToolDefinitionTests(unittest.TestCase):
                 "project_skills",
                 "project_agents",
                 "skill",
+                "Skill",
                 "project_todos",
                 "project_overview",
             ],

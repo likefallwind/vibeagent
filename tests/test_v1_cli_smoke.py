@@ -404,7 +404,8 @@ class V1CliSmokeTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         _assert_completed_code_result(self, payload)
-        self.assertIn('"name": "project_skills"', events_text)
+        self.assertIn('"name": "ToolSearch"', events_text)
+        self.assertIn('"name": "Skill"', events_text)
         self.assertIn('"name": "skill"', events_text)
         self.assertIn('"name": "calculator-repair"', events_text)
         self.assertIn("Repair calculator behavior safely", events_text)

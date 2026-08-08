@@ -36,4 +36,19 @@ PROJECT_TOOL_CATALOG_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "ToolSearch",
+        "description": "Claude-compatible alias for searching and activating tools from the full VibeAgent catalog.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Tool name or capability search terms."},
+                "max_results": {"type": "integer", "minimum": 1, "maximum": 100},
+                "category": {"type": "string", "enum": list(valid_tool_categories())},
+                "approval_required": {"type": "boolean"},
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    },
 ]

@@ -135,6 +135,7 @@ class SkillAction:
     type: Literal["skill"]
     name: str
     max_bytes: int = 20_000
+    arguments: str | None = None
 
 
 @dataclass(frozen=True)

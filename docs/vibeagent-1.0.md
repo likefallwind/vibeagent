@@ -80,9 +80,10 @@ local changes when asked, and resume from recorded session context.
   clarification, returns the selected answer to the model, then reads, edits,
   verifies, final-reviews, and commits.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_load_project_skill_then_repair_verify_and_commit`
-  lists project skills, loads one exact `.claude/skills/*/SKILL.md` only on
-  demand, follows the loaded skill instruction, then reads, edits, verifies,
-  final-reviews, and commits.
+  discovers the skill tools through Claude-compatible `ToolSearch`, loads one
+  exact `.claude/skills/*/SKILL.md` through `Skill` with invocation arguments,
+  follows the loaded instruction, then reads, edits, verifies, final-reviews,
+  and commits.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_apply_claude_multi_edit_and_commit`
   applies a two-step Claude-compatible `MultiEdit`, including a `replace_all`
   edit entry, then reruns tests, commits, and verifies the recorded session.
@@ -128,10 +129,10 @@ local changes when asked, and resume from recorded session context.
   confirming fetched external evidence is fed into the next model turn before
   the agent repairs, verifies, reports, and commits.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_load_project_skill_before_repair_and_commit`
-  runs the real CLI JSON path through `.claude/skills` discovery and explicit
-  `skill` loading, confirming skill instructions are absent from the initial
-  prompt, injected only after the model requests the skill, then followed
-  before repair, verification, review, and commit.
+  runs the real CLI JSON path through Claude-compatible `ToolSearch` and
+  `Skill`, confirming skill instructions are absent from the initial prompt,
+  injected with invocation arguments only after the model requests the skill,
+  then followed before repair, verification, review, and commit.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_runs_project_hooks_around_claude_edit_and_commits`
   runs the real CLI JSON path with configured project `PreToolUse` and
   `PostToolUse` hooks around a Claude-compatible `Edit`, confirming hooks fire

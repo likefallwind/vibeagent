@@ -144,6 +144,7 @@ class AgentToolRegistryTests(unittest.TestCase):
             "ExitPlanMode",
             "AskUserQuestion",
             "Task",
+            "ToolSearch",
             "WebFetch",
             "WebSearch",
         ]:

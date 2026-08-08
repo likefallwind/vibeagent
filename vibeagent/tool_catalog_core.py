@@ -81,7 +81,7 @@ def tool_category(name: str) -> str:
         return "project"
     if name in {"delegate_task", "mcp_call", "mcp_servers", "mcp_tools", "web_fetch", "web_search"}:
         return "project"
-    if name in {"Agent", "Task", "WebFetch", "WebSearch"}:
+    if name in {"Agent", "Task", "Skill", "ToolSearch", "WebFetch", "WebSearch"}:
         return "project"
     if name in {
         "AskUserQuestion",

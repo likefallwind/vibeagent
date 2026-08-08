@@ -245,6 +245,7 @@ def execute_project_context_action(
                 truncated=bool(metadata["truncated"]),
                 max_bytes=int(metadata["max_bytes"]),
                 message=str(metadata["message"]),
+                arguments=action.arguments,
             )
         except (OSError, ValueError) as error:
             return SkillObservation(
@@ -259,6 +260,7 @@ def execute_project_context_action(
                 truncated=False,
                 max_bytes=action.max_bytes,
                 message=str(error),
+                arguments=action.arguments,
             )
 
     if isinstance(action, ProjectTodosAction):

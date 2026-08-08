@@ -117,6 +117,7 @@ class SkillObservation:
     truncated: bool
     max_bytes: int
     message: str
+    arguments: str | None = None
 
 
 @dataclass(frozen=True)

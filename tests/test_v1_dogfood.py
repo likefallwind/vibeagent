@@ -2049,16 +2049,20 @@ def skill_dogfood_responses() -> list[list[ContentBlock]]:
             {
                 "type": "tool_call",
                 "id": "skills-1",
-                "name": "project_skills",
-                "input": {"max_skills": 10},
+                "name": "ToolSearch",
+                "input": {"query": "project skill", "max_results": 10},
             }
         ],
         [
             {
                 "type": "tool_call",
                 "id": "skill-1",
-                "name": "skill",
-                "input": {"name": "calculator-repair", "max_bytes": 20_000},
+                "name": "Skill",
+                "input": {
+                    "skill": "calculator-repair",
+                    "args": "Fix the calc.add regression and verify it",
+                    "max_bytes": 20_000,
+                },
             }
         ],
         [
@@ -3302,19 +3306,25 @@ class V1DogfoodTests(unittest.TestCase):
         after_skill_prompt = "\n".join(str(message.content) for message in client.messages[2])
         observation_kinds = collect_observation_kinds(result)
         skill_observation = next(item for item in result.observations if item.kind == "skill")
+        initial_tool_names = {str(tool["name"]) for tool in client.tools[0]}
+        activated_tool_names = {str(tool["name"]) for tool in client.tools[1]}
 
         assert_v1_clean_commit(self, result, git_status, head_message, "Fix calculator add with project skill", 4)
-        self.assertIn("project_skills", observation_kinds)
+        self.assertIn("tool_search", observation_kinds)
         self.assertIn("skill", observation_kinds)
         self.assertEqual(skill_observation.name, "calculator-repair")
+        self.assertEqual(skill_observation.arguments, "Fix the calc.add regression and verify it")
+        self.assertNotIn("Skill", initial_tool_names)
+        self.assertIn("Skill", activated_tool_names)
         self.assertIn("Repair calculator behavior safely", skill_observation.description)
         self.assertNotIn("SKILL_CALCULATOR_REPAIR_INSTRUCTION", initial_prompt)
         self.assertIn("SKILL_CALCULATOR_REPAIR_INSTRUCTION", after_skill_prompt)
+        self.assertIn('"arguments": "Fix the calc.add regression and verify it"', after_skill_prompt)
         self.assertIn("run_session_verification", observation_kinds)
         self.assertIn("final_review", observation_kinds)
-        self.assertIn('"name": "project_skills"', events_text)
-        self.assertIn('"name": "skill"', events_text)
-        self.assertLess(observation_kinds.index("project_skills"), observation_kinds.index("skill"))
+        self.assertIn('"name": "ToolSearch"', events_text)
+        self.assertIn('"name": "Skill"', events_text)
+        self.assertLess(observation_kinds.index("tool_search"), observation_kinds.index("skill"))
         self.assertLess(observation_kinds.index("skill"), observation_kinds.index("read_file"))
         self.assertLess(observation_kinds.index("read_file"), observation_kinds.index("edit_file"))
         self.assertLess(observation_kinds.index("edit_file"), observation_kinds.index("final_review"))

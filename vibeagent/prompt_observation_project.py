@@ -180,6 +180,8 @@ def _format_skill(index: int, observation: object) -> str:
         f"bytes: {observation.bytes} maxBytes={observation.max_bytes} truncated={str(observation.truncated).lower()}",
         f"description: {observation.description or 'none'}",
     ]
+    if observation.arguments:
+        parts.append(f"arguments: {observation.arguments}")
     if observation.content:
         parts.append(f"instructions:\n{truncate(observation.content)}")
     return "\n".join(parts)

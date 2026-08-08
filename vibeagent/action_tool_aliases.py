@@ -143,6 +143,14 @@ def _normalize_ask_user_input(value: dict[str, Any]) -> dict[str, Any]:
     return _rename_fields(value, {"prompt": "question"})
 
 
+def _normalize_skill_input(value: dict[str, Any]) -> dict[str, Any]:
+    return _rename_fields(value, {"skill": "name", "args": "arguments"})
+
+
+def _normalize_tool_search_input(value: dict[str, Any]) -> dict[str, Any]:
+    return _rename_fields(value, {"max_results": "max_matches"})
+
+
 def _normalize_bash_input(value: dict[str, Any]) -> dict[str, Any]:
     return _rename_fields(value, {"timeout": "timeout_ms"})
 
@@ -266,6 +274,8 @@ _NAME_INPUT_NORMALIZERS: dict[str, ToolInputNormalizer] = {
     "ExitPlanMode": _normalize_exit_plan_mode_input,
     "NotebookRead": _normalize_claude_notebook_read_input,
     "Read": _normalize_claude_read_file_input,
+    "Skill": _normalize_skill_input,
+    "ToolSearch": _normalize_tool_search_input,
     "NotebookEdit": _normalize_notebook_edit_input,
 }
 

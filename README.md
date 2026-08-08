@@ -1145,7 +1145,7 @@ or under the `permissions` key in `.claude/settings.json` and
 Rules use `Tool` or `Tool(specifier)` syntax and are evaluated by effect in
 `deny`, `ask`, then `allow` order. Common Claude Code names including `Bash`,
 `BashOutput`, `KillBash`, `Read`, `Write`, `Edit`, `MultiEdit`,
-`NotebookRead`, `NotebookEdit`, `LS`, `Glob`, `Grep`, `WebFetch`, `WebSearch`, `Task`,
+`NotebookRead`, `NotebookEdit`, `LS`, `Glob`, `Grep`, `ToolSearch`, `Skill`, `WebFetch`, `WebSearch`, `Task`,
 `Agent`, `AskUserQuestion`, `ExitPlanMode`, `TodoWrite`, and `TodoRead` map to
 the corresponding VibeAgent tools; native snake-case tool names are also
 accepted. Model tool calls accept the same names with Claude-style field names
@@ -1279,7 +1279,7 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   records a final `result` session event with
   success/failure, message, iteration count, plan, and tool-step counts for later
   resume and audit. Provider requests start with a compact set of high-frequency
-  tool schemas instead of the full catalog; `tool_search` matches and any
+  tool schemas instead of the full catalog; `tool_search`/`ToolSearch` matches and any
   directly called compatible tools are activated for later model turns and
   recorded as session events. Local `/tools`, `/tool`, and `/tool-search`
   commands continue to inspect the complete catalog.
@@ -1490,7 +1490,7 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   `focused_test_commands` maps those related test files to likely focused commands without running them; the local focused-test commands and flags expose target/candidate/command bounds;
   `project_manifests` reads package and pyproject dependency/script metadata; the local `/manifests` command and `--manifests` flag expose manifest file/item bounds;
   `project_instructions` reads AGENTS.md and CLAUDE.md instruction sources with scopes and bounded text; the local `/instructions` command and `--instructions` flag expose `--max-files`/`--max-bytes` and `--instructions-max-files`/`--instructions-max-bytes` bounds respectively;
-  `project_skills` discovers bounded metadata from `.claude/skills/*/SKILL.md` and `.agents/skills/*/SKILL.md`, while `skill` loads one exact available skill on demand; skill bodies are excluded from the initial project snapshot and duplicate or symlinked skills are refused;
+  `project_skills` discovers bounded metadata from `.claude/skills/*/SKILL.md` and `.agents/skills/*/SKILL.md`, while `skill`/`Skill` loads one exact available skill on demand and preserves optional invocation arguments for the next model step; skill bodies are excluded from the initial project snapshot and duplicate or symlinked skills are refused;
   project agent profiles are discovered from `.claude/agents/*.md` and `.agents/agents/*.md`; only bounded metadata enters the main prompt, while `delegate_task.agent` loads one exact profile body on demand and enforces its mode and optional built-in-tool allowlist at both schema and runtime boundaries. A profile uses frontmatter such as `name: test-writer`, `description: Writes focused tests`, `mode: code`, and `tools: read_file, write_file` or Claude-compatible `tools: Read, Write`, followed by its scoped system instructions;
   `project_todos` scans project text files for TODO, FIXME, HACK, XXX, and BUG markers;
   `command_check` does the same preflight for one proposed finite command and also reports cwd and block-rule failures;

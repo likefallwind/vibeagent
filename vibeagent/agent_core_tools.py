@@ -74,6 +74,7 @@ CORE_PROJECT_TOOL_NAMES = frozenset(
         "suggest_checks",
         "Task",
         "tool_search",
+        "ToolSearch",
         "WebFetch",
         "web_fetch",
         "WebSearch",

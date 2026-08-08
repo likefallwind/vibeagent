@@ -93,8 +93,27 @@ PROJECT_METADATA_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "maximum": 50000,
                     "description": "Maximum SKILL.md bytes to return. Defaults to 20000.",
                 },
+                "arguments": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "description": "Optional task arguments to apply while following the skill.",
+                },
             },
             "required": ["name"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "Skill",
+        "description": "Claude-compatible alias for loading one named project skill with optional arguments.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "skill": {"type": "string", "description": "Exact project skill directory name."},
+                "args": {"type": "string", "maxLength": 4000, "description": "Optional skill arguments."},
+                "max_bytes": {"type": "integer", "minimum": 200, "maximum": 50000},
+            },
+            "required": ["skill"],
             "additionalProperties": False,
         },
     },

@@ -4,8 +4,8 @@ from pathlib import Path
 
 from vibeagent.actions import execute_action, parse_tool_action
 from vibeagent.agent_tool_registry import initial_agent_tool_names
-from vibeagent.prompts import build_messages
-from vibeagent.types import ProjectOverviewAction, ProjectSkillsAction, SkillAction
+from vibeagent.prompts import build_messages, format_observations
+from vibeagent.types import ProjectOverviewAction, ProjectSkillsAction, SkillAction, ToolSearchAction
 from vibeagent.workspace import create_run_workspace, format_project_skill_catalog, read_project_skill, read_project_skills
 
 
@@ -117,6 +117,40 @@ class ProjectSkillActionTests(unittest.TestCase):
         self.assertTrue(loaded.ok)
         self.assertIn("Use unittest.", loaded.content)
 
+    def test_claude_aliases_search_and_load_skill_with_arguments(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-skills-") as base:
+            root = Path(base)
+            _write_skill(root, ".claude/skills", "release-check", "Validate releases", "Run the release gate.")
+            workspace = create_run_workspace(root, "run-1")
+
+            search_action = parse_tool_action("ToolSearch", {"query": "project skill", "max_results": 5})
+            search_result = execute_action(workspace, search_action)
+            load_action = parse_tool_action(
+                "Skill",
+                {"skill": "release-check", "args": "Validate version 1.1", "max_bytes": 500},
+            )
+            loaded = execute_action(workspace, load_action)
+
+        self.assertEqual(
+            search_action,
+            ToolSearchAction(type="tool_search", query="project skill", max_matches=5),
+        )
+        self.assertTrue(search_result.ok)
+        self.assertIn("skill", [match["name"] for match in search_result.matches])
+        self.assertEqual(
+            load_action,
+            SkillAction(
+                type="skill",
+                name="release-check",
+                max_bytes=500,
+                arguments="Validate version 1.1",
+            ),
+        )
+        self.assertEqual(loaded.arguments, "Validate version 1.1")
+        formatted = format_observations([loaded])
+        self.assertIn("arguments: Validate version 1.1", formatted)
+        self.assertIn("Run the release gate.", formatted)
+
     def test_project_overview_includes_skill_metadata_without_body(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-skills-") as base:
             root = Path(base)
@@ -135,6 +169,7 @@ class ProjectSkillActionTests(unittest.TestCase):
 
         self.assertNotIn("project_skills", active)
         self.assertNotIn("skill", active)
+        self.assertNotIn("Skill", active)
 
 
 if __name__ == "__main__":
