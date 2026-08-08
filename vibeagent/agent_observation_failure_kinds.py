@@ -8,6 +8,8 @@ DIRECT_FAILURE_KINDS = {
 
 OK_FLAG_FAILURE_KINDS = {
     "delegate_task",
+    "task_output",
+    "task_stop",
     "check_write_file",
     "write_file",
     "check_write_files",

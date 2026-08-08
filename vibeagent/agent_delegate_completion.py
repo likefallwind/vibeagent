@@ -31,6 +31,7 @@ def finish_delegate_task(
     message: str,
     logger: AgentLogger | None,
     tool_event: dict[str, object] | None = None,
+    cancelled: bool = False,
 ) -> DelegateTaskObservation:
     observation = DelegateTaskObservation(
         kind="delegate_task",
@@ -42,6 +43,10 @@ def finish_delegate_task(
         message=message,
         mode=action.mode,
         agent=action.agent,
+        task_id=subagent_id if action.run_in_background else None,
+        background=action.run_in_background,
+        running=False,
+        cancelled=cancelled,
     )
     if tool_event is not None:
         record_subagent_tool_result_event(

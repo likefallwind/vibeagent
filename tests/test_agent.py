@@ -8417,6 +8417,8 @@ class AgentTests(unittest.TestCase):
             "ExitPlanMode": "update_plan",
             "TodoRead": "session_plan",
             "TodoWrite": "update_plan",
+            "TaskOutput": "task_output",
+            "TaskStop": "task_stop",
             "python_traceback": "output_diagnostics",
             "todo_read": "session_plan",
             "todo_write": "update_plan",

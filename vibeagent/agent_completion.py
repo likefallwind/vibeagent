@@ -4,6 +4,7 @@ from .agent_observation_utils import observation_failed
 from .agent_completion_auto_review import auto_final_review_reason, should_auto_run_final_review
 from .agent_completion_details import (
     build_active_background_process_details,
+    build_active_background_task_details,
     build_checkpoint_failure_details,
     build_denied_approval_details,
     build_final_review_blocking_issue_details,
@@ -72,6 +73,9 @@ def build_completion_blocker_details(
     active_background_processes = build_active_background_process_details(observations)
     if active_background_processes:
         details["activeBackgroundProcesses"] = active_background_processes
+    active_background_tasks = build_active_background_task_details(observations)
+    if active_background_tasks:
+        details["activeBackgroundTasks"] = active_background_tasks
     denied_approvals = build_denied_approval_details(observations)
     if denied_approvals:
         details["deniedApprovals"] = denied_approvals
@@ -178,6 +182,9 @@ def build_completion_blockers(
     running_process_count = final_review_running_process_count(final_review)
     if running_process_count:
         blockers.append(f"Final review reported {running_process_count} running background process(es).")
+    active_background_tasks = build_active_background_task_details(observations)
+    if active_background_tasks:
+        blockers.append(f"{len(active_background_tasks)} background subagent task(s) are still running or unread.")
     if failed_verification_checks:
         blockers.append(f"{len(failed_verification_checks)} suggested verification check(s) failed after the latest project change.")
     if pending_verification_checks:

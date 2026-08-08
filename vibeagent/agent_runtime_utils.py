@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from threading import RLock
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ from .workspace_core import RunWorkspace
 AGENT_MESSAGE_COMPACT_THRESHOLD = 18
 AGENT_COMPACT_OBSERVATION_LIMIT = 20
 AGENT_COMPACT_CONTEXT_MAX_LENGTH = 12_000
+_SESSION_EVENT_WRITE_LOCK = RLock()
 
 
 def format_exception(error: Exception) -> str:
@@ -186,8 +188,9 @@ def append_session_event(session_dir: Path, event_type: str, payload: dict[str, 
     session_dir.mkdir(parents=True, exist_ok=True)
     event = redact_jsonable_payload(sanitize_session_event_payload(event_type, to_jsonable(payload)))
     event = {"type": event_type, **event}
-    with (session_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+    with _SESSION_EVENT_WRITE_LOCK:
+        with (session_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event, ensure_ascii=False) + "\n")
     notify_session_event_observers(session_dir, event)
 
 

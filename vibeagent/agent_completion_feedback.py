@@ -36,6 +36,10 @@ def format_completion_blocked_feedback(blockers: list[str], details: dict[str, l
     if active_background_processes:
         lines.append("Active background processes:")
         lines.extend(f"- {process}" for process in active_background_processes)
+    active_background_tasks = details.get("activeBackgroundTasks", [])
+    if active_background_tasks:
+        lines.append("Active background subagent tasks:")
+        lines.extend(f"- {task}" for task in active_background_tasks)
     denied_approvals = details.get("deniedApprovals", [])
     if denied_approvals:
         lines.append("Denied approvals:")
@@ -65,6 +69,8 @@ def completion_blocked_next_actions(blockers: list[str], details: dict[str, list
         actions.append("Continue carefully without assuming a restore point exists, or fix checkpoint creation before risky edits.")
     if details.get("activeBackgroundProcesses"):
         actions.append("Use list_processes and read_process to inspect active background processes; stop_process any process no longer needed before final_review.")
+    if details.get("activeBackgroundTasks"):
+        actions.append("Use TaskOutput to collect each background subagent result, or TaskStop to cancel work that is no longer needed.")
     if details.get("deniedApprovals"):
         actions.append("Choose an allowed alternative for denied approval requests, or ask the user before retrying the same protected action.")
     return actions

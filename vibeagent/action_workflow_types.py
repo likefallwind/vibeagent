@@ -37,6 +37,21 @@ class DelegateTaskAction:
     max_iterations: int = 4
     mode: Literal["explore", "code"] = "explore"
     agent: str | None = None
+    run_in_background: bool = False
+
+
+@dataclass(frozen=True)
+class TaskOutputAction:
+    type: Literal["task_output"]
+    task_id: str
+    block: bool = True
+    timeout_ms: int = 30_000
+
+
+@dataclass(frozen=True)
+class TaskStopAction:
+    type: Literal["task_stop"]
+    task_id: str
 
 
 @dataclass(frozen=True)

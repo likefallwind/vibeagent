@@ -40,6 +40,31 @@ class DelegateTaskObservation:
     message: str
     mode: Literal["explore", "code"] = "explore"
     agent: str | None = None
+    task_id: str | None = None
+    background: bool = False
+    running: bool = False
+    cancelled: bool = False
+
+
+@dataclass(frozen=True)
+class TaskOutputObservation:
+    kind: Literal["task_output"]
+    ok: bool
+    task_id: str
+    running: bool
+    completed: bool
+    result: DelegateTaskObservation | None
+    message: str
+
+
+@dataclass(frozen=True)
+class TaskStopObservation:
+    kind: Literal["task_stop"]
+    ok: bool
+    task_id: str
+    running: bool
+    stopped: bool
+    message: str
 
 
 @dataclass(frozen=True)

@@ -41,13 +41,15 @@ The automated suite currently covers these 1.0 surfaces:
 - Core ReAct loop: inspect, edit, run checks, repair, review, commit, finish.
 - Claude-compatible tool aliases: `Read`, `Edit`, `MultiEdit`, `Write`,
   `NotebookRead`, `NotebookEdit`, `Bash`, `BashOutput`, `KillBash`,
-  `TodoWrite`, `TodoRead`, `WebFetch`, `Task`, `Agent`, and `ExitPlanMode`.
+  `TodoWrite`, `TodoRead`, `WebFetch`, `Task`, `TaskOutput`, `TaskStop`, `Agent`,
+  and `ExitPlanMode`.
 - Real CLI JSON and stream-json entrypoints, stdin input formats, resume,
   compact, permission overrides, `acceptEdits`, disallowed tools, and
   pending-user-input output.
 - Project integrations: `.mcp.json`, strict MCP config, `.claude/skills`,
   `.claude/agents`, project hooks, project slash commands, checkpoints,
-  session handoff, focused tests, and code-mode subagents.
+  session handoff, focused tests, code-mode subagents, and background read-only
+  subagent lifecycle control.
 - Safety boundaries: workspace path guards, approval policy, hard command
   blocks, final-review blockers, protected files, and sandbox-related checks.
 

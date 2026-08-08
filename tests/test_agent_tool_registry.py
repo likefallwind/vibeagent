@@ -15,6 +15,7 @@ from vibeagent.agent_tool_registry import (
     CORE_AGENT_TOOL_NAMES,
     ToolVisibilityPolicy,
     activate_agent_tool_names,
+    background_task_activation_names,
     activate_tools_for_run,
     clear_dynamic_tool_definitions,
     mcp_tools_activation_names,
@@ -28,7 +29,7 @@ from vibeagent.session_timeline_reports import format_session_event_timeline_ite
 from vibeagent.session_types import SessionEvent
 from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
 from vibeagent.tool_catalog_core import APPROVAL_REQUIRED_TOOL_NAMES
-from vibeagent.types import AssistantResponse, ChatMessage, ContentBlock, McpToolInfo, McpToolsObservation, ToolSearchObservation
+from vibeagent.types import AssistantResponse, ChatMessage, ContentBlock, DelegateTaskObservation, McpToolInfo, McpToolsObservation, ToolSearchObservation
 from vibeagent.workspace import create_run_workspace
 
 
@@ -82,6 +83,22 @@ class AgentToolRegistryTests(unittest.TestCase):
         self.assertEqual(second, [])
         self.assertIn("python_dependencies", active)
         self.assertNotIn("missing_tool", active)
+
+    def test_background_task_activates_output_and_stop_tools(self) -> None:
+        observation = DelegateTaskObservation(
+            kind="delegate_task",
+            ok=True,
+            task="inspect auth",
+            summary="",
+            iterations=0,
+            tool_calls=[],
+            message="started",
+            task_id="task-123456789abc",
+            background=True,
+            running=True,
+        )
+
+        self.assertEqual(background_task_activation_names(observation), ["TaskOutput", "TaskStop"])
 
     def test_plan_policy_exposes_and_activates_read_only_tools_only(self) -> None:
         active = initial_agent_tool_names()

@@ -52,6 +52,21 @@ def build_active_background_process_details(observations: list[Observation]) -> 
     return details
 
 
+def build_active_background_task_details(observations: list[Observation]) -> list[str]:
+    active: dict[str, str] = {}
+    for observation in observations:
+        task_id = str(getattr(observation, "task_id", "") or "")
+        if not task_id:
+            continue
+        if observation.kind == "delegate_task" and getattr(observation, "background", False):
+            if getattr(observation, "running", False):
+                active[task_id] = str(getattr(observation, "task", "") or "background subagent")
+        elif observation.kind in {"task_output", "task_stop"}:
+            if not getattr(observation, "running", False):
+                active.pop(task_id, None)
+    return [f"{task_id}: {task}" for task_id, task in active.items()]
+
+
 def build_final_review_blocking_issue_details(observations: list[Observation]) -> list[str]:
     final_review = latest_final_review(observations)
     if final_review is None:

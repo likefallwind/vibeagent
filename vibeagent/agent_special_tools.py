@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .agent_action_logging import log_action
+from .background_delegate_runtime import start_background_delegate_task
 from .agent_delegate import execute_delegate_task_action
 from .agent_hooks import ExecuteActionSafely, HookWrappedToolResult, run_hooks_around_tool
 from .agent_steps import complete_task_step, start_task_step
@@ -108,24 +109,48 @@ def _execute_special_tool(
         )
     step = start_task_step(workspace, steps, iteration, action, logger)
     log_action(logger, action)
-    delegate_observation = execute_delegate_task_action(
-        workspace,
-        action,
-        client,
-        parent_iteration=iteration,
-        subagent_id=f"delegate-{iteration}-{step.id}",
-        max_output_tokens=max_output_tokens,
-        model_retries=model_retries,
-        model_retry_delay_ms=model_retry_delay_ms,
-        model_timeout_ms=model_timeout_ms,
-        command_timeout_ms=command_timeout_ms,
-        logger=logger,
-        approval_handler=approval_handler,
-        approval_policy=approval_policy,
-        parent_observations=observations,
-        parent_steps=steps,
-        hooks=hooks,
-        permissions=permissions,
-    )
+    if action.run_in_background:
+        delegate_observation = start_background_delegate_task(
+            workspace,
+            action,
+            lambda task_id, cancel_requested: execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=iteration,
+                subagent_id=task_id,
+                max_output_tokens=max_output_tokens,
+                model_retries=model_retries,
+                model_retry_delay_ms=model_retry_delay_ms,
+                model_timeout_ms=model_timeout_ms,
+                command_timeout_ms=command_timeout_ms,
+                logger=logger,
+                approval_handler=None,
+                approval_policy=approval_policy,
+                hooks=hooks,
+                permissions=permissions,
+                cancel_requested=cancel_requested,
+            ),
+        )
+    else:
+        delegate_observation = execute_delegate_task_action(
+            workspace,
+            action,
+            client,
+            parent_iteration=iteration,
+            subagent_id=f"delegate-{iteration}-{step.id}",
+            max_output_tokens=max_output_tokens,
+            model_retries=model_retries,
+            model_retry_delay_ms=model_retry_delay_ms,
+            model_timeout_ms=model_timeout_ms,
+            command_timeout_ms=command_timeout_ms,
+            logger=logger,
+            approval_handler=approval_handler,
+            approval_policy=approval_policy,
+            parent_observations=observations,
+            parent_steps=steps,
+            hooks=hooks,
+            permissions=permissions,
+        )
     complete_task_step(workspace, step, delegate_observation, iteration, logger)
     return delegate_observation

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from collections.abc import Callable
 
 from .agent_delegate_tools import (
     DELEGATE_TOOL_DEFINITIONS,
@@ -62,6 +63,7 @@ def execute_delegate_task_action(
     parent_steps: list[TaskStep] | None = None,
     hooks: ProjectHooks = ProjectHooks(),
     permissions: ProjectPermissions = ProjectPermissions(),
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> DelegateTaskObservation:
     profile: dict[str, object] | None = None
     profile_error: str | None = None
@@ -119,6 +121,19 @@ def execute_delegate_task_action(
             logger=logger,
         )
 
+    if action.run_in_background and action.mode != "explore":
+        return finish_delegate_task(
+            workspace,
+            action,
+            subagent_id,
+            ok=False,
+            summary="",
+            iterations=0,
+            tool_calls=tool_calls_used,
+            message="Background task delegation only supports explore mode, including project agent profiles.",
+            logger=logger,
+        )
+
     if action.mode == "code" and approval_policy == "plan":
         return finish_delegate_task(
             workspace,
@@ -133,6 +148,19 @@ def execute_delegate_task_action(
         )
 
     for child_iteration in range(1, action.max_iterations + 1):
+        if cancel_requested is not None and cancel_requested():
+            return finish_delegate_task(
+                workspace,
+                action,
+                subagent_id,
+                ok=False,
+                summary="",
+                iterations=child_iteration - 1,
+                tool_calls=tool_calls_used,
+                message="Background subagent task was cancelled.",
+                logger=logger,
+                cancelled=True,
+            )
         response, error_message = complete_with_retries(
             client,
             messages,
@@ -163,6 +191,20 @@ def execute_delegate_task_action(
                 tool_calls=tool_calls_used,
                 message=error_message or "Subagent model request failed.",
                 logger=logger,
+            )
+
+        if cancel_requested is not None and cancel_requested():
+            return finish_delegate_task(
+                workspace,
+                action,
+                subagent_id,
+                ok=False,
+                summary="",
+                iterations=child_iteration,
+                tool_calls=tool_calls_used,
+                message="Background subagent task was cancelled.",
+                logger=logger,
+                cancelled=True,
             )
 
         assistant_content = normalize_assistant_content(response.content if hasattr(response, "content") else response)
@@ -207,6 +249,19 @@ def execute_delegate_task_action(
 
         tool_results: list[ContentBlock] = []
         for block in tool_calls:
+            if cancel_requested is not None and cancel_requested():
+                return finish_delegate_task(
+                    workspace,
+                    action,
+                    subagent_id,
+                    ok=False,
+                    summary="",
+                    iterations=child_iteration,
+                    tool_calls=tool_calls_used,
+                    message="Background subagent task was cancelled.",
+                    logger=logger,
+                    cancelled=True,
+                )
             tool_id = str(block.get("id") or "")
             tool_name = str(block.get("name") or "")
             tool_input = block.get("input") or {}

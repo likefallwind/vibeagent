@@ -4,13 +4,28 @@ import re
 from typing import Any
 
 from .action_parsing_helpers import ActionParseError
-from .types import DelegateTaskAction
+from .types import DelegateTaskAction, TaskOutputAction, TaskStopAction
 
 
 AGENT_PROFILE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 
 def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str) -> object | None:
+    if action_type == "task_output":
+        task_id = parse_task_id(value, raw, "task_output")
+        block = value.get("block", True)
+        if not isinstance(block, bool):
+            raise ActionParseError("task_output action block must be a boolean.", raw)
+        timeout_ms = value.get("timeout_ms", 30_000)
+        if isinstance(timeout_ms, bool) or not isinstance(timeout_ms, int):
+            raise ActionParseError("task_output action timeout_ms must be an integer.", raw)
+        if timeout_ms < 0 or timeout_ms > 600_000:
+            raise ActionParseError("task_output action timeout_ms must be between 0 and 600000.", raw)
+        return TaskOutputAction(type="task_output", task_id=task_id, block=block, timeout_ms=timeout_ms)
+
+    if action_type == "task_stop":
+        return TaskStopAction(type="task_stop", task_id=parse_task_id(value, raw, "task_stop"))
+
     if action_type != "delegate_task":
         return None
 
@@ -43,6 +58,12 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
         raise ActionParseError("delegate_task action agent must be a valid project agent profile name.", raw)
     agent = agent.strip() if isinstance(agent, str) else None
 
+    run_in_background = value.get("run_in_background", False)
+    if not isinstance(run_in_background, bool):
+        raise ActionParseError("delegate_task action run_in_background must be a boolean.", raw)
+    if run_in_background and mode != "explore":
+        raise ActionParseError("Background task delegation only supports explore mode.", raw)
+
     return DelegateTaskAction(
         type="delegate_task",
         task=task,
@@ -50,4 +71,14 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
         max_iterations=max_iterations,
         mode=mode,
         agent=agent,
+        run_in_background=run_in_background,
     )
+
+
+def parse_task_id(value: dict[str, Any], raw: str, action_type: str) -> str:
+    task_id = value.get("task_id")
+    if not isinstance(task_id, str) or not task_id.strip():
+        raise ActionParseError(f"{action_type} action requires a non-empty task_id.", raw)
+    if len(task_id.strip()) > 128:
+        raise ActionParseError(f"{action_type} action task_id must contain at most 128 characters.", raw)
+    return task_id.strip()

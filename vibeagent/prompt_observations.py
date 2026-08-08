@@ -77,6 +77,11 @@ def format_observations(observations: list[Observation]) -> str:
             lines.append(code_intel_line)
         elif observation.kind == "finish":
             lines.append(f"{index}. finish: {observation.message}")
+        elif observation.kind == "task_output":
+            result = getattr(observation, "result", None)
+            summary = getattr(result, "summary", "") if result is not None else ""
+            suffix = f"\nsummary:\n{truncate(summary)}" if summary else ""
+            lines.append(f"{index}. task_output {observation.task_id}: {observation.message}{suffix}")
         elif observation.kind == "tool_error":
             lines.append(f"{index}. tool_error {observation.tool}: {observation.message}")
         elif observation.kind == "update_plan":

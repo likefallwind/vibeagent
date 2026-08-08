@@ -50,6 +50,8 @@ from .observation_common_types import (
     ApprovalDeniedObservation,
     DelegateTaskObservation,
     FinishObservation,
+    TaskOutputObservation,
+    TaskStopObservation,
     ToolErrorObservation,
     UpdatePlanObservation,
     UserInputObservation,

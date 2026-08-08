@@ -16,7 +16,7 @@ local changes when asked, and resume from recorded session context.
 | VA1-REVIEW | Block premature completion after changes | `final_review`, completion blockers, and suggested verification checks prevent finishing until changed-file review and relevant checks are complete. |
 | VA1-COMMIT | Commit verified local work when requested | `check_git_stage`, `git_stage`, `check_git_commit`, and `git_commit` can stage explicit paths and create a local commit after approval. |
 | VA1-RESUME | Recover useful session context | `session_summary`, `session_verification`, `run_session_verification`, `session_handoff`, `--resume`, and `--compact` preserve enough context to continue work. |
-| VA1-DELEGATE | Split bounded investigation into a subagent | `delegate_task`, `Task`, and `Agent` can run isolated read-only investigations whose summaries return to the parent agent before edits. |
+| VA1-DELEGATE | Split bounded investigation into a subagent | `delegate_task`, `Task`, and `Agent` can run isolated read-only investigations synchronously or in the background; `TaskOutput` collects results, `TaskStop` requests cancellation, and completion remains blocked while a result is running or unread. |
 | VA1-PLAN | Produce a concrete read-only implementation plan | Plan mode exposes only read-only tools such as `project_overview`, `read_file`, and `tool_search`, denies hidden write attempts, and leaves the workspace unchanged. |
 | VA1-SAFETY | Enforce workspace and command safety | Workspace path guards, protected files, approval policy, project permissions, hooks, sandbox support, and hard command blocks prevent unsafe side effects. |
 
@@ -91,6 +91,10 @@ local changes when asked, and resume from recorded session context.
   delegates the first investigation through the Claude-compatible `Task` alias,
   lets the read-only subagent use `Read`, then the parent fixes, verifies, and
   commits the change.
+- `tests.test_background_delegate.BackgroundDelegateTests` covers background
+  task parsing, immediate start, non-blocking polling, blocking result
+  collection, cooperative cancellation, completion blocking, and concurrent
+  session-event writes.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_delegate_with_project_agent_profile_before_repair`
   delegates the first investigation to a `.claude/agents` project profile via
   `Task` `subagent_type`, injects the profile instruction into the subagent

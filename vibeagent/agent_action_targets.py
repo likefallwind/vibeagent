@@ -288,6 +288,8 @@ def build_action_target(action: object) -> str:
         return action.question
     if isinstance(action, t.DelegateTaskAction):
         return action.task
+    if isinstance(action, (t.TaskOutputAction, t.TaskStopAction)):
+        return action.task_id
     if getattr(action, "type", None) == "list_files":
         return str(getattr(action, "path", None) or ".")
     if isinstance(action, t.FinishAction):

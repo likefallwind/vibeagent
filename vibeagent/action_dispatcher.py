@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .action_parsing import summarize_plan_update
+from .background_delegate_runtime import execute_background_task_action
 from .checkpoint_action_executor import execute_checkpoint_action
 from .code_intel_action_executor import execute_code_intel_action
 from .file_action_executor import execute_file_action
@@ -68,6 +69,10 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
     session_observation = execute_session_action(workspace, action, command_timeout_ms)
     if session_observation is not None:
         return session_observation
+
+    background_task_observation = execute_background_task_action(workspace, action)
+    if background_task_observation is not None:
+        return background_task_observation
 
     checkpoint_observation = execute_checkpoint_action(workspace, action)
     if checkpoint_observation is not None:

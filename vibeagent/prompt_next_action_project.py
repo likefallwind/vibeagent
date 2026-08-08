@@ -26,6 +26,8 @@ PROJECT_NEXT_ACTION_KINDS = {
     "WebFetch",
     "WebSearch",
     "delegate_task",
+    "task_output",
+    "task_stop",
     "suggest_checks",
     "check_suggested_checks",
     "project_commands",
@@ -249,6 +251,8 @@ def project_next_action_instruction(base: str, latest: Observation) -> str:
             return f"{base} The MCP tool call failed or reported an error. Use its bounded output to correct arguments or choose another tool."
         return f"{base} Use the MCP result as external evidence and continue the task or answer directly if complete."
     if latest.kind == "delegate_task":
+        if getattr(latest, "background", False) and getattr(latest, "running", False):
+            return f"{base} Continue independent work, then use TaskOutput with task_id={latest.task_id} to collect the background result before finishing."
         if not getattr(latest, "ok", False):
             return (
                 f"{base} The delegated task failed. Continue the necessary work in the main agent context "
@@ -263,6 +267,17 @@ def project_next_action_instruction(base: str, latest: Observation) -> str:
             f"{base} Use the delegated findings as evidence, verify critical details with focused reads when needed, "
             "then continue implementation or answer if the task is complete."
         )
+    if latest.kind == "task_output":
+        if getattr(latest, "running", False):
+            return f"{base} The background subagent is still running. Continue independent work or call TaskOutput again with block=true."
+        result = getattr(latest, "result", None)
+        if result is not None and getattr(result, "ok", False):
+            return f"{base} Use the background findings as evidence, verify critical details, and continue the parent task."
+        return f"{base} The background task did not complete successfully. Continue in the main context or retry once with a narrower task."
+    if latest.kind == "task_stop":
+        if getattr(latest, "running", False):
+            return f"{base} Cancellation is pending. Use TaskOutput to wait until the background task has stopped before finishing."
+        return f"{base} The background task is stopped. Continue the parent task."
     if latest.kind == "suggest_checks":
         return _suggest_checks_next_action_instruction(base, latest)
     if latest.kind == "check_suggested_checks":
