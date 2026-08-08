@@ -83,12 +83,34 @@ def format_subagent_tool_result_event(prefix: str, payload: dict[str, Any]) -> s
     return f"{prefix} {name if isinstance(name, str) else 'unknown'}{format_detail_suffix(suffix)}"
 
 
-def format_subagent_context_compacted_event(prefix: str, payload: dict[str, Any]) -> str:
-    subagent_id = payload.get("subagent_id")
+def context_compaction_suffix(payload: dict[str, Any]) -> list[str]:
+    suffix: list[str] = []
+    reason = payload.get("reason")
+    if isinstance(reason, str):
+        suffix.append(f"reason={compact(reason, 40)}")
     previous_messages = payload.get("previous_messages")
     new_messages = payload.get("new_messages")
+    if isinstance(previous_messages, int) and isinstance(new_messages, int):
+        suffix.append(f"messages={previous_messages}->{new_messages}")
+    previous_chars = payload.get("previous_chars")
+    new_chars = payload.get("new_chars")
+    if isinstance(previous_chars, int) and isinstance(new_chars, int):
+        suffix.append(f"chars={previous_chars}->{new_chars}")
     observations = payload.get("observations")
+    if isinstance(observations, int):
+        suffix.append(f"observations={observations}")
     retained_observations = payload.get("retained_observations")
+    if isinstance(retained_observations, int):
+        suffix.append(f"retained={retained_observations}")
+    return suffix
+
+
+def format_context_compacted_event(prefix: str, payload: dict[str, Any]) -> str:
+    return f"{prefix} compacted agent context{format_detail_suffix(context_compaction_suffix(payload))}"
+
+
+def format_subagent_context_compacted_event(prefix: str, payload: dict[str, Any]) -> str:
+    subagent_id = payload.get("subagent_id")
     suffix = [f"id={compact(subagent_id, 80)}"] if isinstance(subagent_id, str) else []
     mode = payload.get("mode")
     if isinstance(mode, str):
@@ -96,12 +118,7 @@ def format_subagent_context_compacted_event(prefix: str, payload: dict[str, Any]
     agent = payload.get("agent")
     if isinstance(agent, str):
         suffix.append(f"agent={compact(agent, 80)}")
-    if isinstance(previous_messages, int) and isinstance(new_messages, int):
-        suffix.append(f"messages={previous_messages}->{new_messages}")
-    if isinstance(observations, int):
-        suffix.append(f"observations={observations}")
-    if isinstance(retained_observations, int):
-        suffix.append(f"retained={retained_observations}")
+    suffix.extend(context_compaction_suffix(payload))
     return f"{prefix} compacted delegated context{format_detail_suffix(suffix)}"
 
 

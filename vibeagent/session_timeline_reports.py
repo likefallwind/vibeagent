@@ -4,6 +4,7 @@ from typing import Any
 
 from .session_timeline_format_helpers import (
     format_detail_suffix,
+    format_context_compacted_event,
     format_subagent_completed_event,
     format_subagent_context_compacted_event,
     format_subagent_model_event,
@@ -129,6 +130,8 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         if isinstance(message, str) and message.strip():
             suffix.append(f"message={compact(message, max_text)}")
         return f"{prefix} {status if isinstance(status, str) else 'unknown'}{format_detail_suffix(suffix)}"
+    if event.type == "context_compacted":
+        return format_context_compacted_event(prefix, payload)
     if event.type == "approval_requested":
         request = payload.get("request")
         action = request.get("action_type") if isinstance(request, dict) else payload.get("action_type")

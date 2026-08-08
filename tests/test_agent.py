@@ -56,8 +56,9 @@ class MockClient:
 
 
 class FailingClient:
-    def __init__(self) -> None:
+    def __init__(self, message: str = "provider unavailable") -> None:
         self.calls = 0
+        self.message = message
 
     def complete(
         self,
@@ -68,7 +69,7 @@ class FailingClient:
         timeout_ms: int = 120_000,
     ) -> AssistantResponse:
         self.calls += 1
-        raise RuntimeError("provider unavailable")
+        raise RuntimeError(self.message)
 
 
 class FlakyAgentClient:
@@ -89,6 +90,36 @@ class FlakyAgentClient:
         if self.calls <= self.failures:
             raise RuntimeError("temporary provider failure")
         return AssistantResponse(content=self.response, raw={"content": self.response})
+
+
+class ContextOverflowClient:
+    def __init__(self) -> None:
+        self.messages: list[list[ChatMessage]] = []
+
+    def complete(
+        self,
+        messages: list[ChatMessage],
+        tools: list[dict] | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.2,
+        timeout_ms: int = 120_000,
+    ) -> AssistantResponse:
+        self.messages.append(list(messages))
+        call = len(self.messages)
+        if call <= 2:
+            content = [
+                {
+                    "type": "tool_call",
+                    "id": f"read-{call}",
+                    "name": "read_file",
+                    "input": {"path": "app.py"},
+                }
+            ]
+            return AssistantResponse(content=content, raw={"content": content})
+        if call == 3:
+            raise RuntimeError("maximum context length exceeded for this model")
+        content = [{"type": "text", "text": "Recovered after compaction."}]
+        return AssistantResponse(content=content, raw={"content": content})
 
 
 def approve_all(_request: ApprovalRequest) -> ApprovalDecision:
@@ -219,6 +250,66 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(compaction_rows[0]["new_messages"], 2)
         self.assertEqual(compaction_rows[0]["observations"], 9)
         self.assertEqual(compaction_rows[0]["plan_items"], 2)
+
+    def test_run_agent_recovers_from_context_limit_with_forced_compaction(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-context-recovery-") as base:
+            root = Path(base)
+            root.joinpath("app.py").write_text("print('ok')\n", encoding="utf-8")
+            client = ContextOverflowClient()
+
+            result = run_agent(
+                "inspect until enough evidence is available",
+                base_dir=root,
+                client=client,
+                max_iterations=3,
+                model_retries=0,
+            )
+            rows = [
+                json.loads(line)
+                for line in root.joinpath(".vibeagent", "sessions", result.run_id, "events.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        model_errors = [row for row in rows if row["type"] == "model_error"]
+        compactions = [row for row in rows if row["type"] == "context_compacted"]
+        self.assertTrue(result.success)
+        self.assertEqual(result.message, "Recovered after compaction.")
+        self.assertEqual([len(messages) for messages in client.messages], [2, 4, 6, 2])
+        self.assertEqual(len(model_errors), 1)
+        self.assertTrue(model_errors[0]["will_retry"])
+        self.assertEqual(model_errors[0]["attempts"], 2)
+        self.assertEqual(model_errors[0]["retry_delay_ms"], 0)
+        self.assertEqual(model_errors[0]["retry_reason"], "context_compaction")
+        self.assertEqual(len(compactions), 1)
+        self.assertEqual(compactions[0]["reason"], "context_limit_error")
+        self.assertEqual(compactions[0]["previous_messages"], 6)
+        self.assertEqual(compactions[0]["new_messages"], 2)
+
+    def test_run_agent_does_not_retry_context_limit_when_initial_prompt_cannot_compact(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-context-noop-") as base:
+            client = FailingClient("prompt is too long for the context window")
+            result = run_agent(
+                "inspect the project",
+                base_dir=Path(base),
+                client=client,
+                max_iterations=1,
+                model_retries=0,
+            )
+            rows = [
+                json.loads(line)
+                for line in Path(base, ".vibeagent", "sessions", result.run_id, "events.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        model_errors = [row for row in rows if row["type"] == "model_error"]
+        self.assertFalse(result.success)
+        self.assertEqual(client.calls, 1)
+        self.assertEqual(len(model_errors), 1)
+        self.assertFalse(model_errors[0]["will_retry"])
+        self.assertNotIn("retry_reason", model_errors[0])
+        self.assertFalse(any(row["type"] == "context_compacted" for row in rows))
 
     def test_run_agent_records_model_token_usage_without_raw_response_payload(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:

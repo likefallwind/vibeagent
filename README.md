@@ -1273,7 +1273,10 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   are converted into `tool_error` observations so the model can recover instead
   of crashing the agent process. Provider request failures are retried according
   to `model_retries`, waiting `model_retry_delay_ms` between attempts. Each
-  request is bounded by `model_timeout_ms`, each failed attempt is recorded as a
+  main-agent and subagent loop also recognizes provider context-limit errors,
+  force-compacts accumulated observations, and retries once when compaction
+  actually reduces the message history without consuming the normal retry budget.
+  Each request is bounded by `model_timeout_ms`, each failed attempt is recorded as a
   `model_error` event, and unrecovered failures also produce a failed `result`
   event so interrupted sessions remain auditable and resumable. Every run
   records a final `result` session event with

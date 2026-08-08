@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from .agent_message_flow import append_tool_results_and_compact
+from .agent_message_flow import append_tool_results_and_compact, recover_agent_context_limit
 from .agent_model_turn import handle_no_tool_call_response, record_model_turn
 from .agent_multimodal import strip_consumed_tool_images
 from .agent_parallel_execution import execute_parallel_tool_call_batch
@@ -89,6 +89,18 @@ def run_agent_loop(
             session_dir=current_workspace.session_dir,
             logger=logger,
             sleep=runtime.sleep,
+            recover_context=lambda: recover_agent_context_limit(
+                task=task,
+                workspace=current_workspace,
+                messages=messages,
+                observations=observations,
+                plan=plan,
+                original_prior_context=prior_context,
+                iteration=iteration,
+                approval_policy=approval_policy,
+                system_prompt=system_prompt,
+                append_system_prompt=append_system_prompt,
+            ),
         )
         if response is None:
             return runtime.finish_agent_run(

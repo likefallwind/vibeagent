@@ -32,3 +32,36 @@ def append_tool_results_and_compact(
         system_prompt=system_prompt,
         append_system_prompt=append_system_prompt,
     )
+
+
+def recover_agent_context_limit(
+    *,
+    task: str,
+    workspace: RunWorkspace,
+    messages: list[ChatMessage],
+    observations: list[Observation],
+    plan: list[PlanItem],
+    original_prior_context: str | None,
+    iteration: int,
+    approval_policy: ApprovalPolicy,
+    system_prompt: str | None,
+    append_system_prompt: str | None,
+) -> bool:
+    compacted = compact_agent_message_history(
+        task,
+        workspace,
+        messages,
+        observations,
+        plan,
+        original_prior_context,
+        iteration,
+        approval_policy=approval_policy,
+        system_prompt=system_prompt,
+        append_system_prompt=append_system_prompt,
+        force=True,
+        reason="context_limit_error",
+    )
+    if compacted is messages:
+        return False
+    messages[:] = compacted
+    return True

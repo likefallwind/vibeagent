@@ -7,6 +7,7 @@ from .agent_runtime_utils import (
     AGENT_COMPACT_OBSERVATION_LIMIT,
     append_session_event,
     compact_session_context,
+    message_history_char_count,
 )
 from .prompt_observations import format_observations
 from .types import ChatMessage, DelegateTaskAction, Observation
@@ -72,8 +73,10 @@ def compact_delegate_message_history(
     threshold: int = DELEGATE_MESSAGE_COMPACT_THRESHOLD,
     observation_limit: int = AGENT_COMPACT_OBSERVATION_LIMIT,
     max_context_length: int = AGENT_COMPACT_CONTEXT_MAX_LENGTH,
+    force: bool = False,
+    reason: str = "message_threshold",
 ) -> list[ChatMessage]:
-    if len(messages) <= threshold:
+    if len(messages) <= threshold and not force:
         return messages
 
     context = build_compacted_delegate_context(
@@ -87,6 +90,10 @@ def compact_delegate_message_history(
         replace(action, context=context),
         profile_prompt=profile_prompt,
     )
+    previous_chars = message_history_char_count(messages)
+    new_chars = message_history_char_count(compacted_messages)
+    if compacted_messages == messages or (force and new_chars >= previous_chars):
+        return messages
     append_session_event(
         workspace.session_dir,
         "subagent_context_compacted",
@@ -98,11 +105,43 @@ def compact_delegate_message_history(
             "agent": action.agent,
             "previous_messages": len(messages),
             "new_messages": len(compacted_messages),
+            "previous_chars": previous_chars,
+            "new_chars": new_chars,
             "observations": len(observations),
             "retained_observations": min(len(observations), observation_limit),
+            "reason": reason,
         },
     )
     return compacted_messages
+
+
+def recover_delegate_context_limit(
+    workspace: RunWorkspace,
+    action: DelegateTaskAction,
+    messages: list[ChatMessage],
+    observations: list[Observation],
+    *,
+    parent_iteration: int,
+    child_iteration: int,
+    subagent_id: str,
+    profile_prompt: str | None = None,
+) -> bool:
+    compacted = compact_delegate_message_history(
+        workspace,
+        action,
+        messages,
+        observations,
+        parent_iteration=parent_iteration,
+        child_iteration=child_iteration,
+        subagent_id=subagent_id,
+        profile_prompt=profile_prompt,
+        force=True,
+        reason="context_limit_error",
+    )
+    if compacted is messages:
+        return False
+    messages[:] = compacted
+    return True
 
 
 def build_compacted_delegate_context(

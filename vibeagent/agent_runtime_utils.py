@@ -39,6 +39,18 @@ def compact_session_context(value: str | None, max_length: int = 4000) -> str | 
     return f"{compact[:max_length]}..."
 
 
+def message_history_char_count(messages: list[ChatMessage]) -> int:
+    return sum(
+        len(message.role)
+        + (
+            len(message.content)
+            if isinstance(message.content, str)
+            else len(json.dumps(message.content, ensure_ascii=False, sort_keys=True))
+        )
+        for message in messages
+    )
+
+
 def compact_agent_message_history(
     task: str,
     workspace: RunWorkspace,
@@ -53,8 +65,10 @@ def compact_agent_message_history(
     approval_policy: ApprovalPolicy = "ask",
     system_prompt: str | None = None,
     append_system_prompt: str | None = None,
+    force: bool = False,
+    reason: str = "message_threshold",
 ) -> list[ChatMessage]:
-    if len(messages) <= threshold:
+    if len(messages) <= threshold and not force:
         return messages
 
     prior_context = build_compacted_agent_context(
@@ -73,6 +87,10 @@ def compact_agent_message_history(
         system_prompt=system_prompt,
         append_system_prompt=append_system_prompt,
     )
+    previous_chars = message_history_char_count(messages)
+    new_chars = message_history_char_count(compacted_messages)
+    if compacted_messages == messages or (force and new_chars >= previous_chars):
+        return messages
     append_session_event(
         workspace.session_dir,
         "context_compacted",
@@ -80,9 +98,12 @@ def compact_agent_message_history(
             "iteration": iteration,
             "previous_messages": len(messages),
             "new_messages": len(compacted_messages),
+            "previous_chars": previous_chars,
+            "new_chars": new_chars,
             "observations": len(observations),
             "plan_items": len(plan),
             "retained_observations": min(len(observations), observation_limit),
+            "reason": reason,
         },
     )
     return compacted_messages

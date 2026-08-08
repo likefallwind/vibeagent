@@ -40,6 +40,29 @@ class DelegationClient:
         return AssistantResponse(content=content, raw={"content": content}, usage=usage)
 
 
+class ContextOverflowDelegationClient:
+    def __init__(self) -> None:
+        self.messages: list[list[ChatMessage]] = []
+
+    def complete(self, messages, tools=None, max_tokens=4096, temperature=0.2, timeout_ms=120_000):
+        self.messages.append(list(messages))
+        call = len(self.messages)
+        if call == 1:
+            content = [
+                {
+                    "type": "tool_call",
+                    "id": "read-1",
+                    "name": "read_file",
+                    "input": {"path": "app.py"},
+                }
+            ]
+            return AssistantResponse(content=content, raw={"content": content})
+        if call == 2:
+            raise RuntimeError("context_length_exceeded")
+        content = [{"type": "text", "text": "Recovered subagent evidence from app.py:1."}]
+        return AssistantResponse(content=content, raw={"content": content})
+
+
 class DelegationTests(unittest.TestCase):
     def test_delegate_context_helpers_live_in_context_module(self) -> None:
         self.assertIs(agent_delegate.DELEGATE_SYSTEM_PROMPT, agent_delegate_context.DELEGATE_SYSTEM_PROMPT)
@@ -209,6 +232,42 @@ class DelegationTests(unittest.TestCase):
         self.assertEqual(summary.total_tokens, 38)
         read_result = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual(read_result["kind"], "read_file")
+
+    def test_subagent_recovers_from_context_limit_with_forced_compaction(self) -> None:
+        client = ContextOverflowDelegationClient()
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-context-recovery-") as base:
+            root = Path(base)
+            root.joinpath("app.py").write_text("def authenticate():\n    return True\n", encoding="utf-8")
+            workspace = create_run_workspace(root)
+            action = parse_tool_action("delegate_task", {"task": "Find authentication", "max_iterations": 2})
+
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+            events = read_session_events(root, workspace.run_id)
+
+        model_errors = [event for event in events if event.type == "subagent_model_error"]
+        compactions = [event for event in events if event.type == "subagent_context_compacted"]
+        self.assertTrue(observation.ok)
+        self.assertIn("app.py:1", observation.summary)
+        self.assertEqual([len(messages) for messages in client.messages], [2, 4, 2])
+        self.assertEqual(len(model_errors), 1)
+        self.assertEqual(model_errors[0].payload["retry_reason"], "context_compaction")
+        self.assertTrue(model_errors[0].payload["will_retry"])
+        self.assertEqual(len(compactions), 1)
+        self.assertEqual(compactions[0].payload["reason"], "context_limit_error")
+        self.assertEqual(compactions[0].payload["previous_messages"], 4)
+        self.assertEqual(compactions[0].payload["new_messages"], 2)
 
     def test_subagent_tool_results_use_shared_redaction_for_model_and_session_events(self) -> None:
         client = DelegationClient(
@@ -669,8 +728,24 @@ class DelegationTests(unittest.TestCase):
                 "agent": "context-reader",
                 "previous_messages": 14,
                 "new_messages": 2,
+                "previous_chars": 24000,
+                "new_chars": 6000,
                 "observations": 6,
                 "retained_observations": 6,
+                "reason": "context_limit_error",
+            },
+        )
+        main_compacted = SessionEvent(
+            line_number=4,
+            type="context_compacted",
+            payload={
+                "previous_messages": 18,
+                "new_messages": 2,
+                "previous_chars": 32000,
+                "new_chars": 8000,
+                "observations": 8,
+                "retained_observations": 8,
+                "reason": "context_limit_error",
             },
         )
 
@@ -683,8 +758,15 @@ class DelegationTests(unittest.TestCase):
         self.assertIn("mode=code", compacted_summary)
         self.assertIn("agent=context-reader", compacted_summary)
         self.assertIn("messages=14->2", compacted_summary)
+        self.assertIn("chars=24000->6000", compacted_summary)
         self.assertIn("observations=6", compacted_summary)
         self.assertIn("retained=6", compacted_summary)
+        self.assertIn("reason=context_limit_error", compacted_summary)
+        main_summary = format_session_event_timeline_item(main_compacted)
+        self.assertIn("compacted agent context", main_summary)
+        self.assertIn("messages=18->2", main_summary)
+        self.assertIn("chars=32000->8000", main_summary)
+        self.assertIn("reason=context_limit_error", main_summary)
 
     def test_main_catalog_contains_one_delegate_tool(self) -> None:
         names = [str(tool["name"]) for tool in AGENT_TOOL_DEFINITIONS]

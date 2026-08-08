@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from .agent_delegate_completion import clip_delegate_summary, delegate_completion_message, finish_delegate_task
-from .agent_delegate_context import compact_delegate_message_history
+from .agent_delegate_context import compact_delegate_message_history, recover_delegate_context_limit
 from .agent_delegate_tools import delegate_tool_definitions, execute_delegate_tool_call
 from .agent_model import complete_with_retries
 from .agent_runtime_utils import append_session_event, content_blocks_to_text, normalize_assistant_content, to_jsonable
@@ -82,6 +82,16 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                 "subagent_id": context.subagent_id,
                 "parent_iteration": context.parent_iteration,
             },
+            recover_context=lambda: recover_delegate_context_limit(
+                context.workspace,
+                context.action,
+                context.messages,
+                context.observations[context.delegate_observation_start :],
+                parent_iteration=context.parent_iteration,
+                child_iteration=child_iteration,
+                subagent_id=context.subagent_id,
+                profile_prompt=context.profile_prompt,
+            ),
         )
         if response is None:
             return finish_delegate_task(
