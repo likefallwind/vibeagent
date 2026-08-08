@@ -6,7 +6,7 @@ from typing import Any
 MCP_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "mcp_servers",
-        "description": "List configured project MCP stdio servers from .mcp.json without starting them or exposing environment values.",
+        "description": "List configured project MCP stdio and Streamable HTTP servers from .mcp.json without starting them or exposing secret values.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -17,7 +17,7 @@ MCP_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "mcp_tools",
-        "description": "Start one configured MCP stdio server and list its advertised tools. Requires approval.",
+        "description": "Connect to one configured MCP server and list its advertised tools. Requires approval.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -31,7 +31,7 @@ MCP_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "mcp_call",
-        "description": "Start one configured MCP stdio server and call an advertised tool with JSON arguments. Requires approval for every call.",
+        "description": "Connect to one configured MCP server and call an advertised tool with JSON arguments. Requires approval for every call.",
         "input_schema": {
             "type": "object",
             "properties": {

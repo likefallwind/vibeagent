@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Any
 
 from .command_safety import get_blocked_command_reason
-from .mcp_config import get_mcp_server_config, mcp_config_paths, read_mcp_server_configs
+from .mcp_config import McpServerConfig, get_mcp_server_config, mcp_config_paths, read_mcp_server_configs, safe_mcp_endpoint
+from .mcp_http import McpHttpClient
+from .mcp_protocol import MCP_STDIO_PROTOCOL_VERSION
 from .mcp_stdio import McpStdioClient
 from .redaction import redact_jsonable_payload, redact_sensitive_text
 from .types import (
@@ -41,6 +43,10 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
                         arg_count=len(config.args),
                         cwd=config.cwd,
                         env_keys=sorted(config.env),
+                        transport=config.transport,
+                        endpoint=safe_mcp_endpoint(config),
+                        header_keys=sorted((config.headers or {}).keys()),
+                        protocol_version=config.protocol_version if config.transport == "http" else MCP_STDIO_PROTOCOL_VERSION,
                     )
                     for config in shown
                 ],
@@ -57,7 +63,7 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
     if isinstance(action, McpToolsAction):
         try:
             config = _safe_server_config(workspace, action.server)
-            with McpStdioClient(workspace, config, action.timeout_ms) as client:
+            with _mcp_client(workspace, config, action.timeout_ms) as client:
                 raw_tools, total, truncated = client.list_tools(action.max_tools)
             tools = [_normalize_tool(item) for item in raw_tools]
             return McpToolsObservation(
@@ -80,7 +86,7 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
     if isinstance(action, McpCallAction):
         try:
             config = _safe_server_config(workspace, action.server)
-            with McpStdioClient(workspace, config, action.timeout_ms) as client:
+            with _mcp_client(workspace, config, action.timeout_ms) as client:
                 tools, _, _ = client.list_tools(500)
                 if action.name not in {str(tool.get("name")) for tool in tools}:
                     raise ValueError(f"MCP tool {action.name!r} was not advertised by server {action.server!r}.")
@@ -113,13 +119,20 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
     return None
 
 
-def _safe_server_config(workspace: RunWorkspace, name: str):
+def _safe_server_config(workspace: RunWorkspace, name: str) -> McpServerConfig:
     config = get_mcp_server_config(workspace, name)
-    safety_argv = [Path(config.command).name, *config.args]
-    blocked = get_blocked_command_reason(shlex.join(safety_argv))
-    if blocked:
-        raise ValueError(f"MCP server command is blocked: {blocked}")
+    if config.transport == "stdio":
+        safety_argv = [Path(config.command).name, *config.args]
+        blocked = get_blocked_command_reason(shlex.join(safety_argv))
+        if blocked:
+            raise ValueError(f"MCP server command is blocked: {blocked}")
     return config
+
+
+def _mcp_client(workspace: RunWorkspace, config: McpServerConfig, timeout_ms: int):
+    if config.transport == "http":
+        return McpHttpClient(config, timeout_ms)
+    return McpStdioClient(workspace, config, timeout_ms)
 
 
 def _redacted_arguments(arguments: dict[str, Any]) -> dict[str, object]:

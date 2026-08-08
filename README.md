@@ -1195,28 +1195,44 @@ Example chat:
 
 ## MCP servers
 
-Project-scoped stdio MCP servers can be declared in `.mcp.json`:
+Project-scoped stdio and Streamable HTTP MCP servers can be declared in
+`.mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "docs": {
+      "type": "stdio",
       "command": "npx",
       "args": ["-y", "@example/docs-mcp"],
       "cwd": ".",
       "env": {"DOCS_TOKEN": "${DOCS_TOKEN}"}
+    },
+    "remote-docs": {
+      "type": "http",
+      "url": "https://docs.example.com/mcp",
+      "headers": {"Authorization": "Bearer ${DOCS_TOKEN}"}
     }
   }
 }
 ```
 
+The `type` field defaults to `stdio` for compatibility. HTTP servers default to
+protocol version `2026-07-28`; set `"protocolVersion": "2025-11-25"` only for a
+legacy Streamable HTTP server that requires initialization and session headers.
+HTTP header values support `${ENV_NAME}` expansion. Redirects are not followed,
+response bodies are bounded, and server listings expose only a query-free
+endpoint and header names, never header values.
+
 `mcp_servers` reads configuration metadata without starting a process or
-exposing argument and environment values. `mcp_tools` starts one server after
-approval and performs the MCP initialization plus `tools/list` flow.
+opening a connection. `mcp_tools` connects after approval and performs the
+transport-appropriate protocol flow plus `tools/list`.
 `mcp_call` requires separate approval for every invocation, verifies that the
 tool was advertised, sends bounded JSON arguments, enforces per-request
-timeouts and output limits, and terminates the stdio server afterward. MCP
-server commands still pass VibeAgent's hard command-safety checks.
+timeouts and output limits, and closes the transport afterward. HTTP responses
+may use JSON or request-scoped SSE, and modern tool parameter `x-mcp-header`
+annotations are validated and mirrored. Stdio server commands still pass
+VibeAgent's hard command-safety checks.
 Claude-style model tool names such as `mcp__docs__search` are normalized to
 the same `mcp_call` path with the tool input preserved as MCP arguments.
 One-shot runs can add extra MCP configuration files with repeated

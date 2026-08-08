@@ -11,6 +11,10 @@ class McpServerInfo:
     arg_count: int
     cwd: str
     env_keys: list[str]
+    transport: str = "stdio"
+    endpoint: str = ""
+    header_keys: list[str] = field(default_factory=list)
+    protocol_version: str = "2025-11-25"
 
 
 @dataclass(frozen=True)

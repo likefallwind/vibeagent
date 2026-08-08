@@ -4008,7 +4008,7 @@ class AgentTests(unittest.TestCase):
                 ]
             )
 
-            with patch("vibeagent.runtime_checks.urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
+            with patch("vibeagent.runtime_checks.open_scoped_url", side_effect=urllib.error.URLError("refused")):
                 result = run_agent("check http", base_dir=Path(base), client=client, max_iterations=2)
             payload = json.loads(client.messages[1][-1].content[0]["content"])
 
@@ -4037,7 +4037,7 @@ class AgentTests(unittest.TestCase):
                 ]
             )
 
-            with patch("vibeagent.runtime_checks.urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
+            with patch("vibeagent.runtime_checks.open_scoped_url", side_effect=urllib.error.URLError("refused")):
                 result = run_agent("fetch http", base_dir=Path(base), client=client, max_iterations=2)
             payload = json.loads(client.messages[1][-1].content[0]["content"])
 

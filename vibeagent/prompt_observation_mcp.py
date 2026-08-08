@@ -19,9 +19,14 @@ def _format_mcp_servers(index: int, observation: object) -> str:
         f"ok: {str(observation.ok).lower()} config={observation.config_path}",
     ]
     for server in observation.servers:
-        parts.append(
-            f"server: name={server.name} command={server.command} argCount={server.arg_count} cwd={server.cwd} envKeys={server.env_keys}"
-        )
+        if server.transport == "http":
+            parts.append(
+                f"server: name={server.name} transport=http endpoint={server.endpoint} headerKeys={server.header_keys} protocolVersion={server.protocol_version}"
+            )
+        else:
+            parts.append(
+                f"server: name={server.name} transport=stdio command={server.command} argCount={server.arg_count} cwd={server.cwd} envKeys={server.env_keys}"
+            )
     return "\n".join(parts)
 
 
