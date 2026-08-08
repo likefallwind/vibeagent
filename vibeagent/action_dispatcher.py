@@ -14,6 +14,7 @@ from .read_action_executor import execute_read_action
 from .runtime_action_executor import execute_runtime_action
 from .search_action_executor import execute_search_action
 from .session_action_executor import execute_session_action
+from .task_action_executor import execute_task_action
 from .types import (
     AgentAction,
     AskUserAction,
@@ -69,6 +70,10 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
     session_observation = execute_session_action(workspace, action, command_timeout_ms)
     if session_observation is not None:
         return session_observation
+
+    task_observation = execute_task_action(workspace, action)
+    if task_observation is not None:
+        return task_observation
 
     background_task_observation = execute_background_task_action(workspace, action)
     if background_task_observation is not None:

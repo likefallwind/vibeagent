@@ -145,6 +145,10 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
                     completed = True
                 if kind == "update_plan":
                     latest_plan = parse_session_plan(result.get("plan"))
+                if kind in {"task_create", "task_get", "task_list", "task_update"}:
+                    task_plan = parse_session_plan(result.get("plan"))
+                    if task_plan or kind == "task_list":
+                        latest_plan = task_plan
                 if kind == "final_review":
                     final_review_seen = True
                     review = parse_final_review_summary(result)

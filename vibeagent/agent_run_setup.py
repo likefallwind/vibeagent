@@ -7,6 +7,7 @@ from .agent_runtime_utils import append_session_event, compact_session_context
 from .agent_tool_registry import initialize_agent_tools
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
+from .session_tasks import inherit_task_store
 from .types import ApprovalPolicy, ChatMessage
 from .workspace_core import RunWorkspace, create_run_workspace
 from .workspace_hooks import ProjectHooks, read_project_hooks
@@ -37,6 +38,7 @@ def prepare_agent_run(
     prior_context: str | None,
     approval_policy: ApprovalPolicy,
     task_metadata: dict[str, object] | None,
+    task_source_run_id: str | None = None,
     trust_project_permissions: bool,
     permission_overrides: ProjectPermissions | None,
     mcp_config_paths: tuple[Path, ...],
@@ -55,6 +57,7 @@ def prepare_agent_run(
         current_workspace,
         permission_overrides,
     )
+    tasks_inherited, task_restore_error = inherit_task_store(current_workspace, task_source_run_id)
     messages = build_messages(
         task,
         current_workspace,
@@ -65,6 +68,7 @@ def prepare_agent_run(
         append_system_prompt=append_system_prompt,
     )
     _append_task_event(current_workspace, task, approval_policy, prior_context, task_metadata)
+    _append_task_restore_event(current_workspace, task_source_run_id, tasks_inherited, task_restore_error)
     project_hooks = read_project_hooks(current_workspace)
     _append_hooks_event(current_workspace, project_hooks)
     _append_permissions_event(current_workspace, project_permissions)
@@ -129,6 +133,25 @@ def _append_task_event(
     if task_metadata:
         task_event["metadata"] = redact_jsonable_payload(task_metadata)
     append_session_event(workspace.session_dir, "task", task_event)
+
+
+def _append_task_restore_event(
+    workspace: RunWorkspace,
+    source_run_id: str | None,
+    inherited: bool,
+    error: str | None,
+) -> None:
+    if source_run_id is None:
+        return
+    append_session_event(
+        workspace.session_dir,
+        "tasks_restored",
+        {
+            "source_run_id": source_run_id,
+            "inherited": inherited,
+            "error": error,
+        },
+    )
 
 
 def _append_hooks_event(workspace: RunWorkspace, project_hooks: ProjectHooks) -> None:

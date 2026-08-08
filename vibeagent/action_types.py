@@ -228,6 +228,14 @@ from .action_session_types import (
     SessionTranscriptAction,
     SessionVerificationAction,
 )
+from .action_task_types import (
+    TaskCreateAction,
+    TaskGetAction,
+    TaskListAction,
+    TaskStatus,
+    TaskUpdateAction,
+    TaskUpdateStatus,
+)
 from .action_workflow_types import (
     AskUserAction,
     DelegateTaskAction,

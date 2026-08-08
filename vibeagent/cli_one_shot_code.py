@@ -104,6 +104,8 @@ def run_one_shot_code(
         task_metadata=task_metadata,
         workspace=stream_scope.workspace,
     )
+    if prior_context.run_id is not None:
+        run_kwargs["task_source_run_id"] = prior_context.run_id
     with stream_scope.event_scope:
         result = run_agent_func(task, **run_kwargs)
     result_payload = build_one_shot_code_payload(

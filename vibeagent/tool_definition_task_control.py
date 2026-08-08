@@ -118,6 +118,86 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "TaskCreate",
+        "description": "Create one persistent task in the current session task graph and return its assigned ID.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "subject": {"type": "string", "minLength": 1, "maxLength": 500},
+                "description": {"type": "string", "minLength": 1, "maxLength": 10000},
+                "activeForm": {"type": "string", "minLength": 1, "maxLength": 500},
+                "metadata": {"type": "object", "additionalProperties": True},
+            },
+            "required": ["subject", "description"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "TaskGet",
+        "description": "Read full details for one current-session task by its assigned ID.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"taskId": {"type": "string", "minLength": 1, "maxLength": 64}},
+            "required": ["taskId"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "TaskList",
+        "description": "List all tasks in the current session with status, owner, and dependency blockers.",
+        "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "name": "TaskUpdate",
+        "description": "Patch one current-session task. Supports status changes, details, ownership, metadata, dependencies, and deletion.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "taskId": {"type": "string", "minLength": 1, "maxLength": 64},
+                "status": {"type": "string", "enum": ["pending", "in_progress", "completed", "deleted"]},
+                "subject": {"type": "string", "minLength": 1, "maxLength": 500},
+                "description": {"type": "string", "minLength": 1, "maxLength": 10000},
+                "activeForm": {
+                    "anyOf": [
+                        {"type": "string", "minLength": 1, "maxLength": 500},
+                        {"type": "null"},
+                    ]
+                },
+                "addBlocks": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "uniqueItems": True,
+                    "items": {"type": "string", "minLength": 1, "maxLength": 64},
+                },
+                "addBlockedBy": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "uniqueItems": True,
+                    "items": {"type": "string", "minLength": 1, "maxLength": 64},
+                },
+                "owner": {
+                    "anyOf": [
+                        {"type": "string", "minLength": 1, "maxLength": 200},
+                        {"type": "null"},
+                    ]
+                },
+                "metadata": {"type": "object", "additionalProperties": True},
+            },
+            "required": ["taskId"],
+            "anyOf": [
+                {"required": ["status"]},
+                {"required": ["subject"]},
+                {"required": ["description"]},
+                {"required": ["activeForm"]},
+                {"required": ["addBlocks"]},
+                {"required": ["addBlockedBy"]},
+                {"required": ["owner"]},
+                {"required": ["metadata"]},
+            ],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "update_plan",
         "description": "Replace the current task plan with a concise checklist of remaining work.",
         "input_schema": {

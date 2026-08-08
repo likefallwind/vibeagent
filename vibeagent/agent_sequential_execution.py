@@ -124,7 +124,12 @@ def execute_sequential_tool_call(
             checkpoint_attempted = execution.auto_checkpoint_attempted
             if execution.auto_checkpoint is not None:
                 observations.append(execution.auto_checkpoint)
-        if observation.kind == "update_plan":
+        if observation.kind == "update_plan" or observation.kind in {
+            "task_create",
+            "task_get",
+            "task_list",
+            "task_update",
+        }:
             plan = list(observation.plan)
     except ActionParseError as error:
         observation = tool_error_observation(tool_name, error)

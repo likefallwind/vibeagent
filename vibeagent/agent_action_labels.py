@@ -19,6 +19,14 @@ def build_step_label(action: object) -> str:
         return label
     if isinstance(action, t.UpdatePlanAction):
         return "Update plan"
+    if isinstance(action, t.TaskCreateAction):
+        return f"Create task {summarize(action.subject, 80)}"
+    if isinstance(action, t.TaskGetAction):
+        return f"Read task {action.task_id}"
+    if isinstance(action, t.TaskListAction):
+        return "List tasks"
+    if isinstance(action, t.TaskUpdateAction):
+        return f"Update task {action.task_id}"
     if isinstance(action, t.AskUserAction):
         return "Ask user"
     if isinstance(action, t.DelegateTaskAction):

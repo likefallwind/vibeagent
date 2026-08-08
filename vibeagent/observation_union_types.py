@@ -176,6 +176,7 @@ from .observation_session_types import (
     SessionTranscriptObservation,
     SessionVerificationObservation,
 )
+from .observation_task_types import TaskCreateObservation, TaskGetObservation, TaskListObservation, TaskUpdateObservation
 
 
 # Unified envelope returned from one agent step.
@@ -325,6 +326,10 @@ Observation: TypeAlias = (
     | CheckStopProcessObservation
     | StopProcessObservation
     | StopAllProcessesObservation
+    | TaskCreateObservation
+    | TaskGetObservation
+    | TaskListObservation
+    | TaskUpdateObservation
     | UpdatePlanObservation
     | UserInputObservation
     | DelegateTaskObservation

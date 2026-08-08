@@ -83,6 +83,8 @@ PARALLEL_SAFE_TOOL_NAMES = {
     "session_verification",
     "session_audit",
     "session_handoff",
+    "task_get",
+    "task_list",
     "checkpoint_list",
     "checkpoint_show",
     "checkpoint_diff",

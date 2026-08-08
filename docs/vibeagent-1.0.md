@@ -30,6 +30,10 @@ local changes when asked, and resume from recorded session context.
   covers the same repair workflow split across two runs: the first run records a
   failing verification before interruption, `get_resume_context` reloads that
   evidence, and the resumed run fixes, verifies, and commits.
+- `tests.test_session_tasks.SessionTaskTests` covers Claude-compatible
+  `TaskCreate`, `TaskGet`, `TaskList`, and `TaskUpdate`, including stable IDs,
+  status updates, owners, acyclic dependencies, deletion cleanup, completion
+  plan integration, session summaries, and task-graph inheritance on resume.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `LS`, `Glob`, `Grep`, `Read`, `Bash`, `Edit`, and `TodoRead`,

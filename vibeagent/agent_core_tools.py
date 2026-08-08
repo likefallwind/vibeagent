@@ -6,11 +6,10 @@ CORE_SESSION_TOOL_NAMES = frozenset(
         "ask_user",
         "AskUserQuestion",
         "finish",
-        "todo_read",
-        "TodoRead",
-        "todo_write",
-        "TodoWrite",
-        "update_plan",
+        "TaskCreate",
+        "TaskGet",
+        "TaskList",
+        "TaskUpdate",
         "ExitPlanMode",
     }
 )

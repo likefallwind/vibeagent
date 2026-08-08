@@ -18,6 +18,7 @@ from .action_parsing_read import parse_read_action
 from .action_parsing_runtime import parse_runtime_action
 from .action_parsing_search import parse_search_action
 from .action_parsing_session import parse_session_action
+from .action_parsing_tasks import parse_task_action
 from .action_parsing_workflow import parse_workflow_action
 from .types import AgentAction
 
@@ -38,6 +39,7 @@ def parse_action(value: Any, raw: str) -> AgentAction:
         parse_project_action,
         parse_runtime_action,
         parse_session_action,
+        parse_task_action,
         parse_checkpoint_action,
         parse_delegation_action,
         parse_file_edit_action,

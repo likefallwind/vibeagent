@@ -149,6 +149,7 @@ from .action_session_types import (
     SessionTranscriptAction,
     SessionVerificationAction,
 )
+from .action_task_types import TaskCreateAction, TaskGetAction, TaskListAction, TaskUpdateAction
 from .action_workflow_types import AskUserAction, DelegateTaskAction, FinishAction, TaskOutputAction, TaskStopAction, UpdatePlanAction
 
 
@@ -287,6 +288,10 @@ AgentAction: TypeAlias = (
     | CheckCheckpointPruneAction
     | CheckpointPruneAction
     | FileEditAgentAction
+    | TaskCreateAction
+    | TaskGetAction
+    | TaskListAction
+    | TaskUpdateAction
     | UpdatePlanAction
     | AskUserAction
     | DelegateTaskAction

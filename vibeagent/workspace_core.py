@@ -6,6 +6,8 @@ from pathlib import Path
 import re
 from uuid import uuid4
 
+from .session_id import is_valid_session_id
+
 
 @dataclass(frozen=True)
 class RunWorkspace:
@@ -49,7 +51,7 @@ def create_run_workspace(
     base = Path(base_dir) if base_dir is not None else Path.cwd()
     project_root = base.resolve()
     current_run_id = run_id or make_run_id()
-    if not current_run_id or Path(current_run_id).name != current_run_id:
+    if not is_valid_session_id(current_run_id):
         raise ValueError(f"Invalid session id: {current_run_id}")
     runtime_dir = project_root / ".vibeagent"
     sessions_root = runtime_dir / "sessions"

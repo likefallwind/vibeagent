@@ -135,6 +135,26 @@ def _normalize_task_input(value: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+def _normalize_task_create_input(value: dict[str, Any]) -> dict[str, Any]:
+    return _rename_fields(value, {"activeForm": "active_form"})
+
+
+def _normalize_task_id_input(value: dict[str, Any]) -> dict[str, Any]:
+    return _rename_fields(value, {"taskId": "task_id"})
+
+
+def _normalize_task_update_input(value: dict[str, Any]) -> dict[str, Any]:
+    return _rename_fields(
+        value,
+        {
+            "taskId": "task_id",
+            "activeForm": "active_form",
+            "addBlocks": "add_blocks",
+            "addBlockedBy": "add_blocked_by",
+        },
+    )
+
+
 def _normalize_process_alias_input(value: dict[str, Any]) -> dict[str, Any]:
     return _rename_fields(value, {"bash_id": "process_id", "filter": "output_filter"})
 
@@ -280,6 +300,9 @@ _NAME_INPUT_NORMALIZERS: dict[str, ToolInputNormalizer] = {
     "LSP": _normalize_lsp_input,
     "Read": _normalize_claude_read_file_input,
     "Skill": _normalize_skill_input,
+    "TaskCreate": _normalize_task_create_input,
+    "TaskGet": _normalize_task_id_input,
+    "TaskUpdate": _normalize_task_update_input,
     "ToolSearch": _normalize_tool_search_input,
     "NotebookEdit": _normalize_notebook_edit_input,
 }

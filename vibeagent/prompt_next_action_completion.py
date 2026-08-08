@@ -8,6 +8,10 @@ COMPLETION_NEXT_ACTION_KINDS = {
     "finish",
     "todo_write",
     "update_plan",
+    "task_create",
+    "task_get",
+    "task_list",
+    "task_update",
     "ask_user",
 }
 
@@ -141,6 +145,14 @@ def completion_next_action_instruction(base: str, latest: Observation) -> str:
         return _finish_next_action_instruction(base, latest)
     if latest.kind == "update_plan":
         return f"{base} Continue with the current in-progress plan item, or update the plan again if the work changed."
+    if latest.kind in {"task_create", "task_update"}:
+        if getattr(latest, "ok", True) is False:
+            return f"{base} The task change failed. Fix the reported task ID, dependency, or store error before continuing."
+        return f"{base} Continue the next unblocked task, and use TaskUpdate when its status or dependencies change."
+    if latest.kind in {"task_get", "task_list"}:
+        if getattr(latest, "ok", True) is False:
+            return f"{base} The task list could not be read. Resolve the reported task-store error before continuing."
+        return f"{base} Use the task status and blockedBy relationships to choose the next unblocked task or finish when all are completed."
     if latest.kind == "ask_user":
         if getattr(latest, "cancelled", False):
             return (

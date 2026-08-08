@@ -21,6 +21,7 @@ from .agent_tool_registry import (
     agent_tool_definitions,
 )
 from .agent_workspace_transition import apply_workspace_transition
+from .session_tasks import read_task_plan
 from .types import (
     AgentLogger,
     ApprovalHandler,
@@ -69,7 +70,7 @@ def run_agent_loop(
 ) -> AgentResult:
     observations: list[Observation] = []
     steps: list[TaskStep] = []
-    plan: list[PlanItem] = []
+    plan: list[PlanItem] = read_task_plan(setup.workspace)
     current_workspace = setup.workspace
     messages = setup.messages
     active_tool_names = setup.active_tool_names

@@ -238,6 +238,15 @@ from .observation_session_types import (
     SessionTranscriptObservation,
     SessionVerificationObservation,
 )
+from .observation_task_types import (
+    TaskCreateObservation,
+    TaskCreateResult,
+    TaskDetails,
+    TaskGetObservation,
+    TaskListItem,
+    TaskListObservation,
+    TaskUpdateObservation,
+)
 from .observation_git_types import (
     CheckGitCommitObservation,
     CheckGitFetchObservation,

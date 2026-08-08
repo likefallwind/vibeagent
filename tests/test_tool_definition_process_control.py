@@ -52,6 +52,10 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
             [
                 "ask_user",
                 "AskUserQuestion",
+                "TaskCreate",
+                "TaskGet",
+                "TaskList",
+                "TaskUpdate",
                 "update_plan",
                 "todo_write",
                 "todo_read",

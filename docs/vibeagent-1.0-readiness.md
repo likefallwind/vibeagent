@@ -41,8 +41,8 @@ The automated suite currently covers these 1.0 surfaces:
 - Core ReAct loop: inspect, edit, run checks, repair, review, commit, finish.
 - Claude-compatible tool aliases: `Read`, `Edit`, `MultiEdit`, `Write`,
   `NotebookRead`, `NotebookEdit`, `Bash`, `BashOutput`, `KillBash`,
-  `TodoWrite`, `TodoRead`, `WebFetch`, `Task`, `TaskOutput`, `TaskStop`, `Agent`,
-  and `ExitPlanMode`.
+  `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TodoWrite`, `TodoRead`,
+  `WebFetch`, `Task`, `TaskOutput`, `TaskStop`, `Agent`, and `ExitPlanMode`.
 - Real CLI JSON and stream-json entrypoints, stdin input formats, resume,
   compact, permission overrides, `acceptEdits`, disallowed tools, and
   pending-user-input output.

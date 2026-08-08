@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from .redaction import redact_sensitive_text
+from .session_id import is_valid_session_id
 from .session_tool_result_failures import is_failed_tool_result
 
 
@@ -27,7 +28,7 @@ def session_store_safety_error(project_root: str | Path) -> str | None:
 
 
 def session_dir(project_root: str | Path, run_id: str) -> Path:
-    if not run_id or Path(run_id).name != run_id:
+    if not is_valid_session_id(run_id):
         raise ValueError(f"Invalid session id: {run_id}")
     store_error = session_store_safety_error(project_root)
     if store_error:

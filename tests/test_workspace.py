@@ -190,8 +190,9 @@ class WorkspaceTests(unittest.TestCase):
 
     def test_create_run_workspace_rejects_invalid_run_id(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
-            with self.assertRaisesRegex(ValueError, "Invalid session id"):
-                create_run_workspace(base, "../outside")
+            for run_id in ("../outside", ".", ".."):
+                with self.subTest(run_id=run_id), self.assertRaisesRegex(ValueError, "Invalid session id"):
+                    create_run_workspace(base, run_id)
 
     def test_create_run_workspace_rejects_symlink_runtime_directories(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:

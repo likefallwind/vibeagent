@@ -237,6 +237,7 @@ def run_interactive_loop(
                     if custom_command is not None
                     else None
                 ),
+                task_source_run_id=resume_run_id,
             )
             print_agent_result(result)
             selected, next_context, _ = get_resume_context_func(result.run_id)

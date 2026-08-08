@@ -291,6 +291,12 @@ def build_action_target(action: object) -> str:
     if isinstance(action, t.UpdatePlanAction):
         current = next((item.step for item in action.plan if item.status == "in_progress"), None)
         return current or "plan"
+    if isinstance(action, t.TaskCreateAction):
+        return action.subject
+    if isinstance(action, (t.TaskGetAction, t.TaskUpdateAction)):
+        return action.task_id
+    if isinstance(action, t.TaskListAction):
+        return "tasks"
     if isinstance(action, t.AskUserAction):
         return action.question
     if isinstance(action, t.DelegateTaskAction):

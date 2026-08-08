@@ -111,9 +111,10 @@ class AgentToolRegistryTests(unittest.TestCase):
         self.assertIn("LS", names)
         self.assertIn("Glob", names)
         self.assertIn("Grep", names)
-        self.assertIn("update_plan", names)
-        self.assertIn("TodoRead", names)
-        self.assertIn("TodoWrite", names)
+        self.assertIn("TaskCreate", names)
+        self.assertIn("TaskGet", names)
+        self.assertIn("TaskList", names)
+        self.assertIn("TaskUpdate", names)
         self.assertIn("ExitPlanMode", names)
         self.assertIn("Task", names)
         self.assertIn("BashOutput", names)
@@ -156,8 +157,10 @@ class AgentToolRegistryTests(unittest.TestCase):
             "Write",
             "Edit",
             "MultiEdit",
-            "TodoRead",
-            "TodoWrite",
+            "TaskCreate",
+            "TaskGet",
+            "TaskList",
+            "TaskUpdate",
             "ExitPlanMode",
             "AskUserQuestion",
             "Task",
