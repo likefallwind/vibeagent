@@ -247,7 +247,24 @@ class AgentTests(unittest.TestCase):
     def test_run_agent_records_model_error_as_failed_session_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             client = FailingClient()
-            result = run_agent("修复失败", base_dir=Path(base), client=client, max_iterations=1, model_retries=0, model_retry_delay_ms=0)
+            close_result = SimpleNamespace(
+                task_ids=(),
+                cancel_requested_task_ids=(),
+                discarded_task_ids=(),
+                still_running_task_ids=(),
+            )
+            with patch(
+                "vibeagent.agent_run_completion.close_background_delegate_tasks",
+                return_value=close_result,
+            ) as close_background_tasks:
+                result = run_agent(
+                    "修复失败",
+                    base_dir=Path(base),
+                    client=client,
+                    max_iterations=1,
+                    model_retries=0,
+                    model_retry_delay_ms=0,
+                )
             events_path = Path(base) / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
             rows = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
             summary = summarize_session(base, result.run_id)
@@ -258,6 +275,8 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result.status, "failed")
         self.assertEqual(result.iterations, 1)
         self.assertEqual(client.calls, 1)
+        close_background_tasks.assert_called_once()
+        self.assertEqual(close_background_tasks.call_args.args[0].run_id, result.run_id)
         self.assertIn("Model request failed: RuntimeError: provider unavailable", result.message)
         self.assertEqual(len(model_error_rows), 1)
         self.assertEqual(model_error_rows[0]["iteration"], 1)

@@ -17,6 +17,7 @@ from .agent_result import AgentResult
 from .agent_runtime_utils import append_session_event, to_jsonable
 from .agent_steps import observation_summary
 from .agent_tool_results import record_tool_result_event
+from .background_delegate_runtime import close_background_delegate_tasks
 from .session import read_session_events, summarize_session
 from .session_verification_state import session_verification_from_events
 from .types import AgentLogger, FinalReviewAction, Observation, PlanItem, TaskStep
@@ -81,6 +82,18 @@ def finish_agent_run(
     logger: AgentLogger | None,
     execute_action_safely_func: ExecuteActionSafely,
 ) -> AgentResult:
+    background_close = close_background_delegate_tasks(workspace)
+    if background_close.task_ids:
+        append_session_event(
+            workspace.session_dir,
+            "background_delegate_tasks_closed",
+            {
+                "task_ids": list(background_close.task_ids),
+                "cancel_requested_task_ids": list(background_close.cancel_requested_task_ids),
+                "discarded_task_ids": list(background_close.discarded_task_ids),
+                "still_running_task_ids": list(background_close.still_running_task_ids),
+            },
+        )
     auto_run_final_review_if_needed(
         workspace,
         success,

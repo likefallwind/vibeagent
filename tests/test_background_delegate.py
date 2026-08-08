@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from vibeagent.actions import execute_action, parse_tool_action
 from vibeagent.agent_completion import build_completion_blocker_details, build_completion_blockers
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.agent_special_tools import execute_special_tool_action
+from vibeagent.background_delegate_runtime import close_background_delegate_tasks
 from vibeagent.types import (
     AssistantResponse,
     DelegateTaskAction,
@@ -156,6 +158,79 @@ class BackgroundDelegateTests(unittest.TestCase):
         self.assertIsNotNone(completed.result)
         self.assertTrue(completed.result.cancelled)
         self.assertFalse(completed.result.ok)
+
+    def test_close_discards_completed_session_tasks(self) -> None:
+        client = BlockingDelegateClient()
+        with tempfile.TemporaryDirectory(prefix="vibeagent-background-close-complete-") as base:
+            workspace = create_run_workspace(Path(base))
+            started = self._start_background_task(workspace, client)
+            self.assertTrue(client.started.wait(1))
+            client.release.set()
+            completed = execute_action(
+                workspace,
+                TaskOutputAction(type="task_output", task_id=started.task_id or "", block=True, timeout_ms=2_000),
+            )
+
+            closed = close_background_delegate_tasks(workspace)
+            missing = execute_action(
+                workspace,
+                TaskOutputAction(type="task_output", task_id=started.task_id or "", block=False),
+            )
+
+        self.assertTrue(completed.completed)
+        self.assertEqual(closed.task_ids, (started.task_id,))
+        self.assertEqual(closed.cancel_requested_task_ids, ())
+        self.assertEqual(closed.discarded_task_ids, (started.task_id,))
+        self.assertFalse(missing.ok)
+
+    def test_close_cancels_running_task_and_discards_it_when_worker_returns(self) -> None:
+        client = BlockingDelegateClient()
+        with tempfile.TemporaryDirectory(prefix="vibeagent-background-close-running-") as base:
+            workspace = create_run_workspace(Path(base))
+            started = self._start_background_task(workspace, client)
+            self.assertTrue(client.started.wait(1))
+
+            closed = close_background_delegate_tasks(workspace, wait_ms=0)
+            self.assertEqual(closed.cancel_requested_task_ids, (started.task_id,))
+            self.assertEqual(closed.still_running_task_ids, (started.task_id,))
+            client.release.set()
+
+            deadline = time.monotonic() + 2
+            while time.monotonic() < deadline:
+                missing = execute_action(
+                    workspace,
+                    TaskOutputAction(type="task_output", task_id=started.task_id or "", block=False),
+                )
+                if not missing.ok:
+                    break
+                time.sleep(0.01)
+
+        self.assertFalse(missing.ok)
+
+    def test_close_only_discards_tasks_from_the_selected_session(self) -> None:
+        first_client = BlockingDelegateClient()
+        second_client = BlockingDelegateClient()
+        with tempfile.TemporaryDirectory(prefix="vibeagent-background-close-scope-") as base:
+            root = Path(base)
+            first_workspace = create_run_workspace(root, run_id="first")
+            second_workspace = create_run_workspace(root, run_id="second")
+            first = self._start_background_task(first_workspace, first_client)
+            second = self._start_background_task(second_workspace, second_client)
+            self.assertTrue(first_client.started.wait(1))
+            self.assertTrue(second_client.started.wait(1))
+
+            close_background_delegate_tasks(first_workspace, wait_ms=0)
+            second_running = execute_action(
+                second_workspace,
+                TaskOutputAction(type="task_output", task_id=second.task_id or "", block=False),
+            )
+            first_client.release.set()
+            second_client.release.set()
+            close_background_delegate_tasks(second_workspace)
+
+        self.assertTrue(second_running.ok)
+        self.assertTrue(second_running.running)
+        self.assertNotEqual(first.task_id, second.task_id)
 
     def test_completion_is_blocked_until_background_result_is_collected(self) -> None:
         client = BlockingDelegateClient()

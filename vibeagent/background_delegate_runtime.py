@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from threading import Event, RLock, Thread
+from time import monotonic
 from uuid import uuid4
 
 from .types import (
@@ -28,6 +29,15 @@ class BackgroundDelegateTask:
     result: DelegateTaskObservation | None = None
     error: str | None = None
     thread: Thread | None = None
+    discard_when_done: bool = False
+
+
+@dataclass(frozen=True)
+class BackgroundDelegateCloseResult:
+    task_ids: tuple[str, ...]
+    cancel_requested_task_ids: tuple[str, ...]
+    discarded_task_ids: tuple[str, ...]
+    still_running_task_ids: tuple[str, ...]
 
 
 _TASKS_LOCK = RLock()
@@ -51,6 +61,9 @@ def start_background_delegate_task(
             task.error = f"{type(error).__name__}: {error}"
         finally:
             task.done_event.set()
+            with _TASKS_LOCK:
+                if task.discard_when_done:
+                    _TASKS.pop(key, None)
 
     task.thread = Thread(target=run, name=f"vibeagent-{task_id}", daemon=True)
     with _TASKS_LOCK:
@@ -161,6 +174,49 @@ def stop_background_delegate_task(
             if not running
             else f"Cancellation requested for background task {action.task_id}; it is still stopping."
         ),
+    )
+
+
+def close_background_delegate_tasks(
+    workspace: RunWorkspace,
+    wait_ms: int = 100,
+) -> BackgroundDelegateCloseResult:
+    workspace_key = _workspace_key(workspace)
+    with _TASKS_LOCK:
+        matching = [(key, task) for key, task in _TASKS.items() if key[0] == workspace_key]
+        for _key, task in matching:
+            task.discard_when_done = True
+
+    cancel_requested: list[str] = []
+    for _key, task in matching:
+        if not task.done_event.is_set():
+            task.cancel_event.set()
+            cancel_requested.append(task.task_id)
+
+    deadline = monotonic() + max(0, wait_ms) / 1000
+    for _key, task in matching:
+        if task.done_event.is_set():
+            continue
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            break
+        task.done_event.wait(remaining)
+
+    discarded: list[str] = []
+    still_running: list[str] = []
+    with _TASKS_LOCK:
+        for key, task in matching:
+            if task.done_event.is_set():
+                _TASKS.pop(key, None)
+                discarded.append(task.task_id)
+            else:
+                still_running.append(task.task_id)
+
+    return BackgroundDelegateCloseResult(
+        task_ids=tuple(task.task_id for _key, task in matching),
+        cancel_requested_task_ids=tuple(cancel_requested),
+        discarded_task_ids=tuple(discarded),
+        still_running_task_ids=tuple(still_running),
     )
 
 
