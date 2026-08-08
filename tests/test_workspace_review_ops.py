@@ -1,7 +1,14 @@
 import unittest
 from pathlib import Path
 
-from vibeagent import workspace, workspace_git_changes, workspace_review_checks, workspace_review_ops, workspace_review_tests
+from vibeagent import (
+    workspace,
+    workspace_git_changes,
+    workspace_review_checks,
+    workspace_review_ops,
+    workspace_review_tests,
+    workspace_untracked_previews,
+)
 
 
 class WorkspaceReviewOpsTests(unittest.TestCase):
@@ -81,6 +88,9 @@ class WorkspaceReviewOpsTests(unittest.TestCase):
 
     def test_workspace_review_ops_reexports_git_changes_helper(self) -> None:
         self.assertIs(workspace_review_ops.read_git_changes, workspace_git_changes.read_git_changes)
+
+    def test_workspace_review_ops_reexports_untracked_preview_helper(self) -> None:
+        self.assertIs(workspace_review_ops.read_untracked_file_previews, workspace_untracked_previews.read_untracked_file_previews)
 
 
 if __name__ == "__main__":
