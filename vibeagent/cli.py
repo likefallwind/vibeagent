@@ -68,6 +68,7 @@ from .cli_session_kwargs import (
 from .cli_runtime_local_flags import run_runtime_local_flag
 from .cli_text_edit_local_flags import run_text_edit_local_flag
 from .cli_validation import validate_cli_args
+from .cli_worktree import create_cli_worktree
 from .cli_parse_core import build_focused_tests_kwargs
 from .cli_parse_diff_git import (
     build_stash_argument,
@@ -141,6 +142,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         if validation_error is not None:
             return print_error_result(validation_error, args.json, exit_code=2, output_format=args.output_format)
         normalize_task_bound_diff_args(args)
+        if args.worktree is not None:
+            try:
+                source_root = resolve_project_root(args.cwd) or Path.cwd()
+                worktree = create_cli_worktree(source_root, args.worktree or None)
+            except ValueError as error:
+                return print_error_result(str(error), args.json, exit_code=2, output_format=args.output_format)
+            args.cwd = str(worktree.root)
         if has_local_flag(args):
             if args.task:
                 return print_error_result(

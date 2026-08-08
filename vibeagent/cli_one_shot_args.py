@@ -62,8 +62,16 @@ def add_one_shot_arguments(
     parser.add_argument("--compact-max-text", type=positive_int, metavar="N", help="Maximum text characters per timeline, failure, or readiness entry in --compact context.")
     parser.add_argument("--cwd", help="Project directory for one-shot coding tasks.")
     parser.add_argument(
+        "--worktree",
+        "-w",
+        nargs="?",
+        const="",
+        metavar="NAME",
+        help="Create an isolated git worktree, run this session there, and preserve it after exit.",
+    )
+    parser.add_argument(
         "--provider",
-        choices=("minimax", "deepseek", "openai-compatible"),
+        choices=("minimax", "anthropic", "deepseek", "openai-compatible"),
         help="Temporarily override the model provider for this command.",
     )
     parser.add_argument(

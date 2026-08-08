@@ -150,6 +150,8 @@ python -m vibeagent --append-system-prompt "Prefer focused tests before broad su
 python -m vibeagent --allowed-tools "Read" --allowed-tools "Bash(git diff:*)" --disallowed-tools "Bash(git push:*)" "inspect the change"
 python -m vibeagent --mcp-config docs.mcp.json "use the docs MCP server to check the API"
 python -m vibeagent --mcp-config docs.mcp.json --strict-mcp-config "use only this MCP config"
+python -m vibeagent --cwd ../my-project --worktree feature-auth "implement authentication"
+python -m vibeagent --cwd ../my-project -w feature-auth
 python -m vibeagent --provider deepseek --model deepseek-reasoner --base-url https://api.deepseek.com "inspect this repo"
 printf "summarize the project risks\n" | python -m vibeagent -
 ```
@@ -164,6 +166,13 @@ and prints only the final text in normal text output, `-r` is an alias for
 `--resume`, `--session-id RUN_ID` is an alias for `--resume RUN_ID`,
 `--session-id latest` resumes the newest session, `-c` resumes the newest
 session for a one-shot task,
+`--worktree NAME` / `-w NAME` starts a fresh one-shot or interactive coding
+session in `.vibeagent/worktrees/NAME` on branch `vibeagent/NAME`, leaving the
+source checkout unchanged and preserving the isolated checkout after exit.
+Omit `NAME` before `--` to generate one automatically. Non-secret project
+defaults are copied into the linked checkout, while API keys remain environment
+or command-line configuration. Worktree launch cannot be combined with chat,
+local inspection commands, resume, continue, or compact modes.
 `--permission-mode` maps to `--approval`, accepting both VibeAgent values
 (`ask`, `allow`, `deny`, `plan`) and Claude-style values (`default` -> `ask`,
 `acceptEdits` -> `ask` plus automatic `Write`, `Edit`, `MultiEdit`, and `NotebookEdit` allow rules,
@@ -1365,7 +1374,10 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
 - `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
   model out of the coding-agent JSON action protocol.
 - `vibeagent/providers.py`: selects the configured model provider. MiniMax is
-  the default; DeepSeek and other OpenAI-compatible APIs use the OpenAI-compatible adapter.
+  the default; Anthropic uses the native Messages adapter, while DeepSeek and
+  other OpenAI-compatible APIs use the OpenAI-compatible adapter.
+- `vibeagent/anthropic.py`: native Anthropic Messages API client. It maps the
+  provider-neutral conversation and tool contract to Claude message blocks.
 - `vibeagent/prompts.py`: owns the system prompt and user message construction.
   Each prompt includes the original task, optional resumed session context,
   scoped `AGENTS.md`/`CLAUDE.md` instructions, discovered project command hints with

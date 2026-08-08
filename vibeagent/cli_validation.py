@@ -22,6 +22,15 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--dangerously-skip-permissions requires a one-shot coding task."
     if args.no_auto_compact and (not args.task or has_local_flag(args) or args.chat):
         return "--no-auto-compact requires a one-shot coding task."
+    if args.worktree is not None and (has_local_flag(args) or args.chat):
+        return "--worktree requires an interactive or one-shot coding session."
+    if args.worktree is not None and (
+        args.resume is not None
+        or args.session_id is not None
+        or args.compact is not None
+        or args.continue_latest
+    ):
+        return "--worktree cannot be combined with --resume, --session-id, --compact, or --continue."
     resume_error = validate_resume_arguments(args, local_selected=has_local_flag(args))
     if resume_error is not None:
         return resume_error
