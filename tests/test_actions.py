@@ -2977,10 +2977,17 @@ class ActionTests(unittest.TestCase):
                 workspace,
                 RunCommandAction(type="run_command", command="pwd", cwd="../outside"),
             )
+            absolute = execute_action(
+                workspace,
+                RunCommandAction(type="run_command", command="pwd", cwd=str(workspace.root / "pkg")),
+            )
 
         self.assertEqual(observation.kind, "run_command")
         self.assertEqual(observation.result.cwd, "pkg")
         self.assertEqual(observation.result.stdout.strip(), str(Path(base, "pkg").resolve()))
+        self.assertEqual(absolute.result.exit_code, 0)
+        self.assertEqual(absolute.result.cwd, "pkg")
+        self.assertEqual(absolute.result.stdout.strip(), str(Path(base, "pkg").resolve()))
         self.assertEqual(invalid.kind, "run_command")
         self.assertIsNone(invalid.result.exit_code)
         self.assertIn("escapes", invalid.result.stderr)

@@ -1352,6 +1352,9 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
 ## v1 Boundaries
 
 - Files are read and written only inside the current project directory.
+- Command working directories may be project-relative or absolute paths that
+  resolve inside the current project; absolute paths outside the project and
+  protected `.git/` or `.vibeagent/` directories remain blocked.
 - `.git/` and `.vibeagent/` are protected from model file actions.
 - Secret-like files such as `.env`, `.env.local`, `.npmrc`, `.pypirc`,
   private keys, certificates, and common key bundles are protected from model

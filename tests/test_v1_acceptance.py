@@ -271,7 +271,10 @@ class V1AcceptanceTests(unittest.TestCase):
         self.assertIn("Live Provider Gate", readiness)
         self.assertIn("Status: `complete-for-v1-release`", readiness)
         self.assertIn(f"Release package version: `{__version__}`", readiness)
-        self.assertIn("2026-07-15T01-46-18-965Z-7adb0ef6", readiness)
+        self.assertRegex(readiness, r"- Date: 20\d{2}-\d{2}-\d{2}")
+        self.assertRegex(readiness, r"- Session: `20\d{2}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z-[a-f0-9]{8}`")
+        self.assertIn("Provider: MiniMax via `MINIMAX_API_KEY`", readiness)
+        self.assertIn("Audit result: all repository, approval, failing/passing unittest", readiness)
         self.assertIn("scripts/live_dogfood_v1.py", readiness)
         self.assertIn("python3 -m vibeagent --cwd /tmp/vibeagent-live-dogfood", readiness)
 

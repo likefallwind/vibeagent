@@ -1846,14 +1846,22 @@ class WorkspaceTests(unittest.TestCase):
             write_run_file(workspace, "pkg/app.py", "print('ok')\n")
 
             cwd = resolve_command_cwd(workspace, "pkg")
+            absolute_root = resolve_command_cwd(workspace, str(workspace.root))
+            absolute_nested = resolve_command_cwd(workspace, str(workspace.root / "pkg"))
 
             self.assertEqual(cwd, workspace.root / "pkg")
+            self.assertEqual(absolute_root, workspace.root)
+            self.assertEqual(absolute_nested, workspace.root / "pkg")
             with self.assertRaisesRegex(ValueError, "not a directory"):
                 resolve_command_cwd(workspace, "pkg/app.py")
             with self.assertRaisesRegex(ValueError, "escapes"):
                 resolve_command_cwd(workspace, "../outside")
             with self.assertRaisesRegex(ValueError, "protected"):
                 resolve_command_cwd(workspace, ".vibeagent")
+            with self.assertRaisesRegex(ValueError, "escapes"):
+                resolve_command_cwd(workspace, str(workspace.root.parent))
+            with self.assertRaisesRegex(ValueError, "protected"):
+                resolve_command_cwd(workspace, str(workspace.session_dir))
 
     def test_search_project_supports_scope_regex_and_case_options(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:

@@ -117,10 +117,10 @@ dogfood gate passed on a non-fixture throwaway repository.
 
 Live provider evidence:
 
-- Date: 2026-07-15
+- Date: 2026-08-08
 - Provider: MiniMax via `MINIMAX_API_KEY`
 - Throwaway repo: `/tmp/vibeagent-live-dogfood`
-- Session: `2026-07-15T01-46-18-965Z-7adb0ef6`
+- Session: `2026-08-08T02-51-11-792Z-db4de4e5`
 - Command:
   `python3 scripts/live_dogfood_v1.py --prepare --force --run --audit-after-run --approval-count 30 --run-timeout-ms 600000`
 - Audit result: all repository, approval, failing/passing unittest,

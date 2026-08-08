@@ -43,10 +43,19 @@ def resolve_mutation_path(root: str | Path, relative_path: str) -> Path:
 
 
 def resolve_command_cwd(workspace: RunWorkspace, relative_path: str | None) -> Path:
-    target = resolve_inside_run(workspace.root, relative_path or ".")
+    path = relative_path or "."
+    candidate = Path(path)
+    if candidate.is_absolute():
+        resolved_root = workspace.root.resolve()
+        target = candidate.resolve()
+        if target != resolved_root and resolved_root not in target.parents:
+            raise ValueError(f"Path escapes the project directory: {path}")
+        if is_protected_project_path(resolved_root, target):
+            raise ValueError(f"Path is protected: {path}")
+    else:
+        target = resolve_inside_run(workspace.root, path)
     if not target.exists():
-        raise ValueError(f"Command cwd does not exist: {relative_path or '.'}")
+        raise ValueError(f"Command cwd does not exist: {path}")
     if not target.is_dir():
-        raise ValueError(f"Command cwd is not a directory: {relative_path or '.'}")
+        raise ValueError(f"Command cwd is not a directory: {path}")
     return target
-
