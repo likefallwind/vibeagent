@@ -60,6 +60,7 @@ PARALLEL_SAFE_TOOL_NAMES = {
     "project_agents",
     "skill",
     "mcp_servers",
+    "lsp_query",
     "project_overview",
     "environment_info",
     "command_check",

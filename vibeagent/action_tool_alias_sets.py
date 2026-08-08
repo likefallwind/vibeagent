@@ -15,6 +15,7 @@ CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
     "Glob": "glob",
     "Grep": "search",
     "KillBash": "stop_process",
+    "LSP": "lsp_query",
     "LS": "list_tree",
     "MultiEdit": "multi_edit_file",
     "NotebookEdit": "notebook_edit",
@@ -91,6 +92,7 @@ FILE_READ_TOOL_NAMES = frozenset(
         "image_info",
         "list_files",
         "list_tree",
+        "lsp_query",
         "python_call_graph",
         "python_calls",
         "python_check",
@@ -122,6 +124,17 @@ CLAUDE_TOOL_ALIASES = {
     "Grep": frozenset({"search"}),
     "KillBash": frozenset({"stop_process"}),
     "LS": frozenset({"list_tree"}),
+    "LSP": frozenset(
+        {
+            "lsp_query",
+            "code_definitions",
+            "code_outline",
+            "code_references",
+            "python_definitions",
+            "python_references",
+            "python_symbols",
+        }
+    ),
     "MultiEdit": frozenset({"multi_edit_file"}),
     "NotebookEdit": FILE_EDIT_TOOL_NAMES | frozenset({"notebook_edit"}),
     "NotebookRead": FILE_READ_TOOL_NAMES | frozenset({"notebook_read"}),
@@ -155,6 +168,7 @@ PROFILE_TOOL_ALIAS_EXPANSIONS = {
     "Glob": frozenset({"Glob", "glob"}),
     "Grep": frozenset({"Grep", "search"}),
     "LS": frozenset({"LS", "list_tree"}),
+    "LSP": frozenset({"LSP", "lsp_query"}),
     "MultiEdit": frozenset({"MultiEdit", "multi_edit_file"}),
     "NotebookEdit": frozenset(
         {"NotebookEdit", "edit_file", "notebook_edit", "regex_replace"}

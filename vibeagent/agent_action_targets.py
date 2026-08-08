@@ -71,6 +71,9 @@ def build_action_target(action: object) -> str:
         return ", ".join(action.paths)
     if isinstance(action, t.CodeOutlineAction):
         return ", ".join(action.paths)
+    if isinstance(action, t.LspQueryAction):
+        position = f":{action.line}:{action.character}" if action.line is not None and action.character is not None else ""
+        return f"{action.path or action.symbol or '.'}{position}"
     if isinstance(action, t.PythonCheckAction):
         return action.path or "."
     if isinstance(action, t.ConfigCheckAction):

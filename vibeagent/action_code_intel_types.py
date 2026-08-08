@@ -5,6 +5,17 @@ from typing import Literal
 
 
 @dataclass(frozen=True)
+class LspQueryAction:
+    type: Literal["lsp_query"]
+    operation: Literal["goToDefinition", "goToImplementation", "findReferences", "hover", "documentSymbol", "workspaceSymbol"]
+    path: str | None = None
+    line: int | None = None
+    character: int | None = None
+    symbol: str | None = None
+    max_results: int = 50
+
+
+@dataclass(frozen=True)
 class PythonSymbolsAction:
     type: Literal["python_symbols"]
     paths: list[str]

@@ -49,6 +49,8 @@ def build_step_label(action: object) -> str:
         return f"Read Python symbols for {len(action.paths)} files"
     if isinstance(action, t.CodeOutlineAction):
         return f"Read code outlines for {len(action.paths)} files"
+    if isinstance(action, t.LspQueryAction):
+        return f"LSP {action.operation} {action.path or action.symbol or '.'}"
     if isinstance(action, t.PythonCheckAction):
         return f"Check Python {action.path or '.'}"
     if isinstance(action, t.ConfigCheckAction):

@@ -151,6 +151,10 @@ def _normalize_tool_search_input(value: dict[str, Any]) -> dict[str, Any]:
     return _rename_fields(value, {"max_results": "max_matches"})
 
 
+def _normalize_lsp_input(value: dict[str, Any]) -> dict[str, Any]:
+    return _rename_fields(value, {"filePath": "path", "query": "symbol", "maxResults": "max_results"})
+
+
 def _normalize_bash_input(value: dict[str, Any]) -> dict[str, Any]:
     return _rename_fields(value, {"timeout": "timeout_ms"})
 
@@ -273,6 +277,7 @@ _NAME_INPUT_NORMALIZERS: dict[str, ToolInputNormalizer] = {
     "Bash": _normalize_bash_input,
     "ExitPlanMode": _normalize_exit_plan_mode_input,
     "NotebookRead": _normalize_claude_notebook_read_input,
+    "LSP": _normalize_lsp_input,
     "Read": _normalize_claude_read_file_input,
     "Skill": _normalize_skill_input,
     "ToolSearch": _normalize_tool_search_input,

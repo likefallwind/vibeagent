@@ -23,6 +23,7 @@ from .action_code_intel_types import (
     CodeRenameAction,
     CodeRenamePreviewAction,
     ConfigCheckAction,
+    LspQueryAction,
     PythonCallGraphAction,
     PythonCallsAction,
     PythonCheckAction,

@@ -5,6 +5,7 @@ import unittest
 from vibeagent.tool_definition_code_dependencies import CODE_DEPENDENCY_TOOL_DEFINITIONS
 from vibeagent.tool_definition_code_intel import CODE_INTEL_TOOL_DEFINITIONS
 from vibeagent.tool_definition_generic_code import GENERIC_CODE_TOOL_DEFINITIONS
+from vibeagent.tool_definition_lsp import LSP_TOOL_DEFINITIONS
 from vibeagent.tool_definition_python_code import PYTHON_CODE_TOOL_DEFINITIONS
 from vibeagent.tool_definition_search import SEARCH_TOOL_DEFINITIONS
 
@@ -14,6 +15,7 @@ class ToolDefinitionCodeIntelTests(unittest.TestCase):
         self.assertEqual(
             CODE_INTEL_TOOL_DEFINITIONS,
             CODE_DEPENDENCY_TOOL_DEFINITIONS
+            + LSP_TOOL_DEFINITIONS
             + GENERIC_CODE_TOOL_DEFINITIONS
             + PYTHON_CODE_TOOL_DEFINITIONS
             + SEARCH_TOOL_DEFINITIONS,
@@ -21,6 +23,7 @@ class ToolDefinitionCodeIntelTests(unittest.TestCase):
 
     def test_group_boundaries_match_code_intel_domains(self) -> None:
         self.assertEqual([tool["name"] for tool in CODE_DEPENDENCY_TOOL_DEFINITIONS], ["python_dependencies", "code_dependencies"])
+        self.assertEqual([tool["name"] for tool in LSP_TOOL_DEFINITIONS], ["LSP"])
         self.assertEqual(
             [tool["name"] for tool in GENERIC_CODE_TOOL_DEFINITIONS],
             ["code_references", "code_reference_contexts", "code_definitions", "code_rename_preview", "code_rename"],

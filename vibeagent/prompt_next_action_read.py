@@ -6,6 +6,7 @@ from .types import Observation
 READ_NEXT_ACTION_KINDS = {
     "Glob",
     "Grep",
+    "LSP",
     "LS",
     "NotebookRead",
     "Read",
