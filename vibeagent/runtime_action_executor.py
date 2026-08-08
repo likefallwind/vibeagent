@@ -27,6 +27,7 @@ from .runtime_checks import (
     fetch_http_url,
 )
 from .web_fetch import fetch_public_document
+from .web_search import search_public_web
 from .types import (
     AgentAction,
     CheckRunCommandsAction,
@@ -44,6 +45,7 @@ from .types import (
     HttpCheckAction,
     HttpFetchAction,
     WebFetchAction,
+    WebSearchAction,
     ListProcessesAction,
     Observation,
     PortCheckAction,
@@ -151,6 +153,15 @@ def execute_runtime_action(
         max_text_chars = action.max_text_chars if action.max_text_chars is not None else 20_000
         observation = fetch_public_document(action.url, timeout_ms=timeout_ms, max_text_chars=max_text_chars)
         return replace(observation, prompt=action.prompt)
+
+    if isinstance(action, WebSearchAction):
+        return search_public_web(
+            action.query,
+            timeout_ms=action.timeout_ms if action.timeout_ms is not None else 10_000,
+            max_results=action.max_results if action.max_results is not None else 5,
+            allowed_domains=action.allowed_domains,
+            blocked_domains=action.blocked_domains,
+        )
 
     if isinstance(action, EnvironmentInfoAction):
         try:

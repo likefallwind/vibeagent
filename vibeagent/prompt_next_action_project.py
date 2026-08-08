@@ -24,6 +24,7 @@ PROJECT_NEXT_ACTION_KINDS = {
     "Agent",
     "Task",
     "WebFetch",
+    "WebSearch",
     "delegate_task",
     "suggest_checks",
     "check_suggested_checks",

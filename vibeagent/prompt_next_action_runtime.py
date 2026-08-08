@@ -13,6 +13,7 @@ from .prompt_next_action_runtime_network import (
     _http_fetch_next_action_instruction,
     _port_check_next_action_instruction,
     _web_fetch_next_action_instruction,
+    _web_search_next_action_instruction,
 )
 from .prompt_next_action_runtime_output import (
     BATCH_COMMAND_RESULT_KINDS,
@@ -66,6 +67,7 @@ RUNTIME_NEXT_ACTION_KINDS = {
     "http_check",
     "http_fetch",
     "web_fetch",
+    "web_search",
 }
 
 
@@ -206,6 +208,8 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
         return _http_fetch_next_action_instruction(base, latest)
     if latest.kind == "web_fetch":
         return _web_fetch_next_action_instruction(base, latest)
+    if latest.kind == "web_search":
+        return _web_search_next_action_instruction(base, latest)
     if latest.kind in {"command_check", "check_start_command"}:
         if getattr(latest, "blocked", False):
             return f"{base} Command preflight was blocked. Choose a safer command or inspect the block reason before requesting execution."

@@ -75,6 +75,16 @@ class WebFetchAction:
 
 
 @dataclass(frozen=True)
+class WebSearchAction:
+    type: Literal["web_search"]
+    query: str
+    timeout_ms: int | None = None
+    max_results: int | None = None
+    allowed_domains: tuple[str, ...] = ()
+    blocked_domains: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class EnvironmentInfoAction:
     type: Literal["environment_info"]
 

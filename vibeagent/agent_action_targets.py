@@ -233,6 +233,8 @@ def build_action_target(action: object) -> str:
         return action.url
     if isinstance(action, t.WebFetchAction):
         return action.url
+    if isinstance(action, t.WebSearchAction):
+        return action.query
     if isinstance(action, t.EnvironmentInfoAction):
         return "runtime environment"
     if isinstance(action, t.GitDiffAction):

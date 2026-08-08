@@ -145,6 +145,7 @@ class AgentToolRegistryTests(unittest.TestCase):
             "AskUserQuestion",
             "Task",
             "WebFetch",
+            "WebSearch",
         ]:
             self.assertIn(name, names)
 

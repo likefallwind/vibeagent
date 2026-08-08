@@ -24,6 +24,7 @@ from .action_process_types import (
     StopProcessAction,
     WaitProcessAction,
     WebFetchAction,
+    WebSearchAction,
     WriteProcessAction,
 )
 
@@ -36,6 +37,7 @@ ProcessAgentAction: TypeAlias = (
     | HttpCheckAction
     | HttpFetchAction
     | WebFetchAction
+    | WebSearchAction
     | EnvironmentInfoAction
     | RunCommandAction
     | RunCommandsAction

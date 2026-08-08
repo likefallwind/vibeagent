@@ -102,6 +102,20 @@ def format_runtime_observation(index: int, observation: object) -> str | None:
             parts.append(f"text:\n{observation.text}")
         return "\n".join(parts)
 
+    if observation.kind == "web_search":
+        parts = [
+            f"{index}. web_search {observation.query}: {observation.message}",
+            f"ok: {str(observation.ok).lower()}",
+            f"results: {len(observation.results)}/{observation.total_results}",
+            f"resultsTruncated: {str(observation.results_truncated).lower()}",
+            f"allowedDomains: {', '.join(observation.allowed_domains) or 'none'}",
+            f"blockedDomains: {', '.join(observation.blocked_domains) or 'none'}",
+            f"error: {observation.error or 'none'}",
+        ]
+        for result in observation.results:
+            parts.append(f"result: {result.title}\nurl: {result.url}\nsnippet: {result.snippet or 'none'}")
+        return "\n".join(parts)
+
     if observation.kind == "environment_info":
         parts = [
             (

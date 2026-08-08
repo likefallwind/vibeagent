@@ -180,6 +180,18 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             target=action.url,
             risk="This will send a request to an external public server and return bounded document text.",
         )
+    if isinstance(action, t.WebSearchAction):
+        filters = []
+        if action.allowed_domains:
+            filters.append(f"allowed={','.join(action.allowed_domains)}")
+        if action.blocked_domains:
+            filters.append(f"blocked={','.join(action.blocked_domains)}")
+        suffix = f" ({'; '.join(filters)})" if filters else ""
+        return t.ApprovalRequest(
+            action_type="web_search",
+            target=f"{action.query}{suffix}",
+            risk="This will send the search query to an external public search service and return bounded results.",
+        )
     if isinstance(action, t.McpToolsAction):
         return t.ApprovalRequest(
             action_type="mcp_tools",

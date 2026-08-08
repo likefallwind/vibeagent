@@ -76,6 +76,7 @@ CORE_PROJECT_TOOL_NAMES = frozenset(
         "tool_search",
         "WebFetch",
         "web_fetch",
+        "WebSearch",
     }
 )
 

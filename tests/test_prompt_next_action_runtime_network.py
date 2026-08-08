@@ -24,6 +24,10 @@ class PromptNextActionRuntimeNetworkTests(unittest.TestCase):
             prompt_next_action_runtime._web_fetch_next_action_instruction,
             prompt_next_action_runtime_network._web_fetch_next_action_instruction,
         )
+        self.assertIs(
+            prompt_next_action_runtime._web_search_next_action_instruction,
+            prompt_next_action_runtime_network._web_search_next_action_instruction,
+        )
 
     def test_runtime_next_action_routes_network_observations(self) -> None:
         base = "Next:"
@@ -43,6 +47,10 @@ class PromptNextActionRuntimeNetworkTests(unittest.TestCase):
             base,
             [SimpleNamespace(kind="web_fetch", url="https://docs.python.org/3/", ok=False)],
         )
+        search_instruction = prompt_next_action_runtime.runtime_next_action_instruction(
+            base,
+            [SimpleNamespace(kind="web_search", query="python docs", ok=True, results=[object()])],
+        )
 
         self.assertIsNotNone(port_instruction)
         self.assertIn("http_check/http_fetch", port_instruction or "")
@@ -52,6 +60,8 @@ class PromptNextActionRuntimeNetworkTests(unittest.TestCase):
         self.assertIn("HTTP fetch succeeded", fetch_instruction or "")
         self.assertIsNotNone(web_instruction)
         self.assertIn("Public document fetch failed", web_instruction or "")
+        self.assertIsNotNone(search_instruction)
+        self.assertIn("Use web_fetch", search_instruction or "")
 
 
 if __name__ == "__main__":

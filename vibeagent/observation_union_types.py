@@ -148,6 +148,7 @@ from .observation_runtime_types import (
     HttpCheckObservation,
     HttpFetchObservation,
     WebFetchObservation,
+    WebSearchObservation,
     PortCheckObservation,
 )
 from .observation_search_types import (
@@ -269,6 +270,7 @@ Observation: TypeAlias = (
     | HttpCheckObservation
     | HttpFetchObservation
     | WebFetchObservation
+    | WebSearchObservation
     | EnvironmentInfoObservation
     | GitDiffObservation
     | GitDiffHunksObservation

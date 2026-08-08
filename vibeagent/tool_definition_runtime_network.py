@@ -132,4 +132,64 @@ RUNTIME_NETWORK_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "web_search",
+        "description": "Search the public web through DuckDuckGo and return bounded result titles, URLs, and snippets. Requires approval.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query, limited to 500 characters."},
+                "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 10000,
+                    "description": "Optional request timeout in milliseconds. Defaults to 10000.",
+                },
+                "max_results": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "Maximum number of results to return. Defaults to 5.",
+                },
+                "allowed_domains": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "maxItems": 20,
+                    "description": "Optional domains to include, including their subdomains.",
+                },
+                "blocked_domains": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "maxItems": 20,
+                    "description": "Optional domains to exclude, including their subdomains.",
+                },
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "WebSearch",
+        "description": "Claude-compatible alias for searching the public web after approval.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query, limited to 500 characters."},
+                "allowed_domains": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "maxItems": 20,
+                },
+                "blocked_domains": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "maxItems": 20,
+                },
+                "timeout_ms": {"type": "integer", "minimum": 100, "maximum": 10000},
+                "max_results": {"type": "integer", "minimum": 1, "maximum": 10},
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    },
 ]

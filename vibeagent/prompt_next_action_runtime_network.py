@@ -56,3 +56,12 @@ def _web_fetch_next_action_instruction(base: str, latest: Observation) -> str:
     if getattr(latest, "ok", False):
         return f"{base} Public document fetch succeeded for {url}. Use the returned text to continue or answer directly."
     return f"{base} Public document fetch failed for {url}. Inspect the safety or network error and use another public source if needed."
+
+
+def _web_search_next_action_instruction(base: str, latest: Observation) -> str:
+    query = str(getattr(latest, "query", "") or "the query")
+    if not getattr(latest, "ok", False):
+        return f"{base} Public web search failed for {query!r}. Inspect the safety or network error and refine the query if needed."
+    if not getattr(latest, "results", []):
+        return f"{base} Public web search returned no results for {query!r}. Broaden the query or adjust domain filters."
+    return f"{base} Public web search found results for {query!r}. Use web_fetch on the most relevant result before relying on its details."

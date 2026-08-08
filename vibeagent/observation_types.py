@@ -208,6 +208,8 @@ from .observation_runtime_types import (
     HttpCheckObservation,
     HttpFetchObservation,
     WebFetchObservation,
+    WebSearchObservation,
+    WebSearchResult,
     PortCheckObservation,
     RuntimeToolInfo,
 )

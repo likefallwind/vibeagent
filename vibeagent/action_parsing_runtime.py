@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 from urllib.parse import urlparse
 
@@ -16,6 +17,7 @@ from .types import (
     HttpCheckAction,
     HttpFetchAction,
     WebFetchAction,
+    WebSearchAction,
     PortCheckAction,
 )
 
@@ -27,6 +29,7 @@ RUNTIME_ACTION_TYPES = {
     "http_check",
     "http_fetch",
     "web_fetch",
+    "web_search",
     "environment_info",
 }
 
@@ -45,6 +48,28 @@ def _parse_timeout_ms(value: Any, raw: str) -> int | None:
     if timeout_ms is not None and timeout_ms < 100:
         raise ActionParseError("timeout_ms must be at least 100.", raw)
     return timeout_ms
+
+
+def _parse_search_domains(value: Any, field: str, raw: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list) or len(value) > 20:
+        raise ActionParseError(f"web_search action {field} must be an array with at most 20 domains.", raw)
+    domains: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            raise ActionParseError(f"web_search action {field} entries must be non-empty strings.", raw)
+        domain = item.strip().lower()
+        hostname = domain.removeprefix("*.")
+        labels = hostname.split(".")
+        valid_labels = all(
+            re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) is not None
+            for label in labels
+        )
+        if len(hostname) > 253 or not valid_labels:
+            raise ActionParseError(f"web_search action {field} entries must be domain names without URLs or ports.", raw)
+        domains.append(domain)
+    return tuple(dict.fromkeys(domains))
 
 
 def parse_runtime_action(action_type: object, value: dict[str, Any], raw: str) -> object | None:
@@ -125,6 +150,22 @@ def parse_runtime_action(action_type: object, value: dict[str, Any], raw: str) -
             timeout_ms=_parse_timeout_ms(value.get("timeout_ms"), raw),
             max_text_chars=max_text_chars,
             prompt=prompt.strip() if isinstance(prompt, str) else None,
+        )
+
+    if action_type == "web_search":
+        query = value.get("query")
+        if not isinstance(query, str) or not query.strip():
+            raise ActionParseError("web_search action requires a non-empty query.", raw)
+        query = query.strip()
+        if len(query) > 500:
+            raise ActionParseError("web_search action query must be at most 500 characters.", raw)
+        return WebSearchAction(
+            type="web_search",
+            query=query,
+            timeout_ms=_parse_timeout_ms(value.get("timeout_ms"), raw),
+            max_results=parse_optional_positive_int(value.get("max_results"), "max_results", raw, maximum=10),
+            allowed_domains=_parse_search_domains(value.get("allowed_domains"), "allowed_domains", raw),
+            blocked_domains=_parse_search_domains(value.get("blocked_domains"), "blocked_domains", raw),
         )
 
     if action_type == "environment_info":

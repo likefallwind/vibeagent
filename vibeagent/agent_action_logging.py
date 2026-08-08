@@ -223,6 +223,7 @@ ACTION_LOG_SPECS: dict[str, tuple[str, ActionTargetBuilder]] = {
     "http_check": ("checking http", _target_action),
     "http_fetch": ("fetching http", _target_action),
     "web_fetch": ("fetching public document", _target_action),
+    "web_search": ("searching public web", _target_action),
     "start_command": ("starting command", _target_action),
     "read_process": ("reading process", _target_process_id),
     "wait_process": ("waiting process", _target_process_id),

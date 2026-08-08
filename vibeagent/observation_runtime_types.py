@@ -85,6 +85,27 @@ class WebFetchObservation:
 
 
 @dataclass(frozen=True)
+class WebSearchResult:
+    title: str
+    url: str
+    snippet: str
+
+
+@dataclass(frozen=True)
+class WebSearchObservation:
+    kind: Literal["web_search"]
+    ok: bool
+    query: str
+    results: list[WebSearchResult]
+    total_results: int
+    results_truncated: bool
+    allowed_domains: list[str]
+    blocked_domains: list[str]
+    error: str | None
+    message: str
+
+
+@dataclass(frozen=True)
 class RuntimeToolInfo:
     name: str
     available: bool

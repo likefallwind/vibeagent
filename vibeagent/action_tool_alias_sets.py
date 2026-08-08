@@ -24,6 +24,7 @@ CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
     "TodoRead": "todo_read",
     "TodoWrite": "todo_write",
     "WebFetch": "web_fetch",
+    "WebSearch": "web_search",
     "Write": "write_file",
 }
 
@@ -125,6 +126,7 @@ CLAUDE_TOOL_ALIASES = {
     "TodoRead": frozenset({"session_plan"}),
     "TodoWrite": frozenset({"update_plan"}),
     "WebFetch": frozenset({"web_fetch"}),
+    "WebSearch": frozenset({"web_search"}),
     "Write": FILE_EDIT_TOOL_NAMES,
 }
 PROFILE_TOOL_ALIAS_EXPANSIONS = {
@@ -153,5 +155,6 @@ PROFILE_TOOL_ALIAS_EXPANSIONS = {
     "Read": frozenset({"Read", "read_file"}),
     "TodoRead": frozenset({"TodoRead", "session_plan"}),
     "WebFetch": frozenset({"WebFetch", "web_fetch"}),
+    "WebSearch": frozenset({"WebSearch", "web_search"}),
     "Write": frozenset({"Write", "write_file"}),
 }
