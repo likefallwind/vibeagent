@@ -8,6 +8,7 @@ from .session_types import SessionEvent
 from .verification_command_utils import (
     command_keys_from_dicts,
     failed_verification_command_label,
+    matching_verification_command_key,
     verification_command_label,
     verification_commands_from_final_review_payload,
 )
@@ -50,8 +51,9 @@ def session_verification_from_events(events: list[SessionEvent]) -> tuple[list[s
             continue
         verification_commands.update(session_run_verification_selected_command_keys(result))
         for command_result in session_iter_command_results(result):
-            key = session_command_result_key(command_result)
-            if key not in verification_commands:
+            result_key = session_command_result_key(command_result)
+            key = matching_verification_command_key(result_key[0], result_key[1], verification_commands)
+            if key is None:
                 continue
             if command_result_failed(command_result) or command_result_has_source_output_issues(command_result):
                 statuses[key] = (False, session_failed_suggested_check_label(command_result))

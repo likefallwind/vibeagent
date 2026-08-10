@@ -11,6 +11,7 @@ from .types import Observation
 from .verification_command_utils import (
     command_keys_from_objects,
     failed_verification_command_label,
+    matching_verification_command_key,
     verification_command_label,
     verification_commands_from_final_review,
 )
@@ -187,9 +188,12 @@ def command_result_suggested_check_commands(
 ) -> set[tuple[str, str]]:
     if not command_result_matches_successful_suggested_check(result, suggested_commands):
         return set()
-    command = str(getattr(result, "command", ""))
-    cwd = str(getattr(result, "cwd", ".") or ".")
-    return {(command, cwd)}
+    key = matching_verification_command_key(
+        getattr(result, "command", ""),
+        getattr(result, "cwd", "."),
+        suggested_commands,
+    )
+    return {key} if key is not None else set()
 
 
 def command_result_failed_suggested_check_labels(
@@ -204,10 +208,14 @@ def command_result_failed_suggested_check_result(
     result: object,
     suggested_commands: set[tuple[str, str]],
 ) -> tuple[str, str, str] | None:
-    command = str(getattr(result, "command", ""))
-    cwd = str(getattr(result, "cwd", ".") or ".")
-    if (command, cwd) not in suggested_commands:
+    key = matching_verification_command_key(
+        getattr(result, "command", ""),
+        getattr(result, "cwd", "."),
+        suggested_commands,
+    )
+    if key is None:
         return None
+    command, cwd = key
     has_output_issues = command_result_has_source_output_issues(result)
     if getattr(result, "exit_code", None) == 0 and not getattr(result, "timed_out", False) and not has_output_issues:
         return None
@@ -235,9 +243,11 @@ def command_result_matches_successful_suggested_check(
         return False
     if command_result_has_source_output_issues(result):
         return False
-    command = str(getattr(result, "command", ""))
-    cwd = str(getattr(result, "cwd", ".") or ".")
-    return (command, cwd) in suggested_commands
+    return matching_verification_command_key(
+        getattr(result, "command", ""),
+        getattr(result, "cwd", "."),
+        suggested_commands,
+    ) is not None
 
 
 def command_result_has_source_output_issues(result: object) -> bool:

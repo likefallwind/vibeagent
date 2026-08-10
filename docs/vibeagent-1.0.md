@@ -15,7 +15,7 @@ local changes when asked, and resume from recorded session context.
 | VA1-REPAIR | Iterate after failing checks | The agent loop can observe failed command output, edit again, rerun checks, and keep task steps accurate. |
 | VA1-REVIEW | Block premature completion after changes | `final_review`, completion blockers, and suggested verification checks prevent finishing until changed-file review and relevant checks are complete. |
 | VA1-COMMIT | Commit verified local work when requested | `check_git_stage`, `git_stage`, `check_git_commit`, and `git_commit` can stage explicit paths and create a local commit after approval. |
-| VA1-RESUME | Recover useful session context | `session_summary`, `session_verification`, `run_session_verification`, and `session_handoff` preserve bounded evidence; explicit `--resume`, `--session-id`, `/resume`, and branches additionally restore a redacted non-system model/tool conversation, while `--compact` and `/compact` deliberately start from compressed handoff context. |
+| VA1-RESUME | Recover useful session context | `session_summary`, `session_verification`, `run_session_verification`, and `session_handoff` preserve bounded evidence; explicit `--resume`, `--session-id`, and `/resume` append to the same session ID with its redacted non-system model/tool conversation, while branches/forks use a new ID and `--compact` or `/compact` deliberately start a new session from compressed handoff context. A nonblocking per-turn lease rejects concurrent writers to one session. |
 | VA1-GOAL | Continue until an independently checked condition is met | `/goal` persists one bounded condition, runs evaluator-guided coding turns without changing approvals, and restores active goals only on explicit resume. |
 | VA1-PEER | Coordinate independent local coding sessions | `ListAgents` discovers live same-machine sessions, `SendMessage` delivers bounded untrusted text over a user-only Unix socket, and running or idle receivers process messages without changing permission boundaries. |
 | VA1-DELEGATE | Split bounded investigation into a subagent | `delegate_task`, `Task`, and `Agent` can run isolated read-only investigations synchronously or in the background; `TaskOutput` collects results, `TaskStop` requests cancellation, and completion remains blocked while a result is running or unread. |
@@ -29,7 +29,7 @@ local changes when asked, and resume from recorded session context.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_read_repair_verify_commit_and_finish`
   is the dedicated deterministic 1.0 dogfood scenario: project overview,
   file reads, failing test reproduction, fix, passing test rerun, local commit,
-  final review, and session verification recovery without real provider calls.
+  final review, and recorded verification evidence without real provider calls.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_resume_after_interrupted_failure_and_commit`
   covers the same repair workflow split across two runs: the first run records a
   failing verification before interruption, `get_resume_context` reloads that
@@ -38,8 +38,11 @@ local changes when asked, and resume from recorded session context.
   `tests.test_cli_startup_context.CliStartupContextTests.test_resume_restores_persisted_conversation_but_compact_does_not`,
   and the resume coverage in `tests.test_cli_interactive_state` and
   `tests.test_cli_one_shot_code` cover atomic private conversation checkpoints,
-  prompt/image/tool-payload redaction, corrupt-state fallback, explicit resume,
-  and compact as a deliberate conversation boundary.
+  prompt/image/tool-payload redaction, corrupt-state fallback, same-ID explicit
+  resume, fork isolation, and compact as a deliberate conversation boundary.
+- `tests.test_session_turn_lock.SessionTurnLockTests` covers per-turn same-session
+  writer exclusion, owner diagnostics, symlink refusal, and release after normal
+  or exceptional turn exit.
 - `tests.test_session_tasks.SessionTaskTests` covers Claude-compatible
   `TaskCreate`, `TaskGet`, `TaskList`, and `TaskUpdate`, including stable IDs,
   status updates, owners, acyclic dependencies, deletion cleanup, completion
@@ -306,7 +309,7 @@ local changes when asked, and resume from recorded session context.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_resume_interrupted_run_and_commit`
   runs an interrupted deterministic repair dogfood through the real CLI
   `main()` JSON path, then resumes it through `--resume <runId>`, confirming
-  prior-context loading, resume prompt injection, workspace repair,
+  same-ID continuation, prior-context loading, resume prompt injection, workspace repair,
   verification, and local commit.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_compact_interrupted_run_and_commit`
   runs the same interrupted deterministic repair dogfood through the real CLI

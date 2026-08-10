@@ -607,15 +607,31 @@ def run_interactive_loop(
                 workflow_manager = None
             resume_run_id = selected
             resume_context = context
-            restored_conversation = load_session_conversation(Path.cwd(), selected)
-            conversation_messages = list(restored_conversation.messages)
-            pending_workspace = None
+            restored_conversation = (
+                load_session_conversation(Path.cwd(), selected)
+                if command.type == "resume"
+                else None
+            )
+            conversation_messages = (
+                list(restored_conversation.messages)
+                if restored_conversation is not None
+                else []
+            )
+            pending_workspace = (
+                create_local_workspace(
+                    Path.cwd(),
+                    selected,
+                    additional_roots=next_additional_directories,
+                )
+                if command.type == "resume" and selected is not None
+                else None
+            )
             pending_branch_source_run_id = None
             additional_directories = next_additional_directories
             restored_goal = read_session_goal(Path.cwd(), selected) if selected is not None else None
             goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
             print(text)
-            if restored_conversation.warning:
+            if restored_conversation is not None and restored_conversation.warning:
                 print(restored_conversation.warning)
             if restored_directories.message:
                 print(restored_directories.message)

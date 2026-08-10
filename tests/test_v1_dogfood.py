@@ -2637,12 +2637,11 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertEqual(len(run_commands), 2)
         self.assertNotEqual(run_commands[0].result.exit_code, 0)
         self.assertEqual(run_commands[1].result.exit_code, 0)
-        self.assertIn("run_session_verification", observation_kinds)
+        self.assertIn("python -m unittest discover -s tests", result.verification_checks)
         self.assertIn("checkpoint_create", observation_kinds)
         self.assertLess(observation_kinds.index("run_command"), observation_kinds.index("write_file"))
         self.assertLess(observation_kinds.index("write_file"), observation_kinds.index("git_stage"))
         self.assertLess(observation_kinds.index("git_stage"), observation_kinds.index("git_commit"))
-        self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("run_session_verification"))
         self.assertLess(observation_kinds.index("git_commit"), observation_kinds.index("final_review"))
 
     def test_v1_agent_can_resume_after_interrupted_failure_and_commit(self) -> None:
@@ -2692,7 +2691,7 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertIn("Fix the calculator test failure", initial_resumed_prompt)
         self.assertIn("python -B -m unittest discover -s tests", initial_resumed_prompt)
         assert_v1_clean_commit(self, resumed, git_status, head_message, "Fix calculator add after resume")
-        self.assertIn("run_session_verification", resumed_observations)
+        self.assertIn("python -m unittest discover -s tests", resumed.verification_checks)
         self.assertLess(resumed_observations.index("write_file"), resumed_observations.index("git_commit"))
 
     def test_v1_agent_can_complete_repair_with_claude_code_tool_aliases(self) -> None:

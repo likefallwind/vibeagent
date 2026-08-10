@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import re
+import shlex
+from pathlib import PurePath
 from typing import Any
 
 from .agent_approval_targets import command_target
 
 CommandKey = tuple[str, str]
+_PYTHON_EXECUTABLE = re.compile(r"python(?:\d+(?:\.\d+)*)?(?:\.exe)?", re.IGNORECASE)
 
 
 def command_key(command: object, cwd: object = ".") -> CommandKey | None:
@@ -35,6 +39,43 @@ def command_keys_from_dicts(items: object) -> set[CommandKey]:
         if key is not None:
             keys.add(key)
     return keys
+
+
+def matching_verification_command_key(
+    command: object,
+    cwd: object,
+    candidates: set[CommandKey],
+) -> CommandKey | None:
+    key = command_key(command, cwd)
+    if key is None:
+        return None
+    if key in candidates:
+        return key
+    normalized = _normalized_verification_command(key[0])
+    if normalized is None:
+        return None
+    for candidate in candidates:
+        if candidate[1] == key[1] and _normalized_verification_command(candidate[0]) == normalized:
+            return candidate
+    return None
+
+
+def _normalized_verification_command(command: str) -> tuple[str, ...] | None:
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return None
+    if not parts or not _PYTHON_EXECUTABLE.fullmatch(PurePath(parts[0]).name):
+        return None
+    normalized = [parts[0]]
+    before_program = True
+    for part in parts[1:]:
+        if before_program and part == "-B":
+            continue
+        normalized.append(part)
+        if before_program and (part == "-m" or not part.startswith("-")):
+            before_program = False
+    return tuple(normalized)
 
 
 def verification_commands_from_objects(

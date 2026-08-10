@@ -33,7 +33,7 @@ class CliInteractiveStateTests(unittest.TestCase):
 
             def run_agent(task, **kwargs):
                 calls.append(kwargs)
-                return AgentResult(True, "done", root, "run-2", 1, [], [])
+                return AgentResult(True, "done", root, kwargs["workspace"].run_id, 1, [], [])
 
             with (
                 patch("builtins.input", side_effect=["/resume run-1", "continue", "/exit"]),
@@ -43,7 +43,7 @@ class CliInteractiveStateTests(unittest.TestCase):
                     "vibeagent.cli.get_resume_context",
                     side_effect=[
                         ("run-1", "source context", "loaded"),
-                        ("run-2", "next context", "loaded"),
+                        ("run-1", "next context", "loaded"),
                     ],
                 ),
                 redirect_stdout(io.StringIO()),
@@ -51,6 +51,8 @@ class CliInteractiveStateTests(unittest.TestCase):
                 exit_code = main(["--cwd", str(root)])
 
         self.assertEqual(exit_code, 0)
+        self.assertEqual(calls[0]["workspace"].run_id, "run-1")
+        self.assertIsNone(calls[0]["task_source_run_id"])
         self.assertEqual(calls[0]["prior_messages"][-1].content, "durable marker")
 
     def test_clear_starts_new_session_without_in_memory_conversation(self) -> None:

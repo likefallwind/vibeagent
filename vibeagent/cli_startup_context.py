@@ -20,7 +20,7 @@ from .session_branching import create_session_branch
 from .session_names import name_session, normalize_session_name
 from .session_conversation import load_session_conversation
 from .types import ChatMessage
-from .workspace_core import RunWorkspace, create_run_workspace
+from .workspace_core import RunWorkspace, create_local_workspace, create_run_workspace
 
 
 @dataclass(frozen=True)
@@ -81,6 +81,7 @@ def resolve_interactive_startup_context(
             project_root,
         )
         context = _with_restored_conversation(context, project_root)
+        context = _with_resumed_workspace(context, project_root)
         context = _with_forked_session(context, project_root) if getattr(args, "fork_session", False) else context
         return _with_requested_name(context, args, project_root)
 
@@ -115,6 +116,22 @@ def _with_restored_conversation(
         context,
         conversation=loaded.messages,
         message="\n".join(message_parts) or None,
+    )
+
+
+def _with_resumed_workspace(
+    context: InteractiveStartupContext,
+    project_root: Path,
+) -> InteractiveStartupContext:
+    if context.error is not None or context.run_id is None:
+        return context
+    return replace(
+        context,
+        pending_workspace=create_local_workspace(
+            project_root,
+            context.run_id,
+            additional_roots=context.additional_directories,
+        ),
     )
 
 

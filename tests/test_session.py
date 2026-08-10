@@ -2058,6 +2058,66 @@ class SessionTests(unittest.TestCase):
         self.assertIn("truncated: no", limited)
         self.assertIn("1 pending verification check(s)", audit)
 
+    def test_summarize_session_accepts_python_no_bytecode_variant(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
+            root = Path(base)
+            write_events(
+                root,
+                "run-1",
+                [
+                    {
+                        "type": "tool_result",
+                        "iteration": 1,
+                        "name": "write_file",
+                        "result": {"kind": "write_file", "path": "src/app.py", "ok": True, "message": "Wrote src/app.py."},
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 2,
+                        "name": "final_review",
+                        "result": {
+                            "kind": "final_review",
+                            "ok": True,
+                            "ready": False,
+                            "blocking_issues": [],
+                            "warnings": [],
+                            "files": [],
+                            "total_files": 1,
+                            "suggested_checks": [
+                                {
+                                    "command": "python -m unittest discover -s tests",
+                                    "cwd": ".",
+                                    "source": "tests",
+                                    "reason": "unit tests",
+                                }
+                            ],
+                            "suggested_checks_total": 1,
+                            "message": "Review needs verification.",
+                        },
+                    },
+                    {
+                        "type": "tool_result",
+                        "iteration": 3,
+                        "name": "run_command",
+                        "result": {
+                            "kind": "run_command",
+                            "result": {
+                                "command": "python -B -m unittest discover -s tests",
+                                "cwd": ".",
+                                "exit_code": 0,
+                                "timed_out": False,
+                            },
+                        },
+                    },
+                ],
+            )
+
+            summary = summarize_session(root, "run-1")
+
+        self.assertEqual(summary.verification_checks, ["python -m unittest discover -s tests"])
+        self.assertEqual(summary.pending_verification_checks, [])
+        self.assertEqual(summary.failed_verification_checks, [])
+
     def test_summarize_session_does_not_reuse_stale_final_review_checks_after_change(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-session-") as base:
             root = Path(base)

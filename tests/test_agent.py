@@ -11420,6 +11420,53 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(completion_module.build_pending_verification_checks(True, observations), [])
         self.assertEqual(completion_module.build_failed_verification_checks(True, observations), [])
 
+    def test_completion_verification_accepts_python_no_bytecode_variant(self) -> None:
+        suggested_check = SuggestedCheck(
+            command="python -m unittest discover -s tests",
+            cwd=".",
+            source="tests",
+            reason="unit tests",
+        )
+        observations = [
+            WriteFileObservation(kind="write_file", path="src/app.py", ok=True, message="Wrote src/app.py."),
+            FinalReviewObservation(
+                kind="final_review",
+                ok=True,
+                ready=False,
+                blocking_issues=["Suggested verification checks are still pending after the latest project change."],
+                warnings=[],
+                running_processes=[],
+                files=[],
+                total_files=1,
+                suggested_checks=[suggested_check],
+                suggested_checks_total=1,
+                suggested_checks_truncated=False,
+                diff_check="",
+                staged_diff_check="",
+                status="",
+                message="Review needs verification.",
+            ),
+            RunCommandObservation(
+                kind="run_command",
+                result=CommandResult(
+                    command="python -B -m unittest discover -s tests",
+                    exit_code=0,
+                    stdout="",
+                    stderr="",
+                    timed_out=False,
+                    signal=None,
+                    cwd=".",
+                ),
+            ),
+        ]
+
+        self.assertEqual(
+            completion_module.build_verification_checks(True, observations),
+            ["python -m unittest discover -s tests"],
+        )
+        self.assertEqual(completion_module.build_pending_verification_checks(True, observations), [])
+        self.assertEqual(completion_module.build_failed_verification_checks(True, observations), [])
+
     def test_completion_verification_survives_stash_drop_metadata_change(self) -> None:
         suggested_check = SuggestedCheck(
             command="python -m unittest discover -s tests",

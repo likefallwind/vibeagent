@@ -24,10 +24,11 @@ def build_one_shot_stream_scope(
     strict_mcp_config: bool,
     additional_roots: tuple[Path, ...] = (),
     force_workspace: bool = False,
+    workspace: RunWorkspace | None = None,
     create_workspace_func: Callable[..., RunWorkspace] = create_run_workspace,
     observe_events_func: Callable[..., AbstractContextManager[None]] = observe_session_events,
 ) -> OneShotStreamScope:
-    if stream is None and not force_workspace:
+    if stream is None and not force_workspace and workspace is None:
         return OneShotStreamScope(workspace=None, event_scope=nullcontext())
 
     workspace_kwargs: dict[str, object] = {
@@ -36,7 +37,7 @@ def build_one_shot_stream_scope(
     }
     if additional_roots:
         workspace_kwargs["additional_roots"] = additional_roots
-    workspace = create_workspace_func(project_root, **workspace_kwargs)
+    workspace = workspace or create_workspace_func(project_root, **workspace_kwargs)
     event_scope = (
         observe_events_func(workspace.session_dir, stream.session_event)
         if stream is not None

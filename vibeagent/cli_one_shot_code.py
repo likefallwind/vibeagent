@@ -114,6 +114,19 @@ def run_one_shot_code(
     goal_state, steering_task = _resolve_one_shot_goal(task, prior_context, project_root)
     if goal_state is not None:
         task = goal_turn_prompt(goal_state, steering_task)
+    resumed_workspace = (
+        create_local_workspace(
+            project_root,
+            prior_context.run_id,
+            mcp_config_paths=resolved_mcp_config_paths,
+            strict_mcp_config=strict_mcp_config,
+            additional_roots=additional_directories,
+        )
+        if prior_context.source == "resume"
+        and prior_context.run_id is not None
+        and not fork_session
+        else None
+    )
     stream_scope = build_one_shot_stream_scope(
         stream,
         project_root=project_root,
@@ -121,6 +134,7 @@ def run_one_shot_code(
         strict_mcp_config=strict_mcp_config,
         additional_roots=additional_directories,
         force_workspace=fork_session or session_name is not None,
+        workspace=resumed_workspace,
     )
     peer_runtime = create_peer_runtime(project_root, approval_policy)
     run_kwargs = build_one_shot_agent_kwargs(
@@ -143,7 +157,7 @@ def run_one_shot_code(
         workspace=stream_scope.workspace,
         peer_runtime=peer_runtime,
     )
-    if prior_context.run_id is not None:
+    if prior_context.run_id is not None and resumed_workspace is None:
         run_kwargs["task_source_run_id"] = prior_context.run_id
     if prior_context.source == "resume" and prior_context.run_id is not None:
         restored_conversation = load_session_conversation(project_root, prior_context.run_id)

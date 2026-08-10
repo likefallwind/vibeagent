@@ -61,7 +61,7 @@ class CliStartupContextTests(unittest.TestCase):
             self.assertEqual(read_session_name(root, context.run_id), "auth-refactor")  # type: ignore[arg-type]
             self.assertIn("Session named: auth-refactor", context.message or "")
 
-    def test_name_with_resume_targets_new_pending_run_without_renaming_source(self) -> None:
+    def test_name_with_resume_renames_the_continued_session(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-startup-name-") as base:
             root = Path(base)
             append_session_event(root / ".vibeagent" / "sessions" / "source", "task", {"task": "source"})
@@ -75,11 +75,8 @@ class CliStartupContextTests(unittest.TestCase):
 
             self.assertEqual(context.run_id, "source")
             self.assertIsNotNone(context.pending_workspace)
-            self.assertIsNone(read_session_name(root, "source"))
-            self.assertEqual(
-                read_session_name(root, context.pending_workspace.run_id),  # type: ignore[union-attr]
-                "continued-work",
-            )
+            self.assertEqual(context.pending_workspace.run_id, "source")  # type: ignore[union-attr]
+            self.assertEqual(read_session_name(root, "source"), "continued-work")
 
     def test_resume_restores_session_additional_directories(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-startup-dirs-") as base:
@@ -103,6 +100,7 @@ class CliStartupContextTests(unittest.TestCase):
 
         self.assertEqual(context.additional_directories, (shared.resolve(),))
         self.assertIsNone(context.error)
+        self.assertEqual(context.pending_workspace.run_id, "run-1")  # type: ignore[union-attr]
 
     def test_resume_restores_persisted_conversation_but_compact_does_not(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-startup-conversation-") as base:

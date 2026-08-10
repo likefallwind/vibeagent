@@ -195,7 +195,7 @@ class CliOneShotCodeTests(unittest.TestCase):
 
             def run_agent(task, **kwargs):
                 calls.append(kwargs)
-                return AgentResult(True, "done", root, "run-new", 1, [], [])
+                return AgentResult(True, "done", root, kwargs["workspace"].run_id, 1, [], [])
 
             with patch("vibeagent.cli_one_shot_code.emit_one_shot_code_payload") as emit_payload:
                 exit_code, _ = run_one_shot_code(
@@ -231,6 +231,8 @@ class CliOneShotCodeTests(unittest.TestCase):
                 )
 
         self.assertEqual(exit_code, 0)
+        self.assertEqual(calls[0]["workspace"].run_id, "run-old")
+        self.assertNotIn("task_source_run_id", calls[0])
         self.assertEqual(calls[0]["additional_directories"], (shared.resolve(),))
         self.assertEqual(calls[0]["prior_messages"][-1].content, "durable one-shot marker")
 

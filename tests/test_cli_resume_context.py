@@ -90,6 +90,7 @@ class CliResumeContextTests(unittest.TestCase):
             },
         )
         self.assertEqual(run_agent.call_args.kwargs["prior_context"], "previous context")
+        self.assertEqual(run_agent.call_args.kwargs["workspace"].run_id, "run-1")
 
     def test_main_starts_interactive_with_resume_context_from_cli_args(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
@@ -123,6 +124,7 @@ class CliResumeContextTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         get_resume_context.assert_any_call("run-1", Path(base).resolve(), max_files=4)
         self.assertEqual(run_agent.call_args.kwargs["prior_context"], "startup context")
+        self.assertEqual(run_agent.call_args.kwargs["workspace"].run_id, "run-1")
         self.assertIn("Resume context loaded from session run-1.", stdout.getvalue())
 
     def test_main_continue_without_task_starts_interactive_with_latest_resume_context(self) -> None:

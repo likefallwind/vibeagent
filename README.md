@@ -1351,8 +1351,8 @@ that are still pending or failed are listed by command. Each coding turn records
 `/sessions` lists recent runs with completion status and a compact task summary.
 The CLI automatically uses the latest run as compact context for the next coding
 turn; `--resume [run-id]`, `--session-id [run-id|latest]` on one-shot tasks,
-and `/resume [run-id|latest]` in the interactive prompt load a bounded
-historical resume context, while
+and `/resume [run-id|latest]` in the interactive prompt continue the selected
+Session ID with a bounded historical resume context, while
 `--compact [run-id]` and `/compact [run-id]` load the same compact handoff
 context explicitly. Both one-shot forms accept `--resume-max-failures`,
 `--resume-max-files`, `--resume-max-commands`, `--resume-max-checks`,
@@ -1372,14 +1372,20 @@ the current process, its full model/tool conversation is carried into the next
 prompt and automatically uses the existing context compaction thresholds. A
 redacted, bounded copy of the non-system conversation is also atomically stored
 as mode-`0600` session state after safe model/tool boundaries. Explicit
-`--resume`, `/resume`, `--session-id`, and branches restore that copy while
-rebuilding the current system prompt, project snapshot, permissions, and prompt
-attachments. Prompt-file text/images, system messages, write/edit payloads,
+`--resume`, `/resume`, and `--session-id` restore that copy and append the next
+turn to the same Session ID. Branches and `--fork-session` restore it into a new
+Session ID, while compact modes also create a new Session from the bounded
+handoff. Resumed turns rebuild the current system prompt, project snapshot,
+permissions, and prompt attachments. Prompt-file text/images, system messages, write/edit payloads,
 tool-result content/diffs, and common credentials are not retained verbatim.
 Malformed, oversized, mismatched, or symbolic-link conversation state falls
 back to the bounded handoff instead of being trusted. `--compact`, `/compact`,
 automatic one-shot compaction, `/clear`, and conversation rewind remain explicit
 compressed or fresh conversation boundaries.
+Only one agent turn may write a Session at a time. A nonblocking per-turn lease
+reports the active owner and asks the caller to wait or fork instead of allowing
+concurrent whole-conversation snapshots to overwrite each other; process exit
+automatically releases the lease.
 `/rename [name]` updates the active session name; without a name it derives a
 unique filesystem-safe name from the first coding task. Exact session IDs take
 precedence over names during resume, and duplicate or reserved names are rejected.

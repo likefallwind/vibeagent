@@ -226,7 +226,7 @@ class V1CliSmokeTests(unittest.TestCase):
             commit_state = _calculator_commit_state(root)
 
         self.assertEqual(exit_code, 0)
-        _assert_completed_code_result(self, payload, num_turns=13)
+        _assert_completed_code_result(self, payload, num_turns=11)
         self.assertTrue(payload["runId"])
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add")
 
@@ -265,7 +265,7 @@ class V1CliSmokeTests(unittest.TestCase):
             commit_state = _calculator_commit_state(root)
 
         self.assertEqual(exit_code, 0)
-        _assert_completed_code_result(self, payload, num_turns=13)
+        _assert_completed_code_result(self, payload, num_turns=11)
         self.assertIn("Prefer focused checks before broad suites.", initial_prompt)
         self.assertIn("Structured input assistant messages:", initial_prompt)
         self.assertIn("calculator tests are failing", initial_prompt)
@@ -746,7 +746,7 @@ class V1CliSmokeTests(unittest.TestCase):
             commit_state = _calculator_commit_state(root)
 
         self.assertEqual(exit_code, 0)
-        _assert_completed_code_result(self, payload, num_turns=13)
+        _assert_completed_code_result(self, payload, num_turns=11)
         self.assertIn("Prefer focused checks before broad suites.", initial_prompt)
         self.assertIn("Structured input assistant messages:", initial_prompt)
         self.assertIn("calculator tests are failing", initial_prompt)
@@ -798,6 +798,7 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertTrue(interrupted_payload["runId"])
         self.assertEqual(resumed_exit_code, 0)
         _assert_completed_code_result(self, resumed_payload)
+        self.assertEqual(resumed_payload["runId"], interrupted_payload["runId"])
         self.assertEqual(resumed_payload["priorContext"], {
             "loaded": True,
             "source": "resume",

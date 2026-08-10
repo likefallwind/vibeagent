@@ -229,7 +229,7 @@ def get_help_text() -> str:
             "  /checkpoint-delete <id|latest>  Delete one saved local checkpoint.",
             "  /check-checkpoint-prune <keep-last>  Preview pruning old checkpoints.",
             "  /checkpoint-prune <keep-last>  Prune old checkpoints while keeping the newest entries.",
-            "  /resume [run-id|off] [--max-failures N] [--max-files N] [--max-commands N] [--max-checks N] [--max-output-chars N] [--max-text N]  Use a previous session handoff as context, or clear it.",
+            "  /resume [run-id|off] [--max-failures N] [--max-files N] [--max-commands N] [--max-checks N] [--max-output-chars N] [--max-text N]  Continue the same session from a previous session handoff and saved conversation, or clear it.",
             "  /compact [run-id] [--max-failures N] [--max-files N] [--max-commands N] [--max-checks N] [--max-output-chars N] [--max-text N]  Compact the newest or selected session handoff into resume context.",
             "  /branch [name]  Fork the current coding session into an independent branch.",
             "  /chat   Switch to daily conversation mode, or chat once with /chat <message>.",

@@ -45,6 +45,7 @@ from .agent_run_completion import (
     session_result_status as _session_result_status,
 )
 from .session import summarize_session
+from .session_turn_lock import lock_existing_session_turn
 from .types import (
     AgentLogger,
     ApprovalHandler,
@@ -61,6 +62,7 @@ from .workspace_permissions import ProjectPermissions
 from .peer_runtime import PeerSessionRuntime
 
 
+@lock_existing_session_turn
 def run_agent(
     task: str,
     client: ChatClient,

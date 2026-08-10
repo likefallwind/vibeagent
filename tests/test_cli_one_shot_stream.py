@@ -109,6 +109,24 @@ class CliOneShotStreamTests(unittest.TestCase):
         self.assertIs(scope.workspace, workspace)
         self.assertEqual(calls[0]["additional_roots"], (shared,))
 
+    def test_stream_scope_observes_passed_resume_workspace_without_replacing_it(self) -> None:
+        stream = JsonEventStream()
+        workspace = SimpleNamespace(session_dir=Path("/project/.vibeagent/sessions/run-old"))
+        calls: list[tuple[object, ...]] = []
+
+        scope = build_one_shot_stream_scope(
+            stream,
+            project_root=Path("/project"),
+            mcp_config_paths=(),
+            strict_mcp_config=False,
+            workspace=workspace,
+            create_workspace_func=lambda *args, **kwargs: self.fail("resume workspace must be reused"),
+            observe_events_func=lambda *args, **kwargs: calls.append(args) or nullcontext(),
+        )
+
+        self.assertIs(scope.workspace, workspace)
+        self.assertEqual(calls, [(workspace.session_dir, stream.session_event)])
+
 
 if __name__ == "__main__":
     unittest.main()
