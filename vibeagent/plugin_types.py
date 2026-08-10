@@ -43,7 +43,45 @@ class InstalledPlugin:
     cache_path: str
     installed_at: str
     component_count: int
+    marketplace: str | None = None
     error: str | None = None
 
 
-__all__ = ["InstalledPlugin", "PluginManifest"]
+@dataclass(frozen=True)
+class MarketplacePlugin:
+    name: str
+    source: str
+    path: Path
+    description: str
+    version: str | None
+
+
+@dataclass(frozen=True)
+class MarketplaceManifest:
+    name: str
+    description: str
+    owner: str
+    root: Path
+    manifest_path: Path
+    plugins: tuple[MarketplacePlugin, ...]
+
+
+@dataclass(frozen=True)
+class InstalledMarketplace:
+    name: str
+    description: str
+    owner: str
+    source: str
+    cache_path: str
+    added_at: str
+    plugin_count: int
+    error: str | None = None
+
+
+__all__ = [
+    "InstalledMarketplace",
+    "InstalledPlugin",
+    "MarketplaceManifest",
+    "MarketplacePlugin",
+    "PluginManifest",
+]

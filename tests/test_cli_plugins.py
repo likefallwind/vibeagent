@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from tests.test_plugins import write_demo_plugin
+from tests.test_plugins import write_demo_marketplace, write_demo_plugin
 from vibeagent.cli_interactive import run_interactive_loop
 
 
@@ -58,6 +58,52 @@ class CliPluginTests(unittest.TestCase):
             self.assertIn("Reloaded 1 enabled plugin", output)
             self.assertIn("Disabled plugin demo-plugin.", output)
             self.assertIn("Uninstalled plugin demo-plugin.", output)
+
+    def test_marketplace_lifecycle_commands_do_not_initialize_model_client(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-marketplace-") as base:
+            root = Path(base)
+            write_demo_marketplace(root)
+            create_client = Mock(return_value=object())
+            inputs = iter(
+                [
+                    "/plugin validate catalog",
+                    "/plugin marketplace add catalog",
+                    "/plugin marketplace list",
+                    "/plugin install demo-plugin@team-tools",
+                    "/plugin marketplace details team-tools",
+                    "/plugin marketplace update team-tools",
+                    "/plugin marketplace remove team-tools",
+                    "/exit",
+                ]
+            )
+            stdout = io.StringIO()
+            old_cwd = Path.cwd()
+            try:
+                os.chdir(root)
+                with (
+                    patch("vibeagent.cli_interactive.prompt_project_permission_trust", return_value=False),
+                    patch("vibeagent.cli_interactive.create_peer_runtime", return_value=None),
+                    patch(
+                        "vibeagent.cli_interactive.input_with_idle_callback",
+                        side_effect=lambda _prompt, _callback, *, input_func: next(inputs),
+                    ),
+                    redirect_stdout(stdout),
+                ):
+                    exit_code = run_interactive_loop(
+                        command_namespace={},
+                        create_chat_client_func=create_client,
+                    )
+            finally:
+                os.chdir(old_cwd)
+
+            self.assertEqual(exit_code, 0)
+            create_client.assert_not_called()
+            output = stdout.getvalue()
+            self.assertIn("Marketplace validation passed.", output)
+            self.assertIn("Added marketplace team-tools", output)
+            self.assertIn("Installed plugin demo-plugin 1.2.3 (enabled) from team-tools.", output)
+            self.assertIn("Updated marketplace team-tools", output)
+            self.assertIn("Removed marketplace team-tools and its installed plugins.", output)
 
 
 if __name__ == "__main__":

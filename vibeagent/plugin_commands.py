@@ -4,6 +4,9 @@ from dataclasses import dataclass
 import shlex
 from pathlib import Path
 
+from .marketplace_commands import format_marketplace_details, handle_marketplace_command
+from .marketplace_manifest import marketplace_manifest_exists, read_marketplace_manifest
+from .marketplace_store import install_marketplace_plugin
 from .plugin_manifest import read_plugin_manifest
 from .plugin_store import (
     install_local_plugin,
@@ -12,13 +15,13 @@ from .plugin_store import (
     set_plugin_enabled,
     uninstall_plugin,
 )
-from .plugin_types import InstalledPlugin, PluginManifest
+from .plugin_types import InstalledPlugin, MarketplaceManifest, PluginManifest
 from .workspace_resolve import resolve_mutation_path
 
 
 PLUGIN_USAGE = (
-    "Usage: /plugin [list|details <name>|install <project-path>|enable <name>|disable <name>|"
-    "uninstall <name>|validate <project-path>]"
+    "Usage: /plugin [list|details <name>|install <project-path|name@marketplace>|enable <name>|"
+    "disable <name>|uninstall <name>|validate <project-path>|marketplace <operation>]"
 )
 
 
@@ -36,14 +39,22 @@ def handle_plugin_command(project_root: Path, argument: str | None) -> PluginCom
     try:
         if not parts or parts in (["list"], ["ls"]):
             return PluginCommandResult(format_plugin_list(list_installed_plugins(project_root)))
+        if parts[0] in {"marketplace", "market"}:
+            text, changed = handle_marketplace_command(project_root, parts[1:])
+            return PluginCommandResult(text, changed=changed)
         if len(parts) != 2:
             return PluginCommandResult(PLUGIN_USAGE)
         operation, value = parts
         if operation == "install":
-            plugin = install_local_plugin(project_root, value)
+            plugin = (
+                install_marketplace_plugin(project_root, value)
+                if "@" in value
+                else install_local_plugin(project_root, value)
+            )
+            source_suffix = f" from {plugin.marketplace}" if plugin.marketplace else ""
             return PluginCommandResult(
                 f"Installed plugin {plugin.name}{_version_suffix(plugin.version)} "
-                f"({'enabled' if plugin.enabled else 'disabled'}).",
+                f"({'enabled' if plugin.enabled else 'disabled'}){source_suffix}.",
                 changed=True,
             )
         if operation == "enable":
@@ -59,6 +70,8 @@ def handle_plugin_command(project_root: Path, argument: str | None) -> PluginCom
             return PluginCommandResult(format_plugin_details(read_installed_plugin_manifest(project_root, value)))
         if operation == "validate":
             source = resolve_mutation_path(project_root, value)
+            if marketplace_manifest_exists(source):
+                return PluginCommandResult(format_marketplace_validation(read_marketplace_manifest(source)))
             return PluginCommandResult(format_plugin_validation(read_plugin_manifest(source)))
         return PluginCommandResult(PLUGIN_USAGE)
     except (OSError, UnicodeError, ValueError) as error:
@@ -87,8 +100,10 @@ def format_plugin_list(plugins: list[InstalledPlugin]) -> str:
     lines = ["Installed plugins:"]
     for plugin in plugins:
         status = "error" if plugin.error else ("enabled" if plugin.enabled else "disabled")
+        origin = f" @{plugin.marketplace}" if plugin.marketplace else ""
         lines.append(
-            f"  {plugin.name}{_version_suffix(plugin.version)}  {status:<8} components={plugin.component_count}  {plugin.description}"
+            f"  {plugin.name}{_version_suffix(plugin.version)}{origin}  "
+            f"{status:<8} components={plugin.component_count}  {plugin.description}"
         )
         if plugin.error:
             lines.append(f"    error: {plugin.error}")
@@ -113,6 +128,10 @@ def format_plugin_details(manifest: PluginManifest) -> str:
 def format_plugin_validation(manifest: PluginManifest) -> str:
     status = "passed with warnings" if manifest.warnings else "passed"
     return f"Plugin validation {status}.\n{format_plugin_details(manifest)}"
+
+
+def format_marketplace_validation(manifest: MarketplaceManifest) -> str:
+    return f"Marketplace validation passed.\n{format_marketplace_details(manifest)}"
 
 
 def _version_suffix(version: str | None) -> str:

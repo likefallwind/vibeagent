@@ -6,6 +6,7 @@ import shutil
 
 MAX_PLUGIN_FILES = 5_000
 MAX_PLUGIN_TOTAL_BYTES = 100_000_000
+EXCLUDED_CACHE_DIRECTORY_NAMES = frozenset({".git", ".vibeagent", "__pycache__"})
 
 
 def copy_plugin_tree(source: Path, destination: Path) -> None:
@@ -17,6 +18,8 @@ def copy_plugin_tree(source: Path, destination: Path) -> None:
     try:
         for path in sorted(source.rglob("*")):
             relative = path.relative_to(source)
+            if any(part in EXCLUDED_CACHE_DIRECTORY_NAMES for part in relative.parts):
+                continue
             if path.is_symlink():
                 raise ValueError(f"Plugin install source contains a symbolic link: {relative.as_posix()}")
             target = destination / relative

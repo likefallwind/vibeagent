@@ -1,28 +1,38 @@
 from __future__ import annotations
 
-import json
-import os
-from datetime import UTC, datetime
 from pathlib import Path
-from tempfile import NamedTemporaryFile
-from threading import RLock
 from typing import Any
 from uuid import uuid4
 
-from .plugin_manifest import PLUGIN_NAME_PATTERN, read_plugin_manifest
 from .plugin_installation import copy_plugin_tree, remove_plugin_tree
+from .plugin_manifest import read_plugin_manifest
+from .plugin_state import (
+    PLUGIN_STORE_LOCK as _STORE_LOCK,
+    ensure_directory as _ensure_directory,
+    plugins_root as _plugins_root,
+    read_plugin_state as _read_state,
+    safe_plugin_cache_path as _safe_cache_path,
+    state_timestamp as _timestamp,
+    validate_plugin_name as _validate_name,
+    write_plugin_state as _write_state,
+)
 from .plugin_types import InstalledPlugin, PluginManifest
-from .workspace_metadata_files import read_regular_file_bytes
 from .workspace_resolve import resolve_mutation_path
-
-
-MAX_PLUGIN_STATE_BYTES = 2_000_000
-PLUGIN_STATE_VERSION = 1
-_STORE_LOCK = RLock()
 
 
 def install_local_plugin(project_root: Path, source_path: str) -> InstalledPlugin:
     source = resolve_mutation_path(project_root, source_path)
+    source_label = source.relative_to(project_root.resolve()).as_posix()
+    return _install_plugin_directory(project_root, source, source_label=source_label)
+
+
+def _install_plugin_directory(
+    project_root: Path,
+    source: Path,
+    *,
+    source_label: str,
+    marketplace: str | None = None,
+) -> InstalledPlugin:
     manifest = read_plugin_manifest(source)
     root = _plugins_root(project_root, create=True)
     cache_root = root / "cache"
@@ -54,10 +64,11 @@ def install_local_plugin(project_root: Path, source_path: str) -> InstalledPlugi
                     if isinstance(existing_entry, dict)
                     else installed_manifest.default_enabled
                 ),
-                "source": source.relative_to(project_root.resolve()).as_posix(),
+                "source": source_label,
                 "cache_path": destination.relative_to(project_root.resolve()).as_posix(),
                 "installed_at": _timestamp(),
                 "component_count": installed_manifest.component_count,
+                "marketplace": marketplace,
             }
             plugins = state.setdefault("plugins", {})
             if not isinstance(plugins, dict):
@@ -127,6 +138,8 @@ def list_installed_plugins(project_root: Path) -> list[InstalledPlugin]:
         try:
             item = _installed_plugin(value)
             _validate_name(item.name)
+            if item.marketplace is not None:
+                _validate_name(item.marketplace, label="Marketplace")
             path = _safe_cache_path(project_root, item.cache_path, item.name)
             manifest = read_plugin_manifest(path)
             if manifest.name != item.name:
@@ -141,6 +154,7 @@ def list_installed_plugins(project_root: Path) -> list[InstalledPlugin]:
                 cache_path=str(value.get("cache_path") or ""),
                 installed_at=str(value.get("installed_at") or ""),
                 component_count=int(value.get("component_count") or 0),
+                marketplace=(str(value["marketplace"]) if value.get("marketplace") else None),
                 error=str(error),
             )
         installed.append(item)
@@ -171,42 +185,14 @@ def enabled_plugin_manifests(project_root: Path) -> list[PluginManifest]:
     return manifests
 
 
-def _read_state(project_root: Path) -> dict[str, Any]:
-    path = _state_path(project_root)
-    if not path.exists():
-        return {"version": PLUGIN_STATE_VERSION, "plugins": {}}
-    if path.is_symlink() or not path.is_file():
-        raise ValueError("Plugin state must be a regular non-symlink file.")
-    try:
-        raw = read_regular_file_bytes(path, max_bytes=MAX_PLUGIN_STATE_BYTES, label="Plugin state")
-        value = json.loads(raw.decode("utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        raise ValueError(f"Plugin state is invalid: {error}") from error
-    if not isinstance(value, dict) or value.get("version") != PLUGIN_STATE_VERSION:
-        raise ValueError("Plugin state has an unsupported format.")
-    if not isinstance(value.get("plugins"), dict):
-        raise ValueError("Plugin state plugins field must be an object.")
-    return value
-
-
-def _write_state(project_root: Path, state: dict[str, Any]) -> None:
-    root = _plugins_root(project_root, create=True)
-    state_path = root / "installed.json"
-    if state_path.is_symlink():
-        raise ValueError("Plugin state must not be a symbolic link.")
-    payload = json.dumps(state, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-    with NamedTemporaryFile("w", encoding="utf-8", dir=root, delete=False) as handle:
-        handle.write(payload)
-        temp_path = Path(handle.name)
-    os.chmod(temp_path, 0o600)
-    temp_path.replace(state_path)
-
-
 def _plugin_entry(state: dict[str, Any], name: str) -> dict[str, Any]:
     plugins = state.get("plugins")
     if not isinstance(plugins, dict) or not isinstance(plugins.get(name), dict):
         raise ValueError(f"Plugin is not installed: {name}")
-    return plugins[name]
+    entry = plugins[name]
+    if entry.get("name") != name:
+        raise ValueError(f"Plugin state identity mismatch: {name}")
+    return entry
 
 
 def _installed_plugin(entry: dict[str, Any]) -> InstalledPlugin:
@@ -219,56 +205,8 @@ def _installed_plugin(entry: dict[str, Any]) -> InstalledPlugin:
         cache_path=str(entry.get("cache_path") or ""),
         installed_at=str(entry.get("installed_at") or ""),
         component_count=int(entry.get("component_count") or 0),
+        marketplace=(str(entry["marketplace"]) if entry.get("marketplace") else None),
     )
-
-
-def _plugins_root(project_root: Path, *, create: bool = False) -> Path:
-    project = project_root.resolve()
-    runtime = project / ".vibeagent"
-    root = runtime / "plugins"
-    for path, label in ((runtime, ".vibeagent"), (root, ".vibeagent/plugins")):
-        if path.is_symlink():
-            raise ValueError(f"{label} must not be a symbolic link.")
-    if create:
-        runtime.mkdir(mode=0o700, exist_ok=True)
-        root.mkdir(mode=0o700, exist_ok=True)
-        os.chmod(root, 0o700)
-    if root.exists() and not root.is_dir():
-        raise ValueError(".vibeagent/plugins must be a directory.")
-    return root
-
-
-def _state_path(project_root: Path) -> Path:
-    return _plugins_root(project_root) / "installed.json"
-
-
-def _safe_cache_path(project_root: Path, value: str, name: str) -> Path:
-    cache_root = _plugins_root(project_root) / "cache"
-    expected = cache_root / name
-    expected_value = expected.relative_to(project_root.resolve()).as_posix()
-    if value != expected_value:
-        raise ValueError(f"Plugin cache path is invalid for {name}.")
-    if cache_root.is_symlink() or expected.is_symlink():
-        raise ValueError(f"Plugin cache path must not be a symbolic link: {name}")
-    return expected
-
-
-def _ensure_directory(path: Path, *, create: bool) -> None:
-    if path.is_symlink():
-        raise ValueError(f"Plugin path must not be a symbolic link: {path}")
-    if create:
-        path.mkdir(mode=0o700, exist_ok=True)
-    if not path.is_dir():
-        raise ValueError(f"Plugin path is not a directory: {path}")
-
-
-def _validate_name(name: str) -> None:
-    if not PLUGIN_NAME_PATTERN.fullmatch(name):
-        raise ValueError("Plugin name must be 1-64 lowercase letters, digits, or hyphens.")
-
-
-def _timestamp() -> str:
-    return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 __all__ = [

@@ -95,6 +95,32 @@ def write_demo_plugin(root: Path, *, default_enabled: bool = True) -> Path:
     return plugin
 
 
+def write_demo_marketplace(root: Path) -> Path:
+    marketplace = root / "catalog"
+    plugin = write_demo_plugin(marketplace)
+    (marketplace / ".claude-plugin").mkdir(exist_ok=True)
+    (marketplace / ".claude-plugin" / "marketplace.json").write_text(
+        json.dumps(
+            {
+                "name": "team-tools",
+                "description": "Team coding extensions",
+                "owner": {"name": "VibeAgent Team"},
+                "plugins": [
+                    {
+                        "name": "demo-plugin",
+                        "source": "./extensions/demo-plugin",
+                        "description": "Marketplace demo plugin",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    self_manifest = plugin / ".claude-plugin" / "plugin.json"
+    assert self_manifest.is_file()
+    return marketplace
+
+
 class PluginManifestTests(unittest.TestCase):
     def test_default_component_layout_is_inventoried(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-plugin-") as base:

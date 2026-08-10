@@ -942,6 +942,8 @@ workflow, `/workflows` to list runs, and `/workflows show|resume|stop <id>` to
 inspect or control one run, and
 `/plugin install <project-path>` to validate and install a local plugin,
 `/plugin list|details|enable|disable|uninstall|validate` to manage it, and
+`/plugin marketplace add|list|details|update|remove` to manage project-local
+plugin catalogs and install `plugin@marketplace`, and
 `/reload-plugins` to refresh plugin-aware runtimes, and
 `/clear` to clear the goal, local chat history, and loaded resume context,
 `/usage` to summarize local session events,
@@ -1080,6 +1082,8 @@ Install only a directory inside the current project:
 ```text
 /plugin validate extensions/team-tools
 /plugin install extensions/team-tools
+/plugin marketplace add extensions/team-marketplace
+/plugin install review-tools@team-marketplace
 /reload-plugins
 /plugin list
 ```
@@ -1094,9 +1098,13 @@ servers use `plugin-name.server`. `${CLAUDE_PLUGIN_ROOT}` and
 `${CLAUDE_PROJECT_DIR}` are expanded in skill and agent text, command templates,
 hooks, and MCP configuration. Plugin hooks and MCP calls retain normal approval,
 permission, and sandbox boundaries. Manifest component paths must be `./`
-relative; inline hook/MCP objects, marketplaces, LSP servers, monitors, default
-settings, user/project installation scopes, and remote updates are not yet
-implemented and are reported rather than silently loaded.
+relative. Project-local marketplaces use `.claude-plugin/marketplace.json`,
+cache a non-symlink snapshot without Git/runtime metadata, verify each relative
+plugin source and manifest identity, support add/list/details/update/remove, and
+atomically uninstall marketplace-owned plugins when the catalog is removed.
+Inline hook/MCP objects, network Git/URL/npm marketplace sources, LSP servers,
+monitors, default settings, user/project installation scopes, and remote updates
+are not yet implemented and are reported rather than silently loaded.
 On Linux and macOS, interactive and one-shot CLI sessions register a user-only
 Unix socket under `/tmp/vibeagent-<uid>/peers`. `ListAgents` combines current
 session subagents with other live local sessions, and `SendMessage` sends plain
