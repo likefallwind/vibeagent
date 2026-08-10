@@ -46,7 +46,11 @@ def load_delegate_profile_runtime(
         scoped_workspace: RunWorkspace | None = None
         memory_tools = frozenset()
         if isinstance(memory_scope, str):
-            candidate_workspace = with_agent_memory(workspace, action.agent, memory_scope)
+            candidate_workspace = with_agent_memory(
+                workspace,
+                action.agent.replace(":", "--"),
+                memory_scope,
+            )
             snapshot = read_auto_memory(candidate_workspace)
             if snapshot.error is not None:
                 raise ValueError(f"Agent memory could not be loaded: {snapshot.error}")

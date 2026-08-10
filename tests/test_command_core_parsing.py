@@ -31,6 +31,9 @@ class CommandCoreParsingTests(unittest.TestCase):
             "/code write a script": LocalCommand(type="code", argument="write a script"),
             "/workflows": LocalCommand(type="workflows"),
             "/workflows run flow.js": LocalCommand(type="workflows", argument="run flow.js"),
+            "/plugin": LocalCommand(type="plugin"),
+            "/plugin install extensions/demo": LocalCommand(type="plugin", argument="install extensions/demo"),
+            "/reload-plugins": LocalCommand(type="reload_plugins"),
         }
 
         for raw, expected in cases.items():

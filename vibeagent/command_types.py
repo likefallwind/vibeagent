@@ -10,6 +10,8 @@ CoreCommandType: TypeAlias = Literal[
     "model",
     "config",
     "custom_commands",
+    "plugin",
+    "reload_plugins",
     "agents",
     "skills",
     "tools",

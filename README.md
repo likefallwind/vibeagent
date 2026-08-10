@@ -940,6 +940,9 @@ coding loop, `/goal` to inspect its state, `/goal clear` to stop it, and
 `/workflows run <script.js>` to start a resumable multi-agent JavaScript
 workflow, `/workflows` to list runs, and `/workflows show|resume|stop <id>` to
 inspect or control one run, and
+`/plugin install <project-path>` to validate and install a local plugin,
+`/plugin list|details|enable|disable|uninstall|validate` to manage it, and
+`/reload-plugins` to refresh plugin-aware runtimes, and
 `/clear` to clear the goal, local chat history, and loaded resume context,
 `/usage` to summarize local session events,
 iterations, tool calls, approvals, and recorded token usage, `/cost` to estimate
@@ -1068,6 +1071,32 @@ The condition is limited to 4,000 characters, evaluator text cannot approve
 tools, and the normal approval policy remains in force on every coding turn.
 One-shot `vibeagent -p "/goal <condition>"` runs until achievement, agent
 failure, evaluator error, or interruption in the same process.
+VibeAgent supports project-local plugins that package skills, commands, agents,
+command hooks, and MCP servers behind one manifest and lifecycle. A plugin uses
+the Claude-compatible root layout: optional `.claude-plugin/plugin.json`,
+`skills/`, `commands/`, `agents/`, `hooks/hooks.json`, and `.mcp.json`.
+Install only a directory inside the current project:
+
+```text
+/plugin validate extensions/team-tools
+/plugin install extensions/team-tools
+/reload-plugins
+/plugin list
+```
+
+Installation rejects path escapes, symbolic links, non-regular files, more than
+5,000 files, or more than 100 MB, then atomically copies the plugin into the
+gitignored `.vibeagent/plugins/cache/` store. Reinstall preserves the current
+enabled state; disable removes every component from discovery without deleting
+the cache; uninstall rolls state and cache removal back together on failure.
+Plugin skills, commands, and agents use `plugin-name:component` names, while MCP
+servers use `plugin-name.server`. `${CLAUDE_PLUGIN_ROOT}` and
+`${CLAUDE_PROJECT_DIR}` are expanded in skill and agent text, command templates,
+hooks, and MCP configuration. Plugin hooks and MCP calls retain normal approval,
+permission, and sandbox boundaries. Manifest component paths must be `./`
+relative; inline hook/MCP objects, marketplaces, LSP servers, monitors, default
+settings, user/project installation scopes, and remote updates are not yet
+implemented and are reported rather than silently loaded.
 On Linux and macOS, interactive and one-shot CLI sessions register a user-only
 Unix socket under `/tmp/vibeagent-<uid>/peers`. `ListAgents` combines current
 session subagents with other live local sessions, and `SendMessage` sends plain

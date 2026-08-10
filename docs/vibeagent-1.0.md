@@ -20,6 +20,7 @@ local changes when asked, and resume from recorded session context.
 | VA1-PEER | Coordinate independent local coding sessions | `ListAgents` discovers live same-machine sessions, `SendMessage` delivers bounded untrusted text over a user-only Unix socket, and running or idle receivers process messages without changing permission boundaries. |
 | VA1-DELEGATE | Split bounded investigation into a subagent | `delegate_task`, `Task`, and `Agent` can run isolated read-only investigations synchronously or in the background; `TaskOutput` collects results, `TaskStop` requests cancellation, and completion remains blocked while a result is running or unread. |
 | VA1-WORKFLOW | Orchestrate resumable multi-agent fan-out | `/workflows run` executes a permission-restricted JavaScript workflow with `agent()` and bounded `pipeline()`, persists source and completed calls, and supports list, show, stop, and cache-backed resume. |
+| VA1-PLUGIN | Load reusable extension bundles without bypassing safety | `/plugin` validates, installs, lists, details, enables, disables, and atomically uninstalls project-local plugins; enabled namespaced skills, commands, agents, hooks, and MCP servers flow through their existing parsers, approvals, and path guards. |
 | VA1-PLAN | Produce a concrete read-only implementation plan | Plan mode exposes only read-only tools such as `project_overview`, `read_file`, and `tool_search`, denies hidden write attempts, and leaves the workspace unchanged. |
 | VA1-SAFETY | Enforce workspace and command safety | Workspace path guards, protected files, approval policy, project permissions, hooks, sandbox support, and hard command blocks prevent unsafe side effects. |
 
@@ -60,6 +61,12 @@ local changes when asked, and resume from recorded session context.
   ordered fan-out, the 16/1000 bounds, hidden host globals, disabled string code
   generation, cancellation, atomic state, session events, deterministic cached
   resume, path validation, command routing, and provider-free status listing.
+- `tests.test_plugins.PluginManifestTests`, `tests.test_plugins.PluginRuntimeTests`,
+  and `tests.test_cli_plugins.CliPluginTests` cover manifest and component
+  validation, bounded non-symlink installation, atomic replacement and
+  uninstall rollback, enable-state preservation, five-component namespaced
+  discovery, plugin path-variable expansion, protected MCP cwd rejection,
+  lifecycle commands, reload counts, and provider-free management.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `LS`, `Glob`, `Grep`, `Read`, `Bash`, `Edit`, and `TodoRead`,

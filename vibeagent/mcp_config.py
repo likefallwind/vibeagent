@@ -9,7 +9,15 @@ from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 from .mcp_protocol import MCP_HTTP_PROTOCOL_VERSION, MCP_STDIO_PROTOCOL_VERSION
+from .plugin_runtime import (
+    PluginComponentFile,
+    enabled_plugin_component_files,
+    expand_plugin_path_variables,
+    plugin_component_for_path,
+)
 from .workspace_core import RunWorkspace
+from .workspace_metadata_files import has_symlink_component
+from .workspace_paths import is_protected_project_path
 from .workspace_resolve import resolve_inside_run
 
 
@@ -57,7 +65,8 @@ def read_mcp_server_configs(workspace: RunWorkspace) -> list[McpServerConfig]:
     configs: list[McpServerConfig] = []
     seen: dict[str, str] = {}
     for path in mcp_config_paths(workspace):
-        for config in _read_mcp_server_configs_from_path(workspace, path):
+        component = plugin_component_for_path(workspace, path, "mcp")
+        for config in _read_mcp_server_configs_from_path(workspace, path, component):
             if config.name in seen:
                 raise ValueError(
                     f"MCP server {config.name!r} is defined in both {seen[config.name]} and {config.config_path}."
@@ -73,6 +82,8 @@ def mcp_config_paths(workspace: RunWorkspace) -> list[Path]:
     if not workspace.strict_mcp_config and project_config.exists():
         paths.append(project_config)
     paths.extend(workspace.mcp_config_paths)
+    if not workspace.strict_mcp_config:
+        paths.extend(component.path for component in enabled_plugin_component_files(workspace, "mcp"))
     deduped: list[Path] = []
     seen: set[Path] = set()
     for path in paths:
@@ -84,7 +95,11 @@ def mcp_config_paths(workspace: RunWorkspace) -> list[Path]:
     return deduped
 
 
-def _read_mcp_server_configs_from_path(workspace: RunWorkspace, path: Path) -> list[McpServerConfig]:
+def _read_mcp_server_configs_from_path(
+    workspace: RunWorkspace,
+    path: Path,
+    plugin_component: PluginComponentFile | None = None,
+) -> list[McpServerConfig]:
     label = _config_path_label(workspace, path)
     if path.is_symlink() or not path.is_file():
         raise ValueError(f"{label} must be a regular non-symlink file.")
@@ -107,7 +122,21 @@ def _read_mcp_server_configs_from_path(workspace: RunWorkspace, path: Path) -> l
 
     configs: list[McpServerConfig] = []
     for name, value in document.get("mcpServers", {}).items():
-        configs.append(_parse_server_config(workspace, name, value, label))
+        selected_name = f"{plugin_component.plugin}.{name}" if plugin_component is not None else name
+        selected_value = (
+            _expand_plugin_config_value(value, plugin_component, workspace)
+            if plugin_component is not None
+            else value
+        )
+        configs.append(
+            _parse_server_config(
+                workspace,
+                selected_name,
+                selected_value,
+                label,
+                plugin_root=plugin_component.plugin_root if plugin_component is not None else None,
+            )
+        )
     return configs
 
 
@@ -139,7 +168,14 @@ def safe_mcp_endpoint(config: McpServerConfig) -> str:
     return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
 
 
-def _parse_server_config(workspace: RunWorkspace, name: object, value: object, config_path: str) -> McpServerConfig:
+def _parse_server_config(
+    workspace: RunWorkspace,
+    name: object,
+    value: object,
+    config_path: str,
+    *,
+    plugin_root: Path | None = None,
+) -> McpServerConfig:
     if not isinstance(name, str) or not MCP_NAME_PATTERN.fullmatch(name):
         raise ValueError("MCP server names must use 1-64 letters, digits, dots, underscores, or hyphens.")
     if not isinstance(value, dict):
@@ -149,11 +185,16 @@ def _parse_server_config(workspace: RunWorkspace, name: object, value: object, c
         raise ValueError(f"MCP server {name!r} type must be 'stdio' or 'http'.")
     if transport == "http":
         return _parse_http_server_config(name, value, config_path)
-    return _parse_stdio_server_config(workspace, name, value, config_path)
+    return _parse_stdio_server_config(workspace, name, value, config_path, plugin_root=plugin_root)
 
 
 def _parse_stdio_server_config(
-    workspace: RunWorkspace, name: str, value: dict[object, object], config_path: str
+    workspace: RunWorkspace,
+    name: str,
+    value: dict[object, object],
+    config_path: str,
+    *,
+    plugin_root: Path | None = None,
 ) -> McpServerConfig:
     command = value.get("command")
     args = value.get("args", [])
@@ -167,7 +208,7 @@ def _parse_stdio_server_config(
         raise ValueError(f"MCP server {name!r} has too many args.")
     if not isinstance(cwd, str) or not cwd.strip():
         raise ValueError(f"MCP server {name!r} cwd must be a non-empty project-relative path.")
-    resolved_cwd = resolve_inside_run(workspace.root, cwd)
+    resolved_cwd = _resolve_mcp_cwd(workspace, cwd, plugin_root)
     if not resolved_cwd.is_dir():
         raise ValueError(f"MCP server {name!r} cwd is not a directory: {cwd}.")
     if not isinstance(env, dict) or any(not isinstance(key, str) or not isinstance(item, str) for key, item in env.items()):
@@ -181,6 +222,42 @@ def _parse_stdio_server_config(
         config_path=config_path,
         transport="stdio",
     )
+
+
+def _resolve_mcp_cwd(workspace: RunWorkspace, cwd: str, plugin_root: Path | None) -> Path:
+    if plugin_root is None:
+        return resolve_inside_run(workspace.root, cwd)
+    candidate = Path(cwd)
+    resolved = candidate.resolve() if candidate.is_absolute() else (plugin_root / candidate).resolve()
+    project_root = workspace.root.resolve()
+    plugin_boundary = plugin_root.resolve()
+    inside_plugin = resolved == plugin_boundary or plugin_boundary in resolved.parents
+    inside_project = resolved == project_root or project_root in resolved.parents
+    if not inside_plugin and (not inside_project or is_protected_project_path(project_root, resolved)):
+        raise ValueError(f"Plugin MCP cwd escapes the plugin or project root: {cwd}.")
+    boundary = plugin_boundary if inside_plugin else project_root
+    if has_symlink_component(boundary, resolved):
+        raise ValueError(f"Plugin MCP cwd contains a symbolic link: {cwd}.")
+    if resolved.is_symlink() or not resolved.is_dir():
+        raise ValueError(f"MCP server cwd is not a regular directory: {cwd}.")
+    return resolved
+
+
+def _expand_plugin_config_value(
+    value: object,
+    component: PluginComponentFile,
+    workspace: RunWorkspace,
+) -> object:
+    if isinstance(value, str):
+        return expand_plugin_path_variables(value, component, workspace)
+    if isinstance(value, list):
+        return [_expand_plugin_config_value(item, component, workspace) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _expand_plugin_config_value(item, component, workspace)
+            for key, item in value.items()
+        }
+    return value
 
 
 def _parse_http_server_config(name: str, value: dict[object, object], config_path: str) -> McpServerConfig:

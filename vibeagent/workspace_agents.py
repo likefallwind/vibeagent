@@ -3,7 +3,9 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import Path
 
-from .workspace_agent_profile_parser import AGENT_NAME_PATTERN, parse_agent_content
+from .plugin_runtime import enabled_plugin_component_files
+from .plugin_store import read_installed_plugin_manifest
+from .workspace_agent_profile_parser import AGENT_NAME_PATTERN, AGENT_REFERENCE_PATTERN, parse_agent_content
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import (
     has_symlink_component,
@@ -34,8 +36,8 @@ def read_project_agents(workspace: RunWorkspace, max_agents: int = 100) -> dict[
 
 def read_project_agent(workspace: RunWorkspace, name: str) -> dict[str, object]:
     normalized = name.strip()
-    if not AGENT_NAME_PATTERN.fullmatch(normalized):
-        raise ValueError("agent name must use 1-64 letters, digits, dots, underscores, or hyphens.")
+    if not AGENT_REFERENCE_PATTERN.fullmatch(normalized):
+        raise ValueError("agent name must use a valid optional plugin namespace and 1-64 character name.")
     matches = [agent for agent in _discover_project_agents(workspace) if agent["name"] == normalized]
     if not matches:
         raise ValueError(f"Project agent profile not found: {normalized}.")
@@ -49,9 +51,18 @@ def read_project_agent(workspace: RunWorkspace, name: str) -> dict[str, object]:
     raw = _read_agent_bytes(path)
     content = raw.decode("utf-8")
     metadata, body = parse_agent_content(path, content)
+    if str(agent["source"]).startswith("plugin:"):
+        manifest = read_installed_plugin_manifest(
+            workspace.root,
+            str(agent["source"]).removeprefix("plugin:"),
+        )
+        body = (
+            body.replace("${CLAUDE_PLUGIN_ROOT}", manifest.root.as_posix())
+            .replace("${CLAUDE_PROJECT_DIR}", workspace.root.as_posix())
+        )
     return {
-        **agent,
         **metadata,
+        **agent,
         "prompt": body,
         "bytes": len(raw),
         "message": f"Loaded project agent profile {normalized!r} from {agent['path']}.",
@@ -115,6 +126,34 @@ def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]
                     "message": message,
                 }
             )
+
+    for component in enabled_plugin_component_files(workspace, "agent"):
+        path = component.path
+        relative_path = path.relative_to(workspace.root).as_posix()
+        available, metadata, message = _inspect_agent_file(workspace.root, path)
+        declared_name = str(metadata.get("name") or path.stem)
+        skills = metadata.get("skills", [])
+        namespaced_skills = [
+            str(name) if ":" in str(name) else f"{component.plugin}:{name}"
+            for name in skills
+        ] if isinstance(skills, list) else []
+        discovered.append(
+            {
+                "name": f"{component.plugin}:{declared_name}",
+                "description": metadata.get("description", ""),
+                "mode": metadata.get("mode", "explore"),
+                "tools": metadata.get("tools"),
+                "disallowed_tools": metadata.get("disallowed_tools", []),
+                "max_turns": metadata.get("max_turns"),
+                "skills": namespaced_skills,
+                "memory": metadata.get("memory"),
+                "isolation": metadata.get("isolation"),
+                "path": relative_path,
+                "source": component.source,
+                "available": available,
+                "message": message,
+            }
+        )
 
     available_skills = {
         str(skill["name"])

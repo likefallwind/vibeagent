@@ -6,6 +6,9 @@ from collections import Counter
 from pathlib import Path
 
 from .command_parsing import parse_local_command
+from .plugin_runtime import enabled_plugin_component_files
+from .plugin_store import read_installed_plugin_manifest
+from .workspace_core import create_local_workspace
 from .workspace_metadata_files import has_symlink_component, parse_scalar_frontmatter, read_regular_file_bytes
 
 
@@ -86,6 +89,13 @@ def _load_project_prompt_command(root: Path, name: str) -> dict[str, object] | N
     path = root / str(command["path"])
     content = read_regular_file_bytes(path, max_bytes=MAX_COMMAND_FILE_BYTES, label="Command template").decode("utf-8")
     metadata, body = _parse_command_content(content)
+    source = str(command["source"])
+    if source.startswith("plugin:"):
+        manifest = read_installed_plugin_manifest(root, source.removeprefix("plugin:"))
+        body = (
+            body.replace("${CLAUDE_PLUGIN_ROOT}", manifest.root.as_posix())
+            .replace("${CLAUDE_PROJECT_DIR}", root.as_posix())
+        )
     return {**command, **metadata, "body": body}
 
 
@@ -113,6 +123,32 @@ def _discover_project_prompt_commands(root: Path) -> list[dict[str, object]]:
             )
             if len(discovered) >= MAX_COMMAND_SCAN:
                 break
+        if len(discovered) >= MAX_COMMAND_SCAN:
+            break
+
+    workspace = create_local_workspace(root, "plugin-discovery")
+    for component in enabled_plugin_component_files(workspace, "command"):
+        path = component.path
+        relative_path = path.relative_to(root).as_posix()
+        component_path = path.relative_to(component.plugin_root).with_suffix("")
+        parts = component_path.parts[1:] if component_path.parts[:1] == ("commands",) else (path.stem,)
+        local_name = ":".join(parts)
+        name = f"{component.plugin}:{local_name}"
+        if not COMMAND_INVOCATION_PATTERN.fullmatch(f"/{name}"):
+            available, metadata, message = False, {}, "Plugin command name exceeds supported namespace depth."
+        else:
+            available, metadata, message = _inspect_command_file(root, path)
+        discovered.append(
+            {
+                "name": name,
+                "description": metadata.get("description", ""),
+                "argument_hint": metadata.get("argument_hint", ""),
+                "path": relative_path,
+                "source": component.source,
+                "available": available,
+                "message": message,
+            }
+        )
         if len(discovered) >= MAX_COMMAND_SCAN:
             break
 

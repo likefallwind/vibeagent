@@ -4,6 +4,8 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from .plugin_runtime import enabled_plugin_component_files
+from .plugin_store import read_installed_plugin_manifest
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import (
     has_symlink_component,
@@ -14,6 +16,9 @@ from .workspace_metadata_files import (
 
 SKILL_ROOTS = ((".claude/skills", "claude"), (".agents/skills", "agents"))
 SKILL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+SKILL_REFERENCE_PATTERN = re.compile(
+    r"^(?:[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9]):)?[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+)
 MAX_SKILL_FILE_BYTES = 256_000
 MAX_SKILL_SCAN = 1_000
 
@@ -35,8 +40,8 @@ def read_project_skills(workspace: RunWorkspace, max_skills: int = 100) -> dict[
 
 def read_project_skill(workspace: RunWorkspace, name: str, max_bytes: int = 20_000) -> dict[str, object]:
     normalized = name.strip()
-    if not SKILL_NAME_PATTERN.fullmatch(normalized):
-        raise ValueError("skill name must use 1-64 letters, digits, dots, underscores, or hyphens.")
+    if not SKILL_REFERENCE_PATTERN.fullmatch(normalized):
+        raise ValueError("skill name must use a valid optional plugin namespace and 1-64 character name.")
     if max_bytes < 200 or max_bytes > 50_000:
         raise ValueError("max_bytes must be between 200 and 50000.")
 
@@ -51,8 +56,21 @@ def read_project_skill(workspace: RunWorkspace, name: str, max_bytes: int = 20_0
     skill = available[0]
     path = workspace.root / str(skill["path"])
     raw = _read_skill_bytes(path)
-    description = _validate_skill_content(path, raw.decode("utf-8"))
+    description = _validate_skill_content(
+        path,
+        raw.decode("utf-8"),
+        enforce_directory_name=not str(skill["source"]).startswith("plugin:"),
+    )
     content = raw[:max_bytes].decode("utf-8", errors="ignore")
+    if str(skill["source"]).startswith("plugin:"):
+        manifest = read_installed_plugin_manifest(
+            workspace.root,
+            str(skill["source"]).removeprefix("plugin:"),
+        )
+        content = (
+            content.replace("${CLAUDE_PLUGIN_ROOT}", manifest.root.as_posix())
+            .replace("${CLAUDE_PROJECT_DIR}", workspace.root.as_posix())
+        )
     truncated = len(raw) > max_bytes
     return {
         **skill,
@@ -110,6 +128,37 @@ def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]
                 }
             )
 
+    for component in enabled_plugin_component_files(workspace, "skill"):
+        path = component.path
+        relative_path = path.relative_to(workspace.root).as_posix()
+        try:
+            content = _read_skill_bytes(path).decode("utf-8")
+            frontmatter = _skill_frontmatter(content)
+            declared_name = frontmatter.get("name", path.parent.name)
+            description = _validate_skill_content(path, content, enforce_directory_name=False)
+            available = True
+            message = "Available."
+        except UnicodeDecodeError as error:
+            declared_name = path.parent.name
+            description = ""
+            available = False
+            message = f"SKILL.md is not valid UTF-8: {error}"
+        except (OSError, ValueError) as error:
+            declared_name = path.parent.name
+            description = ""
+            available = False
+            message = str(error)
+        discovered.append(
+            {
+                "name": f"{component.plugin}:{declared_name}",
+                "description": description,
+                "path": relative_path,
+                "source": component.source,
+                "available": available,
+                "message": message,
+            }
+        )
+
     name_counts = Counter(str(skill["name"]) for skill in discovered)
     duplicate_names = {name for name, count in name_counts.items() if count > 1}
     for skill in discovered:
@@ -139,15 +188,15 @@ def _inspect_skill_file(root: Path, path: Path) -> tuple[bool, str, str]:
     return True, description, "Available."
 
 
-def _validate_skill_content(path: Path, content: str) -> str:
+def _validate_skill_content(path: Path, content: str, *, enforce_directory_name: bool = True) -> str:
     frontmatter = _skill_frontmatter(content)
     declared_name = frontmatter.get("name", "")
     description = frontmatter.get("description", "")
-    if not declared_name or not description:
+    if not description or (enforce_directory_name and not declared_name):
         raise ValueError("SKILL.md frontmatter requires non-empty name and description fields.")
-    if not SKILL_NAME_PATTERN.fullmatch(declared_name):
+    if declared_name and not SKILL_NAME_PATTERN.fullmatch(declared_name):
         raise ValueError("SKILL.md frontmatter name is invalid.")
-    if declared_name != path.parent.name:
+    if enforce_directory_name and declared_name != path.parent.name:
         raise ValueError(f"SKILL.md name {declared_name!r} does not match directory {path.parent.name!r}.")
     return description
 

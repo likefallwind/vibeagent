@@ -18,6 +18,9 @@ from .workspace_skills import SKILL_NAME_PATTERN
 
 
 AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+AGENT_REFERENCE_PATTERN = re.compile(
+    r"^(?:[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9]):)?[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+)
 MAX_AGENT_PROFILE_SKILLS = 10
 MAX_AGENT_TURNS = 50
 AGENT_MEMORY_SCOPES = frozenset({"project", "local"})

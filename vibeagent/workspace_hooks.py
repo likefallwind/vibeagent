@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal, cast
 
 from .action_tool_aliases import tool_name_candidates
+from .plugin_runtime import enabled_plugin_component_files, expand_plugin_path_variables
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
 
@@ -97,6 +98,23 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
                 raise ValueError(
                     f"Project hook configuration exceeds {MAX_HOOKS} command hooks."
                 )
+        for component in enabled_plugin_component_files(workspace, "hook"):
+            source = f"{component.source}:{component.relative_path}"
+            sources.append(source)
+            payload = _read_hook_config(workspace.root, component.path)
+            hook_payload = payload.get("hooks", payload)
+            if not isinstance(hook_payload, dict):
+                raise ValueError(f"{source} hooks must be an object.")
+            plugin_hooks = _parse_hook_events(hook_payload, source)
+            hooks.extend(
+                replace(
+                    hook,
+                    command=expand_plugin_path_variables(hook.command, component, workspace),
+                )
+                for hook in plugin_hooks
+            )
+            if len(hooks) > MAX_HOOKS:
+                raise ValueError(f"Project and plugin hooks exceed {MAX_HOOKS} command hooks.")
     except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
         return ProjectHooks(hooks=(), sources=tuple(sources), error=str(error))
     return ProjectHooks(hooks=tuple(hooks), sources=tuple(sources))

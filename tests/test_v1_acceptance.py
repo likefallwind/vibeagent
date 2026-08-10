@@ -128,6 +128,13 @@ EXPECTED_GATES = {
             "test_failed_workflow_resumes_with_completed_call_cache",
         },
     },
+    "VA1-PLUGIN": {
+        "tools": set(),
+        "tests": {
+            "test_installed_plugin_loads_all_supported_components_with_namespaces",
+            "test_uninstall_rolls_cache_back_when_state_write_fails",
+        },
+    },
     "VA1-PLAN": {
         "tools": {"project_overview", "read_file", "tool_search"},
         "tests": {"test_plan_mode_denies_hidden_write_even_with_approving_handler"},

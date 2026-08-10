@@ -58,6 +58,7 @@ from .agent_peer_notifications import peer_messages_as_task
 from .peer_runtime import create_peer_runtime
 from .peer_commands import get_peer_sessions_text
 from .peer_inbox_commands import handle_peer_inbox_command
+from .plugin_commands import handle_plugin_command, reload_plugins_text
 from .dynamic_workflow_agent import background_workflow_approval_handler, execute_workflow_agent_request
 from .dynamic_workflow_commands import handle_workflows_command
 from .dynamic_workflow_runtime import DynamicWorkflowManager
@@ -347,6 +348,19 @@ def run_interactive_loop(
             continue
         if command and command.type == "workflows":
             print(handle_workflows_command(get_workflow_manager(), command.argument))
+            continue
+        if command and command.type == "plugin":
+            plugin_result = handle_plugin_command(Path.cwd(), command.argument)
+            if plugin_result.changed and workflow_manager is not None:
+                workflow_manager.close()
+                workflow_manager = None
+            print(plugin_result.text)
+            continue
+        if command and command.type == "reload_plugins":
+            if workflow_manager is not None:
+                workflow_manager.close()
+                workflow_manager = None
+            print(reload_plugins_text(Path.cwd()))
             continue
         if command and command.type == "list_agents_local":
             print(get_peer_sessions_text())

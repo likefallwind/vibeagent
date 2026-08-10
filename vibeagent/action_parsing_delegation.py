@@ -8,6 +8,9 @@ from .types import DelegateTaskAction, ListAgentsAction, SendMessageAction, Task
 
 
 AGENT_PROFILE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+AGENT_REFERENCE_PATTERN = re.compile(
+    r"^(?:[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9]):)?[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+)
 
 
 def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str) -> object | None:
@@ -74,7 +77,7 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
         raise ActionParseError("delegate_task action mode must be explore or code.", raw)
 
     agent = value.get("agent")
-    if agent is not None and (not isinstance(agent, str) or not AGENT_PROFILE_NAME_PATTERN.fullmatch(agent.strip())):
+    if agent is not None and (not isinstance(agent, str) or not AGENT_REFERENCE_PATTERN.fullmatch(agent.strip())):
         raise ActionParseError("delegate_task action agent must be a valid project agent profile name.", raw)
     agent = agent.strip() if isinstance(agent, str) else None
 
