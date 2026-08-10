@@ -324,6 +324,7 @@ from .observation_memory_types import (
     MemoryReadObservation,
     MemoryWriteObservation,
 )
+from .observation_lsp_types import LspDiagnosticsObservation, LspQueryObservation
 from .observation_union_types import Observation
 
 # Status tokens are constrained to keep logger and callers consistent.

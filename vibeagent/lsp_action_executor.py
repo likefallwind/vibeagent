@@ -6,6 +6,7 @@ from pathlib import Path
 from .code_action_executor import execute_code_action
 from .python_action_executor import execute_python_action
 from .read_action_code_outline_observations import code_outline_observation
+from .lsp_runtime import execute_plugin_lsp_query
 from .types import (
     CodeDefinitionsAction,
     CodeOutlineAction,
@@ -26,6 +27,13 @@ SYMBOL_PATTERN = re.compile(r"[\w$]+", re.UNICODE)
 
 
 def execute_lsp_action(workspace: RunWorkspace, action: LspQueryAction) -> Observation:
+    try:
+        plugin_observation = execute_plugin_lsp_query(workspace, action)
+    except (OSError, UnicodeError, ValueError, TimeoutError) as error:
+        return ToolErrorObservation(kind="tool_error", tool="LSP", message=str(error))
+    if plugin_observation is not None:
+        return plugin_observation
+
     if action.operation == "documentSymbol":
         return code_outline_observation(
             workspace,

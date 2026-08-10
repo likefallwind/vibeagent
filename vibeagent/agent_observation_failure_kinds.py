@@ -175,6 +175,8 @@ OK_FLAG_FAILURE_KINDS = {
     "mcp_servers",
     "mcp_tools",
     "mcp_call",
+    "lsp_query",
+    "lsp_diagnostics",
     "project_todos",
     "project_overview",
     "command_check",

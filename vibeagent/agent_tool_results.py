@@ -35,7 +35,9 @@ class ToolObservationContext:
 
 
 def build_tool_result_payload(
-    observation: Observation, hook_results: tuple[object, ...] = ()
+    observation: Observation,
+    hook_results: tuple[object, ...] = (),
+    additional_observations: tuple[Observation, ...] = (),
 ) -> dict[str, object]:
     result_payload = redact_jsonable_payload(to_jsonable(observation))
     if not isinstance(result_payload, dict):
@@ -43,6 +45,10 @@ def build_tool_result_payload(
     scrub_internal_preview_fingerprint_fields(result_payload)
     if hook_results:
         result_payload["hooks"] = redact_jsonable_payload(to_jsonable(hook_results))
+    if additional_observations:
+        result_payload["additionalResults"] = redact_jsonable_payload(
+            to_jsonable(additional_observations)
+        )
     return result_payload
 
 
@@ -90,8 +96,11 @@ def record_tool_result_event(
     auto: bool = False,
     event_extra: dict[str, object] | None = None,
     instruction_context: object = _INSTRUCTION_CONTEXT_UNSET,
+    additional_observations: tuple[Observation, ...] = (),
 ) -> dict[str, object]:
-    result_payload = build_tool_result_payload(observation, hook_results)
+    result_payload = build_tool_result_payload(
+        observation, hook_results, additional_observations
+    )
     if instruction_context is _INSTRUCTION_CONTEXT_UNSET:
         instruction_context = instruction_context_for_observation(
             workspace, observation
@@ -275,6 +284,7 @@ def record_tool_observation(
         iteration=context.iteration,
         hook_results=hook_results + instruction_hook_results,
         instruction_context=instruction_context,
+        additional_observations=additional_observations,
     )
     if isinstance(observation, RunCommandObservation) and context.logger:
         ok = observation.result.exit_code == 0 and not observation.result.timed_out

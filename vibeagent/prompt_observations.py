@@ -73,6 +73,16 @@ def format_observations(observations: list[Observation]) -> str:
             lines.append(format_output_contexts_observation(index, observation))
         elif observation.kind == "output_diagnostics":
             lines.append(format_output_diagnostics_observation(index, observation))
+        elif observation.kind == "lsp_query":
+            lines.append(
+                f"{index}. lsp_query {observation.operation} server={observation.server}: "
+                f"{observation.message} results={truncate(str(observation.results))}"
+            )
+        elif observation.kind == "lsp_diagnostics":
+            lines.append(
+                f"{index}. lsp_diagnostics server={observation.server}: {observation.message} "
+                f"diagnostics={truncate(str(observation.diagnostics))}"
+            )
         elif (code_intel_line := format_code_intel_observation(index, observation)) is not None:
             lines.append(code_intel_line)
         elif observation.kind == "finish":

@@ -1074,9 +1074,9 @@ tools, and the normal approval policy remains in force on every coding turn.
 One-shot `vibeagent -p "/goal <condition>"` runs until achievement, agent
 failure, evaluator error, or interruption in the same process.
 VibeAgent supports project-local plugins that package skills, commands, agents,
-command hooks, and MCP servers behind one manifest and lifecycle. A plugin uses
+command hooks, MCP servers, and language servers behind one manifest and lifecycle. A plugin uses
 the Claude-compatible root layout: optional `.claude-plugin/plugin.json`,
-`skills/`, `commands/`, `agents/`, `hooks/hooks.json`, and `.mcp.json`.
+`skills/`, `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, and `.lsp.json`.
 Install a project directory directly or register a local/remote marketplace:
 
 ```text
@@ -1096,9 +1096,9 @@ gitignored `.vibeagent/plugins/cache/` store. Reinstall preserves the current
 enabled state; disable removes every component from discovery without deleting
 the cache; uninstall rolls state and cache removal back together on failure.
 Plugin skills, commands, and agents use `plugin-name:component` names, while MCP
-servers use `plugin-name.server`. `${CLAUDE_PLUGIN_ROOT}` and
+and LSP servers use `plugin-name.server`. `${CLAUDE_PLUGIN_ROOT}` and
 `${CLAUDE_PROJECT_DIR}` are expanded in skill and agent text, command templates,
-hooks, and MCP configuration. Plugin hooks and MCP calls retain normal approval,
+hooks, MCP configuration, and LSP configuration. Plugin hooks and MCP calls retain normal approval,
 permission, and sandbox boundaries. Manifest component paths must be `./`
 relative. Project-local marketplaces use `.claude-plugin/marketplace.json`,
 cache a non-symlink snapshot without Git/runtime metadata, verify each relative
@@ -1112,7 +1112,16 @@ disabled for Git and cannot downgrade JSON downloads, Git authentication is
 non-interactive, inherited Git configuration injection is removed, and each
 fetch uses a bounded temporary checkout. Set `VIBEAGENT_PLUGIN_GIT_TIMEOUT_MS`
 between 1,000 and 600,000 milliseconds to override the 120-second Git timeout.
-Inline hook/MCP objects, SSH and npm plugin sources, LSP servers, monitors,
+LSP configuration accepts a root `.lsp.json`, a manifest-relative JSON path, or
+an inline `lspServers` object. Each server declares `command`, optional `args`
+and environment/settings fields, and an `extensionToLanguage` map. VibeAgent
+uses bounded stdio JSON-RPC processes for definitions, implementations,
+references, hover, document symbols, and workspace symbols, and publishes
+language-server diagnostics back to the model after successful file edits.
+Language-server binaries remain separately installed dependencies. Socket
+transport is rejected explicitly; when no enabled plugin claims a file,
+`LSP` retains the built-in lexical code-intelligence fallback.
+Inline hook/MCP objects, SSH and npm plugin sources, monitors,
 default settings, user/project installation scopes, and automatic background
 updates are not yet implemented and are reported rather than silently loaded.
 On Linux and macOS, interactive and one-shot CLI sessions register a user-only

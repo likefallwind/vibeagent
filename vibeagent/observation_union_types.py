@@ -95,6 +95,7 @@ from .observation_memory_types import (
     MemoryReadObservation,
     MemoryWriteObservation,
 )
+from .observation_lsp_types import LspDiagnosticsObservation, LspQueryObservation
 from .observation_process_types import (
     CheckRunCommandsObservation,
     CheckStopAllProcessesObservation,
@@ -213,6 +214,8 @@ Observation: TypeAlias = (
     | McpServersObservation
     | McpToolsObservation
     | McpCallObservation
+    | LspQueryObservation
+    | LspDiagnosticsObservation
     | MemoryListObservation
     | MemoryReadObservation
     | MemoryWriteObservation

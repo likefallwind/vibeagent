@@ -62,16 +62,17 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
     agents = _component_files(root, payload, "agents", "agents", kind="markdown")
     hooks = _config_files(root, payload, "hooks", "hooks/hooks.json")
     mcp = _config_files(root, payload, "mcpServers", ".mcp.json")
+    inline_lsp = payload.get("lspServers") if isinstance(payload.get("lspServers"), dict) else None
+    lsp = () if inline_lsp is not None else _config_files(root, payload, "lspServers", ".lsp.json")
     warnings: list[str] = []
-    if (root / ".lsp.json").exists() or "lspServers" in payload:
-        warnings.append("LSP plugin components are not supported yet.")
     if (root / "monitors" / "monitors.json").exists() or "monitors" in payload:
         warnings.append("Plugin monitors are not supported yet.")
     if (root / "settings.json").exists() or "settings" in payload:
         warnings.append("Plugin default settings are not supported yet.")
 
-    all_components = (*skills, *commands, *agents, *hooks, *mcp)
-    if len(all_components) > MAX_PLUGIN_COMPONENTS:
+    all_components = (*skills, *commands, *agents, *hooks, *mcp, *lsp)
+    component_count = len(all_components) + (1 if inline_lsp is not None else 0)
+    if component_count > MAX_PLUGIN_COMPONENTS:
         raise ValueError(f"Plugin exposes more than {MAX_PLUGIN_COMPONENTS} components.")
     if len(set(all_components)) != len(all_components):
         raise ValueError("Plugin manifest resolves the same component file more than once.")
@@ -87,6 +88,8 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
         agent_files=tuple(agents),
         hook_files=tuple(hooks),
         mcp_files=tuple(mcp),
+        lsp_files=tuple(lsp),
+        inline_lsp_servers=dict(inline_lsp) if inline_lsp is not None else None,
         warnings=tuple(warnings),
     )
 

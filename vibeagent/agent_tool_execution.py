@@ -11,6 +11,7 @@ from .agent_observation_utils import observation_failed
 from .agent_permissions import authorize_tool_action
 from .agent_runtime_utils import append_session_event, build_repeated_list_observation, find_repeated_list_observation
 from .agent_steps import complete_task_step, start_task_step
+from .lsp_runtime import automatic_lsp_diagnostics
 from .types import (
     AgentLogger,
     ApprovalHandler,
@@ -205,12 +206,13 @@ def _execute_non_repeated_action(
         execute_action_safely_func,
         permissions,
     )
+    diagnostics = automatic_lsp_diagnostics(workspace, observation)
     return (
         observation,
         auto_checkpoint,
         checkpoint_attempted,
         pre_hooks.results + post_hooks.results,
-        tuple(post_hooks.failures),
+        tuple(post_hooks.failures) + diagnostics,
     )
 
 

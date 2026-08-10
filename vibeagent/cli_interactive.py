@@ -354,12 +354,19 @@ def run_interactive_loop(
             if plugin_result.changed and workflow_manager is not None:
                 workflow_manager.close()
                 workflow_manager = None
+            if plugin_result.changed:
+                from .lsp_runtime import close_project_lsp
+
+                close_project_lsp(Path.cwd())
             print(plugin_result.text)
             continue
         if command and command.type == "reload_plugins":
             if workflow_manager is not None:
                 workflow_manager.close()
                 workflow_manager = None
+            from .lsp_runtime import close_project_lsp
+
+            close_project_lsp(Path.cwd())
             print(reload_plugins_text(Path.cwd()))
             continue
         if command and command.type == "list_agents_local":
