@@ -81,7 +81,7 @@ def _symbol_at_position(
 ) -> str:
     if line is None or character is None:
         raise ValueError("LSP position requires line and character.")
-    target = resolve_inside_run(workspace.root, path)
+    target = resolve_inside_run(workspace, path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {path}")
     if target.stat().st_size > LSP_MAX_SOURCE_BYTES:

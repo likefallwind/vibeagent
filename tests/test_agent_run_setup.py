@@ -72,6 +72,35 @@ class AgentRunSetupTests(unittest.TestCase):
         self.assertTrue(setup.workspace.strict_mcp_config)
         self.assertTrue(setup.project_permissions.allow_rules_trusted)
 
+    def test_prepare_agent_run_merges_additional_roots_into_supplied_workspace(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-run-setup-") as base:
+            parent = Path(base)
+            root = parent / "main"
+            first = parent / "first"
+            second = parent / "second"
+            for path in (root, first, second):
+                path.mkdir()
+            workspace = create_run_workspace(root, "run-1", additional_roots=(first,))
+
+            setup = prepare_agent_run(
+                "Inspect roots",
+                base_dir=None,
+                workspace=workspace,
+                prior_context=None,
+                approval_policy="ask",
+                task_metadata=None,
+                trust_project_permissions=False,
+                permission_overrides=None,
+                mcp_config_paths=(Path("extra.mcp.json"),),
+                strict_mcp_config=False,
+                system_prompt=None,
+                append_system_prompt=None,
+                additional_directories=(second, first),
+            )
+
+        self.assertEqual(setup.workspace.additional_roots, (first.resolve(), second.resolve()))
+        self.assertEqual(setup.workspace.mcp_config_paths, (root.resolve() / "extra.mcp.json",))
+
     def test_prepare_agent_run_records_prompt_file_metadata_but_keeps_original_task(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-run-setup-") as base:
             root = Path(base)
@@ -143,6 +172,47 @@ class AgentRunSetupTests(unittest.TestCase):
         self.assertNotIn("OUTSIDE_BEFORE", prompt)
         self.assertNotIn("OUTSIDE_AFTER", prompt)
         self.assertNotIn("SELECTED_ONE", events_text)
+
+    def test_prepare_agent_run_grants_file_access_without_loading_additional_configuration(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-run-setup-") as base:
+            parent = Path(base)
+            root = parent / "main"
+            shared = parent / "shared"
+            root.mkdir()
+            shared.mkdir()
+            (root / "CLAUDE.md").write_text("MAIN_PROJECT_INSTRUCTION", encoding="utf-8")
+            (shared / "CLAUDE.md").write_text("SHARED_CONFIG_MUST_NOT_LOAD", encoding="utf-8")
+            reference = shared / "reference.txt"
+            reference.write_text("SHARED_REFERENCE_BODY", encoding="utf-8")
+
+            setup = prepare_agent_run(
+                f"Review @{reference}",
+                base_dir=root,
+                workspace=None,
+                prior_context=None,
+                approval_policy="ask",
+                task_metadata=None,
+                trust_project_permissions=False,
+                permission_overrides=None,
+                mcp_config_paths=(),
+                strict_mcp_config=False,
+                system_prompt=None,
+                append_system_prompt=None,
+                additional_directories=(shared,),
+            )
+            events = [
+                json.loads(line)
+                for line in setup.workspace.session_dir.joinpath("events.jsonl").read_text(encoding="utf-8").splitlines()
+            ]
+
+        prompt = str(setup.messages[1].content)
+        task_event = next(event for event in events if event["type"] == "task")
+        self.assertEqual(setup.workspace.additional_roots, (shared.resolve(),))
+        self.assertIn("MAIN_PROJECT_INSTRUCTION", prompt)
+        self.assertIn("SHARED_REFERENCE_BODY", prompt)
+        self.assertNotIn("SHARED_CONFIG_MUST_NOT_LOAD", prompt)
+        self.assertIn(str(shared.resolve()), prompt)
+        self.assertEqual(task_event["additional_directories"], [str(shared.resolve())])
 
 
 if __name__ == "__main__":

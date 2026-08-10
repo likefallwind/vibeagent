@@ -152,7 +152,7 @@ def _build_notebook_cell_edit(
 
 
 def _load_notebook(workspace: RunWorkspace, path: str, *, mutate: bool) -> tuple[Path, dict[str, Any]]:
-    target = resolve_mutation_path(workspace.root, path) if mutate else resolve_inside_run(workspace.root, path)
+    target = resolve_mutation_path(workspace, path) if mutate else resolve_inside_run(workspace, path)
     if not target.is_file():
         raise ValueError(f"Notebook does not exist: {path}")
     try:

@@ -15,6 +15,7 @@ from .cli_input_format import StreamJsonTaskInput, resolve_json_task_input, reso
 from .cli_permission_overrides import build_permission_overrides
 from .cli_project_command_expansion import expand_one_shot_project_command
 from .cli_system_prompt_files import resolve_system_prompt_inputs
+from .cli_additional_directories import resolve_additional_directories
 
 
 def resolve_task_text(parts: Sequence[str], input_format: str = "text") -> str:
@@ -34,6 +35,7 @@ def resolve_task_input(parts: Sequence[str], input_format: str = "text") -> Stre
 
 def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, object]:
     task_input = resolve_task_input(args.task, args.input_format)
+    additional_directories = resolve_additional_directories(args.add_dir, invocation_root=Path.cwd())
     system_prompt, append_system_prompt = resolve_system_prompt_inputs(
         system_prompt=args.system_prompt,
         system_prompt_file=args.system_prompt_file,
@@ -74,6 +76,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "compact_max_output_chars": args.compact_max_output_chars,
         "compact_max_text": args.compact_max_text,
         "base_dir": args.cwd,
+        "additional_directories": additional_directories,
         "max_iterations": args.max_iterations,
         "command_timeout_ms": args.command_timeout_ms,
         "max_output_tokens": args.max_output_tokens,

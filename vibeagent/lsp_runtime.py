@@ -97,7 +97,9 @@ def _query_configs(workspace: RunWorkspace, action: LspQueryAction) -> list[LspS
         return read_lsp_server_configs(workspace)
     if action.path is None:
         return []
-    target = resolve_inside_run(workspace.root, action.path)
+    target = resolve_inside_run(workspace, action.path)
+    if not target.is_relative_to(workspace.root):
+        return []
     selected = select_lsp_server(workspace, target)
     return [selected] if selected is not None else []
 

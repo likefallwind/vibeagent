@@ -22,7 +22,7 @@ def preview_write_run_file(workspace: RunWorkspace, relative_path: str, content:
 
 def build_write_file(workspace: RunWorkspace, relative_path: str, content: str) -> tuple[Path, str, str, str]:
     # Resolve and read existing UTF-8 content when replacing a file.
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if target.exists() and not target.is_file():
         raise ValueError(f"Path is not a file: {relative_path}")
     before = read_utf8_text_file(target, relative_path) if target.exists() else ""

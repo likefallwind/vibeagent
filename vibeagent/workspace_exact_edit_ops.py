@@ -20,7 +20,7 @@ def preview_edit_project_file(workspace: RunWorkspace, relative_path: str, old: 
 
 
 def build_edit_file(workspace: RunWorkspace, relative_path: str, old: str, new: str) -> tuple[Path, str, str]:
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     content = read_utf8_text_file(target, relative_path)
@@ -47,7 +47,7 @@ def preview_multi_edit_project_file(workspace: RunWorkspace, relative_path: str,
 
 
 def build_multi_edit(workspace: RunWorkspace, relative_path: str, edits: list[EditSpec]) -> tuple[Path, str, str]:
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     if not edits:

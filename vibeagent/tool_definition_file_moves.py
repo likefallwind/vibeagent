@@ -6,7 +6,7 @@ from typing import Any
 FILE_MOVE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "check_move_file",
-        "description": "Validate moving or renaming one existing project file to a new project-relative path without changing files.",
+        "description": "Validate moving or renaming one existing project file to a new workspace path without changing files.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -19,7 +19,7 @@ FILE_MOVE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "move_file",
-        "description": "Move or rename one existing project file to a new project-relative path.",
+        "description": "Move or rename one existing project file to a new workspace path.",
         "input_schema": {
             "type": "object",
             "properties": {

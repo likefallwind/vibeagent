@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .workspace_core import RunWorkspace
 from .workspace_paths import is_protected_project_path
-from .workspace_resolve import resolve_mutation_path
+from .workspace_resolve import display_workspace_path, resolve_mutation_path, workspace_root_for_path, workspace_roots
 
 
 def move_project_directory(workspace: RunWorkspace, source_path: str, destination_path: str) -> tuple[Path, Path]:
@@ -34,10 +34,12 @@ def preview_move_project_directories(workspace: RunWorkspace, transfers: list[tu
 
 
 def prepare_project_directory_move(workspace: RunWorkspace, source_path: str, destination_path: str) -> tuple[Path, Path]:
-    source = resolve_mutation_path(workspace.root, source_path)
-    destination = resolve_mutation_path(workspace.root, destination_path)
-    if source == workspace.root:
+    source = resolve_mutation_path(workspace, source_path)
+    destination = resolve_mutation_path(workspace, destination_path)
+    if source == workspace.root.resolve():
         raise ValueError("Cannot move the project root directory.")
+    if source in workspace.additional_roots:
+        raise ValueError("Cannot move an additional workspace root directory.")
     if source == destination:
         raise ValueError("Source and destination must be different.")
     if not source.is_dir():
@@ -129,10 +131,12 @@ def prepare_project_directory_copy(
     max_entries: int = 2000,
     max_bytes: int = 50 * 1024 * 1024,
 ) -> tuple[Path, Path]:
-    source = resolve_mutation_path(workspace.root, source_path)
-    destination = resolve_mutation_path(workspace.root, destination_path)
-    if source == workspace.root:
+    source = resolve_mutation_path(workspace, source_path)
+    destination = resolve_mutation_path(workspace, destination_path)
+    if source == workspace.root.resolve():
         raise ValueError("Cannot copy the project root directory.")
+    if source in workspace.additional_roots:
+        raise ValueError("Cannot copy an additional workspace root directory.")
     if source == destination:
         raise ValueError("Source and destination must be different.")
     if not source.is_dir():
@@ -149,9 +153,10 @@ def prepare_project_directory_copy(
         if entry_count > max_entries:
             raise ValueError(f"Directory has more than {max_entries} entries: {source_path}")
         if path.is_symlink():
-            raise ValueError(f"Directory contains a symbolic link: {path.relative_to(workspace.root).as_posix()}")
-        if is_protected_project_path(workspace.root, path.resolve()):
-            raise ValueError(f"Directory contains a protected path: {path.relative_to(workspace.root).as_posix()}")
+            raise ValueError(f"Directory contains a symbolic link: {display_workspace_path(workspace, path)}")
+        access_root = workspace_root_for_path(workspace, path)
+        if access_root is not None and is_protected_project_path(access_root, path.resolve()):
+            raise ValueError(f"Directory contains a protected path: {display_workspace_path(workspace, path)}")
         if path.is_file():
             total_bytes += path.stat().st_size
             if total_bytes > max_bytes:
@@ -196,7 +201,7 @@ def create_project_directories(workspace: RunWorkspace, relative_paths: list[str
 
 
 def preview_create_project_directory(workspace: RunWorkspace, relative_path: str) -> Path:
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if target.exists() and not target.is_dir():
         raise ValueError(f"Path already exists and is not a directory: {relative_path}")
     return target
@@ -235,13 +240,15 @@ def delete_project_empty_directories(workspace: RunWorkspace, relative_paths: li
         try:
             target.rmdir()
         except OSError as error:
-            relative_path = target.relative_to(workspace.root).as_posix()
+            relative_path = display_workspace_path(workspace, target)
             raise ValueError(f"Directory is not empty: {relative_path}") from error
     return targets
 
 
 def preview_delete_project_empty_directory(workspace: RunWorkspace, relative_path: str) -> Path:
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
+    if target in workspace_roots(workspace):
+        raise ValueError("Cannot delete a workspace root directory.")
     if not target.is_dir():
         raise ValueError(f"Directory does not exist: {relative_path}")
     if any(target.iterdir()):
@@ -258,7 +265,9 @@ def preview_delete_project_empty_directories(workspace: RunWorkspace, relative_p
     targets: list[Path] = []
     relative_by_target: dict[Path, str] = {}
     for index, relative_path in enumerate(relative_paths, start=1):
-        target = resolve_mutation_path(workspace.root, relative_path)
+        target = resolve_mutation_path(workspace, relative_path)
+        if target in workspace_roots(workspace):
+            raise ValueError("Cannot delete a workspace root directory.")
         normalized = target.resolve()
         if normalized in relative_by_target:
             raise ValueError(f"Directory path {index} duplicates an earlier target: {relative_path}")

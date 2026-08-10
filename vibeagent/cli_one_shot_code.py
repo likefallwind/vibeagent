@@ -43,6 +43,7 @@ def run_one_shot_code(
     input_prior_context: str | None,
     system_prompt: str | None,
     append_system_prompt: str | None,
+    additional_directories: tuple[Path, ...] = (),
     task_metadata: dict[str, object] | None,
     resume_arg: str | None,
     compact_arg: str | None,
@@ -97,6 +98,7 @@ def run_one_shot_code(
         project_root=project_root,
         mcp_config_paths=resolved_mcp_config_paths,
         strict_mcp_config=strict_mcp_config,
+        additional_roots=additional_directories,
     )
     peer_runtime = create_peer_runtime(project_root, approval_policy)
     run_kwargs = build_one_shot_agent_kwargs(
@@ -114,6 +116,7 @@ def run_one_shot_code(
         prior_context=merged_prior_context,
         system_prompt=system_prompt,
         append_system_prompt=append_system_prompt,
+        additional_directories=additional_directories,
         task_metadata=task_metadata,
         workspace=stream_scope.workspace,
         peer_runtime=peer_runtime,

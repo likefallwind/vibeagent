@@ -14,7 +14,7 @@ from .types import ContentBlock
 from .workspace_core import RunWorkspace
 from .workspace_file_helpers import count_file_lines
 from .workspace_file_read import read_project_file_result, read_project_image_payload
-from .workspace_resolve import resolve_inside_run
+from .workspace_resolve import display_workspace_path, resolve_inside_run
 
 
 MAX_PROMPT_TEXT_FILE_BYTES = 20_000
@@ -70,10 +70,10 @@ def load_prompt_file_context(task: str, workspace: RunWorkspace) -> PromptFileCo
 
     for mention in mentions:
         try:
-            target = resolve_inside_run(workspace.root, mention.path)
+            target = resolve_inside_run(workspace, mention.path)
             if not target.is_file():
                 raise ValueError(f"File does not exist: {mention.path}")
-            path = target.relative_to(workspace.root).as_posix()
+            path = display_workspace_path(workspace, target)
             if target.suffix.lower() in IMAGE_SUFFIXES:
                 if mention.start_line is not None:
                     raise ValueError("Line selectors can only reference UTF-8 text files.")

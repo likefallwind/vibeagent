@@ -22,7 +22,7 @@ def check_python_syntax(
     files = [path for path in list_search_files(workspace, relative_path) if path.endswith(".py")]
     results: list[dict[str, object]] = []
     for relative in files[:max_files]:
-        target = resolve_inside_run(workspace.root, relative)
+        target = resolve_inside_run(workspace, relative)
         try:
             content = read_utf8_text_file(target, relative)
             ast.parse(content, filename=relative)
@@ -74,7 +74,7 @@ def check_python_file_paths(
         if relative in seen or not relative.endswith(".py"):
             continue
         try:
-            target = resolve_inside_run(workspace.root, relative)
+            target = resolve_inside_run(workspace, relative)
         except ValueError:
             continue
         if not target.is_file():
@@ -84,7 +84,7 @@ def check_python_file_paths(
 
     results: list[dict[str, object]] = []
     for relative in files[:max_files]:
-        target = resolve_inside_run(workspace.root, relative)
+        target = resolve_inside_run(workspace, relative)
         try:
             content = read_utf8_text_file(target, relative)
             ast.parse(content, filename=relative)
@@ -154,7 +154,7 @@ def inspect_python_dependencies(
                 }
             )
             continue
-        target = resolve_inside_run(workspace.root, relative)
+        target = resolve_inside_run(workspace, relative)
         try:
             content = read_utf8_text_file(target, relative)
             tree = ast.parse(content, filename=relative)

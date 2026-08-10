@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -70,6 +70,25 @@ class CliOneShotStreamTests(unittest.TestCase):
         with scope.event_scope:
             pass
         self.assertEqual(calls[-2:], [("events_entered", True), ("events_exited", True)])
+
+    def test_stream_scope_passes_additional_roots_to_workspace(self) -> None:
+        stream = JsonEventStream()
+        shared = Path("/shared").resolve()
+        calls: list[dict[str, object]] = []
+        workspace = SimpleNamespace(session_dir=Path("/project/.vibeagent/runs/run-1"))
+
+        scope = build_one_shot_stream_scope(
+            stream,
+            project_root=Path("/project"),
+            mcp_config_paths=(),
+            strict_mcp_config=False,
+            additional_roots=(shared,),
+            create_workspace_func=lambda *args, **kwargs: calls.append(kwargs) or workspace,
+            observe_events_func=lambda *args, **kwargs: nullcontext(),
+        )
+
+        self.assertIs(scope.workspace, workspace)
+        self.assertEqual(calls[0]["additional_roots"], (shared,))
 
 
 if __name__ == "__main__":

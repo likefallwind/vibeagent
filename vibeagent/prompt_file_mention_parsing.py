@@ -46,7 +46,7 @@ def parse_prompt_file_mentions(task: str, workspace: RunWorkspace) -> tuple[Prom
         if not candidate or "://" in candidate:
             continue
         normalized = _normalize_mention(candidate)
-        mention = _parse_file_mention(normalized, workspace.root, quoted=quoted)
+        mention = _parse_file_mention(normalized, workspace, quoted=quoted)
         if not _looks_like_file_mention(mention.path, workspace.root, quoted=quoted):
             continue
         key = (mention.path, mention.start_line, mention.end_line)
@@ -61,8 +61,9 @@ def parse_prompt_file_mentions(task: str, workspace: RunWorkspace) -> tuple[Prom
     return tuple(selected)
 
 
-def _parse_file_mention(value: str, root: Path, *, quoted: bool) -> PromptFileMention:
-    if _safe_candidate_exists(root, value):
+def _parse_file_mention(value: str, workspace: RunWorkspace, *, quoted: bool) -> PromptFileMention:
+    root = workspace.root
+    if _safe_candidate_exists(workspace, value):
         return PromptFileMention(value)
     path, separator, selector = value.rpartition("#")
     if not separator:
@@ -86,9 +87,9 @@ def _parse_file_mention(value: str, root: Path, *, quoted: bool) -> PromptFileMe
     return PromptFileMention(path=path, start_line=start_line, end_line=end_line)
 
 
-def _safe_candidate_exists(root: Path, value: str) -> bool:
+def _safe_candidate_exists(workspace: RunWorkspace, value: str) -> bool:
     try:
-        return resolve_inside_run(root, value).exists()
+        return resolve_inside_run(workspace, value).exists()
     except (OSError, ValueError):
         return False
 

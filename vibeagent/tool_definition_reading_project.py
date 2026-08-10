@@ -47,7 +47,7 @@ READING_PROJECT_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "Optional project-relative file or directory scope."},
+                "path": {"type": "string", "description": "Optional workspace file or directory scope."},
                 "max_depth": {
                     "type": "integer",
                     "minimum": 1,

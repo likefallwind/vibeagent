@@ -10,7 +10,7 @@ from .workspace_resolve import resolve_mutation_path
 
 
 def patch_project_file(workspace: RunWorkspace, relative_path: str, patch: str) -> tuple[Path, str]:
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     if not patch.strip():
@@ -25,7 +25,7 @@ def patch_project_file(workspace: RunWorkspace, relative_path: str, patch: str) 
 
 
 def check_project_patch(workspace: RunWorkspace, relative_path: str, patch: str) -> tuple[Path, str]:
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     if not patch.strip():
@@ -53,7 +53,7 @@ def patch_project_files(workspace: RunWorkspace, patch: str) -> tuple[list[Path]
             raise ValueError(f"Patch contains duplicate file section: {relative_path}")
         seen.add(relative_path)
 
-        target = resolve_mutation_path(workspace.root, relative_path)
+        target = resolve_mutation_path(workspace, relative_path)
         if operation == "create":
             if target.exists():
                 raise ValueError(f"File already exists: {relative_path}")
@@ -100,7 +100,7 @@ def check_project_patches(workspace: RunWorkspace, patch: str) -> tuple[list[Pat
             raise ValueError(f"Patch contains duplicate file section: {relative_path}")
         seen.add(relative_path)
 
-        target = resolve_mutation_path(workspace.root, relative_path)
+        target = resolve_mutation_path(workspace, relative_path)
         if operation == "create":
             if target.exists():
                 raise ValueError(f"File already exists: {relative_path}")

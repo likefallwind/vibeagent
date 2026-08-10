@@ -21,7 +21,7 @@ from .redaction import redact_jsonable_payload
 from .session_tasks import inherit_task_store
 from .scheduled_task_store import inherit_schedule_store, schedule_store_path
 from .types import ApprovalPolicy, ChatMessage
-from .workspace_core import RunWorkspace, create_run_workspace
+from .workspace_core import RunWorkspace, create_run_workspace, normalize_additional_roots
 from .workspace_hooks import ProjectHooks, read_project_hooks
 from .workspace_permissions import (
     ProjectPermissions,
@@ -61,6 +61,7 @@ def prepare_agent_run(
     system_prompt: str | None,
     append_system_prompt: str | None,
     agent: str | None = None,
+    additional_directories: tuple[Path, ...] = (),
 ) -> AgentRunSetup:
     current_workspace = _prepare_workspace(
         base_dir,
@@ -68,6 +69,7 @@ def prepare_agent_run(
         mcp_config_paths,
         strict_mcp_config,
         trust_project_permissions,
+        additional_directories,
     )
     main_selection = resolve_main_agent_selection(current_workspace, agent)
     main_profile = load_main_agent_profile(
@@ -150,15 +152,23 @@ def _prepare_workspace(
     mcp_config_paths: tuple[Path, ...],
     strict_mcp_config: bool,
     trust_project_permissions: bool,
+    additional_directories: tuple[Path, ...],
 ) -> RunWorkspace:
     current_workspace = workspace or create_run_workspace(
         base_dir,
         mcp_config_paths=mcp_config_paths,
         strict_mcp_config=strict_mcp_config,
+        additional_roots=additional_directories,
     )
+    if workspace is not None and additional_directories:
+        merged_roots = normalize_additional_roots(
+            current_workspace.root,
+            (*current_workspace.additional_roots, *additional_directories),
+        )
+        current_workspace = replace(current_workspace, additional_roots=merged_roots)
     if workspace is not None and mcp_config_paths and not workspace.mcp_config_paths:
         absolute_mcp_paths = tuple(path if path.is_absolute() else current_workspace.root / path for path in mcp_config_paths)
-        current_workspace = replace(workspace, mcp_config_paths=absolute_mcp_paths)
+        current_workspace = replace(current_workspace, mcp_config_paths=absolute_mcp_paths)
     if workspace is not None and strict_mcp_config != current_workspace.strict_mcp_config:
         current_workspace = replace(current_workspace, strict_mcp_config=strict_mcp_config)
     if trust_project_permissions and not current_workspace.project_config_trusted:
@@ -188,6 +198,7 @@ def _append_task_event(
         "task": task,
         "approval_policy": approval_policy,
         "prior_context": compact_session_context(prior_context) if prior_context else None,
+        "additional_directories": [str(root) for root in workspace.additional_roots],
     }
     if task_metadata:
         task_event["metadata"] = redact_jsonable_payload(task_metadata)

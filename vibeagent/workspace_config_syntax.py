@@ -23,7 +23,7 @@ def check_config_syntax(
     files = [path for path in list_search_files(workspace, relative_path) if config_format_for_path(path) is not None]
     results: list[dict[str, object]] = []
     for relative in files[:max_files]:
-        target = resolve_inside_run(workspace.root, relative)
+        target = resolve_inside_run(workspace, relative)
         config_format = config_format_for_path(relative) or "unknown"
         try:
             content = read_utf8_text_file(target, relative)
@@ -102,7 +102,7 @@ def check_config_file_paths(
         if relative in seen or config_format_for_path(relative) is None:
             continue
         try:
-            target = resolve_inside_run(workspace.root, relative)
+            target = resolve_inside_run(workspace, relative)
         except ValueError:
             continue
         if not target.is_file():

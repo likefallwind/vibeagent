@@ -84,6 +84,7 @@ def run_agent(
     peer_runtime: PeerSessionRuntime | None = None,
     agent: str | None = None,
     workspace_observer: Callable[[RunWorkspace], None] | None = None,
+    additional_directories: tuple[Path, ...] = (),
 ) -> AgentResult:
     setup = prepare_agent_run(
         task,
@@ -100,6 +101,7 @@ def run_agent(
         system_prompt=system_prompt,
         append_system_prompt=append_system_prompt,
         agent=agent,
+        additional_directories=additional_directories,
     )
     if workspace_observer is not None:
         workspace_observer(setup.workspace)

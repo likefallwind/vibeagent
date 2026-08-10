@@ -178,6 +178,15 @@ def build_messages(
     chunks.extend(
         [
             f"Project directory:\n{workspace.root}",
+            *(
+                [
+                    "Additional working directories:\n"
+                    + "\n".join(str(root) for root in workspace.additional_roots)
+                    + "\nUse absolute paths when addressing these directories. They grant file access only; project configuration and session state still come from the main project directory."
+                ]
+                if workspace.additional_roots
+                else []
+            ),
             f"Session directory:\n{workspace.session_dir}",
             f"Project files:\n{snapshot}",
             get_next_action_instruction(task, observations or []),

@@ -27,7 +27,7 @@ from vibeagent.types import (
     WaitProcessAction,
 )
 from vibeagent.workspace import create_run_workspace
-from vibeagent.workspace_sandbox import read_workspace_sandbox
+from vibeagent.workspace_sandbox import SandboxConfig, read_workspace_sandbox
 
 
 def _write_sandbox(root: Path, sandbox: dict[str, object], source: str = ".vibeagent/sandbox.json") -> Path:
@@ -49,6 +49,28 @@ def _sandbox_available() -> bool:
 
 
 class SandboxConfigTests(unittest.TestCase):
+    def test_command_sandbox_binds_additional_working_directories(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-sandbox-") as base:
+            parent = Path(base)
+            root = parent / "main"
+            shared = parent / "shared"
+            root.mkdir()
+            shared.mkdir()
+            workspace = create_run_workspace(root, additional_roots=(shared,))
+            config = SandboxConfig(enabled=True, available=True, bwrap_path="/usr/bin/bwrap")
+
+            with patch("vibeagent.command_sandbox.read_workspace_sandbox", return_value=config):
+                launch = prepare_command_launch(workspace, "pwd", shared)
+
+        bind_pairs = [
+            launch.argv[index + 1 : index + 3]
+            for index, value in enumerate(launch.argv)
+            if value == "--bind"
+        ]
+        self.assertIn((str(root.resolve()), str(root.resolve())), bind_pairs)
+        self.assertIn((str(shared.resolve()), str(shared.resolve())), bind_pairs)
+        self.assertIn(("--chdir", str(shared.resolve())), zip(launch.argv, launch.argv[1:]))
+
     def test_cli_prompt_and_timeline_report_sandbox_state(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-sandbox-") as base:
             root = Path(base)

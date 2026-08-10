@@ -234,6 +234,7 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_agent=context.agent,
         initial_system_prompt=context.system_prompt,
         initial_append_system_prompt=context.append_system_prompt,
+        initial_additional_directories=context.additional_directories,
     )
 if __name__ == "__main__":
     import sys

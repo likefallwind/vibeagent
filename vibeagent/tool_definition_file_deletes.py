@@ -35,7 +35,7 @@ FILE_DELETE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "items": {"type": "string"},
                     "minItems": 1,
                     "maxItems": 100,
-                    "description": "Explicit project-relative file paths to delete. Globs are not expanded.",
+                    "description": "Explicit workspace file paths to delete. Globs are not expanded.",
                 }
             },
             "required": ["paths"],
@@ -53,7 +53,7 @@ FILE_DELETE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "items": {"type": "string"},
                     "minItems": 1,
                     "maxItems": 100,
-                    "description": "Explicit project-relative file paths to delete. Globs are not expanded.",
+                    "description": "Explicit workspace file paths to delete. Globs are not expanded.",
                 }
             },
             "required": ["paths"],

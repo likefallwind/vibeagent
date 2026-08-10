@@ -35,7 +35,7 @@ def find_python_definitions(
     for relative in list_search_files(workspace, relative_path):
         if Path(relative).suffix != ".py":
             continue
-        target = resolve_inside_run(workspace.root, relative)
+        target = resolve_inside_run(workspace, relative)
         try:
             content = read_utf8_text_file(target, relative)
             tree = ast.parse(content, filename=relative)
@@ -94,7 +94,7 @@ def preview_replace_python_definition(
     path = str(definition["path"])
     start_line = int(definition["line"])
     end_line = int(definition["end_line"])
-    target = resolve_mutation_path(workspace.root, path)
+    target = resolve_mutation_path(workspace, path)
     before = read_utf8_text_file(target, path)
     lines = before.splitlines(keepends=True)
 

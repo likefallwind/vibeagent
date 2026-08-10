@@ -66,7 +66,7 @@ def find_python_calls(
     for relative in list_search_files(workspace, relative_path):
         if Path(relative).suffix != ".py":
             continue
-        target = resolve_inside_run(workspace.root, relative)
+        target = resolve_inside_run(workspace, relative)
         try:
             content = read_utf8_text_file(target, relative)
             tree = ast.parse(content, filename=relative)
@@ -102,7 +102,7 @@ def inspect_python_call_graph(
     edges: list[dict[str, object]] = []
     errors: list[str] = []
     for relative in files[:max_files]:
-        target = resolve_inside_run(workspace.root, relative)
+        target = resolve_inside_run(workspace, relative)
         try:
             content = read_utf8_text_file(target, relative)
             tree = ast.parse(content, filename=relative)
@@ -151,7 +151,7 @@ def preview_python_rename(
     errors: list[str] = []
     remaining = max_replacements
     for relative in files[:max_files]:
-        target = resolve_inside_run(workspace.root, relative)
+        target = resolve_inside_run(workspace, relative)
         try:
             content = read_utf8_text_file(target, relative)
             tree = ast.parse(content, filename=relative)
@@ -223,7 +223,7 @@ def apply_python_rename(
     prepared: list[tuple[Path, str, str, str]] = []
     for file in list(preview["files"]):
         relative = str(file["path"])
-        target = resolve_mutation_path(workspace.root, relative)
+        target = resolve_mutation_path(workspace, relative)
         before = read_utf8_text_file(target, relative)
         after = apply_python_rename_replacements(before, list(file["replacements"]))
         try:
@@ -260,7 +260,7 @@ def find_python_references(
     for relative in list_search_files(workspace, relative_path):
         if Path(relative).suffix != ".py":
             continue
-        target = resolve_inside_run(workspace.root, relative)
+        target = resolve_inside_run(workspace, relative)
         try:
             content = read_utf8_text_file(target, relative)
             tree = ast.parse(content, filename=relative)

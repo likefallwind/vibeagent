@@ -11,7 +11,7 @@ PYTHON_REFERENCE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "symbol": {"type": "string", "description": "Python identifier to find, such as Client or run_agent."},
-                "path": {"type": "string", "description": "Optional project-relative file or directory scope."},
+                "path": {"type": "string", "description": "Optional workspace file or directory scope."},
                 "max_matches": {
                     "type": "integer",
                     "minimum": 1,
@@ -30,7 +30,7 @@ PYTHON_REFERENCE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "symbol": {"type": "string", "description": "Python identifier to find, such as Client or run_agent."},
-                "path": {"type": "string", "description": "Optional project-relative file or directory scope."},
+                "path": {"type": "string", "description": "Optional workspace file or directory scope."},
                 "max_matches": {
                     "type": "integer",
                     "minimum": 1,

@@ -22,7 +22,7 @@ def read_code_outline(workspace: RunWorkspace, relative_path: str, max_symbols: 
     if max_symbols > 1000:
         raise ValueError("max_symbols must be at most 1000.")
 
-    target = resolve_inside_run(workspace.root, relative_path)
+    target = resolve_inside_run(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     suffix = target.suffix.lower()
@@ -69,7 +69,7 @@ def inspect_code_dependencies(
     results: list[dict[str, object]] = []
     remaining_imports = max_imports
     for relative in files[:max_files]:
-        target = resolve_inside_run(workspace.root, relative)
+        target = resolve_inside_run(workspace, relative)
         language = code_language_for_path(target)
         if remaining_imports <= 0:
             results.append(
@@ -135,7 +135,7 @@ def find_code_references(
         language = code_language_for_path(Path(relative))
         if language == "python" or language == "text":
             continue
-        target = resolve_inside_run(workspace.root, relative)
+        target = resolve_inside_run(workspace, relative)
         try:
             content = read_utf8_text_file(target, relative)
         except ValueError:
@@ -188,7 +188,7 @@ def find_code_definitions(
         try:
             outline = read_code_outline(workspace, relative, max_symbols=1000)
             symbols = list(outline["symbols"])
-            target = resolve_inside_run(workspace.root, relative)
+            target = resolve_inside_run(workspace, relative)
             content = read_utf8_text_file(target, relative)
         except ValueError as error:
             errors.append(str(error))

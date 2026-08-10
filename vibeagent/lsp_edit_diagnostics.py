@@ -9,7 +9,7 @@ from .lsp_config import LspServerConfig, read_lsp_server_configs, select_lsp_ser
 from .lsp_result_normalization import normalize_lsp_diagnostics
 from .types import LspDiagnosticsObservation, Observation
 from .workspace_core import RunWorkspace
-from .workspace_resolve import resolve_inside_run
+from .workspace_resolve import display_workspace_path, resolve_inside_run
 
 
 ClientProvider = Callable[[RunWorkspace, LspServerConfig], LspClient]
@@ -38,6 +38,8 @@ def collect_edit_diagnostics(
         return (_failure_observation(workspace, paths[0], "plugin LSP", error),)
     grouped: dict[str, tuple[list[str], list[dict[str, object]], int, bool]] = {}
     for path in paths:
+        if not path.is_relative_to(workspace.root):
+            continue
         server_name = "plugin LSP"
         try:
             config = select_lsp_server_from_configs(configs, path)
@@ -82,7 +84,7 @@ def _failure_observation(
         kind="lsp_diagnostics",
         ok=False,
         server=server,
-        paths=[path.relative_to(workspace.root).as_posix()],
+        paths=[display_workspace_path(workspace, path)],
         diagnostics=[],
         total=0,
         truncated=False,
@@ -107,7 +109,7 @@ def _changed_file_paths(workspace: RunWorkspace, observation: Observation) -> li
     paths: list[Path] = []
     for value in candidates:
         try:
-            path = resolve_inside_run(workspace.root, value)
+            path = resolve_inside_run(workspace, value)
         except ValueError:
             continue
         if path.is_file() and path not in paths:

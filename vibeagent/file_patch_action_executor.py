@@ -24,6 +24,7 @@ from .workspace import (
     preview_regex_replace_project_file,
     regex_replace_project_file,
 )
+from .workspace_resolve import display_workspace_path
 
 
 def execute_patch_file_action(workspace: RunWorkspace, action: object) -> Observation | None:
@@ -116,7 +117,7 @@ def execute_patch_file_action(workspace: RunWorkspace, action: object) -> Observ
     if isinstance(action, CheckPatchesAction):
         try:
             paths, diff = check_project_patches(workspace, action.patch)
-            files = [path.relative_to(workspace.root).as_posix() for path in paths]
+            files = [display_workspace_path(workspace, path) for path in paths]
             ok = True
             message = f"Patches can apply to {len(files)} file(s)."
         except ValueError as error:
@@ -154,7 +155,7 @@ def execute_patch_file_action(workspace: RunWorkspace, action: object) -> Observ
     if isinstance(action, PatchFilesAction):
         try:
             paths, diff = patch_project_files(workspace, action.patch)
-            files = [path.relative_to(workspace.root).as_posix() for path in paths]
+            files = [display_workspace_path(workspace, path) for path in paths]
             ok = True
             message = f"Patched {len(files)} file(s)."
         except ValueError as error:

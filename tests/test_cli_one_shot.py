@@ -175,6 +175,54 @@ class CliOneShotTests(unittest.TestCase):
         self.assertIn("Cannot read --system-prompt-file", payload["error"])
         create_client.assert_not_called()
 
+    def test_main_reports_missing_additional_directory_before_provider_creation(self) -> None:
+        stdout = io.StringIO()
+        create_client = Mock()
+
+        with (
+            patch("vibeagent.cli.create_chat_client", create_client),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--json", "--add-dir", "missing-shared", "inspect"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 2)
+        self.assertFalse(payload["success"])
+        self.assertIn("Cannot resolve --add-dir", payload["error"])
+        create_client.assert_not_called()
+
+    def test_main_passes_additional_directory_to_one_shot_agent(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            project = root / "project"
+            shared = root / "shared"
+            project.mkdir()
+            shared.mkdir()
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=project,
+                run_id="new-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+            previous_cwd = Path.cwd()
+            os.chdir(root)
+            try:
+                with (
+                    patch("vibeagent.cli.create_chat_client", return_value=object()),
+                    patch("vibeagent.cli.run_agent", run_agent),
+                    redirect_stdout(io.StringIO()),
+                ):
+                    exit_code = main(["--cwd", str(project), "--add-dir", "shared", "inspect"])
+            finally:
+                os.chdir(previous_cwd)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.kwargs["additional_directories"], (shared.resolve(),))
+
     def test_main_runs_one_shot_code_task_from_stdin(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             result = AgentResult(

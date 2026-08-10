@@ -11,6 +11,7 @@ from .cli_context import (
 )
 from .commands import get_compact_context, get_resume_context
 from .cli_system_prompt_files import resolve_system_prompt_inputs
+from .cli_additional_directories import resolve_additional_directories
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,7 @@ class InteractiveStartupContext:
     agent: str | None = None
     system_prompt: str | None = None
     append_system_prompt: str | None = None
+    additional_directories: tuple[Path, ...] = ()
 
 
 def resolve_interactive_startup_context(
@@ -32,6 +34,7 @@ def resolve_interactive_startup_context(
     get_compact_context_func=get_compact_context,
 ) -> InteractiveStartupContext:
     selected_agent = getattr(args, "agent", None)
+    additional_directories = resolve_additional_directories(args.add_dir, invocation_root=Path.cwd())
     system_prompt, append_system_prompt = resolve_system_prompt_inputs(
         system_prompt=args.system_prompt,
         system_prompt_file=args.system_prompt_file,
@@ -43,6 +46,7 @@ def resolve_interactive_startup_context(
         "agent": selected_agent,
         "system_prompt": system_prompt,
         "append_system_prompt": append_system_prompt,
+        "additional_directories": additional_directories,
     }
     session_resume = args.resume if args.resume is not None else args.session_id
     if session_resume is None and args.compact is None:

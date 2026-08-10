@@ -22,7 +22,7 @@ def preview_append_project_file(workspace: RunWorkspace, relative_path: str, con
 def build_append_file(workspace: RunWorkspace, relative_path: str, content: str) -> tuple[Path, str, str]:
     if content == "":
         raise ValueError("content must not be empty.")
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     before = read_utf8_text_file(target, relative_path)

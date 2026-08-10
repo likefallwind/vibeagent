@@ -73,7 +73,7 @@ def build_regex_replacement(
     if max_replacements < 1:
         raise ValueError("max_replacements must be at least 1.")
 
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     before = read_utf8_text_file(target, relative_path)

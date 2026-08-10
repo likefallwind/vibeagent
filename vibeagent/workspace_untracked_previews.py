@@ -54,7 +54,7 @@ def read_untracked_file_previews(
                 }
             )
             continue
-        target = resolve_inside_run(workspace.root, relative_path)
+        target = resolve_inside_run(workspace, relative_path)
         if not target.is_file():
             previews.append(
                 {

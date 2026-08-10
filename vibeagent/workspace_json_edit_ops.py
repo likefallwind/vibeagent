@@ -77,7 +77,7 @@ def build_json_set(
     value: object,
     create_missing: bool = False,
 ) -> tuple[Path, str, str]:
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     before = read_utf8_text_file(target, relative_path)
@@ -98,7 +98,7 @@ def build_json_remove(
     relative_path: str,
     pointer: str,
 ) -> tuple[Path, str, str]:
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     before = read_utf8_text_file(target, relative_path)
@@ -124,7 +124,7 @@ def build_json_patch(
     if len(operations) > 50:
         raise ValueError("json_patch supports at most 50 operations.")
 
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     before = read_utf8_text_file(target, relative_path)

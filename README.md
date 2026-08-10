@@ -162,6 +162,8 @@ python -m vibeagent --compact <run-id> --compact-max-output-chars 0 --compact-ma
 python -m vibeagent --cwd ../my-project --max-iterations 8 --command-timeout-ms 120000 --max-output-tokens 8192 --model-retries 2 --model-retry-delay-ms 500 --model-timeout-ms 120000 "run the release checks"
 python -m vibeagent --json --cwd ../my-project "run the release checks"
 python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
+python -m vibeagent --cwd ../my-project --add-dir ../shared-lib "update both codebases"
+python -m vibeagent --cwd ../my-project --add-dir ../shared-lib --add-dir ../schemas
 printf '{"type":"user","text":"inspect the change"}\n' | python -m vibeagent --input-format stream-json -
 printf '{"prompt":"inspect the change"}\n' | python -m vibeagent --input-format json -
 python -m vibeagent --append-system-prompt "Prefer focused tests before broad suites." "inspect the change"
@@ -195,6 +197,20 @@ fail before the provider call. Session events retain the original task and
 bounded file metadata, never injected text or image bytes; image payloads are
 removed from model history after the first response while text context survives
 compaction.
+
+`--add-dir PATH` grants an interactive or one-shot coding session access to an
+additional working directory and can be repeated. Relative values are resolved
+from the directory where VibeAgent was invoked, before `--cwd` changes the main
+project. The model receives the normalized directory list and uses absolute
+paths for file reads, edits, writes, search, repository maps, code lookup, and
+command `cwd`; unlisted paths remain outside the workspace. Each additional
+root protects its own `.git`, `.vibeagent`, sensitive files, and symlink escape
+boundary. When command sandboxing is active, additional roots are mounted with
+the same write access as the main project. Additional directories grant file
+access only: instructions, hooks, agents, MCP, permissions, sandbox settings,
+session state, dedicated Git tools, and project snapshots still come from the
+main project. `--add-dir` is not accepted in chat mode, with local inspection
+flags, or together with `--worktree`.
 
 `--provider`, `--model MODEL` / `--model-name MODEL`, `--base-url`, `--api-key`,
 `--max-iterations`, `--command-timeout-ms`, `--max-output-tokens`,

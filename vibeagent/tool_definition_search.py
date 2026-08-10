@@ -11,7 +11,7 @@ SEARCH_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "query": {"type": "string"},
-                "path": {"type": "string", "description": "Optional project-relative file or directory to search."},
+                "path": {"type": "string", "description": "Optional workspace file or directory to search."},
                 "file_glob": {
                     "type": "string",
                     "description": "Optional file glob filter, such as *.py or src/**/*.py.",
@@ -47,7 +47,7 @@ SEARCH_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "query": {"type": "string"},
-                "path": {"type": "string", "description": "Optional project-relative file or directory to search."},
+                "path": {"type": "string", "description": "Optional workspace file or directory to search."},
                 "file_glob": {
                     "type": "string",
                     "description": "Optional file glob filter, such as *.py or src/**/*.py.",
@@ -83,8 +83,8 @@ SEARCH_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "Filename or project-relative path fragment to match."},
-                "path": {"type": "string", "description": "Optional project-relative file or directory scope to search."},
+                "query": {"type": "string", "description": "Filename or workspace path fragment to match."},
+                "path": {"type": "string", "description": "Optional workspace file or directory scope to search."},
                 "regex": {"type": "boolean", "description": "Treat query as a regular expression. Defaults to false."},
                 "case_sensitive": {"type": "boolean", "description": "Whether matching is case-sensitive. Defaults to false."},
                 "include_dirs": {"type": "boolean", "description": "Whether directory matches should be returned with trailing slashes. Defaults to false."},

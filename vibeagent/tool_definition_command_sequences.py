@@ -8,12 +8,12 @@ from .tool_definition_output_schema import COMMAND_OUTPUT_EXTRACTION_PROPERTIES
 COMMAND_SEQUENCE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "command_check",
-        "description": "Preflight one proposed shell command without running it: validate project-relative cwd, dangerous-command blocking, and main executable availability.",
+        "description": "Preflight one proposed shell command without running it: validate workspace cwd, dangerous-command blocking, and main executable availability.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "command": {"type": "string", "description": "Shell command to preflight without executing."},
-                "cwd": {"type": "string", "description": "Optional project-relative directory to run from. Defaults to project root."},
+                "cwd": {"type": "string", "description": "Optional workspace directory to run from. Defaults to project root."},
             },
             "required": ["command"],
             "additionalProperties": False,
@@ -34,7 +34,7 @@ COMMAND_SEQUENCE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "properties": {
                             "command": {"type": "string", "description": "Shell command to preflight without executing."},
                             "description": {"type": "string", "description": "Short human-readable reason for this command."},
-                            "cwd": {"type": "string", "description": "Optional project-relative directory to run from. Defaults to project root."},
+                            "cwd": {"type": "string", "description": "Optional workspace directory to run from. Defaults to project root."},
                             "timeout_ms": {
                                 "type": "integer",
                                 "minimum": 100,
@@ -73,7 +73,7 @@ COMMAND_SEQUENCE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "properties": {
                             "command": {"type": "string", "description": "Shell command to run."},
                             "description": {"type": "string", "description": "Short human-readable reason for this command."},
-                            "cwd": {"type": "string", "description": "Optional project-relative directory to run from. Defaults to project root."},
+                            "cwd": {"type": "string", "description": "Optional workspace directory to run from. Defaults to project root."},
                             "timeout_ms": {
                                 "type": "integer",
                                 "minimum": 100,

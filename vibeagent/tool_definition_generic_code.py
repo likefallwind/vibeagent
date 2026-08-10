@@ -11,7 +11,7 @@ GENERIC_CODE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "symbol": {"type": "string", "description": "Symbol or single-line literal to search for."},
-                "path": {"type": "string", "description": "Optional project-relative source file or directory scope."},
+                "path": {"type": "string", "description": "Optional workspace source file or directory scope."},
                 "max_matches": {
                     "type": "integer",
                     "minimum": 1,
@@ -30,7 +30,7 @@ GENERIC_CODE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "symbol": {"type": "string", "description": "Symbol or single-line literal to search for."},
-                "path": {"type": "string", "description": "Optional project-relative source file or directory scope."},
+                "path": {"type": "string", "description": "Optional workspace source file or directory scope."},
                 "max_matches": {
                     "type": "integer",
                     "minimum": 1,
@@ -61,7 +61,7 @@ GENERIC_CODE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "symbol": {"type": "string", "description": "Exact symbol name to inspect."},
-                "path": {"type": "string", "description": "Optional project-relative source file or directory scope."},
+                "path": {"type": "string", "description": "Optional workspace source file or directory scope."},
                 "max_matches": {
                     "type": "integer",
                     "minimum": 1,
@@ -87,7 +87,7 @@ GENERIC_CODE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "properties": {
                 "symbol": {"type": "string", "description": "Symbol or single-line literal to rename."},
                 "new_name": {"type": "string", "description": "Replacement symbol or single-line literal."},
-                "path": {"type": "string", "description": "Optional project-relative source file or directory scope."},
+                "path": {"type": "string", "description": "Optional workspace source file or directory scope."},
                 "max_files": {
                     "type": "integer",
                     "minimum": 1,
@@ -113,7 +113,7 @@ GENERIC_CODE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "properties": {
                 "symbol": {"type": "string", "description": "Symbol or single-line literal to rename."},
                 "new_name": {"type": "string", "description": "Replacement symbol or single-line literal."},
-                "path": {"type": "string", "description": "Optional project-relative source file or directory scope."},
+                "path": {"type": "string", "description": "Optional workspace source file or directory scope."},
                 "max_files": {
                     "type": "integer",
                     "minimum": 1,

@@ -59,7 +59,7 @@ def preview_code_rename(
     errors: list[str] = []
     remaining = max_replacements
     for relative in files[:max_files]:
-        target = resolve_inside_run(workspace.root, relative)
+        target = resolve_inside_run(workspace, relative)
         language = code_language_for_path(Path(relative))
         try:
             content = read_utf8_text_file(target, relative)
@@ -128,7 +128,7 @@ def apply_code_rename(
     prepared: list[tuple[Path, str, str, str]] = []
     for file in list(preview["files"]):
         relative = str(file["path"])
-        target = resolve_mutation_path(workspace.root, relative)
+        target = resolve_mutation_path(workspace, relative)
         before = read_utf8_text_file(target, relative)
         after = apply_code_rename_replacements(before, list(file["replacements"]))
         prepared.append((target, relative, before, after))

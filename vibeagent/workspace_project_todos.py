@@ -26,7 +26,7 @@ def read_project_todos(
     todos: list[dict[str, object]] = []
     total = 0
     for relative in scanned_files:
-        path = resolve_inside_run(workspace.root, relative)
+        path = resolve_inside_run(workspace, relative)
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
         except (OSError, UnicodeDecodeError):

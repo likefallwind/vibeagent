@@ -29,7 +29,7 @@ from .workspace_related_test_candidates import (
     related_test_candidates_for_target,
     source_module_stem,
 )
-from .workspace_resolve import resolve_inside_run
+from .workspace_resolve import display_workspace_path, resolve_inside_run, workspace_root_for_path
 
 
 def find_related_tests(
@@ -137,10 +137,11 @@ def normalize_related_test_targets(workspace: RunWorkspace, paths: list[str] | N
         for path in paths:
             if not isinstance(path, str) or not path.strip():
                 raise ValueError("paths must contain non-empty project-relative paths.")
-            resolved = resolve_inside_run(workspace.root, path.strip())
-            if should_ignore_path(workspace.root, resolved):
+            resolved = resolve_inside_run(workspace, path.strip())
+            access_root = workspace_root_for_path(workspace, resolved)
+            if access_root is None or should_ignore_path(access_root, resolved):
                 continue
-            targets.append(resolved.relative_to(workspace.root).as_posix())
+            targets.append(display_workspace_path(workspace, resolved))
         return sorted(dict.fromkeys(targets))[:max_paths]
 
     from .workspace_review_ops import read_git_changes

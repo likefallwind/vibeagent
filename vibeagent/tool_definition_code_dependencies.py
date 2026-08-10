@@ -10,7 +10,7 @@ CODE_DEPENDENCY_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "Optional project-relative Python file or directory scope."},
+                "path": {"type": "string", "description": "Optional workspace Python file or directory scope."},
                 "max_files": {
                     "type": "integer",
                     "minimum": 1,
@@ -33,7 +33,7 @@ CODE_DEPENDENCY_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "Optional project-relative source file or directory scope."},
+                "path": {"type": "string", "description": "Optional workspace source file or directory scope."},
                 "max_files": {
                     "type": "integer",
                     "minimum": 1,

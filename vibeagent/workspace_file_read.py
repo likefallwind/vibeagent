@@ -59,7 +59,7 @@ def read_project_file_result(
         raise ValueError("max_bytes must be at least 1.")
     if max_bytes > 200_000:
         raise ValueError("max_bytes must be at most 200000.")
-    target = resolve_inside_run(workspace.root, relative_path)
+    target = resolve_inside_run(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     content = read_utf8_text_file(target, relative_path)
@@ -113,7 +113,7 @@ def read_project_file_result(
 
 
 def read_project_file_info(workspace: RunWorkspace, relative_path: str) -> dict[str, object]:
-    target = resolve_inside_run(workspace.root, relative_path)
+    target = resolve_inside_run(workspace, relative_path)
     if not target.exists():
         return {
             "path": relative_path,
@@ -147,7 +147,7 @@ def read_project_file_info(workspace: RunWorkspace, relative_path: str) -> dict[
 
 
 def read_project_image_info(workspace: RunWorkspace, relative_path: str) -> dict[str, object]:
-    target = resolve_inside_run(workspace.root, relative_path)
+    target = resolve_inside_run(workspace, relative_path)
     if not target.exists():
         return {
             "path": relative_path,
@@ -211,7 +211,7 @@ def read_project_image_payload(workspace: RunWorkspace, relative_path: str, max_
     size_bytes = int(info["size_bytes"])
     if size_bytes > max_bytes:
         raise ValueError(f"Image exceeds max_bytes ({size_bytes} > {max_bytes}): {relative_path}")
-    target = resolve_inside_run(workspace.root, relative_path)
+    target = resolve_inside_run(workspace, relative_path)
     with target.open("rb") as handle:
         data = handle.read(max_bytes + 1)
     if len(data) > max_bytes:

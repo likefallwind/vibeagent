@@ -160,6 +160,30 @@ class CliArgsValidationTests(unittest.TestCase):
         self.assertIsNone(cli_module.validate_cli_args(text_args))
         self.assertIsNone(cli_module.validate_cli_args(file_args))
 
+    def test_cli_validates_additional_directory_session_scope(self) -> None:
+        interactive_args = cli_module.parse_args(["--add-dir", "../shared"])
+        one_shot_args = cli_module.parse_args(["--add-dir", "../shared", "inspect"])
+        empty_args = cli_module.parse_args(["--add-dir", " ", "inspect"])
+        chat_args = cli_module.parse_args(["--chat", "--add-dir", "../shared", "explain"])
+        local_args = cli_module.parse_args(["--add-dir", "../shared", "--tools"])
+        worktree_args = cli_module.parse_args(["--add-dir", "../shared", "--worktree", "inspect"])
+
+        self.assertIsNone(cli_module.validate_cli_args(interactive_args))
+        self.assertIsNone(cli_module.validate_cli_args(one_shot_args))
+        self.assertEqual(cli_module.validate_cli_args(empty_args), "--add-dir path cannot be empty.")
+        self.assertEqual(
+            cli_module.validate_cli_args(chat_args),
+            "--add-dir requires an interactive or one-shot coding session.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(local_args),
+            "--add-dir requires an interactive or one-shot coding session.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(worktree_args),
+            "--add-dir cannot be combined with --worktree.",
+        )
+
     def test_cli_rejects_mcp_config_without_one_shot_task(self) -> None:
         args = cli_module.parse_args(["--mcp-config", "extra.mcp.json", "--tools"])
         strict_args = cli_module.parse_args(["--strict-mcp-config", "--tools"])

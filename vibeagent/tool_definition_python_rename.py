@@ -12,7 +12,7 @@ PYTHON_RENAME_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "properties": {
                 "symbol": {"type": "string", "description": "Simple Python identifier to rename."},
                 "new_name": {"type": "string", "description": "Replacement simple Python identifier."},
-                "path": {"type": "string", "description": "Optional project-relative Python file or directory scope."},
+                "path": {"type": "string", "description": "Optional workspace Python file or directory scope."},
                 "max_files": {
                     "type": "integer",
                     "minimum": 1,
@@ -38,7 +38,7 @@ PYTHON_RENAME_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "properties": {
                 "symbol": {"type": "string", "description": "Simple Python identifier to rename."},
                 "new_name": {"type": "string", "description": "Replacement simple Python identifier."},
-                "path": {"type": "string", "description": "Optional project-relative Python file or directory scope."},
+                "path": {"type": "string", "description": "Optional workspace Python file or directory scope."},
                 "max_files": {
                     "type": "integer",
                     "minimum": 1,

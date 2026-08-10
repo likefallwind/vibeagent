@@ -27,6 +27,7 @@ def build_one_shot_agent_kwargs(
     prior_context: str | None,
     system_prompt: str | None,
     append_system_prompt: str | None,
+    additional_directories: tuple[Path, ...] = (),
     task_metadata: dict[str, object] | None,
     workspace: RunWorkspace | None = None,
     peer_runtime: PeerSessionRuntime | None = None,
@@ -53,6 +54,8 @@ def build_one_shot_agent_kwargs(
         "append_system_prompt": append_system_prompt,
         "task_metadata": task_metadata,
     }
+    if additional_directories:
+        kwargs["additional_directories"] = additional_directories
     if workspace is not None:
         kwargs["workspace"] = workspace
     if peer_runtime is not None:

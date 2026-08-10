@@ -413,6 +413,18 @@ class CliOneShotInputTests(unittest.TestCase):
         self.assertEqual(kwargs["system_prompt"], "Replacement from file.")
         self.assertEqual(kwargs["append_system_prompt"], "Append inline.\n\nStructured system.")
 
+    def test_build_one_shot_kwargs_resolves_additional_directories_from_invocation_directory(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-add-dir-") as base:
+            root = Path(base)
+            shared = root / "shared"
+            shared.mkdir()
+            args = cli_module.parse_args(["--cwd", str(root / "project"), "--add-dir", "shared", "inspect"])
+
+            with patch("vibeagent.cli_one_shot_input.Path.cwd", return_value=root):
+                kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertEqual(kwargs["additional_directories"], (shared.resolve(),))
+
     def test_build_one_shot_kwargs_from_args_includes_mcp_config_paths(self) -> None:
         args = cli_module.parse_args(["--mcp-config", "extra.mcp.json", "inspect"])
 

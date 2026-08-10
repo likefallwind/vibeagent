@@ -89,6 +89,7 @@ def run_interactive_loop(
     initial_agent: str | None = None,
     initial_system_prompt: str | None = None,
     initial_append_system_prompt: str | None = None,
+    initial_additional_directories: tuple[Path, ...] = (),
 ) -> int:
     # Entry loop: parse local commands first, otherwise delegate to the agent.
     print(f"VibeAgent {__version__}")
@@ -156,6 +157,7 @@ def run_interactive_loop(
                 task_source_run_id=resume_run_id,
                 peer_runtime=peer_runtime,
                 agent=initial_agent,
+                additional_directories=initial_additional_directories,
                 **panel_kwargs,
             )
         finally:

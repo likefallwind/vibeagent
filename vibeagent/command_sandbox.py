@@ -138,6 +138,8 @@ def prepare_command_launch(
         workspace.root.as_posix(),
         workspace.root.as_posix(),
     ]
+    for path in workspace.additional_roots:
+        argv.extend(("--bind", path.as_posix(), path.as_posix()))
     for path in external_allow_write:
         argv.extend(("--bind", path.as_posix(), path.as_posix()))
     for path in config.deny_write:

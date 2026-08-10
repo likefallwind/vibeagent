@@ -9,7 +9,7 @@ from .workspace_resolve import resolve_inside_run
 
 
 def read_python_symbol_outline(workspace: RunWorkspace, relative_path: str, max_symbols: int = 200) -> dict[str, object]:
-    target = resolve_inside_run(workspace.root, relative_path)
+    target = resolve_inside_run(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     if target.suffix != ".py":

@@ -78,6 +78,39 @@ class CliInteractiveStateTests(unittest.TestCase):
         self.assertEqual(run_agent.call_args.kwargs["system_prompt"], "System from file.")
         self.assertEqual(run_agent.call_args.kwargs["append_system_prompt"], "Append from file.")
 
+    def test_main_interactive_additional_directory_is_resolved_before_changing_cwd(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            project = root / "project"
+            shared = root / "shared"
+            project.mkdir()
+            shared.mkdir()
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=project,
+                run_id="test-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+            previous_cwd = Path.cwd()
+            os.chdir(root)
+            try:
+                with (
+                    patch("builtins.input", side_effect=["inspect shared", "/exit"]),
+                    patch("vibeagent.cli.create_chat_client", return_value=object()),
+                    patch("vibeagent.cli.run_agent", run_agent),
+                    redirect_stdout(io.StringIO()),
+                ):
+                    exit_code = main(["--cwd", str(project), "--add-dir", "shared"])
+            finally:
+                os.chdir(previous_cwd)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.kwargs["additional_directories"], (shared.resolve(),))
+
     def test_main_updates_approval_policy_and_passes_handler_to_agent(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             result = AgentResult(

@@ -6,7 +6,7 @@ from pathlib import Path
 from .workspace_code_intel import build_simple_diff
 from .workspace_core import RunWorkspace
 from .workspace_file_read import read_utf8_text_file
-from .workspace_resolve import resolve_mutation_path
+from .workspace_resolve import display_workspace_path, resolve_mutation_path
 
 
 def delete_project_file(workspace: RunWorkspace, relative_path: str) -> tuple[Path, str]:
@@ -47,7 +47,7 @@ def build_delete_files(workspace: RunWorkspace, relative_paths: list[str]) -> tu
 
 
 def build_delete_file(workspace: RunWorkspace, relative_path: str) -> tuple[Path, str]:
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     before = read_utf8_text_file(target, relative_path)
@@ -100,16 +100,16 @@ def prepare_project_file_transfers(workspace: RunWorkspace, transfers: list[dict
 
     for source, destination in prepared:
         if destination in seen_sources:
-            raise ValueError(f"Destination overlaps another source file: {destination.relative_to(workspace.root).as_posix()}")
+            raise ValueError(f"Destination overlaps another source file: {display_workspace_path(workspace, destination)}")
         if source in seen_destinations:
-            raise ValueError(f"Source overlaps another destination file: {source.relative_to(workspace.root).as_posix()}")
+            raise ValueError(f"Source overlaps another destination file: {display_workspace_path(workspace, source)}")
         for parent in destination.parents:
             if parent == workspace.root:
                 break
             if parent in seen_destinations:
-                raise ValueError(f"Destination parent overlaps another destination file: {destination.relative_to(workspace.root).as_posix()}")
+                raise ValueError(f"Destination parent overlaps another destination file: {display_workspace_path(workspace, destination)}")
             if parent in seen_sources:
-                raise ValueError(f"Destination parent overlaps another source file: {destination.relative_to(workspace.root).as_posix()}")
+                raise ValueError(f"Destination parent overlaps another source file: {display_workspace_path(workspace, destination)}")
 
     return prepared
 
@@ -159,14 +159,14 @@ def prepare_project_file_copies(workspace: RunWorkspace, transfers: list[dict[st
             if parent == workspace.root:
                 break
             if parent in seen_destinations:
-                raise ValueError(f"Destination parent overlaps another destination file: {destination.relative_to(workspace.root).as_posix()}")
+                raise ValueError(f"Destination parent overlaps another destination file: {display_workspace_path(workspace, destination)}")
 
     return prepared
 
 
 def prepare_project_file_transfer(workspace: RunWorkspace, source_path: str, destination_path: str) -> tuple[Path, Path]:
-    source = resolve_mutation_path(workspace.root, source_path)
-    destination = resolve_mutation_path(workspace.root, destination_path)
+    source = resolve_mutation_path(workspace, source_path)
+    destination = resolve_mutation_path(workspace, destination_path)
     if source == destination:
         raise ValueError("Source and destination must be different.")
     if not source.is_file():

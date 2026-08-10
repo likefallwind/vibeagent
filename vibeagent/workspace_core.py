@@ -20,6 +20,7 @@ class RunWorkspace:
     root_history: tuple[Path, ...] = ()
     memory_scope: str | None = None
     memory_namespace: str | None = None
+    additional_roots: tuple[Path, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,7 @@ def create_run_workspace(
     run_id: str | None = None,
     mcp_config_paths: tuple[Path, ...] = (),
     strict_mcp_config: bool = False,
+    additional_roots: tuple[Path, ...] = (),
 ) -> RunWorkspace:
     # Project mode: work in the caller's directory and store task logs under .vibeagent/sessions/.
     base = Path(base_dir) if base_dir is not None else Path.cwd()
@@ -85,6 +87,7 @@ def create_run_workspace(
         project_config_trusted=is_project_permissions_trusted(project_root),
         mcp_config_paths=tuple(_absolute_path(project_root, path) for path in mcp_config_paths),
         strict_mcp_config=strict_mcp_config,
+        additional_roots=normalize_additional_roots(project_root, additional_roots),
     )
 
 
@@ -93,6 +96,7 @@ def create_local_workspace(
     run_id: str,
     mcp_config_paths: tuple[Path, ...] = (),
     strict_mcp_config: bool = False,
+    additional_roots: tuple[Path, ...] = (),
 ) -> RunWorkspace:
     from .project_trust import is_project_permissions_trusted
 
@@ -104,7 +108,22 @@ def create_local_workspace(
         project_config_trusted=is_project_permissions_trusted(project_root),
         mcp_config_paths=tuple(_absolute_path(project_root, path) for path in mcp_config_paths),
         strict_mcp_config=strict_mcp_config,
+        additional_roots=normalize_additional_roots(project_root, additional_roots),
     )
+
+
+def normalize_additional_roots(project_root: Path, roots: tuple[Path, ...]) -> tuple[Path, ...]:
+    normalized: list[Path] = []
+    seen = {project_root}
+    for root in roots:
+        resolved = root.resolve(strict=True)
+        if not resolved.is_dir():
+            raise ValueError(f"Additional workspace path is not a directory: {root}")
+        if resolved in seen or project_root in resolved.parents:
+            continue
+        seen.add(resolved)
+        normalized.append(resolved)
+    return tuple(normalized)
 
 
 def make_run_id() -> str:

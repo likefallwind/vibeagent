@@ -24,7 +24,7 @@ READING_INSPECTION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "image_info",
-        "description": "Inspect project-relative PNG, JPEG, GIF, or WebP image files without reading full binary payload. Returns format, byte size, and dimensions.",
+        "description": "Inspect workspace PNG, JPEG, GIF, or WebP image files without reading full binary payload. Returns format, byte size, and dimensions.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -42,7 +42,7 @@ READING_INSPECTION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "view_image",
-        "description": "Send one bounded project-relative PNG, JPEG, GIF, or WebP image to the model for visual inspection. Image bytes are not written to session logs.",
+        "description": "Send one bounded workspace PNG, JPEG, GIF, or WebP image to the model for visual inspection. Image bytes are not written to session logs.",
         "input_schema": {
             "type": "object",
             "properties": {

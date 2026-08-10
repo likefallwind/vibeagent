@@ -23,7 +23,7 @@ def read_project_file_tail_result(
         raise ValueError("max_bytes must be at least 1000.")
     if max_bytes > 200_000:
         raise ValueError("max_bytes must be at most 200000.")
-    target = resolve_inside_run(workspace.root, relative_path)
+    target = resolve_inside_run(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
 
@@ -67,7 +67,7 @@ def read_project_file_context_result(
         raise ValueError("max_bytes must be at least 1000.")
     if max_bytes > 200_000:
         raise ValueError("max_bytes must be at most 200000.")
-    target = resolve_inside_run(workspace.root, relative_path)
+    target = resolve_inside_run(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
 

@@ -43,7 +43,7 @@ def build_replace_lines(
     if end_line < start_line:
         raise ValueError("end_line must be greater than or equal to start_line.")
 
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     before = read_utf8_text_file(target, relative_path)
@@ -91,7 +91,7 @@ def build_insert_lines(
     if content == "":
         raise ValueError("content must not be empty.")
 
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     before = read_utf8_text_file(target, relative_path)

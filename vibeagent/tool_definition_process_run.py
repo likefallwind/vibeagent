@@ -21,7 +21,7 @@ PROCESS_RUN_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
                 "cwd": {
                     "type": "string",
-                    "description": "Optional project-relative directory to run in. Defaults to the project root.",
+                    "description": "Optional workspace directory to run in. Defaults to the project root.",
                 },
                 "max_output_chars": {
                     "type": "integer",
@@ -44,7 +44,7 @@ PROCESS_RUN_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "command": {"type": "string"},
                 "cwd": {
                     "type": "string",
-                    "description": "Optional project-relative directory to run in. Defaults to the project root.",
+                    "description": "Optional workspace directory to run in. Defaults to the project root.",
                 },
             },
             "required": ["command"],
@@ -60,7 +60,7 @@ PROCESS_RUN_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "command": {"type": "string"},
                 "cwd": {
                     "type": "string",
-                    "description": "Optional project-relative directory to run in. Defaults to the project root.",
+                    "description": "Optional workspace directory to run in. Defaults to the project root.",
                 },
                 "max_output_chars": {
                     "type": "integer",

@@ -85,7 +85,7 @@ def search_project_result(
     for relative in list_search_files(workspace, relative_path):
         if not search_file_matches_glob(relative, normalized_file_glob):
             continue
-        path = resolve_inside_run(workspace.root, relative)
+        path = resolve_inside_run(workspace, relative)
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
         except UnicodeDecodeError:
@@ -195,7 +195,7 @@ def search_project_contexts_result(
     for relative in list_search_files(workspace, relative_path):
         if not search_file_matches_glob(relative, normalized_file_glob):
             continue
-        path = resolve_inside_run(workspace.root, relative)
+        path = resolve_inside_run(workspace, relative)
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
         except UnicodeDecodeError:

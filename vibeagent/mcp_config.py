@@ -309,7 +309,7 @@ def _parse_stdio_server_config(
 
 def _resolve_mcp_cwd(workspace: RunWorkspace, cwd: str, plugin_root: Path | None) -> Path:
     if plugin_root is None:
-        return resolve_inside_run(workspace.root, cwd)
+        return resolve_inside_run(workspace, cwd)
     candidate = Path(cwd)
     resolved = candidate.resolve() if candidate.is_absolute() else (plugin_root / candidate).resolve()
     project_root = workspace.root.resolve()

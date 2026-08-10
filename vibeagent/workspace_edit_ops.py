@@ -110,7 +110,7 @@ def set_project_file_executable(workspace: RunWorkspace, relative_path: str, exe
 
 
 def preview_set_project_file_executable(workspace: RunWorkspace, relative_path: str, executable: bool = True) -> tuple[Path, int, int]:
-    target = resolve_mutation_path(workspace.root, relative_path)
+    target = resolve_mutation_path(workspace, relative_path)
     if not target.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     before = stat_module.S_IMODE(target.stat().st_mode)

@@ -48,11 +48,11 @@ READING_SOURCE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "python_check",
-        "description": "Check Python files for syntax errors without executing code, optionally scoped to one project-relative file or directory.",
+        "description": "Check Python files for syntax errors without executing code, optionally scoped to one workspace file or directory.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "Optional project-relative Python file or directory scope."},
+                "path": {"type": "string", "description": "Optional workspace Python file or directory scope."},
                 "max_files": {
                     "type": "integer",
                     "minimum": 1,
@@ -65,11 +65,11 @@ READING_SOURCE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "config_check",
-        "description": "Check JSON and TOML config files for syntax errors without executing project code, optionally scoped to one project-relative file or directory.",
+        "description": "Check JSON and TOML config files for syntax errors without executing project code, optionally scoped to one workspace file or directory.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "Optional project-relative JSON/TOML file or directory scope."},
+                "path": {"type": "string", "description": "Optional workspace JSON/TOML file or directory scope."},
                 "max_files": {
                     "type": "integer",
                     "minimum": 1,
