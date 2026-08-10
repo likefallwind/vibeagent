@@ -7,6 +7,10 @@ DIRECT_FAILURE_KINDS = {
 }
 
 OK_FLAG_FAILURE_KINDS = {
+    "memory_list",
+    "memory_read",
+    "check_memory_write",
+    "memory_write",
     "enter_worktree",
     "exit_worktree",
     "delegate_task",

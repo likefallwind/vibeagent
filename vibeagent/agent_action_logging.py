@@ -42,6 +42,10 @@ def _target_process_id(action: object) -> object:
 
 
 ACTION_LOG_SPECS: dict[str, tuple[str, ActionTargetBuilder]] = {
+    "memory_list": ("listing memory", _target_none),
+    "memory_read": ("reading memory", _target_action),
+    "check_memory_write": ("checking memory write", _target_action),
+    "memory_write": ("writing memory", _target_action),
     "task_create": ("creating task", _target_action),
     "task_get": ("reading task", _target_action),
     "task_list": ("listing tasks", _target_none),

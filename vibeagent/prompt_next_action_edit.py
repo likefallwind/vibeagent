@@ -4,6 +4,7 @@ from .types import Observation
 
 
 EDIT_CHECK_NEXT_ACTION_KINDS = {
+    "check_memory_write",
     "check_patch",
     "check_patches",
     "check_regex_replace",
@@ -37,6 +38,7 @@ EDIT_CHECK_NEXT_ACTION_KINDS = {
 }
 
 EDIT_APPLY_NEXT_ACTION_KINDS = {
+    "memory_write",
     "Edit",
     "MultiEdit",
     "NotebookEdit",
@@ -79,6 +81,7 @@ EDIT_NEXT_ACTION_KINDS = EDIT_CHECK_NEXT_ACTION_KINDS | EDIT_APPLY_NEXT_ACTION_K
 
 
 _CHECK_TO_APPLY_TOOL = {
+    "check_memory_write": "memory_write",
     "check_patch": "patch_file",
     "check_patches": "patch_files",
     "check_write_file": "write_file",
@@ -195,6 +198,11 @@ def _edit_check_next_action_instruction(base: str, latest: Observation) -> str:
     target = _edit_target_label(latest)
     apply_tool = _CHECK_TO_APPLY_TOOL.get(latest.kind, latest.kind.removeprefix("check_"))
     if getattr(latest, "ok", False):
+        if latest.kind == "check_memory_write":
+            return (
+                f"{base} Memory write dry-run succeeded for {target}. Review the preview diff, then apply "
+                "memory_write only if it is concise, durable, and contains no sensitive values."
+            )
         return (
             f"{base} File change dry-run succeeded for {target}. Review the preview diff or validation result; "
             f"apply {apply_tool} only if it matches the request, otherwise inspect the source context and adjust the edit."
@@ -212,6 +220,8 @@ def _edit_apply_next_action_instruction(base: str, latest: Observation) -> str:
             f"{base} File change failed for {target}. Inspect its message and source context, "
             "then choose a corrected edit before continuing."
         )
+    if latest.kind == "memory_write":
+        return f"{base} Project memory was updated for {target}. Continue the current task or answer if it is complete."
     return (
         f"{base} File change applied for {target}. Inspect the resulting worktree with git_diff or review_changes, "
         "use related_tests or focused_test_commands for changed code paths, run relevant verification, "

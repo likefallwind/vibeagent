@@ -75,6 +75,7 @@ PROCESS_STATE_OBSERVATION_KINDS = {
 }
 
 FILE_PREVIEW_KINDS = {
+    "check_memory_write",
     "check_write_file",
     "check_write_files",
     "check_edit_file",
@@ -110,6 +111,7 @@ FILE_PREVIEW_KINDS = {
 }
 
 FILE_MUTATION_OBSERVATION_KINDS = {
+    "memory_write",
     "write_file",
     "write_files",
     "edit_file",

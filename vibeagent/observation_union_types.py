@@ -87,6 +87,12 @@ from .observation_notebook_types import (
     NotebookReadObservation,
 )
 from .observation_mcp_types import McpCallObservation, McpServersObservation, McpToolsObservation
+from .observation_memory_types import (
+    CheckMemoryWriteObservation,
+    MemoryListObservation,
+    MemoryReadObservation,
+    MemoryWriteObservation,
+)
 from .observation_process_types import (
     CheckRunCommandsObservation,
     CheckStopAllProcessesObservation,
@@ -204,6 +210,10 @@ Observation: TypeAlias = (
     | McpServersObservation
     | McpToolsObservation
     | McpCallObservation
+    | MemoryListObservation
+    | MemoryReadObservation
+    | MemoryWriteObservation
+    | CheckMemoryWriteObservation
     | PythonDependenciesObservation
     | CodeDependenciesObservation
     | CodeReferencesObservation

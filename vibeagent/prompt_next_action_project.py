@@ -48,6 +48,8 @@ PROJECT_NEXT_ACTION_KINDS = {
     "mcp_servers",
     "mcp_tools",
     "mcp_call",
+    "memory_list",
+    "memory_read",
 }
 
 
@@ -236,6 +238,14 @@ def _environment_info_next_action_instruction(base: str, latest: Observation) ->
 
 
 def project_next_action_instruction(base: str, latest: Observation) -> str:
+    if latest.kind == "memory_list":
+        if not getattr(latest, "ok", False):
+            return f"{base} Project memory could not be listed. Inspect the reported storage error before retrying."
+        return f"{base} Read a relevant topic with memory_read, update memory through its preview flow, or continue the task."
+    if latest.kind == "memory_read":
+        if not getattr(latest, "ok", False):
+            return f"{base} Project memory could not be read. Inspect the reported storage error before retrying."
+        return f"{base} Use the recalled notes as historical context and continue the current task."
     if latest.kind == "mcp_servers":
         if not getattr(latest, "ok", False):
             return f"{base} MCP configuration could not be read. Fix .mcp.json or continue without MCP."

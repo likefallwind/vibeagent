@@ -2,6 +2,7 @@ from __future__ import annotations
 
 
 PREVIEW_KIND_BY_ACTION_TYPE = {
+    "memory_write": "check_memory_write",
     "write_file": "check_write_file",
     "write_files": "check_write_files",
     "edit_file": "check_edit_file",

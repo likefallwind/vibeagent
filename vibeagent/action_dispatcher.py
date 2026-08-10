@@ -9,6 +9,7 @@ from .final_review_action_executor import execute_final_review_action
 from .git_action_executor import execute_git_action
 from .json_action_executor import execute_json_action
 from .mcp_action_executor import execute_mcp_action
+from .memory_action_executor import execute_memory_action
 from .project_context_action_executor import execute_project_context_action
 from .read_action_executor import execute_read_action
 from .runtime_action_executor import execute_runtime_action
@@ -54,6 +55,10 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
     mcp_observation = execute_mcp_action(workspace, action)
     if mcp_observation is not None:
         return mcp_observation
+
+    memory_observation = execute_memory_action(workspace, action)
+    if memory_observation is not None:
+        return memory_observation
 
     final_review_observation = execute_final_review_action(workspace, action)
     if final_review_observation is not None:

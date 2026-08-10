@@ -42,6 +42,17 @@ def approval_preview_key(value: object) -> tuple[Any, ...]:
 
 
 def edit_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
+    if kind in {"memory_write", "check_memory_write"}:
+        content_sha256 = getattr(value, "content_sha256", "")
+        content = getattr(value, "content", None)
+        if not content_sha256 and isinstance(content, str):
+            content_sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        return (
+            "memory_write",
+            getattr(value, "path", ""),
+            content_sha256,
+            getattr(value, "mode", "replace"),
+        )
     if kind in {"edit_file", "check_edit_file"}:
         return (kind.replace("check_", ""), preview_path_attr(value), getattr(value, "old", ""), getattr(value, "new", ""))
     if kind in {"multi_edit_file", "check_multi_edit_file"}:

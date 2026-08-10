@@ -78,13 +78,24 @@ Project defaults can live in `.vibeagent/config.json`:
   "max_output_tokens": 4096,
   "model_retries": 1,
   "model_retry_delay_ms": 250,
-  "model_timeout_ms": 120000
+  "model_timeout_ms": 120000,
+  "auto_memory_enabled": true
 }
 ```
 
 Only non-secret defaults are read from that file. Provider defaults, execution
 limits, and optional cost rates can live there. Keep API keys in environment
 variables or pass a temporary `--api-key` for one command.
+
+Auto memory is enabled by default. VibeAgent stores machine-local Markdown notes
+under the main Git worktree's `.vibeagent/memory/` directory, so linked
+worktrees share one memory without committing it. At session start it loads at
+most the first 200 lines or 25 KB of `MEMORY.md`; topic files are available
+through `memory_list` and `memory_read`. `check_memory_write` previews a bounded
+diff before `memory_write` requests approval. Writes are atomic, reject path
+traversal and symlinks, and redact recognized
+credentials. Set `"auto_memory_enabled": false` in project config or export
+`VIBEAGENT_DISABLE_AUTO_MEMORY=1` to disable startup loading.
 
 Create or update that file from the CLI:
 
@@ -1403,6 +1414,9 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
 - `vibeagent/session_tasks.py`, `vibeagent/session_task_store.py`, and
   `vibeagent/session_task_graph.py`: manage the session-scoped structured task
   graph, atomic persistence, resume inheritance, and dependency invariants.
+- `vibeagent/workspace_memory.py`: manages bounded auto-memory loading and
+  approved atomic Markdown writes in a repository-shared, machine-local runtime
+  directory with path, symlink, size, and credential-redaction guards.
 - `vibeagent/workspace.py`: treats the current directory as the project root,
   creates `.vibeagent/sessions/<session-id>/`, resolves relative file paths,
   rejects path escapes, protects `.git/` and `.vibeagent/`, rejects symlink

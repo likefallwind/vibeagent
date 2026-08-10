@@ -18,6 +18,10 @@ def _described_command_target(action: object) -> str:
 
 
 def build_action_target(action: object) -> str:
+    if isinstance(action, (t.CheckMemoryWriteAction, t.MemoryReadAction, t.MemoryWriteAction)):
+        return action.path
+    if isinstance(action, t.MemoryListAction):
+        return "project memory"
     if isinstance(action, t.EnterWorktreeAction):
         return action.path or action.name or "generated isolated worktree"
     if isinstance(action, t.ExitWorktreeAction):

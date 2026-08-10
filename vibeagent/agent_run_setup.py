@@ -18,6 +18,7 @@ from .workspace_permissions import (
     read_project_permissions,
 )
 from .workspace_sandbox import SandboxConfig, read_workspace_sandbox
+from .workspace_memory import AutoMemorySnapshot, read_auto_memory
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,7 @@ def prepare_agent_run(
         permission_overrides,
     )
     tasks_inherited, task_restore_error = inherit_task_store(current_workspace, task_source_run_id)
+    auto_memory = read_auto_memory(current_workspace)
     messages = build_messages(
         task,
         current_workspace,
@@ -66,9 +68,11 @@ def prepare_agent_run(
         permission_summary=format_permissions_for_prompt(project_permissions),
         system_prompt=system_prompt,
         append_system_prompt=append_system_prompt,
+        auto_memory=auto_memory,
     )
     _append_task_event(current_workspace, task, approval_policy, prior_context, task_metadata)
     _append_task_restore_event(current_workspace, task_source_run_id, tasks_inherited, task_restore_error)
+    _append_memory_event(current_workspace, auto_memory)
     project_hooks = read_project_hooks(current_workspace)
     _append_hooks_event(current_workspace, project_hooks)
     _append_permissions_event(current_workspace, project_permissions)
@@ -150,6 +154,19 @@ def _append_task_restore_event(
             "source_run_id": source_run_id,
             "inherited": inherited,
             "error": error,
+        },
+    )
+
+
+def _append_memory_event(workspace: RunWorkspace, memory: AutoMemorySnapshot) -> None:
+    append_session_event(
+        workspace.session_dir,
+        "auto_memory_loaded",
+        {
+            "enabled": memory.enabled,
+            "bytes": len(memory.content.encode("utf-8")),
+            "truncated": memory.truncated,
+            "error": memory.error,
         },
     )
 

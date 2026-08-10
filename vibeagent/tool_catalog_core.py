@@ -66,6 +66,7 @@ APPROVAL_REQUIRED_TOOL_NAMES = {
     "web_search",
     "mcp_tools",
     "mcp_call",
+    "memory_write",
 }
 
 
@@ -98,6 +99,8 @@ def tool_category(name: str) -> str:
         "TaskGet",
         "TaskList",
         "TaskUpdate",
+        "memory_list",
+        "memory_read",
         "session_summary",
         "session_plan",
         "session_transcript",
@@ -113,6 +116,10 @@ def tool_category(name: str) -> str:
         "session_handoff",
     }:
         return "session"
+    if name == "memory_write":
+        return "edit"
+    if name == "check_memory_write":
+        return "edit"
     if name.startswith("checkpoint_") or name.startswith("check_checkpoint_"):
         return "checkpoint"
     if name.startswith("git_") or name.startswith("check_git_"):

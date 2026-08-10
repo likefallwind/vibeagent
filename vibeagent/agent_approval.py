@@ -25,6 +25,12 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
     file_request = build_file_approval_request(action)
     if file_request is not None:
         return file_request
+    if isinstance(action, t.MemoryWriteAction):
+        return t.ApprovalRequest(
+            action_type="memory_write",
+            target=f"{action.path} ({action.mode}, {len(action.content.encode('utf-8'))} bytes)",
+            risk="This will persist machine-local project memory shared by all worktrees of this repository.",
+        )
     if isinstance(action, t.GitStageAction):
         return t.ApprovalRequest(
             action_type="git_stage",

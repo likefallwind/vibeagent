@@ -7,6 +7,14 @@ from . import types as t
 
 
 def build_step_label(action: object) -> str:
+    if isinstance(action, t.MemoryListAction):
+        return "List project memory"
+    if isinstance(action, t.MemoryReadAction):
+        return f"Read memory {action.path}"
+    if isinstance(action, t.CheckMemoryWriteAction):
+        return f"Check memory write {action.path}"
+    if isinstance(action, t.MemoryWriteAction):
+        return f"Write memory {action.path}"
     if isinstance(action, t.EnterWorktreeAction):
         return f"Enter worktree {action.path or action.name or 'generated'}"
     if isinstance(action, t.ExitWorktreeAction):
