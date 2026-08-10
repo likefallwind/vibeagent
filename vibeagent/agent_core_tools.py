@@ -72,6 +72,7 @@ CORE_PROJECT_TOOL_NAMES = frozenset(
         "git_status",
         "mcp_servers",
         "related_tests",
+        "SendMessage",
         "suggest_checks",
         "Task",
         "tool_search",

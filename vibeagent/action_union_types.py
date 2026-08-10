@@ -151,7 +151,7 @@ from .action_session_types import (
     SessionVerificationAction,
 )
 from .action_task_types import TaskCreateAction, TaskGetAction, TaskListAction, TaskUpdateAction
-from .action_workflow_types import AskUserAction, DelegateTaskAction, FinishAction, TaskOutputAction, TaskStopAction, UpdatePlanAction
+from .action_workflow_types import AskUserAction, DelegateTaskAction, FinishAction, SendMessageAction, TaskOutputAction, TaskStopAction, UpdatePlanAction
 
 
 # Small union of all supported model action types.
@@ -300,6 +300,7 @@ AgentAction: TypeAlias = (
     | UpdatePlanAction
     | AskUserAction
     | DelegateTaskAction
+    | SendMessageAction
     | TaskOutputAction
     | TaskStopAction
     | FinishAction

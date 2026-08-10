@@ -4,13 +4,25 @@ import re
 from typing import Any
 
 from .action_parsing_helpers import ActionParseError
-from .types import DelegateTaskAction, TaskOutputAction, TaskStopAction
+from .types import DelegateTaskAction, SendMessageAction, TaskOutputAction, TaskStopAction
 
 
 AGENT_PROFILE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 
 def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str) -> object | None:
+    if action_type == "send_message":
+        recipient = value.get("to")
+        if not isinstance(recipient, str) or not AGENT_PROFILE_NAME_PATTERN.fullmatch(recipient.strip()):
+            raise ActionParseError("send_message action requires a valid subagent ID in to.", raw)
+        message = value.get("message")
+        if not isinstance(message, str) or not message.strip():
+            raise ActionParseError("send_message action requires a non-empty message.", raw)
+        message = message.strip()
+        if len(message) > 4_000:
+            raise ActionParseError("send_message action message must contain at most 4000 characters.", raw)
+        return SendMessageAction(type="send_message", to=recipient.strip(), message=message)
+
     if action_type == "task_output":
         task_id = parse_task_id(value, raw, "task_output")
         block = value.get("block", True)

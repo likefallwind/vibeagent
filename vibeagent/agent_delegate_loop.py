@@ -57,6 +57,7 @@ class DelegateLoopContext:
     hooks: ProjectHooks
     permissions: ProjectPermissions
     cancel_requested: Callable[[], bool] | None
+    transcript_checkpoint: Callable[[list[ChatMessage]], None] | None = None
 
 
 def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObservation:
@@ -118,6 +119,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
         assistant_content = normalize_assistant_content(response.content if hasattr(response, "content") else response)
         _record_delegate_model_response(context, child_iteration, assistant_content, getattr(response, "usage", None))
         context.messages.append(ChatMessage(role="assistant", content=assistant_content))
+        _checkpoint(context)
 
         tool_calls = [block for block in assistant_content if block.get("type") == "tool_call"]
         if not tool_calls:
@@ -134,6 +136,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                     subagent_id=context.subagent_id,
                     profile_prompt=context.profile_prompt,
                 )
+                _checkpoint(context)
                 continue
             return _finish_text_response(context, child_iteration, tool_calls_used, assistant_content)
 
@@ -234,6 +237,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
             subagent_id=context.subagent_id,
             profile_prompt=context.profile_prompt,
         )
+        _checkpoint(context)
 
     return finish_delegate_task(
         context.workspace,
@@ -250,6 +254,11 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
 
 def _cancellation_requested(context: DelegateLoopContext) -> bool:
     return context.cancel_requested is not None and context.cancel_requested()
+
+
+def _checkpoint(context: DelegateLoopContext) -> None:
+    if context.transcript_checkpoint is not None:
+        context.transcript_checkpoint(context.messages)
 
 
 def _text_stop_feedback(

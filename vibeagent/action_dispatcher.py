@@ -23,6 +23,8 @@ from .types import (
     DelegateTaskObservation,
     FinishObservation,
     Observation,
+    SendMessageAction,
+    ToolErrorObservation,
     UpdatePlanAction,
     UpdatePlanObservation,
     UserInputObservation,
@@ -120,6 +122,13 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             message="Task delegation is unavailable without an agent model client.",
             mode=action.mode,
             agent=action.agent,
+        )
+
+    if isinstance(action, SendMessageAction):
+        return ToolErrorObservation(
+            kind="tool_error",
+            tool="SendMessage",
+            message="Subagent resume is unavailable without an agent model client.",
         )
 
     return FinishObservation(kind="finish", message=action.message)

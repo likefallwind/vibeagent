@@ -41,6 +41,13 @@ class DelegateTaskAction:
 
 
 @dataclass(frozen=True)
+class SendMessageAction:
+    type: Literal["send_message"]
+    to: str
+    message: str
+
+
+@dataclass(frozen=True)
 class TaskOutputAction:
     type: Literal["task_output"]
     task_id: str

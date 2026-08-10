@@ -45,7 +45,7 @@ def finish_delegate_task(
         message=message,
         mode=action.mode,
         agent=action.agent,
-        task_id=subagent_id if action.run_in_background else None,
+        task_id=subagent_id,
         background=action.run_in_background,
         running=False,
         cancelled=cancelled,

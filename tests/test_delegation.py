@@ -879,6 +879,27 @@ class DelegationTests(unittest.TestCase):
             ["subagent_started", "subagent_model", "subagent_completed"],
         )
 
+    def test_parent_can_resume_completed_subagent_with_send_message(self) -> None:
+        client = DelegationClient(
+            [
+                [{"type": "tool_call", "id": "delegate-1", "name": "delegate_task", "input": {"task": "Inspect auth"}}],
+                [{"type": "text", "text": "Auth starts in app.py."}],
+                [{"type": "tool_call", "id": "resume-1", "name": "SendMessage", "input": {"to": "delegate-1-1", "message": "Check middleware too"}}],
+                [{"type": "text", "text": "Middleware verifies the token."}],
+                [{"type": "text", "text": "Auth and middleware are both confirmed."}],
+            ]
+        )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            result = run_agent("Trace authentication", base_dir=Path(base), client=client, max_iterations=3)
+
+        delegated = [item for item in result.observations if item.kind == "delegate_task"]
+        self.assertTrue(result.success)
+        self.assertEqual([item.task_id for item in delegated], ["delegate-1-1", "delegate-1-1"])
+        self.assertIn("Auth starts in app.py.", str(client.messages[3]))
+        self.assertIn("Check middleware too", str(client.messages[3]))
+        self.assertIn("SendMessage", client.tool_names[2])
+
     def test_subagent_iteration_limit_returns_failed_observation(self) -> None:
         client = DelegationClient(
             [[{"type": "tool_call", "id": "read-1", "name": "list_files", "input": {}}]]

@@ -243,6 +243,7 @@ from .action_workflow_types import (
     FinishAction,
     PlanItem,
     PlanItemStatus,
+    SendMessageAction,
     TaskOutputAction,
     TaskStopAction,
     UpdatePlanAction,

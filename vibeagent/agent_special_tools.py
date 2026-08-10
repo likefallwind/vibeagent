@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from .agent_action_logging import log_action
 from .background_delegate_runtime import start_background_delegate_task
 from .agent_delegate import execute_delegate_task_action
@@ -14,9 +16,12 @@ from .types import (
     ChatClient,
     DelegateTaskAction,
     Observation,
+    SendMessageAction,
     TaskStep,
+    ToolErrorObservation,
     UserInputHandler,
 )
+from .subagent_transcripts import SubagentTranscriptError, read_subagent_transcript
 from .workspace_core import RunWorkspace
 from .workspace_hooks import ProjectHooks
 from .workspace_permissions import ProjectPermissions
@@ -24,7 +29,7 @@ from .workspace_permissions import ProjectPermissions
 
 def execute_special_tool_action(
     workspace: RunWorkspace,
-    action: AskUserAction | DelegateTaskAction,
+    action: AskUserAction | DelegateTaskAction | SendMessageAction,
     client: ChatClient,
     *,
     steps: list[TaskStep],
@@ -80,7 +85,7 @@ def execute_special_tool_action(
 
 def _execute_special_tool(
     workspace: RunWorkspace,
-    action: AskUserAction | DelegateTaskAction,
+    action: AskUserAction | DelegateTaskAction | SendMessageAction,
     client: ChatClient,
     *,
     steps: list[TaskStep],
@@ -107,6 +112,37 @@ def _execute_special_tool(
             logger,
             user_input_handler,
         )
+    if isinstance(action, SendMessageAction):
+        step = start_task_step(workspace, steps, iteration, action, logger)
+        log_action(logger, action)
+        try:
+            transcript = read_subagent_transcript(workspace, action.to)
+            resumed_action = replace(transcript.action, run_in_background=False)
+            delegate_observation = execute_delegate_task_action(
+                workspace,
+                resumed_action,
+                client,
+                parent_iteration=iteration,
+                subagent_id=action.to,
+                max_output_tokens=max_output_tokens,
+                model_retries=model_retries,
+                model_retry_delay_ms=model_retry_delay_ms,
+                model_timeout_ms=model_timeout_ms,
+                command_timeout_ms=command_timeout_ms,
+                logger=logger,
+                approval_handler=approval_handler,
+                approval_policy=approval_policy,
+                hooks=hooks,
+                permissions=permissions,
+                resume_transcript=transcript,
+                followup_message=action.message,
+            )
+        except SubagentTranscriptError as error:
+            delegate_observation = ToolErrorObservation(
+                kind="tool_error", tool="SendMessage", message=str(error)
+            )
+        complete_task_step(workspace, step, delegate_observation, iteration, logger)
+        return delegate_observation
     step = start_task_step(workspace, steps, iteration, action, logger)
     log_action(logger, action)
     if action.run_in_background:

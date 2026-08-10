@@ -24,6 +24,7 @@ from .types import (
     DelegateTaskAction,
     Observation,
     PlanItem,
+    SendMessageAction,
     TaskStep,
     UserInputHandler,
 )
@@ -82,7 +83,7 @@ def execute_sequential_tool_call(
         action = prepare_action_for_policy(
             parse_tool_action(tool_name, tool_input), approval_policy
         )
-        if isinstance(action, (AskUserAction, DelegateTaskAction)):
+        if isinstance(action, (AskUserAction, DelegateTaskAction, SendMessageAction)):
             wrapped = execute_special_tool_action(
                 workspace,
                 action,

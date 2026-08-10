@@ -248,6 +248,7 @@ ACTION_LOG_SPECS: dict[str, tuple[str, ActionTargetBuilder]] = {
     "ask_user": ("asking user", _target_action),
     "task_output": ("reading background task", _target_action),
     "task_stop": ("stopping background task", _target_action),
+    "send_message": ("resuming subagent", _target_action),
 }
 
 

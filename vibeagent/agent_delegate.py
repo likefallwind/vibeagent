@@ -22,11 +22,19 @@ from .agent_delegate_tools import (
     execute_delegate_tool_call,
 )
 from .agent_runtime_utils import append_session_event
+from .subagent_transcripts import (
+    SubagentTranscript,
+    checkpoint_subagent_transcript,
+    complete_subagent_transcript,
+    create_subagent_transcript,
+    resume_subagent_transcript,
+)
 from .types import (
     AgentLogger,
     ApprovalHandler,
     ApprovalPolicy,
     ChatClient,
+    ChatMessage,
     DelegateTaskAction,
     DelegateTaskObservation,
     Observation,
@@ -57,6 +65,8 @@ def execute_delegate_task_action(
     hooks: ProjectHooks = ProjectHooks(),
     permissions: ProjectPermissions = ProjectPermissions(),
     cancel_requested: Callable[[], bool] | None = None,
+    resume_transcript: SubagentTranscript | None = None,
+    followup_message: str | None = None,
 ) -> DelegateTaskObservation:
     profile = load_delegate_profile_runtime(workspace, action)
     delegate_workspace = profile.workspace or workspace
@@ -69,7 +79,11 @@ def execute_delegate_task_action(
     disallowed_tool_names = profile.disallowed_tool_names
     observations = parent_observations if action.mode == "code" and parent_observations is not None else []
     steps = parent_steps if action.mode == "code" and parent_steps is not None else []
-    messages = build_delegate_messages(delegate_workspace, action, profile_prompt=profile_prompt)
+    if resume_transcript is None:
+        messages = build_delegate_messages(delegate_workspace, action, profile_prompt=profile_prompt)
+    else:
+        messages = list(resume_transcript.messages)
+        messages.append(ChatMessage(role="user", content=f"Follow-up from the parent agent:\n{followup_message or ''}"))
 
     _record_delegate_start(
         delegate_workspace,
@@ -94,6 +108,11 @@ def execute_delegate_task_action(
             logger=logger,
         )
 
+    if resume_transcript is None:
+        create_subagent_transcript(delegate_workspace, subagent_id, action, messages)
+    else:
+        resume_subagent_transcript(delegate_workspace, resume_transcript, messages)
+
     lifecycle = DelegateLifecycleHooks(
         workspace=delegate_workspace,
         action=action,
@@ -117,7 +136,7 @@ def execute_delegate_task_action(
         if action.mode == "code"
         else set()
     )
-    return run_delegate_iterations(
+    result = run_delegate_iterations(
         DelegateLoopContext(
             workspace=delegate_workspace,
             action=action,
@@ -144,8 +163,13 @@ def execute_delegate_task_action(
             hooks=hooks,
             permissions=permissions,
             cancel_requested=cancel_requested,
+            transcript_checkpoint=lambda current: checkpoint_subagent_transcript(
+                delegate_workspace, subagent_id, action, current
+            ),
         )
     )
+    complete_subagent_transcript(delegate_workspace, subagent_id, action, messages, result)
+    return result
 
 
 def _delegate_policy_error(

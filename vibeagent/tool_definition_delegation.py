@@ -75,6 +75,19 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "SendMessage",
+        "description": "Resume a completed subagent by ID with its full prior context and a follow-up message.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "to": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
+                "message": {"type": "string", "minLength": 1, "maxLength": 4000},
+            },
+            "required": ["to", "message"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "TaskOutput",
         "description": "Read the current or final result of a background subagent task.",
         "input_schema": {
