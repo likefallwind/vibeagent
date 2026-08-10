@@ -71,6 +71,8 @@ APPROVAL_WITHOUT_PREVIEW_ACTION_TYPES = {
     "mcp_read_resource",
     "mcp_resources",
     "mcp_tools",
+    "PowerShell",
+    "powershell",
     "web_fetch",
     "web_search",
 }

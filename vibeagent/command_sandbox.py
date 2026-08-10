@@ -57,32 +57,36 @@ def prepare_command_launch(
     command: str,
     cwd: Path,
     executed_command: str | None = None,
+    *,
+    argv: tuple[str, ...] | None = None,
 ) -> CommandLaunch:
+    if argv is not None and executed_command is not None:
+        raise ValueError("argv and executed_command cannot be provided together")
     config = read_workspace_sandbox(workspace)
     command_to_execute = executed_command if executed_command is not None else command
-    shell_argv = ("/bin/sh", "-c", command_to_execute)
+    command_argv = argv or ("/bin/sh", "-c", command_to_execute)
     try:
         environment = plugin_command_environment(workspace)
     except (OSError, ValueError) as error:
         return CommandLaunch(
-            shell_argv,
+            command_argv,
             False,
             config,
             error=f"Plugin executable environment error: {error}",
         )
     if config.error is not None:
         return CommandLaunch(
-            shell_argv,
+            command_argv,
             False,
             config,
             environment,
             error=f"Sandbox configuration error: {config.error}",
         )
     if not config.enabled:
-        return CommandLaunch(shell_argv, False, config, environment)
+        return CommandLaunch(command_argv, False, config, environment)
     if any(wildcard_matches(pattern, command, path_mode=False) for pattern in config.excluded_commands):
         return CommandLaunch(
-            shell_argv,
+            command_argv,
             False,
             config,
             environment,
@@ -91,9 +95,9 @@ def prepare_command_launch(
     if not config.available or config.bwrap_path is None:
         message = "Bubblewrap sandbox is enabled but unavailable on this system."
         if config.fail_if_unavailable:
-            return CommandLaunch(shell_argv, False, config, environment, error=message)
+            return CommandLaunch(command_argv, False, config, environment, error=message)
         return CommandLaunch(
-            shell_argv,
+            command_argv,
             False,
             config,
             environment,
@@ -103,21 +107,21 @@ def prepare_command_launch(
     if config.network_disabled and not config.network_available:
         message = "Bubblewrap network isolation is unavailable on this system."
         if config.fail_if_unavailable:
-            return CommandLaunch(shell_argv, False, config, environment, error=message)
+            return CommandLaunch(command_argv, False, config, environment, error=message)
         network_warning = f"Sandbox warning: {message} Filesystem isolation remains active with host networking."
     external_allow_write = tuple(path for path in config.allow_write if not path.is_relative_to(workspace.root))
     missing_mounts = [path for path in (*external_allow_write, *config.deny_write, *config.deny_read) if not path.exists()]
     if missing_mounts:
         paths = ", ".join(path.as_posix() for path in missing_mounts)
         return CommandLaunch(
-            shell_argv,
+            command_argv,
             False,
             config,
             environment,
             error=f"Sandbox path does not exist: {paths}",
         )
 
-    argv = [
+    sandbox_argv = [
         config.bwrap_path,
         "--new-session",
         "--unshare-pid",
@@ -139,17 +143,19 @@ def prepare_command_launch(
         workspace.root.as_posix(),
     ]
     for path in workspace.additional_roots:
-        argv.extend(("--bind", path.as_posix(), path.as_posix()))
+        sandbox_argv.extend(("--bind", path.as_posix(), path.as_posix()))
     for path in external_allow_write:
-        argv.extend(("--bind", path.as_posix(), path.as_posix()))
+        sandbox_argv.extend(("--bind", path.as_posix(), path.as_posix()))
     for path in config.deny_write:
-        argv.extend(("--ro-bind", path.as_posix(), path.as_posix()))
+        sandbox_argv.extend(("--ro-bind", path.as_posix(), path.as_posix()))
     for path in config.deny_read:
         if path.is_dir():
-            argv.extend(("--tmpfs", path.as_posix()))
+            sandbox_argv.extend(("--tmpfs", path.as_posix()))
         else:
-            argv.extend(("--ro-bind", "/dev/null", path.as_posix()))
+            sandbox_argv.extend(("--ro-bind", "/dev/null", path.as_posix()))
     if config.network_disabled and config.network_available:
-        argv.append("--unshare-net")
-    argv.extend(("--setenv", "VIBEAGENT_SANDBOX", "1", "--chdir", cwd.as_posix(), "/bin/sh", "-c", command_to_execute))
-    return CommandLaunch(tuple(argv), True, config, environment, warning=network_warning)
+        sandbox_argv.append("--unshare-net")
+    sandbox_argv.extend(
+        ("--setenv", "VIBEAGENT_SANDBOX", "1", "--chdir", cwd.as_posix(), *command_argv)
+    )
+    return CommandLaunch(tuple(sandbox_argv), True, config, environment, warning=network_warning)

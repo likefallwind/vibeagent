@@ -29,6 +29,7 @@ CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
     "Monitor": "monitor",
     "NotebookEdit": "notebook_edit",
     "NotebookRead": "notebook_read",
+    "PowerShell": "powershell",
     "Read": "read_file",
     "ReadMcpResourceTool": "mcp_read_resource",
     "SendMessage": "send_message",
@@ -61,6 +62,7 @@ BASH_TOOL_NAMES = frozenset(
         "monitor",
     }
 )
+POWERSHELL_TOOL_NAMES = frozenset({"powershell"})
 FILE_EDIT_TOOL_NAMES = frozenset(
     {
         "append_file",
@@ -165,6 +167,7 @@ CLAUDE_TOOL_ALIASES = {
     "Monitor": frozenset({"monitor"}),
     "NotebookEdit": FILE_EDIT_TOOL_NAMES | frozenset({"notebook_edit"}),
     "NotebookRead": FILE_READ_TOOL_NAMES | frozenset({"notebook_read"}),
+    "PowerShell": POWERSHELL_TOOL_NAMES,
     "Read": FILE_READ_TOOL_NAMES,
     "ReadMcpResourceTool": frozenset({"mcp_read_resource"}),
     "SendMessage": frozenset({"send_message"}),
@@ -220,6 +223,7 @@ PROFILE_TOOL_ALIAS_EXPANSIONS = {
         {"NotebookEdit", "edit_file", "notebook_edit", "regex_replace"}
     ),
     "NotebookRead": frozenset({"NotebookRead", "notebook_read"}),
+    "PowerShell": frozenset({"PowerShell", "powershell"}),
     "Read": frozenset({"Read", "read_file"}),
     "ReadMcpResourceTool": frozenset(
         {"ReadMcpResourceTool", "mcp_read_resource"}

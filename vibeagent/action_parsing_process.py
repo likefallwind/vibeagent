@@ -25,6 +25,7 @@ from .types import (
     RunCommandAction,
     RunCommandsAction,
     MonitorAction,
+    PowerShellAction,
     StartCommandAction,
     StopAllProcessesAction,
     StopProcessAction,
@@ -36,6 +37,7 @@ from .websocket_monitor_safety import parse_websocket_source
 
 PROCESS_ACTION_TYPES = PROCESS_READ_ACTION_TYPES | {
     "run_command",
+    "powershell",
     "run_commands",
     "check_start_command",
     "start_command",
@@ -58,11 +60,11 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
     if read_action is not None:
         return read_action
 
-    if action_type == "run_command":
-        command = parse_command(value.get("command"), raw, "run_command")
+    if action_type in {"run_command", "powershell"}:
+        command = parse_command(value.get("command"), raw, str(action_type))
         cwd = value.get("cwd")
         if cwd is not None and not isinstance(cwd, str):
-            raise ActionParseError("run_command action cwd must be a string when provided.", raw)
+            raise ActionParseError(f"{action_type} action cwd must be a string when provided.", raw)
         extract_output_contexts = value.get("extract_output_contexts", False)
         if not isinstance(extract_output_contexts, bool):
             raise ActionParseError("run_command action extract_output_contexts must be a boolean.", raw)
@@ -75,12 +77,13 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
             default_context_lines=5,
         )
         max_diagnostics = parse_optional_positive_int(value.get("max_diagnostics", 50), "max_diagnostics", raw, maximum=200) or 50
-        return RunCommandAction(
-            type="run_command",
+        action_class = PowerShellAction if action_type == "powershell" else RunCommandAction
+        return action_class(
+            type=action_type,
             command=command,
             timeout_ms=parse_timeout_ms(value.get("timeout_ms"), raw),
             cwd=cwd,
-            description=parse_optional_description(value.get("description"), raw, "run_command"),
+            description=parse_optional_description(value.get("description"), raw, str(action_type)),
             max_output_chars=parse_optional_command_output_chars(value.get("max_output_chars"), raw),
             extract_output_contexts=extract_output_contexts,
             extract_output_diagnostics=extract_output_diagnostics,

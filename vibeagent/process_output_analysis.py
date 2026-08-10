@@ -3,14 +3,21 @@ from __future__ import annotations
 from dataclasses import replace
 
 from .output_conversion import output_context_results_from_dicts, output_diagnostics_from_dicts
-from .types import CommandResult, ReadProcessObservation, RunCommandAction, RunCommandItem, WaitProcessObservation
+from .types import (
+    CommandResult,
+    PowerShellAction,
+    ReadProcessObservation,
+    RunCommandAction,
+    RunCommandItem,
+    WaitProcessObservation,
+)
 from .workspace import read_output_contexts_result, read_output_diagnostics_result
 from .workspace_core import RunWorkspace
 
 
 def attach_output_analysis_to_command_result(
     workspace: RunWorkspace,
-    action: RunCommandAction | RunCommandItem,
+    action: PowerShellAction | RunCommandAction | RunCommandItem,
     result: CommandResult,
 ) -> CommandResult:
     auto_extract_diagnostics = (

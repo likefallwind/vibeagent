@@ -88,6 +88,21 @@ Only non-secret defaults are read from that file. Provider defaults, execution
 limits, and optional cost rates can live there. Keep API keys in environment
 variables or pass a temporary `--api-key` for one command.
 
+### Native PowerShell tool
+
+On Linux, macOS, and WSL, opt in to the Claude-compatible native `PowerShell`
+tool by installing PowerShell 7 (`pwsh`) and setting:
+
+```sh
+export CLAUDE_CODE_USE_POWERSHELL_TOOL=1
+```
+
+Windows enables the tool automatically when `pwsh.exe` or `powershell.exe` is
+available; set `CLAUDE_CODE_USE_POWERSHELL_TOOL=0` to disable it. The tool runs
+with `-NoProfile -NonInteractive`, uses the same workspace sandbox and bounded
+output processing as `Bash`, and always follows the normal command approval
+flow. It is hidden from the model when disabled, unavailable, or in plan mode.
+
 Auto memory is enabled by default. VibeAgent stores machine-local Markdown notes
 under the main Git worktree's `.vibeagent/memory/` directory, so linked
 worktrees share one memory without committing it. At session start it loads at

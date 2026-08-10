@@ -8,7 +8,11 @@ from .agent_profile_permissions import apply_agent_permission_mode, permission_m
 
 from .agent_runtime_utils import append_session_event, compact_session_context
 from .agent_conversation import continue_conversation
-from .agent_tool_registry import activate_tools_for_run, initialize_agent_tools
+from .agent_tool_registry import (
+    activate_agent_tool_names,
+    activate_tools_for_run,
+    initialize_agent_tools,
+)
 from .main_agent_profile import (
     MainAgentProfile,
     apply_tool_ceiling,
@@ -22,6 +26,7 @@ from .prompt_file_mentions import (
     prompt_file_context_metadata,
 )
 from .permission_tool_visibility import globally_denied_tool_names
+from .powershell_runtime import powershell_tool_availability
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .session_tasks import inherit_task_store
@@ -115,6 +120,14 @@ def prepare_agent_run(
         tool_names,
         permission_denied_tool_names,
     )
+    powershell_availability = powershell_tool_availability(current_workspace)
+    if not powershell_availability.enabled:
+        main_profile = replace(
+            main_profile,
+            disallowed_tool_names=(
+                main_profile.disallowed_tool_names | frozenset({"PowerShell", "powershell"})
+            ),
+        )
     tasks_inherited, task_restore_error = inherit_task_store(current_workspace, task_source_run_id)
     schedules_inherited, schedule_restore_error = inherit_schedule_store(current_workspace, task_source_run_id)
     auto_memory = read_auto_memory(current_workspace)
@@ -177,6 +190,23 @@ def prepare_agent_run(
         effective_approval_policy,
         excluded_names=main_profile.disallowed_tool_names,
         allowed_names=main_profile.allowed_tool_names,
+    )
+    if powershell_availability.enabled:
+        activate_agent_tool_names(
+            active_tool_names,
+            ["PowerShell"],
+            effective_approval_policy,
+            main_profile.disallowed_tool_names,
+            main_profile.allowed_tool_names,
+        )
+    append_session_event(
+        current_workspace.session_dir,
+        "powershell_tool",
+        {
+            "enabled": powershell_availability.enabled,
+            "executable": powershell_availability.executable,
+            "message": powershell_availability.message,
+        },
     )
     if approval_policy_locked:
         active_tool_names.discard("ExitPlanMode")

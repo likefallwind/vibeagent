@@ -125,6 +125,7 @@ class ApprovalRequest:
         "git_stash_apply",
         "git_stash_drop",
         "run_command",
+        "powershell",
         "run_commands",
         "run_suggested_checks",
         "start_command",

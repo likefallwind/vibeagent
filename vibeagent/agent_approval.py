@@ -143,6 +143,15 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             target=f"keep_last={action.keep_last}",
             risk="This will permanently delete older saved checkpoint snapshots from the local runtime directory.",
         )
+    if isinstance(action, t.PowerShellAction):
+        return t.ApprovalRequest(
+            action_type="powershell",
+            target=command_target(action.command, action.cwd),
+            risk=_with_command_description(
+                "This will run a native PowerShell command from the active project directory.",
+                action.description,
+            ),
+        )
     if isinstance(action, t.RunCommandAction):
         return t.ApprovalRequest(
             action_type="run_command",

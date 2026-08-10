@@ -8652,6 +8652,7 @@ class AgentTests(unittest.TestCase):
             "AskUserQuestion": "ask_user",
             "EnterPlanMode": "enter_plan_mode",
             "ExitPlanMode": "exit_plan_mode",
+            "PowerShell": "run_command",
             "TodoRead": "session_plan",
             "TodoWrite": "update_plan",
             "TaskOutput": "task_output",

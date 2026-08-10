@@ -147,7 +147,7 @@ def build_action_target(action: object) -> str:
         return ", ".join(action.paths)
     if isinstance(action, (t.CheckSetExecutableAction, t.SetExecutableAction)):
         return action.path
-    if isinstance(action, t.RunCommandAction):
+    if isinstance(action, (t.PowerShellAction, t.RunCommandAction)):
         return _described_command_target(action)
     if isinstance(action, t.RunCommandsAction):
         return command_batch_target(action.commands)
@@ -281,7 +281,10 @@ def build_action_target(action: object) -> str:
         return summarize(action.message, 80)
     if isinstance(action, t.MonitorAction):
         return _monitor_target(action)
-    if isinstance(action, (t.RunCommandAction, t.CheckStartCommandAction, t.StartCommandAction)):
+    if isinstance(
+        action,
+        (t.PowerShellAction, t.RunCommandAction, t.CheckStartCommandAction, t.StartCommandAction),
+    ):
         return _described_command_target(action)
     if isinstance(action, (t.CheckRunCommandsAction, t.RunCommandsAction)):
         return command_batch_target(action.commands)

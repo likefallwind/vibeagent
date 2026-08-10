@@ -15,6 +15,7 @@ from .action_process_types import (
     ListProcessesAction,
     MonitorAction,
     PortCheckAction,
+    PowerShellAction,
     ProcessOutputContextsAction,
     ProcessOutputDiagnosticsAction,
     ReadProcessAction,
@@ -41,6 +42,7 @@ ProcessAgentAction: TypeAlias = (
     | WebSearchAction
     | EnvironmentInfoAction
     | RunCommandAction
+    | PowerShellAction
     | RunCommandsAction
     | StartCommandAction
     | MonitorAction

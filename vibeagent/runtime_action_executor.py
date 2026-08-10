@@ -51,6 +51,7 @@ from .types import (
     MonitorAction,
     Observation,
     PortCheckAction,
+    PowerShellAction,
     ProcessOutputContextsAction,
     ProcessOutputDiagnosticsAction,
     ReadProcessAction,
@@ -66,6 +67,7 @@ from .types import (
     WriteProcessAction,
     WriteProcessObservation,
 )
+from .powershell_runtime import execute_powershell_action
 from .workspace import RunWorkspace, read_environment_info
 
 
@@ -192,6 +194,12 @@ def execute_runtime_action(
                 tools=[],
                 message=str(error),
             )
+
+    if isinstance(action, PowerShellAction):
+        return RunCommandObservation(
+            kind="run_command",
+            result=execute_powershell_action(workspace, action, command_timeout_ms),
+        )
 
     if isinstance(action, RunCommandAction):
         return RunCommandObservation(

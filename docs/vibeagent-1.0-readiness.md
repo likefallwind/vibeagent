@@ -65,7 +65,7 @@ The automated suite currently covers these 1.0 surfaces:
   `python -m vibeagent --version` and `vibeagent --version`.
 - Core ReAct loop: inspect, edit, run checks, repair, review, commit, finish.
 - Claude-compatible tool aliases: `Read`, `Edit`, `MultiEdit`, `Write`,
-  `NotebookRead`, `NotebookEdit`, `Bash`, `BashOutput`, `KillBash`, `Monitor`,
+  `NotebookRead`, `NotebookEdit`, `Bash`, `PowerShell`, `BashOutput`, `KillBash`, `Monitor`,
   `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TeamCreate`, `TeamDelete`, `TodoWrite`, `TodoRead`,
   `CronCreate`, `CronList`, `CronDelete`, `WebFetch`, `Task`, `TaskOutput`,
   `TaskStop`, `Agent`, `EnterPlanMode`, and `ExitPlanMode`, including

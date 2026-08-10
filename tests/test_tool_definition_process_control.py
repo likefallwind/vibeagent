@@ -71,7 +71,7 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         )
         self.assertEqual(
             [tool["name"] for tool in CLAUDE_PROCESS_TOOL_DEFINITIONS],
-            ["Bash", "BashOutput", "KillBash"],
+            ["Bash", "PowerShell", "BashOutput", "KillBash"],
         )
 
     def test_todo_write_schema_accepts_plan_or_todos(self) -> None:

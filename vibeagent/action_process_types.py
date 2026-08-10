@@ -106,6 +106,22 @@ class RunCommandAction:
 
 
 @dataclass(frozen=True)
+class PowerShellAction:
+    type: Literal["powershell"]
+    command: str
+    timeout_ms: int | None = None
+    cwd: str | None = None
+    max_output_chars: int | None = None
+    extract_output_contexts: bool = False
+    extract_output_diagnostics: bool = False
+    context_lines: int = 5
+    max_diagnostics: int = 50
+    max_contexts: int = 20
+    max_bytes_per_context: int = 20_000
+    description: str | None = None
+
+
+@dataclass(frozen=True)
 class RunCommandsAction:
     type: Literal["run_commands"]
     commands: list[RunCommandItem]

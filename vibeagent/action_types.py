@@ -163,6 +163,7 @@ from .action_process_types import (
     MonitorAction,
     MonitorWebSocketSource,
     PortCheckAction,
+    PowerShellAction,
     ProcessOutputContextsAction,
     ProcessOutputDiagnosticsAction,
     ReadProcessAction,
