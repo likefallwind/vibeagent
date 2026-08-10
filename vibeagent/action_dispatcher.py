@@ -31,6 +31,7 @@ from .types import (
     UpdatePlanObservation,
     UserInputObservation,
 )
+from .user_input_runtime import serialize_user_input_request, user_input_requests
 from .workspace import RunWorkspace
 
 
@@ -112,13 +113,19 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
         )
 
     if isinstance(action, AskUserAction):
+        requests = user_input_requests(action)
         return UserInputObservation(
             kind="ask_user",
-            question=action.question,
-            options=list(action.options),
+            question=requests[0].question,
+            options=list(requests[0].options),
             answer=None,
             cancelled=True,
             message="User input is unavailable without an agent user-input handler.",
+            questions=(
+                [serialize_user_input_request(request) for request in requests]
+                if action.questions
+                else []
+            ),
         )
 
     if isinstance(action, DelegateTaskAction):

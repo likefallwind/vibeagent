@@ -1865,8 +1865,10 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   explicitly read-only tool calls in one turn, the agent can execute that batch
   concurrently while preserving result order; write, approval-gated, planning,
   user-input, and finish actions stay sequential. The `ask_user` tool can pause
-  an interactive coding run for one blocking clarification and return the answer
-  to the model as a normal tool result. JSON output and library runs without a
+  an interactive coding run for one blocking clarification. Its
+  `AskUserQuestion` alias also accepts one to four structured questions with
+  short headers, described options, and single- or multi-select answers. The
+  answers return to the model in one tool result. JSON output and library runs without a
   user-input handler never read stdin; they return an unavailable-input result
   so the model can surface the unresolved question without guessing. Unexpected tool implementation exceptions
   are converted into `tool_error` observations so the model can recover instead

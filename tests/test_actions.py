@@ -275,8 +275,28 @@ def minimal_schema_value(schema: dict[str, Any], property_name: str = "") -> Any
     if schema_type == "boolean":
         return False
     if schema_type == "array":
-        return [minimal_schema_value(schema.get("items", {"type": "string"}))]
+        count = max(int(schema.get("minItems", 1)), 1)
+        values = [minimal_schema_value(schema.get("items", {"type": "string"}))]
+        for index in range(1, count):
+            value = minimal_schema_value(schema.get("items", {"type": "string"}))
+            if schema.get("uniqueItems") is True and value in values:
+                value = make_minimal_schema_value_unique(value, index + 1)
+            values.append(value)
+        return values
     return "x"
+
+
+def make_minimal_schema_value_unique(value: Any, index: int) -> Any:
+    if isinstance(value, str):
+        return f"{value}{index}"
+    if isinstance(value, dict):
+        updated = dict(value)
+        for key, item in updated.items():
+            if isinstance(item, str):
+                updated[key] = f"{item}{index}"
+                return updated
+        return {**updated, f"item{index}": index}
+    return index
 
 
 def minimal_schema_value_with_optional_property(schema: dict[str, Any], property_name: str) -> dict[str, Any]:

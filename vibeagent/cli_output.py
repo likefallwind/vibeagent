@@ -8,7 +8,14 @@ from .cli_result_payloads import error_result_payload
 from .cli_stream_output import JsonEventStream
 from .project_trust import is_project_permissions_trusted, trust_project_permissions
 from .session_approval import SessionApprovalHandler
-from .types import ApprovalDecision, ApprovalHandler, ApprovalPolicy, ApprovalRequest, UserInputRequest
+from .types import (
+    ApprovalDecision,
+    ApprovalHandler,
+    ApprovalPolicy,
+    ApprovalRequest,
+    UserInputAnswer,
+    UserInputRequest,
+)
 from .workspace_permissions import read_project_permissions_from_root, safe_permission_rule_text
 
 
@@ -116,13 +123,17 @@ def prompt_approval(request: ApprovalRequest) -> ApprovalDecision:
     return ApprovalDecision(approved=False, message="Denied by user.")
 
 
-def prompt_user_input(request: UserInputRequest) -> str | None:
-    print(f"Question: {request.question}")
+def prompt_user_input(request: UserInputRequest) -> UserInputAnswer | None:
+    prefix = f"[{request.header}] " if request.header else "Question: "
+    print(f"{prefix}{request.question}")
     for index, option in enumerate(request.options, start=1):
         print(f"  {index}. {option}")
+        description = (request.option_descriptions or {}).get(option)
+        if description:
+            print(f"     {description}")
     prompt = "Answer: "
     if request.options:
-        prompt = "Choose a number"
+        prompt = "Choose one or more numbers separated by commas" if request.multi_select else "Choose a number"
         if request.allow_free_text:
             prompt += " or enter another answer"
         prompt += ": "
@@ -134,11 +145,30 @@ def prompt_user_input(request: UserInputRequest) -> str | None:
             return None
         if not answer:
             return None
-        if answer.isdigit() and 1 <= int(answer) <= len(request.options):
-            return request.options[int(answer) - 1]
+        selections = _numbered_user_input_selections(answer, request)
+        if selections is not None:
+            return selections if request.multi_select else selections[0]
         if answer in request.options or request.allow_free_text:
             return answer
-        print(f"Enter a number from 1 to {len(request.options)}.")
+        suffix = " separated by commas" if request.multi_select else ""
+        print(f"Enter valid numbers from 1 to {len(request.options)}{suffix}.")
+
+
+def _numbered_user_input_selections(
+    answer: str,
+    request: UserInputRequest,
+) -> list[str] | None:
+    parts = [part.strip() for part in answer.split(",")]
+    if not parts or any(not part.isdigit() for part in parts):
+        return None
+    indexes = [int(part) for part in parts]
+    if (
+        any(index < 1 or index > len(request.options) for index in indexes)
+        or len(set(indexes)) != len(indexes)
+        or (not request.multi_select and len(indexes) != 1)
+    ):
+        return None
+    return [request.options[index - 1] for index in indexes]
 
 
 def prompt_project_permission_trust(root: str | Path) -> bool:

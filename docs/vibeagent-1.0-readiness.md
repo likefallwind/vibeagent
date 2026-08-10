@@ -69,6 +69,9 @@ The automated suite currently covers these 1.0 surfaces:
   `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TodoWrite`, `TodoRead`,
   `CronCreate`, `CronList`, `CronDelete`, `WebFetch`, `Task`, `TaskOutput`,
   `TaskStop`, `Agent`, and `ExitPlanMode`.
+- Structured `AskUserQuestion` batches with one to four questions, short
+  headers, described choices, single/multi-select terminal input, consolidated
+  tool results, session evidence, and per-question machine output.
 - Real CLI JSON and stream-json entrypoints, stdin input formats, resume,
   compact, permission overrides, `acceptEdits`, non-interactive `dontAsk`
   with trusted pre-approval and default denial, bounded invocation-scoped

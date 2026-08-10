@@ -23,6 +23,7 @@ from .types import (
     ApprovalHandler,
     ApprovalPolicy,
     ApprovalRequest,
+    UserInputAnswer,
     UserInputHandler,
     UserInputRequest,
 )
@@ -111,7 +112,7 @@ class SubagentPanel:
         if handler is None:
             return None
 
-        def wrapped(request: UserInputRequest) -> str | None:
+        def wrapped(request: UserInputRequest) -> UserInputAnswer | None:
             self.clear()
             try:
                 return handler(request)

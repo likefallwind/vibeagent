@@ -240,6 +240,8 @@ from .action_task_types import (
 from .action_cron_types import CronCreateAction, CronDeleteAction, CronListAction
 from .action_workflow_types import (
     AskUserAction,
+    AskUserOption,
+    AskUserQuestion,
     DelegateTaskAction,
     FinishAction,
     ListAgentsAction,

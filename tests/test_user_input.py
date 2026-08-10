@@ -10,6 +10,7 @@ from vibeagent.action_parsing import ActionParseError, parse_tool_action
 from vibeagent.actions import execute_action
 from vibeagent.agent import run_agent
 from vibeagent.cli_output import prompt_user_input
+from vibeagent.cli_result_payloads import code_result_user_input_requests
 from vibeagent.session_timeline_reports import format_session_event_timeline_item
 from vibeagent.session_types import SessionEvent
 from vibeagent.types import AssistantResponse, ChatMessage, ContentBlock, UserInputRequest
@@ -28,6 +29,68 @@ class UserInputClient:
 
 
 class UserInputTests(unittest.TestCase):
+    def test_parse_claude_ask_user_question_supports_structured_batch(self) -> None:
+        action = parse_tool_action(
+            "AskUserQuestion",
+            {
+                "questions": [
+                    {
+                        "question": "Which database should back the service?",
+                        "header": "Database",
+                        "options": [
+                            {"label": "SQLite", "description": "Local single-file storage."},
+                            {"label": "PostgreSQL", "description": "Shared production database."},
+                        ],
+                        "multiSelect": False,
+                    },
+                    {
+                        "question": "Which optional capabilities are required?",
+                        "header": "Features",
+                        "options": [
+                            {"label": "Audit", "description": "Record security-relevant actions."},
+                            {"label": "Metrics", "description": "Export operational measurements."},
+                        ],
+                        "multiSelect": True,
+                    },
+                ]
+            },
+        )
+
+        self.assertEqual(len(action.questions), 2)
+        self.assertEqual(action.questions[0].header, "Database")
+        self.assertEqual(action.questions[0].options[1].description, "Shared production database.")
+        self.assertTrue(action.questions[1].multi_select)
+
+    def test_parse_structured_questions_rejects_ambiguous_or_invalid_batches(self) -> None:
+        valid_question = {
+            "question": "Choose a database",
+            "header": "Database",
+            "options": [
+                {"label": "SQLite", "description": "Local"},
+                {"label": "PostgreSQL", "description": "Shared"},
+            ],
+            "multiSelect": False,
+        }
+        invalid_inputs = [
+            {"questions": []},
+            {"questions": [valid_question] * 5},
+            {"questions": [{**valid_question, "header": "x" * 13}]},
+            {"questions": [{**valid_question, "options": valid_question["options"][:1]}]},
+            {
+                "questions": [
+                    {
+                        **valid_question,
+                        "options": [valid_question["options"][0]] * 2,
+                    }
+                ]
+            },
+            {"questions": [valid_question], "question": "mixed"},
+        ]
+
+        for tool_input in invalid_inputs:
+            with self.subTest(tool_input=tool_input), self.assertRaises(ActionParseError):
+                parse_tool_action("AskUserQuestion", tool_input)
+
     def test_parse_ask_user_supports_options_and_free_text_policy(self) -> None:
         action = parse_tool_action(
             "ask_user",
@@ -88,6 +151,28 @@ class UserInputTests(unittest.TestCase):
             answer = prompt_user_input(request)
 
         self.assertEqual(answer, "A")
+
+    def test_prompt_user_input_supports_described_multi_selection(self) -> None:
+        request = UserInputRequest(
+            question="Which capabilities?",
+            header="Features",
+            options=["Audit", "Metrics", "Tracing"],
+            option_descriptions={
+                "Audit": "Record actions.",
+                "Metrics": "Export measurements.",
+                "Tracing": "Track requests.",
+            },
+            multi_select=True,
+        )
+        stdout = io.StringIO()
+
+        with patch("builtins.input", return_value="1, 3"), redirect_stdout(stdout):
+            answer = prompt_user_input(request)
+
+        self.assertEqual(answer, ["Audit", "Tracing"])
+        self.assertIn("[Features] Which capabilities?", stdout.getvalue())
+        self.assertIn("Export measurements.", stdout.getvalue())
+
 
     def test_agent_returns_user_answer_to_model_and_logs_session_events(self) -> None:
         client = UserInputClient(
@@ -172,6 +257,78 @@ class UserInputTests(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertTrue(result.observations[0].cancelled)
         self.assertIn("without guessing", result.observations[0].message)
+
+    def test_agent_answers_structured_batch_and_exposes_machine_requests(self) -> None:
+        client = UserInputClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "ask-1",
+                        "name": "AskUserQuestion",
+                        "input": {
+                            "questions": [
+                                {
+                                    "question": "Which database?",
+                                    "header": "Database",
+                                    "options": [
+                                        {"label": "SQLite", "description": "Local"},
+                                        {"label": "PostgreSQL", "description": "Shared"},
+                                    ],
+                                    "multiSelect": False,
+                                },
+                                {
+                                    "question": "Which capabilities?",
+                                    "header": "Features",
+                                    "options": [
+                                        {"label": "Audit", "description": "Record actions"},
+                                        {"label": "Metrics", "description": "Export measurements"},
+                                    ],
+                                    "multiSelect": True,
+                                },
+                            ]
+                        },
+                    }
+                ],
+                [{"type": "text", "text": "Requirements recorded."}],
+            ]
+        )
+        requests: list[UserInputRequest] = []
+
+        def answer(request: UserInputRequest):
+            requests.append(request)
+            return "PostgreSQL" if request.header == "Database" else ["Audit", "Metrics"]
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-user-input-") as base:
+            result = run_agent(
+                "Configure storage",
+                base_dir=Path(base),
+                client=client,
+                max_iterations=2,
+                user_input_handler=answer,
+            )
+            events_text = (
+                Path(base) / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+            ).read_text(encoding="utf-8")
+
+        observation = result.observations[0]
+        self.assertTrue(result.success)
+        self.assertFalse(observation.cancelled)
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(
+            observation.answers,
+            {
+                "Which database?": "PostgreSQL",
+                "Which capabilities?": "Audit, Metrics",
+            },
+        )
+        tool_result = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertEqual(tool_result["answers"]["Which capabilities?"], "Audit, Metrics")
+        machine_requests = code_result_user_input_requests(result)
+        self.assertEqual(len(machine_requests), 2)
+        self.assertEqual(machine_requests[1]["header"], "Features")
+        self.assertTrue(machine_requests[1]["multiSelect"])
+        self.assertIn('"requests"', events_text)
 
 
 if __name__ == "__main__":

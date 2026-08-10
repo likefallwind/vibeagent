@@ -25,9 +25,13 @@ class UserInputRequest:
     question: str
     options: list[str]
     allow_free_text: bool = True
+    header: str | None = None
+    option_descriptions: dict[str, str] | None = None
+    multi_select: bool = False
 
 
-UserInputHandler: TypeAlias = Callable[[UserInputRequest], str | None]
+UserInputAnswer: TypeAlias = str | list[str]
+UserInputHandler: TypeAlias = Callable[[UserInputRequest], UserInputAnswer | None]
 
 
 @dataclass(frozen=True)

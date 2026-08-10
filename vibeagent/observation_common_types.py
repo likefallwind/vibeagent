@@ -28,6 +28,8 @@ class UserInputObservation:
     answer: str | None
     cancelled: bool
     message: str
+    questions: list[dict[str, object]] = field(default_factory=list)
+    answers: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

@@ -70,6 +70,34 @@ EXIT_PLAN_MODE_PLAN_SCHEMA: dict[str, Any] = {
     ],
 }
 
+ASK_USER_OPTION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "label": {"type": "string", "minLength": 1, "maxLength": 200},
+        "description": {"type": "string", "minLength": 1, "maxLength": 500},
+    },
+    "required": ["label", "description"],
+    "additionalProperties": False,
+}
+
+ASK_USER_QUESTION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "question": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "header": {"type": "string", "minLength": 1, "maxLength": 12},
+        "options": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 4,
+            "uniqueItems": True,
+            "items": ASK_USER_OPTION_SCHEMA,
+        },
+        "multiSelect": {"type": "boolean"},
+    },
+    "required": ["question", "header", "options", "multiSelect"],
+    "additionalProperties": False,
+}
+
 
 TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
@@ -98,22 +126,18 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "AskUserQuestion",
-        "description": "Claude-compatible alias for asking one blocking clarification question.",
+        "description": "Ask 1 to 4 structured blocking clarification questions. Each question has a short header, 2 to 4 described options, optional multiple selection, and an implicit free-text answer.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "prompt": {"type": "string", "minLength": 1, "maxLength": 1000},
-                "options": {
+                "questions": {
                     "type": "array",
                     "minItems": 1,
                     "maxItems": 4,
-                    "uniqueItems": True,
-                    "items": {"type": "string", "minLength": 1, "maxLength": 200},
+                    "items": ASK_USER_QUESTION_SCHEMA,
                 },
-                "allow_free_text": {"type": "boolean"},
             },
-            "required": ["prompt"],
-            "dependentRequired": {"allow_free_text": ["options"]},
+            "required": ["questions"],
             "additionalProperties": False,
         },
     },

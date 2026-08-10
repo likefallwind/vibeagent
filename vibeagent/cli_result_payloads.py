@@ -142,6 +142,34 @@ def code_result_user_input_requests(result: AgentResult) -> list[dict[str, objec
     for observation in result.observations:
         if getattr(observation, "kind", None) != "ask_user":
             continue
+        structured = getattr(observation, "questions", None)
+        answers = getattr(observation, "answers", None)
+        if isinstance(structured, list) and structured:
+            answer_map = answers if isinstance(answers, dict) else {}
+            for item in structured:
+                if not isinstance(item, dict):
+                    continue
+                question = str(item.get("question") or "")
+                option_details = item.get("options")
+                normalized_details = (
+                    [dict(option) for option in option_details if isinstance(option, dict)]
+                    if isinstance(option_details, list)
+                    else []
+                )
+                answer = answer_map.get(question)
+                requests.append(
+                    {
+                        "question": question,
+                        "header": item.get("header"),
+                        "options": [str(option.get("label") or "") for option in normalized_details],
+                        "optionDetails": normalized_details,
+                        "multiSelect": bool(item.get("multiSelect", False)),
+                        "answer": answer,
+                        "cancelled": answer is None,
+                        "message": str(getattr(observation, "message", "")),
+                    }
+                )
+            continue
         answer = getattr(observation, "answer", None)
         request = {
             "question": str(getattr(observation, "question", "")),

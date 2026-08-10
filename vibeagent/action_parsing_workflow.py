@@ -3,7 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 from .action_parsing_helpers import ActionParseError, normalize_plan_item_status, parse_active_form, parse_plan_items
-from .types import AskUserAction, FinishAction, PlanItem, UpdatePlanAction
+from .types import (
+    AskUserAction,
+    AskUserOption,
+    AskUserQuestion,
+    FinishAction,
+    PlanItem,
+    UpdatePlanAction,
+)
 
 
 WORKFLOW_ACTION_TYPES = {
@@ -19,6 +26,8 @@ def parse_workflow_action(action_type: object, value: dict[str, Any], raw: str) 
         return None
 
     if action_type == "ask_user":
+        if "questions" in value:
+            return _parse_structured_user_questions(value, raw)
         question = value.get("question")
         if not isinstance(question, str) or not question.strip():
             raise ActionParseError("ask_user action requires a non-empty question.", raw)
@@ -69,6 +78,104 @@ def parse_workflow_action(action_type: object, value: dict[str, Any], raw: str) 
         return FinishAction(type="finish", message=message)
 
     raise AssertionError(f"Unhandled workflow action type: {action_type!r}")
+
+
+def _parse_structured_user_questions(value: dict[str, Any], raw: str) -> AskUserAction:
+    if any(key in value for key in ("question", "options", "allow_free_text")):
+        raise ActionParseError(
+            "ask_user action cannot combine questions with legacy single-question fields.",
+            raw,
+        )
+    raw_questions = value.get("questions")
+    if not isinstance(raw_questions, list) or not raw_questions:
+        raise ActionParseError("ask_user action questions must be a non-empty list.", raw)
+    if len(raw_questions) > 4:
+        raise ActionParseError("ask_user action questions must contain at most 4 items.", raw)
+
+    questions: list[AskUserQuestion] = []
+    seen_questions: set[str] = set()
+    for index, item in enumerate(raw_questions, start=1):
+        if not isinstance(item, dict):
+            raise ActionParseError(f"ask_user question {index} must be an object.", raw)
+        unknown = set(item) - {"question", "header", "options", "multiSelect"}
+        if unknown:
+            raise ActionParseError(
+                f"ask_user question {index} has unknown field {sorted(unknown)[0]!r}.",
+                raw,
+            )
+        question = item.get("question")
+        header = item.get("header")
+        raw_options = item.get("options")
+        multi_select = item.get("multiSelect", False)
+        if not isinstance(question, str) or not question.strip():
+            raise ActionParseError(f"ask_user question {index} requires non-empty question.", raw)
+        question = question.strip()
+        if len(question) > 1_000:
+            raise ActionParseError(f"ask_user question {index} exceeds 1000 characters.", raw)
+        if question in seen_questions:
+            raise ActionParseError("ask_user structured questions must be unique.", raw)
+        seen_questions.add(question)
+        if not isinstance(header, str) or not header.strip():
+            raise ActionParseError(f"ask_user question {index} requires non-empty header.", raw)
+        header = header.strip()
+        if len(header) > 12:
+            raise ActionParseError(f"ask_user question {index} header exceeds 12 characters.", raw)
+        if not isinstance(raw_options, list) or not 2 <= len(raw_options) <= 4:
+            raise ActionParseError(
+                f"ask_user question {index} options must contain 2 to 4 items.",
+                raw,
+            )
+        if not isinstance(multi_select, bool):
+            raise ActionParseError(f"ask_user question {index} multiSelect must be a boolean.", raw)
+
+        options: list[AskUserOption] = []
+        seen_labels: set[str] = set()
+        for option_index, option in enumerate(raw_options, start=1):
+            if not isinstance(option, dict) or set(option) != {"label", "description"}:
+                raise ActionParseError(
+                    f"ask_user question {index} option {option_index} requires label and description.",
+                    raw,
+                )
+            label = option.get("label")
+            description = option.get("description")
+            if not isinstance(label, str) or not label.strip() or len(label.strip()) > 200:
+                raise ActionParseError(
+                    f"ask_user question {index} option {option_index} has invalid label.",
+                    raw,
+                )
+            label = label.strip()
+            if label in seen_labels:
+                raise ActionParseError(f"ask_user question {index} option labels must be unique.", raw)
+            seen_labels.add(label)
+            if (
+                not isinstance(description, str)
+                or not description.strip()
+                or len(description.strip()) > 500
+            ):
+                raise ActionParseError(
+                    f"ask_user question {index} option {option_index} has invalid description.",
+                    raw,
+                )
+            options.append(
+                AskUserOption(label=label, description=description.strip())
+            )
+        questions.append(
+            AskUserQuestion(
+                question=question,
+                header=header,
+                options=options,
+                multi_select=multi_select,
+            )
+        )
+
+    first = questions[0]
+    return AskUserAction(
+        type="ask_user",
+        question=first.question,
+        options=[option.label for option in first.options],
+        allow_free_text=True,
+        questions=questions,
+    )
 
 
 def parse_todo_items(value: Any, raw: str) -> list[PlanItem]:
