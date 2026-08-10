@@ -104,6 +104,10 @@ local changes when asked, and resume from recorded session context.
   storage, redacted status, model-visible secret refusal, secure hook launch,
   and substitutions plus subprocess environments across skills, commands,
   agents, hooks, MCP, LSP, and monitors.
+- `tests.test_user_runtime_settings.UserRuntimeSettingsTests` covers bounded
+  user/project/local `env` precedence, explicit project trust, host environment
+  priority, secret-safe validation, and propagation to provider configuration,
+  commands, hooks, MCP servers, and LSP servers.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `LS`, `Glob`, `Grep`, `Read`, `Bash`, `Edit`, and `TodoRead`,

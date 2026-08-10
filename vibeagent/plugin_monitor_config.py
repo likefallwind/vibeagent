@@ -15,6 +15,7 @@ from .plugin_runtime import (
 )
 from .plugin_types import PluginManifest
 from .workspace_core import RunWorkspace
+from .workspace_environment import workspace_process_environment
 from .workspace_metadata_files import read_regular_file_bytes
 
 
@@ -135,10 +136,13 @@ def _parse_monitor(
         manifest.root,
     )
     user_config = resolve_plugin_component_user_config(workspace, component)
-    environment = plugin_subprocess_environment(
-        workspace,
-        component,
-        user_config=user_config,
+    environment = workspace_process_environment(workspace)
+    environment.update(
+        plugin_subprocess_environment(
+            workspace,
+            component,
+            user_config=user_config,
+        )
     )
     expanded = expand_plugin_path_variables(
         command.strip(),

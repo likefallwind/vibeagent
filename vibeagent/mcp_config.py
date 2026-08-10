@@ -21,6 +21,7 @@ from .plugin_runtime import (
 from .plugin_store import enabled_plugin_manifests
 from .plugin_user_config import ResolvedPluginUserConfig
 from .workspace_core import RunWorkspace
+from .workspace_environment import workspace_process_environment
 from .workspace_metadata_files import has_symlink_component
 from .workspace_paths import is_protected_project_path
 from .workspace_resolve import resolve_inside_run
@@ -61,10 +62,14 @@ class McpServerConfig:
     headers: dict[str, str] | None = None
     protocol_version: str = MCP_HTTP_DEFAULT_PROTOCOL_VERSION
     plugin_environment: dict[str, str] = field(default_factory=dict)
+    process_environment: dict[str, str] = field(default_factory=dict)
 
     @property
     def argv(self) -> list[str]:
-        environment = {**os.environ, **self.plugin_environment}
+        environment = {
+            **(self.process_environment or os.environ),
+            **self.plugin_environment,
+        }
         return [
             _expand_environment_references(value, environment)
             for value in (self.command, *self.args)
@@ -178,6 +183,7 @@ def _read_mcp_server_configs_from_document(
         if plugin_component is not None
         else {}
     )
+    process_environment = workspace_process_environment(workspace)
     for name, value in document.get("mcpServers", {}).items():
         selected_name = f"{plugin_component.plugin}.{name}" if plugin_component is not None else name
         selected_value = (
@@ -193,6 +199,7 @@ def _read_mcp_server_configs_from_document(
                 label,
                 plugin_root=plugin_component.plugin_root if plugin_component is not None else None,
                 plugin_environment=plugin_environment,
+                process_environment=process_environment,
             )
         )
     return configs
@@ -206,14 +213,20 @@ def get_mcp_server_config(workspace: RunWorkspace, name: str) -> McpServerConfig
 
 
 def expanded_mcp_environment(config: McpServerConfig) -> dict[str, str]:
-    environment = {**os.environ, **config.plugin_environment}
+    environment = {
+        **(config.process_environment or os.environ),
+        **config.plugin_environment,
+    }
     for key, value in config.env.items():
         environment[key] = _expand_environment_references(value, environment)
     return environment
 
 
 def expanded_mcp_headers(config: McpServerConfig) -> dict[str, str]:
-    environment = {**os.environ, **config.plugin_environment}
+    environment = {
+        **(config.process_environment or os.environ),
+        **config.plugin_environment,
+    }
     return {
         key: _expand_environment_references(value, environment)
         for key, value in (config.headers or {}).items()
@@ -235,6 +248,7 @@ def _parse_server_config(
     *,
     plugin_root: Path | None = None,
     plugin_environment: dict[str, str] | None = None,
+    process_environment: dict[str, str] | None = None,
 ) -> McpServerConfig:
     if not isinstance(name, str) or not MCP_NAME_PATTERN.fullmatch(name):
         raise ValueError("MCP server names must use 1-64 letters, digits, dots, underscores, or hyphens.")
@@ -249,6 +263,7 @@ def _parse_server_config(
             value,
             config_path,
             plugin_environment=plugin_environment,
+            process_environment=process_environment,
         )
     return _parse_stdio_server_config(
         workspace,
@@ -257,6 +272,7 @@ def _parse_server_config(
         config_path,
         plugin_root=plugin_root,
         plugin_environment=plugin_environment,
+        process_environment=process_environment,
     )
 
 
@@ -268,6 +284,7 @@ def _parse_stdio_server_config(
     *,
     plugin_root: Path | None = None,
     plugin_environment: dict[str, str] | None = None,
+    process_environment: dict[str, str] | None = None,
 ) -> McpServerConfig:
     command = value.get("command")
     args = value.get("args", [])
@@ -295,6 +312,7 @@ def _parse_stdio_server_config(
         config_path=config_path,
         transport="stdio",
         plugin_environment=dict(plugin_environment or {}),
+        process_environment=dict(process_environment or {}),
     )
 
 
@@ -350,6 +368,7 @@ def _parse_http_server_config(
     config_path: str,
     *,
     plugin_environment: dict[str, str] | None = None,
+    process_environment: dict[str, str] | None = None,
 ) -> McpServerConfig:
     url = value.get("url")
     headers = value.get("headers", {})
@@ -358,7 +377,10 @@ def _parse_http_server_config(
         raise ValueError(f"MCP HTTP server {name!r} requires a non-empty url.")
     url = _expand_environment_references(
         url.strip(),
-        {**os.environ, **(plugin_environment or {})},
+        {
+            **(process_environment or os.environ),
+            **(plugin_environment or {}),
+        },
     )
     if len(url) > 2_048:
         raise ValueError(f"MCP HTTP server {name!r} url is too long.")
@@ -401,6 +423,7 @@ def _parse_http_server_config(
         headers=dict(headers),
         protocol_version=str(protocol_version),
         plugin_environment=dict(plugin_environment or {}),
+        process_environment=dict(process_environment or {}),
     )
 
 

@@ -1459,6 +1459,21 @@ auto-approved action records a `sandbox_auto_approved` session event. The
 sandbox report exposes `autoApprovalReady` so automation can distinguish an
 enabled sandbox from one currently strong enough to reduce prompts.
 
+## User and project environment
+
+Claude-compatible `env` objects in `~/.claude/settings.json` apply to every
+project. Environment values in `.claude/settings.json` and
+`.claude/settings.local.json` become active only after the project configuration
+is trusted; local values override project values, which override user values.
+Variables already present when VibeAgent starts and explicit provider CLI flags
+have higher priority than settings values.
+
+The resolved environment is passed without mutating the VibeAgent host process
+to provider configuration, finite and background commands, hooks, MCP servers,
+plugin LSP servers, and plugin monitors. Names, value sizes, settings file sizes,
+regular-file boundaries, and symbolic links are validated before use. Values do
+not enter prompts, settings reports, or session events.
+
 ## User and project permissions
 
 Fine-grained personal permissions can be declared under the `permissions` key
@@ -1681,9 +1696,9 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   floors, diagnose Bubblewrap/network namespace support, and build one
   filesystem/network-isolated launcher for finite and background shell
   commands, including strict per-command auto-approval qualification.
-- `vibeagent/plugin_environment.py`: builds a per-command environment from
-  executable `bin/` components in enabled plugins without mutating the host
-  process `PATH`.
+- `vibeagent/workspace_environment.py` and `vibeagent/plugin_environment.py`:
+  resolve bounded source-aware settings variables and enabled plugin `bin/`
+  paths into per-process environments without mutating the host process.
 - `vibeagent/plugin_user_config_schema.py` and
   `vibeagent/plugin_user_config.py`, plus
   `vibeagent/plugin_user_config_store.py`: validate typed manifest options,

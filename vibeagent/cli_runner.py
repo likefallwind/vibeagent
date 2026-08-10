@@ -113,6 +113,7 @@ def run_one_shot(
             model_retries=model_retries,
             model_retry_delay_ms=model_retry_delay_ms,
             model_timeout_ms=model_timeout_ms,
+            trust_project_settings=trust_project_permissions,
         )
         execution_config = runtime_setup.execution_config
         provider_env = runtime_setup.provider_env

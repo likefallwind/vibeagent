@@ -25,7 +25,10 @@ class LspProcess:
         return self.process is not None and self.process.poll() is None
 
     def start(self) -> BinaryIO:
-        environment = {**os.environ, **self.config.plugin_environment}
+        environment = {
+            **(self.config.process_environment or os.environ),
+            **self.config.plugin_environment,
+        }
         for key, value in self.config.env.items():
             environment[key] = ENV_REFERENCE_PATTERN.sub(
                 lambda match: environment.get(match.group(1), ""), value

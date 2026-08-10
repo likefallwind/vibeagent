@@ -16,6 +16,7 @@ from .plugin_store import enabled_plugin_manifests
 from .plugin_types import PluginManifest
 from .plugin_user_config import ResolvedPluginUserConfig
 from .workspace_core import RunWorkspace
+from .workspace_environment import workspace_process_environment
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
 from .workspace_paths import is_protected_project_path
 
@@ -45,10 +46,14 @@ class LspServerConfig:
     max_restarts: int
     config_path: str
     plugin_environment: dict[str, str] = field(default_factory=dict)
+    process_environment: dict[str, str] = field(default_factory=dict)
 
     @property
     def argv(self) -> tuple[str, ...]:
-        environment = {**os.environ, **self.plugin_environment}
+        environment = {
+            **(self.process_environment or os.environ),
+            **self.plugin_environment,
+        }
         return tuple(
             ENV_REFERENCE_PATTERN.sub(
                 lambda match: environment.get(match.group(1), ""),
@@ -136,6 +141,7 @@ def _parse_server(
         component,
         user_config=user_config,
     )
+    process_environment = workspace_process_environment(workspace)
     assert isinstance(expanded, dict)
     command = expanded.get("command")
     args = expanded.get("args", [])
@@ -193,6 +199,7 @@ def _parse_server(
         max_restarts=max_restarts,
         config_path=f"plugin:{manifest.name}/{label}",
         plugin_environment=plugin_environment,
+        process_environment=process_environment,
     )
 
 

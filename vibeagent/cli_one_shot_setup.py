@@ -57,8 +57,9 @@ def resolve_one_shot_runtime_setup(
     model_retries: int | None = None,
     model_retry_delay_ms: int | None = None,
     model_timeout_ms: int | None = None,
+    trust_project_settings: bool = False,
     resolve_execution_config_func: Callable[..., ExecutionConfig] = resolve_execution_config,
-    build_provider_env_func: Callable[[object | None, Path], dict[str, str | None]] = build_provider_env,
+    build_provider_env_func: Callable[..., dict[str, str | None]] = build_provider_env,
 ) -> OneShotRuntimeSetup:
     execution_config = resolve_execution_config_func(
         config_root,
@@ -69,5 +70,12 @@ def resolve_one_shot_runtime_setup(
         model_retry_delay_ms=model_retry_delay_ms,
         model_timeout_ms=model_timeout_ms,
     )
-    provider_env = build_provider_env_func(provider_args, config_root)
+    if trust_project_settings:
+        provider_env = build_provider_env_func(
+            provider_args,
+            config_root,
+            trust_project_settings=trust_project_settings,
+        )
+    else:
+        provider_env = build_provider_env_func(provider_args, config_root)
     return OneShotRuntimeSetup(execution_config=execution_config, provider_env=provider_env)

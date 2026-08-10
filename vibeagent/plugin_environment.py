@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .plugin_runtime import enabled_plugin_component_files
 from .workspace_core import RunWorkspace
+from .workspace_environment import workspace_process_environment
 from .workspace_metadata_files import has_symlink_component
 
 
@@ -25,7 +26,7 @@ def enabled_plugin_bin_paths(workspace: RunWorkspace) -> tuple[Path, ...]:
 
 
 def plugin_command_environment(workspace: RunWorkspace) -> dict[str, str]:
-    environment = dict(os.environ)
+    environment = workspace_process_environment(workspace)
     plugin_paths = enabled_plugin_bin_paths(workspace)
     if not plugin_paths:
         return environment
