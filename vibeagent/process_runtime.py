@@ -77,6 +77,16 @@ class BackgroundProcess:
 BACKGROUND_PROCESSES: dict[str, BackgroundProcess] = {}
 
 
+def release_background_process_handle(process_id: str) -> None:
+    background = BACKGROUND_PROCESSES.pop(process_id, None)
+    if background is not None:
+        try:
+            background.process.wait(timeout=0.5)
+        except subprocess.TimeoutExpired:
+            _terminate_process(background.process)
+        _close_background_handles(background)
+
+
 def execute_run_command_item(
     workspace: RunWorkspace,
     action: RunCommandAction | RunCommandItem,

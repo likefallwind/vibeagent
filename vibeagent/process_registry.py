@@ -21,6 +21,12 @@ class PersistentProcessRecord:
     exit_code_path: Path | None = None
     start_ticks: int | None = None
     max_output_chars: int | None = None
+    monitor_description: str | None = None
+    monitor_timeout_ms: int | None = None
+    monitor_started_at: float | None = None
+    monitor_session_id: str | None = None
+    monitor_stdout_offset: int = 0
+    monitor_exit_delivered: bool = False
 
 
 def process_registry_dir(root: Path) -> Path:
@@ -48,6 +54,12 @@ def write_persistent_process_record(workspace: RunWorkspace, record: PersistentP
         "exit_code_path": relative_process_log_path(workspace.root, record.exit_code_path) if record.exit_code_path else None,
         "start_ticks": record.start_ticks,
         "max_output_chars": record.max_output_chars,
+        "monitor_description": record.monitor_description,
+        "monitor_timeout_ms": record.monitor_timeout_ms,
+        "monitor_started_at": record.monitor_started_at,
+        "monitor_session_id": record.monitor_session_id,
+        "monitor_stdout_offset": record.monitor_stdout_offset,
+        "monitor_exit_delivered": record.monitor_exit_delivered,
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -110,6 +122,12 @@ def parse_persistent_process_record(root: Path, payload: object) -> PersistentPr
     exit_code_text = payload.get("exit_code_path")
     start_ticks = payload.get("start_ticks")
     max_output_chars = payload.get("max_output_chars")
+    monitor_description = payload.get("monitor_description")
+    monitor_timeout_ms = payload.get("monitor_timeout_ms")
+    monitor_started_at = payload.get("monitor_started_at")
+    monitor_session_id = payload.get("monitor_session_id")
+    monitor_stdout_offset = payload.get("monitor_stdout_offset", 0)
+    monitor_exit_delivered = payload.get("monitor_exit_delivered", False)
     if not isinstance(process_id, str) or not process_id.strip() or Path(process_id).name != process_id:
         return None
     if not isinstance(command, str) or not isinstance(cwd, str):
@@ -134,6 +152,44 @@ def parse_persistent_process_record(root: Path, payload: object) -> PersistentPr
         start_ticks=start_ticks if isinstance(start_ticks, int) else None,
         max_output_chars=(
             max_output_chars if isinstance(max_output_chars, int) and 1_000 <= max_output_chars <= 50_000 else None
+        ),
+        monitor_description=(
+            monitor_description
+            if isinstance(monitor_description, str)
+            and monitor_description
+            and len(monitor_description) <= 500
+            else None
+        ),
+        monitor_timeout_ms=(
+            monitor_timeout_ms
+            if isinstance(monitor_timeout_ms, int)
+            and not isinstance(monitor_timeout_ms, bool)
+            and 0 <= monitor_timeout_ms <= 3_600_000
+            else None
+        ),
+        monitor_started_at=(
+            float(monitor_started_at)
+            if isinstance(monitor_started_at, (int, float))
+            and not isinstance(monitor_started_at, bool)
+            and monitor_started_at >= 0
+            else None
+        ),
+        monitor_session_id=(
+            monitor_session_id
+            if isinstance(monitor_session_id, str)
+            and monitor_session_id
+            and Path(monitor_session_id).name == monitor_session_id
+            else None
+        ),
+        monitor_stdout_offset=(
+            monitor_stdout_offset
+            if isinstance(monitor_stdout_offset, int)
+            and not isinstance(monitor_stdout_offset, bool)
+            and monitor_stdout_offset >= 0
+            else 0
+        ),
+        monitor_exit_delivered=(
+            monitor_exit_delivered if isinstance(monitor_exit_delivered, bool) else False
         ),
     )
 

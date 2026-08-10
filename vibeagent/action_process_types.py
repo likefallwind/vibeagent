@@ -122,6 +122,15 @@ class StartCommandAction:
 
 
 @dataclass(frozen=True)
+class MonitorAction:
+    type: Literal["monitor"]
+    command: str
+    description: str
+    timeout_ms: int = 300_000
+    persistent: bool = False
+
+
+@dataclass(frozen=True)
 class ReadProcessAction:
     type: Literal["read_process"]
     process_id: str

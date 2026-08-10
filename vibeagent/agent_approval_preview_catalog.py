@@ -55,6 +55,7 @@ PREVIEW_KIND_BY_ACTION_TYPE = {
     "run_focused_test_commands": "check_focused_test_commands",
     "run_session_verification": "session_verification",
     "start_command": "check_start_command",
+    "monitor": "check_start_command",
     "write_process": "check_write_process",
     "stop_process": "check_stop_process",
     "stop_all_processes": "check_stop_all_processes",

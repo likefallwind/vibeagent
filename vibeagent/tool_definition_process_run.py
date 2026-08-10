@@ -73,4 +73,34 @@ PROCESS_RUN_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "monitor",
+        "description": "Run a background watcher and deliver each stdout line to the agent as an untrusted event. Requires command approval.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "command": {"type": "string", "description": "Shell script whose stdout lines are monitor events."},
+                "description": {"type": "string", "minLength": 1, "maxLength": 500, "description": "Short description shown with monitor events."},
+                "timeout_ms": {"type": "integer", "minimum": 100, "maximum": 3600000, "default": 300000, "description": "Kill deadline in milliseconds. Defaults to 300000."},
+                "persistent": {"type": "boolean", "default": False, "description": "Run for the session lifetime until TaskStop or session exit."},
+            },
+            "required": ["command", "description"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "Monitor",
+        "description": "Claude-compatible background monitor that streams each stdout line back as an event. Uses Bash permission rules.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "command": {"type": "string"},
+                "description": {"type": "string", "minLength": 1, "maxLength": 500},
+                "timeout_ms": {"type": "integer", "minimum": 100, "maximum": 3600000, "default": 300000},
+                "persistent": {"type": "boolean", "default": False},
+            },
+            "required": ["command", "description"],
+            "additionalProperties": False,
+        },
+    },
 ]

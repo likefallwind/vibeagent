@@ -30,7 +30,10 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         )
 
     def test_process_control_definition_boundaries_match_runtime_domains(self) -> None:
-        self.assertEqual([tool["name"] for tool in PROCESS_RUN_TOOL_DEFINITIONS], ["run_command", "check_start_command", "start_command"])
+        self.assertEqual(
+            [tool["name"] for tool in PROCESS_RUN_TOOL_DEFINITIONS],
+            ["run_command", "check_start_command", "start_command", "monitor", "Monitor"],
+        )
         self.assertEqual(
             [tool["name"] for tool in PROCESS_OUTPUT_TOOL_DEFINITIONS],
             ["read_process", "process_output_contexts", "process_output_diagnostics"],
@@ -119,6 +122,15 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
 
         self.assertIn("max_output_chars", schema["properties"])
         self.assertNotIn("max_output_chars", schema["required"])
+
+    def test_monitor_schema_matches_claude_contract(self) -> None:
+        monitor = next(tool for tool in PROCESS_RUN_TOOL_DEFINITIONS if tool["name"] == "Monitor")
+        schema = monitor["input_schema"]
+
+        self.assertEqual(schema["required"], ["command", "description"])
+        self.assertEqual(schema["properties"]["timeout_ms"]["default"], 300_000)
+        self.assertEqual(schema["properties"]["timeout_ms"]["maximum"], 3_600_000)
+        self.assertFalse(schema["properties"]["persistent"]["default"])
 
     def test_claude_bash_schema_exposes_output_extraction_flags(self) -> None:
         bash = next(tool for tool in CLAUDE_PROCESS_TOOL_DEFINITIONS if tool["name"] == "Bash")

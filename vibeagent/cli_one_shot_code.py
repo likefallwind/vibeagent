@@ -41,6 +41,7 @@ from .types import ApprovalPolicy, ChatMessage
 from .workspace_core import create_local_workspace
 from .workspace_permissions import ProjectPermissions
 from .dynamic_agent_profiles import DynamicAgentProfile
+from .monitor_runtime import stop_session_monitors
 
 
 def run_one_shot_code(
@@ -200,6 +201,7 @@ def run_one_shot_code(
             run_kwargs["prior_messages"] = prior_messages
     goal_turns = 0
     structured_output: StructuredOutputResult | None = None
+    result: AgentResult | None = None
     recorded_session_tokens: dict[str, int] = {}
     try:
         with stream_scope.event_scope:
@@ -262,8 +264,11 @@ def run_one_shot_code(
                     iteration=result.iterations,
                 )
     finally:
+        if result is not None:
+            stop_session_monitors(project_root, result.run_id)
         if peer_runtime is not None:
             peer_runtime.close()
+    assert result is not None
     result_payload = build_one_shot_code_payload(
         result,
         prior_context,

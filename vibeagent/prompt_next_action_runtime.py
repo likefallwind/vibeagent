@@ -37,8 +37,10 @@ RUNTIME_NEXT_ACTION_KINDS = {
     "Bash",
     "BashOutput",
     "KillBash",
+    "Monitor",
     "run_command",
     "start_command",
+    "monitor",
     "read_process",
     "list_processes",
     "check_write_process",
@@ -179,6 +181,13 @@ def runtime_next_action_instruction(base: str, observations: list[Observation]) 
         return run_command_next_action_instruction(base, latest)
     if latest.kind == "start_command":
         return _start_command_next_action_instruction(base, latest)
+    if latest.kind == "monitor":
+        if latest.ok:
+            return (
+                f"{base} The monitor started. Its stdout lines and exit status will be delivered automatically; "
+                f"use TaskStop with task_id={latest.task_id} only when it should be cancelled."
+            )
+        return f"{base} The monitor did not start, so fix the concrete error before finishing."
     if latest.kind == "read_process":
         return _read_process_next_action_instruction(base, latest)
     if latest.kind == "list_processes":

@@ -367,6 +367,8 @@ class ActionTests(unittest.TestCase):
                     "Bash",
                     "BashOutput",
                     "KillBash",
+                    "Monitor",
+                    "monitor",
                     "process_output_contexts",
                     "process_output_diagnostics",
                     "read_process",

@@ -132,6 +132,7 @@ from .observation_process_types import (
     CommandCheckObservation,
     CommandResult,
     ListProcessesObservation,
+    MonitorObservation,
     ProcessInfo,
     ProcessOutputContextsObservation,
     ProcessOutputDiagnosticsObservation,

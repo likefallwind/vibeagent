@@ -15,6 +15,7 @@ from .agent_observation_utils import observation_failed
 from .agent_lifecycle_runtime import AgentLifecycleRuntime
 from .agent_model_turn import handle_no_tool_call_response, record_model_turn
 from .agent_multimodal import strip_consumed_tool_images
+from .agent_monitor_notifications import inject_monitor_notifications
 from .agent_parallel_execution import execute_parallel_tool_call_batch
 from .agent_peer_notifications import inject_peer_notifications
 from .agent_plugin_monitors import AgentPluginMonitorController
@@ -212,6 +213,9 @@ def run_agent_loop(
         plugin_monitors.inject(
             current_workspace, messages, iteration=iteration, logger=logger
         )
+        inject_monitor_notifications(
+            current_workspace, messages, iteration=iteration, logger=logger
+        )
         inject_scheduled_task_notifications(
             current_workspace,
             messages,
@@ -277,6 +281,11 @@ def run_agent_loop(
         assistant_content = model_turn.assistant_content
         tool_calls = model_turn.tool_calls
         if not tool_calls:
+            if inject_monitor_notifications(
+                current_workspace, messages, iteration=iteration, logger=logger
+            ):
+                checkpoint_conversation()
+                continue
             no_tool_result = handle_no_tool_call_response(
                 current_workspace,
                 messages,

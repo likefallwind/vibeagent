@@ -24,6 +24,7 @@ from .types import (
     CheckWriteProcessAction,
     RunCommandAction,
     RunCommandsAction,
+    MonitorAction,
     StartCommandAction,
     StopAllProcessesAction,
     StopProcessAction,
@@ -37,6 +38,7 @@ PROCESS_ACTION_TYPES = PROCESS_READ_ACTION_TYPES | {
     "run_commands",
     "check_start_command",
     "start_command",
+    "monitor",
     "wait_process",
     "check_write_process",
     "write_process",
@@ -115,6 +117,36 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
             cwd=cwd,
             max_output_chars=parse_optional_command_output_chars(value.get("max_output_chars"), raw),
             description=parse_optional_description(value.get("description"), raw, "start_command"),
+        )
+
+    if action_type == "monitor":
+        command = parse_command(value.get("command"), raw, "monitor")
+        description = parse_optional_description(
+            value.get("description"), raw, "monitor"
+        )
+        if description is None:
+            raise ActionParseError("monitor action requires a description.", raw)
+        if len(description) > 500:
+            raise ActionParseError(
+                "monitor action description must contain at most 500 characters.", raw
+            )
+        persistent = value.get("persistent", False)
+        if not isinstance(persistent, bool):
+            raise ActionParseError("monitor action persistent must be a boolean.", raw)
+        timeout_ms = parse_optional_positive_int(
+            value.get("timeout_ms", 300_000),
+            "timeout_ms",
+            raw,
+            maximum=3_600_000,
+        ) or 300_000
+        if timeout_ms < 100:
+            raise ActionParseError("timeout_ms must be at least 100.", raw)
+        return MonitorAction(
+            type="monitor",
+            command=command,
+            description=description,
+            timeout_ms=0 if persistent else timeout_ms,
+            persistent=persistent,
         )
 
     if action_type == "wait_process":

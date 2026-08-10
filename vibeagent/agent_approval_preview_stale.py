@@ -53,6 +53,7 @@ COMMAND_MUTATION_OBSERVATION_KINDS = {
     "run_session_verification",
     "run_suggested_checks",
     "start_command",
+    "monitor",
     "write_process",
 }
 
@@ -64,6 +65,7 @@ PROCESS_PREVIEW_KINDS = {
 
 PROCESS_STATE_OBSERVATION_KINDS = {
     "start_command",
+    "monitor",
     "read_process",
     "process_output_contexts",
     "process_output_diagnostics",

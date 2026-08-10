@@ -85,6 +85,23 @@ class StartCommandObservation:
 
 
 @dataclass(frozen=True)
+class MonitorObservation:
+    kind: Literal["monitor"]
+    task_id: str
+    pid: int | None
+    command: str
+    description: str
+    timeout_ms: int
+    persistent: bool
+    ok: bool
+    message: str
+    stdout_path: str
+    stderr_path: str
+    sandboxed: bool = False
+    sandbox_warning: str | None = None
+
+
+@dataclass(frozen=True)
 class ReadProcessObservation:
     kind: Literal["read_process"]
     process_id: str

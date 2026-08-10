@@ -200,7 +200,7 @@ def run_preview_key(kind: str, value: object) -> tuple[Any, ...] | None:
             "run_command",
             command_item_preview_key(value),
         )
-    if kind in {"start_command", "check_start_command"}:
+    if kind in {"start_command", "monitor", "check_start_command"}:
         return (
             "start_command",
             getattr(value, "command", ""),

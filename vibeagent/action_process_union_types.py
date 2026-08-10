@@ -13,6 +13,7 @@ from .action_process_types import (
     HttpCheckAction,
     HttpFetchAction,
     ListProcessesAction,
+    MonitorAction,
     PortCheckAction,
     ProcessOutputContextsAction,
     ProcessOutputDiagnosticsAction,
@@ -42,6 +43,7 @@ ProcessAgentAction: TypeAlias = (
     | RunCommandAction
     | RunCommandsAction
     | StartCommandAction
+    | MonitorAction
     | ReadProcessAction
     | ProcessOutputContextsAction
     | ProcessOutputDiagnosticsAction

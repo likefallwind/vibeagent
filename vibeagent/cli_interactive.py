@@ -78,6 +78,11 @@ from .dynamic_workflow_agent import background_workflow_approval_handler, execut
 from .dynamic_workflow_commands import handle_workflows_command
 from .dynamic_workflow_runtime import DynamicWorkflowManager
 from .workspace_core import create_local_workspace, create_run_workspace
+from .monitor_runtime import (
+    collect_monitor_notifications,
+    monitor_notifications_prompt,
+    stop_session_monitors,
+)
 from .workspace_hooks import read_project_hooks
 from .workspace_permissions import read_project_permissions
 from .session_additional_directories import (
@@ -125,6 +130,9 @@ def run_interactive_loop(
     chat_history: list[ChatMessage] = []
     conversation_messages: list[ChatMessage] = list(initial_conversation_messages)
     resume_run_id: str | None = initial_resume_run_id
+    owned_monitor_session_ids = {
+        initial_resume_run_id
+    } if initial_resume_run_id is not None else set()
     resume_context: str | None = initial_resume_context
     system_prompt = initial_system_prompt
     append_system_prompt = initial_append_system_prompt
@@ -210,6 +218,7 @@ def run_interactive_loop(
             result.run_id,
             additional_roots=additional_directories,
         )
+        owned_monitor_session_ids.add(result.run_id)
         pending_branch_source_run_id = None
         selected, next_context, _ = get_resume_context_func(result.run_id)
         if next_context:
@@ -254,7 +263,26 @@ def run_interactive_loop(
                     task, metadata = peer_task
                     print("\nPeer session message received.")
                     run_code_task(task, metadata)
-            if resume_run_id is None or not scheduled_tasks_enabled():
+            if resume_run_id is None:
+                return
+            workspace = create_local_workspace(
+                Path.cwd(),
+                resume_run_id,
+                additional_roots=additional_directories,
+            )
+            monitor_notifications = collect_monitor_notifications(workspace)
+            if monitor_notifications:
+                print("\nMonitor event received.")
+                run_code_task(
+                    monitor_notifications_prompt(monitor_notifications),
+                    {
+                        "source": "monitor",
+                        "monitorTaskIds": sorted(
+                            {item.task_id for item in monitor_notifications}
+                        ),
+                    },
+                )
+            if not scheduled_tasks_enabled():
                 return
             workspace = create_local_workspace(
                 Path.cwd(),
@@ -331,6 +359,10 @@ def run_interactive_loop(
         workflow_manager = DynamicWorkflowManager(workspace, execute_agent)
         return workflow_manager
 
+    def stop_owned_monitors() -> None:
+        for session_id in owned_monitor_session_ids:
+            stop_session_monitors(Path.cwd(), session_id)
+
     while True:
         try:
             with interactive_prompt_completion(Path.cwd(), additional_directories):
@@ -341,6 +373,7 @@ def run_interactive_loop(
                 ).strip()
         except (EOFError, KeyboardInterrupt):
             print()
+            stop_owned_monitors()
             if workflow_manager is not None:
                 workflow_manager.close()
             if peer_runtime is not None:
@@ -388,6 +421,7 @@ def run_interactive_loop(
             if custom_command is not None:
                 task = str(custom_command["prompt"])
         if command and command.type == "exit":
+            stop_owned_monitors()
             if workflow_manager is not None:
                 workflow_manager.close()
             if peer_runtime is not None:

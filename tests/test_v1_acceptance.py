@@ -174,6 +174,15 @@ EXPECTED_GATES = {
             "test_v1_cli_json_can_delegate_with_dynamic_agent_before_repair_and_commit",
         },
     },
+    "VA1-MONITOR": {
+        "tools": {"Monitor"},
+        "tests": {
+            "test_stdout_lines_and_exit_are_delivered_once",
+            "test_timeout_terminates_monitor_and_reports_once",
+            "test_task_stop_stops_persistent_monitor",
+            "test_idle_interactive_session_wakes_for_monitor_event",
+        },
+    },
     "VA1-WORKFLOW": {
         "tools": set(),
         "tests": {

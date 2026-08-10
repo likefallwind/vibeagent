@@ -65,7 +65,7 @@ The automated suite currently covers these 1.0 surfaces:
   `python -m vibeagent --version` and `vibeagent --version`.
 - Core ReAct loop: inspect, edit, run checks, repair, review, commit, finish.
 - Claude-compatible tool aliases: `Read`, `Edit`, `MultiEdit`, `Write`,
-  `NotebookRead`, `NotebookEdit`, `Bash`, `BashOutput`, `KillBash`,
+  `NotebookRead`, `NotebookEdit`, `Bash`, `BashOutput`, `KillBash`, `Monitor`,
   `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TodoWrite`, `TodoRead`,
   `CronCreate`, `CronList`, `CronDelete`, `WebFetch`, `Task`, `TaskOutput`,
   `TaskStop`, `Agent`, and `ExitPlanMode`.
@@ -120,6 +120,10 @@ The automated suite currently covers these 1.0 surfaces:
 - Session scheduling: standard local-time cron expressions, deterministic
   jitter, one-shot and recurring delivery, idle CLI wakeups, seven-day expiry,
   no-catch-up behavior, atomic persistence, and filtered resume restoration.
+- Reactive command monitors: Bash-equivalent approval, bounded default and
+  maximum timeouts, persistent session mode, redacted line-at-a-time untrusted
+  events, active-turn delivery, idle CLI wakeups, one-time exit delivery,
+  `TaskStop` cancellation, and session-exit process cleanup.
 - Autonomous goals: one persisted completion condition, strict bounded no-tool
   evaluation after each coding turn, evaluator-guided continuation, interactive
   status and clearing, explicit resume restoration, and one-shot looping.

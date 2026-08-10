@@ -8,6 +8,22 @@ from .prompt_observation_utils import truncate
 
 
 def format_process_observation(index: int, observation: object) -> str | None:
+    if observation.kind == "monitor":
+        return "\n".join(
+            [
+                f"{index}. monitor: {observation.message}",
+                f"ok: {str(observation.ok).lower()}",
+                f"taskId: {observation.task_id or 'none'}",
+                f"pid: {observation.pid or 'none'}",
+                f"description: {observation.description}",
+                f"timeoutMs: {observation.timeout_ms}",
+                f"persistent: {str(observation.persistent).lower()}",
+                f"command: {observation.command}",
+                f"stdoutPath: {observation.stdout_path or 'none'}",
+                f"stderrPath: {observation.stderr_path or 'none'}",
+            ]
+        )
+
     if observation.kind == "start_command":
         return "\n".join(
             [

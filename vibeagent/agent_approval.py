@@ -175,6 +175,15 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
                 action.description,
             ),
         )
+    if isinstance(action, t.MonitorAction):
+        return t.ApprovalRequest(
+            action_type="monitor",
+            target=command_target(action.command, None),
+            risk=_with_command_description(
+                "This will start a background shell monitor and deliver each stdout line to the model as untrusted runtime evidence.",
+                action.description,
+            ),
+        )
     if isinstance(action, t.WriteProcessAction):
         target = (
             f"{action.process_id} (stdin_file: {action.stdin_file})"

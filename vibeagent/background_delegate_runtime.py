@@ -266,6 +266,11 @@ def stop_background_delegate_task(
 ) -> TaskStopObservation:
     task = _find_task(workspace, action.task_id)
     if task is None:
+        from .monitor_runtime import stop_monitor_task
+
+        monitor_result = stop_monitor_task(workspace, action.task_id)
+        if monitor_result is not None:
+            return monitor_result
         hint = _available_agent_hint(workspace)
         return TaskStopObservation(
             kind="task_stop",

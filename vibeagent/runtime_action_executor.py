@@ -18,6 +18,7 @@ from .process_runtime import (
     wait_background_process,
     write_background_process,
 )
+from .monitor_runtime import start_monitor_command
 from .cli_process_stdin import read_project_stdin_file
 from .runtime_checks import (
     build_command_check_observation,
@@ -47,6 +48,7 @@ from .types import (
     WebFetchAction,
     WebSearchAction,
     ListProcessesAction,
+    MonitorAction,
     Observation,
     PortCheckAction,
     ProcessOutputContextsAction,
@@ -225,6 +227,9 @@ def execute_runtime_action(
             action.cwd,
             max_output_chars=action.max_output_chars or 4_000,
         )
+
+    if isinstance(action, MonitorAction):
+        return start_monitor_command(workspace, action)
 
     if isinstance(action, ReadProcessAction):
         return attach_output_analysis_to_process_observation(

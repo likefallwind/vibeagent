@@ -109,6 +109,7 @@ from .observation_process_types import (
     CheckWriteProcessObservation,
     CommandCheckObservation,
     ListProcessesObservation,
+    MonitorObservation,
     ProcessOutputContextsObservation,
     ProcessOutputDiagnosticsObservation,
     ReadProcessObservation,
@@ -339,6 +340,7 @@ Observation: TypeAlias = (
     | RunCommandObservation
     | RunCommandsObservation
     | StartCommandObservation
+    | MonitorObservation
     | ReadProcessObservation
     | ProcessOutputContextsObservation
     | ProcessOutputDiagnosticsObservation

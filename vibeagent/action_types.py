@@ -160,6 +160,7 @@ from .action_process_types import (
     WebFetchAction,
     WebSearchAction,
     ListProcessesAction,
+    MonitorAction,
     PortCheckAction,
     ProcessOutputContextsAction,
     ProcessOutputDiagnosticsAction,

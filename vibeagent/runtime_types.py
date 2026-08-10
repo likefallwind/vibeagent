@@ -127,6 +127,7 @@ class ApprovalRequest:
         "run_commands",
         "run_suggested_checks",
         "start_command",
+        "monitor",
         "web_fetch",
         "mcp_tools",
         "mcp_call",
