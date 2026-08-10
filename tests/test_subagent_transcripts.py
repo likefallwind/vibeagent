@@ -121,6 +121,23 @@ class SubagentTranscriptTests(unittest.TestCase):
 
         self.assertEqual(transcript.action.max_iterations, 50)
 
+    def test_transcript_persists_subagent_hierarchy(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-subagent-transcript-") as base:
+            workspace = create_run_workspace(Path(base), run_id="hierarchy")
+            action = parse_tool_action("delegate_task", {"task": "Nested check"})
+            create_subagent_transcript(
+                workspace,
+                "agent-child",
+                action,
+                [ChatMessage(role="system", content="system")],
+                depth=2,
+                parent_id="agent-parent",
+            )
+            transcript = read_subagent_transcript(workspace, "agent-child")
+
+        self.assertEqual(transcript.depth, 2)
+        self.assertEqual(transcript.parent_id, "agent-parent")
+
 
 if __name__ == "__main__":
     unittest.main()

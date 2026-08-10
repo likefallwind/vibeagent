@@ -86,6 +86,46 @@ class ListAgentsTests(unittest.TestCase):
         self.assertTrue(by_id[running.task_id or ""].background)
         self.assertFalse(by_id[running.task_id or ""].resumable)
 
+    def test_running_background_agent_exposes_hierarchy_before_transcript_exists(self) -> None:
+        release = threading.Event()
+
+        def runner(task_id, _cancel, _inbox):
+            release.wait(5)
+            return DelegateTaskObservation(
+                kind="delegate_task",
+                ok=True,
+                task="Nested background check",
+                summary="done",
+                iterations=1,
+                tool_calls=[],
+                message="done",
+                task_id=task_id,
+                background=True,
+                depth=2,
+                parent_id="agent-parent",
+            )
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-list-agents-") as base:
+            workspace = create_run_workspace(Path(base))
+            action = DelegateTaskAction(
+                type="delegate_task",
+                task="Nested background check",
+                run_in_background=True,
+            )
+            started = start_background_delegate_task(
+                workspace,
+                action,
+                runner,
+                depth=2,
+                parent_id="agent-parent",
+            )
+            listed = execute_action(workspace, parse_tool_action("ListAgents", {}))
+            release.set()
+
+        instance = next(agent for agent in listed.agents if agent.id == started.task_id)
+        self.assertEqual(instance.depth, 2)
+        self.assertEqual(instance.parent_id, "agent-parent")
+
     def test_list_agents_survives_runtime_absence_and_counts_invalid_transcripts(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-list-agents-") as base:
             workspace = create_run_workspace(Path(base), run_id="persisted")

@@ -23,6 +23,7 @@ from .agent_delegate_tools import (
     execute_delegate_tool_call,
 )
 from .agent_runtime_utils import append_session_event
+from .nested_delegate_runtime import NestedDelegateRuntime
 from .subagent_transcripts import (
     SubagentTranscript,
     checkpoint_subagent_transcript,
@@ -76,6 +77,8 @@ def execute_delegate_task_action(
     resume_transcript: SubagentTranscript | None = None,
     followup_message: str | None = None,
     inbound_messages: Callable[[bool], list[str]] | None = None,
+    depth: int = 1,
+    parent_subagent_id: str | None = None,
 ) -> DelegateTaskObservation:
     profile = load_delegate_profile_runtime(workspace, action)
     delegate_workspace = profile.workspace or workspace
@@ -96,6 +99,8 @@ def execute_delegate_task_action(
         approval_policy,
         profile,
         logger,
+        depth,
+        parent_subagent_id,
     )
     policy_error = _delegate_policy_error(action, approval_policy, profile.error)
     if policy_error is not None:
@@ -150,6 +155,8 @@ def execute_delegate_task_action(
                 action,
                 messages,
                 worktree_runtime.record if worktree_runtime is not None else None,
+                depth=depth,
+                parent_id=parent_subagent_id,
             )
         else:
             resume_subagent_transcript(
@@ -216,6 +223,34 @@ def execute_delegate_task_action(
         else None
     )
     worktree_outcome: SubagentWorktreeOutcome | None = None
+    nested_runtime = NestedDelegateRuntime(
+        workspace=delegate_workspace,
+        subagent_id=subagent_id,
+        depth=depth,
+        mode=action.mode,
+        cancel_requested=cancel_requested,
+        execute_child=lambda child_action, child_id, child_depth, parent_id, child_parent_iteration, child_cancel, child_inbound: execute_delegate_task_action(
+            delegate_workspace,
+            child_action,
+            client,
+            parent_iteration=child_parent_iteration,
+            subagent_id=child_id,
+            max_output_tokens=max_output_tokens,
+            model_retries=model_retries,
+            model_retry_delay_ms=model_retry_delay_ms,
+            model_timeout_ms=model_timeout_ms,
+            command_timeout_ms=command_timeout_ms,
+            logger=logger,
+            approval_handler=approval_handler,
+            approval_policy=approval_policy,
+            hooks=hooks,
+            permissions=permissions,
+            cancel_requested=child_cancel,
+            inbound_messages=child_inbound,
+            depth=child_depth,
+            parent_subagent_id=parent_id,
+        ),
+    )
     try:
         result = run_delegate_iterations(
             DelegateLoopContext(
@@ -244,6 +279,7 @@ def execute_delegate_task_action(
                 hooks=hooks,
                 permissions=permissions,
                 cancel_requested=cancel_requested,
+                nested_runtime=nested_runtime,
                 transcript_checkpoint=transcript_checkpoint,
                 inbox=inbox,
             )
@@ -264,6 +300,7 @@ def execute_delegate_task_action(
         worktree_outcome = _finalize_delegate_worktree(workspace, subagent_id, worktree_runtime)
     if worktree_outcome is not None:
         result = _attach_worktree_outcome(result, worktree_outcome)
+    result = replace(result, depth=depth, parent_id=parent_subagent_id)
     complete_subagent_transcript(delegate_workspace, subagent_id, action, messages, result)
     return result
 
@@ -324,6 +361,8 @@ def _record_delegate_start(
     approval_policy: ApprovalPolicy,
     profile: DelegateProfileRuntime,
     logger: AgentLogger | None,
+    depth: int,
+    parent_subagent_id: str | None,
 ) -> None:
     append_session_event(
         workspace.session_dir,
@@ -341,6 +380,8 @@ def _record_delegate_start(
             "profile_memory_scope": profile.memory_scope,
             "isolation": action.isolation,
             "approval_policy": approval_policy,
+            "depth": depth,
+            "parent_subagent_id": parent_subagent_id,
         },
     )
     if logger:

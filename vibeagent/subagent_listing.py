@@ -46,6 +46,8 @@ def list_session_agents(
             worktree_path=transcript.worktree.project_path if transcript.worktree is not None else None,
             worktree_branch=transcript.worktree.branch if transcript.worktree is not None else None,
             worktree_preserved=transcript.worktree.preserved if transcript.worktree is not None else False,
+            depth=transcript.depth,
+            parent_id=transcript.parent_id,
         )
         for transcript in transcripts
     }
@@ -64,6 +66,8 @@ def list_session_agents(
             worktree_path=prior.worktree_path if prior is not None else None,
             worktree_branch=prior.worktree_branch if prior is not None else None,
             worktree_preserved=(prior.worktree_preserved if prior is not None else snapshot.action.isolation == "worktree"),
+            depth=prior.depth if prior is not None else snapshot.depth,
+            parent_id=prior.parent_id if prior is not None else snapshot.parent_id,
         )
     ordered = sorted(
         by_id.values(),

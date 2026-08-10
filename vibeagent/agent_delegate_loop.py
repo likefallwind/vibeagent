@@ -14,6 +14,7 @@ from .agent_lifecycle_hooks import run_instruction_loaded_hooks
 from .agent_model import complete_with_retries
 from .agent_runtime_utils import content_blocks_to_text, normalize_assistant_content
 from .agent_tool_results import record_subagent_tool_observation
+from .nested_delegate_runtime import NestedDelegateRuntime
 from .types import (
     AgentLogger,
     ApprovalHandler,
@@ -59,6 +60,7 @@ class DelegateLoopContext:
     hooks: ProjectHooks
     permissions: ProjectPermissions
     cancel_requested: Callable[[], bool] | None
+    nested_runtime: NestedDelegateRuntime
     transcript_checkpoint: Callable[[list[ChatMessage]], None] | None = None
     inbox: DelegateInbox | None = None
 
@@ -82,6 +84,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                 context.approval_policy,
                 context.allowed_tool_names,
                 context.disallowed_tool_names,
+                context.nested_runtime.can_delegate,
             ),
             max_output_tokens=context.max_output_tokens,
             model_retries=context.model_retries,
@@ -191,6 +194,9 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                 disallowed_tool_names=context.disallowed_tool_names,
                 hooks=context.hooks,
                 permissions=context.permissions,
+                special_action_handler=lambda action: context.nested_runtime.execute(
+                    action, child_iteration
+                ),
             )
             auto_checkpoint_attempted = execution.auto_checkpoint_attempted
             if execution.finish_action is not None:

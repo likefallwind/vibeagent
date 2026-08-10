@@ -48,6 +48,8 @@ class DelegateTaskObservation:
     worktree_path: str | None = None
     worktree_branch: str | None = None
     worktree_preserved: bool = False
+    depth: int = 1
+    parent_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -64,6 +66,8 @@ class SubagentInstance:
     worktree_path: str | None = None
     worktree_branch: str | None = None
     worktree_preserved: bool = False
+    depth: int = 1
+    parent_id: str | None = None
 
 
 @dataclass(frozen=True)

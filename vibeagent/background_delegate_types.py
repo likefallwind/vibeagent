@@ -27,6 +27,8 @@ class BackgroundDelegateTask:
     pending_messages: list[str] = field(default_factory=list)
     accepting_messages: bool = True
     notification_delivered: bool = False
+    depth: int = 1
+    parent_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -34,6 +36,8 @@ class BackgroundDelegateSnapshot:
     task_id: str
     action: DelegateTaskAction
     status: Literal["running", "completed", "failed", "cancelled"]
+    depth: int = 1
+    parent_id: str | None = None
 
 
 @dataclass(frozen=True)

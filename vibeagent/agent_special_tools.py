@@ -170,9 +170,13 @@ def _execute_special_tool(
                     resume_transcript=transcript,
                     followup_message=action.message,
                     inbound_messages=inbound_messages,
+                    depth=transcript.depth,
+                    parent_subagent_id=transcript.parent_id,
                 ),
                 task_id=action.to,
                 resumed=True,
+                depth=transcript.depth,
+                parent_id=transcript.parent_id,
             )
             append_session_event(
                 workspace.session_dir,

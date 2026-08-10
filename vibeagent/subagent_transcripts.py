@@ -14,7 +14,7 @@ from .workspace_agent_profile_parser import MAX_AGENT_TURNS
 from .workspace_core import RunWorkspace
 
 
-TRANSCRIPT_VERSION = 2
+TRANSCRIPT_VERSION = 3
 MAX_TRANSCRIPT_BYTES = 8_000_000
 MAX_TRANSCRIPT_FILES = 1_000
 SUBAGENT_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
@@ -42,6 +42,8 @@ class SubagentTranscript:
     status: Literal["running", "completed", "failed", "cancelled"]
     runs: int
     worktree: SubagentWorktreeRecord | None = None
+    depth: int = 1
+    parent_id: str | None = None
 
 
 def create_subagent_transcript(
@@ -50,9 +52,15 @@ def create_subagent_transcript(
     action: DelegateTaskAction,
     messages: list[ChatMessage],
     worktree: SubagentWorktreeRecord | None = None,
+    *,
+    depth: int = 1,
+    parent_id: str | None = None,
 ) -> None:
     _validate_subagent_id(subagent_id)
-    _write_transcript(workspace, SubagentTranscript(subagent_id, action, list(messages), "running", 1, worktree))
+    _write_transcript(
+        workspace,
+        SubagentTranscript(subagent_id, action, list(messages), "running", 1, worktree, depth, parent_id),
+    )
 
 
 def resume_subagent_transcript(
@@ -76,6 +84,8 @@ def resume_subagent_transcript(
                 "running",
                 transcript.runs + 1,
                 worktree if worktree is not None else current.worktree,
+                current.depth,
+                current.parent_id,
             ),
         )
 
@@ -89,7 +99,16 @@ def checkpoint_subagent_transcript(
     current = read_subagent_transcript(workspace, subagent_id)
     _write_transcript(
         workspace,
-        SubagentTranscript(subagent_id, action, list(messages), "running", current.runs, current.worktree),
+        SubagentTranscript(
+            subagent_id,
+            action,
+            list(messages),
+            "running",
+            current.runs,
+            current.worktree,
+            current.depth,
+            current.parent_id,
+        ),
     )
 
 
@@ -115,7 +134,16 @@ def complete_subagent_transcript(
     )
     _write_transcript(
         workspace,
-        SubagentTranscript(subagent_id, action, list(messages), status, current.runs, worktree),
+        SubagentTranscript(
+            subagent_id,
+            action,
+            list(messages),
+            status,
+            current.runs,
+            worktree,
+            current.depth,
+            current.parent_id,
+        ),
     )
 
 
@@ -177,6 +205,8 @@ def _write_transcript(workspace: RunWorkspace, transcript: SubagentTranscript) -
             "status": transcript.status,
             "runs": transcript.runs,
             "worktree": asdict(transcript.worktree) if transcript.worktree is not None else None,
+            "depth": transcript.depth,
+            "parent_id": transcript.parent_id,
         }
     )
     encoded = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
@@ -212,7 +242,7 @@ def _validate_store_path(path: Path) -> None:
 
 
 def _parse_transcript(payload: object, expected_id: str) -> SubagentTranscript:
-    if not isinstance(payload, dict) or payload.get("version") not in {1, TRANSCRIPT_VERSION}:
+    if not isinstance(payload, dict) or payload.get("version") not in {1, 2, TRANSCRIPT_VERSION}:
         raise SubagentTranscriptError("Unsupported or malformed subagent transcript.")
     if payload.get("subagent_id") != expected_id:
         raise SubagentTranscriptError("Subagent transcript ID does not match its filename.")
@@ -227,9 +257,19 @@ def _parse_transcript(payload: object, expected_id: str) -> SubagentTranscript:
     action = _parse_action(action_value)
     messages = [_parse_message(value) for value in messages_value]
     worktree = _parse_worktree(payload.get("worktree"))
+    depth = payload.get("depth", 1)
+    parent_id = payload.get("parent_id")
+    if (
+        isinstance(depth, bool)
+        or not isinstance(depth, int)
+        or not 1 <= depth <= 3
+        or parent_id is not None
+        and (not isinstance(parent_id, str) or not SUBAGENT_ID_PATTERN.fullmatch(parent_id))
+    ):
+        raise SubagentTranscriptError("Malformed subagent hierarchy metadata.")
     if not messages or messages[0].role != "system":
         raise SubagentTranscriptError("Subagent transcript must start with a system message.")
-    return SubagentTranscript(expected_id, action, messages, status, runs, worktree)
+    return SubagentTranscript(expected_id, action, messages, status, runs, worktree, depth, parent_id)
 
 
 def _parse_action(value: dict[str, object]) -> DelegateTaskAction:

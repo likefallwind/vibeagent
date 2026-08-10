@@ -13,11 +13,15 @@ CODE_DELEGATE_EXCLUDED_TOOL_NAMES = frozenset(
     {
         "EnterWorktree",
         "ExitWorktree",
+        "SendMessage",
         "ask_user",
-        "delegate_task",
         "enter_worktree",
         "exit_worktree",
         "todo_write",
         "update_plan",
     }
+)
+
+NESTED_DELEGATE_TOOL_NAMES = frozenset(
+    {"Agent", "ListAgents", "Task", "TaskOutput", "TaskStop", "delegate_task"}
 )

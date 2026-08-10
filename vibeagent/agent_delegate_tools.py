@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from .actions import ActionParseError, parse_tool_action
@@ -12,6 +13,7 @@ from .agent_hooks import HookRunResult
 from .agent_delegate_policy import (
     CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
     DELEGATE_TOOL_NAMES,
+    NESTED_DELEGATE_TOOL_NAMES,
     READ_ONLY_CLAUDE_DELEGATE_TOOL_NAMES,
 )
 from .agent_parallel_safety import is_parallel_safe_action
@@ -21,6 +23,7 @@ from .agent_tool_registry import (
     ToolVisibilityPolicy,
     activate_agent_tool_names,
     agent_tool_definitions,
+    background_task_activation_names,
     initial_agent_tool_names,
     mcp_tools_activation_names,
     prepare_action_for_policy,
@@ -50,6 +53,9 @@ DELEGATE_TOOL_DEFINITIONS = [
         or tool["name"] == "finish"
     )
 ]
+DELEGATE_TOOL_DEFINITION_NAMES = frozenset(
+    str(tool["name"]) for tool in DELEGATE_TOOL_DEFINITIONS
+)
 
 
 @dataclass(frozen=True)
@@ -84,18 +90,23 @@ def delegate_tool_definitions(
     approval_policy: ApprovalPolicy,
     allowed_tool_names: frozenset[str] | None = None,
     disallowed_tool_names: frozenset[str] = frozenset(),
+    nested_delegation_allowed: bool = False,
 ) -> list[dict[str, object]]:
+    nested_names = NESTED_DELEGATE_TOOL_NAMES if nested_delegation_allowed else frozenset()
     if mode == "explore":
         return [
             tool
-            for tool in DELEGATE_TOOL_DEFINITIONS
-            if str(tool["name"]) not in disallowed_tool_names
+            for tool in AGENT_TOOL_DEFINITIONS
+            if str(tool["name"]) in (DELEGATE_TOOL_DEFINITION_NAMES | nested_names)
+            and str(tool["name"]) not in disallowed_tool_names
             and (allowed_tool_names is None or str(tool["name"]) in allowed_tool_names)
         ]
     definitions = agent_tool_definitions(
         active_tool_names,
         approval_policy,
-        CODE_DELEGATE_EXCLUDED_TOOL_NAMES | disallowed_tool_names,
+        CODE_DELEGATE_EXCLUDED_TOOL_NAMES
+        | disallowed_tool_names
+        | (frozenset() if nested_delegation_allowed else NESTED_DELEGATE_TOOL_NAMES),
     )
     if allowed_tool_names is None:
         return definitions
@@ -121,6 +132,7 @@ def execute_delegate_tool_call(
     disallowed_tool_names: frozenset[str] = frozenset(),
     hooks: ProjectHooks = ProjectHooks(),
     permissions: ProjectPermissions = ProjectPermissions(),
+    special_action_handler: Callable[[object], Observation | None] | None = None,
 ) -> DelegateToolCallExecution:
     try:
         parsed = prepare_action_for_policy(parse_tool_action(tool_name, tool_input), approval_policy)
@@ -150,6 +162,22 @@ def execute_delegate_tool_call(
             )
         if isinstance(parsed, FinishAction):
             return DelegateToolCallExecution(None, parsed, auto_checkpoint_attempted)
+        if special_action_handler is not None:
+            special_observation = special_action_handler(parsed)
+            if special_observation is not None:
+                observations.append(special_observation)
+                if mode == "code":
+                    activate_agent_tool_names(
+                        active_tool_names,
+                        _activation_names_for_observation(special_observation),
+                        approval_policy,
+                        CODE_DELEGATE_EXCLUDED_TOOL_NAMES | disallowed_tool_names,
+                    )
+                return DelegateToolCallExecution(
+                    special_observation,
+                    None,
+                    auto_checkpoint_attempted,
+                )
         observation, checkpoint_attempted, hook_results = execute_delegate_action(
             workspace,
             mode=mode,
@@ -224,7 +252,11 @@ def _allowed_requested_names(
 
 
 def _activation_names_for_observation(observation: Observation) -> list[str]:
-    return tool_search_activation_names(observation) + mcp_tools_activation_names(observation)
+    return (
+        tool_search_activation_names(observation)
+        + mcp_tools_activation_names(observation)
+        + background_task_activation_names(observation)
+    )
 
 
 def execute_delegate_action(
@@ -281,7 +313,7 @@ def execute_delegate_action(
             ToolErrorObservation(
                 kind="tool_error",
                 tool=tool_name or "unknown",
-                message="Subagent tool is not allowed because coding subagents cannot ask the user, update the parent plan, or delegate again; they also cannot switch the parent workspace.",
+                message="Subagent tool is not allowed because subagents cannot ask the user, update the parent plan, or switch the parent workspace.",
             ),
             auto_checkpoint_attempted,
             (),

@@ -677,7 +677,7 @@ class DelegationTests(unittest.TestCase):
         self.assertTrue(observation.ok)
         self.assertEqual(observation.mode, "code")
         self.assertIn("write_file", client.tool_names[0])
-        self.assertNotIn("delegate_task", client.tool_names[0])
+        self.assertIn("delegate_task", client.tool_names[0])
         self.assertNotIn("ask_user", client.tool_names[0])
         self.assertNotIn("update_plan", client.tool_names[0])
         write_result = json.loads(client.messages[1][-1].content[0]["content"])
@@ -749,7 +749,7 @@ class DelegationTests(unittest.TestCase):
         self.assertIn("Plan mode", observation.message)
         self.assertEqual(client.messages, [])
 
-    def test_code_subagent_rejects_hidden_recursive_delegation(self) -> None:
+    def test_code_subagent_can_delegate_one_nested_task(self) -> None:
         client = DelegationClient(
             [
                 [
@@ -760,14 +760,15 @@ class DelegationTests(unittest.TestCase):
                         "input": {"task": "Start another agent", "mode": "code"},
                     }
                 ],
-                [{"type": "text", "text": "Recursive delegation is unavailable."}],
+                [{"type": "text", "text": "Nested implementation completed."}],
+                [{"type": "text", "text": "Parent subagent verified the nested result."}],
             ]
         )
 
         with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
             workspace = create_run_workspace(Path(base))
             action = parse_tool_action("delegate_task", {"task": "Do focused work", "mode": "code"})
-            execute_delegate_task_action(
+            observation = execute_delegate_task_action(
                 workspace,
                 action,
                 client,
@@ -785,10 +786,46 @@ class DelegationTests(unittest.TestCase):
                 for line in workspace.session_dir.joinpath("events.jsonl").read_text(encoding="utf-8").splitlines()
             ]
 
-        nested_result = json.loads(client.messages[1][-1].content[0]["content"])
-        self.assertEqual(nested_result["kind"], "tool_error")
-        self.assertIn("cannot ask the user", nested_result["message"])
-        self.assertEqual(sum(event["type"] == "subagent_started" for event in events), 1)
+        nested_result = json.loads(client.messages[2][-1].content[0]["content"])
+        self.assertTrue(observation.ok)
+        self.assertEqual(nested_result["kind"], "delegate_task")
+        self.assertEqual(nested_result["depth"], 2)
+        starts = [event for event in events if event["type"] == "subagent_started"]
+        self.assertEqual(len(starts), 2)
+        self.assertEqual(starts[1]["depth"], 2)
+        self.assertEqual(starts[1]["parent_subagent_id"], "delegate-1-1")
+
+    def test_subagent_at_depth_limit_hides_and_rejects_delegation(self) -> None:
+        client = DelegationClient(
+            [
+                [{"type": "tool_call", "id": "nested-1", "name": "delegate_task", "input": {"task": "Too deep"}}],
+                [{"type": "text", "text": "Depth limit reported."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            workspace = create_run_workspace(Path(base))
+            observation = execute_delegate_task_action(
+                workspace,
+                parse_tool_action("delegate_task", {"task": "Depth three", "max_iterations": 2}),
+                client,
+                parent_iteration=1,
+                subagent_id="agent-depth-three",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                depth=3,
+                parent_subagent_id="agent-depth-two",
+            )
+
+        denied = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertTrue(observation.ok)
+        self.assertNotIn("delegate_task", client.tool_names[0])
+        self.assertNotIn("Task", client.tool_names[0])
+        self.assertEqual(denied["kind"], "tool_error")
+        self.assertIn("depth 3", denied["message"])
 
     def test_parent_agent_audits_code_subagent_changes_and_uses_parent_approval(self) -> None:
         approvals: list[str] = []
@@ -873,7 +910,7 @@ class DelegationTests(unittest.TestCase):
         self.assertEqual(parent_result["kind"], "delegate_task")
         self.assertIn("app.py:1", parent_result["summary"])
         self.assertIn("delegate_task", client.tool_names[0])
-        self.assertNotIn("delegate_task", client.tool_names[1])
+        self.assertIn("delegate_task", client.tool_names[1])
         self.assertEqual(
             [event["type"] for event in events if event["type"].startswith("subagent_")],
             ["subagent_started", "subagent_model", "subagent_completed"],

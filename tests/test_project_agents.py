@@ -289,9 +289,9 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertIn("Duplicate agent profile", messages["duplicate"])
         self.assertIn("non-read-only", messages["unsafe-explore"])
         self.assertIn("forbidden tool", messages["todo-writer"])
-        self.assertIn("forbidden tool", messages["recursive"])
+        self.assertEqual(messages["recursive"], "Available.")
         self.assertIn("symbolic link", messages["linked"])
-        self.assertEqual(catalog["invalid"], 6)
+        self.assertEqual(catalog["invalid"], 5)
 
     def test_profile_controls_mode_prompt_and_visible_tools(self) -> None:
         client = ProfileClient(
@@ -1283,7 +1283,7 @@ class ProjectAgentProfileTests(unittest.TestCase):
 
         result = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual(result["kind"], "tool_error")
-        self.assertIn("cannot ask the user, update the parent plan, or delegate again", result["message"])
+        self.assertIn("cannot ask the user, update the parent plan", result["message"])
         self.assertEqual(approvals, [])
 
     def test_missing_profile_fails_before_model_request(self) -> None:

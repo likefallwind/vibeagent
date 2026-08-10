@@ -34,9 +34,16 @@ def start_background_delegate_task(
     *,
     task_id: str | None = None,
     resumed: bool = False,
+    depth: int = 1,
+    parent_id: str | None = None,
 ) -> DelegateTaskObservation:
     task_id = task_id or f"task-{uuid4().hex[:12]}"
-    task = BackgroundDelegateTask(task_id=task_id, action=action)
+    task = BackgroundDelegateTask(
+        task_id=task_id,
+        action=action,
+        depth=depth,
+        parent_id=parent_id,
+    )
     key = (_workspace_key(workspace), task_id)
 
     def drain_messages(final: bool = False) -> list[str]:
@@ -84,6 +91,8 @@ def start_background_delegate_task(
         background=True,
         running=True,
         isolation=action.isolation,
+        depth=depth,
+        parent_id=parent_id,
     )
 
 
@@ -120,6 +129,8 @@ def send_background_delegate_message(
         background=True,
         running=True,
         isolation=task.action.isolation,
+        depth=task.depth,
+        parent_id=task.parent_id,
     )
 
 
@@ -156,6 +167,8 @@ def list_background_delegate_snapshots(
                 task_id=task.task_id,
                 action=task.action,
                 status=_background_task_status(task),
+                depth=task.depth,
+                parent_id=task.parent_id,
             )
             for (workspace_key, _task_id), task in _TASKS.items()
             if workspace_key == selected_workspace_key
