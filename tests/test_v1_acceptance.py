@@ -193,7 +193,7 @@ class V1AcceptanceTests(unittest.TestCase):
 
         self.assertEqual(
             package["scripts"]["test:v1:full"],
-            "npm run test:v1 && python3 -m unittest discover -s tests -q",
+            "npm run test:v1 && python3 -m unittest discover -s tests -t . -q",
         )
         self.assertEqual(
             package["scripts"]["test:v1:release"],

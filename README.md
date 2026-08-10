@@ -1346,9 +1346,10 @@ and `VIBEAGENT_CACHE_READ_USD_PER_MILLION` values; without those rates it report
 the missing configuration instead of guessing. The model can also inspect compact
 session summaries through a read-only tool without exposing full tool payloads.
 
-## Project hooks
+## User and project hooks
 
-Project command hooks can be declared in `.vibeagent/hooks.json`,
+Personal command hooks can be declared in `~/.claude/settings.json` and apply
+across projects. Project hooks can be declared in `.vibeagent/hooks.json`,
 `.claude/settings.json`, or `.claude/settings.local.json`. Claude settings keep
 the hook map under a top-level `hooks` key; `.vibeagent/hooks.json` accepts the
 hook map directly or under `hooks`:
@@ -1390,7 +1391,7 @@ and still passes command hard-block checks. Plan mode records and skips command
 hooks. A failed or denied pre-tool hook blocks the target tool; a failed
 post-tool hook preserves the target result but records an additional tool error
 that prevents an unqualified successful completion. Hook commands receive a
-Claude-compatible JSON object on stdin, plus `VIBEAGENT_HOOK_EVENT` and
+Claude-compatible JSON object on stdin, `CLAUDE_PROJECT_DIR`, plus `VIBEAGENT_HOOK_EVENT` and
 `VIBEAGENT_HOOK_INPUT`; tool hooks also receive `VIBEAGENT_TOOL_NAME` and
 `VIBEAGENT_TOOL_TARGET`. Inputs use private temporary files inside the session
 directory and are deleted after execution. Results are recorded in the session
@@ -1402,9 +1403,9 @@ through the normal permission and command safety checks.
 ## Command sandbox
 
 Linux and WSL2 command execution can use Bubblewrap OS isolation. Sandboxing is
-disabled by default and can be enabled in `.vibeagent/sandbox.json` or through
-the `sandbox` object in `.claude/settings.json` and
-`.claude/settings.local.json`:
+disabled by default and can be enabled globally through the `sandbox` object in
+`~/.claude/settings.json`, per project through `.claude/settings.json` or
+`.claude/settings.local.json`, or through `.vibeagent/sandbox.json`:
 
 ```json
 {
@@ -1430,9 +1431,12 @@ minimal, and PID/IPC/UTS namespaces are separated. An empty `allowedDomains`
 list requests a fully isolated network namespace. The same launcher applies to
 finite checks, command batches, hooks, and background processes.
 
-External `allowWrite` paths and `excludedCommands` require explicit project
-configuration trust. `denyWrite` and `denyRead` mounts override the writable
-project mount. Sandbox paths must be exact; glob paths, `allowRead`, non-empty
+External `allowWrite` paths and `excludedCommands` from user settings are
+trusted user choices. The same settings from project files require explicit
+project configuration trust. An untrusted project also cannot disable a
+user-enabled sandbox, `failIfUnavailable`, or user-requested network isolation.
+`denyWrite` and `denyRead` mounts override the writable project mount. Sandbox
+paths must be exact; glob paths, `allowRead`, non-empty
 sandbox network domain allowlists, and unsupported network options fail closed
 rather than claiming partial enforcement. Sandbox network domain allowlists
 require a proxy and are not yet implemented; this is separate from project
@@ -1455,11 +1459,12 @@ auto-approved action records a `sandbox_auto_approved` session event. The
 sandbox report exposes `autoApprovalReady` so automation can distinguish an
 enabled sandbox from one currently strong enough to reduce prompts.
 
-## Project permissions
+## User and project permissions
 
-Fine-grained project permissions can be declared in `.vibeagent/permissions.json`
-or under the `permissions` key in `.claude/settings.json` and
-`.claude/settings.local.json`:
+Fine-grained personal permissions can be declared under the `permissions` key
+in `~/.claude/settings.json` and apply across projects. Project permissions can
+be declared in `.vibeagent/permissions.json` or under `permissions` in
+`.claude/settings.json` and `.claude/settings.local.json`:
 
 ```json
 {
@@ -1490,13 +1495,16 @@ rule applies only when every target matches.
 `WebFetch(domain:*.python.org)` match the requested URL host before the fetch
 approval/execution path runs.
 Per-run CLI overrides use the same rule syntax via `--allowed-tools` and
-`--disallowed-tools`. CLI allow rules are trusted for that run only; project
-file allow rules still require explicit project trust.
+`--disallowed-tools`. User allow rules are trusted across projects, CLI allow
+rules are trusted for that run only, and project-file allow rules still require
+explicit project trust. Rules from every scope are merged; `deny` still takes
+precedence over `ask` and `allow` regardless of source.
 
-Project deny and ask rules always take effect. Because repository settings are
-untrusted input, allow rules do not skip side-effect approval unless a one-shot
-run explicitly uses `--trust-project-permissions` (or a library caller passes
-`trust_project_permissions=True`) or the project has persistent user trust.
+User and project deny and ask rules always take effect. Because repository
+settings are untrusted input, project allow rules do not skip side-effect
+approval unless a one-shot run explicitly uses `--trust-project-permissions`
+(or a library caller passes `trust_project_permissions=True`) or the project
+has persistent user trust.
 Use `--trust-status`, `--trust-project`, and `--untrust-project` with `--cwd` to
 inspect, record, or remove persistent trust. Interactive mode offers the same
 trust decision in the terminal when it first sees untrusted allow rules.
@@ -1649,15 +1657,17 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   `vibeagent/mcp_action_executor.py`: validate project MCP configuration, run
   newline-delimited JSON-RPC stdio sessions, and expose approved tool discovery
   and calls without leaving MCP subprocesses running.
-- `vibeagent/workspace_hooks.py`, `vibeagent/agent_hook_execution.py`,
-  `vibeagent/agent_hooks.py`, and `vibeagent/agent_lifecycle_runtime.py`: load
-  bounded project hook configuration, match tool and session lifecycle events,
-  deliver JSON stdin, request approval for command hooks, preserve command hard
-  blocks, inject bounded lifecycle context, and emit auditable hook results.
+- `vibeagent/workspace_settings_sources.py`, `vibeagent/workspace_hooks.py`,
+  `vibeagent/agent_hook_execution.py`, `vibeagent/agent_hooks.py`, and
+  `vibeagent/agent_lifecycle_runtime.py`: load bounded personal and project hook
+  configuration, match tool and session lifecycle events, deliver JSON stdin,
+  request approval for command hooks, preserve command hard blocks, inject
+  bounded lifecycle context, and emit auditable hook results.
 - `vibeagent/workspace_permissions.py` and `vibeagent/agent_permissions.py`:
-  load bounded project permission rules, match Claude-compatible tool/path/
-  command patterns, enforce explicit trust for allow rules, and centralize
-  deny/ask/allow decisions across the main agent, hooks, and subagents.
+  load bounded personal and project permission rules, match Claude-compatible
+  tool/path/command patterns, trust user rules while requiring explicit project
+  trust for project allow rules, and centralize deny/ask/allow decisions across
+  the main agent, hooks, and subagents.
 - `vibeagent/project_trust.py` and `vibeagent/trust_commands.py`: maintain the
   user-owned persistent project-permission trust registry, expose trust/status/
   untrust commands, and keep repository-controlled allow rules inert until the
@@ -1666,10 +1676,11 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   action-type-and-target approvals for the current CLI session, marks cache
   hits for audit, and keeps MCP process/tool calls outside the cache.
 - `vibeagent/workspace_sandbox.py`, `vibeagent/command_sandbox.py`, and
-  `vibeagent/sandbox_commands.py`: load bounded sandbox settings, validate
-  trusted expansion paths, diagnose Bubblewrap/network namespace support, and
-  build one filesystem/network-isolated launcher for finite and background
-  shell commands, including strict per-command auto-approval qualification.
+  `vibeagent/sandbox_commands.py`: load bounded personal and project sandbox
+  settings, validate source-aware trusted expansion paths and user security
+  floors, diagnose Bubblewrap/network namespace support, and build one
+  filesystem/network-isolated launcher for finite and background shell
+  commands, including strict per-command auto-approval qualification.
 - `vibeagent/plugin_environment.py`: builds a per-command environment from
   executable `bin/` components in enabled plugins without mutating the host
   process `PATH`.
@@ -2013,7 +2024,7 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
 ## Development
 
 ```sh
-python -m unittest discover -s tests
+python -m unittest discover -s tests -t .
 npm test
 npm run test:v1
 ```

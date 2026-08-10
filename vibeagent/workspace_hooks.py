@@ -18,6 +18,7 @@ from .plugin_runtime import (
 from .plugin_store import enabled_plugin_manifests
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
+from .workspace_settings_sources import claude_settings_files, project_config_file
 
 
 HookEvent = Literal[
@@ -47,11 +48,7 @@ HOOK_EVENTS = frozenset(
 SEQUENTIAL_TOOL_HOOK_EVENTS = frozenset(
     {"InstructionsLoaded", "PostToolUse", "PostToolUseFailure", "PreToolUse"}
 )
-HOOK_CONFIG_PATHS = (
-    (".claude/settings.json", True),
-    (".claude/settings.local.json", True),
-    (".vibeagent/hooks.json", False),
-)
+HOOK_CONFIG_PATH = ".vibeagent/hooks.json"
 MAX_HOOK_CONFIG_BYTES = 128_000
 MAX_HOOKS = 100
 MAX_HOOK_COMMAND_CHARS = 4_000
@@ -89,31 +86,36 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
     hooks: list[ProjectHook] = []
     sources: list[str] = []
     try:
-        for relative_path, nested in HOOK_CONFIG_PATHS:
-            path = workspace.root / relative_path
-            if not path.exists():
+        configs = (
+            *claude_settings_files(workspace),
+            project_config_file(workspace, HOOK_CONFIG_PATH),
+        )
+        for config in configs:
+            if not config.path.exists():
                 continue
-            sources.append(relative_path)
-            payload = _read_hook_config(workspace.root, path)
+            sources.append(config.source)
+            payload = _read_hook_config(config.boundary, config.path, config.source)
             hook_payload = (
-                payload.get("hooks") if nested else payload.get("hooks", payload)
+                payload.get("hooks")
+                if config.source != HOOK_CONFIG_PATH
+                else payload.get("hooks", payload)
             )
             if hook_payload is None:
                 continue
             if not isinstance(hook_payload, dict):
-                raise ValueError(f"{relative_path} hooks must be an object.")
-            hooks.extend(_parse_hook_events(hook_payload, relative_path))
+                raise ValueError(f"{config.source} hooks must be an object.")
+            hooks.extend(_parse_hook_events(hook_payload, config.source))
             if len(hooks) > MAX_HOOKS:
                 raise ValueError(
-                    f"Project hook configuration exceeds {MAX_HOOKS} command hooks."
+                    f"Workspace hook configuration exceeds {MAX_HOOKS} command hooks."
                 )
         for component in enabled_plugin_component_files(workspace, "hook"):
             source = f"{component.source}:{component.relative_path}"
             sources.append(source)
-            payload = _read_hook_config(component.plugin_root, component.path)
+            payload = _read_hook_config(component.plugin_root, component.path, source)
             _append_plugin_hooks(hooks, workspace, component, payload, source)
             if len(hooks) > MAX_HOOKS:
-                raise ValueError(f"Project and plugin hooks exceed {MAX_HOOKS} command hooks.")
+                raise ValueError(f"Workspace and plugin hooks exceed {MAX_HOOKS} command hooks.")
         for manifest in enabled_plugin_manifests(workspace.root):
             if manifest.inline_hooks is None:
                 continue
@@ -128,7 +130,7 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
                 source,
             )
             if len(hooks) > MAX_HOOKS:
-                raise ValueError(f"Project and plugin hooks exceed {MAX_HOOKS} command hooks.")
+                raise ValueError(f"Workspace and plugin hooks exceed {MAX_HOOKS} command hooks.")
     except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
         return ProjectHooks(hooks=(), sources=tuple(sources), error=str(error))
     return ProjectHooks(hooks=tuple(hooks), sources=tuple(sources))
@@ -188,14 +190,13 @@ def matching_lifecycle_hooks(
     ]
 
 
-def _read_hook_config(root: Path, path: Path) -> dict[str, object]:
-    relative = path.relative_to(root).as_posix()
+def _read_hook_config(root: Path, path: Path, source: str) -> dict[str, object]:
     if has_symlink_component(root, path):
-        raise ValueError(f"{relative} contains a symbolic link.")
-    raw = read_regular_file_bytes(path, max_bytes=MAX_HOOK_CONFIG_BYTES, label=relative)
+        raise ValueError(f"{source} contains a symbolic link.")
+    raw = read_regular_file_bytes(path, max_bytes=MAX_HOOK_CONFIG_BYTES, label=source)
     payload = json.loads(raw.decode("utf-8"))
     if not isinstance(payload, dict):
-        raise ValueError(f"{relative} must contain a JSON object.")
+        raise ValueError(f"{source} must contain a JSON object.")
     return payload
 
 

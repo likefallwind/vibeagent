@@ -201,7 +201,7 @@ def _blocking_message(result: HookRunResult, output: _ParsedHookOutput) -> str |
     if result.exit_code == 2:
         return result.stderr.strip() or result.message
     if output.decision == "block":
-        return output.reason or "Project hook blocked this lifecycle event."
+        return output.reason or "Configured hook blocked this lifecycle event."
     if output.context and result.event == "Stop" and not output.plain_text:
         return output.context
     return None

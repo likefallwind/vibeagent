@@ -11,19 +11,19 @@ from .action_tool_aliases import tool_name_candidates
 from .tool_catalog_core import tool_category
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
+from .workspace_settings_sources import claude_settings_files, project_config_file
 
 
 PermissionEffect = Literal["deny", "ask", "allow"]
 PERMISSION_EFFECTS: tuple[PermissionEffect, ...] = ("deny", "ask", "allow")
-PERMISSION_CONFIG_PATHS = (
-    (".vibeagent/permissions.json", False),
-    (".claude/settings.local.json", True),
-    (".claude/settings.json", True),
-)
+PERMISSION_CONFIG_PATH = ".vibeagent/permissions.json"
 MAX_PERMISSION_CONFIG_BYTES = 128_000
 MAX_PERMISSION_RULES = 200
 MAX_PERMISSION_RULE_CHARS = 1_000
-RULE_PATTERN = re.compile(r"^([A-Za-z_][A-Za-z0-9_.:-]*)(?:\((.*)\))?$")
+RULE_PATTERN = re.compile(
+    r"^([A-Za-z_][A-Za-z0-9_.:-]*)(?:\((.*)\))?$",
+    re.DOTALL,
+)
 PATH_PERMISSION_RULE_TOOLS = frozenset({"Edit", "Glob", "LS", "MultiEdit", "NotebookEdit", "NotebookRead", "Read", "Write"})
 
 
@@ -59,24 +59,43 @@ class PermissionRuleMatch:
 def read_project_permissions(workspace: RunWorkspace) -> ProjectPermissions:
     rules: list[ProjectPermissionRule] = []
     sources: list[str] = []
+    trusted_allow_sources: list[str] = []
     try:
-        for relative_path, nested in PERMISSION_CONFIG_PATHS:
-            path = workspace.root / relative_path
-            if not path.exists():
+        configs = (
+            *claude_settings_files(workspace),
+            project_config_file(workspace, PERMISSION_CONFIG_PATH),
+        )
+        for config in configs:
+            if not config.path.exists():
                 continue
-            payload = _read_permission_config(workspace.root, path)
-            permission_payload = payload.get("permissions") if nested else payload.get("permissions", payload)
+            payload = _read_permission_config(config.boundary, config.path, config.source)
+            permission_payload = (
+                payload.get("permissions")
+                if config.source != PERMISSION_CONFIG_PATH
+                else payload.get("permissions", payload)
+            )
             if permission_payload is None:
                 continue
-            sources.append(relative_path)
+            sources.append(config.source)
             if not isinstance(permission_payload, dict):
-                raise ValueError(f"{relative_path} permissions must be an object.")
-            rules.extend(_parse_permission_rules(permission_payload, relative_path))
+                raise ValueError(f"{config.source} permissions must be an object.")
+            parsed = _parse_permission_rules(permission_payload, config.source)
+            rules.extend(parsed)
+            if config.trusted and any(rule.effect == "allow" for rule in parsed):
+                trusted_allow_sources.append(config.source)
             if len(rules) > MAX_PERMISSION_RULES:
-                raise ValueError(f"Project permissions exceed {MAX_PERMISSION_RULES} rules.")
+                raise ValueError(f"Workspace permissions exceed {MAX_PERMISSION_RULES} rules.")
     except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
-        return ProjectPermissions(sources=tuple(sources), error=str(error))
-    return ProjectPermissions(rules=tuple(rules), sources=tuple(sources))
+        return ProjectPermissions(
+            sources=tuple(sources),
+            error=str(error),
+            trusted_allow_sources=tuple(trusted_allow_sources),
+        )
+    return ProjectPermissions(
+        rules=tuple(rules),
+        sources=tuple(sources),
+        trusted_allow_sources=tuple(trusted_allow_sources),
+    )
 
 
 def read_project_permissions_from_root(root: str | Path) -> ProjectPermissions:
@@ -116,12 +135,12 @@ def format_project_permissions_for_prompt(workspace: RunWorkspace) -> str:
 
 def format_permissions_for_prompt(config: ProjectPermissions) -> str:
     if config.error is not None:
-        return f"Project permission configuration is invalid and tool calls will be denied: {config.error}"
+        return f"Permission configuration is invalid and tool calls will be denied: {config.error}"
     if not config.rules:
         return ""
     lines = [
         "Permission rules (deny rules take precedence over ask, then allow):",
-        "Allow rules skip side-effect approval only when project permissions were explicitly trusted for this run.",
+        "Allow rules skip side-effect approval only when their source is trusted for this run.",
     ]
     if config.trusted_allow_sources:
         sources = ", ".join(config.trusted_allow_sources)
@@ -198,14 +217,13 @@ def permission_subjects(action: object) -> tuple[str, ...]:
     return ()
 
 
-def _read_permission_config(root: Path, path: Path) -> dict[str, object]:
-    relative = path.relative_to(root).as_posix()
+def _read_permission_config(root: Path, path: Path, source: str) -> dict[str, object]:
     if has_symlink_component(root, path):
-        raise ValueError(f"{relative} contains a symbolic link.")
-    raw = read_regular_file_bytes(path, max_bytes=MAX_PERMISSION_CONFIG_BYTES, label=relative)
+        raise ValueError(f"{source} contains a symbolic link.")
+    raw = read_regular_file_bytes(path, max_bytes=MAX_PERMISSION_CONFIG_BYTES, label=source)
     payload = json.loads(raw.decode("utf-8"))
     if not isinstance(payload, dict):
-        raise ValueError(f"{relative} must contain a JSON object.")
+        raise ValueError(f"{source} must contain a JSON object.")
     return payload
 
 
@@ -308,4 +326,4 @@ def wildcard_matches(pattern: str, value: str, *, path_mode: bool) -> bool:
     if optional_trailing_arguments:
         regex.append("(?: .*)?")
     regex.append("$")
-    return re.fullmatch("".join(regex), normalized_value) is not None
+    return re.fullmatch("".join(regex), normalized_value, flags=re.DOTALL) is not None

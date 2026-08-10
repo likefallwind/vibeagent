@@ -348,6 +348,10 @@ local changes when asked, and resume from recorded session context.
   lifecycle events with their parent instruction file.
 - `tests.test_project_permissions`, `tests.test_workspace`, and
   `tests.test_command_sandbox` cover the main workspace and safety boundaries.
+- `tests.test_user_runtime_settings.UserRuntimeSettingsTests` covers
+  cross-project user permissions, trusted user allow rules, user hooks with
+  `CLAUDE_PROJECT_DIR`, source-aware sandbox exceptions and security floors,
+  project deny precedence, and symlink refusal for user runtime settings.
 
 ## Verified 1.0 Exit Criteria
 

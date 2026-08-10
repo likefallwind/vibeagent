@@ -77,7 +77,7 @@ def run_project_hook_command(
     request = ApprovalRequest(
         action_type="run_command",
         target=f"{hook.event} hook for {target}: {hook.command}",
-        risk="This project hook will run a shell command in the active project.",
+        risk="This configured hook will run a shell command in the active project.",
     )
     append_session_event(
         workspace.session_dir,
@@ -109,7 +109,7 @@ def run_project_hook_command(
             else getattr(
                 authorization.denial,
                 "message",
-                "Hook command denied by project permissions.",
+                "Hook command denied by permission rules.",
             )
         ),
     )
@@ -143,6 +143,7 @@ def run_project_hook_command(
             workspace,
             hook.command,
             {
+                "CLAUDE_PROJECT_DIR": str(workspace.root),
                 "VIBEAGENT_HOOK_EVENT": hook.event,
                 "VIBEAGENT_HOOK_INPUT": json.dumps(
                     hook_input,

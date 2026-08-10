@@ -138,7 +138,7 @@ class PluginMonitorRuntime:
                     plugin=config.plugin,
                     monitor=config.name,
                     description=config.description,
-                    message="Monitor startup was denied by session approval or project permissions.",
+                    message="Monitor startup was denied by session approval or permission rules.",
                     status="denied",
                 )
             )

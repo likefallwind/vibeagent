@@ -86,7 +86,7 @@ def prepare_command_launch(
             False,
             config,
             environment,
-            warning="Command excluded from the project sandbox by trusted configuration.",
+            warning="Command excluded from the sandbox by trusted configuration.",
         )
     if not config.available or config.bwrap_path is None:
         message = "Bubblewrap sandbox is enabled but unavailable on this system."

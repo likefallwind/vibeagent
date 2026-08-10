@@ -1090,7 +1090,7 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertEqual(final["stopReason"], "blocked")
         self.assertTrue(final["success"])
         self.assertIn("1 approval request(s) were denied.", final["completionBlockers"])
-        self.assertIn("Denied by project permission rule Edit", final["latestCompletionDeniedApprovals"][0])
+        self.assertIn("Denied by permission rule Edit", final["latestCompletionDeniedApprovals"][0])
         self.assertIn("permissions_loaded", event_types)
         self.assertIn("permission_rule_evaluated", event_types)
         self.assertNotIn("approval_requested", event_types)

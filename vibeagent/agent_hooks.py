@@ -138,7 +138,7 @@ def run_tool_hooks(
     permissions: ProjectPermissions = ProjectPermissions(),
 ) -> HookBatchResult:
     if config.error is not None:
-        message = f"Project hook configuration is invalid: {config.error}"
+        message = f"Workspace hook configuration is invalid: {config.error}"
         failure = _hook_failure_observation(event, tool_name, message)
         return HookBatchResult(
             blocking_message=message if event == "PreToolUse" else None,

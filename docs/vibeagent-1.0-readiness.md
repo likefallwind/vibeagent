@@ -24,7 +24,7 @@ This gate must run:
 - `python3 -m compileall -q vibeagent`
 - `python3 scripts/install_smoke.py`
 - `npm run test:v1`
-- `python3 -m unittest discover -s tests -q`
+- `python3 -m unittest discover -s tests -t . -q`
 
 Passing this gate proves all package modules compile, the package installs from
 outside the repository, both CLI entrypoints start, and the deterministic 1.0
@@ -47,10 +47,10 @@ The automated suite currently covers these 1.0 surfaces:
 - Real CLI JSON and stream-json entrypoints, stdin input formats, resume,
   compact, permission overrides, `acceptEdits`, disallowed tools, and
   pending-user-input output.
-- Project integrations: `.mcp.json`, strict MCP config, `.claude/skills`,
-  `.claude/agents`, tool and session lifecycle hooks, project slash commands, checkpoints,
-  session handoff, focused tests, code-mode subagents, and background read-only
-  subagent lifecycle control.
+- User and project integrations: `~/.claude/settings.json`, `.mcp.json`, strict
+  MCP config, `.claude/skills`, `.claude/agents`, tool and session lifecycle
+  hooks, project slash commands, checkpoints, session handoff, focused tests,
+  code-mode subagents, and background read-only subagent lifecycle control.
 - Experimental agent teams: approved named teammates, independent background
   contexts, stable session identities, shared task ownership and dependencies,
   peer and lead mailboxes, automatic lead delivery, and teardown cancellation.
@@ -67,7 +67,8 @@ The automated suite currently covers these 1.0 surfaces:
 - Scoped instructions: nested instruction files and path rules load independently
   in main and subagent contexts and become eligible for reload after compaction.
 - Safety boundaries: workspace path guards, approval policy, hard command
-  blocks, final-review blockers, protected files, and sandbox-related checks.
+  blocks, final-review blockers, protected files, source-aware user/project
+  permissions, hooks, and sandbox checks.
 
 The source of truth for exact test names and gates is
 [`docs/vibeagent-1.0.md`](vibeagent-1.0.md).

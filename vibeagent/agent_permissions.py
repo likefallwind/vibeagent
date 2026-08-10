@@ -44,7 +44,7 @@ def authorize_tool_action(
     step: object | None = None,
 ) -> ToolAuthorization:
     if permissions.error is not None:
-        message = f"Project permission configuration is invalid: {permissions.error}"
+        message = f"Permission configuration is invalid: {permissions.error}"
         append_session_event(
             workspace.session_dir,
             "permission_rule_evaluated",
@@ -72,7 +72,7 @@ def authorize_tool_action(
             },
         )
         if rule_match.effect == "deny":
-            message = f"Denied by project permission rule {rule_match.rule.raw} from {rule_match.rule.source}."
+            message = f"Denied by permission rule {rule_match.rule.raw} from {rule_match.rule.source}."
             return ToolAuthorization(False, _denial(tool_name, action, message), rule_match=rule_match)
         allow_can_skip_approval = (
             default_request is None
@@ -84,7 +84,7 @@ def authorize_tool_action(
         ):
             decision = ApprovalDecision(
                 approved=True,
-                message=f"Approved by project permission rule {rule_match.rule.raw}.",
+                message=f"Approved by permission rule {rule_match.rule.raw}.",
             )
             return ToolAuthorization(True, rule_match=rule_match, decision=decision)
 
@@ -93,7 +93,7 @@ def authorize_tool_action(
         request = ApprovalRequest(
             action_type=tool_name,
             target=build_action_target(action),
-            risk="A project permission rule requires confirmation for this tool call.",
+            risk="A permission rule requires confirmation for this tool call.",
         )
     auto_approval_reason = sandbox_auto_approval_reason(workspace, action) if request is not None else None
     if (
