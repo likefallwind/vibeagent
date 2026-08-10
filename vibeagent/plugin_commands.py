@@ -160,6 +160,7 @@ def format_plugin_details(manifest: PluginManifest) -> str:
         f"  executables: {len(manifest.bin_files)}",
         f"  monitors: {monitor_count_for_manifest(manifest)}",
         f"  default agent: {manifest.default_agent or '(none)'}",
+        f"  subagent status line: {'command' if manifest.has_subagent_status_line else '(none)'}",
         f"  default settings source: {manifest.default_settings_source or '(none)'}",
         f"  user configuration options: {len(manifest.user_config)}",
     ]

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from threading import Event, Thread
+from time import time
 from typing import Literal
 
 from .types import DelegateTaskAction, DelegateTaskObservation
@@ -29,6 +30,7 @@ class BackgroundDelegateTask:
     notification_delivered: bool = False
     depth: int = 1
     parent_id: str | None = None
+    started_at: float = field(default_factory=time)
 
 
 @dataclass(frozen=True)
@@ -38,6 +40,7 @@ class BackgroundDelegateSnapshot:
     status: Literal["running", "completed", "failed", "cancelled"]
     depth: int = 1
     parent_id: str | None = None
+    started_at: float = 0.0
 
 
 @dataclass(frozen=True)

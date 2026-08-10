@@ -104,7 +104,7 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
         inline_monitors=inline_monitors,
         default_agent=default_settings.agent,
         default_settings_source=default_settings.source,
-        has_subagent_status_line=default_settings.has_subagent_status_line,
+        subagent_status_line=default_settings.subagent_status_line,
         warnings=tuple(warnings),
     )
 

@@ -36,6 +36,7 @@ from .cli_review_local_flags import run_interactive_review_command
 from .cli_runtime_local_flags import run_interactive_runtime_command
 from .cli_session_local_flags import run_interactive_resume_command, run_interactive_session_command
 from .cli_system_prompt_state import update_system_prompt_state
+from .cli_subagent_panel import SubagentPanel
 from .cli_text_edit_local_flags import run_interactive_text_edit_command
 from .commands import get_resume_context as default_get_resume_context, parse_local_command
 from .config import resolve_execution_config
@@ -107,27 +108,48 @@ def run_interactive_loop(
         nonlocal client, resume_run_id, resume_context
         execution_config = resolve_execution_config(Path.cwd())
         client = client or create_chat_client_func(build_provider_env(None, Path.cwd()))
-        result = run_agent_func(
-            task,
-            client=client,
-            max_iterations=execution_config.max_iterations,
-            command_timeout_ms=execution_config.command_timeout_ms,
-            max_output_tokens=execution_config.max_output_tokens,
-            model_retries=execution_config.model_retries,
-            model_retry_delay_ms=execution_config.model_retry_delay_ms,
-            model_timeout_ms=execution_config.model_timeout_ms,
-            approval_handler=approval_handler,
-            approval_policy=approval_policy,
-            trust_project_permissions=project_permissions_trusted,
-            user_input_handler=prompt_user_input,
-            prior_context=resume_context,
-            system_prompt=system_prompt,
-            append_system_prompt=append_system_prompt,
-            task_metadata=task_metadata,
-            task_source_run_id=resume_run_id,
-            peer_runtime=peer_runtime,
-            agent=initial_agent,
-        )
+        panel = SubagentPanel(Path.cwd())
+        panel.authorize_custom(approval_handler, approval_policy)
+        initial_panel_error = panel.config_error
+        if panel.config_error:
+            print(f"Plugin subagentStatusLine warning: {panel.config_error}")
+        panel_kwargs: dict[str, object] = {}
+        selected_approval_handler = approval_handler
+        selected_user_input_handler = prompt_user_input
+        if panel.enabled:
+            panel_kwargs = {
+                "logger": panel.log,
+                "workspace_observer": panel.bind,
+            }
+            selected_approval_handler = panel.wrap_approval_handler(approval_handler)
+            selected_user_input_handler = panel.wrap_user_input_handler(prompt_user_input)
+        try:
+            result = run_agent_func(
+                task,
+                client=client,
+                max_iterations=execution_config.max_iterations,
+                command_timeout_ms=execution_config.command_timeout_ms,
+                max_output_tokens=execution_config.max_output_tokens,
+                model_retries=execution_config.model_retries,
+                model_retry_delay_ms=execution_config.model_retry_delay_ms,
+                model_timeout_ms=execution_config.model_timeout_ms,
+                approval_handler=selected_approval_handler,
+                approval_policy=approval_policy,
+                trust_project_permissions=project_permissions_trusted,
+                user_input_handler=selected_user_input_handler,
+                prior_context=resume_context,
+                system_prompt=system_prompt,
+                append_system_prompt=append_system_prompt,
+                task_metadata=task_metadata,
+                task_source_run_id=resume_run_id,
+                peer_runtime=peer_runtime,
+                agent=initial_agent,
+                **panel_kwargs,
+            )
+        finally:
+            panel.close()
+        if panel.config_error and panel.config_error != initial_panel_error:
+            print(f"Plugin subagentStatusLine warning: {panel.config_error}")
         print_agent_result(result)
         selected, next_context, _ = get_resume_context_func(result.run_id)
         if next_context:

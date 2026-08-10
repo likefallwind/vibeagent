@@ -87,7 +87,7 @@ class PluginDefaultSettingsTests(unittest.TestCase):
         self.assertIn("default agent: reviewer", details)
         self.assertIn("default settings source: settings.json", details)
 
-    def test_inline_settings_work_and_subagent_status_line_is_honest_warning(self) -> None:
+    def test_inline_settings_include_subagent_status_line_command(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-plugin-settings-") as base:
             root = Path(base)
             plugin = _write_plugin(
@@ -106,8 +106,10 @@ class PluginDefaultSettingsTests(unittest.TestCase):
             ".claude-plugin/plugin.json:settings",
         )
         self.assertTrue(manifest.has_subagent_status_line)
+        self.assertEqual(manifest.subagent_status_line.command, "printf status")
         self.assertEqual(manifest.component_count, 2)
-        self.assertIn("not supported", manifest.warnings[0])
+        self.assertEqual(manifest.warnings, ())
+        self.assertIn("subagent status line: command", format_plugin_details(manifest))
 
     def test_invalid_missing_malformed_and_symlink_settings_fail_validation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-plugin-settings-") as base:
@@ -120,6 +122,14 @@ class PluginDefaultSettingsTests(unittest.TestCase):
             malformed.joinpath("settings.json").write_text("{bad", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Could not parse"):
                 read_plugin_manifest(malformed)
+
+            invalid_status = _write_plugin(root, "invalid-status", subagent_status_line=True)
+            invalid_status.joinpath("settings.json").write_text(
+                json.dumps({"agent": "reviewer", "subagentStatusLine": {"type": "text"}}),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "type must be 'command'"):
+                read_plugin_manifest(invalid_status)
 
             linked = _write_plugin(root, "linked-tools", root_settings=False)
             outside = root / "outside-settings.json"

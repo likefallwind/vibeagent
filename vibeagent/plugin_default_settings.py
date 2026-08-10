@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 from typing import Any
 
+from .plugin_types import PluginSubagentStatusLine
 from .workspace_metadata_files import (
     has_symlink_component,
     parse_scalar_frontmatter,
@@ -21,12 +22,12 @@ AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 class PluginDefaultSettings:
     agent: str | None = None
     source: str | None = None
-    has_subagent_status_line: bool = False
+    subagent_status_line: PluginSubagentStatusLine | None = None
     warnings: tuple[str, ...] = ()
 
     @property
     def enabled(self) -> bool:
-        return self.agent is not None or self.has_subagent_status_line
+        return self.agent is not None or self.subagent_status_line is not None
 
 
 def read_plugin_default_settings(
@@ -56,18 +57,29 @@ def read_plugin_default_settings(
                 f"Plugin default agent is not declared by this plugin: {agent}."
             )
 
-    has_status_line = "subagentStatusLine" in payload
-    warnings = (
-        ("Plugin subagentStatusLine is not supported by the current terminal UI.",)
-        if has_status_line
-        else ()
-    )
+    status_line = _parse_subagent_status_line(payload.get("subagentStatusLine"))
     return PluginDefaultSettings(
         agent=agent,
         source=source,
-        has_subagent_status_line=has_status_line,
-        warnings=warnings,
+        subagent_status_line=status_line,
     )
+
+
+def _parse_subagent_status_line(value: Any) -> PluginSubagentStatusLine | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("Plugin subagentStatusLine must be an object.")
+    if value.get("type") != "command":
+        raise ValueError("Plugin subagentStatusLine type must be 'command'.")
+    command = value.get("command")
+    if not isinstance(command, str) or not command.strip():
+        raise ValueError("Plugin subagentStatusLine command must be a non-empty string.")
+    if "\x00" in command or len(command) > 4_000:
+        raise ValueError(
+            "Plugin subagentStatusLine command must be at most 4000 characters without NUL bytes."
+        )
+    return PluginSubagentStatusLine(command=command.strip())
 
 
 def _read_settings_file(root: Path, path: Path) -> dict[str, Any]:

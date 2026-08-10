@@ -9,6 +9,11 @@ PluginUserConfigType = Literal["string", "number", "boolean", "directory", "file
 
 
 @dataclass(frozen=True)
+class PluginSubagentStatusLine:
+    command: str
+
+
+@dataclass(frozen=True)
 class PluginUserConfigOption:
     key: str
     type: PluginUserConfigType
@@ -44,8 +49,12 @@ class PluginManifest:
     inline_monitors: tuple[object, ...] | None = None
     default_agent: str | None = None
     default_settings_source: str | None = None
-    has_subagent_status_line: bool = False
+    subagent_status_line: PluginSubagentStatusLine | None = None
     warnings: tuple[str, ...] = ()
+
+    @property
+    def has_subagent_status_line(self) -> bool:
+        return self.subagent_status_line is not None
 
     @property
     def component_count(self) -> int:
@@ -128,6 +137,7 @@ __all__ = [
     "MarketplaceManifest",
     "MarketplacePlugin",
     "PluginManifest",
+    "PluginSubagentStatusLine",
     "PluginUserConfigOption",
     "PluginUserConfigType",
 ]

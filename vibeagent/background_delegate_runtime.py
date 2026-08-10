@@ -178,6 +178,7 @@ def list_background_delegate_snapshots(
                 status=_background_task_status(task),
                 depth=task.depth,
                 parent_id=task.parent_id,
+                started_at=task.started_at,
             )
             for (workspace_key, _task_id), task in _TASKS.items()
             if workspace_key == selected_workspace_key

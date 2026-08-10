@@ -1153,9 +1153,11 @@ selects another profile. The explicit CLI flag has highest priority, followed by
 local project settings, project settings, then the enabled plugin default. A
 unique plugin agent may also be selected by its bare name; ambiguous bare names
 fail before the first model request. Multiple enabled plugin defaults likewise
-require an explicit or project-level selection. `subagentStatusLine` is parsed
-and reported as unsupported because VibeAgent does not yet provide Claude Code's
-persistent subagent panel; it is never silently presented as active.
+require an explicit or project-level selection. `subagentStatusLine` command
+settings customize rows in the interactive terminal subagent panel. VibeAgent
+sends the current task snapshot as JSON on stdin and accepts one
+`{"id": ..., "content": ...}` JSON object per output line; the default panel
+remains available when customization is absent, denied, or fails.
 Project-local marketplaces use `.claude-plugin/marketplace.json`,
 cache a non-symlink snapshot without Git/runtime metadata, verify each relative
 plugin source and manifest identity, support add/list/details/update/remove, and

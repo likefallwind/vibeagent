@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 import time
 
@@ -82,6 +83,7 @@ def run_agent(
     append_system_prompt: str | None = None,
     peer_runtime: PeerSessionRuntime | None = None,
     agent: str | None = None,
+    workspace_observer: Callable[[RunWorkspace], None] | None = None,
 ) -> AgentResult:
     setup = prepare_agent_run(
         task,
@@ -99,6 +101,8 @@ def run_agent(
         append_system_prompt=append_system_prompt,
         agent=agent,
     )
+    if workspace_observer is not None:
+        workspace_observer(setup.workspace)
     if peer_runtime is not None:
         peer_runtime.update_workspace(setup.workspace, approval_policy)
     profile_client = configure_agent_profile_client(
