@@ -227,16 +227,69 @@ def build_approval_handler(policy: ApprovalPolicy) -> ApprovalHandler:
             message=f"Denied because dontAsk mode does not prompt for {request.action_type}.",
         )
     if policy == "plan":
-        return SessionApprovalHandler(_prompt_plan_exit_approval)
+        return PlanSessionApprovalHandler()
     return SessionApprovalHandler(prompt_approval)
 
 
-def _prompt_plan_exit_approval(request: ApprovalRequest) -> ApprovalDecision:
-    if request.action_type == "exit_plan_mode":
-        return prompt_approval(request)
+class PlanSessionApprovalHandler:
+    def __init__(self) -> None:
+        self.mode: ApprovalPolicy = "plan"
+        self._session = SessionApprovalHandler(prompt_approval)
+
+    def __call__(self, request: ApprovalRequest) -> ApprovalDecision:
+        if self.mode == "plan":
+            if request.action_type != "exit_plan_mode":
+                return ApprovalDecision(
+                    approved=False,
+                    message=(
+                        f"Denied because Plan mode is read-only: "
+                        f"{request.action_type}."
+                    ),
+                )
+            decision = prompt_plan_approval(request)
+            if decision.approved:
+                self.mode = decision.permission_mode or "ask"
+            return decision
+        if self.mode == "allow":
+            return ApprovalDecision(
+                approved=True,
+                message=f"Approved by session policy for {request.action_type}.",
+            )
+        return self._session(request)
+
+
+def prompt_plan_approval(request: ApprovalRequest) -> ApprovalDecision:
+    print(f"Plan: {request.target}")
+    print(f"Risk: {request.risk}")
+    try:
+        answer = input(
+            "Proceed? [y]es, review each action/[a]llow actions/"
+            "[p] keep planning/[N]o "
+        ).strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return ApprovalDecision(
+            approved=False,
+            message="Plan approval prompt interrupted; continue planning.",
+            permission_mode="plan",
+        )
+
+    if answer in {"y", "yes"}:
+        return ApprovalDecision(
+            approved=True,
+            message="Plan approved; review each action.",
+            permission_mode="ask",
+        )
+    if answer in {"a", "allow", "all"}:
+        return ApprovalDecision(
+            approved=True,
+            message="Plan approved; allow subsequent actions.",
+            permission_mode="allow",
+        )
     return ApprovalDecision(
         approved=False,
-        message=f"Denied because Plan mode is read-only: {request.action_type}.",
+        message="Plan not approved; continue planning.",
+        permission_mode="plan",
     )
 
 

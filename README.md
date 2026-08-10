@@ -2234,7 +2234,11 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   read-only agent tools and produces an implementation plan without mutating
   the workspace. During an agent run, `EnterPlanMode` switches the following
   turns to the same read-only catalog. `ExitPlanMode` presents the plan for
-  approval and restores the permission mode that was active before planning.
+  approval; the user can resume with per-action review, allow subsequent
+  actions, or keep planning with feedback. The selected mode persists into the
+  next interactive turn. A main agent profile that forces `permissionMode:
+  plan` hides and rejects `ExitPlanMode` instead of allowing the model to
+  weaken that configured boundary.
 - Ctrl-C during a running local command, one-shot task, or interactive task
   prints `Interrupted.` instead of a traceback; one-shot and local-command
   invocations exit with status 130, while the interactive prompt returns to the

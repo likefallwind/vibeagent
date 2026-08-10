@@ -5,6 +5,7 @@ from typing import Literal
 
 from .action_types import PlanItem
 from .peer_types import PeerSession
+from .runtime_types import ApprovalPolicy
 
 
 @dataclass(frozen=True)
@@ -22,9 +23,10 @@ class UpdatePlanObservation:
 
 @dataclass(frozen=True)
 class PlanModeObservation:
-    kind: Literal["enter_plan_mode", "exit_plan_mode"]
+    kind: Literal["enter_plan_mode", "exit_plan_mode", "plan_mode_feedback"]
     plan: list[PlanItem] = field(default_factory=list)
     message: str = ""
+    next_policy: ApprovalPolicy | None = None
 
 
 @dataclass(frozen=True)

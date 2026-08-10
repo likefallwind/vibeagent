@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .agent_action_logging import log_action
 from .agent_approval import build_approval_request
@@ -16,7 +16,9 @@ from .types import (
     AgentLogger,
     ApprovalHandler,
     ApprovalPolicy,
+    ExitPlanModeAction,
     Observation,
+    PlanModeObservation,
     TaskStep,
 )
 from .workspace_core import RunWorkspace
@@ -159,6 +161,26 @@ def _execute_non_repeated_action(
     )
     if not authorization.allowed:
         assert authorization.denial is not None
+        if (
+            isinstance(action, ExitPlanModeAction)
+            and authorization.decision is not None
+            and authorization.decision.permission_mode == "plan"
+        ):
+            return (
+                PlanModeObservation(
+                    kind="plan_mode_feedback",
+                    plan=action.plan,
+                    message=(
+                        authorization.decision.message
+                        or "Plan was not approved. Continue planning with the user's feedback."
+                    ),
+                    next_policy="plan",
+                ),
+                None,
+                auto_checkpoint_attempted,
+                (),
+                (),
+            )
         return authorization.denial, None, auto_checkpoint_attempted, (), ()
 
     pre_hooks = run_tool_hooks(
@@ -191,6 +213,15 @@ def _execute_non_repeated_action(
         create_auto_checkpoint_before_action_func,
     )
     observation = execute_action_safely_func(workspace, action, command_timeout_ms, tool_name)
+    if (
+        isinstance(action, ExitPlanModeAction)
+        and isinstance(observation, PlanModeObservation)
+        and authorization.decision is not None
+    ):
+        observation = replace(
+            observation,
+            next_policy=authorization.decision.permission_mode,
+        )
     post_event = "PostToolUseFailure" if observation_failed(observation) else "PostToolUse"
     post_hooks = run_tool_hooks(
         workspace,

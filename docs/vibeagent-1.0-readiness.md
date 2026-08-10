@@ -68,7 +68,8 @@ The automated suite currently covers these 1.0 surfaces:
   `NotebookRead`, `NotebookEdit`, `Bash`, `BashOutput`, `KillBash`, `Monitor`,
   `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TeamCreate`, `TeamDelete`, `TodoWrite`, `TodoRead`,
   `CronCreate`, `CronList`, `CronDelete`, `WebFetch`, `Task`, `TaskOutput`,
-  `TaskStop`, `Agent`, and `ExitPlanMode`.
+  `TaskStop`, `Agent`, `EnterPlanMode`, and `ExitPlanMode`, including
+  approval-mode selection, keep-planning feedback, and forced-plan locking.
 - Structured `AskUserQuestion` batches with one to four questions, short
   headers, described choices, single/multi-select terminal input, consolidated
   tool results, session evidence, and per-question machine output.

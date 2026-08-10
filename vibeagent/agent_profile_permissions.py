@@ -56,6 +56,18 @@ def apply_agent_permission_mode(
     raise ValueError(f"Unsupported agent permission mode: {permission_mode}.")
 
 
+def permission_mode_forces_plan(
+    parent_policy: ApprovalPolicy,
+    permissions: ProjectPermissions,
+    permission_mode: str | None,
+) -> bool:
+    return (
+        permission_mode == "plan"
+        and parent_policy not in {"allow", "plan"}
+        and not _parent_has_strong_mode(permissions)
+    )
+
+
 def _parent_has_strong_mode(permissions: ProjectPermissions) -> bool:
     return any(
         source.endswith("permission-mode acceptEdits>")
@@ -70,4 +82,5 @@ __all__ = [
     "PROFILE_ACCEPT_EDITS_SOURCE",
     "PROFILE_BYPASS_SOURCE",
     "apply_agent_permission_mode",
+    "permission_mode_forces_plan",
 ]

@@ -168,6 +168,7 @@ class PlanModeTests(unittest.TestCase):
         self.assertIn("ExitPlanMode", exposed_names)
         self.assertEqual(observation_kinds[:2], ["exit_plan_mode", "write_file"])
         self.assertEqual(approvals, ["exit_plan_mode", "write_file"])
+        self.assertEqual(result.approval_policy, "ask")
         self.assertEqual(len(result.plan), 1)
         self.assertEqual(result.plan[0].status, "completed")
         self.assertIn("Change calc.py", result.plan[0].step)
@@ -220,6 +221,93 @@ class PlanModeTests(unittest.TestCase):
         self.assertEqual(approvals, [])
         transition = next(event for event in events if event["type"] == "permission_mode_changed")
         self.assertEqual((transition["previous"], transition["current"]), ("ask", "plan"))
+
+    def test_plan_feedback_keeps_read_only_mode_without_completion_blocker(self) -> None:
+        def keep_planning(request):
+            return ApprovalDecision(
+                approved=False,
+                message="Add a rollback step before implementation.",
+                permission_mode="plan",
+            )
+
+        client = RecordingClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "exit-1",
+                        "name": "ExitPlanMode",
+                        "input": {"plan": "Inspect, patch, and test."},
+                    }
+                ],
+                [{"type": "tool_call", "id": "read-1", "name": "list_files", "input": {}}],
+                [{"type": "text", "text": "Revised plan includes rollback."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-plan-") as base:
+            result = run_agent(
+                "Plan safely",
+                base_dir=Path(base),
+                client=client,
+                max_iterations=3,
+                approval_policy="plan",
+                approval_handler=keep_planning,
+            )
+
+        second_names = {str(tool["name"]) for tool in client.tools[1]}
+        self.assertEqual(result.approval_policy, "plan")
+        self.assertEqual(result.observations[0].kind, "plan_mode_feedback")
+        self.assertIn("rollback", result.observations[0].message)
+        self.assertIn("ExitPlanMode", second_names)
+        self.assertNotIn("write_file", second_names)
+        self.assertEqual(result.latest_completion_denied_approvals, [])
+
+    def test_approved_plan_can_switch_to_allow_mode(self) -> None:
+        approvals: list[str] = []
+
+        def approve_plan(request):
+            approvals.append(request.action_type)
+            return ApprovalDecision(
+                approved=True,
+                message="approved",
+                permission_mode="allow",
+            )
+
+        client = RecordingClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "exit-1",
+                        "name": "ExitPlanMode",
+                        "input": {"plan": "Write approved.txt."},
+                    }
+                ],
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "write-1",
+                        "name": "write_file",
+                        "input": {"path": "approved.txt", "content": "ok"},
+                    }
+                ],
+                [{"type": "text", "text": "Implemented."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-plan-") as base:
+            root = Path(base)
+            result = run_agent(
+                "Plan then implement",
+                base_dir=root,
+                client=client,
+                max_iterations=3,
+                approval_policy="plan",
+                approval_handler=approve_plan,
+            )
+            self.assertEqual((root / "approved.txt").read_text(encoding="utf-8"), "ok")
+
+        self.assertEqual(approvals, ["exit_plan_mode"])
+        self.assertEqual(result.approval_policy, "allow")
 
     def test_permissions_report_describes_plan_mode(self) -> None:
         report = get_permissions_report("plan")

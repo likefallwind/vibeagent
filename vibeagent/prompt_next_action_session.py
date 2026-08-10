@@ -268,6 +268,7 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
 SESSION_NEXT_ACTION_KINDS = {
     "enter_plan_mode",
     "exit_plan_mode",
+    "plan_mode_feedback",
     "cron_create",
     "cron_list",
     "cron_delete",
@@ -289,6 +290,8 @@ def session_next_action_instruction(base: str, latest: Observation) -> str:
         return f"{base} Plan mode is active. Inspect with read-only tools, build the plan, then call ExitPlanMode."
     if latest.kind == "exit_plan_mode":
         return f"{base} The plan was approved and Plan mode ended. Continue implementing the approved plan."
+    if latest.kind == "plan_mode_feedback":
+        return f"{base} The plan was not approved. Continue planning and incorporate the user's feedback before presenting it again."
     if latest.kind == "cron_create":
         if not getattr(latest, "ok", False):
             return f"{base} Scheduling failed. Correct the cron expression or reported store error before retrying."

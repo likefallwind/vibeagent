@@ -248,6 +248,51 @@ PRIVATE_PROFILE_PROMPT
         self.assertEqual(len(approvals), 1)
         self.assertIn("SessionStart hook", approvals[0])
 
+    def test_main_profile_forced_plan_mode_cannot_exit(self) -> None:
+        client = ProfileClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "exit-1",
+                        "name": "ExitPlanMode",
+                        "input": {"plan": "Write value.py."},
+                    }
+                ]
+            ]
+        )
+        profiles = _profiles(
+            {
+                "description": "Read-only planner",
+                "prompt": "Plan without editing.",
+                "mode": "code",
+                "tools": ["Read", "ExitPlanMode"],
+                "permissionMode": "plan",
+            }
+        )
+        approvals: list[str] = []
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-contract-") as base:
+            result = run_agent(
+                "Plan value.py",
+                base_dir=Path(base),
+                client=client,
+                max_iterations=1,
+                agent="worker",
+                dynamic_agent_profiles=profiles,
+                approval_policy="ask",
+                approval_handler=lambda request: (
+                    approvals.append(request.action_type)
+                    or ApprovalDecision(True, "approved")
+                ),
+            )
+
+        exposed = set(client.tool_names[0])
+        self.assertNotIn("ExitPlanMode", exposed)
+        self.assertEqual(result.observations[0].kind, "tool_error")
+        self.assertEqual(result.approval_policy, "plan")
+        self.assertEqual(approvals, [])
+
     def test_main_profile_inline_mcp_server_runs_through_real_protocol(self) -> None:
         client = ProfileClient(
             [

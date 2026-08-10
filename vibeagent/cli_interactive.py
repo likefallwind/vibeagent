@@ -148,7 +148,7 @@ def run_interactive_loop(
 
     def run_code_task(task: str, task_metadata: dict[str, object] | None = None) -> tuple[object, str | None]:
         nonlocal client, resume_run_id, resume_context, pending_workspace, pending_branch_source_run_id
-        nonlocal conversation_messages
+        nonlocal conversation_messages, approval_policy, approval_handler
         execution_config = resolve_execution_config(Path.cwd())
         client = client or create_chat_client_func(build_provider_env(None, Path.cwd()))
         panel = SubagentPanel(Path.cwd())
@@ -207,6 +207,15 @@ def run_interactive_loop(
         if panel.config_error and panel.config_error != initial_panel_error:
             print(f"Plugin subagentStatusLine warning: {panel.config_error}")
         print_agent_result(result)
+        result_approval_policy = getattr(result, "approval_policy", None)
+        if (
+            result_approval_policy in {"ask", "allow", "deny", "dontAsk", "plan"}
+            and result_approval_policy != approval_policy
+        ):
+            approval_policy = result_approval_policy
+            approval_handler = build_approval_handler(approval_policy)
+            if peer_runtime is not None:
+                peer_runtime.update_approval_policy(approval_policy)
         conversation_messages = list(getattr(result, "conversation", []))
         if active_workspace is None:
             try:

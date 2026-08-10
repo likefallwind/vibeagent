@@ -91,19 +91,30 @@ class SessionApprovalHandlerTests(unittest.TestCase):
         self.assertEqual(after_clear.message, "after clear")
         self.assertEqual(prompt.call_count, 3)
 
-    def test_mcp_actions_always_require_separate_approval(self) -> None:
-        prompt = Mock(return_value=ApprovalDecision(approved=True, message="always", scope="session"))
-        handler = SessionApprovalHandler(prompt)
-        request = _request("mcp_call", "docs/search")
+    def test_sensitive_actions_always_require_separate_approval(self) -> None:
+        for action_type, target in (
+            ("mcp_call", "docs/search"),
+            ("exit_plan_mode", "Inspect, patch, and test."),
+        ):
+            with self.subTest(action_type=action_type):
+                prompt = Mock(
+                    return_value=ApprovalDecision(
+                        approved=True,
+                        message="always",
+                        scope="session",
+                    )
+                )
+                handler = SessionApprovalHandler(prompt)
+                request = _request(action_type, target)
 
-        first = handler(request)
-        second = handler(request)
+                first = handler(request)
+                second = handler(request)
 
-        self.assertEqual(prompt.call_count, 2)
-        self.assertEqual(first.scope, "once")
-        self.assertEqual(second.scope, "once")
-        self.assertIn("always requires separate approval", first.message)
-        self.assertIsNone(approval_cache_key(request))
+                self.assertEqual(prompt.call_count, 2)
+                self.assertEqual(first.scope, "once")
+                self.assertEqual(second.scope, "once")
+                self.assertIn("always requires separate approval", first.message)
+                self.assertIsNone(approval_cache_key(request))
 
     def test_terminal_handler_remembers_always_answer_without_reprompting(self) -> None:
         handler = build_approval_handler("ask")

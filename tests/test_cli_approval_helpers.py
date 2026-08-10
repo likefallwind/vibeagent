@@ -128,12 +128,51 @@ class CliApprovalHelpersTests(unittest.TestCase):
             risk="This approves the plan and leaves Plan mode.",
         )
 
-        with patch("builtins.input", return_value="y"), patch(
+        handler = build_approval_handler("plan")
+        follow_up = ApprovalRequest(
+            action_type="write_file",
+            target="note.txt",
+            risk="This writes the approved change.",
+        )
+        with patch("builtins.input", side_effect=["y", "y"]), patch(
             "sys.stdout", new_callable=io.StringIO
         ):
-            decision = build_approval_handler("plan")(request)
+            decision = handler(request)
+            follow_up_decision = handler(follow_up)
 
         self.assertTrue(decision.approved)
+        self.assertEqual(decision.permission_mode, "ask")
+        self.assertTrue(follow_up_decision.approved)
+
+    def test_plan_handler_supports_allow_and_keep_planning_choices(self) -> None:
+        exit_request = ApprovalRequest(
+            action_type="exit_plan_mode",
+            target="Inspect, patch, and test.",
+            risk="This approves the plan and leaves Plan mode.",
+        )
+        write_request = ApprovalRequest(
+            action_type="write_file",
+            target="note.txt",
+            risk="This writes the approved change.",
+        )
+
+        allow_handler = build_approval_handler("plan")
+        with patch("builtins.input", return_value="a"), patch(
+            "sys.stdout", new_callable=io.StringIO
+        ):
+            allow_decision = allow_handler(exit_request)
+        self.assertTrue(allow_decision.approved)
+        self.assertEqual(allow_decision.permission_mode, "allow")
+        self.assertTrue(allow_handler(write_request).approved)
+
+        planning_handler = build_approval_handler("plan")
+        with patch("builtins.input", return_value="p"), patch(
+            "sys.stdout", new_callable=io.StringIO
+        ):
+            planning_decision = planning_handler(exit_request)
+        self.assertFalse(planning_decision.approved)
+        self.assertEqual(planning_decision.permission_mode, "plan")
+        self.assertFalse(planning_handler(write_request).approved)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from .dynamic_agent_profiles import DynamicAgentProfile
-from .agent_profile_permissions import apply_agent_permission_mode
+from .agent_profile_permissions import apply_agent_permission_mode, permission_mode_forces_plan
 
 from .agent_runtime_utils import append_session_event, compact_session_context
 from .agent_conversation import continue_conversation
@@ -52,6 +52,7 @@ class AgentRunSetup:
     tool_ceiling_names: frozenset[str] | None
     task: str
     approval_policy: ApprovalPolicy
+    approval_policy_locked: bool = False
 
 
 def prepare_agent_run(
@@ -97,6 +98,11 @@ def prepare_agent_run(
     project_permissions = _prepare_project_permissions(
         current_workspace,
         permission_overrides,
+    )
+    approval_policy_locked = permission_mode_forces_plan(
+        approval_policy,
+        project_permissions,
+        main_profile.permission_mode,
     )
     effective_approval_policy, project_permissions = apply_agent_permission_mode(
         approval_policy,
@@ -172,6 +178,8 @@ def prepare_agent_run(
         excluded_names=main_profile.disallowed_tool_names,
         allowed_names=main_profile.allowed_tool_names,
     )
+    if approval_policy_locked:
+        active_tool_names.discard("ExitPlanMode")
     _append_main_profile_event(current_workspace, main_profile)
     if tool_names is not None or permission_denied_tool_names:
         append_session_event(
@@ -207,6 +215,7 @@ def prepare_agent_run(
         tool_ceiling_names=tool_names,
         task=effective_task,
         approval_policy=effective_approval_policy,
+        approval_policy_locked=approval_policy_locked,
     )
 
 

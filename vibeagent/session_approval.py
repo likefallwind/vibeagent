@@ -5,7 +5,9 @@ from dataclasses import dataclass, field, replace
 from .types import ApprovalDecision, ApprovalHandler, ApprovalRequest
 
 
-NON_CACHEABLE_APPROVAL_ACTION_TYPES = frozenset({"mcp_call", "mcp_tools"})
+NON_CACHEABLE_APPROVAL_ACTION_TYPES = frozenset(
+    {"exit_plan_mode", "mcp_call", "mcp_tools"}
+)
 
 
 @dataclass

@@ -6,6 +6,7 @@ import re
 
 from .agent_profile_frontmatter import parse_agent_frontmatter
 from .action_tool_aliases import CLAUDE_MCP_TOOL_NAME_PATTERN, profile_tool_names
+from .action_tool_alias_sets import CLAUDE_TOOL_ACTION_ALIASES
 from .agent_delegate_policy import (
     CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
     DELEGATE_TOOL_NAMES,
@@ -35,7 +36,9 @@ AGENT_EFFORT_LEVELS = frozenset({"low", "medium", "high", "xhigh", "max"})
 MAX_AGENT_PROFILE_SKILLS = 10
 MAX_AGENT_TURNS = 50
 AGENT_MEMORY_SCOPES = frozenset({"user", "project", "local"})
-KNOWN_TOOL_NAMES = frozenset(str(tool["name"]) for tool in AGENT_TOOL_DEFINITIONS)
+KNOWN_TOOL_NAMES = frozenset(str(tool["name"]) for tool in AGENT_TOOL_DEFINITIONS) | frozenset(
+    CLAUDE_TOOL_ACTION_ALIASES.values()
+)
 DYNAMIC_AGENT_FIELDS = frozenset(
     {
         "name",

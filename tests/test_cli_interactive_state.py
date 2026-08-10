@@ -465,6 +465,37 @@ class CliInteractiveStateTests(unittest.TestCase):
         self.assertTrue(first_handler(request).approved)
         self.assertFalse(second_handler(request).approved)
 
+    def test_agent_plan_approval_updates_following_interactive_turn(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=Path(base),
+                run_id="test-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+                approval_policy="allow",
+            )
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch(
+                    "builtins.input",
+                    side_effect=["/approval plan", "plan and implement", "continue", "/exit"],
+                ),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            [call.kwargs["approval_policy"] for call in run_agent.call_args_list],
+            ["plan", "allow"],
+        )
+
     def test_main_interactive_system_prompt_commands_affect_code_and_chat_turns(self) -> None:
         result = AgentResult(
             success=True,

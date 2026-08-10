@@ -18,7 +18,7 @@ from .agent_multimodal import strip_consumed_tool_images
 from .agent_monitor_notifications import inject_monitor_notifications
 from .agent_parallel_execution import execute_parallel_tool_call_batch
 from .agent_peer_notifications import inject_peer_notifications
-from .agent_plan_mode import PlanModeRuntime
+from .agent_plan_mode import PlanModeRuntime, approval_handler_after_plan
 from .agent_plugin_monitors import AgentPluginMonitorController
 from .peer_runtime import PeerSessionRuntime
 from .plugin_monitor_runtime import PluginMonitorRuntime
@@ -106,7 +106,19 @@ def run_agent_loop(
         else None
     )
     auto_checkpoint_attempted = False
-    plan_mode = PlanModeRuntime.create(approval_policy)
+    plan_mode = PlanModeRuntime.create(
+        approval_policy,
+        locked=setup.approval_policy_locked,
+    )
+    current_approval_handler = approval_handler
+
+    def tool_call_allowed(name: str, action: object) -> bool:
+        if (
+            setup.approval_policy_locked
+            and getattr(action, "type", None) == "exit_plan_mode"
+        ):
+            return False
+        return setup.main_profile.allows_tool_call(name, action)
 
     def checkpoint_conversation() -> None:
         checkpoint_session_conversation(current_workspace, messages, task)
@@ -135,6 +147,7 @@ def run_agent_loop(
                 command_timeout_ms=timeout_ms,
                 logger=finish_logger,
             ),
+            approval_policy=plan_mode.current_policy,
             conversation=conversation_for_next_prompt(messages, task),
         )
 
@@ -177,7 +190,7 @@ def run_agent_loop(
         permissions=project_permissions,
         command_timeout_ms=command_timeout_ms,
         logger=logger,
-        approval_handler=approval_handler,
+        approval_handler=current_approval_handler,
         approval_policy=plan_mode.current_policy,
         execute_action_safely=runtime.execute_action_safely,
     )
@@ -191,7 +204,7 @@ def run_agent_loop(
         plugin_monitor_runtime,
         current_workspace,
         project_permissions,
-        approval_handler,
+        current_approval_handler,
         plan_mode.current_policy,
         logger,
     )
@@ -332,7 +345,7 @@ def run_agent_loop(
                 logger,
                 execute=runtime.execute_action,
                 approval_policy=plan_mode.current_policy,
-                tool_call_allowed=setup.main_profile.allows_tool_call,
+                tool_call_allowed=tool_call_allowed,
                 excluded_tool_names=setup.main_profile.disallowed_tool_names,
                 allowed_tool_names=setup.main_profile.allowed_tool_names,
             )
@@ -388,7 +401,7 @@ def run_agent_loop(
                 model_timeout_ms=model_timeout_ms,
                 command_timeout_ms=command_timeout_ms,
                 logger=logger,
-                approval_handler=approval_handler,
+                approval_handler=current_approval_handler,
                 approval_policy=plan_mode.current_policy,
                 user_input_handler=user_input_handler,
                 hooks=project_hooks,
@@ -397,7 +410,7 @@ def run_agent_loop(
                 execute_action_safely_func=runtime.execute_action_safely,
                 should_auto_checkpoint_before_action_func=runtime.should_auto_checkpoint_before_action,
                 create_auto_checkpoint_before_action_func=create_checkpoint_before_action,
-                tool_call_allowed=setup.main_profile.allows_tool_call,
+                tool_call_allowed=tool_call_allowed,
                 excluded_tool_names=setup.main_profile.disallowed_tool_names,
                 allowed_tool_names=setup.main_profile.allowed_tool_names,
                 tool_ceiling_names=setup.tool_ceiling_names,
@@ -413,7 +426,12 @@ def run_agent_loop(
                 iteration=iteration,
             )
             if plan_mode.apply(current_workspace, observation, iteration=iteration):
+                current_approval_handler = approval_handler_after_plan(
+                    approval_handler,
+                    plan_mode.current_policy,
+                )
                 lifecycle.approval_policy = plan_mode.current_policy
+                lifecycle.approval_handler = current_approval_handler
                 active_tool_names.add(
                     "ExitPlanMode"
                     if plan_mode.current_policy == "plan"
@@ -425,7 +443,7 @@ def run_agent_loop(
                     plugin_monitor_runtime,
                     current_workspace,
                     project_permissions,
-                    approval_handler,
+                    current_approval_handler,
                     plan_mode.current_policy,
                     logger,
                 )

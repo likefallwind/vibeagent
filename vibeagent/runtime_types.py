@@ -146,6 +146,7 @@ class ApprovalDecision:
     message: str = ""
     scope: Literal["once", "session"] = "once"
     remembered: bool = False
+    permission_mode: ApprovalPolicy | None = None
 
 
 ApprovalHandler: TypeAlias = Callable[[ApprovalRequest], ApprovalDecision]

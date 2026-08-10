@@ -154,7 +154,11 @@ def execute_sequential_tool_call(
             checkpoint_attempted = execution.auto_checkpoint_attempted
             if execution.auto_checkpoint is not None:
                 observations.append(execution.auto_checkpoint)
-        if observation.kind in {"update_plan", "exit_plan_mode"} or observation.kind in {
+        if observation.kind in {
+            "update_plan",
+            "exit_plan_mode",
+            "plan_mode_feedback",
+        } or observation.kind in {
             "task_create",
             "task_get",
             "task_list",
