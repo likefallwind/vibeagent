@@ -7,6 +7,7 @@ from .actions import ActionParseError, parse_tool_action
 from .agent_runtime_utils import append_session_event, tool_error_observation
 from .agent_hook_updated_input import apply_hook_supplied_answers
 from .agent_hook_prompt import HookModelRuntime
+from .permission_update_runtime import PermissionUpdateApplication
 from .agent_lifecycle_hooks import run_instruction_loaded_hooks
 from .agent_special_tools import execute_special_tool_action
 from .session_working_directory import prepare_action_shell_cwd
@@ -45,6 +46,7 @@ class SequentialToolCallResult:
     auto_checkpoint_attempted: bool
     deferred_tool_use: dict[str, object] | None = None
     halt_turn_message: str | None = None
+    permission_application: PermissionUpdateApplication | None = None
 
 
 def execute_sequential_tool_call(
@@ -91,6 +93,7 @@ def execute_sequential_tool_call(
     additional_observations: tuple[Observation, ...] = ()
     checkpoint_attempted = auto_checkpoint_attempted
     halt_turn_message: str | None = None
+    permission_application: PermissionUpdateApplication | None = None
 
     try:
         def prepare_tool_input(candidate_input: dict[str, object]) -> object:
@@ -160,6 +163,7 @@ def execute_sequential_tool_call(
             additional_observations = wrapped.additional_observations
             deferred = wrapped.deferred
             halt_turn_message = wrapped.halt_turn_message
+            permission_application = wrapped.permission_application
         else:
             execution = execute_parsed_tool_action(
                 workspace,
@@ -190,6 +194,7 @@ def execute_sequential_tool_call(
             checkpoint_attempted = execution.auto_checkpoint_attempted
             deferred = execution.deferred
             halt_turn_message = execution.halt_turn_message
+            permission_application = execution.permission_application
             if execution.auto_checkpoint is not None:
                 observations.append(execution.auto_checkpoint)
         if deferred:
@@ -204,6 +209,7 @@ def execute_sequential_tool_call(
                     "input": raw_tool_input,
                 },
                 halt_turn_message=halt_turn_message,
+                permission_application=permission_application,
             )
         if observation.kind in {
             "update_plan",
@@ -255,4 +261,5 @@ def execute_sequential_tool_call(
         plan=plan,
         auto_checkpoint_attempted=checkpoint_attempted,
         halt_turn_message=halt_turn_message,
+        permission_application=permission_application,
     )

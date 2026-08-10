@@ -122,6 +122,51 @@ class HookClient:
         return AssistantResponse(content=content, raw={"content": content})
 
 
+class SequenceHookClient:
+    def __init__(self, responses: list[list[ContentBlock]]) -> None:
+        self.responses = responses
+        self.messages: list[list[ChatMessage]] = []
+
+    def complete(
+        self,
+        messages,
+        tools=None,
+        max_tokens=4096,
+        temperature=0.2,
+        timeout_ms=120_000,
+    ):
+        self.messages.append(list(messages))
+        content = self.responses[len(self.messages) - 1]
+        return AssistantResponse(content=content, raw={"content": content})
+
+
+def _write_permission_hook(
+    root: Path,
+    decision: dict[str, object],
+    *,
+    matcher: str = "write_file",
+) -> None:
+    output = _payload(str(decision["behavior"]), **{
+        key: value for key, value in decision.items() if key != "behavior"
+    })
+    command = "python3 -c " + shlex.quote(f"print({output!r})")
+    path = root / ".vibeagent" / "hooks.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "PermissionRequest": [
+                    {
+                        "matcher": matcher,
+                        "hooks": [{"type": "command", "command": command}],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 class PermissionRequestHookOutputTests(unittest.TestCase):
     def test_parses_allow_and_deny_and_merges_deny_first(self) -> None:
         allow = parse_permission_request_hook_output(
@@ -148,9 +193,7 @@ class PermissionRequestHookOutputTests(unittest.TestCase):
                 {"hookSpecificOutput": {"decision": {"behavior": "allow"}}}
             ),
             _payload("allow", message="not valid for allow"),
-            _payload("allow", updatedInput={"command": "true"}),
-            _payload("allow", updatedPermissions=[]),
-            _payload("deny", message="blocked", interrupt=True),
+            _payload("deny", message="blocked", updatedInput={}),
         )
 
         for stdout in invalid_outputs:
@@ -224,7 +267,7 @@ class PermissionRequestHookRunnerTests(unittest.TestCase):
             workspace = create_run_workspace(base)
             with patch(
                 "vibeagent.agent_tool_hook_runtime.run_project_hook",
-                return_value=_result(stdout=_payload("allow", updatedInput={})),
+                return_value=_result(stdout=_payload("allow", updatedInput=[])),
             ):
                 outcome = run_permission_request_hooks(
                     workspace,
@@ -240,12 +283,12 @@ class PermissionRequestHookRunnerTests(unittest.TestCase):
                     Mock(),
                     ProjectPermissions(),
                 )
-            events = [
-                json.loads(line)
-                for line in workspace.session_dir.joinpath("events.jsonl")
-                .read_text(encoding="utf-8")
-                .splitlines()
-            ]
+                events = [
+                    json.loads(line)
+                    for line in workspace.session_dir.joinpath("events.jsonl")
+                    .read_text(encoding="utf-8")
+                    .splitlines()
+                ]
 
         self.assertIsNone(outcome.behavior)
         self.assertFalse(outcome.results[0].ok)
@@ -256,15 +299,48 @@ class PermissionRequestHookRunnerTests(unittest.TestCase):
             ["permission_request_hook_output_rejected"],
         )
 
+    def test_prompt_and_agent_results_do_not_decide_permission(self) -> None:
+        hooks = ProjectHooks(hooks=(_hook("prompt"), _hook("agent")))
+        results = (
+            _result(handler_type="prompt"),
+            _result(
+                ok=False,
+                status="blocked",
+                exit_code=None,
+                message="model declined",
+                handler_type="agent",
+            ),
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permission-hook-") as base:
+            workspace = create_run_workspace(base)
+            with patch(
+                "vibeagent.agent_tool_hook_runtime.run_project_hook",
+                side_effect=results,
+            ):
+                outcome = run_permission_request_hooks(
+                    workspace,
+                    hooks,
+                    "Bash",
+                    _action(),
+                    {"command": "npm test"},
+                    1,
+                    10_000,
+                    None,
+                    None,
+                    "ask",
+                    Mock(),
+                    ProjectPermissions(),
+                )
+
+        self.assertIsNone(outcome.behavior)
+        self.assertTrue(outcome.results[1].non_blocking_error)
+        self.assertIn("do not grant or deny", outcome.results[1].message)
+
     def test_shared_special_tool_wrapper_applies_permission_request_denial(self) -> None:
         execute_tool = Mock()
         approval = Mock()
         blocked = _result(
-            ok=False,
-            status="blocked",
-            exit_code=None,
-            message="agent rejected special tool",
-            handler_type="agent",
+            stdout=_payload("deny", message="hook rejected special tool"),
         )
         with tempfile.TemporaryDirectory(prefix="vibeagent-permission-hook-") as base:
             workspace = create_run_workspace(base)
@@ -280,7 +356,7 @@ class PermissionRequestHookRunnerTests(unittest.TestCase):
             ):
                 wrapped = run_hooks_around_tool(
                     workspace,
-                    ProjectHooks(hooks=(_hook("agent"),)),
+                    ProjectHooks(hooks=(_hook("command"),)),
                     "Bash",
                     _action(),
                     1,
@@ -294,7 +370,7 @@ class PermissionRequestHookRunnerTests(unittest.TestCase):
                 )
 
         self.assertEqual(wrapped.observation.kind, "approval_denied")
-        self.assertEqual(wrapped.observation.message, "agent rejected special tool")
+        self.assertEqual(wrapped.observation.message, "hook rejected special tool")
         self.assertEqual(wrapped.hook_results, (blocked,))
         execute_tool.assert_not_called()
         approval.assert_not_called()
@@ -362,6 +438,198 @@ class PermissionRequestHookIntegrationTests(unittest.TestCase):
         deny_payload = json.loads(deny_client.messages[1][-1].content[0]["content"])
         self.assertEqual(allow_payload["hooks"][0]["event"], "PermissionRequest")
         self.assertEqual(deny_payload["hooks"][0]["event"], "PermissionRequest")
+
+    def test_updated_input_executes_reparsed_action_and_is_rechecked_by_deny_rules(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permission-hook-") as base:
+            root = Path(base)
+            approvals: list[str] = []
+
+            def approve(request):
+                approvals.append(request.action_type)
+                return ApprovalDecision(True, "approved")
+
+            _write_permission_hook(
+                root,
+                {
+                    "behavior": "allow",
+                    "updatedInput": {"path": "updated.py", "content": "new = True\n"},
+                },
+            )
+            with patch(
+                "vibeagent.agent_permissions.sandbox_auto_approval_reason",
+                return_value=None,
+            ):
+                run_agent(
+                    "Write a file",
+                    base_dir=root,
+                    client=HookClient("original.py"),
+                    max_iterations=2,
+                    approval_handler=approve,
+                )
+            self.assertFalse(root.joinpath("original.py").exists())
+            self.assertEqual(root.joinpath("updated.py").read_text(), "new = True\n")
+
+            root.joinpath(".vibeagent/permissions.json").write_text(
+                json.dumps({"deny": ["Write(blocked.py)"]}),
+                encoding="utf-8",
+            )
+            _write_permission_hook(
+                root,
+                {
+                    "behavior": "allow",
+                    "updatedInput": {"path": "blocked.py", "content": "bad = True\n"},
+                },
+            )
+            denied = run_agent(
+                "Write blocked.py",
+                base_dir=root,
+                client=HookClient("requested.py"),
+                max_iterations=2,
+                approval_handler=approve,
+            )
+
+            self.assertFalse(root.joinpath("requested.py").exists())
+            self.assertFalse(root.joinpath("blocked.py").exists())
+
+        self.assertEqual(approvals, ["run_command", "run_command"])
+        self.assertEqual(denied.observations[0].kind, "approval_denied")
+        self.assertIn("updated tool input is denied", denied.observations[0].message)
+
+    def test_session_rule_update_skips_later_prompt_in_same_agent_run(self) -> None:
+        client = SequenceHookClient(
+            [
+                [{"type": "tool_call", "id": "one", "name": "write_file", "input": {"path": "one.py", "content": "one = 1\n"}}],
+                [{"type": "tool_call", "id": "two", "name": "write_file", "input": {"path": "two.py", "content": "two = 2\n"}}],
+                [{"type": "text", "text": "done"}],
+            ]
+        )
+        approvals: list[str] = []
+
+        def approve(request):
+            approvals.append(request.action_type)
+            return ApprovalDecision(True, "approved")
+
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permission-hook-") as base:
+            root = Path(base)
+            _write_permission_hook(
+                root,
+                {
+                    "behavior": "allow",
+                    "updatedPermissions": [
+                        {
+                            "type": "addRules",
+                            "rules": [{"toolName": "Write"}],
+                            "behavior": "allow",
+                            "destination": "session",
+                        }
+                    ],
+                },
+            )
+            with patch(
+                "vibeagent.agent_permissions.sandbox_auto_approval_reason",
+                return_value=None,
+            ):
+                result = run_agent(
+                    "Write two files",
+                    base_dir=root,
+                    client=client,
+                    max_iterations=3,
+                    approval_handler=approve,
+                )
+            self.assertTrue(root.joinpath("one.py").exists())
+            self.assertTrue(root.joinpath("two.py").exists())
+
+        self.assertTrue(result.success)
+        self.assertEqual(approvals, ["run_command"])
+        self.assertEqual(result.approval_policy, "ask")
+
+    def test_mode_update_applies_to_later_calls_and_interrupt_stops_turn(self) -> None:
+        mode_client = SequenceHookClient(
+            [
+                [{"type": "tool_call", "id": "one", "name": "write_file", "input": {"path": "one.py", "content": "one = 1\n"}}],
+                [{"type": "tool_call", "id": "two", "name": "write_file", "input": {"path": "two.py", "content": "two = 2\n"}}],
+                [{"type": "text", "text": "done"}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permission-hook-") as base:
+            root = Path(base)
+            _write_permission_hook(
+                root,
+                {
+                    "behavior": "allow",
+                    "updatedPermissions": [
+                        {"type": "setMode", "mode": "dontAsk", "destination": "session"}
+                    ],
+                },
+            )
+            with patch(
+                "vibeagent.agent_permissions.sandbox_auto_approval_reason",
+                return_value=None,
+            ):
+                mode_result = run_agent(
+                    "Write twice",
+                    base_dir=root,
+                    client=mode_client,
+                    max_iterations=3,
+                    approval_handler=lambda _request: ApprovalDecision(True, "approved"),
+                )
+            self.assertTrue(root.joinpath("one.py").exists())
+            self.assertFalse(root.joinpath("two.py").exists())
+
+            _write_permission_hook(
+                root,
+                {"behavior": "deny", "message": "stop the agent", "interrupt": True},
+            )
+            interrupt_client = HookClient("never.py")
+            interrupted = run_agent(
+                "Do not continue after denial",
+                base_dir=root,
+                client=interrupt_client,
+                max_iterations=3,
+                approval_handler=lambda _request: ApprovalDecision(True, "approved"),
+            )
+
+        self.assertEqual(mode_result.approval_policy, "dontAsk")
+        self.assertEqual(interrupted.stop_reason, "hook_blocked")
+        self.assertEqual(len(interrupt_client.messages), 1)
+
+    def test_directory_update_allows_updated_input_in_new_workspace_root(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permission-hook-") as base:
+            root = Path(base)
+            project = root / "project"
+            shared = root / "shared"
+            project.mkdir()
+            shared.mkdir()
+            target = shared / "outside.py"
+            _write_permission_hook(
+                project,
+                {
+                    "behavior": "allow",
+                    "updatedInput": {"path": str(target), "content": "outside = True\n"},
+                    "updatedPermissions": [
+                        {
+                            "type": "addDirectories",
+                            "directories": [str(shared)],
+                            "destination": "session",
+                        }
+                    ],
+                },
+            )
+            with patch(
+                "vibeagent.agent_permissions.sandbox_auto_approval_reason",
+                return_value=None,
+            ):
+                result = run_agent(
+                    "Write outside",
+                    base_dir=project,
+                    client=HookClient("original.py"),
+                    max_iterations=2,
+                    approval_handler=lambda _request: ApprovalDecision(True, "approved"),
+                )
+
+            self.assertEqual(target.read_text(encoding="utf-8"), "outside = True\n")
+
+        self.assertTrue(result.success)
 
 
 class PermissionRequestAuthorizationTests(unittest.TestCase):

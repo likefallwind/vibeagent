@@ -156,9 +156,12 @@ The automated suite currently covers these 1.0 surfaces:
   the same block, feedback, and non-blocking failure semantics as prompt hooks.
 - Claude-compatible `PermissionRequest` hooks: command, HTTP, MCP tool, prompt,
   and experimental agent handlers run only at a real ask-mode approval boundary;
-  deny wins over allow, project deny/ask rules retain priority, and malformed,
-  failed, or currently unsupported input/permission-update decisions fall back
-  to ordinary user approval with bounded audit evidence.
+  prompt and agent results are advisory, command/HTTP/MCP deny wins over allow,
+  allow decisions can replace input and apply bounded session or persisted rule,
+  mode, and additional-directory updates, deny can interrupt the active turn,
+  updated actions are rechecked against project rules and workspace safety, and
+  malformed or failed updates fall back to ordinary user approval with bounded
+  audit evidence.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

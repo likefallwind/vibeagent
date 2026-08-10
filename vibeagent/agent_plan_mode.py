@@ -61,6 +61,33 @@ class PlanModeRuntime:
         )
         return True
 
+    def apply_permission_policy(
+        self,
+        workspace: RunWorkspace,
+        policy: ApprovalPolicy,
+        *,
+        iteration: int,
+    ) -> bool:
+        previous = self.current_policy
+        if policy == previous:
+            return False
+        if policy == "plan":
+            self.restore_policy = previous
+        elif previous == "plan":
+            self.restore_policy = None
+        self.current_policy = policy
+        append_session_event(
+            workspace.session_dir,
+            "permission_mode_changed",
+            {
+                "iteration": iteration,
+                "previous": previous,
+                "current": policy,
+                "source": "PermissionRequest",
+            },
+        )
+        return True
+
 
 def approval_handler_after_plan(
     handler: ApprovalHandler | None,

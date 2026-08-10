@@ -44,6 +44,7 @@ from .workspace_permissions import (
     format_permissions_for_prompt,
     merge_project_permissions,
     read_project_permissions,
+    resolve_permission_additional_directories,
 )
 from .workspace_sandbox import SandboxConfig, read_workspace_sandbox
 from .workspace_memory import AutoMemorySnapshot, read_auto_memory
@@ -109,13 +110,36 @@ def prepare_agent_run(
         current_workspace,
         permission_overrides,
     )
+    if project_permissions.error is None and project_permissions.additional_directories:
+        try:
+            configured_roots = resolve_permission_additional_directories(
+                current_workspace,
+                project_permissions,
+            )
+        except ValueError as error:
+            project_permissions = replace(project_permissions, error=str(error))
+        else:
+            current_workspace = replace(
+                current_workspace,
+                additional_roots=normalize_additional_roots(
+                    current_workspace.root,
+                    configured_roots,
+                ),
+            )
+    settings_approval_policy = approval_policy
+    if approval_policy == "ask" and project_permissions.default_mode is not None:
+        settings_approval_policy, project_permissions = apply_agent_permission_mode(
+            approval_policy,
+            project_permissions,
+            project_permissions.default_mode,
+        )
     approval_policy_locked = permission_mode_forces_plan(
-        approval_policy,
+        settings_approval_policy,
         project_permissions,
         main_profile.permission_mode,
     )
     effective_approval_policy, project_permissions = apply_agent_permission_mode(
-        approval_policy,
+        settings_approval_policy,
         project_permissions,
         main_profile.permission_mode,
     )
@@ -441,6 +465,9 @@ def _append_permissions_event(workspace: RunWorkspace, project_permissions: Proj
             "error": project_permissions.error,
             "allow_rules_trusted": project_permissions.allow_rules_trusted,
             "trusted_allow_sources": list(project_permissions.trusted_allow_sources),
+            "default_mode": project_permissions.default_mode,
+            "default_mode_source": project_permissions.default_mode_source,
+            "additional_directories": list(project_permissions.additional_directories),
         },
     )
 

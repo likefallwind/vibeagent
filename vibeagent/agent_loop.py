@@ -275,8 +275,29 @@ def run_agent_loop(
         iteration: int,
     ) -> Observation:
         nonlocal plan, auto_checkpoint_attempted, current_workspace
+        nonlocal project_permissions
         nonlocal current_approval_handler, plugin_monitors
         observation = sequential.observation
+        permission_application = sequential.permission_application
+        permission_state_changed = permission_application is not None
+        if permission_application is not None:
+            current_workspace = permission_application.workspace
+            project_permissions = permission_application.permissions
+            policy_changed = plan_mode.apply_permission_policy(
+                current_workspace,
+                permission_application.approval_policy,
+                iteration=iteration,
+            )
+            lifecycle.permissions = project_permissions
+            if policy_changed:
+                current_approval_handler = approval_handler_after_plan(
+                    approval_handler,
+                    plan_mode.current_policy,
+                )
+                lifecycle.approval_policy = plan_mode.current_policy
+                lifecycle.approval_handler = current_approval_handler
+                if peer_runtime is not None:
+                    peer_runtime.update_approval_policy(plan_mode.current_policy)
         plugin_monitors.observe(observation, iteration=iteration)
         plan = sequential.plan
         auto_checkpoint_attempted = sequential.auto_checkpoint_attempted
@@ -299,6 +320,15 @@ def run_agent_loop(
             )
             if peer_runtime is not None:
                 peer_runtime.update_approval_policy(plan_mode.current_policy)
+            plugin_monitors = AgentPluginMonitorController.create(
+                plugin_monitor_runtime,
+                current_workspace,
+                project_permissions,
+                current_approval_handler,
+                plan_mode.current_policy,
+                logger,
+            )
+        elif permission_state_changed:
             plugin_monitors = AgentPluginMonitorController.create(
                 plugin_monitor_runtime,
                 current_workspace,

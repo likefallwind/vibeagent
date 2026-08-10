@@ -79,8 +79,8 @@ def execute_special_tool_action(
         approval_handler,
         approval_policy,
         execute_action_safely_func,
-        lambda effective_action: _execute_special_tool(
-            workspace,
+        lambda effective_workspace, effective_action: _execute_special_tool(
+            effective_workspace,
             effective_action,
             client,
             steps=steps,

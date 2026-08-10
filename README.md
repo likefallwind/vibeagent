@@ -1677,15 +1677,19 @@ failures are recorded as non-blocking Hook errors.
 approval for the target tool. Command, HTTP, and MCP tool handlers can return
 Claude-compatible `hookSpecificOutput.decision.behavior` set to `allow` or
 `deny`; a deny decision requires `message`, and command exit code 2 also denies.
-Prompt and agent handlers map `{ok: true}` to allow and `{ok: false, reason}` to
-deny. Multiple decisions resolve as `deny > allow`. An allow decision can
-replace ordinary user approval, but cannot override project `deny` or `ask`
-rules, repeated-approval actions, noninteractive policies, command hard blocks,
-or sandbox safety. Handler failures and malformed output are non-blocking and
-fall back to the normal user approval. The input omits `tool_use_id`, matching
-Claude's permission event. `updatedInput`, `updatedPermissions`, and `interrupt`
-are rejected as unsupported rather than silently ignored, so those responses
-also fall back to user approval.
+Prompt and agent handlers may inspect the request, but their `{ok, reason}`
+result does not grant or deny permission. Multiple command, HTTP, and MCP tool
+decisions resolve as `deny > allow`. An allow decision can replace ordinary
+user approval and may supply a complete `updatedInput` plus bounded
+`updatedPermissions` entries for `addRules`, `replaceRules`, `removeRules`,
+`setMode`, `addDirectories`, or `removeDirectories`. Updates can target the
+current session or Claude user, project, and local settings. Updated input is
+parsed again and re-evaluated against permission rules and workspace safety;
+project `deny` and `ask` rules, repeated-approval actions, command hard blocks,
+and sandbox safety retain priority. A deny decision may set `interrupt` to halt
+the active turn. Handler failures and malformed or rejected updates are
+non-blocking and fall back to normal user approval. The input omits
+`tool_use_id`, matching Claude's permission event.
 
 Command hooks may set `"async": true` to start after approval without waiting
 for completion. `"asyncRewake": true` implies async execution and, when the

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from .agent_action_targets import build_action_target
+from .permission_update_runtime import PermissionUpdateApplication
 from .types import Observation, RunCommandObservation, ToolErrorObservation
 from .workspace_hooks import HookEvent, ProjectHook
 
@@ -51,6 +52,7 @@ class HookWrappedToolResult:
     additional_observations: tuple[Observation, ...] = ()
     deferred: bool = False
     halt_turn_message: str | None = None
+    permission_application: PermissionUpdateApplication | None = None
 
 
 def hook_command_with_context(hook: ProjectHook, tool_name: str, action: object) -> str:

@@ -40,7 +40,7 @@ from .workspace_permissions import ProjectPermissions
 
 
 ExecuteActionSafely = Callable[[RunWorkspace, object, int, str], Observation]
-ExecuteTool = Callable[[object], Observation]
+ExecuteTool = Callable[[RunWorkspace, object], Observation]
 ApplyUpdatedInput = Callable[[dict[str, object]], object]
 
 __all__ = [
@@ -142,21 +142,34 @@ def run_hooks_around_tool(
             permissions,
             hook_model_runtime,
         ),
+        apply_permission_updated_input=apply_updated_input,
+        build_updated_approval_request=build_default_approval_request,
     )
     authorization_hook_results = pre_hooks.results + authorization.hook_results
+    effective_action = authorization.effective_action or effective_action
+    application = authorization.permission_application
+    effective_workspace = application.workspace if application is not None else workspace
+    effective_permissions = application.permissions if application is not None else permissions
+    effective_approval_policy = (
+        application.approval_policy if application is not None else approval_policy
+    )
     if not authorization.allowed:
         assert authorization.denial is not None
         return HookWrappedToolResult(
             observation=authorization.denial,
             hook_results=authorization_hook_results,
+            halt_turn_message=(
+                authorization.denial.message if authorization.interrupt else None
+            ),
+            permission_application=application,
         )
 
-    observation = execute_tool(effective_action)
+    observation = execute_tool(effective_workspace, effective_action)
     post_event: HookEvent = (
         "PostToolUseFailure" if observation_failed(observation) else "PostToolUse"
     )
     post_hooks = run_tool_hooks(
-        workspace,
+        effective_workspace,
         config,
         post_event,
         tool_name,
@@ -165,10 +178,14 @@ def run_hooks_around_tool(
         command_timeout_ms,
         logger,
         approval_handler,
-        approval_policy,
+        effective_approval_policy,
         execute_action_safely_func,
-        permissions,
-        tool_input=pre_hooks.effective_input,
+        effective_permissions,
+        tool_input=(
+            authorization.effective_input
+            if authorization.effective_input is not None
+            else pre_hooks.effective_input
+        ),
         tool_use_id=tool_use_id,
         hook_model_runtime=hook_model_runtime,
     )
@@ -177,6 +194,7 @@ def run_hooks_around_tool(
         hook_results=authorization_hook_results + post_hooks.results,
         additional_observations=post_hooks.failures,
         halt_turn_message=post_hooks.halt_turn_message,
+        permission_application=application,
     )
 
 

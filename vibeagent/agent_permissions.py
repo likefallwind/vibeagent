@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
@@ -11,9 +10,15 @@ from .agent_approval import (
     summarize_approval_request,
 )
 from .agent_hook_results import HookRunResult
-from .agent_permission_request_hooks import PermissionRequestHookOutcome
+from .agent_permission_request_authorization import (
+    ApplyPermissionUpdatedInput,
+    BuildUpdatedApprovalRequest,
+    PermissionRequestHandler,
+    resolve_permission_request,
+)
 from .agent_runtime_utils import append_session_event
 from .command_sandbox import sandbox_auto_approval_reason
+from .permission_update_runtime import PermissionUpdateApplication
 from .redaction import redact_sensitive_text
 from .types import (
     AgentLogger,
@@ -40,9 +45,10 @@ class ToolAuthorization:
     rule_match: PermissionRuleMatch | None = None
     decision: ApprovalDecision | None = None
     hook_results: tuple[HookRunResult, ...] = ()
-
-
-PermissionRequestHandler = Callable[[], PermissionRequestHookOutcome]
+    effective_action: object | None = None
+    effective_input: dict[str, object] | None = None
+    permission_application: PermissionUpdateApplication | None = None
+    interrupt: bool = False
 
 
 def authorize_tool_action(
@@ -59,6 +65,8 @@ def authorize_tool_action(
     hook_permission_decision: Literal["allow", "deny", "ask", "defer"] | None = None,
     hook_permission_reason: str | None = None,
     permission_request_handler: PermissionRequestHandler | None = None,
+    apply_permission_updated_input: ApplyPermissionUpdatedInput | None = None,
+    build_updated_approval_request: BuildUpdatedApprovalRequest | None = None,
 ) -> ToolAuthorization:
     if permissions.error is not None:
         message = f"Permission configuration is invalid: {redact_sensitive_text(permissions.error)}"
@@ -187,66 +195,55 @@ def authorize_tool_action(
             logger("sandbox auto-approved", summarize_approval_decision(request, decision))
         return ToolAuthorization(True, rule_match=rule_match, decision=decision)
     permission_hook_results: tuple[HookRunResult, ...] = ()
+    permission_application: PermissionUpdateApplication | None = None
+    effective_input: dict[str, object] | None = None
     if (
         request is not None
         and approval_policy == "ask"
         and permission_request_handler is not None
     ):
-        try:
-            hook_outcome = permission_request_handler()
-        except Exception as error:
-            append_session_event(
-                workspace.session_dir,
-                "permission_request_hook_error",
-                {
-                    "iteration": iteration,
-                    "tool": tool_name,
-                    "message": redact_sensitive_text(str(error)),
-                },
+        resolution = resolve_permission_request(
+            workspace,
+            permissions,
+            approval_policy,
+            tool_name,
+            action,
+            request,
+            rule_match,
+            iteration,
+            permission_request_handler,
+            apply_permission_updated_input,
+            build_updated_approval_request,
+        )
+        permission_hook_results = resolution.hook_results
+        permission_application = resolution.application
+        effective_input = resolution.effective_input
+        workspace = resolution.workspace
+        permissions = resolution.permissions
+        approval_policy = resolution.approval_policy
+        action = resolution.action
+        request = resolution.request
+        rule_match = resolution.rule_match
+        if resolution.terminal_allowed is not None:
+            return ToolAuthorization(
+                resolution.terminal_allowed,
+                resolution.denial,
+                rule_match=rule_match,
+                decision=resolution.decision,
+                hook_results=permission_hook_results,
+                effective_action=action,
+                effective_input=effective_input,
+                permission_application=permission_application,
+                interrupt=resolution.interrupt,
             )
-        else:
-            permission_hook_results = hook_outcome.results
-            if hook_outcome.behavior is not None:
-                append_session_event(
-                    workspace.session_dir,
-                    "permission_request_hook_decision",
-                    {
-                        "iteration": iteration,
-                        "tool": tool_name,
-                        "behavior": hook_outcome.behavior,
-                        "message": hook_outcome.message,
-                    },
-                )
-            if hook_outcome.behavior == "deny":
-                message = hook_outcome.message or "Denied by PermissionRequest hook."
-                decision = ApprovalDecision(approved=False, message=message)
-                return ToolAuthorization(
-                    False,
-                    _denial(tool_name, action, message),
-                    rule_match=rule_match,
-                    decision=decision,
-                    hook_results=permission_hook_results,
-                )
-            if (
-                hook_outcome.behavior == "allow"
-                and (rule_match is None or rule_match.effect != "ask")
-                and not _approval_must_repeat(action)
-            ):
-                decision = ApprovalDecision(
-                    approved=True,
-                    message=hook_outcome.message or "Approved by PermissionRequest hook.",
-                )
-                return ToolAuthorization(
-                    True,
-                    rule_match=rule_match,
-                    decision=decision,
-                    hook_results=permission_hook_results,
-                )
     if request is None:
         return ToolAuthorization(
             True,
             rule_match=rule_match,
             hook_results=permission_hook_results,
+            effective_action=action,
+            effective_input=effective_input,
+            permission_application=permission_application,
         )
 
     if approval_policy != "dontAsk":
@@ -288,6 +285,9 @@ def authorize_tool_action(
             rule_match=rule_match,
             decision=decision,
             hook_results=permission_hook_results,
+            effective_action=action,
+            effective_input=effective_input,
+            permission_application=permission_application,
         )
     return ToolAuthorization(
         False,
@@ -300,6 +300,9 @@ def authorize_tool_action(
         rule_match=rule_match,
         decision=decision,
         hook_results=permission_hook_results,
+        effective_action=action,
+        effective_input=effective_input,
+        permission_application=permission_application,
     )
 
 

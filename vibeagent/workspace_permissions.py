@@ -16,10 +16,19 @@ from .workspace_settings_sources import claude_settings_files, project_config_fi
 
 
 PermissionEffect = Literal["deny", "ask", "allow"]
+PermissionDefaultMode = Literal[
+    "default",
+    "auto",
+    "acceptEdits",
+    "dontAsk",
+    "bypassPermissions",
+    "plan",
+]
 PERMISSION_EFFECTS: tuple[PermissionEffect, ...] = ("deny", "ask", "allow")
 PERMISSION_CONFIG_PATH = ".vibeagent/permissions.json"
 MAX_PERMISSION_CONFIG_BYTES = 128_000
 MAX_PERMISSION_RULES = 200
+MAX_PERMISSION_ADDITIONAL_DIRECTORIES = 20
 MAX_PERMISSION_RULE_CHARS = 1_000
 RULE_PATTERN = re.compile(
     r"^([A-Za-z_][A-Za-z0-9_.:*-]*)(?:\((.*)\))?$",
@@ -47,10 +56,18 @@ class ProjectPermissions:
     error: str | None = None
     allow_rules_trusted: bool = False
     trusted_allow_sources: tuple[str, ...] = ()
+    default_mode: PermissionDefaultMode | None = None
+    default_mode_source: str | None = None
+    additional_directories: tuple[str, ...] = ()
 
     @property
     def enabled(self) -> bool:
-        return bool(self.rules) or self.error is not None
+        return (
+            bool(self.rules)
+            or self.error is not None
+            or self.default_mode is not None
+            or bool(self.additional_directories)
+        )
 
 
 @dataclass(frozen=True)
@@ -64,6 +81,9 @@ def read_project_permissions(workspace: RunWorkspace) -> ProjectPermissions:
     rules: list[ProjectPermissionRule] = []
     sources: list[str] = []
     trusted_allow_sources: list[str] = []
+    default_mode: PermissionDefaultMode | None = None
+    default_mode_source: str | None = None
+    additional_directories: list[str] = []
     try:
         configs = (
             *claude_settings_files(workspace),
@@ -89,16 +109,43 @@ def read_project_permissions(workspace: RunWorkspace) -> ProjectPermissions:
                 trusted_allow_sources.append(config.source)
             if len(rules) > MAX_PERMISSION_RULES:
                 raise ValueError(f"Workspace permissions exceed {MAX_PERMISSION_RULES} rules.")
+            configured_mode = _parse_default_mode(
+                permission_payload.get("defaultMode"),
+                config.source,
+            )
+            if configured_mode is not None and _default_mode_allowed(
+                configured_mode,
+                config.trusted or workspace.project_config_trusted,
+            ):
+                default_mode = configured_mode
+                default_mode_source = config.source
+            additional_directories.extend(
+                _parse_additional_directories(
+                    permission_payload.get("additionalDirectories"),
+                    config.source,
+                )
+            )
+            if len(set(additional_directories)) > MAX_PERMISSION_ADDITIONAL_DIRECTORIES:
+                raise ValueError(
+                    "Workspace permissions exceed "
+                    f"{MAX_PERMISSION_ADDITIONAL_DIRECTORIES} additional directories."
+                )
     except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
         return ProjectPermissions(
             sources=tuple(sources),
             error=str(error),
             trusted_allow_sources=tuple(trusted_allow_sources),
+            default_mode=default_mode,
+            default_mode_source=default_mode_source,
+            additional_directories=tuple(dict.fromkeys(additional_directories)),
         )
     return ProjectPermissions(
         rules=tuple(rules),
         sources=tuple(sources),
         trusted_allow_sources=tuple(trusted_allow_sources),
+        default_mode=default_mode,
+        default_mode_source=default_mode_source,
+        additional_directories=tuple(dict.fromkeys(additional_directories)),
     )
 
 
@@ -129,7 +176,36 @@ def merge_project_permissions(
         error=error,
         allow_rules_trusted=base.allow_rules_trusted,
         trusted_allow_sources=tuple(dict.fromkeys((*base.trusted_allow_sources, *extra.trusted_allow_sources))),
+        default_mode=extra.default_mode or base.default_mode,
+        default_mode_source=extra.default_mode_source or base.default_mode_source,
+        additional_directories=tuple(
+            dict.fromkeys((*base.additional_directories, *extra.additional_directories))
+        ),
     )
+
+
+def resolve_permission_additional_directories(
+    workspace: RunWorkspace,
+    config: ProjectPermissions,
+) -> tuple[Path, ...]:
+    resolved: list[Path] = list(workspace.additional_roots)
+    for value in config.additional_directories:
+        candidate = Path(value).expanduser()
+        if not candidate.is_absolute():
+            candidate = workspace.root / candidate
+        try:
+            path = candidate.resolve(strict=True)
+        except OSError as error:
+            raise ValueError(
+                f"Cannot resolve permissions.additionalDirectories path {value!r}: {error}"
+            ) from error
+        if not path.is_dir():
+            raise ValueError(
+                f"permissions.additionalDirectories path is not a directory: {value}"
+            )
+        if path not in resolved:
+            resolved.append(path)
+    return tuple(resolved)
 
 
 def format_project_permissions_for_prompt(workspace: RunWorkspace) -> str:
@@ -270,6 +346,45 @@ def _parse_permission_rules(payload: dict[str, object], source: str) -> list[Pro
                 )
             )
     return parsed
+
+
+def _parse_default_mode(
+    value: object,
+    source: str,
+) -> PermissionDefaultMode | None:
+    if value is None:
+        return None
+    if value not in {
+        "default",
+        "auto",
+        "acceptEdits",
+        "dontAsk",
+        "bypassPermissions",
+        "plan",
+    }:
+        raise ValueError(f"{source} permissions.defaultMode is invalid.")
+    return cast(PermissionDefaultMode, value)
+
+
+def _default_mode_allowed(mode: PermissionDefaultMode, trusted: bool) -> bool:
+    return mode not in {"auto", "bypassPermissions"} or trusted
+
+
+def _parse_additional_directories(value: object, source: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list) or any(
+        not isinstance(item, str) or not item.strip() for item in value
+    ):
+        raise ValueError(
+            f"{source} permissions.additionalDirectories must be an array of paths."
+        )
+    if len(value) > MAX_PERMISSION_ADDITIONAL_DIRECTORIES:
+        raise ValueError(
+            f"{source} permissions.additionalDirectories exceeds "
+            f"{MAX_PERMISSION_ADDITIONAL_DIRECTORIES} paths."
+        )
+    return tuple(item.strip() for item in value)
 
 
 def _tool_matches(rule_tool: str, tool_name: str, action: object) -> bool:

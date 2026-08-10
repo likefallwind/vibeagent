@@ -46,6 +46,9 @@ def run_permission_request_hooks(
     results: list[HookRunResult] = []
     behavior = None
     message: str | None = None
+    updated_input: dict[str, object] | None = None
+    updated_permissions: list[dict[str, object]] = []
+    interrupt = False
     for index, hook in enumerate(hooks, start=1):
         result = run_tool_hook_handler(
             workspace,
@@ -66,12 +69,19 @@ def run_permission_request_hooks(
         )
         candidate = None
         candidate_message: str | None = None
+        candidate_input: dict[str, object] | None = None
+        candidate_permissions: tuple[dict[str, object], ...] = ()
+        candidate_interrupt = False
         if result.handler_type in {"prompt", "agent"}:
             if result.status == "blocked":
-                candidate = "deny"
-                candidate_message = result.message
-            elif result.status == "passed":
-                candidate = "allow"
+                result = replace(
+                    result,
+                    non_blocking_error=True,
+                    message=(
+                        f"{result.message} Prompt and agent PermissionRequest "
+                        "decisions do not grant or deny permission."
+                    ),
+                )
         elif result.exit_code == 2:
             candidate = "deny"
             candidate_message = result.stderr.strip() or result.message
@@ -80,6 +90,9 @@ def run_permission_request_hooks(
                 parsed = parse_permission_request_hook_output(result)
                 candidate = parsed.behavior
                 candidate_message = parsed.message
+                candidate_input = parsed.updated_input
+                candidate_permissions = parsed.updated_permissions
+                candidate_interrupt = parsed.interrupt
             except (PermissionRequestHookOutputError, ValueError, TypeError) as error:
                 result = replace(
                     result,
@@ -108,12 +121,24 @@ def run_permission_request_hooks(
         merged = merge_permission_request_behavior(behavior, candidate)
         if merged != behavior:
             message = candidate_message
+        if candidate == "allow":
+            if candidate_input is not None:
+                updated_input = candidate_input
+            updated_permissions.extend(candidate_permissions)
+        elif candidate == "deny":
+            interrupt = interrupt or candidate_interrupt
         behavior = merged
         results.append(result)
+    if behavior == "deny":
+        updated_input = None
+        updated_permissions = []
     return PermissionRequestHookOutcome(
         behavior=behavior,
         message=message,
         results=tuple(results),
+        updated_input=updated_input,
+        updated_permissions=tuple(updated_permissions),
+        interrupt=interrupt,
     )
 
 

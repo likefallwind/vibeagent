@@ -17,6 +17,7 @@ from .agent_hook_prompt import HookModelRuntime
 from .agent_lifecycle_hooks import run_lifecycle_hooks
 from .agent_observation_utils import observation_failed
 from .agent_permissions import authorize_tool_action
+from .permission_update_runtime import PermissionUpdateApplication
 from .agent_runtime_utils import (
     append_session_event,
     build_repeated_list_observation,
@@ -27,6 +28,7 @@ from .agent_steps import complete_task_step, start_task_step
 from .lsp_runtime import automatic_lsp_diagnostics
 from .types import (
     AgentLogger,
+    ApprovalRequest,
     ApprovalHandler,
     ApprovalPolicy,
     ExitPlanModeAction,
@@ -54,6 +56,7 @@ class ToolActionExecutionResult:
     additional_observations: tuple[Observation, ...] = ()
     deferred: bool = False
     halt_turn_message: str | None = None
+    permission_application: PermissionUpdateApplication | None = None
 
 
 def execute_parsed_tool_action(
@@ -120,6 +123,7 @@ def execute_parsed_tool_action(
     hook_results: tuple[HookRunResult, ...] = pre_hooks.results
     additional_observations: tuple[Observation, ...] = ()
     halt_turn_message = pre_hooks.halt_turn_message
+    permission_application: PermissionUpdateApplication | None = None
     if pre_hooks.blocking_message is not None:
         pass
     elif observation is not None:
@@ -150,11 +154,18 @@ def execute_parsed_tool_action(
                 permissions,
                 hook_model_runtime,
             ),
+            apply_permission_updated_input=apply_updated_input,
+            build_updated_approval_request=lambda candidate: _approval_request_for_action(
+                candidate, observations
+            ),
         )
         hook_results += authorization.hook_results
+        permission_application = authorization.permission_application
         if not authorization.allowed:
             assert authorization.denial is not None
             observation = authorization.denial
+            if authorization.interrupt:
+                halt_turn_message = authorization.denial.message
     else:
         (
             observation,
@@ -163,6 +174,7 @@ def execute_parsed_tool_action(
             hook_results,
             additional_observations,
             halt_turn_message,
+            permission_application,
         ) = _execute_non_repeated_action(
             workspace,
             action,
@@ -182,6 +194,7 @@ def execute_parsed_tool_action(
             hooks,
             permissions,
             pre_hooks,
+            apply_updated_input,
             tool_use_id,
             hook_model_runtime,
         )
@@ -194,6 +207,7 @@ def execute_parsed_tool_action(
         hook_results=hook_results,
         additional_observations=additional_observations,
         halt_turn_message=halt_turn_message,
+        permission_application=permission_application,
     )
 
 
@@ -223,6 +237,7 @@ def _execute_non_repeated_action(
     hooks: ProjectHooks,
     permissions: ProjectPermissions,
     pre_hooks: HookBatchResult,
+    apply_updated_input: ApplyUpdatedInput | None,
     tool_use_id: str | None,
     hook_model_runtime: HookModelRuntime | None,
 ) -> tuple[
@@ -232,10 +247,9 @@ def _execute_non_repeated_action(
     tuple[HookRunResult, ...],
     tuple[Observation, ...],
     str | None,
+    PermissionUpdateApplication | None,
 ]:
-    approval_request = build_approval_request(action)
-    if approval_request:
-        approval_request = attach_approval_preview(approval_request, action, observations)
+    approval_request = _approval_request_for_action(action, observations)
     authorization = authorize_tool_action(
         workspace,
         permissions,
@@ -264,19 +278,35 @@ def _execute_non_repeated_action(
             permissions,
             hook_model_runtime,
         ),
+        apply_permission_updated_input=apply_updated_input,
+        build_updated_approval_request=lambda candidate: _approval_request_for_action(
+            candidate, observations
+        ),
     )
     authorization_hook_results = pre_hooks.results + authorization.hook_results
+    application = authorization.permission_application
+    effective_workspace = application.workspace if application is not None else workspace
+    effective_permissions = application.permissions if application is not None else permissions
+    effective_approval_policy = (
+        application.approval_policy if application is not None else approval_policy
+    )
+    effective_action = authorization.effective_action or action
+    effective_input = (
+        authorization.effective_input
+        if authorization.effective_input is not None
+        else pre_hooks.effective_input
+    )
     if not authorization.allowed:
         assert authorization.denial is not None
         if (
-            isinstance(action, ExitPlanModeAction)
+            isinstance(effective_action, ExitPlanModeAction)
             and authorization.decision is not None
             and authorization.decision.permission_mode == "plan"
         ):
             return (
                 PlanModeObservation(
                     kind="plan_mode_feedback",
-                    plan=action.plan,
+                    plan=effective_action.plan,
                     message=(
                         authorization.decision.message
                         or "Plan was not approved. Continue planning with the user's feedback."
@@ -287,7 +317,12 @@ def _execute_non_repeated_action(
                 auto_checkpoint_attempted,
                 authorization_hook_results,
                 (),
-                pre_hooks.halt_turn_message,
+                (
+                    authorization.denial.message
+                    if authorization.interrupt
+                    else pre_hooks.halt_turn_message
+                ),
+                application,
             )
         return (
             authorization.denial,
@@ -295,12 +330,17 @@ def _execute_non_repeated_action(
             auto_checkpoint_attempted,
             authorization_hook_results,
             (),
-            pre_hooks.halt_turn_message,
+            (
+                authorization.denial.message
+                if authorization.interrupt
+                else pre_hooks.halt_turn_message
+            ),
+            application,
         )
 
     auto_checkpoint, checkpoint_attempted = _maybe_create_auto_checkpoint(
-        workspace,
-        action,
+        effective_workspace,
+        effective_action,
         steps,
         iteration,
         command_timeout_ms,
@@ -309,9 +349,14 @@ def _execute_non_repeated_action(
         should_auto_checkpoint_before_action_func,
         create_auto_checkpoint_before_action_func,
     )
-    observation = execute_action_safely_func(workspace, action, command_timeout_ms, tool_name)
+    observation = execute_action_safely_func(
+        effective_workspace,
+        effective_action,
+        command_timeout_ms,
+        tool_name,
+    )
     if (
-        isinstance(action, ExitPlanModeAction)
+        isinstance(effective_action, ExitPlanModeAction)
         and isinstance(observation, PlanModeObservation)
         and authorization.decision is not None
     ):
@@ -321,19 +366,19 @@ def _execute_non_repeated_action(
         )
     post_event = "PostToolUseFailure" if observation_failed(observation) else "PostToolUse"
     post_hooks = run_tool_hooks(
-        workspace,
+        effective_workspace,
         hooks,
         post_event,
         tool_name,
-        action,
+        effective_action,
         iteration,
         command_timeout_ms,
         logger,
         approval_handler,
-        approval_policy,
+        effective_approval_policy,
         execute_action_safely_func,
-        permissions,
-        tool_input=pre_hooks.effective_input,
+        effective_permissions,
+        tool_input=effective_input,
         tool_use_id=tool_use_id,
         hook_model_runtime=hook_model_runtime,
     )
@@ -345,7 +390,7 @@ def _execute_non_repeated_action(
         and observation.result.previous_cwd != observation.result.final_cwd
     ):
         cwd_lifecycle = run_lifecycle_hooks(
-            workspace,
+            effective_workspace,
             hooks,
             "CwdChanged",
             "",
@@ -357,13 +402,13 @@ def _execute_non_repeated_action(
             command_timeout_ms=command_timeout_ms,
             logger=logger,
             approval_handler=approval_handler,
-            approval_policy=approval_policy,
+            approval_policy=effective_approval_policy,
             execute_action_safely_func=execute_action_safely_func,
-            permissions=permissions,
+            permissions=effective_permissions,
             hook_model_runtime=hook_model_runtime,
         )
         cwd_hooks = cwd_lifecycle.results
-    diagnostics = automatic_lsp_diagnostics(workspace, observation)
+    diagnostics = automatic_lsp_diagnostics(effective_workspace, observation)
     return (
         observation,
         auto_checkpoint,
@@ -371,7 +416,16 @@ def _execute_non_repeated_action(
         authorization_hook_results + post_hooks.results + cwd_hooks,
         tuple(post_hooks.failures) + diagnostics,
         post_hooks.halt_turn_message,
+        application,
     )
+
+
+def _approval_request_for_action(
+    action: object,
+    observations: list[Observation],
+) -> ApprovalRequest | None:
+    request = build_approval_request(action)
+    return attach_approval_preview(request, action, observations) if request else None
 
 
 def _permission_request_tool_input(
