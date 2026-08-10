@@ -1571,6 +1571,24 @@ in `~/.claude.json`'s `projects` object:
 }
 ```
 
+Manage the same scopes without editing JSON by hand:
+
+```text
+/mcp list
+/mcp get docs
+/mcp add --scope user --env DOCS_TOKEN=${DOCS_TOKEN} docs -- npx -y @example/docs-mcp
+/mcp add --transport http --scope project --header Authorization:Bearer-${DOCS_TOKEN} remote-docs -- https://docs.example.com/mcp
+/mcp add-json --scope local private-tools '{"command":"python3","args":["tools/server.py"]}'
+/mcp remove --scope local private-tools
+```
+
+`local` is the default mutation scope. Existing names require `--replace`.
+Writes preserve unrelated `~/.claude.json` state and file modes, validate the
+new server before mutation, reject symbolic-link paths, and atomically replace
+the selected configuration file. The commands run without initializing a model
+client, and list/detail output shows environment and header names but not their
+values.
+
 The `type` field defaults to `stdio` for compatibility. HTTP servers default to
 protocol version `2026-07-28`; set `"protocolVersion": "2025-11-25"` only for a
 legacy Streamable HTTP server that requires initialization and session headers.
@@ -1675,9 +1693,11 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   completion audit, and both modes record the child lifecycle before returning
   a structured summary.
 - `vibeagent/mcp_user_config.py`, `vibeagent/mcp_config_sources.py`,
-  `vibeagent/mcp_config.py`, `vibeagent/mcp_stdio.py`, and
-  `vibeagent/mcp_action_executor.py`: load bounded user/local/project/plugin MCP
-  scopes with deterministic precedence, validate transport and environment
+  `vibeagent/mcp_scope_store.py`, `vibeagent/mcp_command_parsing.py`,
+  `vibeagent/mcp_commands.py`, `vibeagent/mcp_config.py`,
+  `vibeagent/mcp_stdio.py`, and `vibeagent/mcp_action_executor.py`: load bounded
+  user/local/project/plugin MCP scopes with deterministic precedence, manage
+  them through atomic provider-free commands, validate transport and environment
   expansion, run newline-delimited JSON-RPC stdio sessions, and expose approved
   tool discovery and calls without leaving MCP subprocesses running.
 - `vibeagent/workspace_settings_sources.py`, `vibeagent/workspace_hooks.py`,

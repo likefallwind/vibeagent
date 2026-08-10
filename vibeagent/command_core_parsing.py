@@ -16,6 +16,8 @@ def parse_core_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("custom_commands", None)
     if trimmed == "/plugin" or trimmed.startswith("/plugin "):
         return make_local_command("plugin", trimmed[7:].strip() or None)
+    if trimmed == "/mcp" or trimmed.startswith("/mcp "):
+        return make_local_command("mcp", trimmed[4:].strip() or None)
     if trimmed == "/reload-plugins":
         return make_local_command("reload_plugins", None)
     if trimmed == "/agents" or trimmed.startswith("/agents "):

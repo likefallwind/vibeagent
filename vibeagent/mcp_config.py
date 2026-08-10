@@ -188,6 +188,15 @@ def get_mcp_server_config(workspace: RunWorkspace, name: str) -> McpServerConfig
     return matches[0]
 
 
+def validate_mcp_server_definition(
+    workspace: RunWorkspace,
+    name: str,
+    server: dict[str, object],
+    source: str,
+) -> McpServerConfig:
+    return _parse_server_config(workspace, name, server, source)
+
+
 def expanded_mcp_environment(config: McpServerConfig) -> dict[str, str]:
     environment = {
         **(config.process_environment or os.environ),

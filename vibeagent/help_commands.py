@@ -11,6 +11,7 @@ def get_help_text() -> str:
             "  /config Show resolved provider and execution configuration.",
             "  /custom-commands  List personal and project prompt commands.",
             "  /plugin [list|details|install|enable|disable|uninstall|validate|config|marketplace]  Manage project-local plugins.",
+            "  /mcp [list|get|add|add-json|remove]  Manage local, project, and user MCP servers.",
             "  /reload-plugins  Revalidate enabled plugins and refresh plugin-aware runtimes.",
             "  /agents [--max-agents N]  List personal, project, and plugin agent profiles.",
             "  /skills [--max-skills N]  List personal, project, and plugin skills.",

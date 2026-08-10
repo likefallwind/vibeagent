@@ -60,6 +60,7 @@ from .peer_runtime import create_peer_runtime
 from .peer_commands import get_peer_sessions_text
 from .peer_inbox_commands import handle_peer_inbox_command
 from .plugin_commands import handle_plugin_command, reload_plugins_text
+from .mcp_commands import handle_mcp_command
 from .plugin_auto_update import (
     PluginAutoUpdateRuntime,
     format_plugin_auto_update_notification,
@@ -394,6 +395,9 @@ def run_interactive_loop(
                 close_project_lsp(Path.cwd())
                 plugin_auto_updates.start()
             print(plugin_result.text)
+            continue
+        if command and command.type == "mcp":
+            print(handle_mcp_command(Path.cwd(), command.argument).text)
             continue
         if command and command.type == "reload_plugins":
             if workflow_manager is not None:

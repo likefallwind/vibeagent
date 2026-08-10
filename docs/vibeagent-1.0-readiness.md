@@ -49,10 +49,10 @@ The automated suite currently covers these 1.0 surfaces:
   pending-user-input output.
 - User and project integrations: `~/.claude/settings.json`, trusted project and
   local settings environments, user/local MCP scopes in `~/.claude.json`,
-  `.mcp.json`, strict MCP config, `.claude/skills`, `.claude/agents`, tool and
-  session lifecycle hooks, project slash commands, checkpoints, session
-  handoff, focused tests, code-mode subagents, and background read-only
-  subagent lifecycle control.
+  `.mcp.json`, provider-free scoped MCP management, strict MCP config,
+  `.claude/skills`, `.claude/agents`, tool and session lifecycle hooks, project
+  slash commands, checkpoints, session handoff, focused tests, code-mode
+  subagents, and background read-only subagent lifecycle control.
 - Experimental agent teams: approved named teammates, independent background
   contexts, stable session identities, shared task ownership and dependencies,
   peer and lead mailboxes, automatic lead delivery, and teardown cancellation.

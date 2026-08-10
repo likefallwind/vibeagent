@@ -112,6 +112,11 @@ local changes when asked, and resume from recorded session context.
   `~/.claude.json` loading, local/project/user precedence, cross-project stdio
   execution, `CLAUDE_PROJECT_DIR`, strict-source isolation, environment
   defaults and required values, and hard-block checks after command expansion.
+- `tests.test_mcp_commands.McpCommandTests` and
+  `tests.test_cli_mcp.CliMcpTests` cover provider-free `/mcp`
+  list/get/add/add-json/remove flows, local/project/user writes, replacement,
+  unrelated user-state and mode preservation, safe metadata output,
+  pre-mutation validation, symlink refusal, and interactive dispatch.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `LS`, `Glob`, `Grep`, `Read`, `Bash`, `Edit`, and `TodoRead`,
