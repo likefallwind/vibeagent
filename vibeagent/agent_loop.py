@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from .agent_background_notifications import inject_background_delegate_notifications
+from .agent_conversation import conversation_for_next_prompt
 from .agent_message_flow import (
     append_tool_results_and_compact,
     compact_agent_context_if_needed,
@@ -103,6 +104,45 @@ def run_agent_loop(
     )
     auto_checkpoint_attempted = False
 
+    def finish_with_conversation(
+        workspace: RunWorkspace,
+        success: bool,
+        message: str,
+        iterations: int,
+        finish_observations: list[Observation],
+        finish_steps: list[TaskStep],
+        finish_plan: list[PlanItem],
+        timeout_ms: int,
+        finish_logger: AgentLogger | None,
+    ) -> AgentResult:
+        return replace(
+            runtime.finish_agent_run(
+                workspace,
+                success=success,
+                message=message,
+                iterations=iterations,
+                observations=finish_observations,
+                steps=finish_steps,
+                plan=finish_plan,
+                command_timeout_ms=timeout_ms,
+                logger=finish_logger,
+            ),
+            conversation=conversation_for_next_prompt(messages, task),
+        )
+
+    def finish_run(success: bool, message: str, iterations: int) -> AgentResult:
+        return finish_with_conversation(
+            current_workspace,
+            success,
+            message,
+            iterations,
+            observations,
+            steps,
+            plan,
+            command_timeout_ms,
+            logger,
+        )
+
     def create_checkpoint_before_action(
         workspace: RunWorkspace,
         action: object,
@@ -137,17 +177,7 @@ def run_agent_loop(
         current_workspace, messages, task, resumed=bool(prior_context)
     )
     if startup_block is not None:
-        return runtime.finish_agent_run(
-            current_workspace,
-            success=False,
-            message=startup_block,
-            iterations=0,
-            observations=observations,
-            steps=steps,
-            plan=plan,
-            command_timeout_ms=command_timeout_ms,
-            logger=logger,
-        )
+        return finish_run(False, startup_block, 0)
     plugin_monitors = AgentPluginMonitorController.create(
         plugin_monitor_runtime,
         current_workspace,
@@ -234,17 +264,7 @@ def run_agent_loop(
             ),
         )
         if response is None:
-            return runtime.finish_agent_run(
-                current_workspace,
-                success=False,
-                message=model_error_message or "Model request failed.",
-                iterations=iteration,
-                observations=observations,
-                steps=steps,
-                plan=plan,
-                command_timeout_ms=command_timeout_ms,
-                logger=logger,
-            )
+            return finish_run(False, model_error_message or "Model request failed.", iteration)
         strip_consumed_tool_images(messages)
         model_turn = record_model_turn(current_workspace, messages, response, iteration)
         assistant_content = model_turn.assistant_content
@@ -262,7 +282,7 @@ def run_agent_loop(
                 command_timeout_ms=command_timeout_ms,
                 logger=logger,
                 completion_blocked_feedback_if_needed_func=runtime.completion_blocked_feedback_if_needed,
-                finish_agent_run_func=runtime.finish_agent_run,
+                finish_agent_run_func=finish_with_conversation,
                 stop_feedback_if_needed_func=stop_feedback_if_needed,
             )
             if no_tool_result.should_continue:
@@ -393,17 +413,7 @@ def run_agent_loop(
                     break
                 if logger:
                     logger("finished", observation.message)
-                return runtime.finish_agent_run(
-                    current_workspace,
-                    success=True,
-                    message=observation.message,
-                    iterations=iteration,
-                    observations=observations,
-                    steps=steps,
-                    plan=plan,
-                    command_timeout_ms=command_timeout_ms,
-                    logger=logger,
-                )
+                return finish_run(True, observation.message, iteration)
 
         if blocked_completion_feedback is not None:
             messages.append(ChatMessage(role="user", content=tool_results))
@@ -426,14 +436,4 @@ def run_agent_loop(
             append_system_prompt=append_system_prompt,
         )
 
-    return runtime.finish_agent_run(
-        current_workspace,
-        success=False,
-        message=f"Reached iteration limit ({max_iterations}) before finish.",
-        iterations=max_iterations,
-        observations=observations,
-        steps=steps,
-        plan=plan,
-        command_timeout_ms=command_timeout_ms,
-        logger=logger,
-    )
+    return finish_run(False, f"Reached iteration limit ({max_iterations}) before finish.", max_iterations)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .types import Observation, PlanItem, TaskStep
+from .types import ChatMessage, Observation, PlanItem, TaskStep
 
 
 @dataclass(frozen=True)
@@ -35,6 +35,7 @@ class AgentResult:
     latest_completion_denied_approvals: list[str] = field(default_factory=list)
     latest_completion_next_actions: list[str] = field(default_factory=list)
     final_review_changed_files: list[str] = field(default_factory=list)
+    conversation: list[ChatMessage] = field(default_factory=list, repr=False)
 
     def __post_init__(self) -> None:
         if self.status:

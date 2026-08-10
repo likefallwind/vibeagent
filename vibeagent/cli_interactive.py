@@ -119,6 +119,7 @@ def run_interactive_loop(
     plugin_auto_updates = PluginAutoUpdateRuntime(Path.cwd())
     plugin_auto_updates.start()
     chat_history: list[ChatMessage] = []
+    conversation_messages: list[ChatMessage] = []
     resume_run_id: str | None = initial_resume_run_id
     resume_context: str | None = initial_resume_context
     system_prompt = initial_system_prompt
@@ -135,6 +136,7 @@ def run_interactive_loop(
 
     def run_code_task(task: str, task_metadata: dict[str, object] | None = None) -> tuple[object, str | None]:
         nonlocal client, resume_run_id, resume_context, pending_workspace, pending_branch_source_run_id
+        nonlocal conversation_messages
         execution_config = resolve_execution_config(Path.cwd())
         client = client or create_chat_client_func(build_provider_env(None, Path.cwd()))
         panel = SubagentPanel(Path.cwd())
@@ -169,6 +171,7 @@ def run_interactive_loop(
                 trust_project_permissions=project_permissions_trusted,
                 user_input_handler=selected_user_input_handler,
                 prior_context=resume_context,
+                prior_messages=conversation_messages or None,
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
                 task_metadata=task_metadata,
@@ -191,6 +194,7 @@ def run_interactive_loop(
         if panel.config_error and panel.config_error != initial_panel_error:
             print(f"Plugin subagentStatusLine warning: {panel.config_error}")
         print_agent_result(result)
+        conversation_messages = list(getattr(result, "conversation", []))
         if active_workspace is None:
             try:
                 transfer_session_name(Path.cwd(), source_run_id, result.run_id)
@@ -438,6 +442,7 @@ def run_interactive_loop(
             chat_history.clear()
             resume_run_id = None
             resume_context = None
+            conversation_messages.clear()
             pending_workspace = None
             pending_branch_source_run_id = None
             print("Cleared chat history and resume context.")
@@ -575,6 +580,7 @@ def run_interactive_loop(
                 resume_context = rewind.context
                 additional_directories = rewind.workspace.additional_roots
                 goal_state = None
+                conversation_messages.clear()
             print(rewind.text)
             continue
         if command and (
@@ -599,6 +605,7 @@ def run_interactive_loop(
                 workflow_manager = None
             resume_run_id = selected
             resume_context = context
+            conversation_messages.clear()
             pending_workspace = None
             pending_branch_source_run_id = None
             additional_directories = next_additional_directories
@@ -626,6 +633,7 @@ def run_interactive_loop(
             pending_branch_source_run_id = branch.source_run_id
             resume_run_id = branch.workspace.run_id
             resume_context = branch.context
+            conversation_messages.clear()
             restored_goal = read_session_goal(Path.cwd(), resume_run_id)
             goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
             print(branch.text)

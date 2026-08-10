@@ -12141,6 +12141,77 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(summary.task, "inspect second")
         self.assertEqual(summary.auto_checkpoints_created, 2)
 
+    def test_reused_session_carries_full_in_memory_conversation_to_next_prompt(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            first = run_agent(
+                "remember the marker",
+                base_dir=root,
+                client=MockClient([[{"type": "text", "text": "Marker is ALPHA-42."}]]),
+                max_iterations=1,
+                approval_handler=approve_all,
+            )
+            second_client = MockClient([[{"type": "text", "text": "The marker is ALPHA-42."}]])
+            second = run_agent(
+                "what was the marker?",
+                workspace=create_run_workspace(root, run_id=first.run_id),
+                client=second_client,
+                max_iterations=1,
+                approval_handler=approve_all,
+                prior_context="HANDOFF_SHOULD_NOT_BE_DUPLICATED",
+                prior_messages=first.conversation,
+            )
+            events = [
+                json.loads(line)
+                for line in (
+                    root / ".vibeagent" / "sessions" / first.run_id / "events.jsonl"
+                ).read_text(encoding="utf-8").splitlines()
+            ]
+
+        sent = second_client.messages[0]
+        self.assertEqual(sum(message.role == "system" for message in sent), 1)
+        self.assertEqual(sent[1].content, "User task:\nremember the marker")
+        self.assertIn("Marker is ALPHA-42.", str([message.content for message in sent]))
+        self.assertIn("what was the marker?", str(sent[-1].content))
+        self.assertNotIn("HANDOFF_SHOULD_NOT_BE_DUPLICATED", str([message.content for message in sent]))
+        self.assertGreater(len(second.conversation), len(first.conversation))
+        continued = [event for event in events if event["type"] == "conversation_continued"]
+        self.assertEqual(continued[-1]["messages"], len(first.conversation))
+
+    def test_carried_conversation_uses_existing_context_compaction_limit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            prior_messages = [ChatMessage(role="system", content="old system")]
+            for index in range(20):
+                prior_messages.extend(
+                    [
+                        ChatMessage(role="user", content=f"old user {index} " + "u" * 4_000),
+                        ChatMessage(role="assistant", content=f"old assistant {index} " + "a" * 4_000),
+                    ]
+                )
+            client = MockClient([[{"type": "text", "text": "Compacted and continued."}]])
+
+            result = run_agent(
+                "continue after compaction",
+                base_dir=root,
+                client=client,
+                max_iterations=1,
+                approval_handler=approve_all,
+                prior_context="bounded handoff",
+                prior_messages=prior_messages,
+            )
+            events = [
+                json.loads(line)
+                for line in (
+                    root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+                ).read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertTrue(result.success)
+        self.assertLess(len(client.messages[0]), len(prior_messages))
+        self.assertIn("bounded handoff", str([message.content for message in client.messages[0]]))
+        self.assertIn("context_compacted", [event["type"] for event in events])
+
     def test_auto_checkpoint_covers_local_mutating_git_actions(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)

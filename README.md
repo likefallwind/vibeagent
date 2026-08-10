@@ -1367,8 +1367,12 @@ clears it before a fresh task.
 `-n/--name <name>` names a new interactive or one-shot coding session at startup.
 Consecutive interactive coding prompts and evaluator-driven `/goal` turns reuse
 the active Session workspace and run ID, so their plans, transcript, usage, and
-rewind points form one coherent history. `/clear`, an explicit resume into a
-continuation, and `/branch` remain deliberate Session boundaries.
+rewind points form one coherent history. While that Session remains active in
+the current process, its full model/tool conversation is carried into the next
+prompt and automatically uses the existing context compaction thresholds.
+Persisted sessions remain redacted and resume from bounded handoff evidence;
+`/clear`, an explicit resume into a continuation, `/branch`, and conversation
+rewind therefore start a fresh in-memory conversation boundary.
 `/rename [name]` updates the active session name; without a name it derives a
 unique filesystem-safe name from the first coding task. Exact session IDs take
 precedence over names during resume, and duplicate or reserved names are rejected.

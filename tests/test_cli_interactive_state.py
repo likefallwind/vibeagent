@@ -9,13 +9,49 @@ from unittest.mock import Mock, patch
 
 from vibeagent.agent import AgentResult
 from vibeagent.cli import main
-from vibeagent.types import ApprovalRequest
+from vibeagent.types import ApprovalRequest, ChatMessage
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.session_branching import read_session_branch_info
 from vibeagent.workspace_core import create_run_workspace
 
 
 class CliInteractiveStateTests(unittest.TestCase):
+    def test_clear_starts_new_session_without_in_memory_conversation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-clear-") as base:
+            root = Path(base)
+            calls: list[dict[str, object]] = []
+
+            def run_agent(task, **kwargs):
+                calls.append(kwargs)
+                workspace = kwargs["workspace"] or create_run_workspace(root)
+                return AgentResult(
+                    True,
+                    "done",
+                    root,
+                    workspace.run_id,
+                    1,
+                    [],
+                    [],
+                    conversation=[ChatMessage(role="assistant", content=f"memory: {task}")],
+                )
+
+            with (
+                patch("builtins.input", side_effect=["first task", "/clear", "fresh task", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", side_effect=run_agent),
+                patch(
+                    "vibeagent.cli.get_resume_context",
+                    side_effect=lambda run_id, **kwargs: (run_id, "context", "loaded"),
+                ),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", str(root)])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIsNone(calls[0]["prior_messages"])
+        self.assertIsNone(calls[1]["prior_messages"])
+        self.assertIsNone(calls[1]["workspace"])
+
     def test_main_interactive_reuses_session_workspace_across_code_turns(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-session-") as base:
             root = Path(base)
@@ -27,7 +63,20 @@ class CliInteractiveStateTests(unittest.TestCase):
                 workspace = kwargs["workspace"] or create_run_workspace(root)
                 if kwargs["workspace"] is None:
                     created_run_ids.append(workspace.run_id)
-                return AgentResult(True, "done", root, workspace.run_id, 1, [], [])
+                return AgentResult(
+                    True,
+                    "done",
+                    root,
+                    workspace.run_id,
+                    1,
+                    [],
+                    [],
+                    conversation=[
+                        ChatMessage(role="system", content="system"),
+                        ChatMessage(role="user", content=task),
+                        ChatMessage(role="assistant", content=f"done: {task}"),
+                    ],
+                )
 
             def get_context(run_id, **kwargs):
                 return run_id, f"context for {run_id}", "loaded"
@@ -47,6 +96,7 @@ class CliInteractiveStateTests(unittest.TestCase):
         self.assertIsNotNone(second_workspace)
         self.assertEqual(second_workspace.run_id, created_run_ids[0])
         self.assertIsNone(calls[1]["task_source_run_id"])
+        self.assertEqual(calls[1]["prior_messages"][-1].content, "done: first task")
 
     def test_main_interactive_agent_profile_is_forwarded_to_code_turns(self) -> None:
         result = AgentResult(

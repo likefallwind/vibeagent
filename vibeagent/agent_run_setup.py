@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from .agent_runtime_utils import append_session_event, compact_session_context
+from .agent_conversation import continue_conversation
 from .agent_tool_registry import activate_tools_for_run, initialize_agent_tools
 from .main_agent_profile import (
     MainAgentProfile,
@@ -51,6 +52,7 @@ def prepare_agent_run(
     base_dir: str | Path | None,
     workspace: RunWorkspace | None,
     prior_context: str | None,
+    prior_messages: list[ChatMessage] | None = None,
     approval_policy: ApprovalPolicy,
     task_metadata: dict[str, object] | None,
     task_source_run_id: str | None = None,
@@ -92,7 +94,7 @@ def prepare_agent_run(
     messages = build_messages(
         task,
         current_workspace,
-        prior_context=prior_context,
+        prior_context=None if prior_messages else prior_context,
         approval_policy=approval_policy,
         permission_summary=format_permissions_for_prompt(project_permissions),
         system_prompt=system_prompt,
@@ -100,7 +102,15 @@ def prepare_agent_run(
         auto_memory=auto_memory,
         prompt_file_context=prompt_file_context,
     )
+    if prior_messages:
+        messages = continue_conversation(prior_messages, messages)
     _append_task_event(current_workspace, task, approval_policy, prior_context, task_metadata)
+    if prior_messages:
+        append_session_event(
+            current_workspace.session_dir,
+            "conversation_continued",
+            {"messages": len(prior_messages)},
+        )
     _append_prompt_files_event(current_workspace, prompt_file_context)
     _append_task_restore_event(current_workspace, task_source_run_id, tasks_inherited, task_restore_error)
     _append_schedule_restore_event(

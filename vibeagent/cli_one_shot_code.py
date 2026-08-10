@@ -186,6 +186,7 @@ def run_one_shot_code(
                     break
                 task = goal_turn_prompt(goal_state)
                 run_kwargs["prior_context"] = next_context
+                run_kwargs["prior_messages"] = result.conversation
                 run_kwargs["workspace"] = create_local_workspace(
                     project_root,
                     result.run_id,

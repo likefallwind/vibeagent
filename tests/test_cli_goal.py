@@ -11,7 +11,7 @@ from vibeagent.cli_context import OneShotPriorContext
 from vibeagent.cli_interactive import run_interactive_loop
 from vibeagent.cli_one_shot_code import _resolve_one_shot_goal
 from vibeagent.goal_state import new_goal, read_session_goal, record_goal_evaluation, write_goal
-from vibeagent.types import AssistantResponse
+from vibeagent.types import AssistantResponse, ChatMessage
 from vibeagent.workspace_core import create_run_workspace
 
 
@@ -49,7 +49,9 @@ class CliGoalTests(unittest.TestCase):
                     '{"achieved": true, "reason": "tests pass"}',
                 ]
             )
-            run_agent = Mock(return_value=agent_result(base))
+            result = agent_result(base)
+            result.conversation.append(ChatMessage(role="assistant", content="goal turn context"))
+            run_agent = Mock(return_value=result)
             stdout = io.StringIO()
 
             with (
@@ -67,6 +69,7 @@ class CliGoalTests(unittest.TestCase):
             self.assertNotIn("workspace", run_agent.call_args_list[0].kwargs)
             self.assertEqual(run_agent.call_args_list[1].kwargs["workspace"].run_id, "goal-run")
             self.assertNotIn("task_source_run_id", run_agent.call_args_list[1].kwargs)
+            self.assertEqual(run_agent.call_args_list[1].kwargs["prior_messages"], result.conversation)
             self.assertNotIn("tools", client.calls[0][1])
             stored = read_session_goal(base, "goal-run")
             self.assertEqual(stored.status, "achieved")  # type: ignore[union-attr]
