@@ -151,6 +151,8 @@ class BackgroundDelegateTests(unittest.TestCase):
                         "description": "Reviews in background",
                         "prompt": "DYNAMIC_BACKGROUND_REVIEWER_INSTRUCTION",
                         "tools": ["Read"],
+                        "background": True,
+                        "color": "cyan",
                     }
                 }
             )
@@ -169,7 +171,6 @@ class BackgroundDelegateTests(unittest.TestCase):
                     type="delegate_task",
                     task="Inspect only",
                     agent="reviewer",
-                    run_in_background=True,
                 ),
                 client,
                 steps=[],
@@ -202,6 +203,9 @@ class BackgroundDelegateTests(unittest.TestCase):
         self.assertTrue(completed.completed)
         self.assertIsNotNone(completed.result)
         self.assertEqual(completed.result.agent, "reviewer")
+        self.assertTrue(wrapped.observation.background)
+        self.assertEqual(wrapped.observation.color, "cyan")
+        self.assertEqual(completed.result.color, "cyan")
         self.assertIn("DYNAMIC_BACKGROUND_REVIEWER_INSTRUCTION", str(client.messages[0][0].content))
 
     def test_background_task_can_be_polled_and_collected(self) -> None:

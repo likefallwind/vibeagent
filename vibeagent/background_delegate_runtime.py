@@ -94,6 +94,7 @@ def start_background_delegate_task(
         depth=depth,
         parent_id=parent_id,
         teammate_name=action.teammate_name,
+        color=action.color,
     )
 
 
@@ -140,6 +141,7 @@ def send_background_delegate_message(
         depth=task.depth,
         parent_id=task.parent_id,
         teammate_name=task.action.teammate_name,
+        color=task.action.color,
     )
 
 

@@ -12,6 +12,7 @@ from .agent_delegate_profile import load_delegate_profile_runtime
 from .types import DelegateTaskAction
 from .workspace_agents import read_project_agents
 from .workspace_core import RunWorkspace
+from .workspace_hooks import ProjectHooks
 
 
 MAIN_EXPLORE_CONTROL_TOOLS = frozenset(
@@ -48,6 +49,10 @@ class MainAgentProfile:
     max_turns: int | None = None
     skills: tuple[str, ...] = ()
     memory_scope: str | None = None
+    permission_mode: str | None = None
+    initial_prompt: str | None = None
+    color: str | None = None
+    hooks: ProjectHooks | None = None
     workspace: RunWorkspace | None = None
 
     @property
@@ -108,6 +113,10 @@ def load_main_agent_profile(
         max_turns=loaded.max_turns,
         skills=loaded.skills,
         memory_scope=loaded.memory_scope,
+        permission_mode=loaded.permission_mode,
+        initial_prompt=loaded.initial_prompt,
+        color=loaded.color,
+        hooks=loaded.hooks,
         workspace=loaded.workspace,
     )
 

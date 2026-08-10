@@ -6,6 +6,7 @@ from .agent_action_logging import log_action
 from .agent_approval import build_approval_request
 from .background_delegate_runtime import send_background_delegate_message, start_background_delegate_task
 from .agent_delegate import execute_delegate_task_action
+from .agent_delegate_profile import resolve_profile_action
 from .agent_hooks import ExecuteActionSafely, HookWrappedToolResult, run_hooks_around_tool
 from .agent_runtime_utils import append_session_event
 from .agent_team_runtime import teammate_spawn_error
@@ -31,7 +32,6 @@ from .subagent_transcripts import SubagentTranscriptError, read_subagent_transcr
 from .workspace_core import RunWorkspace
 from .workspace_hooks import ProjectHooks
 from .workspace_permissions import ProjectPermissions
-from .workspace_agents import read_project_agent
 
 
 def execute_special_tool_action(
@@ -57,7 +57,8 @@ def execute_special_tool_action(
     execute_action_safely_func: ExecuteActionSafely,
     tool_ceiling_names: frozenset[str] | None = None,
 ) -> HookWrappedToolResult:
-    action = _resolve_profile_isolation(workspace, action)
+    if isinstance(action, DelegateTaskAction):
+        action = resolve_profile_action(workspace, action)
     return run_hooks_around_tool(
         workspace,
         hooks,
@@ -92,21 +93,6 @@ def execute_special_tool_action(
         permissions,
         default_approval_request=build_approval_request(action),
     )
-
-
-def _resolve_profile_isolation(
-    workspace: RunWorkspace,
-    action: AskUserAction | DelegateTaskAction | SendMessageAction,
-) -> AskUserAction | DelegateTaskAction | SendMessageAction:
-    if not isinstance(action, DelegateTaskAction) or action.isolation is not None or action.agent is None:
-        return action
-    try:
-        profile = read_project_agent(workspace, action.agent)
-    except (OSError, UnicodeError, ValueError):
-        return action
-    if profile.get("isolation") == "worktree":
-        return replace(action, isolation="worktree")
-    return action
 
 
 def _execute_special_tool(

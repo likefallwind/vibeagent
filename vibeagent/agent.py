@@ -119,7 +119,7 @@ def run_agent(
     if workspace_observer is not None:
         workspace_observer(setup.workspace)
     if peer_runtime is not None:
-        peer_runtime.update_workspace(setup.workspace, approval_policy)
+        peer_runtime.update_workspace(setup.workspace, setup.approval_policy)
     profile_client = configure_agent_profile_client(
         client,
         model=setup.main_profile.model,
@@ -128,7 +128,7 @@ def run_agent(
     plugin_monitors = PluginMonitorRuntime(setup.workspace)
     try:
         return run_agent_loop(
-            task,
+            setup.task,
             profile_client,
             setup,
             max_iterations=(
@@ -145,7 +145,7 @@ def run_agent(
             approval_handler=approval_handler,
             user_input_handler=user_input_handler,
             prior_context=prior_context,
-            approval_policy=approval_policy,
+            approval_policy=setup.approval_policy,
             system_prompt=system_prompt,
             append_system_prompt=setup.append_system_prompt,
             runtime=AgentLoopRuntime(

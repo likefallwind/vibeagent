@@ -40,6 +40,7 @@ class DelegateTaskAction:
     run_in_background: bool = False
     isolation: Literal["worktree"] | None = None
     teammate_name: str | None = None
+    color: str | None = None
 
 
 @dataclass(frozen=True)

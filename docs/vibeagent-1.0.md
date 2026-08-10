@@ -22,7 +22,7 @@ local changes when asked, and resume from recorded session context.
 | VA1-RESUME | Recover useful session context | `session_summary`, `session_verification`, `run_session_verification`, and `session_handoff` preserve bounded evidence; explicit `--resume`, `--session-id`, and `/resume` append to the same session ID with its redacted non-system model/tool conversation, while branches/forks use a new ID and `--compact` or `/compact` deliberately start a new session from compressed handoff context. A nonblocking per-turn lease rejects concurrent writers to one session. |
 | VA1-GOAL | Continue until an independently checked condition is met | `/goal` persists one bounded condition, runs evaluator-guided coding turns without changing approvals, and restores active goals only on explicit resume. |
 | VA1-PEER | Coordinate independent local coding sessions | `ListAgents` discovers live same-machine sessions, `SendMessage` delivers bounded untrusted text over a user-only Unix socket, and running or idle receivers process messages without changing permission boundaries. |
-| VA1-DELEGATE | Split bounded investigation into a subagent | `delegate_task`, `Task`, and `Agent` can run isolated read-only investigations synchronously or in the background; `TaskOutput` collects results, `TaskStop` requests cancellation, and completion remains blocked while a result is running or unread. `--agents` accepts a bounded JSON object of invocation-scoped profiles, validates them through the same prompt, mode, model, effort, tool, skill, memory, turn, and isolation controls as VibeAgent file profiles, gives them precedence for that invocation, and propagates them through interactive, nested, background, workflow, and worktree delegation without writing profile files. |
+| VA1-DELEGATE | Split bounded investigation into a subagent | `delegate_task`, `Task`, and `Agent` can run isolated read-only investigations synchronously or in the background; `TaskOutput` collects results, `TaskStop` requests cancellation, and completion remains blocked while a result is running or unread. `--agents` accepts a bounded JSON object of invocation-scoped profiles and shares safe structured validation with file profiles for prompt, mode, model, effort, tools, skills, memory, turns, isolation, permissions, scoped hooks/MCP, initial prompts, forced background execution, and display color. Dynamic definitions take precedence for that invocation and propagate through interactive, main, nested, background, workflow, and worktree paths without writing profile files or exposing executable definitions in catalogs. |
 | VA1-WORKFLOW | Orchestrate resumable multi-agent fan-out | `/workflows run` executes a permission-restricted JavaScript workflow with `agent()` and bounded `pipeline()`, persists source and completed calls, and supports list, show, stop, and cache-backed resume. |
 | VA1-PLUGIN | Load and distribute reusable extension bundles without bypassing safety | `/plugin` validates, installs, lists, details, enables, disables, and atomically uninstalls project-local plugins; local and public-HTTPS GitHub/Git/JSON marketplaces add, list, inspect, refresh, remove, and install relative or remote `plugin@marketplace` sources; enabled namespaced skills, commands, agents, hooks, and MCP servers flow through their existing parsers, approvals, network checks, and path guards. |
 | VA1-PLAN | Produce a concrete read-only implementation plan | Plan mode exposes only read-only tools such as `project_overview`, `read_file`, and `tool_search`, denies hidden write attempts, and leaves the workspace unchanged. |
@@ -30,6 +30,15 @@ local changes when asked, and resume from recorded session context.
 
 ## Current Evidence
 
+- `tests.test_agent_profile_extended_contract.AgentProfileExtendedContractTests`
+  covers safe nested YAML, duplicate-key and field validation, catalog
+  confidentiality, first-turn main-agent prompts, main and subagent permission
+  modes, untrusted-project escalation refusal, forced plan mode, scoped command
+  hooks, and real stdio MCP protocol calls for both main and delegated agents.
+- `tests.test_dynamic_workflow_agent.DynamicWorkflowAgentTests.test_profile_can_force_workflow_agent_into_background_with_color`
+  and `tests.test_background_delegate.BackgroundDelegateTests.test_background_agent_inherits_dynamic_profile`
+  cover profile-forced background execution and color propagation through
+  workflow, task collection, and background delegation.
 - `tests.test_dynamic_agent_profiles.DynamicAgentProfileTests` and
   `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_delegate_with_dynamic_agent_before_repair_and_commit`
   cover bounded dynamic-profile parsing, shared profile validation, same-name

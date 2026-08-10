@@ -63,6 +63,7 @@ def list_session_agents(
             depth=transcript.depth,
             parent_id=transcript.parent_id,
             teammate_name=transcript.action.teammate_name,
+            color=transcript.action.color,
         )
         for transcript in transcripts
     }
@@ -84,6 +85,7 @@ def list_session_agents(
             depth=prior.depth if prior is not None else snapshot.depth,
             parent_id=prior.parent_id if prior is not None else snapshot.parent_id,
             teammate_name=snapshot.action.teammate_name,
+            color=snapshot.action.color,
         )
     ordered = sorted(
         by_id.values(),

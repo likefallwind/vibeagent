@@ -72,7 +72,9 @@ The automated suite currently covers these 1.0 surfaces:
 - Real CLI JSON and stream-json entrypoints, stdin input formats, resume,
   compact, permission overrides, `acceptEdits`, non-interactive `dontAsk`
   with trusted pre-approval and default denial, bounded invocation-scoped
-  `--agents` definitions inherited by delegated runtimes, disallowed tools, one-shot
+  `--agents` definitions inherited by delegated runtimes, safe structured agent
+  YAML, profile permission modes, scoped command hooks and stdio/HTTP MCP,
+  initial prompts, forced background execution, task color, disallowed tools, one-shot
   `--tools` visibility and execution ceilings inherited by subagents, global
   deny alias-family removal across schemas, tool search, MCP wildcards, and
   every subagent path while scoped deny rules retain action-level matching,

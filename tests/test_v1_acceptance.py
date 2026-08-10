@@ -165,6 +165,10 @@ EXPECTED_GATES = {
         "tests": {
             "test_parent_agent_receives_subagent_summary_as_tool_result",
             "test_dynamic_profile_controls_delegated_prompt_mode_and_tools",
+            "test_main_profile_permission_mode_and_session_hook_apply_before_model",
+            "test_main_profile_inline_mcp_server_runs_through_real_protocol",
+            "test_untrusted_project_profile_cannot_raise_its_permission_mode",
+            "test_profile_can_force_workflow_agent_into_background_with_color",
             "test_v1_cli_json_can_delegate_with_dynamic_agent_before_repair_and_commit",
         },
     },

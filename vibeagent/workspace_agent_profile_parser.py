@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import re
 
+from .agent_profile_frontmatter import parse_agent_frontmatter
 from .action_tool_aliases import CLAUDE_MCP_TOOL_NAME_PATTERN, profile_tool_names
 from .agent_delegate_policy import (
     CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
@@ -13,7 +14,15 @@ from .agent_delegate_policy import (
 )
 from .tool_catalog_core import APPROVAL_REQUIRED_TOOL_NAMES
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
-from .workspace_metadata_files import parse_scalar_frontmatter, unquote_scalar
+from .workspace_agent_profile_extended_fields import (
+    parse_background,
+    parse_color,
+    parse_hooks,
+    parse_initial_prompt,
+    parse_mcp_servers,
+    parse_permission_mode,
+)
+from .workspace_metadata_files import unquote_scalar
 from .workspace_skills import SKILL_NAME_PATTERN
 
 
@@ -41,29 +50,18 @@ DYNAMIC_AGENT_FIELDS = frozenset(
         "skills",
         "memory",
         "isolation",
+        "permissionMode",
+        "mcpServers",
+        "hooks",
+        "initialPrompt",
+        "background",
+        "color",
     }
 )
 
 
 def parse_agent_content(path: Path, content: str) -> tuple[dict[str, object], str]:
-    metadata, body = parse_scalar_frontmatter(
-        content,
-        frozenset(
-            {
-                "name",
-                "description",
-                "model",
-                "effort",
-                "mode",
-                "tools",
-                "disallowedTools",
-                "maxTurns",
-                "skills",
-                "memory",
-                "isolation",
-            }
-        ),
-    )
+    metadata, body = parse_agent_frontmatter(content)
     return _normalize_agent_profile(path.stem, metadata, body, require_matching_name=True)
 
 
@@ -117,6 +115,12 @@ def _normalize_agent_profile(
     skills = _parse_skill_names(metadata.get("skills"))
     memory = _parse_memory_scope(metadata.get("memory"))
     isolation = _parse_isolation(metadata.get("isolation"))
+    permission_mode = parse_permission_mode(metadata.get("permissionMode"))
+    mcp_servers = parse_mcp_servers(metadata.get("mcpServers"))
+    hooks = parse_hooks(metadata.get("hooks"), f"agent:{name}#hooks")
+    initial_prompt = parse_initial_prompt(metadata.get("initialPrompt"))
+    background = parse_background(metadata.get("background"))
+    color = parse_color(metadata.get("color"))
     if not body.strip():
         raise ValueError("Agent profile body must contain a non-empty system prompt.")
     return {
@@ -131,6 +135,12 @@ def _normalize_agent_profile(
         "skills": list(skills),
         "memory": memory,
         "isolation": isolation,
+        "permission_mode": permission_mode,
+        "mcp_servers": mcp_servers,
+        "hooks": hooks,
+        "initial_prompt": initial_prompt,
+        "background": background,
+        "color": color,
     }, body.strip()
 
 

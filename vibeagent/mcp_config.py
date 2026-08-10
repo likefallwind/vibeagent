@@ -79,11 +79,19 @@ class McpServerConfig:
 def read_mcp_server_configs(workspace: RunWorkspace) -> list[McpServerConfig]:
     from .mcp_config_sources import read_scoped_mcp_server_configs
 
-    return read_scoped_mcp_server_configs(
+    configs = read_scoped_mcp_server_configs(
         workspace,
         read_path=_read_mcp_server_configs_from_path,
         read_document=_read_mcp_server_configs_from_document,
     )
+    selected = {config.name: config for config in configs}
+    for config in workspace.profile_mcp_server_configs:
+        if config.name in selected:
+            raise ValueError(
+                f"Profile MCP server {config.name!r} conflicts with {selected[config.name].config_path}."
+            )
+        selected[config.name] = config
+    return sorted(selected.values(), key=lambda config: config.name)
 
 
 def mcp_config_paths(workspace: RunWorkspace) -> list[Path]:

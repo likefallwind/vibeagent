@@ -107,9 +107,20 @@ def format_project_agent_catalog(workspace: RunWorkspace, max_agents: int = 20) 
         effort_text = f", effort={agent['effort']}" if agent.get("effort") is not None else ""
         memory_text = f", memory={agent['memory']}" if agent.get("memory") is not None else ""
         isolation_text = f", isolation={agent['isolation']}" if agent.get("isolation") is not None else ""
+        permission_text = (
+            f", permissionMode={agent['permission_mode']}"
+            if agent.get("permission_mode") is not None
+            else ""
+        )
+        background_text = ", background=true" if agent.get("background") else ""
+        mcp_text = (
+            f", mcpServers={','.join(str(name) for name in agent['mcp_server_names'])}"
+            if agent.get("mcp_server_names")
+            else ""
+        )
         lines.append(
             f"- {agent['name']}: {agent['description']} "
-            f"(mode={agent['mode']}{model_text}{effort_text}{tool_text}{denied_text}{skill_text}{turn_text}{memory_text}{isolation_text}, {agent['path']})"
+            f"(mode={agent['mode']}{model_text}{effort_text}{tool_text}{denied_text}{skill_text}{turn_text}{memory_text}{isolation_text}{permission_text}{background_text}{mcp_text}, {agent['path']})"
         )
     if metadata["truncated"]:
         lines.append(f"[{int(metadata['total']) - len(metadata['agents'])} additional agent profile(s) omitted]")
@@ -119,7 +130,7 @@ def format_project_agent_catalog(workspace: RunWorkspace, max_agents: int = 20) 
 def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]:
     discovered: list[dict[str, object]] = [
         {
-            **profile.metadata(),
+            **profile.catalog_metadata(),
             "path": f"<cli --agents:{profile.name}>",
             "source": "cli",
             "available": True,
@@ -142,16 +153,7 @@ def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]
             discovered.append(
                 {
                     "name": path.stem,
-                    "description": metadata.get("description", ""),
-                    "mode": metadata.get("mode", "explore"),
-                    "model": metadata.get("model"),
-                    "effort": metadata.get("effort"),
-                    "tools": metadata.get("tools"),
-                    "disallowed_tools": metadata.get("disallowed_tools", []),
-                    "max_turns": metadata.get("max_turns"),
-                    "skills": metadata.get("skills", []),
-                    "memory": metadata.get("memory"),
-                    "isolation": metadata.get("isolation"),
+                    **_catalog_profile_metadata(metadata),
                     "path": relative_path,
                     "source": source,
                     "available": available,
@@ -169,19 +171,18 @@ def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]
             str(name) if ":" in str(name) else f"{component.plugin}:{name}"
             for name in skills
         ] if isinstance(skills, list) else []
+        plugin_metadata = _catalog_profile_metadata(metadata, skills=namespaced_skills)
+        plugin_metadata.update(
+            {
+                "permission_mode": None,
+                "mcp_server_names": [],
+                "has_hooks": False,
+            }
+        )
         discovered.append(
             {
                 "name": f"{component.plugin}:{declared_name}",
-                "description": metadata.get("description", ""),
-                "mode": metadata.get("mode", "explore"),
-                "model": metadata.get("model"),
-                "effort": metadata.get("effort"),
-                "tools": metadata.get("tools"),
-                "disallowed_tools": metadata.get("disallowed_tools", []),
-                "max_turns": metadata.get("max_turns"),
-                "skills": namespaced_skills,
-                "memory": metadata.get("memory"),
-                "isolation": metadata.get("isolation"),
+                **plugin_metadata,
                 "path": relative_path,
                 "source": component.source,
                 "available": available,
@@ -237,6 +238,38 @@ def _agent_files(root: Path) -> list[Path]:
 
     visit(root, 1)
     return files
+
+
+def _catalog_profile_metadata(
+    metadata: dict[str, object],
+    *,
+    skills: list[str] | None = None,
+) -> dict[str, object]:
+    raw_entries = metadata.get("mcp_servers")
+    entries = raw_entries if isinstance(raw_entries, list) else []
+    mcp_names = [
+        entry if isinstance(entry, str) else str(next(iter(entry)))
+        for entry in entries
+        if isinstance(entry, str) or (isinstance(entry, dict) and entry)
+    ]
+    return {
+        "description": metadata.get("description", ""),
+        "mode": metadata.get("mode", "explore"),
+        "model": metadata.get("model"),
+        "effort": metadata.get("effort"),
+        "tools": metadata.get("tools"),
+        "disallowed_tools": metadata.get("disallowed_tools", []),
+        "max_turns": metadata.get("max_turns"),
+        "skills": skills if skills is not None else metadata.get("skills", []),
+        "memory": metadata.get("memory"),
+        "isolation": metadata.get("isolation"),
+        "permission_mode": metadata.get("permission_mode"),
+        "mcp_server_names": mcp_names,
+        "has_hooks": metadata.get("hooks") is not None,
+        "has_initial_prompt": metadata.get("initial_prompt") is not None,
+        "background": bool(metadata.get("background", False)),
+        "color": metadata.get("color"),
+    }
 
 
 def _agent_source_priority(source: str) -> int:

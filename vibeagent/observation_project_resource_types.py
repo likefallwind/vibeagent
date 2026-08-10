@@ -102,6 +102,12 @@ class ProjectAgentProfile:
     isolation: str | None = None
     model: str | None = None
     effort: str | None = None
+    permission_mode: str | None = None
+    mcp_server_names: list[str] = field(default_factory=list)
+    has_hooks: bool = False
+    has_initial_prompt: bool = False
+    background: bool = False
+    color: str | None = None
 
 
 @dataclass(frozen=True)

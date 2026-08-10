@@ -11,6 +11,7 @@ from .session_id import is_valid_session_id
 
 if TYPE_CHECKING:
     from .dynamic_agent_profiles import DynamicAgentProfile
+    from .mcp_config import McpServerConfig
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,7 @@ class RunWorkspace:
     memory_namespace: str | None = None
     additional_roots: tuple[Path, ...] = ()
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = ()
+    profile_mcp_server_configs: tuple[McpServerConfig, ...] = ()
 
 
 @dataclass(frozen=True)

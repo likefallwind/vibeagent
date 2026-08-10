@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from .dynamic_agent_profiles import DynamicAgentProfile
+from .agent_profile_permissions import apply_agent_permission_mode
 
 from .agent_runtime_utils import append_session_event, compact_session_context
 from .agent_conversation import continue_conversation
@@ -27,7 +28,7 @@ from .session_tasks import inherit_task_store
 from .scheduled_task_store import inherit_schedule_store, schedule_store_path
 from .types import ApprovalPolicy, ChatMessage
 from .workspace_core import RunWorkspace, create_run_workspace, normalize_additional_roots
-from .workspace_hooks import ProjectHooks, read_project_hooks
+from .workspace_hooks import ProjectHooks, merge_project_hooks, read_project_hooks
 from .workspace_permissions import (
     ProjectPermissions,
     format_permissions_for_prompt,
@@ -49,6 +50,8 @@ class AgentRunSetup:
     main_profile: MainAgentProfile
     append_system_prompt: str | None
     tool_ceiling_names: frozenset[str] | None
+    task: str
+    approval_policy: ApprovalPolicy
 
 
 def prepare_agent_run(
@@ -95,6 +98,11 @@ def prepare_agent_run(
         current_workspace,
         permission_overrides,
     )
+    effective_approval_policy, project_permissions = apply_agent_permission_mode(
+        approval_policy,
+        project_permissions,
+        main_profile.permission_mode,
+    )
     permission_denied_tool_names = globally_denied_tool_names(project_permissions)
     main_profile = apply_tool_ceiling(
         main_profile,
@@ -104,12 +112,13 @@ def prepare_agent_run(
     tasks_inherited, task_restore_error = inherit_task_store(current_workspace, task_source_run_id)
     schedules_inherited, schedule_restore_error = inherit_schedule_store(current_workspace, task_source_run_id)
     auto_memory = read_auto_memory(current_workspace)
-    prompt_file_context = load_prompt_file_context(task, current_workspace)
+    effective_task = _main_profile_task(task, main_profile, prior_messages)
+    prompt_file_context = load_prompt_file_context(effective_task, current_workspace)
     messages = build_messages(
-        task,
+        effective_task,
         current_workspace,
         prior_context=None if prior_messages else prior_context,
-        approval_policy=approval_policy,
+        approval_policy=effective_approval_policy,
         permission_summary=format_permissions_for_prompt(project_permissions),
         system_prompt=system_prompt,
         append_system_prompt=effective_append_system_prompt,
@@ -118,7 +127,13 @@ def prepare_agent_run(
     )
     if prior_messages:
         messages = continue_conversation(prior_messages, messages)
-    _append_task_event(current_workspace, task, approval_policy, prior_context, task_metadata)
+    _append_task_event(
+        current_workspace,
+        effective_task,
+        effective_approval_policy,
+        prior_context,
+        task_metadata,
+    )
     if current_workspace.dynamic_agent_profiles:
         append_session_event(
             current_workspace.session_dir,
@@ -143,14 +158,17 @@ def prepare_agent_run(
         schedule_restore_error,
     )
     _append_memory_event(current_workspace, auto_memory)
-    project_hooks = read_project_hooks(current_workspace)
+    project_hooks = merge_project_hooks(
+        read_project_hooks(current_workspace),
+        main_profile.hooks,
+    )
     _append_hooks_event(current_workspace, project_hooks)
     _append_permissions_event(current_workspace, project_permissions)
     sandbox_config = read_workspace_sandbox(current_workspace)
     _append_sandbox_event(current_workspace, sandbox_config)
     active_tool_names = initialize_agent_tools(
         current_workspace,
-        approval_policy,
+        effective_approval_policy,
         excluded_names=main_profile.disallowed_tool_names,
         allowed_names=main_profile.allowed_tool_names,
     )
@@ -173,7 +191,7 @@ def prepare_agent_run(
             ["CronList", "CronDelete"],
             0,
             source="scheduled_task_store",
-            approval_policy=approval_policy,
+            approval_policy=effective_approval_policy,
             excluded_names=main_profile.disallowed_tool_names,
             allowed_names=main_profile.allowed_tool_names,
         )
@@ -187,7 +205,19 @@ def prepare_agent_run(
         main_profile=main_profile,
         append_system_prompt=effective_append_system_prompt,
         tool_ceiling_names=tool_names,
+        task=effective_task,
+        approval_policy=effective_approval_policy,
     )
+
+
+def _main_profile_task(
+    task: str,
+    profile: MainAgentProfile,
+    prior_messages: list[ChatMessage] | None,
+) -> str:
+    if prior_messages or not profile.initial_prompt:
+        return task
+    return f"{profile.initial_prompt}\n\n{task}" if task.strip() else profile.initial_prompt
 
 
 def _prepare_workspace(
@@ -380,6 +410,9 @@ def _append_main_profile_event(
             "max_turns": profile.max_turns,
             "skills": list(profile.skills),
             "memory_scope": profile.memory_scope,
+            "permission_mode": profile.permission_mode,
+            "has_initial_prompt": profile.initial_prompt is not None,
+            "color": profile.color,
             "allowed_tools": (
                 sorted(profile.allowed_tool_names)
                 if profile.allowed_tool_names is not None

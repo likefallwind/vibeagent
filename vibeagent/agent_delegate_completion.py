@@ -50,6 +50,7 @@ def finish_delegate_task(
         running=False,
         cancelled=cancelled,
         isolation=action.isolation,
+        color=action.color,
     )
     if output_scan.matches:
         append_session_event(

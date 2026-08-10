@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
+from .agent_profile_permissions import apply_agent_permission_mode
+from .agent_profile_mcp import with_agent_mcp_servers
 from .types import DelegateTaskAction
 from .workspace_agents import read_project_agent
 from .workspace_core import RunWorkspace
 from .workspace_memory import read_auto_memory, with_agent_memory
 from .workspace_skills import read_project_skill
+from .workspace_permissions import ProjectPermissions
+from .types import ApprovalPolicy
+from .workspace_hooks import ProjectHooks, parse_inline_hooks
 
 
 MAX_PRELOADED_PROFILE_SKILL_BYTES = 100_000
@@ -30,6 +35,12 @@ class DelegateProfileRuntime:
     skills: tuple[str, ...] = ()
     memory_scope: str | None = None
     isolation: str | None = None
+    permission_mode: str | None = None
+    background: bool = False
+    color: str | None = None
+    initial_prompt: str | None = None
+    mcp_servers: tuple[object, ...] = ()
+    hooks: ProjectHooks | None = None
     workspace: RunWorkspace | None = None
     error: str | None = None
 
@@ -71,6 +82,46 @@ def load_delegate_profile_runtime(
                     snapshot.content if include_memory_content else "",
                     snapshot.truncated if include_memory_content else False,
                 )
+        profile_source = str(profile.get("source", "agent"))
+        permission_mode = (
+            str(profile["permission_mode"])
+            if profile.get("permission_mode") is not None
+            and not profile_source.startswith("plugin:")
+            else None
+        )
+        if (
+            permission_mode in {"acceptEdits", "bypassPermissions"}
+            and profile_source in {"claude", "agents"}
+            and not workspace.project_config_trusted
+        ):
+            raise ValueError(
+                f"Project agent permissionMode {permission_mode} requires trusted project configuration."
+            )
+        raw_hooks = profile.get("hooks")
+        profile_hooks = (
+            parse_inline_hooks(
+                raw_hooks,
+                f"{profile_source}:{action.agent}#hooks",
+            )
+            if isinstance(raw_hooks, dict) and not profile_source.startswith("plugin:")
+            else None
+        )
+        mcp_servers = (
+            ()
+            if profile_source.startswith("plugin:")
+            else tuple(profile.get("mcp_servers", []))
+        )
+        if workspace.strict_mcp_config and profile_source != "cli":
+            mcp_servers = tuple(
+                entry for entry in mcp_servers if isinstance(entry, str)
+            )
+        mcp_workspace = with_agent_mcp_servers(
+            scoped_workspace or workspace,
+            mcp_servers,
+            source=f"{profile_source}:{action.agent}#mcpServers",
+        )
+        if mcp_workspace is not workspace:
+            scoped_workspace = mcp_workspace
         profile_tools = profile.get("tools")
         allowed = (
             frozenset(str(name) for name in profile_tools) | {"finish"} | memory_tools
@@ -94,6 +145,16 @@ def load_delegate_profile_runtime(
             skills=skills,
             memory_scope=memory_scope if scoped_workspace is not None else None,
             isolation=str(profile["isolation"]) if profile.get("isolation") is not None else None,
+            permission_mode=permission_mode,
+            background=bool(profile.get("background", False)),
+            color=str(profile["color"]) if profile.get("color") is not None else None,
+            initial_prompt=(
+                str(profile["initial_prompt"])
+                if profile.get("initial_prompt") is not None
+                else None
+            ),
+            mcp_servers=mcp_servers,
+            hooks=profile_hooks,
             workspace=scoped_workspace,
         )
     except (OSError, UnicodeError, ValueError) as error:
@@ -152,6 +213,38 @@ def _memory_prompt(prompt: str, scope: str, content: str, truncated: bool) -> st
     return "\n\n".join(section for section in sections if section)
 
 
+def resolve_profile_permissions(
+    profile: DelegateProfileRuntime,
+    approval_policy: ApprovalPolicy,
+    permissions: ProjectPermissions,
+) -> tuple[ApprovalPolicy, ProjectPermissions]:
+    return apply_agent_permission_mode(
+        approval_policy,
+        permissions,
+        profile.permission_mode,
+    )
+
+
+def resolve_profile_action(
+    workspace: RunWorkspace,
+    action: DelegateTaskAction,
+) -> DelegateTaskAction:
+    if action.agent is None:
+        return action
+    try:
+        profile = read_project_agent(workspace, action.agent)
+    except (OSError, UnicodeError, ValueError):
+        return action
+    updates: dict[str, object] = {}
+    if action.isolation is None and profile.get("isolation") == "worktree":
+        updates["isolation"] = "worktree"
+    if profile.get("background") is True and not action.run_in_background:
+        updates["run_in_background"] = True
+    if action.color is None and profile.get("color") is not None:
+        updates["color"] = str(profile["color"])
+    return replace(action, **updates) if updates else action
+
+
 __all__ = [
     "DelegateProfileRuntime",
     "DELEGATE_MEMORY_TOOL_NAMES",
@@ -159,4 +252,6 @@ __all__ = [
     "MAX_PRELOADED_PROFILE_SKILL_BYTES",
     "MAX_PRELOADED_PROFILE_SKILL_FILE_BYTES",
     "load_delegate_profile_runtime",
+    "resolve_profile_permissions",
+    "resolve_profile_action",
 ]

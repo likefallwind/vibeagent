@@ -4,6 +4,8 @@ from dataclasses import asdict
 from collections.abc import Callable
 
 from .agent_delegate import execute_delegate_task_action
+from .agent_delegate_profile import resolve_profile_action
+from .background_delegate_runtime import start_background_delegate_task
 from .config_execution import ExecutionConfig
 from .dynamic_workflow_types import WorkflowAgentRequest
 from .types import (
@@ -42,24 +44,49 @@ def execute_workflow_agent_request(
         agent=request.agent,
         isolation=request.isolation,
     )
-    observation = execute_delegate_task_action(
-        workspace,
-        action,
-        client,
-        parent_iteration=int(request.call_id.rsplit("-", 1)[-1]),
-        subagent_id=f"wf-{(request.workflow_id or 'direct').removeprefix('workflow-')}-{request.call_id}",
-        max_output_tokens=execution_config.max_output_tokens,
-        model_retries=execution_config.model_retries,
-        model_retry_delay_ms=execution_config.model_retry_delay_ms,
-        model_timeout_ms=execution_config.model_timeout_ms,
-        command_timeout_ms=execution_config.command_timeout_ms,
-        logger=logger,
-        approval_handler=approval_handler,
-        approval_policy=approval_policy,
-        hooks=hooks,
-        permissions=permissions,
-        cancel_requested=cancel_requested,
-    )
+    action = resolve_profile_action(workspace, action)
+    parent_iteration = int(request.call_id.rsplit("-", 1)[-1])
+    subagent_id = f"wf-{(request.workflow_id or 'direct').removeprefix('workflow-')}-{request.call_id}"
+
+    def execute(
+        task_id: str,
+        background_cancel: Callable[[], bool] | None = None,
+        inbound_messages: Callable[[bool], list[str]] | None = None,
+    ):
+        return execute_delegate_task_action(
+            workspace,
+            action,
+            client,
+            parent_iteration=parent_iteration,
+            subagent_id=task_id,
+            max_output_tokens=execution_config.max_output_tokens,
+            model_retries=execution_config.model_retries,
+            model_retry_delay_ms=execution_config.model_retry_delay_ms,
+            model_timeout_ms=execution_config.model_timeout_ms,
+            command_timeout_ms=execution_config.command_timeout_ms,
+            logger=logger,
+            approval_handler=approval_handler,
+            approval_policy=approval_policy,
+            hooks=hooks,
+            permissions=permissions,
+            cancel_requested=lambda: cancel_requested()
+            or (background_cancel is not None and background_cancel()),
+            inbound_messages=inbound_messages,
+        )
+
+    if action.run_in_background:
+        observation = start_background_delegate_task(
+            workspace,
+            action,
+            lambda task_id, background_cancel, inbound: execute(
+                task_id,
+                background_cancel,
+                inbound,
+            ),
+            task_id=subagent_id,
+        )
+    else:
+        observation = execute(subagent_id)
     return asdict(observation)
 
 

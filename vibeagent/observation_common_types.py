@@ -52,6 +52,7 @@ class DelegateTaskObservation:
     depth: int = 1
     parent_id: str | None = None
     teammate_name: str | None = None
+    color: str | None = None
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,7 @@ class SubagentInstance:
     depth: int = 1
     parent_id: str | None = None
     teammate_name: str | None = None
+    color: str | None = None
 
 
 @dataclass(frozen=True)

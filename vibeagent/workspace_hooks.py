@@ -136,6 +136,49 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
     return ProjectHooks(hooks=tuple(hooks), sources=tuple(sources))
 
 
+def parse_inline_hooks(payload: dict[str, object], source: str) -> ProjectHooks:
+    try:
+        hooks = _parse_hook_events(payload, source)
+        if len(hooks) > MAX_HOOKS:
+            raise ValueError(f"{source} exceeds {MAX_HOOKS} command hooks.")
+    except ValueError as error:
+        return ProjectHooks(sources=(source,), error=str(error))
+    return ProjectHooks(hooks=tuple(hooks), sources=(source,))
+
+
+def validate_inline_hooks(payload: dict[str, object], source: str) -> None:
+    parsed = parse_inline_hooks(payload, source)
+    if parsed.error is not None:
+        raise ValueError(parsed.error)
+
+
+def merge_project_hooks(base: ProjectHooks, extra: ProjectHooks | None) -> ProjectHooks:
+    if extra is None:
+        return base
+    error = base.error or extra.error
+    hooks = (*base.hooks, *extra.hooks)
+    if len(hooks) > MAX_HOOKS:
+        error = f"Combined hook configuration exceeds {MAX_HOOKS} command hooks."
+        hooks = ()
+    return ProjectHooks(
+        hooks=tuple(hooks),
+        sources=tuple(dict.fromkeys((*base.sources, *extra.sources))),
+        error=error,
+    )
+
+
+def subagent_project_hooks(config: ProjectHooks | None) -> ProjectHooks | None:
+    if config is None:
+        return None
+    return replace(
+        config,
+        hooks=tuple(
+            replace(hook, event="SubagentStop") if hook.event == "Stop" else hook
+            for hook in config.hooks
+        ),
+    )
+
+
 def _append_plugin_hooks(
     hooks: list[ProjectHook],
     workspace: RunWorkspace,
@@ -233,6 +276,21 @@ def _parse_hook_events(payload: dict[str, object], source: str) -> list[ProjectH
                     _parse_command_hook(event_name, matcher, command_hook, source)
                 )
     return parsed
+
+
+__all__ = [
+    "HOOK_EVENTS",
+    "HookEvent",
+    "ProjectHook",
+    "ProjectHooks",
+    "matching_lifecycle_hooks",
+    "matching_project_hooks",
+    "merge_project_hooks",
+    "parse_inline_hooks",
+    "read_project_hooks",
+    "subagent_project_hooks",
+    "validate_inline_hooks",
+]
 
 
 def _parse_command_hook(

@@ -15,7 +15,11 @@ from .agent_delegate_context import (
 from .agent_delegate_hooks import DelegateLifecycleHooks
 from .agent_delegate_inbox import DelegateInbox
 from .agent_delegate_loop import DelegateLoopContext, run_delegate_iterations
-from .agent_delegate_profile import DelegateProfileRuntime, load_delegate_profile_runtime
+from .agent_delegate_profile import (
+    DelegateProfileRuntime,
+    load_delegate_profile_runtime,
+    resolve_profile_permissions,
+)
 from .agent_delegate_tools import (
     DELEGATE_TOOL_DEFINITIONS,
     code_delegate_initial_tool_names,
@@ -54,6 +58,7 @@ from .types import (
 )
 from .workspace_core import RunWorkspace
 from .workspace_hooks import ProjectHooks
+from .workspace_hooks import merge_project_hooks, subagent_project_hooks
 from .workspace_permissions import ProjectPermissions
 
 
@@ -98,6 +103,19 @@ def execute_delegate_task_action(
     delegate_workspace = profile.workspace or workspace
     if profile.mode is not None:
         action = replace(action, mode=profile.mode)
+    parent_approval_policy = approval_policy
+    approval_policy, permissions = resolve_profile_permissions(
+        profile,
+        approval_policy,
+        permissions,
+    )
+    if (
+        profile.permission_mode == "plan"
+        and parent_approval_policy != "plan"
+        and action.mode != "explore"
+    ):
+        action = replace(action, mode="explore")
+    hooks = merge_project_hooks(hooks, subagent_project_hooks(profile.hooks))
     if profile.max_turns is not None:
         action = replace(action, max_iterations=profile.max_turns)
     if action.isolation is None and profile.isolation is not None:

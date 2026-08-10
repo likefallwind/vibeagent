@@ -9,6 +9,7 @@ from .background_delegate_runtime import (
     execute_background_task_action,
     start_background_delegate_task,
 )
+from .agent_delegate_profile import resolve_profile_action
 from .agent_team_runtime import TEAM_COORDINATION_TOOL_NAMES, execute_teammate_coordination_action
 from .subagent_listing import execute_list_agents_action
 from .types import (
@@ -62,6 +63,7 @@ class NestedDelegateRuntime:
             return background
         if not isinstance(action, DelegateTaskAction):
             return None
+        action = resolve_profile_action(self.workspace, action)
         if action.teammate_name is not None:
             return ToolErrorObservation(
                 kind="tool_error",

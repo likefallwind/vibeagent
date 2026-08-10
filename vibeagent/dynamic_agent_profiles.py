@@ -25,6 +25,12 @@ class DynamicAgentProfile:
     skills: tuple[str, ...]
     memory: str | None
     isolation: str | None
+    permission_mode: str | None
+    mcp_servers: tuple[object, ...]
+    hooks: dict[str, object] | None
+    initial_prompt: str | None
+    background: bool
+    color: str | None
 
     def metadata(self) -> dict[str, object]:
         return {
@@ -39,7 +45,23 @@ class DynamicAgentProfile:
             "skills": list(self.skills),
             "memory": self.memory,
             "isolation": self.isolation,
+            "permission_mode": self.permission_mode,
+            "mcp_servers": list(self.mcp_servers),
+            "hooks": self.hooks,
+            "initial_prompt": self.initial_prompt,
+            "background": self.background,
+            "color": self.color,
         }
+
+    def catalog_metadata(self) -> dict[str, object]:
+        metadata = self.metadata()
+        metadata.pop("hooks")
+        metadata.pop("initial_prompt")
+        metadata["has_hooks"] = self.hooks is not None
+        metadata["has_initial_prompt"] = self.initial_prompt is not None
+        metadata.pop("mcp_servers")
+        metadata["mcp_server_names"] = _mcp_server_names(self.mcp_servers)
+        return metadata
 
 
 def parse_dynamic_agent_profiles(value: str | None) -> tuple[DynamicAgentProfile, ...]:
@@ -87,6 +109,20 @@ def parse_dynamic_agent_profiles(value: str | None) -> tuple[DynamicAgentProfile
                 skills=tuple(str(item) for item in metadata["skills"]),
                 memory=str(metadata["memory"]) if metadata.get("memory") is not None else None,
                 isolation=str(metadata["isolation"]) if metadata.get("isolation") is not None else None,
+                permission_mode=(
+                    str(metadata["permission_mode"])
+                    if metadata.get("permission_mode") is not None
+                    else None
+                ),
+                mcp_servers=tuple(metadata["mcp_servers"]),
+                hooks=metadata["hooks"] if isinstance(metadata.get("hooks"), dict) else None,
+                initial_prompt=(
+                    str(metadata["initial_prompt"])
+                    if metadata.get("initial_prompt") is not None
+                    else None
+                ),
+                background=bool(metadata["background"]),
+                color=str(metadata["color"]) if metadata.get("color") is not None else None,
             )
         )
     return tuple(profiles)
@@ -99,6 +135,14 @@ def _unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
             raise ValueError(f"duplicate object key {key!r}")
         result[key] = value
     return result
+
+
+def _mcp_server_names(entries: tuple[object, ...]) -> list[str]:
+    return [
+        entry if isinstance(entry, str) else str(next(iter(entry)))
+        for entry in entries
+        if isinstance(entry, str) or (isinstance(entry, dict) and entry)
+    ]
 
 
 __all__ = ["DynamicAgentProfile", "parse_dynamic_agent_profiles"]
