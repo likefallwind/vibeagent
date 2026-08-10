@@ -22,6 +22,8 @@ OK_FLAG_FAILURE_KINDS = {
     "task_get",
     "task_list",
     "task_update",
+    "team_create",
+    "team_delete",
     "cron_create",
     "cron_list",
     "cron_delete",

@@ -8,6 +8,7 @@ from .action_tool_aliases import CLAUDE_MCP_TOOL_NAME_PATTERN, tool_name_is_rest
 from .agent_core_tools import CORE_AGENT_TOOL_NAMES
 from .agent_runtime_utils import append_session_event
 from .scheduled_task_store import CRON_TOOL_NAMES, scheduled_tasks_enabled
+from .agent_team_runtime import agent_teams_enabled
 from .tool_catalog_core import tool_name_requires_approval
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
 from .types import ApprovalPolicy, Observation, ToolSearchAction
@@ -17,6 +18,7 @@ TOOL_DEFINITION_BY_NAME = {
     str(tool["name"]): tool
     for tool in AGENT_TOOL_DEFINITIONS
 }
+TEAM_TOOL_NAMES = frozenset({"TeamCreate", "TeamDelete"})
 _DYNAMIC_TOOL_DEFINITION_BY_NAME: dict[str, dict[str, Any]] = {}
 
 
@@ -46,9 +48,7 @@ def _visibility_policy(
     excluded_names: frozenset[str],
     allowed_names: frozenset[str] | None = None,
 ) -> ToolVisibilityPolicy:
-    effective_exclusions = excluded_names
-    if not scheduled_tasks_enabled():
-        effective_exclusions = effective_exclusions | CRON_TOOL_NAMES
+    effective_exclusions = _effective_excluded_names(excluded_names)
     return ToolVisibilityPolicy(
         approval_policy=approval_policy,
         excluded_names=effective_exclusions,
@@ -56,8 +56,20 @@ def _visibility_policy(
     )
 
 
+def _effective_excluded_names(excluded_names: frozenset[str]) -> frozenset[str]:
+    effective = excluded_names
+    if not scheduled_tasks_enabled():
+        effective = effective | CRON_TOOL_NAMES
+    if not agent_teams_enabled():
+        effective = effective | TEAM_TOOL_NAMES
+    return effective
+
+
 def initial_agent_tool_names() -> set[str]:
-    return set(CORE_AGENT_TOOL_NAMES)
+    names = set(CORE_AGENT_TOOL_NAMES)
+    if agent_teams_enabled():
+        names.update(TEAM_TOOL_NAMES)
+    return names
 
 
 def tool_available_for_policy(
@@ -84,7 +96,7 @@ def prepare_action_for_visibility(
         return action
     return replace(
         action,
-        excluded_tool_names=excluded_names,
+        excluded_tool_names=_effective_excluded_names(excluded_names),
         allowed_tool_names=allowed_names,
     )
 

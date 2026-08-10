@@ -252,6 +252,7 @@ from .observation_task_types import (
     TaskListObservation,
     TaskUpdateObservation,
 )
+from .observation_team_types import TeamCreateObservation, TeamDeleteObservation
 from .observation_cron_types import (
     CronCreateObservation,
     CronDeleteObservation,

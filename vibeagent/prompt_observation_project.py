@@ -12,6 +12,16 @@ from .prompt_observation_utils import truncate
 def format_project_observation(index: int, observation: object) -> str | None:
     if observation.kind == "delegate_task":
         return _format_delegate_task(index, observation)
+    if observation.kind == "team_create":
+        return (
+            f"{index}. team_create: {observation.message} ok={str(observation.ok).lower()} "
+            f"team={observation.team_name or '.'} description={observation.description or '.'}"
+        )
+    if observation.kind == "team_delete":
+        return (
+            f"{index}. team_delete: {observation.message} ok={str(observation.ok).lower()} "
+            f"team={observation.team_name or '.'} active={','.join(observation.active_teammates) or '.'}"
+        )
     if observation.kind in COMMAND_OBSERVATION_KINDS:
         return format_project_command_observation(index, observation)
     if observation.kind == "tool_search":

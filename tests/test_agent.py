@@ -8659,6 +8659,8 @@ class AgentTests(unittest.TestCase):
             "TaskGet": "task_get",
             "TaskList": "task_list",
             "TaskUpdate": "task_update",
+            "TeamCreate": "team_create",
+            "TeamDelete": "team_delete",
             "CronCreate": "cron_create",
             "CronList": "cron_list",
             "CronDelete": "cron_delete",

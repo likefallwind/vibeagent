@@ -163,7 +163,7 @@ EXPECTED_GATES = {
         "tests": {"test_list_agents_and_send_message_tools_include_peer_sessions"},
     },
     "VA1-DELEGATE": {
-        "tools": {"delegate_task", "Task", "Agent"},
+        "tools": {"delegate_task", "Task", "Agent", "TeamCreate", "TeamDelete"},
         "tests": {
             "test_parent_agent_receives_subagent_summary_as_tool_result",
             "test_dynamic_profile_controls_delegated_prompt_mode_and_tools",
@@ -172,6 +172,8 @@ EXPECTED_GATES = {
             "test_untrusted_project_profile_cannot_raise_its_permission_mode",
             "test_profile_can_force_workflow_agent_into_background_with_color",
             "test_v1_cli_json_can_delegate_with_dynamic_agent_before_repair_and_commit",
+            "test_agent_runs_explicit_team_lifecycle_through_model_tools",
+            "test_team_delete_rejects_running_teammate_then_cleans_after_stop",
         },
     },
     "VA1-MONITOR": {

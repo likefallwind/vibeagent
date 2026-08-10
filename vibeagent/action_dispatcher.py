@@ -18,6 +18,7 @@ from .search_action_executor import execute_search_action
 from .session_action_executor import execute_session_action
 from .subagent_listing import execute_list_agents_action
 from .task_action_executor import execute_task_action
+from .team_action_executor import execute_team_action
 from .types import (
     AgentAction,
     AskUserAction,
@@ -84,6 +85,10 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
     task_observation = execute_task_action(workspace, action)
     if task_observation is not None:
         return task_observation
+
+    team_observation = execute_team_action(workspace, action)
+    if team_observation is not None:
+        return team_observation
 
     cron_observation = execute_cron_action(workspace, action)
     if cron_observation is not None:

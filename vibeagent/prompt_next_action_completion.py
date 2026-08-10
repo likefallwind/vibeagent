@@ -12,6 +12,8 @@ COMPLETION_NEXT_ACTION_KINDS = {
     "task_get",
     "task_list",
     "task_update",
+    "team_create",
+    "team_delete",
     "ask_user",
 }
 
@@ -153,6 +155,14 @@ def completion_next_action_instruction(base: str, latest: Observation) -> str:
         if getattr(latest, "ok", True) is False:
             return f"{base} The task list could not be read. Resolve the reported task-store error before continuing."
         return f"{base} Use the task status and blockedBy relationships to choose the next unblocked task or finish when all are completed."
+    if latest.kind == "team_create":
+        if getattr(latest, "ok", True) is False:
+            return f"{base} Team creation failed. Resolve the reported feature flag, team name, or existing-team conflict."
+        return f"{base} Create shared tasks, then spawn named teammates with Agent for independent work."
+    if latest.kind == "team_delete":
+        if getattr(latest, "ok", True) is False:
+            return f"{base} Team cleanup failed. Stop or collect every active teammate, then retry TeamDelete."
+        return f"{base} Team cleanup succeeded. Continue as the lead alone or finish if the requested work is complete."
     if latest.kind == "ask_user":
         if getattr(latest, "cancelled", False):
             return (

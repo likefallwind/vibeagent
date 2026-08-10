@@ -193,6 +193,7 @@ from .observation_session_types import (
     SessionVerificationObservation,
 )
 from .observation_task_types import TaskCreateObservation, TaskGetObservation, TaskListObservation, TaskUpdateObservation
+from .observation_team_types import TeamCreateObservation, TeamDeleteObservation
 from .observation_cron_types import CronCreateObservation, CronDeleteObservation, CronListObservation
 
 
@@ -356,6 +357,8 @@ Observation: TypeAlias = (
     | TaskGetObservation
     | TaskListObservation
     | TaskUpdateObservation
+    | TeamCreateObservation
+    | TeamDeleteObservation
     | CronCreateObservation
     | CronListObservation
     | CronDeleteObservation

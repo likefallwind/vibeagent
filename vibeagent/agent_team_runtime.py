@@ -8,6 +8,7 @@ from .action_task_types import TaskCreateAction, TaskGetAction, TaskListAction, 
 from .background_delegate_runtime import send_background_delegate_message
 from .subagent_transcripts import SubagentTranscriptError, read_subagent_transcript
 from .task_action_executor import execute_task_action
+from .team_state import TeamStateError, delete_team_state, ensure_implicit_team_state
 from .types import DelegateTaskObservation, Observation, SendMessageAction, ToolErrorObservation
 from .workspace_core import RunWorkspace
 
@@ -45,12 +46,12 @@ def teammate_spawn_error(
     if depth != 1:
         return "Only the lead agent can spawn teammates."
     if allow_existing:
-        return None
+        return _ensure_team_state(workspace)
     try:
         read_subagent_transcript(workspace, teammate_name)
     except SubagentTranscriptError as error:
         if "was not found" in str(error):
-            return None
+            return _ensure_team_state(workspace)
         return str(error)
     return f"Teammate name is already used in this session: {teammate_name}"
 
@@ -112,9 +113,33 @@ def collect_lead_team_messages(workspace: RunWorkspace) -> list[dict[str, str]]:
         return _LEAD_INBOXES.pop(key, [])
 
 
-def clear_team_runtime(workspace: RunWorkspace) -> None:
+def clear_team_messages(workspace: RunWorkspace) -> None:
     with _LEAD_INBOX_LOCK:
         _LEAD_INBOXES.pop(_workspace_key(workspace), None)
+
+
+def clear_team_runtime(workspace: RunWorkspace) -> None:
+    clear_team_messages(workspace)
+    try:
+        delete_team_state(workspace)
+    except (OSError, TeamStateError):
+        pass
+
+
+def _ensure_team_state(workspace: RunWorkspace) -> str | None:
+    try:
+        state, created = ensure_implicit_team_state(workspace)
+    except (OSError, TeamStateError) as error:
+        return f"Agent team state is unavailable: {error}"
+    if created:
+        from .agent_runtime_utils import append_session_event
+
+        append_session_event(
+            workspace.session_dir,
+            "team_created",
+            {"team_name": state.name, "explicit": False},
+        )
+    return None
 
 
 def _enqueue_lead_message(workspace: RunWorkspace, sender: str, message: str) -> None:
@@ -157,6 +182,7 @@ __all__ = [
     "TEAM_COORDINATION_TOOL_NAMES",
     "agent_teams_enabled",
     "clear_team_runtime",
+    "clear_team_messages",
     "collect_lead_team_messages",
     "execute_teammate_coordination_action",
     "teammate_spawn_error",

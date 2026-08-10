@@ -66,7 +66,7 @@ The automated suite currently covers these 1.0 surfaces:
 - Core ReAct loop: inspect, edit, run checks, repair, review, commit, finish.
 - Claude-compatible tool aliases: `Read`, `Edit`, `MultiEdit`, `Write`,
   `NotebookRead`, `NotebookEdit`, `Bash`, `BashOutput`, `KillBash`, `Monitor`,
-  `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TodoWrite`, `TodoRead`,
+  `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TeamCreate`, `TeamDelete`, `TodoWrite`, `TodoRead`,
   `CronCreate`, `CronList`, `CronDelete`, `WebFetch`, `Task`, `TaskOutput`,
   `TaskStop`, `Agent`, and `ExitPlanMode`.
 - Structured `AskUserQuestion` batches with one to four questions, short
@@ -114,9 +114,12 @@ The automated suite currently covers these 1.0 surfaces:
   `.claude/skills`, `.claude/agents`, tool and session lifecycle hooks, project
   slash commands, checkpoints, session handoff, focused tests, code-mode
   subagents, and background read-only subagent lifecycle control.
-- Experimental agent teams: approved named teammates, independent background
-  contexts, stable session identities, shared task ownership and dependencies,
-  peer and lead mailboxes, automatic lead delivery, and teardown cancellation.
+- Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
+  `TeamDelete`, one atomically persisted private session team, active-teammate
+  cleanup refusal, approved named teammates, independent background contexts,
+  stable session identities, shared task ownership and dependencies, peer and
+  lead mailboxes, automatic lead delivery, compatibility creation for legacy
+  named spawns, and teardown cancellation and cleanup.
 - Session scheduling: standard local-time cron expressions, deterministic
   jitter, one-shot and recurring delivery, idle CLI wakeups, seven-day expiry,
   no-catch-up behavior, atomic persistence, and filtered resume restoration.
