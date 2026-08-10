@@ -288,6 +288,35 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
                 suffix.append(f"message={compact(message, max_text)}")
         detail = f"{hook_event if isinstance(hook_event, str) else 'hook'} {tool if isinstance(tool, str) else 'unknown'}"
         return f"{prefix} {detail}{format_detail_suffix(suffix)}"
+    if event.type in {
+        "async_hook_started",
+        "async_hook_completed",
+        "async_hook_notifications_delivered",
+    }:
+        hook_event = payload.get("event")
+        target = payload.get("target")
+        process_id = payload.get("process_id")
+        suffix = []
+        if isinstance(process_id, str):
+            suffix.append(f"processId={compact(process_id, 80)}")
+        if isinstance(payload.get("exit_code"), int):
+            suffix.append(f"exitCode={payload['exit_code']}")
+        if isinstance(payload.get("timed_out"), bool):
+            suffix.append(f"timedOut={'yes' if payload['timed_out'] else 'no'}")
+        if isinstance(payload.get("rewake"), bool):
+            suffix.append(f"rewake={'yes' if payload['rewake'] else 'no'}")
+        count = payload.get("count")
+        if isinstance(count, int):
+            suffix.append(f"count={count}")
+        detail = " ".join(
+            value
+            for value in (
+                hook_event if isinstance(hook_event, str) else None,
+                target if isinstance(target, str) else None,
+            )
+            if value
+        )
+        return f"{prefix} {detail or 'async hook'}{format_detail_suffix(suffix)}"
     if event.type == "step_completed":
         step = payload.get("step")
         if isinstance(step, dict):

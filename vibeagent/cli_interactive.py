@@ -9,6 +9,10 @@ from typing import Any
 from . import __version__
 from .agent import run_agent as default_run_agent
 from .agent_runtime_utils import append_session_event
+from .async_hook_runtime import (
+    async_hook_notifications_prompt,
+    collect_async_hook_notifications,
+)
 from .chat import run_chat as default_run_chat
 from .cli_checkpoint_local_flags import run_interactive_checkpoint_command
 from .cli_completion import interactive_prompt_completion
@@ -279,6 +283,21 @@ def run_interactive_loop(
                 resume_run_id,
                 additional_roots=additional_directories,
             )
+            async_hook_notifications = collect_async_hook_notifications(
+                workspace,
+                rewake_only=True,
+            )
+            if async_hook_notifications:
+                print("\nAsynchronous hook requested attention.")
+                run_code_task(
+                    async_hook_notifications_prompt(async_hook_notifications),
+                    {
+                        "source": "async_hook_rewake",
+                        "asyncHookProcessIds": [
+                            item.process_id for item in async_hook_notifications
+                        ],
+                    },
+                )
             monitor_notifications = collect_monitor_notifications(workspace)
             if monitor_notifications:
                 print("\nMonitor event received.")

@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Any
 
+from .agent_async_hook_notifications import inject_async_hook_notifications
 from .agent_background_notifications import inject_background_delegate_notifications
 from .agent_conversation import conversation_for_next_prompt
 from .agent_message_flow import (
@@ -410,6 +411,9 @@ def run_agent_loop(
             iteration=iteration,
             logger=logger,
         )
+        inject_async_hook_notifications(
+            current_workspace, messages, iteration=iteration, logger=logger
+        )
         plugin_monitors.inject(
             current_workspace, messages, iteration=iteration, logger=logger
         )
@@ -481,9 +485,13 @@ def run_agent_loop(
         assistant_content = model_turn.assistant_content
         tool_calls = model_turn.tool_calls
         if not tool_calls:
-            if inject_monitor_notifications(
+            late_async_hooks = inject_async_hook_notifications(
                 current_workspace, messages, iteration=iteration, logger=logger
-            ):
+            )
+            late_monitors = inject_monitor_notifications(
+                current_workspace, messages, iteration=iteration, logger=logger
+            )
+            if late_async_hooks or late_monitors:
                 checkpoint_conversation()
                 continue
             no_tool_result = handle_no_tool_call_response(

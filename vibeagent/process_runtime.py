@@ -5,7 +5,7 @@ import subprocess
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 from .command_safety import get_blocked_command_reason
 from .command_sandbox import prepare_command_launch
@@ -248,8 +248,8 @@ def start_background_command(
     stdout_path = process_dir / f"{process_id}.stdout.log"
     stderr_path = process_dir / f"{process_id}.stderr.log"
     exit_code_path = process_dir / f"{process_id}.exitcode"
-    stdout_handle = stdout_path.open("w", encoding="utf-8")
-    stderr_handle = stderr_path.open("w", encoding="utf-8")
+    stdout_handle = _open_private_process_log(stdout_path)
+    stderr_handle = _open_private_process_log(stderr_path)
     wrapped_command = wrap_background_command(environment_command, exit_code_path)
     launch = prepare_command_launch(workspace, command, command_cwd, executed_command=wrapped_command)
     if launch.error is not None:
@@ -335,3 +335,8 @@ def start_background_command(
         sandboxed=launch.sandboxed,
         sandbox_warning=launch.warning,
     )
+
+
+def _open_private_process_log(path: Path) -> TextIO:
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    return os.fdopen(descriptor, "w", encoding="utf-8")

@@ -25,6 +25,8 @@ class HookRunResult:
     permission_reason: str | None = None
     updated_input_applied: bool = False
     additional_context: str | None = None
+    async_started: bool = False
+    process_id: str | None = None
 
 
 @dataclass(frozen=True)

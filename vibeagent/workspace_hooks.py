@@ -65,6 +65,8 @@ class ProjectHook:
     timeout_ms: int
     source: str
     environment: dict[str, str] = field(default_factory=dict)
+    async_: bool = False
+    async_rewake: bool = False
 
 
 @dataclass(frozen=True)
@@ -309,18 +311,38 @@ def _parse_command_hook(
         raise ValueError(
             f"{source} hook command must contain 1-{MAX_HOOK_COMMAND_CHARS} characters."
         )
+    if "timeout" in payload and "timeout_ms" in payload:
+        raise ValueError(f"{source} hook cannot define both timeout and timeout_ms.")
+    timeout_seconds = payload.get("timeout")
     timeout_ms = payload.get("timeout_ms", 30_000)
+    if timeout_seconds is not None:
+        if (
+            isinstance(timeout_seconds, bool)
+            or not isinstance(timeout_seconds, (int, float))
+            or timeout_seconds < 0.1
+            or timeout_seconds > 600
+        ):
+            raise ValueError(f"{source} hook timeout must be between 0.1 and 600 seconds.")
+        timeout_ms = round(timeout_seconds * 1000)
     if (
         isinstance(timeout_ms, bool)
         or not isinstance(timeout_ms, int)
         or timeout_ms < 100
-        or timeout_ms > 120_000
+        or timeout_ms > 600_000
     ):
-        raise ValueError(f"{source} hook timeout_ms must be between 100 and 120000.")
+        raise ValueError(f"{source} hook timeout_ms must be between 100 and 600000.")
+    async_value = payload.get("async", False)
+    async_rewake = payload.get("asyncRewake", False)
+    if not isinstance(async_value, bool):
+        raise ValueError(f"{source} hook async must be a boolean.")
+    if not isinstance(async_rewake, bool):
+        raise ValueError(f"{source} hook asyncRewake must be a boolean.")
     return ProjectHook(
         event=cast(HookEvent, event),
         matcher=matcher,
         command=command.strip(),
         timeout_ms=timeout_ms,
         source=source,
+        async_=async_value or async_rewake,
+        async_rewake=async_rewake,
     )

@@ -124,6 +124,12 @@ The automated suite currently covers these 1.0 surfaces:
   `.claude/skills`, `.claude/agents`, tool and session lifecycle hooks, project
   slash commands, checkpoints, session handoff, focused tests, code-mode
   subagents, and background read-only subagent lifecycle control.
+- Claude-compatible asynchronous command hooks: `async` returns control after
+  approved process startup, persists private resumable state, and delivers
+  bounded redacted `systemMessage` or `additionalContext` exactly once on a
+  later turn. `asyncRewake` wakes an idle interactive session only for exit code
+  2, while all async decisions remain non-blocking and use the normal command
+  safety and sandbox path.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

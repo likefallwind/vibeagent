@@ -216,6 +216,8 @@ EXPECTED_GATES = {
             "test_dont_ask_allows_trusted_cli_rules_and_denies_other_writes_without_prompting",
             "test_noninteractive_policies_override_sandbox_auto_approval",
             "test_v1_cli_dont_ask_completes_preapproved_repair_without_prompting",
+            "test_async_pre_tool_decision_cannot_block_completed_action",
+            "test_async_rewake_starts_an_idle_resumed_agent_turn",
         },
     },
 }

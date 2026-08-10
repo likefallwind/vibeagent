@@ -9,6 +9,7 @@ from collections.abc import Callable
 from uuid import uuid4
 
 from .agent_hook_results import HookRunResult, hook_result_from_observation
+from .async_hook_runtime import start_async_hook
 from .agent_observation_utils import summarize
 from .agent_permissions import authorize_tool_action
 from .agent_runtime_utils import append_session_event
@@ -56,6 +57,8 @@ def run_project_hook_command(
         "source": hook.source,
         "matcher": hook.matcher,
         "command": hook.command,
+        "async": hook.async_,
+        "async_rewake": hook.async_rewake,
     }
     if approval_policy == "plan":
         result = HookRunResult(
@@ -140,6 +143,7 @@ def run_project_hook_command(
 
     input_path = _write_hook_input(workspace, hook_input)
     environment_path: Path | None = None
+    preserve_private_files = False
     try:
         environment_path = _write_hook_environment(
             workspace,
@@ -156,6 +160,37 @@ def run_project_hook_command(
             },
         )
         wrapped_command = _hook_command_with_input(input_path, environment_path)
+        if hook.async_:
+            process_id, message = start_async_hook(
+                workspace,
+                hook,
+                target=target,
+                command=wrapped_command,
+                input_path=input_path,
+                environment_path=environment_path,
+                cwd=cwd,
+            )
+            preserve_private_files = process_id is not None
+            result = HookRunResult(
+                event=hook.event,
+                command=hook.command,
+                source=hook.source,
+                status="started" if process_id is not None else "failed",
+                ok=process_id is not None,
+                exit_code=None,
+                timed_out=False,
+                stdout="",
+                stderr="",
+                message=message,
+                async_started=process_id is not None,
+                process_id=process_id,
+            )
+            append_session_event(
+                workspace.session_dir,
+                "hook_completed",
+                {**event_payload, "result": redact_jsonable_payload(result)},
+            )
+            return result
         if logger:
             logger("running hook", f"{hook.event} {target} from {hook.source}")
         observation: Observation = execute_action_safely_func(
@@ -171,9 +206,10 @@ def run_project_hook_command(
             f"hook:{hook.event}",
         )
     finally:
-        input_path.unlink(missing_ok=True)
-        if environment_path is not None:
-            environment_path.unlink(missing_ok=True)
+        if not preserve_private_files:
+            input_path.unlink(missing_ok=True)
+            if environment_path is not None:
+                environment_path.unlink(missing_ok=True)
     result = hook_result_from_observation(hook, observation)
     append_session_event(
         workspace.session_dir,

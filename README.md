@@ -1653,6 +1653,23 @@ follow the same policy. Ask-mode approval requests use the parent session
 approval handler and identify the subagent; allow and deny modes still pass
 through the normal permission and command safety checks.
 
+Command hooks may set `"async": true` to start after approval without waiting
+for completion. `"asyncRewake": true` implies async execution and, when the
+hook exits with code 2, starts an agent turn while an interactive session is
+idle. Claude-style `timeout` values are seconds; the existing `timeout_ms` form
+remains supported, and the two forms are mutually exclusive. Async hooks cannot
+block a tool or apply permission decisions because the triggering action has
+already continued. A successful JSON result may return `systemMessage`,
+top-level `additionalContext`, or
+`hookSpecificOutput.additionalContext`; the bounded, redacted text is injected
+once on the next model turn. Ordinary results wait for that next turn, while an
+`asyncRewake` exit-code-2 result uses stderr, or stdout when stderr is empty, to
+wake the idle CLI. Private launch/input files and atomic mode-`0600` state live
+under the originating session until the process finishes, so explicit resume
+can collect a result produced after the original process exits. Async hook
+commands retain the same approval, command hard-block, workspace, and sandbox
+boundaries as synchronous hooks.
+
 Successful `PreToolUse` hooks can return Claude-compatible structured JSON under
 `hookSpecificOutput`. `permissionDecision` accepts `allow`, `ask`, `deny`, or
 `defer`; multiple results resolve as `deny > defer > ask > allow`. `updatedInput`
