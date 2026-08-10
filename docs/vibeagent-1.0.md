@@ -9,6 +9,7 @@ local changes when asked, and resume from recorded session context.
 
 | Gate | Capability | Required runtime evidence |
 | --- | --- | --- |
+| VA1-OUTPUT | Return validated machine-readable results | `-p --json-schema` runs the normal coding workflow first, then validates one provider-neutral Draft-07 JSON value without tools, retries invalid output up to three times, and exposes the result in JSON or stream-JSON output. |
 | VA1-READ | Inspect repository state before editing | `project_overview`, `repo_map`, `read_file`, `read_file_context`, `search`, and `project_instructions` can gather bounded project context without approval. |
 | VA1-EDIT | Make workspace-scoped code changes safely | `check_write_file`, `write_file`, `check_edit_file`, `edit_file`, `multi_edit_file`, and related file tools reject protected paths and require approval for mutation. |
 | VA1-RUN | Run checks and surface failures | `command_check`, `check_run_commands`, `run_command`, `run_commands`, `focused_test_commands`, and `run_suggested_checks` can preflight and execute bounded project commands; interactive `!` shell mode reuses the same bounded executor and carries redacted output into resume context. |
@@ -228,6 +229,13 @@ local changes when asked, and resume from recorded session context.
   runs the deterministic repair dogfood through the real CLI `main()` one-shot
   JSON path, confirming argument parsing, provider creation, completion-ready
   machine output, workspace repair, verification, and local commit.
+- `tests.test_structured_output.StructuredOutputTests.test_reprompts_after_validation_error_and_records_valid_output`
+  covers provider-neutral Draft-07 validation, bounded correction prompts,
+  durable validation events, and usage accounting without tool calls.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_schema_repairs_then_returns_validated_output`
+  runs the deterministic repair through the real CLI, verifies and commits the
+  workspace change, then repairs an invalid structured result and returns the
+  validated JSON value to the machine caller.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_input_format_can_repair_verify_commit_and_report_ready`
   runs the same repair dogfood through the real CLI `--input-format json -`
   stdin path, confirming structured automation input can supply the user task,

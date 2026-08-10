@@ -13,6 +13,10 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
     compat_error = getattr(args, "compat_error", None)
     if compat_error is not None:
         return compat_error
+    if args.json_schema is not None and (
+        not args.print_mode or not args.task or has_local_flag(args) or args.chat
+    ):
+        return "--json-schema requires a one-shot coding task with --print."
     if args.print_mode and (not args.task or has_local_flag(args)):
         return "--print requires a one-shot task."
     if args.model is True and has_non_model_local_flag(args):

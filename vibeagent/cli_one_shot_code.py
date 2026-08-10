@@ -8,7 +8,12 @@ from .agent_result import AgentResult
 from .cli_context import OneShotPriorContext, SessionContextGetter
 from .cli_one_shot_agent_kwargs import build_one_shot_agent_kwargs
 from .cli_one_shot_input import combine_optional_text, resolve_one_shot_context_from_limits
-from .cli_one_shot_output import build_one_shot_code_payload, emit_one_shot_code_payload, one_shot_code_exit_code
+from .cli_one_shot_output import (
+    apply_structured_output_result,
+    build_one_shot_code_payload,
+    emit_one_shot_code_payload,
+    one_shot_code_exit_code,
+)
 from .cli_one_shot_stream import build_one_shot_stream_scope
 from .cli_output_mode import CliOutputMode
 from .cli_stream_output import JsonEventStream
@@ -30,6 +35,7 @@ from .session_branching import create_session_branch
 from .session_names import name_session, normalize_session_name
 from .session_conversation import load_session_conversation
 from .types import ChatMessage
+from .structured_output import StructuredOutputResult, generate_structured_output
 
 
 def run_one_shot_code(
@@ -48,6 +54,7 @@ def run_one_shot_code(
     output_mode: CliOutputMode,
     output_json: bool,
     print_mode: bool,
+    structured_output_schema: dict[str, object] | None = None,
     elapsed_ms: int,
     stream: JsonEventStream | None,
     input_prior_context: str | None,
@@ -75,6 +82,7 @@ def run_one_shot_code(
     run_agent_func: Callable[..., AgentResult],
     get_resume_context_func: SessionContextGetter,
     get_compact_context_func: SessionContextGetter,
+    generate_structured_output_func: Callable[..., StructuredOutputResult] = generate_structured_output,
 ) -> tuple[int, OneShotPriorContext]:
     prior_context = resolve_one_shot_context_from_limits(
         resume_arg=resume_arg,
@@ -172,6 +180,7 @@ def run_one_shot_code(
         if prior_messages:
             run_kwargs["prior_messages"] = prior_messages
     goal_turns = 0
+    structured_output: StructuredOutputResult | None = None
     recorded_session_tokens: dict[str, int] = {}
     try:
         with stream_scope.event_scope:
@@ -221,6 +230,18 @@ def run_one_shot_code(
                     additional_roots=additional_directories,
                 )
                 run_kwargs.pop("task_source_run_id", None)
+            if structured_output_schema is not None and result.success and result.completion_ready:
+                structured_output = generate_structured_output_func(
+                    client,
+                    result.conversation,
+                    structured_output_schema,
+                    session_dir=result.run_dir / ".vibeagent" / "sessions" / result.run_id,
+                    max_output_tokens=execution_config.max_output_tokens,
+                    model_retries=execution_config.model_retries,
+                    model_retry_delay_ms=execution_config.model_retry_delay_ms,
+                    model_timeout_ms=execution_config.model_timeout_ms,
+                    iteration=result.iterations,
+                )
     finally:
         if peer_runtime is not None:
             peer_runtime.close()
@@ -232,6 +253,7 @@ def run_one_shot_code(
         project_root=project_root,
         provider_env=provider_env,
     )
+    apply_structured_output_result(result_payload, structured_output)
     if goal_state is not None:
         result_payload["goal"] = {
             "condition": goal_state.condition,
@@ -255,7 +277,7 @@ def run_one_shot_code(
         output_json=output_json,
         print_mode=print_mode,
     )
-    return one_shot_code_exit_code(result), prior_context
+    return one_shot_code_exit_code(result, structured_output), prior_context
 
 
 def _resolve_one_shot_goal(

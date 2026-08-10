@@ -22,7 +22,8 @@ python3 -m venv .venv
 python -m pip install -e .
 ```
 
-There are no required third-party runtime dependencies.
+VibeAgent installs `jsonschema` as a required runtime dependency for validated
+machine-readable agent results.
 
 MiniMax is the default provider. Set a MiniMax API key:
 
@@ -163,6 +164,7 @@ python -m vibeagent -c
 python -m vibeagent --compact <run-id> --compact-max-output-chars 0 --compact-max-checks 20 "continue from a compact handoff"
 python -m vibeagent --cwd ../my-project --max-iterations 8 --command-timeout-ms 120000 --max-output-tokens 8192 --model-retries 2 --model-retry-delay-ms 500 --model-timeout-ms 120000 "run the release checks"
 python -m vibeagent --json --cwd ../my-project "run the release checks"
+python -m vibeagent -p --output-format json --json-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"]}' --cwd ../my-project "run the release checks"
 python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
 python -m vibeagent --cwd ../my-project --add-dir ../shared-lib "update both codebases"
 python -m vibeagent --cwd ../my-project --add-dir ../shared-lib --add-dir ../schemas
@@ -318,6 +320,16 @@ prior context, completion, latest-completion, changed-file, verification,
 pending-user-input, and timing fields where applicable.
 Machine-readable error results include `exitCode` and `exit_code` when the
 CLI knows the process exit status for that failure.
+`-p --json-schema '<schema>'` adds a validated final result to one-shot coding
+tasks. VibeAgent completes the normal tool-using workflow first, then asks the
+same provider for exactly one JSON value without tools. The schema must be a
+bounded Draft-07 object; only resolvable local JSON Pointer references are accepted, and `format`
+remains an annotation. Invalid output is corrected with at most three model
+attempts. Successful JSON and stream-JSON results include `structuredOutput` /
+`structured_output` and attempt-count aliases. Exhaustion returns a nonzero
+exit with subtype and stop reason `error_max_structured_output_retries`.
+Stream mode also emits redacted
+`structured_output_model`, validation-failure, and result events.
 `--output-format json` is equivalent to `--json`. `--output-format stream-json`
 emits newline-delimited JSON for one-shot tasks: each durable session event is
 written as a `type: "event"` record with `schemaVersion`, `version`, a

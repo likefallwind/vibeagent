@@ -8,6 +8,21 @@ from vibeagent.tool_search_options import tool_search_approval_choices
 
 
 class CliArgsValidationTests(unittest.TestCase):
+    def test_json_schema_requires_print_mode_one_shot_code(self) -> None:
+        schema = '{"type":"object"}'
+        valid = cli_module.parse_args(["-p", "--json-schema", schema, "inspect"])
+        no_print = cli_module.parse_args(["--json-schema", schema, "inspect"])
+        interactive = cli_module.parse_args(["--json-schema", schema])
+        chat = cli_module.parse_args(["-p", "--json-schema", schema, "--chat", "inspect"])
+        local = cli_module.parse_args(["-p", "--json-schema", schema, "--status"])
+
+        self.assertIsNone(cli_module.validate_cli_args(valid))
+        for args in (no_print, interactive, chat, local):
+            self.assertEqual(
+                cli_module.validate_cli_args(args),
+                "--json-schema requires a one-shot coding task with --print.",
+            )
+
     def test_cli_name_is_forwarded_and_rejects_non_session_modes(self) -> None:
         one_shot = cli_module.parse_args(["-n", "auth-refactor", "inspect"])
         interactive = cli_module.parse_args(["--name", "auth-refactor"])

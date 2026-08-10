@@ -14,10 +14,68 @@ from vibeagent.session_branching import read_session_branch_info
 from vibeagent.session_names import read_session_name
 from vibeagent.session_conversation import checkpoint_session_conversation
 from vibeagent.types import ChatMessage
+from vibeagent.structured_output import StructuredOutputResult
 from vibeagent.workspace_core import create_local_workspace
 
 
 class CliOneShotCodeTests(unittest.TestCase):
+    def test_run_one_shot_code_generates_structured_output_after_completed_workflow(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-one-shot-structured-") as base:
+            root = Path(base)
+            session_dir = root / ".vibeagent" / "sessions" / "run-1"
+            session_dir.mkdir(parents=True)
+            calls: list[tuple[object, ...]] = []
+
+            def generate(*args, **kwargs):
+                calls.append(args)
+                self.assertEqual(kwargs["session_dir"], session_dir)
+                return StructuredOutputResult(value={"summary": "done"}, error=None, attempts=1)
+
+            with patch("vibeagent.cli_one_shot_code.emit_one_shot_code_payload") as emit_payload:
+                exit_code, _ = run_one_shot_code(
+                    "fix tests",
+                    project_root=root,
+                    execution_config=ExecutionConfig(),
+                    provider_env={},
+                    approval_policy="allow",
+                    trust_project_permissions=True,
+                    permission_overrides=None,
+                    resolved_mcp_config_paths=(),
+                    strict_mcp_config=False,
+                    output_mode=CliOutputMode(format="text", machine=False, stream_json=False),
+                    output_json=False,
+                    print_mode=True,
+                    structured_output_schema={"type": "object"},
+                    elapsed_ms=1,
+                    stream=None,
+                    input_prior_context=None,
+                    system_prompt=None,
+                    append_system_prompt=None,
+                    task_metadata=None,
+                    resume_arg=None,
+                    compact_arg=None,
+                    auto_compact=False,
+                    create_chat_client_func=lambda env: "client",
+                    run_agent_func=lambda *args, **kwargs: AgentResult(
+                        True,
+                        "done",
+                        root,
+                        "run-1",
+                        1,
+                        [],
+                        [],
+                        conversation=[ChatMessage(role="assistant", content="done")],
+                    ),
+                    get_resume_context_func=lambda *args, **kwargs: (None, None, "unused"),
+                    get_compact_context_func=lambda *args, **kwargs: (None, None, "unused"),
+                    generate_structured_output_func=generate,
+                )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(calls[0][0], "client")
+        self.assertEqual(calls[0][2], {"type": "object"})
+        self.assertEqual(emit_payload.call_args.args[1]["structured_output"], {"summary": "done"})
+
     def test_run_one_shot_code_names_forced_workspace(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-one-shot-name-") as base:
             root = Path(base)

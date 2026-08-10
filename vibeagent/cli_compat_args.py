@@ -54,6 +54,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int) -> No
         default="text",
         help="Input format for task text read from stdin.",
     )
+    parser.add_argument(
+        "--json-schema",
+        metavar="SCHEMA",
+        help="Return validated structured_output matching a JSON Schema Draft-07 object (print mode only).",
+    )
 
 
 def normalize_compat_arguments(args: argparse.Namespace) -> argparse.Namespace:

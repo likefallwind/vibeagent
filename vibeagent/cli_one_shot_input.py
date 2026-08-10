@@ -16,6 +16,7 @@ from .cli_permission_overrides import build_permission_overrides
 from .cli_project_command_expansion import expand_one_shot_project_command
 from .cli_system_prompt_files import resolve_system_prompt_inputs
 from .cli_additional_directories import resolve_additional_directories
+from .structured_output import parse_structured_output_schema
 
 
 def resolve_task_text(parts: Sequence[str], input_format: str = "text") -> str:
@@ -93,6 +94,11 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "output_json": args.json,
         "output_format": args.output_format,
         "print_mode": args.print_mode,
+        "structured_output_schema": (
+            parse_structured_output_schema(args.json_schema)
+            if args.json_schema is not None
+            else None
+        ),
         "permission_overrides": build_permission_overrides(args),
         "provider_args": args,
     }

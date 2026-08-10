@@ -204,6 +204,57 @@ def _assert_clean_notebook_commit(
 
 
 class V1CliSmokeTests(unittest.TestCase):
+    def test_v1_cli_json_schema_repairs_then_returns_validated_output(self) -> None:
+        responses = v1_dogfood_responses()[:11]
+        responses.extend(
+            [
+                [{"type": "text", "text": '{"summary":"fixed","verified":"yes"}'}],
+                [{"type": "text", "text": '{"summary":"fixed and committed","verified":true}'}],
+            ]
+        )
+        schema = json.dumps(
+            {
+                "type": "object",
+                "properties": {
+                    "summary": {"type": "string"},
+                    "verified": {"type": "boolean"},
+                },
+                "required": ["summary", "verified"],
+                "additionalProperties": False,
+            }
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-structured-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(responses)
+            exit_code, payload = _run_json_cli(
+                client,
+                [
+                    "-p",
+                    "--output-format",
+                    "json",
+                    "--json-schema",
+                    schema,
+                    "--approval",
+                    "allow",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "14",
+                    "Fix the calculator test failure and commit the verified fix.",
+                ],
+            )
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload, num_turns=11)
+        self.assertEqual(
+            payload["structured_output"],
+            {"summary": "fixed and committed", "verified": True},
+        )
+        self.assertEqual(payload["structured_output_attempts"], 2)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add")
+
     def test_v1_cli_json_can_repair_verify_commit_and_report_ready(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-smoke-") as base:
             root = Path(base)

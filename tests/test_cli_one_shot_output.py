@@ -7,6 +7,7 @@ from unittest.mock import patch
 from vibeagent.agent_result import AgentResult
 from vibeagent.cli_context import OneShotPriorContext
 from vibeagent.cli_one_shot_output import (
+    apply_structured_output_result,
     build_one_shot_chat_payload,
     build_one_shot_code_payload,
     build_one_shot_error_payload,
@@ -15,6 +16,7 @@ from vibeagent.cli_one_shot_output import (
     emit_one_shot_code_payload,
     one_shot_code_exit_code,
 )
+from vibeagent.structured_output import StructuredOutputResult
 
 
 def _result(root: Path, run_id: str = "run-1") -> AgentResult:
@@ -278,6 +280,46 @@ class CliOneShotOutputTests(unittest.TestCase):
         )
 
         self.assertEqual(calls, [({"message": "done"}, False)])
+
+    def test_structured_output_success_adds_aliases_and_prints_json_value(self) -> None:
+        root = Path("/tmp/vibeagent-one-shot-output")
+        result = _result(root)
+        payload = {"kind": "code", "message": "done", "success": True}
+        calls: list[tuple[dict[str, object], bool]] = []
+        apply_structured_output_result(
+            payload,
+            StructuredOutputResult(value={"count": 2}, error=None, attempts=2),
+        )
+
+        emit_one_shot_code_payload(
+            result,
+            payload,
+            stream=None,
+            output_json=False,
+            print_mode=True,
+            print_output_func=lambda value, output_json: calls.append((value, output_json)),
+        )
+
+        self.assertEqual(payload["structuredOutput"], {"count": 2})
+        self.assertEqual(payload["structured_output"], {"count": 2})
+        self.assertEqual(payload["structuredOutputAttempts"], 2)
+        self.assertEqual(payload["subtype"], "success")
+        self.assertEqual(calls, [({"message": '{"count": 2}'}, False)])
+
+    def test_structured_output_failure_overrides_machine_status_and_exit_code(self) -> None:
+        root = Path("/tmp/vibeagent-one-shot-output")
+        result = _result(root)
+        payload = {"kind": "code", "message": "done", "success": True}
+        structured = StructuredOutputResult(value=None, error="schema mismatch", attempts=3)
+
+        apply_structured_output_result(payload, structured)
+
+        self.assertFalse(payload["success"])
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["stopReason"], "error_max_structured_output_retries")
+        self.assertEqual(payload["subtype"], "error_max_structured_output_retries")
+        self.assertEqual(payload["structured_output_error"], "schema mismatch")
+        self.assertEqual(one_shot_code_exit_code(result, structured), 1)
 
     def test_emit_code_payload_prints_agent_result_for_text_output(self) -> None:
         root = Path("/tmp/vibeagent-one-shot-output")

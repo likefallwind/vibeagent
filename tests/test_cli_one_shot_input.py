@@ -357,6 +357,26 @@ class CliOneShotInputTests(unittest.TestCase):
         self.assertEqual(kwargs["system_prompt"], "You are a release engineer.")
         self.assertEqual(kwargs["append_system_prompt"], "Prefer focused tests.")
 
+    def test_build_one_shot_kwargs_parses_json_schema_before_provider_setup(self) -> None:
+        args = cli_module.parse_args(
+            [
+                "-p",
+                "--json-schema",
+                '{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"]}',
+                "inspect",
+            ]
+        )
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertEqual(kwargs["structured_output_schema"]["required"], ["ok"])
+
+    def test_build_one_shot_kwargs_rejects_invalid_json_schema(self) -> None:
+        args = cli_module.parse_args(["-p", "--json-schema", '{"type":"invalid"}', "inspect"])
+
+        with self.assertRaisesRegex(ValueError, "Invalid --json-schema"):
+            cli_module.build_one_shot_kwargs_from_args(args)
+
     def test_build_one_shot_kwargs_reads_prompt_files_from_invocation_directory(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-prompt-") as base:
             root = Path(base)

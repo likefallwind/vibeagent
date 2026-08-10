@@ -6,6 +6,7 @@ import os
 import tempfile
 import unittest
 from contextlib import redirect_stdout
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -14,7 +15,7 @@ from vibeagent.agent_result import AgentResult
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.cli import main
 from vibeagent.cli_args import parse_args
-from vibeagent.runtime_types import AssistantResponse
+from vibeagent.runtime_types import AssistantResponse, ChatMessage
 from vibeagent.session_event_observers import observe_session_events
 
 
@@ -47,6 +48,97 @@ def _result(root: Path, run_id: str = "stream-run") -> AgentResult:
 
 
 class CliOutputFormatTests(unittest.TestCase):
+    def test_json_schema_cli_returns_validated_structured_output(self) -> None:
+        client = SequenceClient(
+            [[{"type": "text", "text": '{"summary":"inspected","files":2}'}]]
+        )
+        schema = json.dumps(
+            {
+                "type": "object",
+                "properties": {
+                    "summary": {"type": "string"},
+                    "files": {"type": "integer"},
+                },
+                "required": ["summary", "files"],
+                "additionalProperties": False,
+            }
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-structured-cli-") as base:
+            root = Path(base)
+            (root / ".vibeagent" / "sessions" / "stream-run").mkdir(parents=True)
+            result = replace(
+                _result(root),
+                conversation=[
+                    ChatMessage(role="user", content="Inspect the repository."),
+                    ChatMessage(role="assistant", content="Inspected two files."),
+                ],
+            )
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=client),
+                patch("vibeagent.cli.run_agent", return_value=result),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "-p",
+                        "--output-format",
+                        "json",
+                        "--json-schema",
+                        schema,
+                        "--cwd",
+                        base,
+                        "inspect",
+                    ]
+                )
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["subtype"], "success")
+        self.assertEqual(payload["structured_output"], {"summary": "inspected", "files": 2})
+        self.assertEqual(payload["structuredOutput"], payload["structured_output"])
+        self.assertEqual(payload["structured_output_attempts"], 1)
+
+    def test_json_schema_cli_fails_after_bounded_validation_retries(self) -> None:
+        client = SequenceClient(
+            [[{"type": "text", "text": '{"files":"two"}'}]] * 3
+        )
+        schema = json.dumps(
+            {
+                "type": "object",
+                "properties": {"files": {"type": "integer"}},
+                "required": ["files"],
+                "additionalProperties": False,
+            }
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-structured-cli-") as base:
+            root = Path(base)
+            (root / ".vibeagent" / "sessions" / "stream-run").mkdir(parents=True)
+            result = replace(
+                _result(root),
+                conversation=[
+                    ChatMessage(role="user", content="Inspect the repository."),
+                    ChatMessage(role="assistant", content="Inspected two files."),
+                ],
+            )
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=client),
+                patch("vibeagent.cli.run_agent", return_value=result),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    ["-p", "--output-format", "json", "--json-schema", schema, "--cwd", base, "inspect"]
+                )
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(client.calls, 3)
+        self.assertEqual(payload["subtype"], "error_max_structured_output_retries")
+        self.assertEqual(payload["stopReason"], "error_max_structured_output_retries")
+        self.assertEqual(payload["structured_output_attempts"], 3)
+        self.assertNotIn("structured_output", payload)
+
     def test_json_alias_and_output_format_normalize_to_machine_output(self) -> None:
         alias = parse_args(["--json", "inspect"])
         explicit_json = parse_args(["--output-format", "json", "inspect"])
@@ -180,6 +272,57 @@ class CliOutputFormatTests(unittest.TestCase):
 
 
 class CliStreamJsonTests(unittest.TestCase):
+    def test_stream_json_emits_structured_output_events_and_result(self) -> None:
+        client = SequenceClient(
+            [[{"type": "text", "text": '{"summary":"inspected"}'}]]
+        )
+        schema = json.dumps(
+            {
+                "type": "object",
+                "properties": {"summary": {"type": "string"}},
+                "required": ["summary"],
+                "additionalProperties": False,
+            }
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-structured-stream-") as base:
+            def run_agent(task: str, **kwargs: object) -> AgentResult:
+                workspace = kwargs["workspace"]
+                return replace(
+                    _result(Path(base), workspace.run_id),
+                    conversation=[
+                        ChatMessage(role="user", content="Inspect the repository."),
+                        ChatMessage(role="assistant", content="Inspection complete."),
+                    ],
+                )
+
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=client),
+                patch("vibeagent.cli.run_agent", side_effect=run_agent),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "-p",
+                        "--output-format",
+                        "stream-json",
+                        "--json-schema",
+                        schema,
+                        "--cwd",
+                        base,
+                        "inspect",
+                    ]
+                )
+
+        records = [json.loads(line) for line in stdout.getvalue().splitlines()]
+        event_types = [record["event"]["type"] for record in records if record["type"] == "event"]
+        final = records[-1]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(event_types, ["structured_output_model", "structured_output_result"])
+        self.assertEqual(final["type"], "result")
+        self.assertEqual(final["structured_output"], {"summary": "inspected"})
+        self.assertEqual(final["structured_output_attempts"], 1)
+
     def test_real_agent_streams_session_events_then_final_result(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-stream-") as base:
             stdout = io.StringIO()

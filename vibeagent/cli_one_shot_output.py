@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import json
 from pathlib import Path
 
 from .agent_result import AgentResult
 from .cli_machine_output import add_duration_fields
+from .cli_machine_output import machine_result_status_fields
 from .cli_output import print_agent_result, print_error_result, print_output
 from .cli_result_payloads import (
     build_chat_result_payload,
@@ -14,6 +16,7 @@ from .cli_result_payloads import (
 from .cli_stream_output import JsonEventStream
 from .config import resolve_cost_rates
 from .session_usage import build_run_cost_report, build_run_usage_report
+from .structured_output import StructuredOutputResult
 
 
 def build_one_shot_error_payload(
@@ -122,10 +125,49 @@ def emit_one_shot_code_payload(
     elif output_json:
         print_output_func(payload, True)
     elif print_mode:
-        print_output_func({"message": result.message}, False)
+        if "structured_output" in payload:
+            print_output_func(
+                {"message": json.dumps(payload["structured_output"], ensure_ascii=False, sort_keys=True)},
+                False,
+            )
+        elif "structured_output_error" in payload:
+            print_output_func({"message": payload["structured_output_error"]}, False)
+        else:
+            print_output_func({"message": result.message}, False)
     else:
         print_agent_result_func(result)
 
 
-def one_shot_code_exit_code(result: AgentResult) -> int:
+def apply_structured_output_result(
+    payload: dict[str, object],
+    structured: StructuredOutputResult | None,
+) -> None:
+    if structured is None:
+        return
+    payload["structuredOutputAttempts"] = structured.attempts
+    payload["structured_output_attempts"] = structured.attempts
+    if structured.success:
+        payload["structuredOutput"] = structured.value
+        payload["structured_output"] = structured.value
+        payload["subtype"] = "success"
+        return
+    payload["success"] = False
+    payload.update(
+        machine_result_status_fields(
+            status="failed",
+            stop_reason="error_max_structured_output_retries",
+            exit_code=1,
+        )
+    )
+    payload["subtype"] = "error_max_structured_output_retries"
+    payload["structuredOutputError"] = structured.error
+    payload["structured_output_error"] = structured.error
+
+
+def one_shot_code_exit_code(
+    result: AgentResult,
+    structured: StructuredOutputResult | None = None,
+) -> int:
+    if structured is not None and not structured.success:
+        return 1
     return 0 if result.success and result.completion_ready else 1
