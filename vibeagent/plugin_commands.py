@@ -8,6 +8,7 @@ from .marketplace_commands import format_marketplace_details, handle_marketplace
 from .marketplace_manifest import marketplace_manifest_exists, read_marketplace_manifest
 from .marketplace_store import install_marketplace_plugin
 from .plugin_manifest import read_plugin_manifest
+from .plugin_monitor_config import monitor_count_for_manifest
 from .plugin_store import (
     install_local_plugin,
     list_installed_plugins,
@@ -90,6 +91,7 @@ def reload_plugins_text(project_root: Path) -> str:
         "MCP servers": 0,
         "LSP servers": 0,
         "executables": 0,
+        "monitors": 0,
     }
     for plugin in enabled:
         manifest = read_installed_plugin_manifest(project_root, plugin.name)
@@ -100,6 +102,7 @@ def reload_plugins_text(project_root: Path) -> str:
         totals["MCP servers"] += len(manifest.mcp_files)
         totals["LSP servers"] += _lsp_server_count(manifest)
         totals["executables"] += len(manifest.bin_files)
+        totals["monitors"] += monitor_count_for_manifest(manifest)
     counts = ", ".join(f"{name}={count}" for name, count in totals.items())
     return f"Reloaded {len(enabled)} enabled plugin(s): {counts}; errors={len(errors)}."
 
@@ -132,6 +135,7 @@ def format_plugin_details(manifest: PluginManifest) -> str:
         f"  MCP configs: {len(manifest.mcp_files)}",
         f"  LSP configs: {len(manifest.lsp_files) + (1 if manifest.inline_lsp_servers is not None else 0)}",
         f"  executables: {len(manifest.bin_files)}",
+        f"  monitors: {monitor_count_for_manifest(manifest)}",
     ]
     lines.extend(f"  warning: {warning}" for warning in manifest.warnings)
     return "\n".join(lines)

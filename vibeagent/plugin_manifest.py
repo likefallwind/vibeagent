@@ -65,14 +65,17 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
     inline_lsp = payload.get("lspServers") if isinstance(payload.get("lspServers"), dict) else None
     lsp = () if inline_lsp is not None else _config_files(root, payload, "lspServers", ".lsp.json")
     executables = _executable_files(root)
+    monitor_files, inline_monitors = _monitor_components(root, payload)
     warnings: list[str] = []
-    if (root / "monitors" / "monitors.json").exists() or "monitors" in payload:
-        warnings.append("Plugin monitors are not supported yet.")
     if (root / "settings.json").exists() or "settings" in payload:
         warnings.append("Plugin default settings are not supported yet.")
 
-    all_components = (*skills, *commands, *agents, *hooks, *mcp, *lsp, *executables)
-    component_count = len(all_components) + (1 if inline_lsp is not None else 0)
+    all_components = (*skills, *commands, *agents, *hooks, *mcp, *lsp, *executables, *monitor_files)
+    component_count = (
+        len(all_components)
+        + (1 if inline_lsp is not None else 0)
+        + len(inline_monitors or ())
+    )
     if component_count > MAX_PLUGIN_COMPONENTS:
         raise ValueError(f"Plugin exposes more than {MAX_PLUGIN_COMPONENTS} components.")
     if len(set(all_components)) != len(all_components):
@@ -91,7 +94,9 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
         mcp_files=tuple(mcp),
         lsp_files=tuple(lsp),
         bin_files=tuple(executables),
+        monitor_files=tuple(monitor_files),
         inline_lsp_servers=dict(inline_lsp) if inline_lsp is not None else None,
+        inline_monitors=inline_monitors,
         warnings=tuple(warnings),
     )
 
@@ -202,6 +207,36 @@ def _executable_files(root: Path) -> tuple[Path, ...]:
         if path.stat().st_mode & 0o111:
             files.append(path)
     return tuple(files)
+
+
+def _monitor_components(
+    root: Path, payload: dict[str, Any]
+) -> tuple[tuple[Path, ...], tuple[object, ...] | None]:
+    experimental = payload.get("experimental", {})
+    if not isinstance(experimental, dict):
+        raise ValueError("Plugin experimental configuration must be an object.")
+    value = experimental.get("monitors", payload.get("monitors"))
+    if value is None:
+        default = root / "monitors" / "monitors.json"
+        if not default.exists():
+            return (), None
+        return (_monitor_file(root, default, "./monitors/monitors.json"),), None
+    if isinstance(value, str):
+        if value not in {".", "./"} and not value.startswith("./"):
+            raise ValueError(f"Plugin monitors path must start with ./: {value}")
+        target = _resolve_plugin_path(root, value, "monitors")
+        return (_monitor_file(root, target, value),), None
+    if not isinstance(value, list) or not value:
+        raise ValueError("Plugin experimental.monitors must be a relative JSON path or non-empty array.")
+    return (), tuple(value)
+
+
+def _monitor_file(root: Path, target: Path, value: str) -> Path:
+    if not target.is_file() or target.suffix.lower() != ".json":
+        raise ValueError(f"Plugin monitors path must be a JSON file: {value}")
+    if has_symlink_component(root, target):
+        raise ValueError(f"Plugin monitors path contains a symbolic link: {value}")
+    return target
 
 
 def _relative(root: Path, path: Path) -> str:

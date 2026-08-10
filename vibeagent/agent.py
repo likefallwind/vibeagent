@@ -22,6 +22,7 @@ from .agent_loop import AgentLoopRuntime, run_agent_loop
 from .agent_model import complete_with_retries
 from .agent_observation_utils import observation_failed
 from .agent_parallel_safety import PARALLEL_SAFE_TOOL_NAMES, is_parallel_safe_action
+from .plugin_monitor_runtime import PluginMonitorRuntime
 from .agent_result import AgentResult
 from .agent_run_setup import prepare_agent_run
 from .agent_runtime_utils import tool_error_observation
@@ -97,35 +98,40 @@ def run_agent(
     )
     if peer_runtime is not None:
         peer_runtime.update_workspace(setup.workspace, approval_policy)
-    return run_agent_loop(
-        task,
-        client,
-        setup,
-        max_iterations=max_iterations,
-        command_timeout_ms=command_timeout_ms,
-        max_output_tokens=max_output_tokens,
-        model_retries=model_retries,
-        model_retry_delay_ms=model_retry_delay_ms,
-        model_timeout_ms=model_timeout_ms,
-        logger=logger,
-        approval_handler=approval_handler,
-        user_input_handler=user_input_handler,
-        prior_context=prior_context,
-        approval_policy=approval_policy,
-        system_prompt=system_prompt,
-        append_system_prompt=append_system_prompt,
-        runtime=AgentLoopRuntime(
-            complete_with_retries=complete_with_retries,
-            execute_action=execute_action,
-            execute_action_safely=execute_action_safely,
-            completion_blocked_feedback_if_needed=completion_blocked_feedback_if_needed,
-            finish_agent_run=finish_agent_run,
-            should_auto_checkpoint_before_action=should_auto_checkpoint_before_action,
-            create_auto_checkpoint_before_action=create_auto_checkpoint_before_action,
-            sleep=time.sleep,
-        ),
-        peer_runtime=peer_runtime,
-    )
+    plugin_monitors = PluginMonitorRuntime(setup.workspace)
+    try:
+        return run_agent_loop(
+            task,
+            client,
+            setup,
+            max_iterations=max_iterations,
+            command_timeout_ms=command_timeout_ms,
+            max_output_tokens=max_output_tokens,
+            model_retries=model_retries,
+            model_retry_delay_ms=model_retry_delay_ms,
+            model_timeout_ms=model_timeout_ms,
+            logger=logger,
+            approval_handler=approval_handler,
+            user_input_handler=user_input_handler,
+            prior_context=prior_context,
+            approval_policy=approval_policy,
+            system_prompt=system_prompt,
+            append_system_prompt=append_system_prompt,
+            runtime=AgentLoopRuntime(
+                complete_with_retries=complete_with_retries,
+                execute_action=execute_action,
+                execute_action_safely=execute_action_safely,
+                completion_blocked_feedback_if_needed=completion_blocked_feedback_if_needed,
+                finish_agent_run=finish_agent_run,
+                should_auto_checkpoint_before_action=should_auto_checkpoint_before_action,
+                create_auto_checkpoint_before_action=create_auto_checkpoint_before_action,
+                sleep=time.sleep,
+            ),
+            peer_runtime=peer_runtime,
+            plugin_monitor_runtime=plugin_monitors,
+        )
+    finally:
+        plugin_monitors.close()
 
 
 def completion_blocked_feedback_if_needed(

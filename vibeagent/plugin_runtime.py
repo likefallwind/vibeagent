@@ -8,7 +8,7 @@ from .plugin_store import enabled_plugin_manifests
 from .workspace_core import RunWorkspace
 
 
-PluginComponentKind = Literal["skill", "command", "agent", "hook", "mcp", "lsp", "bin"]
+PluginComponentKind = Literal["skill", "command", "agent", "hook", "mcp", "lsp", "bin", "monitor"]
 
 
 @dataclass(frozen=True)
@@ -39,6 +39,7 @@ def enabled_plugin_component_files(
         "mcp": "mcp_files",
         "lsp": "lsp_files",
         "bin": "bin_files",
+        "monitor": "monitor_files",
     }[kind]
     components: list[PluginComponentFile] = []
     for manifest in enabled_plugin_manifests(workspace.root):

@@ -1074,9 +1074,10 @@ tools, and the normal approval policy remains in force on every coding turn.
 One-shot `vibeagent -p "/goal <condition>"` runs until achievement, agent
 failure, evaluator error, or interruption in the same process.
 VibeAgent supports project-local plugins that package skills, commands, agents,
-command hooks, MCP servers, and language servers behind one manifest and lifecycle. A plugin uses
+command hooks, MCP servers, language servers, background monitors, and executables behind one manifest and lifecycle. A plugin uses
 the Claude-compatible root layout: optional `.claude-plugin/plugin.json`,
-`skills/`, `commands/`, `agents/`, `bin/`, `hooks/hooks.json`, `.mcp.json`, and `.lsp.json`.
+`skills/`, `commands/`, `agents/`, `bin/`, `monitors/monitors.json`,
+`hooks/hooks.json`, `.mcp.json`, and `.lsp.json`.
 Install a project directory directly or register a local/remote marketplace:
 
 ```text
@@ -1105,6 +1106,21 @@ prepended to the scoped `PATH` used by finite commands, background commands,
 hooks, command preflights, and Bubblewrap launches. The host process environment
 is not modified; disabling a plugin removes its path on the next command, and
 same-name executable conflicts resolve deterministically by plugin name.
+Plugin monitors may be declared in `monitors/monitors.json`, through an
+`experimental.monitors` relative JSON path, or as an inline monitor array. An
+`always` monitor starts after session-start hooks; an
+`on-skill-invoke:<skill-name>` monitor starts once its plugin skill is loaded.
+Every monitor start follows command approval, project permission, blocked-command,
+and sandbox policy. Plan and deny modes skip startup. Each stdout line is delivered
+to the model as explicitly untrusted runtime evidence, with bounded line and queue
+sizes; stderr and exit codes are reported on crashes. Monitor processes receive
+`${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PLUGIN_DATA}`, `${CLAUDE_PROJECT_DIR}`, the
+scoped plugin executable `PATH`, and ordinary environment substitutions. They are
+terminated on every agent-run exit, while plugin data persists under
+`.vibeagent/plugin-data/`. Disabling a plugin prevents monitors in the next run;
+already-started monitors retain their current-run lifecycle. `${user_config.*}`
+monitor substitutions remain rejected until plugin user configuration is
+supported.
 Project-local marketplaces use `.claude-plugin/marketplace.json`,
 cache a non-symlink snapshot without Git/runtime metadata, verify each relative
 plugin source and manifest identity, support add/list/details/update/remove, and
@@ -1566,6 +1582,12 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
 - `vibeagent/plugin_environment.py`: builds a per-command environment from
   executable `bin/` components in enabled plugins without mutating the host
   process `PATH`.
+- `vibeagent/plugin_monitor_config.py`, `vibeagent/plugin_monitor_process.py`,
+  `vibeagent/plugin_monitor_runtime.py`, and
+  `vibeagent/agent_plugin_monitors.py`: validate plugin monitor declarations,
+  own bounded stdout/stderr process I/O, enforce approved startup and cleanup,
+  trigger skill-scoped monitors, and inject untrusted notifications into agent
+  turns.
 - `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
   model out of the coding-agent JSON action protocol.
 - `vibeagent/providers.py`: selects the configured model provider. MiniMax is

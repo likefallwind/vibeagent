@@ -19,7 +19,9 @@ class PluginManifest:
     mcp_files: tuple[Path, ...]
     lsp_files: tuple[Path, ...]
     bin_files: tuple[Path, ...]
+    monitor_files: tuple[Path, ...]
     inline_lsp_servers: dict[str, object] | None = None
+    inline_monitors: tuple[object, ...] | None = None
     warnings: tuple[str, ...] = ()
 
     @property
@@ -34,8 +36,11 @@ class PluginManifest:
                 self.mcp_files,
                 self.lsp_files,
                 self.bin_files,
+                self.monitor_files,
             )
-        ) + (1 if self.inline_lsp_servers is not None else 0)
+        ) + (1 if self.inline_lsp_servers is not None else 0) + len(
+            self.inline_monitors or ()
+        )
 
 
 @dataclass(frozen=True)

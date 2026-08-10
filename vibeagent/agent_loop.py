@@ -15,7 +15,9 @@ from .agent_model_turn import handle_no_tool_call_response, record_model_turn
 from .agent_multimodal import strip_consumed_tool_images
 from .agent_parallel_execution import execute_parallel_tool_call_batch
 from .agent_peer_notifications import inject_peer_notifications
+from .agent_plugin_monitors import AgentPluginMonitorController
 from .peer_runtime import PeerSessionRuntime
+from .plugin_monitor_runtime import PluginMonitorRuntime
 from .agent_scheduled_notifications import inject_scheduled_task_notifications
 from .agent_result import AgentResult
 from .agent_run_setup import AgentRunSetup
@@ -73,6 +75,7 @@ def run_agent_loop(
     append_system_prompt: str | None,
     runtime: AgentLoopRuntime,
     peer_runtime: PeerSessionRuntime | None = None,
+    plugin_monitor_runtime: PluginMonitorRuntime | None = None,
 ) -> AgentResult:
     observations: list[Observation] = []
     steps: list[TaskStep] = []
@@ -107,6 +110,15 @@ def run_agent_loop(
             command_timeout_ms=command_timeout_ms,
             logger=logger,
         )
+    plugin_monitors = AgentPluginMonitorController.create(
+        plugin_monitor_runtime,
+        current_workspace,
+        project_permissions,
+        approval_handler,
+        approval_policy,
+        logger,
+    )
+    plugin_monitors.start()
 
     def stop_feedback_if_needed(message: str, iteration: int) -> str | None:
         return lifecycle.stop_feedback_if_needed(current_workspace, message, iteration)
@@ -122,6 +134,9 @@ def run_agent_loop(
             observations,
             iteration=iteration,
             logger=logger,
+        )
+        plugin_monitors.inject(
+            current_workspace, messages, iteration=iteration, logger=logger
         )
         inject_scheduled_task_notifications(
             current_workspace,
@@ -247,6 +262,9 @@ def run_agent_loop(
                 iteration,
                 approval_policy,
             )
+            plugin_monitors.observe_many(
+                observations[observation_start:], iteration=iteration
+            )
         if handled_tool_calls == len(tool_calls):
             messages = append_tool_results_and_compact(
                 task=task,
@@ -292,6 +310,7 @@ def run_agent_loop(
             )
             tool_results.append(sequential.tool_result)
             observation = sequential.observation
+            plugin_monitors.observe(observation, iteration=iteration)
             plan = sequential.plan
             auto_checkpoint_attempted = sequential.auto_checkpoint_attempted
             current_workspace = apply_workspace_transition(
