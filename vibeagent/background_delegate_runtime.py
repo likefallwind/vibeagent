@@ -93,6 +93,7 @@ def start_background_delegate_task(
         isolation=action.isolation,
         depth=depth,
         parent_id=parent_id,
+        teammate_name=action.teammate_name,
     )
 
 
@@ -100,9 +101,14 @@ def send_background_delegate_message(
     workspace: RunWorkspace,
     task_id: str,
     message: str,
+    *,
+    sender: str | None = None,
+    teammates_only: bool = False,
 ) -> DelegateTaskObservation | None:
     task = _find_task(workspace, task_id)
     if task is None:
+        return None
+    if teammates_only and task.action.teammate_name is None:
         return None
     with _TASKS_LOCK:
         if task.done_event.is_set():
@@ -111,7 +117,9 @@ def send_background_delegate_message(
             finishing = True
         else:
             finishing = False
-            task.pending_messages.append(message)
+            task.pending_messages.append(
+                f"Message from teammate {sender}:\n{message}" if sender is not None else message
+            )
     if finishing:
         task.done_event.wait(5)
         return None
@@ -131,6 +139,7 @@ def send_background_delegate_message(
         isolation=task.action.isolation,
         depth=task.depth,
         parent_id=task.parent_id,
+        teammate_name=task.action.teammate_name,
     )
 
 

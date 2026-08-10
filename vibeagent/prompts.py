@@ -3,6 +3,7 @@ from __future__ import annotations
 from .prompt_next_action import get_next_action_instruction
 from .prompt_observations import format_observations
 from .prompt_system import build_effective_system_prompt
+from .agent_team_runtime import agent_teams_enabled
 from .types import ApprovalPolicy, ChatMessage, Observation
 from .workspace_core import RunWorkspace
 from .workspace import (
@@ -105,6 +106,13 @@ def build_messages(
     sandbox_summary = format_workspace_sandbox_for_prompt(workspace)
     memory = auto_memory if auto_memory is not None else read_auto_memory(workspace)
     chunks = [f"User task:\n{task}"]
+    if agent_teams_enabled():
+        chunks.append(
+            "Experimental agent teams are enabled. For work that materially benefits from peer coordination, "
+            "use Agent with a stable name to request an approved background teammate. Teammates share the "
+            "session TaskCreate/TaskList/TaskUpdate graph and can message each other by name with SendMessage. "
+            "Only the lead may spawn teammates; avoid overlapping file ownership and wait for results before finishing."
+        )
     if approval_policy == "plan":
         chunks.append(
             "\n".join(

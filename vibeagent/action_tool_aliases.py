@@ -128,10 +128,21 @@ CLAUDE_BUILTIN_SUBAGENT_TYPES = frozenset({"general-purpose"})
 
 
 def _normalize_task_input(value: dict[str, Any]) -> dict[str, Any]:
-    normalized = _rename_fields(value, {"prompt": "task", "description": "context", "subagent_type": "agent"})
+    normalized = _rename_fields(
+        value,
+        {
+            "prompt": "task",
+            "description": "context",
+            "subagent_type": "agent",
+            "name": "teammate_name",
+        },
+    )
+    normalized.pop("team_name", None)
     if normalized.get("agent") in CLAUDE_BUILTIN_SUBAGENT_TYPES:
         normalized.pop("agent")
     normalized.setdefault("mode", "explore")
+    if normalized.get("teammate_name") is not None:
+        normalized["run_in_background"] = True
     return normalized
 
 

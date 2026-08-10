@@ -22,7 +22,10 @@ class DelegateInbox:
             return False
         for message in incoming:
             messages.append(
-                ChatMessage(role="user", content=f"Follow-up from the parent agent:\n{message}")
+                ChatMessage(
+                    role="user",
+                    content=f"Incoming message from the lead or another agent:\n{message}",
+                )
             )
         append_session_event(
             self.workspace.session_dir,

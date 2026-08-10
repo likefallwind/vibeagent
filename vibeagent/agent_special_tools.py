@@ -8,6 +8,7 @@ from .background_delegate_runtime import send_background_delegate_message, start
 from .agent_delegate import execute_delegate_task_action
 from .agent_hooks import ExecuteActionSafely, HookWrappedToolResult, run_hooks_around_tool
 from .agent_runtime_utils import append_session_event
+from .agent_team_runtime import teammate_spawn_error
 from .agent_steps import complete_task_step, start_task_step
 from .agent_user_input import execute_user_input_action
 from .types import (
@@ -191,6 +192,19 @@ def _execute_special_tool(
         return delegate_observation
     step = start_task_step(workspace, steps, iteration, action, logger)
     log_action(logger, action)
+    spawn_error = teammate_spawn_error(
+        workspace,
+        action.teammate_name,
+        depth=1,
+    )
+    if spawn_error is not None:
+        delegate_observation = ToolErrorObservation(
+            kind="tool_error",
+            tool="Agent",
+            message=spawn_error,
+        )
+        complete_task_step(workspace, step, delegate_observation, iteration, logger)
+        return delegate_observation
     if action.run_in_background:
         delegate_observation = start_background_delegate_task(
             workspace,
@@ -214,6 +228,7 @@ def _execute_special_tool(
                 cancel_requested=cancel_requested,
                 inbound_messages=inbound_messages,
             ),
+            task_id=action.teammate_name,
         )
     else:
         delegate_observation = execute_delegate_task_action(

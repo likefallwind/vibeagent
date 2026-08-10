@@ -84,6 +84,17 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
     isolation = value.get("isolation")
     if isolation not in {None, "worktree"}:
         raise ActionParseError("delegate_task action isolation must be worktree when provided.", raw)
+    teammate_name = value.get("teammate_name")
+    if teammate_name is not None and (
+        not isinstance(teammate_name, str)
+        or not AGENT_PROFILE_NAME_PATTERN.fullmatch(teammate_name.strip())
+    ):
+        raise ActionParseError("delegate_task action teammate_name must be a valid teammate name.", raw)
+    teammate_name = teammate_name.strip() if isinstance(teammate_name, str) else None
+    if teammate_name == "lead":
+        raise ActionParseError("delegate_task action teammate_name cannot use the reserved name lead.", raw)
+    if teammate_name is not None:
+        run_in_background = True
     return DelegateTaskAction(
         type="delegate_task",
         task=task,
@@ -93,6 +104,7 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
         agent=agent,
         run_in_background=run_in_background,
         isolation=isolation,
+        teammate_name=teammate_name,
     )
 
 

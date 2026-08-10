@@ -9,6 +9,7 @@ from .background_delegate_runtime import (
     execute_background_task_action,
     start_background_delegate_task,
 )
+from .agent_team_runtime import TEAM_COORDINATION_TOOL_NAMES, execute_teammate_coordination_action
 from .subagent_listing import execute_list_agents_action
 from .types import (
     DelegateTaskAction,
@@ -34,12 +35,25 @@ class NestedDelegateRuntime:
     mode: Literal["explore", "code"]
     cancel_requested: Callable[[], bool] | None
     execute_child: NestedDelegateExecutor
+    team_member_name: str | None = None
 
     @property
     def can_delegate(self) -> bool:
         return self.depth < MAX_SUBAGENT_DEPTH
 
+    @property
+    def coordination_tool_names(self) -> frozenset[str]:
+        return TEAM_COORDINATION_TOOL_NAMES if self.team_member_name is not None else frozenset()
+
     def execute(self, action: object, child_iteration: int) -> Observation | None:
+        if self.team_member_name is not None:
+            coordinated = execute_teammate_coordination_action(
+                self.workspace,
+                action,
+                self.team_member_name,
+            )
+            if coordinated is not None:
+                return coordinated
         listed = execute_list_agents_action(self.workspace, action)
         if listed is not None:
             return listed
@@ -48,6 +62,18 @@ class NestedDelegateRuntime:
             return background
         if not isinstance(action, DelegateTaskAction):
             return None
+        if action.teammate_name is not None:
+            return ToolErrorObservation(
+                kind="tool_error",
+                tool="Agent",
+                message="Only the lead agent can spawn teammates.",
+            )
+        if self.team_member_name is not None and action.run_in_background:
+            return ToolErrorObservation(
+                kind="tool_error",
+                tool="Agent",
+                message="Teammates may only run their own subagents in the foreground.",
+            )
         if self.mode == "explore" and action.mode == "code":
             return ToolErrorObservation(
                 kind="tool_error",

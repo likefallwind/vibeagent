@@ -14,7 +14,7 @@ from .workspace_agent_profile_parser import MAX_AGENT_TURNS
 from .workspace_core import RunWorkspace
 
 
-TRANSCRIPT_VERSION = 3
+TRANSCRIPT_VERSION = 4
 MAX_TRANSCRIPT_BYTES = 8_000_000
 MAX_TRANSCRIPT_FILES = 1_000
 SUBAGENT_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
@@ -242,7 +242,7 @@ def _validate_store_path(path: Path) -> None:
 
 
 def _parse_transcript(payload: object, expected_id: str) -> SubagentTranscript:
-    if not isinstance(payload, dict) or payload.get("version") not in {1, 2, TRANSCRIPT_VERSION}:
+    if not isinstance(payload, dict) or payload.get("version") not in {1, 2, 3, TRANSCRIPT_VERSION}:
         raise SubagentTranscriptError("Unsupported or malformed subagent transcript.")
     if payload.get("subagent_id") != expected_id:
         raise SubagentTranscriptError("Subagent transcript ID does not match its filename.")
@@ -280,6 +280,7 @@ def _parse_action(value: dict[str, object]) -> DelegateTaskAction:
     agent = value.get("agent")
     background = value.get("run_in_background")
     isolation = value.get("isolation")
+    teammate_name = value.get("teammate_name")
     if (
         value.get("type") != "delegate_task"
         or not isinstance(task, str)
@@ -292,9 +293,21 @@ def _parse_action(value: dict[str, object]) -> DelegateTaskAction:
         or agent is not None and not isinstance(agent, str)
         or not isinstance(background, bool)
         or isolation not in {None, "worktree"}
+        or teammate_name is not None
+        and (not isinstance(teammate_name, str) or not SUBAGENT_ID_PATTERN.fullmatch(teammate_name))
     ):
         raise SubagentTranscriptError("Malformed delegated action in transcript.")
-    return DelegateTaskAction("delegate_task", task, context, max_iterations, mode, agent, background, isolation)
+    return DelegateTaskAction(
+        "delegate_task",
+        task,
+        context,
+        max_iterations,
+        mode,
+        agent,
+        background,
+        isolation,
+        teammate_name,
+    )
 
 
 def _parse_worktree(value: object) -> SubagentWorktreeRecord | None:

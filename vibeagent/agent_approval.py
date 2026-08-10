@@ -61,6 +61,12 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             target=action.path or action.name or "generated isolated worktree",
             risk="This will create git metadata and switch subsequent agent tools into an isolated worktree.",
         )
+    if isinstance(action, t.DelegateTaskAction) and action.teammate_name is not None:
+        return t.ApprovalRequest(
+            action_type="spawn_teammate",
+            target=action.teammate_name,
+            risk="This starts an independent background agent with the current session's permissions and shared task list.",
+        )
     if isinstance(action, t.DelegateTaskAction) and action.isolation == "worktree":
         return t.ApprovalRequest(
             action_type="delegate_task_worktree",

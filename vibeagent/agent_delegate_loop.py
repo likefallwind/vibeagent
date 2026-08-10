@@ -85,6 +85,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                 context.allowed_tool_names,
                 context.disallowed_tool_names,
                 context.nested_runtime.can_delegate,
+                context.nested_runtime.team_member_name is not None,
             ),
             max_output_tokens=context.max_output_tokens,
             model_retries=context.model_retries,
@@ -196,6 +197,9 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                 permissions=context.permissions,
                 special_action_handler=lambda action: context.nested_runtime.execute(
                     action, child_iteration
+                ),
+                coordination_tool_names=(
+                    context.nested_runtime.coordination_tool_names
                 ),
             )
             auto_checkpoint_attempted = execution.auto_checkpoint_attempted

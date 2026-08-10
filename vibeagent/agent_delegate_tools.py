@@ -17,6 +17,7 @@ from .agent_delegate_policy import (
     READ_ONLY_CLAUDE_DELEGATE_TOOL_NAMES,
 )
 from .agent_parallel_safety import is_parallel_safe_action
+from .agent_team_runtime import TEAM_COORDINATION_TOOL_NAMES
 from .agent_runtime_utils import tool_error_observation
 from .agent_tool_execution import execute_parsed_tool_action
 from .agent_tool_registry import (
@@ -91,15 +92,23 @@ def delegate_tool_definitions(
     allowed_tool_names: frozenset[str] | None = None,
     disallowed_tool_names: frozenset[str] = frozenset(),
     nested_delegation_allowed: bool = False,
+    team_member: bool = False,
 ) -> list[dict[str, object]]:
     nested_names = NESTED_DELEGATE_TOOL_NAMES if nested_delegation_allowed else frozenset()
+    coordination_names = TEAM_COORDINATION_TOOL_NAMES if team_member else frozenset()
     if mode == "explore":
         return [
             tool
             for tool in AGENT_TOOL_DEFINITIONS
-            if str(tool["name"]) in (DELEGATE_TOOL_DEFINITION_NAMES | nested_names)
+            if str(tool["name"]) in (
+                DELEGATE_TOOL_DEFINITION_NAMES | nested_names | coordination_names
+            )
             and str(tool["name"]) not in disallowed_tool_names
-            and (allowed_tool_names is None or str(tool["name"]) in allowed_tool_names)
+            and (
+                str(tool["name"]) in coordination_names
+                or allowed_tool_names is None
+                or str(tool["name"]) in allowed_tool_names
+            )
         ]
     definitions = agent_tool_definitions(
         active_tool_names,
@@ -108,9 +117,20 @@ def delegate_tool_definitions(
         | disallowed_tool_names
         | (frozenset() if nested_delegation_allowed else NESTED_DELEGATE_TOOL_NAMES),
     )
+    if team_member:
+        existing = {str(tool["name"]) for tool in definitions}
+        definitions.extend(
+            tool
+            for tool in AGENT_TOOL_DEFINITIONS
+            if str(tool["name"]) in coordination_names and str(tool["name"]) not in existing
+        )
     if allowed_tool_names is None:
         return definitions
-    return [tool for tool in definitions if str(tool["name"]) in allowed_tool_names]
+    return [
+        tool
+        for tool in definitions
+        if str(tool["name"]) in coordination_names or str(tool["name"]) in allowed_tool_names
+    ]
 
 
 def execute_delegate_tool_call(
@@ -133,10 +153,11 @@ def execute_delegate_tool_call(
     hooks: ProjectHooks = ProjectHooks(),
     permissions: ProjectPermissions = ProjectPermissions(),
     special_action_handler: Callable[[object], Observation | None] | None = None,
+    coordination_tool_names: frozenset[str] = frozenset(),
 ) -> DelegateToolCallExecution:
     try:
         parsed = prepare_action_for_policy(parse_tool_action(tool_name, tool_input), approval_policy)
-        if not _profile_allows_tool_call(
+        if tool_name not in coordination_tool_names and not _profile_allows_tool_call(
             tool_name,
             parsed,
             allowed_tool_names,

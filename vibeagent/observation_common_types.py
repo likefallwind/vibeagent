@@ -50,6 +50,7 @@ class DelegateTaskObservation:
     worktree_preserved: bool = False
     depth: int = 1
     parent_id: str | None = None
+    teammate_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -68,6 +69,7 @@ class SubagentInstance:
     worktree_preserved: bool = False
     depth: int = 1
     parent_id: str | None = None
+    teammate_name: str | None = None
 
 
 @dataclass(frozen=True)

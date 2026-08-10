@@ -23,6 +23,7 @@ from .agent_delegate_tools import (
     execute_delegate_tool_call,
 )
 from .agent_runtime_utils import append_session_event
+from .agent_team_runtime import teammate_spawn_error
 from .nested_delegate_runtime import NestedDelegateRuntime
 from .subagent_transcripts import (
     SubagentTranscript,
@@ -102,7 +103,15 @@ def execute_delegate_task_action(
         depth,
         parent_subagent_id,
     )
-    policy_error = _delegate_policy_error(action, approval_policy, profile.error)
+    policy_error = _delegate_policy_error(
+        delegate_workspace,
+        action,
+        approval_policy,
+        profile.error,
+        depth,
+        resume_transcript is not None,
+        subagent_id,
+    )
     if policy_error is not None:
         return finish_delegate_task(
             delegate_workspace,
@@ -228,6 +237,7 @@ def execute_delegate_task_action(
         subagent_id=subagent_id,
         depth=depth,
         mode=action.mode,
+        team_member_name=action.teammate_name,
         cancel_requested=cancel_requested,
         execute_child=lambda child_action, child_id, child_depth, parent_id, child_parent_iteration, child_cancel, child_inbound: execute_delegate_task_action(
             delegate_workspace,
@@ -300,7 +310,12 @@ def execute_delegate_task_action(
         worktree_outcome = _finalize_delegate_worktree(workspace, subagent_id, worktree_runtime)
     if worktree_outcome is not None:
         result = _attach_worktree_outcome(result, worktree_outcome)
-    result = replace(result, depth=depth, parent_id=parent_subagent_id)
+    result = replace(
+        result,
+        depth=depth,
+        parent_id=parent_subagent_id,
+        teammate_name=action.teammate_name,
+    )
     complete_subagent_transcript(delegate_workspace, subagent_id, action, messages, result)
     return result
 
@@ -342,14 +357,28 @@ def _attach_worktree_outcome(
 
 
 def _delegate_policy_error(
+    workspace: RunWorkspace,
     action: DelegateTaskAction,
     approval_policy: ApprovalPolicy,
     profile_error: str | None,
+    depth: int,
+    resuming: bool,
+    subagent_id: str,
 ) -> str | None:
     if profile_error is not None:
         return f"Project agent profile could not be loaded: {profile_error}"
     if action.mode == "code" and approval_policy == "plan":
         return "Code delegation is unavailable while Plan mode is active."
+    if action.teammate_name is not None and action.teammate_name != subagent_id:
+        return "Teammate name must match its stable background task ID."
+    spawn_error = teammate_spawn_error(
+        workspace,
+        action.teammate_name,
+        depth=depth,
+        allow_existing=resuming,
+    )
+    if spawn_error is not None:
+        return spawn_error
     return None
 
 
@@ -384,5 +413,17 @@ def _record_delegate_start(
             "parent_subagent_id": parent_subagent_id,
         },
     )
+    if action.teammate_name is not None:
+        append_session_event(
+            workspace.session_dir,
+            "teammate_spawned",
+            {
+                "iteration": parent_iteration,
+                "name": action.teammate_name,
+                "subagent_id": subagent_id,
+                "agent": action.agent,
+                "mode": action.mode,
+            },
+        )
     if logger:
         logger(f"{action.mode} subagent started", action.task)

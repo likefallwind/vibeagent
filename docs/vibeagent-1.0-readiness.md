@@ -50,6 +50,9 @@ The automated suite currently covers these 1.0 surfaces:
   `.claude/agents`, tool and session lifecycle hooks, project slash commands, checkpoints,
   session handoff, focused tests, code-mode subagents, and background read-only
   subagent lifecycle control.
+- Experimental agent teams: approved named teammates, independent background
+  contexts, stable session identities, shared task ownership and dependencies,
+  peer and lead mailboxes, automatic lead delivery, and teardown cancellation.
 - Scoped instructions: nested instruction files and path rules load independently
   in main and subagent contexts and become eligible for reload after compaction.
 - Safety boundaries: workspace path guards, approval policy, hard command

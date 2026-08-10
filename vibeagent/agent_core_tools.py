@@ -64,6 +64,7 @@ CORE_COMMAND_TOOL_NAMES = frozenset(
 CORE_PROJECT_TOOL_NAMES = frozenset(
     {
         "delegate_task",
+        "Agent",
         "EnterWorktree",
         "focused_test_commands",
         "final_review",

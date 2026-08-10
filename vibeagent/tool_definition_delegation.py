@@ -58,7 +58,7 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "Agent",
-        "description": "Claude-compatible alias for delegating one bounded task, optionally in an isolated git worktree.",
+        "description": "Delegate a bounded task or, when experimental agent teams are enabled, spawn a named in-process teammate.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -72,6 +72,16 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "max_iterations": {"type": "integer", "minimum": 1, "maximum": 8},
                 "run_in_background": {"type": "boolean"},
                 "isolation": {"type": "string", "enum": ["worktree"]},
+                "name": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+                    "description": "Optional teammate name. Spawns an approved background teammate when provided.",
+                },
+                "team_name": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "description": "Accepted for Claude compatibility and ignored; teams are session-scoped.",
+                },
             },
             "required": ["prompt"],
             "additionalProperties": False,
