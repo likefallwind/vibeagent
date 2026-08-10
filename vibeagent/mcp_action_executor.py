@@ -9,7 +9,7 @@ from .command_safety import get_blocked_command_reason
 from .mcp_config import McpServerConfig, get_mcp_server_config, mcp_config_paths, read_mcp_server_configs, safe_mcp_endpoint
 from .mcp_http import McpHttpClient
 from .mcp_protocol import MCP_STDIO_PROTOCOL_VERSION
-from .mcp_resource_runtime import mcp_resource_result_text, normalize_mcp_resource
+from .mcp_resource_runtime import discover_mcp_resources, mcp_resource_result_text
 from .mcp_stdio import McpStdioClient
 from .redaction import redact_jsonable_payload, redact_sensitive_text
 from .types import (
@@ -99,23 +99,27 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
         try:
             config = _safe_server_config(workspace, action.server)
             with _mcp_client(workspace, config, action.timeout_ms) as client:
-                raw_resources, total, truncated = client.list_resources(
-                    action.max_resources
+                catalog = discover_mcp_resources(
+                    client,
+                    max_resources=action.max_resources,
+                    max_templates=action.max_templates,
                 )
-            resources = [normalize_mcp_resource(item) for item in raw_resources]
-            uris = [resource.uri for resource in resources]
-            if len(set(uris)) != len(uris):
-                raise ValueError("MCP resource catalog contains duplicate URIs.")
             return McpResourcesObservation(
                 kind="mcp_resources",
                 ok=True,
                 server=action.server,
-                resources=resources,
-                total=total,
-                truncated=truncated,
+                resources=catalog.resources,
+                templates=catalog.templates,
+                total=catalog.total,
+                resource_total=catalog.resource_total,
+                template_total=catalog.template_total,
+                truncated=catalog.truncated,
                 timeout_ms=action.timeout_ms,
                 error=None,
-                message=f"Listed {len(resources)} MCP resource(s) from {action.server}.",
+                message=(
+                    f"Listed {len(catalog.resources)} MCP resource(s) and "
+                    f"{len(catalog.templates)} template(s) from {action.server}."
+                ),
             )
         except (OSError, RuntimeError, TimeoutError, ValueError) as error:
             return McpResourcesObservation(
@@ -123,7 +127,10 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
                 ok=False,
                 server=action.server,
                 resources=[],
+                templates=[],
                 total=0,
+                resource_total=0,
+                template_total=0,
                 truncated=False,
                 timeout_ms=action.timeout_ms,
                 error=str(error),
@@ -134,18 +141,20 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
         try:
             config = _safe_server_config(workspace, action.server)
             with _mcp_client(workspace, config, action.timeout_ms) as client:
-                raw_resources, _, truncated_catalog = client.list_resources(500)
-                advertised = {
-                    resource.uri
-                    for resource in map(normalize_mcp_resource, raw_resources)
-                }
-                if truncated_catalog:
+                catalog = discover_mcp_resources(
+                    client,
+                    max_resources=500,
+                    max_templates=500,
+                )
+                if catalog.truncated:
                     raise ValueError(
                         "MCP resource catalog exceeds the safe discovery limit; narrow server resources before reading."
                     )
-                if action.uri not in advertised:
+                advertised = {resource.uri for resource in catalog.resources}
+                matched_template = catalog.matching_template(action.uri)
+                if action.uri not in advertised and matched_template is None:
                     raise ValueError(
-                        f"MCP resource {action.uri!r} was not advertised by server {action.server!r}."
+                        f"MCP resource {action.uri!r} was not advertised directly or by a URI template from server {action.server!r}."
                     )
                 result = client.read_resource(action.uri)
             raw_output, mime_types = mcp_resource_result_text(result, action.uri)
@@ -157,6 +166,7 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
                 ok=True,
                 server=action.server,
                 uri=action.uri,
+                template_uri=matched_template,
                 output=output,
                 mime_types=mime_types,
                 truncated=truncated,
@@ -171,6 +181,7 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
                 ok=False,
                 server=action.server,
                 uri=action.uri,
+                template_uri=None,
                 output="",
                 mime_types=[],
                 truncated=False,

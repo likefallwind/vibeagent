@@ -278,10 +278,10 @@ def project_next_action_instruction(base: str, latest: Observation) -> str:
     if latest.kind == "mcp_resources":
         if not getattr(latest, "ok", False):
             return f"{base} MCP resource discovery failed. Inspect the server command, timeout, and protocol error before retrying."
-        return f"{base} Read a relevant exact advertised URI with mcp_read_resource, or continue without loading resource content."
+        return f"{base} Read a relevant exact advertised URI or instantiate one advertised URI template with mcp_read_resource, or continue without loading resource content."
     if latest.kind == "mcp_read_resource":
         if not getattr(latest, "ok", False):
-            return f"{base} MCP resource reading failed. Use an exact advertised URI or inspect the bounded protocol error."
+            return f"{base} MCP resource reading failed. Use an exact advertised URI, instantiate an advertised URI template, or inspect the bounded protocol error."
         return f"{base} Use the MCP resource as external evidence and continue the task or answer directly if complete."
     if latest.kind == "delegate_task":
         if getattr(latest, "background", False) and getattr(latest, "running", False):

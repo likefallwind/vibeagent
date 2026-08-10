@@ -143,7 +143,12 @@ class McpHttpClient(McpToolsClient):
         payload, response_headers = self._post(message, headers)
         response = _response_for_request(payload, request_id)
         if "error" in response:
-            raise McpProtocolError(f"MCP {method} failed: {json.dumps(response['error'], ensure_ascii=False)}")
+            rpc_error = response["error"]
+            code = rpc_error.get("code") if isinstance(rpc_error, dict) else None
+            raise McpProtocolError(
+                f"MCP {method} failed: {json.dumps(rpc_error, ensure_ascii=False)}",
+                code=(code if isinstance(code, int) and not isinstance(code, bool) else None),
+            )
         result = response.get("result")
         if not isinstance(result, dict):
             raise McpProtocolError(f"MCP {method} response result must be an object.")

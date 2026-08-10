@@ -23,6 +23,7 @@ class McpResourcesAction:
     type: Literal["mcp_resources"]
     server: str
     max_resources: int = 100
+    max_templates: int = 100
     timeout_ms: int = 10_000
 
 

@@ -44,10 +44,17 @@ def parse_mcp_action(action_type: object, value: dict[str, Any], raw: str) -> ob
             raw,
             maximum=500,
         ) or 100
+        max_templates = parse_optional_positive_int(
+            value.get("max_templates", 100),
+            "max_templates",
+            raw,
+            maximum=500,
+        ) or 100
         return McpResourcesAction(
             type="mcp_resources",
             server=server,
             max_resources=max_resources,
+            max_templates=max_templates,
             timeout_ms=timeout_ms or 10_000,
         )
     if action_type == "mcp_read_resource":

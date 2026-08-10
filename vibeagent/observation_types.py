@@ -314,6 +314,7 @@ from .observation_mcp_types import (
     McpCallObservation,
     McpReadResourceObservation,
     McpResourceInfo,
+    McpResourceTemplateInfo,
     McpResourcesObservation,
     McpServerInfo,
     McpServersObservation,

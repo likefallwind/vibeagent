@@ -61,12 +61,16 @@ def _format_mcp_call(index: int, observation: object) -> str:
 def _format_mcp_resources(index: int, observation: object) -> str:
     parts = [
         f"{index}. mcp_resources {observation.server}: {observation.message}",
-        f"ok: {str(observation.ok).lower()} shown={len(observation.resources)}/{observation.total} truncated={str(observation.truncated).lower()} timeoutMs={observation.timeout_ms}",
+        f"ok: {str(observation.ok).lower()} resources={len(observation.resources)}/{observation.resource_total} templates={len(observation.templates)}/{observation.template_total} total={observation.total} truncated={str(observation.truncated).lower()} timeoutMs={observation.timeout_ms}",
         f"error: {observation.error or 'none'}",
     ]
     for resource in observation.resources:
         parts.append(
             f"resource: uri={resource.uri} name={resource.name or '.'} title={resource.title or '.'} mimeType={resource.mime_type or '.'} size={resource.size if resource.size is not None else 'unknown'} description={resource.description or '.'}"
+        )
+    for template in observation.templates:
+        parts.append(
+            f"resourceTemplate: uriTemplate={template.uri_template} name={template.name or '.'} title={template.title or '.'} mimeType={template.mime_type or '.'} description={template.description or '.'}"
         )
     return "\n".join(parts)
 
@@ -74,7 +78,7 @@ def _format_mcp_resources(index: int, observation: object) -> str:
 def _format_mcp_read_resource(index: int, observation: object) -> str:
     parts = [
         f"{index}. mcp_read_resource {observation.server}/{observation.uri}: {observation.message}",
-        f"ok: {str(observation.ok).lower()} mimeTypes={observation.mime_types} truncated={str(observation.truncated).lower()} maxOutputChars={observation.max_output_chars} timeoutMs={observation.timeout_ms}",
+        f"ok: {str(observation.ok).lower()} templateUri={observation.template_uri or 'none'} mimeTypes={observation.mime_types} truncated={str(observation.truncated).lower()} maxOutputChars={observation.max_output_chars} timeoutMs={observation.timeout_ms}",
         f"error: {observation.error or 'none'}",
     ]
     if observation.output:

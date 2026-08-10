@@ -30,7 +30,7 @@ class _McpHttpHandler(BaseHTTPRequestHandler):
                     "id": message["id"],
                     "result": {
                         "protocolVersion": "2025-11-25",
-                        "capabilities": {"tools": {}},
+                        "capabilities": {"tools": {}, "resources": {}},
                         "serverInfo": {"name": "legacy-test", "version": "1"},
                     },
                 },
@@ -121,6 +121,32 @@ class _McpHttpHandler(BaseHTTPRequestHandler):
                 }
             )
             return
+        if method == "resources/templates/list":
+            if self.server.concrete_only:
+                self._json_response(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": message["id"],
+                        "error": {"code": -32601, "message": "Method not found"},
+                    }
+                )
+                return
+            self._json_response(
+                {
+                    "jsonrpc": "2.0",
+                    "id": message["id"],
+                    "result": {
+                        "resourceTemplates": [
+                            {
+                                "uriTemplate": "docs://remote/{section}",
+                                "name": "remote-section",
+                                "mimeType": "text/plain",
+                            }
+                        ]
+                    },
+                }
+            )
+            return
         if method == "resources/read":
             uri = message.get("params", {}).get("uri")
             self._json_response(
@@ -158,10 +184,11 @@ class _McpHttpHandler(BaseHTTPRequestHandler):
 
 
 class _McpHttpServer:
-    def __init__(self, *, legacy=False, sse=False):
+    def __init__(self, *, legacy=False, sse=False, concrete_only=False):
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), _McpHttpHandler)
         self.server.legacy = legacy
         self.server.sse = sse
+        self.server.concrete_only = concrete_only
         self.server.requests = []
         self.server.deletes = []
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -186,6 +213,22 @@ def _write_http_config(root: Path, url: str, **extra) -> None:
 
 
 class McpHttpRuntimeTests(unittest.TestCase):
+    def test_concrete_resources_survive_unsupported_templates_method(self) -> None:
+        with _McpHttpServer(concrete_only=True) as server, tempfile.TemporaryDirectory(
+            prefix="vibeagent-mcp-http-"
+        ) as base:
+            root = Path(base)
+            _write_http_config(root, server.url)
+            workspace = create_run_workspace(root, "run-1")
+            listed = execute_action(
+                workspace,
+                parse_tool_action("mcp_resources", {"server": "remote"}),
+            )
+
+        self.assertTrue(listed.ok, listed.error)
+        self.assertEqual([item.uri for item in listed.resources], ["docs://remote"])
+        self.assertEqual(listed.templates, [])
+
     def test_modern_http_lists_and_reads_resources_with_protocol_headers(self) -> None:
         with _McpHttpServer() as server, tempfile.TemporaryDirectory(
             prefix="vibeagent-mcp-http-"
@@ -204,11 +247,24 @@ class McpHttpRuntimeTests(unittest.TestCase):
                     {"server": "remote", "uri": "docs://remote"},
                 ),
             )
+            templated = execute_action(
+                workspace,
+                parse_tool_action(
+                    "mcp_read_resource",
+                    {"server": "remote", "uri": "docs://remote/auth"},
+                ),
+            )
 
         self.assertTrue(listed.ok, listed.error)
         self.assertEqual(listed.resources[0].uri, "docs://remote")
+        self.assertEqual(
+            listed.templates[0].uri_template,
+            "docs://remote/{section}",
+        )
         self.assertTrue(read.ok, read.error)
         self.assertIn("Remote resource body", read.output)
+        self.assertTrue(templated.ok, templated.error)
+        self.assertEqual(templated.template_uri, "docs://remote/{section}")
         resource_read = next(
             (headers, message)
             for _, headers, message in server.server.requests

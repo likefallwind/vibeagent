@@ -11,6 +11,10 @@ from vibeagent.agent_approval import build_approval_request
 from vibeagent.agent_delegate import execute_delegate_task_action
 from vibeagent.mcp_config import read_mcp_server_configs
 from vibeagent.mcp_protocol import McpToolsClient
+from vibeagent.mcp_resource_runtime import (
+    mcp_uri_matches_template,
+    normalize_mcp_resource_template,
+)
 from vibeagent.redaction import redact_jsonable_payload
 from vibeagent.types import (
     ApprovalDecision,
@@ -76,10 +80,27 @@ for raw in sys.stdin:
                 },
             ]
         }
+    elif method == "resources/templates/list":
+        if os.environ.get("MCP_TEST_NO_TEMPLATES") == "1":
+            print(json.dumps({"jsonrpc": "2.0", "id": message["id"], "error": {"code": -32601, "message": "Method not found"}}), flush=True)
+            continue
+        result = {
+            "resourceTemplates": [
+                {
+                    "uriTemplate": "docs://topics/{topic}",
+                    "name": "topic",
+                    "title": "Topic Guide",
+                    "description": "Guide for one repository topic",
+                    "mimeType": "text/markdown",
+                }
+            ]
+        }
     elif method == "resources/read":
         uri = message.get("params", {}).get("uri")
         if uri == "docs://guide":
             contents = [{"uri": uri, "mimeType": "text/markdown", "text": "Use the documented API."}]
+        elif uri.startswith("docs://topics/"):
+            contents = [{"uri": uri, "mimeType": "text/markdown", "text": "Generated topic guide."}]
         else:
             contents = [{"uri": uri, "mimeType": "image/png", "blob": "aGVsbG8="}]
         result = {"contents": contents}
@@ -104,11 +125,29 @@ class _Client:
 
 class _PagedResourceClient(McpToolsClient):
     def request(self, method, params):
-        if method != "resources/list":
-            raise AssertionError(method)
-        if params.get("cursor") == "next":
-            return {"resources": [{"uri": "docs://two"}]}
-        return {"resources": [{"uri": "docs://one"}], "nextCursor": "next"}
+        if method == "resources/list":
+            if params.get("cursor") == "next":
+                return {"resources": [{"uri": "docs://two"}]}
+            return {"resources": [{"uri": "docs://one"}], "nextCursor": "next"}
+        if method == "resources/templates/list":
+            if params.get("cursor") == "template-next":
+                return {"resourceTemplates": [{"uriTemplate": "docs://topic/{name}"}]}
+            return {
+                "resourceTemplates": [{"uriTemplate": "docs://issue/{id}"}],
+                "nextCursor": "template-next",
+            }
+        raise AssertionError(method)
+
+
+class _ConcreteOnlyResourceClient(McpToolsClient):
+    def request(self, method, params):
+        if method == "resources/list":
+            return {"resources": [{"uri": "docs://one"}]}
+        if method == "resources/templates/list":
+            from vibeagent.mcp_protocol import McpProtocolError
+
+            raise McpProtocolError("method not found", code=-32601)
+        raise AssertionError(method)
 
 
 def _write_mcp_project(root: Path, *, cwd: str = ".") -> None:
@@ -162,10 +201,55 @@ def _write_agent(root: Path, name: str, tools: str) -> None:
 class McpRuntimeTests(unittest.TestCase):
     def test_protocol_resource_listing_follows_cursor_and_applies_limit(self) -> None:
         resources, total, truncated = _PagedResourceClient().list_resources(1)
+        templates, template_total, templates_truncated = (
+            _PagedResourceClient().list_resource_templates(1)
+        )
 
         self.assertEqual(resources, [{"uri": "docs://one"}])
         self.assertEqual(total, 2)
         self.assertTrue(truncated)
+        self.assertEqual(templates, [{"uriTemplate": "docs://issue/{id}"}])
+        self.assertEqual(template_total, 2)
+        self.assertTrue(templates_truncated)
+
+    def test_resource_template_listing_tolerates_method_not_found(self) -> None:
+        templates, total, truncated = (
+            _ConcreteOnlyResourceClient().list_resource_templates()
+        )
+
+        self.assertEqual(templates, [])
+        self.assertEqual(total, 0)
+        self.assertFalse(truncated)
+
+    def test_resource_template_matching_validates_structure_and_expressions(self) -> None:
+        template = normalize_mcp_resource_template(
+            {
+                "uriTemplate": "repo://issues/{id}{?view,locale}",
+                "name": "issue",
+            }
+        )
+
+        self.assertEqual(template.uri_template, "repo://issues/{id}{?view,locale}")
+        self.assertTrue(
+            mcp_uri_matches_template(
+                "repo://issues/42?view=full&locale=en",
+                template.uri_template,
+            )
+        )
+        self.assertFalse(
+            mcp_uri_matches_template(
+                "repo://users/42?view=full",
+                template.uri_template,
+            )
+        )
+        self.assertFalse(
+            mcp_uri_matches_template(
+                "repo://issues/42?other=value",
+                template.uri_template,
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "RFC 6570"):
+            normalize_mcp_resource_template({"uriTemplate": "repo://issues/{bad!}"})
 
     def test_lists_config_without_exposing_environment_values(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
@@ -309,9 +393,24 @@ class McpRuntimeTests(unittest.TestCase):
                     timeout_ms=2_000,
                 ),
             )
+            templated = execute_action(
+                workspace,
+                McpReadResourceAction(
+                    type="mcp_read_resource",
+                    server="test",
+                    uri="docs://topics/testing",
+                    timeout_ms=2_000,
+                ),
+            )
 
         self.assertTrue(listed.ok, listed.error)
         self.assertEqual([item.uri for item in listed.resources], ["docs://guide", "asset://logo"])
+        self.assertEqual(
+            [item.uri_template for item in listed.templates],
+            ["docs://topics/{topic}"],
+        )
+        self.assertEqual(listed.resource_total, 2)
+        self.assertEqual(listed.template_total, 1)
         self.assertEqual(listed.resources[0].mime_type, "text/markdown")
         self.assertTrue(text.ok, text.error)
         self.assertIn("Use the documented API.", text.output)
@@ -319,6 +418,25 @@ class McpRuntimeTests(unittest.TestCase):
         self.assertTrue(binary.ok, binary.error)
         self.assertIn("binary content omitted", binary.output)
         self.assertNotIn("aGVsbG8=", binary.output)
+        self.assertTrue(templated.ok, templated.error)
+        self.assertEqual(templated.template_uri, "docs://topics/{topic}")
+        self.assertIn("Generated topic guide.", templated.output)
+
+    def test_stdio_concrete_resources_survive_unsupported_templates_method(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
+            root = Path(base)
+            _write_mcp_project(root)
+            workspace = create_run_workspace(root, "run-1")
+            with patch.dict("os.environ", {"MCP_TEST_NO_TEMPLATES": "1"}):
+                listed = execute_action(
+                    workspace,
+                    McpResourcesAction(type="mcp_resources", server="test"),
+                )
+
+        self.assertTrue(listed.ok, listed.error)
+        self.assertEqual([item.uri for item in listed.resources], ["docs://guide", "asset://logo"])
+        self.assertEqual(listed.templates, [])
+        self.assertEqual(listed.template_total, 0)
 
     def test_read_resource_rejects_uri_not_advertised_by_server(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
@@ -341,7 +459,7 @@ class McpRuntimeTests(unittest.TestCase):
     def test_claude_resource_aliases_parse_and_require_approval(self) -> None:
         listed = parse_tool_action(
             "ListMcpResourcesTool",
-            {"server": "test", "max_resources": 2},
+            {"server": "test", "max_resources": 2, "max_templates": 3},
         )
         read = parse_tool_action(
             "ReadMcpResourceTool",
@@ -349,6 +467,7 @@ class McpRuntimeTests(unittest.TestCase):
         )
 
         self.assertIsInstance(listed, McpResourcesAction)
+        self.assertEqual(listed.max_templates, 3)
         self.assertIsInstance(read, McpReadResourceAction)
         self.assertEqual(build_approval_request(listed).action_type, "mcp_resources")
         self.assertEqual(build_approval_request(read).action_type, "mcp_read_resource")
@@ -377,7 +496,7 @@ class McpRuntimeTests(unittest.TestCase):
                         "type": "tool_call",
                         "id": "read-1",
                         "name": "ReadMcpResourceTool",
-                        "input": {"server": "test", "uri": "docs://guide"},
+                        "input": {"server": "test", "uri": "docs://topics/testing"},
                     }
                 ],
                 [{"type": "text", "text": "Used the MCP project guide."}],
@@ -405,6 +524,10 @@ class McpRuntimeTests(unittest.TestCase):
         self.assertIn("ListMcpResourcesTool", {tool["name"] for tool in client.tools[1]})
         self.assertIn("ReadMcpResourceTool", {tool["name"] for tool in client.tools[2]})
         self.assertEqual(approvals, ["mcp_resources", "mcp_read_resource"])
+        self.assertEqual(
+            result.observations[-1].template_uri,
+            "docs://topics/{topic}",
+        )
 
     def test_call_rejects_unadvertised_tool(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:

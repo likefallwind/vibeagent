@@ -145,6 +145,54 @@ class PromptObservationProjectTests(unittest.TestCase):
             ),
         )
 
+    def test_format_mcp_resources_exposes_templates_and_match_provenance(self) -> None:
+        listed = format_mcp_observation(
+            4,
+            SimpleNamespace(
+                kind="mcp_resources",
+                server="docs",
+                message="listed",
+                ok=True,
+                resources=[],
+                templates=[
+                    SimpleNamespace(
+                        uri_template="docs://topics/{topic}",
+                        name="topic",
+                        title="Topic Guide",
+                        mime_type="text/markdown",
+                        description="One topic",
+                    )
+                ],
+                resource_total=0,
+                template_total=1,
+                total=1,
+                truncated=False,
+                timeout_ms=2000,
+                error="",
+            ),
+        )
+        read = format_mcp_observation(
+            5,
+            SimpleNamespace(
+                kind="mcp_read_resource",
+                server="docs",
+                uri="docs://topics/testing",
+                template_uri="docs://topics/{topic}",
+                message="read",
+                ok=True,
+                mime_types=["text/markdown"],
+                truncated=False,
+                max_output_chars=4000,
+                timeout_ms=2000,
+                error="",
+                output="body",
+            ),
+        )
+
+        self.assertIn("resourceTemplate: uriTemplate=docs://topics/{topic}", listed)
+        self.assertIn("templates=1/1", listed)
+        self.assertIn("templateUri=docs://topics/{topic}", read)
+
     def test_format_list_agents_includes_resume_metadata(self) -> None:
         text = format_project_observation(
             4,

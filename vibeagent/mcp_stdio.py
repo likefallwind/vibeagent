@@ -108,7 +108,12 @@ class McpStdioClient(McpToolsClient):
             if message.get("id") != request_id:
                 continue
             if "error" in message:
-                raise McpProtocolError(f"MCP {method} failed: {json.dumps(message['error'], ensure_ascii=False)}")
+                rpc_error = message["error"]
+                code = rpc_error.get("code") if isinstance(rpc_error, dict) else None
+                raise McpProtocolError(
+                    f"MCP {method} failed: {json.dumps(rpc_error, ensure_ascii=False)}",
+                    code=(code if isinstance(code, int) and not isinstance(code, bool) else None),
+                )
             result = message.get("result")
             if not isinstance(result, dict):
                 raise McpProtocolError(f"MCP {method} response result must be an object.")

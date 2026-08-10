@@ -60,12 +60,24 @@ class McpResourceInfo:
 
 
 @dataclass(frozen=True)
+class McpResourceTemplateInfo:
+    uri_template: str
+    name: str
+    title: str
+    description: str
+    mime_type: str
+
+
+@dataclass(frozen=True)
 class McpResourcesObservation:
     kind: Literal["mcp_resources"]
     ok: bool
     server: str
     resources: list[McpResourceInfo]
+    templates: list[McpResourceTemplateInfo]
     total: int
+    resource_total: int
+    template_total: int
     truncated: bool
     timeout_ms: int
     error: str | None
@@ -78,6 +90,7 @@ class McpReadResourceObservation:
     ok: bool
     server: str
     uri: str
+    template_uri: str | None
     output: str
     mime_types: list[str]
     truncated: bool
