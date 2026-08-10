@@ -10,6 +10,7 @@ from .plugin_runtime import (
     PluginComponentFile,
     enabled_plugin_component_files,
     expand_plugin_path_variables,
+    plugin_component_path_reference,
 )
 from .plugin_store import read_installed_plugin_manifest
 from .workspace_core import create_local_workspace
@@ -135,7 +136,7 @@ def _discover_project_prompt_commands(root: Path) -> list[dict[str, object]]:
     workspace = create_local_workspace(root, "plugin-discovery")
     for component in enabled_plugin_component_files(workspace, "command"):
         path = component.path
-        relative_path = path.relative_to(root).as_posix()
+        relative_path = plugin_component_path_reference(root, path)
         component_path = path.relative_to(component.plugin_root).with_suffix("")
         parts = component_path.parts[1:] if component_path.parts[:1] == ("commands",) else (path.stem,)
         local_name = ":".join(parts)
@@ -143,7 +144,7 @@ def _discover_project_prompt_commands(root: Path) -> list[dict[str, object]]:
         if not COMMAND_INVOCATION_PATTERN.fullmatch(f"/{name}"):
             available, metadata, message = False, {}, "Plugin command name exceeds supported namespace depth."
         else:
-            available, metadata, message = _inspect_command_file(root, path)
+            available, metadata, message = _inspect_command_file(component.plugin_root, path)
         discovered.append(
             {
                 "name": name,

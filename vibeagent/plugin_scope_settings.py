@@ -11,8 +11,8 @@ from typing import Literal
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
 
 
-PluginScope = Literal["local", "project"]
-PLUGIN_SCOPES = frozenset({"local", "project"})
+PluginScope = Literal["local", "project", "user"]
+PLUGIN_SCOPES = frozenset({"local", "project", "user"})
 MAX_PLUGIN_SCOPE_SETTINGS_BYTES = 512_000
 
 
@@ -26,21 +26,30 @@ class PluginSettingsSnapshot:
 
 def validate_plugin_scope(value: str) -> PluginScope:
     if value not in PLUGIN_SCOPES:
-        raise ValueError("Plugin scope must be local or project.")
+        raise ValueError("Plugin scope must be local, project, or user.")
     return value  # type: ignore[return-value]
 
 
 def plugin_scope_settings_path(root: Path, scope: PluginScope) -> Path:
+    if scope == "user":
+        from .plugin_locations import user_home
+
+        return user_home() / ".claude/settings.json"
     relative = ".claude/settings.local.json" if scope == "local" else ".claude/settings.json"
     return root.resolve() / relative
 
 
 def capture_plugin_settings(root: Path, scope: PluginScope) -> PluginSettingsSnapshot:
-    project = root.resolve()
-    path = plugin_scope_settings_path(project, scope)
+    if scope == "user":
+        from .plugin_locations import user_home
+
+        boundary = user_home()
+    else:
+        boundary = root.resolve()
+    path = plugin_scope_settings_path(root, scope)
     if not path.exists() and not path.is_symlink():
         return PluginSettingsSnapshot(path=path, existed=False, mode=_default_mode(scope))
-    if has_symlink_component(project, path) or not path.is_file():
+    if has_symlink_component(boundary, path) or not path.is_file():
         raise ValueError(f"{_settings_label(scope)} must be a regular non-symlink file.")
     content = read_regular_file_bytes(
         path,
@@ -95,7 +104,7 @@ def restore_plugin_settings(snapshot: PluginSettingsSnapshot) -> None:
 
 def effective_plugin_enabled(root: Path, plugin_id: str, *, fallback: bool) -> bool:
     selected = fallback
-    for scope in ("project", "local"):
+    for scope in ("user", "project", "local"):
         snapshot = capture_plugin_settings(root, scope)
         payload = _decode_settings(snapshot, scope)
         configured = payload.get("enabledPlugins", {})
@@ -149,11 +158,15 @@ def _atomic_write_bytes(path: Path, payload: bytes, mode: int) -> None:
 
 
 def _default_mode(scope: PluginScope) -> int:
-    return 0o600 if scope == "local" else 0o644
+    return 0o600 if scope in {"local", "user"} else 0o644
 
 
 def _settings_label(scope: PluginScope) -> str:
-    return ".claude/settings.local.json" if scope == "local" else ".claude/settings.json"
+    if scope == "local":
+        return ".claude/settings.local.json"
+    if scope == "user":
+        return "~/.claude/settings.json"
+    return ".claude/settings.json"
 
 
 __all__ = [

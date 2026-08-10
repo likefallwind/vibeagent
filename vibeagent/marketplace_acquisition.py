@@ -37,19 +37,31 @@ def acquire_marketplace(
     *,
     source_kind: str | None = None,
     source_ref: str | None = None,
+    storage_root: Path | None = None,
 ) -> Iterator[AcquiredMarketplace]:
+    project = project_root.resolve()
+    store = (storage_root or project).resolve()
     kind, normalized_source, ref = _classify_source(source, source_kind, source_ref)
     if kind == "local":
-        path = resolve_mutation_path(project_root, normalized_source)
+        if store == project or not Path(normalized_source).is_absolute():
+            path = resolve_mutation_path(project, normalized_source)
+        else:
+            path = Path(normalized_source).resolve()
+            if not path.is_dir():
+                raise ValueError(f"Marketplace directory does not exist: {path}")
         yield AcquiredMarketplace(
             root=path,
-            source=path.relative_to(project_root.resolve()).as_posix(),
+            source=(
+                path.relative_to(project).as_posix()
+                if store == project
+                else path.as_posix()
+            ),
             source_kind=kind,
             source_ref=None,
         )
         return
 
-    fetch_root = plugins_root(project_root, create=True) / "fetches"
+    fetch_root = plugins_root(store, create=True) / "fetches"
     ensure_directory(fetch_root, create=True)
     temporary = fetch_root / f".marketplace-{uuid4().hex[:12]}"
     try:

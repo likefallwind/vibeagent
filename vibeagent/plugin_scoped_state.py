@@ -16,8 +16,8 @@ def plugin_entry_scopes(entry: object) -> dict[PluginScope, bool]:
         raise ValueError("Plugin state scopes field must be an object.")
     parsed: dict[PluginScope, bool] = {}
     for key, enabled in value.items():
-        if key not in {"local", "project"} or not isinstance(enabled, bool):
-            raise ValueError("Plugin state scopes must map local/project to booleans.")
+        if key not in {"local", "project", "user"} or not isinstance(enabled, bool):
+            raise ValueError("Plugin state scopes must map local/project/user to booleans.")
         parsed[cast(PluginScope, key)] = enabled
     return parsed
 

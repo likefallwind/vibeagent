@@ -93,8 +93,9 @@ class PluginScopeSettingsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "non-symlink"):
                 write_plugin_enabled_setting(root, "project", "review@team", True)
 
-        with self.assertRaisesRegex(ValueError, "local or project"):
-            validate_plugin_scope("user")
+        self.assertEqual(validate_plugin_scope("user"), "user")
+        with self.assertRaisesRegex(ValueError, "local, project, or user"):
+            validate_plugin_scope("machine")
 
 
 if __name__ == "__main__":

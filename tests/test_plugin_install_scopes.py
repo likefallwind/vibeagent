@@ -179,22 +179,27 @@ class PluginInstallScopeTests(unittest.TestCase):
                 ]
             )
 
-    def test_scope_commands_reject_missing_or_unknown_scope(self) -> None:
+    def test_scope_commands_require_matching_store_and_reject_unknown_scope(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-plugin-scopes-") as base:
             root = Path(base)
             write_demo_marketplace(root)
             add_marketplace(root, "catalog")
-            invalid = handle_plugin_command(
+            missing_user_marketplace = handle_plugin_command(
                 root,
                 "install demo-plugin@team-tools --scope user",
             )
-            self.assertIn("scope must be local or project", invalid.text)
+            self.assertIn("Marketplace is not installed", missing_user_marketplace.text)
+            invalid = handle_plugin_command(
+                root,
+                "install demo-plugin@team-tools --scope machine",
+            )
+            self.assertIn("local, project, or user", invalid.text)
 
             handle_plugin_command(root, "install demo-plugin@team-tools --scope project")
             missing = handle_plugin_command(root, "disable demo-plugin --scope local")
             self.assertIn("not installed at local scope", missing.text)
             ambiguous = handle_plugin_command(root, "disable demo-plugin")
-            self.assertIn("specify --scope local or project", ambiguous.text)
+            self.assertIn("specify --scope local, project, or user", ambiguous.text)
 
     def test_invalid_scope_state_is_reported_without_crashing_list(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-plugin-scopes-") as base:
@@ -210,8 +215,8 @@ class PluginInstallScopeTests(unittest.TestCase):
             plugins = list_installed_plugins(root)
 
             self.assertEqual(len(plugins), 1)
-            self.assertIn("scopes must map", plugins[0].error or "")
-            self.assertEqual(plugins[0].scopes, ())
+            self.assertIn("must use the user plugin store", plugins[0].error or "")
+            self.assertEqual(plugins[0].scopes, ("user",))
 
     @staticmethod
     def _settings(root: Path, name: str) -> dict[str, object]:

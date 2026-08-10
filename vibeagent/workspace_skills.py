@@ -8,6 +8,7 @@ from .plugin_runtime import (
     PluginComponentFile,
     enabled_plugin_component_files,
     expand_plugin_path_variables,
+    plugin_component_path_reference,
 )
 from .plugin_store import read_installed_plugin_manifest
 from .workspace_core import RunWorkspace
@@ -136,7 +137,7 @@ def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]
 
     for component in enabled_plugin_component_files(workspace, "skill"):
         path = component.path
-        relative_path = path.relative_to(workspace.root).as_posix()
+        relative_path = plugin_component_path_reference(workspace.root, path)
         try:
             content = _read_skill_bytes(path).decode("utf-8")
             frontmatter = _skill_frontmatter(content)

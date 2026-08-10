@@ -5,6 +5,11 @@ from typing import Any
 from uuid import uuid4
 
 from .plugin_installation import copy_plugin_tree, remove_plugin_tree
+from .plugin_locations import (
+    plugin_storage_root,
+    resolve_plugin_storage_root as _resolve_plugin_storage_root,
+    user_home,
+)
 from .plugin_manifest import read_plugin_manifest
 from .plugin_scope_settings import (
     PluginScope,
@@ -38,7 +43,11 @@ def install_local_plugin(
     scope: PluginScope | None = None,
 ) -> InstalledPlugin:
     source = resolve_mutation_path(project_root, source_path)
-    source_label = source.relative_to(project_root.resolve()).as_posix()
+    source_label = (
+        source.as_posix()
+        if scope == "user"
+        else source.relative_to(project_root.resolve()).as_posix()
+    )
     return _install_plugin_directory(
         project_root,
         source,
@@ -56,9 +65,11 @@ def _install_plugin_directory(
     resolved_version: str | None = None,
     expected_plugin: tuple[str, str | None, str | None] | None = None,
     scope: PluginScope | None = None,
+    storage_root: Path | None = None,
 ) -> InstalledPlugin:
     manifest = read_plugin_manifest(source)
-    root = _plugins_root(project_root, create=True)
+    store = (storage_root or plugin_storage_root(project_root, scope)).resolve()
+    root = _plugins_root(store, create=True)
     cache_root = root / "cache"
     _ensure_directory(cache_root, create=True)
     destination = cache_root / manifest.name
@@ -70,12 +81,13 @@ def _install_plugin_directory(
 
     with _STORE_LOCK:
         settings_snapshot = None
-        state = _read_state(project_root)
+        state = _read_state(store)
         existing_plugins = state.get("plugins", {})
         existing_entry = existing_plugins.get(manifest.name) if isinstance(existing_plugins, dict) else None
         try:
             _verify_expected_plugin(existing_entry, expected_plugin)
             existing_scopes = _entry_scopes(existing_entry)
+            _validate_scope_storage(store, existing_scopes)
             existing_marketplace = (
                 str(existing_entry["marketplace"])
                 if isinstance(existing_entry, dict) and existing_entry.get("marketplace")
@@ -129,7 +141,7 @@ def _install_plugin_directory(
                 "version": resolved_version or installed_manifest.version,
                 "enabled": enabled,
                 "source": source_label,
-                "cache_path": destination.relative_to(project_root.resolve()).as_posix(),
+                "cache_path": destination.relative_to(store).as_posix(),
                 "installed_at": _timestamp(),
                 "component_count": installed_manifest.component_count,
                 "marketplace": marketplace,
@@ -146,7 +158,7 @@ def _install_plugin_directory(
                     _plugin_id(installed_manifest.name, marketplace),
                     enabled,
                 )
-            _write_state(project_root, state)
+            _write_state(store, state)
         except Exception:
             if destination.exists() and not backup.exists():
                 remove_plugin_tree(destination)
@@ -171,15 +183,26 @@ def update_installed_plugin(
     *,
     scope: PluginScope | None = None,
 ) -> PluginUpdateResult:
-    current = read_installed_plugin(project_root, name)
+    store = _resolve_plugin_storage_root(project_root, name, scope)
+    current = _read_installed_plugin_from_store(project_root, store, name)
     if scope is not None and scope not in current.scopes:
         raise ValueError(f"Plugin {name} is not installed at {scope} scope.")
     if current.marketplace is not None:
         from .marketplace_store import update_marketplace, update_marketplace_plugin
 
-        update_marketplace(project_root, current.marketplace)
-        return update_marketplace_plugin(project_root, name, current=current)
-    source = resolve_mutation_path(project_root, current.source)
+        marketplace_scope: PluginScope | None = "user" if store == user_home() else None
+        update_marketplace(project_root, current.marketplace, scope=marketplace_scope)
+        return update_marketplace_plugin(
+            project_root,
+            name,
+            current=current,
+            scope=marketplace_scope,
+        )
+    source = (
+        Path(current.source).resolve()
+        if store == user_home()
+        else resolve_mutation_path(project_root, current.source)
+    )
     manifest = read_plugin_manifest(source)
     if manifest.name != name:
         raise ValueError(
@@ -192,6 +215,7 @@ def update_installed_plugin(
         source,
         source_label=current.source,
         expected_plugin=(current.source, None, current.version),
+        storage_root=store,
     )
     return PluginUpdateResult(updated, updated=True, previous_version=current.version)
 
@@ -205,13 +229,15 @@ def set_plugin_enabled(
 ) -> InstalledPlugin:
     _validate_name(name)
     with _STORE_LOCK:
-        state = _read_state(project_root)
+        store = _resolve_plugin_storage_root(project_root, name, scope)
+        state = _read_state(store)
         entry = _plugin_entry(state, name)
+        _validate_scope_storage(store, _entry_scopes(entry))
         snapshot = None
         if scope is None:
             if _entry_scopes(entry):
                 raise ValueError(
-                    f"Plugin {name} has scoped declarations; specify --scope local or project."
+                    f"Plugin {name} has scoped declarations; specify --scope local, project, or user."
                 )
             entry["enabled"] = enabled
         else:
@@ -227,7 +253,7 @@ def set_plugin_enabled(
                 enabled,
             )
         try:
-            _write_state(project_root, state)
+            _write_state(store, state)
         except Exception:
             if snapshot is not None:
                 restore_plugin_settings(snapshot)
@@ -243,10 +269,12 @@ def uninstall_plugin(
 ) -> InstalledPlugin:
     _validate_name(name)
     with _STORE_LOCK:
-        state = _read_state(project_root)
+        store = _resolve_plugin_storage_root(project_root, name, scope)
+        state = _read_state(store)
         entry = _plugin_entry(state, name)
+        _validate_scope_storage(store, _entry_scopes(entry))
         installed = _effective_installed_plugin(project_root, _installed_plugin(entry))
-        cache_path = _safe_cache_path(project_root, str(entry.get("cache_path") or ""), name)
+        cache_path = _safe_cache_path(store, str(entry.get("cache_path") or ""), name)
         trash_path = cache_path.parent / f".{name}.uninstall-{uuid4().hex[:8]}"
         plugins = state["plugins"]
         assert isinstance(plugins, dict)
@@ -268,12 +296,12 @@ def uninstall_plugin(
                 scopes.pop(selected_scope, None)
             if scope is not None and scopes:
                 entry["scopes"] = scopes
-                _write_state(project_root, state)
+                _write_state(store, state)
                 return _effective_installed_plugin(project_root, _installed_plugin(entry))
             if cache_path.exists():
                 cache_path.replace(trash_path)
             del plugins[name]
-            _write_state(project_root, state)
+            _write_state(store, state)
         except Exception:
             if trash_path.exists():
                 trash_path.replace(cache_path)
@@ -286,8 +314,20 @@ def uninstall_plugin(
 
 
 def list_installed_plugins(project_root: Path) -> list[InstalledPlugin]:
+    project = project_root.resolve()
+    project_plugins = _list_installed_plugins_from_store(project, project)
+    user_plugins = _list_installed_plugins_from_store(project, user_home())
+    merged = {plugin.name: plugin for plugin in user_plugins}
+    merged.update({plugin.name: plugin for plugin in project_plugins})
+    return sorted(merged.values(), key=lambda plugin: plugin.name)
+
+
+def _list_installed_plugins_from_store(
+    project_root: Path,
+    store: Path,
+) -> list[InstalledPlugin]:
     with _STORE_LOCK:
-        state = _read_state(project_root)
+        state = _read_state(store)
     plugins = state.get("plugins", {})
     if not isinstance(plugins, dict):
         return []
@@ -296,11 +336,12 @@ def list_installed_plugins(project_root: Path) -> list[InstalledPlugin]:
         if not isinstance(name, str) or not isinstance(value, dict):
             continue
         try:
+            _validate_scope_storage(store, _entry_scopes(value))
             item = _installed_plugin(value)
             _validate_name(item.name)
             if item.marketplace is not None:
                 _validate_name(item.marketplace, label="Marketplace")
-            path = _safe_cache_path(project_root, item.cache_path, item.name)
+            path = _safe_cache_path(store, item.cache_path, item.name)
             manifest = read_plugin_manifest(path)
             if manifest.name != item.name:
                 raise ValueError("cached manifest name does not match installed state")
@@ -323,25 +364,51 @@ def list_installed_plugins(project_root: Path) -> list[InstalledPlugin]:
     return sorted(installed, key=lambda plugin: plugin.name)
 
 
-def read_installed_plugin(project_root: Path, name: str) -> InstalledPlugin:
+def read_installed_plugin(
+    project_root: Path,
+    name: str,
+    *,
+    scope: PluginScope | None = None,
+) -> InstalledPlugin:
+    store = _resolve_plugin_storage_root(project_root, name, scope)
+    return _read_installed_plugin_from_store(project_root, store, name)
+
+
+def _read_installed_plugin_from_store(
+    project_root: Path,
+    store: Path,
+    name: str,
+) -> InstalledPlugin:
     _validate_name(name)
     with _STORE_LOCK:
-        state = _read_state(project_root)
+        state = _read_state(store)
         entry = dict(_plugin_entry(state, name))
+        _validate_scope_storage(store, _entry_scopes(entry))
         installed = _installed_plugin(entry)
-        path = _safe_cache_path(project_root, installed.cache_path, name)
+        path = _safe_cache_path(store, installed.cache_path, name)
     manifest = read_plugin_manifest(path)
     if manifest.name != name:
         raise ValueError(f"Cached plugin manifest name mismatch: {name}")
     return _effective_installed_plugin(project_root, installed)
 
 
-def read_installed_plugin_manifest(project_root: Path, name: str) -> PluginManifest:
+def read_installed_plugin_manifest(
+    project_root: Path,
+    name: str,
+    *,
+    scope: PluginScope | None = None,
+) -> PluginManifest:
+    store = _resolve_plugin_storage_root(project_root, name, scope)
+    return _read_installed_plugin_manifest_from_store(store, name)
+
+
+def _read_installed_plugin_manifest_from_store(store: Path, name: str) -> PluginManifest:
     _validate_name(name)
     with _STORE_LOCK:
-        state = _read_state(project_root)
+        state = _read_state(store)
         entry = _plugin_entry(state, name)
-        path = _safe_cache_path(project_root, str(entry.get("cache_path") or ""), name)
+        _validate_scope_storage(store, _entry_scopes(entry))
+        path = _safe_cache_path(store, str(entry.get("cache_path") or ""), name)
     manifest = read_plugin_manifest(path)
     if manifest.name != name:
         raise ValueError(f"Cached plugin manifest name mismatch: {name}")
@@ -354,7 +421,8 @@ def enabled_plugin_manifests(project_root: Path) -> list[PluginManifest]:
         if not plugin.enabled or plugin.error is not None:
             continue
         try:
-            manifests.append(read_installed_plugin_manifest(project_root, plugin.name))
+            store = _resolve_plugin_storage_root(project_root, plugin.name, None)
+            manifests.append(_read_installed_plugin_manifest_from_store(store, plugin.name))
         except (OSError, UnicodeError, ValueError):
             continue
     return manifests
@@ -368,6 +436,17 @@ def _plugin_entry(state: dict[str, Any], name: str) -> dict[str, Any]:
     if entry.get("name") != name:
         raise ValueError(f"Plugin state identity mismatch: {name}")
     return entry
+
+
+def _validate_scope_storage(
+    store: Path,
+    scopes: dict[PluginScope, bool],
+) -> None:
+    is_user_store = store.resolve() == user_home()
+    if is_user_store and any(scope != "user" for scope in scopes):
+        raise ValueError("User plugin store may only contain user scope declarations.")
+    if not is_user_store and "user" in scopes:
+        raise ValueError("User scope declarations must use the user plugin store.")
 
 
 def _installed_plugin(entry: dict[str, Any]) -> InstalledPlugin:

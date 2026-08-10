@@ -21,6 +21,7 @@ from .plugin_store import (
 )
 from .plugin_types import InstalledPlugin, MarketplaceManifest, PluginManifest
 from .plugin_user_config import (
+    installed_plugin_id,
     require_plugin_user_config,
     resolve_plugin_user_config,
     serialize_plugin_option,
@@ -31,9 +32,9 @@ from .workspace_resolve import resolve_mutation_path
 
 
 PLUGIN_USAGE = (
-    "Usage: /plugin [list|details <name>|install <project-path|name@marketplace> [--scope local|project]|"
-    "enable <name> [--scope local|project]|disable <name> [--scope local|project]|"
-    "update <name> [--scope local|project]|uninstall <name> [--scope local|project]|validate <project-path>|"
+    "Usage: /plugin [list|details <name>|install <project-path|name@marketplace> [--scope local|project|user]|"
+    "enable <name> [--scope local|project|user]|disable <name> [--scope local|project|user]|"
+    "update <name> [--scope local|project|user]|uninstall <name> [--scope local|project|user]|validate <project-path>|"
     "config <operation>|marketplace <operation>]"
 )
 
@@ -68,8 +69,20 @@ def handle_plugin_command(project_root: Path, argument: str | None) -> PluginCom
                 else install_local_plugin(project_root, value, scope=scope)
             )
             source_suffix = f" from {plugin.marketplace}" if plugin.marketplace else ""
-            manifest = read_installed_plugin_manifest(project_root, plugin.name)
-            config = resolve_plugin_user_config(project_root, manifest)
+            manifest = read_installed_plugin_manifest(
+                project_root,
+                plugin.name,
+                scope=scope,
+            )
+            config = resolve_plugin_user_config(
+                project_root,
+                manifest,
+                plugin_id=(
+                    f"{plugin.name}@{plugin.marketplace}"
+                    if plugin.marketplace
+                    else plugin.name
+                ),
+            )
             configuration_suffix = (
                 f" Required configuration: {', '.join(config.missing_required)}; "
                 f"use /plugin config {plugin.name}."
@@ -84,8 +97,14 @@ def handle_plugin_command(project_root: Path, argument: str | None) -> PluginCom
                 changed=True,
             )
         if operation == "enable":
-            manifest = read_installed_plugin_manifest(project_root, value)
-            require_plugin_user_config(resolve_plugin_user_config(project_root, manifest))
+            manifest = read_installed_plugin_manifest(project_root, value, scope=scope)
+            require_plugin_user_config(
+                resolve_plugin_user_config(
+                    project_root,
+                    manifest,
+                    plugin_id=installed_plugin_id(project_root, value, scope=scope),
+                )
+            )
             plugin = set_plugin_enabled(project_root, value, True, scope=scope)
             suffix = f" at {scope} scope" if scope is not None else ""
             return PluginCommandResult(f"Enabled plugin {plugin.name}{suffix}.", changed=True)
@@ -233,37 +252,73 @@ def _handle_plugin_config_command(
     project_root: Path,
     parts: list[str],
 ) -> PluginCommandResult:
+    parts, scope = _extract_config_scope(parts)
     if len(parts) == 1:
-        manifest = read_installed_plugin_manifest(project_root, parts[0])
-        return PluginCommandResult(_format_plugin_user_config(project_root, manifest))
+        manifest = read_installed_plugin_manifest(project_root, parts[0], scope=scope)
+        return PluginCommandResult(
+            _format_plugin_user_config(project_root, manifest, scope=scope)
+        )
     if len(parts) == 4 and parts[0] == "set":
         _operation, plugin_name, key, encoded = parts
         try:
             value = json.loads(encoded)
         except json.JSONDecodeError:
             value = encoded
-        config = set_plugin_user_config_value(project_root, plugin_name, key, value)
+        config = set_plugin_user_config_value(
+            project_root,
+            plugin_name,
+            key,
+            value,
+            scope=scope,
+        )
         option = next(item for item in config.options if item.key == key)
-        storage = "protected credentials" if option.sensitive else ".claude/settings.local.json"
+        if option.sensitive:
+            storage = "user protected credentials" if scope == "user" else "protected credentials"
+        elif scope == "user":
+            storage = "~/.claude/settings.json"
+        elif scope == "project":
+            storage = ".claude/settings.json"
+        else:
+            storage = ".claude/settings.local.json"
         return PluginCommandResult(
             f"Configured plugin {plugin_name} option {key} in {storage}.",
             changed=True,
         )
     if len(parts) == 3 and parts[0] == "unset":
         _operation, plugin_name, key = parts
-        unset_plugin_user_config_value(project_root, plugin_name, key)
+        unset_plugin_user_config_value(
+            project_root,
+            plugin_name,
+            key,
+            scope=scope,
+        )
         return PluginCommandResult(
             f"Cleared local plugin {plugin_name} option {key}.",
             changed=True,
         )
     return PluginCommandResult(
         "Usage: /plugin config <name> | /plugin config set <name> <key> <json-value> | "
-        "/plugin config unset <name> <key>"
+        "/plugin config unset <name> <key> [--scope local|project|user]"
     )
 
 
-def _format_plugin_user_config(project_root: Path, manifest: PluginManifest) -> str:
-    config = resolve_plugin_user_config(project_root, manifest)
+def _extract_config_scope(parts: list[str]) -> tuple[list[str], PluginScope | None]:
+    if len(parts) >= 2 and parts[-2] in {"--scope", "-s"}:
+        return parts[:-2], validate_plugin_scope(parts[-1])
+    return parts, None
+
+
+def _format_plugin_user_config(
+    project_root: Path,
+    manifest: PluginManifest,
+    *,
+    scope: PluginScope | None = None,
+) -> str:
+    config = resolve_plugin_user_config(
+        project_root,
+        manifest,
+        plugin_id=installed_plugin_id(project_root, manifest.name, scope=scope),
+    )
     lines = [
         f"Plugin configuration {manifest.name}",
         f"  plugin id: {config.plugin_id}",

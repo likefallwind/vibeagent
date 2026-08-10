@@ -110,7 +110,7 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
         for component in enabled_plugin_component_files(workspace, "hook"):
             source = f"{component.source}:{component.relative_path}"
             sources.append(source)
-            payload = _read_hook_config(workspace.root, component.path)
+            payload = _read_hook_config(component.plugin_root, component.path)
             _append_plugin_hooks(hooks, workspace, component, payload, source)
             if len(hooks) > MAX_HOOKS:
                 raise ValueError(f"Project and plugin hooks exceed {MAX_HOOKS} command hooks.")

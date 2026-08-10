@@ -7,6 +7,7 @@ from .plugin_runtime import (
     PluginComponentFile,
     enabled_plugin_component_files,
     expand_plugin_path_variables,
+    plugin_component_path_reference,
 )
 from .plugin_store import read_installed_plugin_manifest
 from .workspace_agent_profile_parser import AGENT_NAME_PATTERN, AGENT_REFERENCE_PATTERN, parse_agent_content
@@ -139,8 +140,8 @@ def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]
 
     for component in enabled_plugin_component_files(workspace, "agent"):
         path = component.path
-        relative_path = path.relative_to(workspace.root).as_posix()
-        available, metadata, message = _inspect_agent_file(workspace.root, path)
+        relative_path = plugin_component_path_reference(workspace.root, path)
+        available, metadata, message = _inspect_agent_file(component.plugin_root, path)
         declared_name = str(metadata.get("name") or path.stem)
         skills = metadata.get("skills", [])
         namespaced_skills = [

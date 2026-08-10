@@ -1095,8 +1095,10 @@ Install a project directory directly or register a local/remote marketplace:
 /plugin validate extensions/team-tools
 /plugin install extensions/team-tools
 /plugin marketplace add extensions/team-marketplace
+/plugin marketplace add extensions/team-marketplace --scope user
 /plugin install review-tools@team-marketplace
 /plugin install review-tools@team-marketplace --scope project
+/plugin install review-tools@team-marketplace --scope user
 /plugin disable review-tools --scope local
 /plugin update review-tools
 /plugin marketplace update
@@ -1115,13 +1117,19 @@ Installation rejects path escapes, symbolic links, non-regular files, more than
 gitignored `.vibeagent/plugins/cache/` store. Reinstall preserves the current
 enabled state; disable removes every component from discovery without deleting
 the cache; uninstall rolls state and cache removal back together on failure.
-Explicit `--scope project` and `--scope local` installations write qualified
-plugin IDs to `.claude/settings.json` and `.claude/settings.local.json`
-respectively. Local declarations override project declarations. One cached
-plugin may belong to both scopes, and uninstalling one scope retains the cache
-until the last declaration is removed. Settings, state, and cache mutations
-share one rollback transaction. Commands without `--scope` retain the original
-project-local VibeAgent store behavior for compatibility.
+Explicit `--scope user`, `--scope project`, and `--scope local` installations
+write qualified plugin IDs to `~/.claude/settings.json`,
+`.claude/settings.json`, and `.claude/settings.local.json` respectively. Local
+declarations override project declarations, which override user declarations.
+User plugins and marketplaces use the independent `~/.vibeagent/plugins/`
+store and are discovered from every project; a project cache with the same
+plugin or marketplace name takes precedence. One project cache may belong to
+both project and local scopes, and uninstalling one scope retains that cache
+until its last declaration is removed. User settings, state, and cache
+mutations use the same rollback transaction. Commands without `--scope` retain
+the original project-local installation behavior for compatibility.
+`VIBEAGENT_USER_HOME` can redirect both user stores for isolated development
+and tests.
 Plugin skills, commands, and agents use `plugin-name:component` names, while MCP
 and LSP servers use `plugin-name.server`. `${CLAUDE_PLUGIN_ROOT}` and
 `${CLAUDE_PROJECT_DIR}` are expanded in skill and agent text, command templates,
@@ -1149,11 +1157,13 @@ terminated on every agent-run exit, while plugin data persists under
 already-started monitors retain their current-run lifecycle. `${user_config.*}`
 values declared by a manifest `userConfig` schema are available to monitors and
 other plugin components. Shared values are read from
-`pluginConfigs[plugin-id].options` in `.claude/settings.json` and
-`.claude/settings.local.json`; local values win over project values, and
-`CLAUDE_PLUGIN_OPTION_<KEY>` wins over both. `/plugin config set` writes shared
-values to the local settings file and sensitive values to the mode-`0600`
-protected `.vibeagent/plugins/user-config-credentials.json` store. Sensitive
+`pluginConfigs[plugin-id].options` in `~/.claude/settings.json`,
+`.claude/settings.json`, and `.claude/settings.local.json`; local values win
+over project and user values, and `CLAUDE_PLUGIN_OPTION_<KEY>` wins over all
+settings. `/plugin config set ... --scope user` writes shared values to the
+user settings file and sensitive values to the mode-`0600` protected
+`~/.vibeagent/plugins/user-config-credentials.json` store. Without a scope,
+shared values and credentials retain their project-local behavior. Sensitive
 values are redacted from `/plugin config`, rejected in model-visible skill,
 agent, and command content, and delivered to hook, MCP, LSP, and monitor
 subprocesses through environment variables. Missing required values keep a new
@@ -1172,7 +1182,7 @@ settings customize rows in the interactive terminal subagent panel. VibeAgent
 sends the current task snapshot as JSON on stdin and accepts one
 `{"id": ..., "content": ...}` JSON object per output line; the default panel
 remains available when customization is absent, denied, or fails.
-Project-local marketplaces use `.claude-plugin/marketplace.json`,
+Project and user marketplaces use `.claude-plugin/marketplace.json`,
 cache a non-symlink snapshot without Git/runtime metadata, verify each relative
 plugin source and manifest identity, support add/list/details/update/remove, and
 atomically uninstall marketplace-owned plugins when the catalog is removed.
@@ -1214,8 +1224,6 @@ language-server diagnostics back to the model after successful file edits.
 Language-server binaries remain separately installed dependencies. Socket
 transport is rejected explicitly; when no enabled plugin claims a file,
 `LSP` retains the built-in lexical code-intelligence fallback.
-User-global installation scope and cache discovery are not yet implemented;
-`--scope user` is rejected rather than silently treated as project-local.
 On Linux and macOS, interactive and one-shot CLI sessions register a user-only
 Unix socket under `/tmp/vibeagent-<uid>/peers`. `ListAgents` combines current
 session subagents with other live local sessions, and `SendMessage` sends plain

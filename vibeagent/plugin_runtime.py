@@ -77,6 +77,14 @@ def enabled_plugin_component_files(
     return sorted(components, key=lambda item: (item.plugin, item.relative_path))
 
 
+def plugin_component_path_reference(project_root: Path, path: Path) -> str:
+    selected = path.resolve()
+    try:
+        return selected.relative_to(project_root.resolve()).as_posix()
+    except ValueError:
+        return selected.as_posix()
+
+
 def expand_plugin_path_variables(
     value: str,
     component: PluginComponentFile,
@@ -138,6 +146,7 @@ __all__ = [
     "enabled_plugin_component_files",
     "expand_plugin_path_variables",
     "inline_plugin_component",
+    "plugin_component_path_reference",
     "plugin_subprocess_environment",
     "resolve_plugin_component_user_config",
     "plugin_component_for_path",

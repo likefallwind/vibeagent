@@ -143,6 +143,7 @@ class InstalledMarketplace:
     source_ref: str | None = None
     auto_update: bool = False
     error: str | None = None
+    scope: str = "project"
 
 
 @dataclass(frozen=True)

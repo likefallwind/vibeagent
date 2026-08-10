@@ -290,7 +290,7 @@ def _parse_stdio_server_config(
         name=name,
         command=command.strip(),
         args=list(args),
-        cwd=resolved_cwd.relative_to(workspace.root).as_posix() or ".",
+        cwd=_mcp_cwd_reference(workspace, resolved_cwd),
         env=dict(env),
         config_path=config_path,
         transport="stdio",
@@ -416,3 +416,11 @@ def _config_path_label(workspace: RunWorkspace, path: Path) -> str:
         return path.resolve().relative_to(workspace.root).as_posix()
     except ValueError:
         return path.resolve().as_posix()
+
+
+def _mcp_cwd_reference(workspace: RunWorkspace, path: Path) -> str:
+    selected = path.resolve()
+    try:
+        return selected.relative_to(workspace.root).as_posix() or "."
+    except ValueError:
+        return selected.as_posix()

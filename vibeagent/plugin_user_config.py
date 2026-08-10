@@ -7,7 +7,8 @@ from pathlib import Path
 import re
 from typing import Literal
 
-from .plugin_store import list_installed_plugins, read_installed_plugin_manifest
+from .plugin_scope_settings import PluginScope
+from .plugin_store import read_installed_plugin, read_installed_plugin_manifest
 from .plugin_types import PluginManifest, PluginUserConfigOption
 from .plugin_user_config_schema import validate_plugin_user_config_value
 from .plugin_user_config_store import (
@@ -132,12 +133,14 @@ def set_plugin_user_config_value(
     plugin_name: str,
     key: str,
     value: object,
+    *,
+    scope: PluginScope | None = None,
 ) -> ResolvedPluginUserConfig:
     root = project_root.resolve()
-    manifest = read_installed_plugin_manifest(root, plugin_name)
+    manifest = read_installed_plugin_manifest(root, plugin_name, scope=scope)
     option = _option(manifest, key)
     selected = validate_plugin_user_config_value(option, value)
-    plugin_id = installed_plugin_id(root, manifest.name)
+    plugin_id = installed_plugin_id(root, manifest.name, scope=scope)
     if option.sensitive:
         # Refuse before writing when a shared settings file already exposes this secret.
         resolve_plugin_user_config(root, manifest, plugin_id=plugin_id)
@@ -147,30 +150,33 @@ def set_plugin_user_config_value(
         key,
         selected,
         sensitive=option.sensitive,
+        scope=scope,
     )
-    return resolve_plugin_user_config(root, manifest)
+    return resolve_plugin_user_config(root, manifest, plugin_id=plugin_id)
 
 
 def unset_plugin_user_config_value(
     project_root: Path,
     plugin_name: str,
     key: str,
+    *,
+    scope: PluginScope | None = None,
 ) -> ResolvedPluginUserConfig:
     root = project_root.resolve()
-    manifest = read_installed_plugin_manifest(root, plugin_name)
+    manifest = read_installed_plugin_manifest(root, plugin_name, scope=scope)
     _option(manifest, key)
-    plugin_id = installed_plugin_id(root, manifest.name)
-    unset_plugin_configured_value(root, plugin_id, key)
-    return resolve_plugin_user_config(root, manifest)
+    plugin_id = installed_plugin_id(root, manifest.name, scope=scope)
+    unset_plugin_configured_value(root, plugin_id, key, scope=scope)
+    return resolve_plugin_user_config(root, manifest, plugin_id=plugin_id)
 
 
-def installed_plugin_id(project_root: Path, plugin_name: str) -> str:
-    installed = next(
-        (plugin for plugin in list_installed_plugins(project_root) if plugin.name == plugin_name),
-        None,
-    )
-    if installed is None:
-        raise ValueError(f"Plugin is not installed: {plugin_name}")
+def installed_plugin_id(
+    project_root: Path,
+    plugin_name: str,
+    *,
+    scope: PluginScope | None = None,
+) -> str:
+    installed = read_installed_plugin(project_root, plugin_name, scope=scope)
     return (
         f"{installed.name}@{installed.marketplace}"
         if installed.marketplace is not None
