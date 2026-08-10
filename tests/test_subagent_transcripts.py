@@ -1,3 +1,4 @@
+from dataclasses import replace
 import tempfile
 import unittest
 from pathlib import Path
@@ -35,6 +36,11 @@ class SubagentTranscriptTests(unittest.TestCase):
         for payload in ({"to": "../escape", "message": "x"}, {"to": "delegate-1", "message": ""}):
             with self.subTest(payload=payload), self.assertRaises(ActionParseError):
                 parse_tool_action("SendMessage", payload)
+
+        output = parse_tool_action("TaskOutput", {"task_id": "delegate-1-1"})
+        stop = parse_tool_action("TaskStop", {"task_id": "delegate-1-1"})
+        self.assertEqual(output.task_id, "delegate-1-1")
+        self.assertEqual(stop.task_id, "delegate-1-1")
 
     def test_completed_subagent_resumes_with_same_id_and_full_history(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-subagent-transcript-") as base:
@@ -98,6 +104,22 @@ class SubagentTranscriptTests(unittest.TestCase):
             self.assertNotIn("super-secret-value", str(transcript.messages))
             with self.assertRaises(SubagentTranscriptError):
                 resume_subagent_transcript(workspace, transcript, transcript.messages)
+
+    def test_transcript_accepts_profile_resolved_max_turns(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-subagent-transcript-") as base:
+            workspace = create_run_workspace(Path(base), run_id="profile-max-turns")
+            action = parse_tool_action("delegate_task", {"task": "Inspect"})
+            resolved = replace(action, max_iterations=50)
+            create_subagent_transcript(
+                workspace,
+                "delegate-1-1",
+                resolved,
+                [ChatMessage(role="system", content="system")],
+            )
+
+            transcript = read_subagent_transcript(workspace, "delegate-1-1")
+
+        self.assertEqual(transcript.action.max_iterations, 50)
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from .redaction import redact_jsonable_payload
 from .types import ChatMessage, DelegateTaskAction, DelegateTaskObservation
+from .workspace_agent_profile_parser import MAX_AGENT_TURNS
 from .workspace_core import RunWorkspace
 
 
@@ -187,7 +188,7 @@ def _parse_action(value: dict[str, object]) -> DelegateTaskAction:
         or context is not None and not isinstance(context, str)
         or isinstance(max_iterations, bool)
         or not isinstance(max_iterations, int)
-        or not 1 <= max_iterations <= 8
+        or not 1 <= max_iterations <= MAX_AGENT_TURNS
         or mode not in {"explore", "code"}
         or agent is not None and not isinstance(agent, str)
         or not isinstance(background, bool)

@@ -13,6 +13,7 @@ from .agent_delegate_context import (
     compact_delegate_message_history,
 )
 from .agent_delegate_hooks import DelegateLifecycleHooks
+from .agent_delegate_inbox import DelegateInbox
 from .agent_delegate_loop import DelegateLoopContext, run_delegate_iterations
 from .agent_delegate_profile import DelegateProfileRuntime, load_delegate_profile_runtime
 from .agent_delegate_tools import (
@@ -67,6 +68,7 @@ def execute_delegate_task_action(
     cancel_requested: Callable[[], bool] | None = None,
     resume_transcript: SubagentTranscript | None = None,
     followup_message: str | None = None,
+    inbound_messages: Callable[[bool], list[str]] | None = None,
 ) -> DelegateTaskObservation:
     profile = load_delegate_profile_runtime(workspace, action)
     delegate_workspace = profile.workspace or workspace
@@ -136,6 +138,20 @@ def execute_delegate_task_action(
         if action.mode == "code"
         else set()
     )
+    transcript_checkpoint = lambda current: checkpoint_subagent_transcript(
+        delegate_workspace, subagent_id, action, current
+    )
+    inbox = (
+        DelegateInbox(
+            workspace=delegate_workspace,
+            subagent_id=subagent_id,
+            parent_iteration=parent_iteration,
+            receive=inbound_messages,
+            checkpoint=transcript_checkpoint,
+        )
+        if inbound_messages is not None
+        else None
+    )
     result = run_delegate_iterations(
         DelegateLoopContext(
             workspace=delegate_workspace,
@@ -163,9 +179,8 @@ def execute_delegate_task_action(
             hooks=hooks,
             permissions=permissions,
             cancel_requested=cancel_requested,
-            transcript_checkpoint=lambda current: checkpoint_subagent_transcript(
-                delegate_workspace, subagent_id, action, current
-            ),
+            transcript_checkpoint=transcript_checkpoint,
+            inbox=inbox,
         )
     )
     complete_subagent_transcript(delegate_workspace, subagent_id, action, messages, result)
@@ -179,8 +194,6 @@ def _delegate_policy_error(
 ) -> str | None:
     if profile_error is not None:
         return f"Project agent profile could not be loaded: {profile_error}"
-    if action.run_in_background and action.mode != "explore":
-        return "Background task delegation only supports explore mode, including project agent profiles."
     if action.mode == "code" and approval_policy == "plan":
         return "Code delegation is unavailable while Plan mode is active."
     return None

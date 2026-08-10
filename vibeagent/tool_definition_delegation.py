@@ -93,7 +93,7 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "task_id": {"type": "string", "pattern": "^task-[a-f0-9]{12}$"},
+                "task_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
                 "block": {"type": "boolean"},
                 "timeout_ms": {"type": "integer", "minimum": 0, "maximum": 600000},
             },
@@ -107,7 +107,7 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "task_id": {"type": "string", "pattern": "^task-[a-f0-9]{12}$"},
+                "task_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
             },
             "required": ["task_id"],
             "additionalProperties": False,

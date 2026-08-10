@@ -5,12 +5,14 @@ from dataclasses import dataclass
 
 from .agent_delegate_completion import clip_delegate_summary, delegate_completion_message, finish_delegate_task
 from .agent_delegate_context import compact_delegate_message_history, recover_delegate_context_limit
+from .agent_delegate_events import record_delegate_model_response, record_delegate_tool_call
 from .agent_delegate_hooks import DelegateLifecycleHooks
+from .agent_delegate_inbox import DelegateInbox
 from .agent_delegate_tools import delegate_tool_definitions, execute_delegate_tool_call
 from .agent_execution_support import execute_action_safely
 from .agent_lifecycle_hooks import run_instruction_loaded_hooks
 from .agent_model import complete_with_retries
-from .agent_runtime_utils import append_session_event, content_blocks_to_text, normalize_assistant_content, to_jsonable
+from .agent_runtime_utils import content_blocks_to_text, normalize_assistant_content
 from .agent_tool_results import record_subagent_tool_observation
 from .types import (
     AgentLogger,
@@ -58,6 +60,7 @@ class DelegateLoopContext:
     permissions: ProjectPermissions
     cancel_requested: Callable[[], bool] | None
     transcript_checkpoint: Callable[[list[ChatMessage]], None] | None = None
+    inbox: DelegateInbox | None = None
 
 
 def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObservation:
@@ -65,6 +68,8 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
     auto_checkpoint_attempted = False
 
     for child_iteration in range(1, context.action.max_iterations + 1):
+        if context.inbox is not None:
+            context.inbox.append_to(context.messages)
         if _cancellation_requested(context):
             return _finish_cancelled(context, child_iteration - 1, tool_calls_used)
 
@@ -102,6 +107,8 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
             ),
         )
         if response is None:
+            if context.inbox is not None:
+                context.inbox.close()
             return finish_delegate_task(
                 context.workspace,
                 context.action,
@@ -117,7 +124,14 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
             return _finish_cancelled(context, child_iteration, tool_calls_used)
 
         assistant_content = normalize_assistant_content(response.content if hasattr(response, "content") else response)
-        _record_delegate_model_response(context, child_iteration, assistant_content, getattr(response, "usage", None))
+        record_delegate_model_response(
+            context.workspace,
+            subagent_id=context.subagent_id,
+            parent_iteration=context.parent_iteration,
+            iteration=child_iteration,
+            content=assistant_content,
+            usage=getattr(response, "usage", None),
+        )
         context.messages.append(ChatMessage(role="assistant", content=assistant_content))
         _checkpoint(context)
 
@@ -138,6 +152,8 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                 )
                 _checkpoint(context)
                 continue
+            if context.inbox is not None and context.inbox.append_to(context.messages, final=True):
+                continue
             return _finish_text_response(context, child_iteration, tool_calls_used, assistant_content)
 
         tool_results: list[ContentBlock] = []
@@ -148,7 +164,15 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
             tool_name = str(block.get("name") or "")
             tool_input = block.get("input") or {}
             tool_calls_used.append(tool_name)
-            _record_delegate_tool_call(context, child_iteration, tool_id, tool_name, tool_input)
+            record_delegate_tool_call(
+                context.workspace,
+                subagent_id=context.subagent_id,
+                parent_iteration=context.parent_iteration,
+                iteration=child_iteration,
+                tool_id=tool_id,
+                tool_name=tool_name,
+                tool_input=tool_input,
+            )
             execution = execute_delegate_tool_call(
                 context.workspace,
                 mode=context.action.mode,
@@ -179,6 +203,24 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                         kind="tool_error",
                         tool=tool_name,
                         message=stop_feedback,
+                    )
+                    tool_results.append(
+                        record_subagent_tool_observation(
+                            context.workspace,
+                            subagent_id=context.subagent_id,
+                            parent_iteration=context.parent_iteration,
+                            iteration=child_iteration,
+                            tool_id=tool_id,
+                            tool_name=tool_name,
+                            observation=feedback_observation,
+                        )
+                    )
+                    break
+                if context.inbox is not None and context.inbox.append_to(context.messages, final=True):
+                    feedback_observation = ToolErrorObservation(
+                        kind="tool_error",
+                        tool=tool_name,
+                        message="Completion deferred because the parent agent sent follow-up direction.",
                     )
                     tool_results.append(
                         record_subagent_tool_observation(
@@ -239,6 +281,8 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
         )
         _checkpoint(context)
 
+    if context.inbox is not None:
+        context.inbox.close()
     return finish_delegate_task(
         context.workspace,
         context.action,
@@ -277,6 +321,8 @@ def _finish_cancelled(
     iterations: int,
     tool_calls_used: list[str],
 ) -> DelegateTaskObservation:
+    if context.inbox is not None:
+        context.inbox.close()
     return finish_delegate_task(
         context.workspace,
         context.action,
@@ -288,44 +334,6 @@ def _finish_cancelled(
         message="Background subagent task was cancelled.",
         logger=context.logger,
         cancelled=True,
-    )
-
-
-def _record_delegate_model_response(
-    context: DelegateLoopContext,
-    child_iteration: int,
-    assistant_content: list[ContentBlock],
-    usage: object | None,
-) -> None:
-    payload: dict[str, object] = {
-        "subagent_id": context.subagent_id,
-        "parent_iteration": context.parent_iteration,
-        "iteration": child_iteration,
-        "content": assistant_content,
-    }
-    if usage is not None:
-        payload["usage"] = to_jsonable(usage)
-    append_session_event(context.workspace.session_dir, "subagent_model", payload)
-
-
-def _record_delegate_tool_call(
-    context: DelegateLoopContext,
-    child_iteration: int,
-    tool_id: str,
-    tool_name: str,
-    tool_input: object,
-) -> None:
-    append_session_event(
-        context.workspace.session_dir,
-        "subagent_tool_call",
-        {
-            "subagent_id": context.subagent_id,
-            "parent_iteration": context.parent_iteration,
-            "iteration": child_iteration,
-            "id": tool_id,
-            "name": tool_name,
-            "input": tool_input,
-        },
     )
 
 

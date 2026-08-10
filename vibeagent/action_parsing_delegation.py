@@ -73,9 +73,6 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
     run_in_background = value.get("run_in_background", False)
     if not isinstance(run_in_background, bool):
         raise ActionParseError("delegate_task action run_in_background must be a boolean.", raw)
-    if run_in_background and mode != "explore":
-        raise ActionParseError("Background task delegation only supports explore mode.", raw)
-
     return DelegateTaskAction(
         type="delegate_task",
         task=task,
@@ -91,6 +88,7 @@ def parse_task_id(value: dict[str, Any], raw: str, action_type: str) -> str:
     task_id = value.get("task_id")
     if not isinstance(task_id, str) or not task_id.strip():
         raise ActionParseError(f"{action_type} action requires a non-empty task_id.", raw)
-    if len(task_id.strip()) > 128:
-        raise ActionParseError(f"{action_type} action task_id must contain at most 128 characters.", raw)
-    return task_id.strip()
+    task_id = task_id.strip()
+    if not AGENT_PROFILE_NAME_PATTERN.fullmatch(task_id):
+        raise ActionParseError(f"{action_type} action task_id must be a valid subagent ID.", raw)
+    return task_id

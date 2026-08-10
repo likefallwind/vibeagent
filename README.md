@@ -1136,8 +1136,9 @@ the relevant agent, with independent eight-continuation limits. A blocked
 subagent `finish` call receives a normal tool result before retrying, preserving
 the provider tool protocol. Subagent inputs include `agent_id`, `agent_type`,
 and, on stop, `stop_hook_active`, `last_assistant_message`, and
-`agent_transcript_path`; VibeAgent currently records parent and subagent events
-in the same session transcript.
+`agent_transcript_path`. Parent lifecycle events remain in the session event log,
+while resumable subagent message history is atomically stored under
+`.vibeagent/sessions/<session-id>/subagents/` with secret redaction.
 
 Every matching command hook requires approval under the current session policy
 and still passes command hard-block checks. Plan mode records and skips command
@@ -1148,10 +1149,10 @@ Claude-compatible JSON object on stdin, plus `VIBEAGENT_HOOK_EVENT` and
 `VIBEAGENT_HOOK_INPUT`; tool hooks also receive `VIBEAGENT_TOOL_NAME` and
 `VIBEAGENT_TOOL_TARGET`. Inputs use private temporary files inside the session
 directory and are deleted after execution. Results are recorded in the session
-timeline with bounded, redacted output. Background subagent hooks follow the
-same policy; because they cannot prompt interactively, ask-mode hook commands
-need a trusted matching project allow rule or are denied, while allow mode runs
-them through the normal command safety checks.
+timeline with bounded, redacted output. Background subagent hooks and tools
+follow the same policy. Ask-mode approval requests use the parent session
+approval handler and identify the subagent; allow and deny modes still pass
+through the normal permission and command safety checks.
 
 ## Command sandbox
 
@@ -1619,7 +1620,7 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   `project_instructions` reports root and nested `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md`, `CLAUDE.local.md`, and `.claude/rules/**/*.md` sources with scopes and bounded text; startup includes only root and unscoped rules, while matching nested and `paths`-scoped rules are injected once after file reads; Claude-compatible recursive `@path` imports stay project-contained, inherit entrypoint scope, and expose include/parent metadata; the local `/instructions` command and `--instructions` flag expose `--max-files`/`--max-bytes` and `--instructions-max-files`/`--instructions-max-bytes` bounds respectively;
   `project_skills` discovers bounded metadata from `.claude/skills/*/SKILL.md` and `.agents/skills/*/SKILL.md`, while `skill`/`Skill` loads one exact available skill on demand and preserves optional invocation arguments for the next model step; skill bodies are excluded from the initial project snapshot and duplicate or symlinked skills are refused;
   project agent profiles are discovered from `.claude/agents/*.md` and `.agents/agents/*.md`; only bounded metadata enters the main prompt, while `delegate_task.agent` loads one exact profile body on demand. Profiles enforce `mode`, `tools`, and `disallowedTools` at schema, activation, and runtime boundaries, can override the delegated loop with `maxTurns` (1-50), and can preload up to 10 named project `skills` into that subagent only (20 KB each, 100 KB total). `memory: project` persists approved agent-specific notes under `.claude/agent-memory/<name>/`, while `memory: local` uses `.claude/agent-memory-local/<name>/`; startup loads at most 200 lines or 25 KB, stateless subagents cannot access the parent memory store, and `user` scope is rejected because it falls outside the project workspace. Tool fields accept native names or Claude-compatible aliases such as `Read` and `Write`; unavailable skills make the profile unavailable before any model request;
-  `delegate_task`/`Task` can run independent `explore` work in the background, returning a session-scoped task ID immediately; `TaskOutput` polls or waits for the bounded result, `TaskStop` requests cooperative cancellation, background code-mode delegation is rejected, the agent cannot finish successfully until each started task is collected or stopped, and run teardown cancels and releases any remaining session tasks. Every foreground and background subagent report is scanned before it reaches the parent: system-like tags, role prefixes, and spoofed harness markers are escaped, permission-setting or instruction-override language receives a visible marker without rewriting the report, and match categories are recorded in `subagent_output_scanned` session events;
+  `delegate_task`/`Task` can run independent `explore` or `code` work in the background, returning a session-scoped task ID immediately; ask-mode tool approvals are routed through the parent handler. `SendMessage` steers a running subagent or resumes a completed, failed, or `TaskStop`-cancelled subagent in the background under the same ID with its redacted full message history and freshly loaded profile/permission controls. `TaskOutput` polls or waits for the bounded result, `TaskStop` requests cooperative cancellation, the agent cannot finish successfully until each started task is collected or stopped, and run teardown cancels and releases any remaining session tasks. Every foreground and background subagent report is scanned before it reaches the parent: system-like tags, role prefixes, and spoofed harness markers are escaped, permission-setting or instruction-override language receives a visible marker without rewriting the report, and match categories are recorded in `subagent_output_scanned` session events;
   `project_todos` scans project text files for TODO, FIXME, HACK, XXX, and BUG markers;
   `command_check` does the same preflight for one proposed finite command and also reports cwd and block-rule failures;
   `check_run_commands` preflights a short ordered command batch without running it;

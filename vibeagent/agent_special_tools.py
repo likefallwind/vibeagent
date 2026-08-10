@@ -3,9 +3,10 @@ from __future__ import annotations
 from dataclasses import replace
 
 from .agent_action_logging import log_action
-from .background_delegate_runtime import start_background_delegate_task
+from .background_delegate_runtime import send_background_delegate_message, start_background_delegate_task
 from .agent_delegate import execute_delegate_task_action
 from .agent_hooks import ExecuteActionSafely, HookWrappedToolResult, run_hooks_around_tool
+from .agent_runtime_utils import append_session_event
 from .agent_steps import complete_task_step, start_task_step
 from .agent_user_input import execute_user_input_action
 from .types import (
@@ -116,26 +117,48 @@ def _execute_special_tool(
         step = start_task_step(workspace, steps, iteration, action, logger)
         log_action(logger, action)
         try:
+            delivered = send_background_delegate_message(workspace, action.to, action.message)
+            if delivered is not None:
+                append_session_event(
+                    workspace.session_dir,
+                    "subagent_message_sent",
+                    {"subagent_id": action.to, "resumed": False},
+                )
+                complete_task_step(workspace, step, delivered, iteration, logger)
+                return delivered
             transcript = read_subagent_transcript(workspace, action.to)
-            resumed_action = replace(transcript.action, run_in_background=False)
-            delegate_observation = execute_delegate_task_action(
+            resumed_action = replace(transcript.action, run_in_background=True)
+            delegate_observation = start_background_delegate_task(
                 workspace,
                 resumed_action,
-                client,
-                parent_iteration=iteration,
-                subagent_id=action.to,
-                max_output_tokens=max_output_tokens,
-                model_retries=model_retries,
-                model_retry_delay_ms=model_retry_delay_ms,
-                model_timeout_ms=model_timeout_ms,
-                command_timeout_ms=command_timeout_ms,
-                logger=logger,
-                approval_handler=approval_handler,
-                approval_policy=approval_policy,
-                hooks=hooks,
-                permissions=permissions,
-                resume_transcript=transcript,
-                followup_message=action.message,
+                lambda task_id, cancel_requested, inbound_messages: execute_delegate_task_action(
+                    workspace,
+                    resumed_action,
+                    client,
+                    parent_iteration=iteration,
+                    subagent_id=task_id,
+                    max_output_tokens=max_output_tokens,
+                    model_retries=model_retries,
+                    model_retry_delay_ms=model_retry_delay_ms,
+                    model_timeout_ms=model_timeout_ms,
+                    command_timeout_ms=command_timeout_ms,
+                    logger=logger,
+                    approval_handler=approval_handler,
+                    approval_policy=approval_policy,
+                    hooks=hooks,
+                    permissions=permissions,
+                    cancel_requested=cancel_requested,
+                    resume_transcript=transcript,
+                    followup_message=action.message,
+                    inbound_messages=inbound_messages,
+                ),
+                task_id=action.to,
+                resumed=True,
+            )
+            append_session_event(
+                workspace.session_dir,
+                "subagent_message_sent",
+                {"subagent_id": action.to, "resumed": True},
             )
         except SubagentTranscriptError as error:
             delegate_observation = ToolErrorObservation(
@@ -149,7 +172,7 @@ def _execute_special_tool(
         delegate_observation = start_background_delegate_task(
             workspace,
             action,
-            lambda task_id, cancel_requested: execute_delegate_task_action(
+            lambda task_id, cancel_requested, inbound_messages: execute_delegate_task_action(
                 workspace,
                 action,
                 client,
@@ -161,13 +184,12 @@ def _execute_special_tool(
                 model_timeout_ms=model_timeout_ms,
                 command_timeout_ms=command_timeout_ms,
                 logger=logger,
-                approval_handler=(
-                    approval_handler if approval_policy == "allow" else None
-                ),
+                approval_handler=approval_handler,
                 approval_policy=approval_policy,
                 hooks=hooks,
                 permissions=permissions,
                 cancel_requested=cancel_requested,
+                inbound_messages=inbound_messages,
             ),
         )
     else:
