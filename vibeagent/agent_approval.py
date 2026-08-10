@@ -11,7 +11,7 @@ from .agent_approval_targets import (
 )
 from .agent_file_approval import build_file_approval_request
 from .agent_observation_utils import summarize
-from .redaction import redact_jsonable_payload
+from .redaction import redact_jsonable_payload, redact_sensitive_text
 from . import types as t
 
 
@@ -176,6 +176,21 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             ),
         )
     if isinstance(action, t.MonitorAction):
+        if action.ws is not None:
+            protocols = (
+                f" (protocols: {', '.join(action.ws.protocols)})"
+                if action.ws.protocols
+                else ""
+            )
+            return t.ApprovalRequest(
+                action_type="monitor",
+                target=f"{redact_sensitive_text(action.ws.url)}{protocols}",
+                risk=_with_command_description(
+                    "This will open an external public WebSocket and deliver each message to the model as untrusted runtime evidence.",
+                    action.description,
+                ),
+            )
+        assert action.command is not None
         return t.ApprovalRequest(
             action_type="monitor",
             target=command_target(action.command, None),

@@ -31,6 +31,7 @@ from .types import (
     WaitProcessAction,
     WriteProcessAction,
 )
+from .websocket_monitor_safety import parse_websocket_source
 
 
 PROCESS_ACTION_TYPES = PROCESS_READ_ACTION_TYPES | {
@@ -120,7 +121,21 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
         )
 
     if action_type == "monitor":
-        command = parse_command(value.get("command"), raw, "monitor")
+        command_value = value.get("command")
+        ws_value = value.get("ws")
+        if (command_value is None) == (ws_value is None):
+            raise ActionParseError(
+                "monitor action requires exactly one of command or ws.", raw
+            )
+        command = (
+            parse_command(command_value, raw, "monitor")
+            if command_value is not None
+            else None
+        )
+        try:
+            ws = parse_websocket_source(ws_value) if ws_value is not None else None
+        except ValueError as error:
+            raise ActionParseError(str(error), raw) from error
         description = parse_optional_description(
             value.get("description"), raw, "monitor"
         )
@@ -143,8 +158,9 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
             raise ActionParseError("timeout_ms must be at least 100.", raw)
         return MonitorAction(
             type="monitor",
-            command=command,
             description=description,
+            command=command,
+            ws=ws,
             timeout_ms=0 if persistent else timeout_ms,
             persistent=persistent,
         )

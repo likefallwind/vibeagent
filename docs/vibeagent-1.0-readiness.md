@@ -124,6 +124,11 @@ The automated suite currently covers these 1.0 surfaces:
   maximum timeouts, persistent session mode, redacted line-at-a-time untrusted
   events, active-turn delivery, idle CLI wakeups, one-time exit delivery,
   `TaskStop` cancellation, and session-exit process cleanup.
+- Reactive WebSocket monitors: mutually exclusive `ws`/`command` sources,
+  per-connection approval, public-only DNS validation, credential and protocol
+  rejection, pinned resolved-address connection without environment proxies,
+  multiline text-message preservation, binary byte-count placeholders, 1 MiB
+  message limits, close-code events, and the shared timeout/wakeup/stop lifecycle.
 - Autonomous goals: one persisted completion condition, strict bounded no-tool
   evaluation after each coding turn, evaluator-guided continuation, interactive
   status and clearing, explicit resume restoration, and one-shot looping.

@@ -27,6 +27,8 @@ class PersistentProcessRecord:
     monitor_session_id: str | None = None
     monitor_stdout_offset: int = 0
     monitor_exit_delivered: bool = False
+    monitor_source: str | None = None
+    monitor_target: str | None = None
 
 
 def process_registry_dir(root: Path) -> Path:
@@ -60,6 +62,8 @@ def write_persistent_process_record(workspace: RunWorkspace, record: PersistentP
         "monitor_session_id": record.monitor_session_id,
         "monitor_stdout_offset": record.monitor_stdout_offset,
         "monitor_exit_delivered": record.monitor_exit_delivered,
+        "monitor_source": record.monitor_source,
+        "monitor_target": record.monitor_target,
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -128,6 +132,8 @@ def parse_persistent_process_record(root: Path, payload: object) -> PersistentPr
     monitor_session_id = payload.get("monitor_session_id")
     monitor_stdout_offset = payload.get("monitor_stdout_offset", 0)
     monitor_exit_delivered = payload.get("monitor_exit_delivered", False)
+    monitor_source = payload.get("monitor_source")
+    monitor_target = payload.get("monitor_target")
     if not isinstance(process_id, str) or not process_id.strip() or Path(process_id).name != process_id:
         return None
     if not isinstance(command, str) or not isinstance(cwd, str):
@@ -190,6 +196,16 @@ def parse_persistent_process_record(root: Path, payload: object) -> PersistentPr
         ),
         monitor_exit_delivered=(
             monitor_exit_delivered if isinstance(monitor_exit_delivered, bool) else False
+        ),
+        monitor_source=(
+            monitor_source
+            if monitor_source in {"command", "websocket"}
+            else ("command" if isinstance(monitor_description, str) else None)
+        ),
+        monitor_target=(
+            monitor_target
+            if isinstance(monitor_target, str) and monitor_target and len(monitor_target) <= 4_096
+            else None
         ),
     )
 

@@ -161,6 +161,7 @@ from .action_process_types import (
     WebSearchAction,
     ListProcessesAction,
     MonitorAction,
+    MonitorWebSocketSource,
     PortCheckAction,
     ProcessOutputContextsAction,
     ProcessOutputDiagnosticsAction,

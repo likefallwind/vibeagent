@@ -257,6 +257,8 @@ def minimal_schema_value(schema: dict[str, Any], property_name: str = "") -> Any
     if "anyOf" in schema:
         return minimal_schema_value(schema["anyOf"][0], property_name=property_name)
     if property_name == "url":
+        if str(schema.get("pattern", "")).startswith("^wss?"):
+            return "wss://example.com/events"
         return "http://127.0.0.1:8000"
     if property_name == "pointer":
         return "/value"

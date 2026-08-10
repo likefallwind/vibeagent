@@ -85,7 +85,7 @@ def authorize_tool_action(
             default_request is None
             or permissions.allow_rules_trusted
             or rule_match.rule.source in permissions.trusted_allow_sources
-        )
+        ) and not _approval_must_repeat(action)
         if rule_match.effect == "allow" and allow_can_skip_approval and not (
             default_request is not None and approval_policy in {"deny", "plan"}
         ):
@@ -181,6 +181,13 @@ def _denial(tool_name: str, action: object, message: str) -> ApprovalDeniedObser
         action_type=tool_name,
         target=build_action_target(action),
         message=message,
+    )
+
+
+def _approval_must_repeat(action: object) -> bool:
+    return (
+        getattr(action, "type", None) == "monitor"
+        and getattr(action, "ws", None) is not None
     )
 
 

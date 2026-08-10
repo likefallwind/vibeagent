@@ -18,7 +18,10 @@ def format_process_observation(index: int, observation: object) -> str | None:
                 f"description: {observation.description}",
                 f"timeoutMs: {observation.timeout_ms}",
                 f"persistent: {str(observation.persistent).lower()}",
-                f"command: {observation.command}",
+                f"source: {'websocket' if observation.ws_url else 'command'}",
+                f"command: {observation.command or 'none'}",
+                f"wsUrl: {observation.ws_url or 'none'}",
+                f"protocols: {', '.join(observation.protocols) or 'none'}",
                 f"stdoutPath: {observation.stdout_path or 'none'}",
                 f"stderrPath: {observation.stderr_path or 'none'}",
             ]

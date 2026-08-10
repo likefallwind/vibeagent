@@ -89,7 +89,9 @@ class MonitorObservation:
     kind: Literal["monitor"]
     task_id: str
     pid: int | None
-    command: str
+    command: str | None
+    ws_url: str | None
+    protocols: tuple[str, ...]
     description: str
     timeout_ms: int
     persistent: bool

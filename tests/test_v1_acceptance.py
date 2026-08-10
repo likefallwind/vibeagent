@@ -181,6 +181,10 @@ EXPECTED_GATES = {
             "test_timeout_terminates_monitor_and_reports_once",
             "test_task_stop_stops_persistent_monitor",
             "test_idle_interactive_session_wakes_for_monitor_event",
+            "test_parser_accepts_websocket_source_and_rejects_ambiguous_inputs",
+            "test_websocket_monitor_rejects_credentials_and_private_addresses",
+            "test_websocket_worker_preserves_text_frames_and_hides_binary_payloads",
+            "test_websocket_monitor_always_prompts_and_ignores_bash_rules",
         },
     },
     "VA1-WORKFLOW": {

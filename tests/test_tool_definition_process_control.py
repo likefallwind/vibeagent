@@ -127,7 +127,12 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
         monitor = next(tool for tool in PROCESS_RUN_TOOL_DEFINITIONS if tool["name"] == "Monitor")
         schema = monitor["input_schema"]
 
-        self.assertEqual(schema["required"], ["command", "description"])
+        self.assertEqual(schema["required"], ["description"])
+        self.assertEqual(
+            [branch["required"] for branch in schema["oneOf"]],
+            [["command"], ["ws"]],
+        )
+        self.assertIn("ws", schema["properties"])
         self.assertEqual(schema["properties"]["timeout_ms"]["default"], 300_000)
         self.assertEqual(schema["properties"]["timeout_ms"]["maximum"], 3_600_000)
         self.assertFalse(schema["properties"]["persistent"]["default"])

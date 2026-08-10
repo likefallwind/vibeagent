@@ -17,6 +17,11 @@ def _described_command_target(action: object) -> str:
     return f"{description}: {target}" if description else target
 
 
+def _monitor_target(action: t.MonitorAction) -> str:
+    target = action.ws.url if action.ws is not None else action.command or "monitor"
+    return f"{action.description}: {target}"
+
+
 def build_action_target(action: object) -> str:
     if isinstance(action, t.ListAgentsAction):
         return "session subagents"
@@ -148,7 +153,9 @@ def build_action_target(action: object) -> str:
         return command_batch_target(action.commands)
     if isinstance(action, t.RunSessionVerificationAction):
         return session_verification_target(action.run_id, action.include_failed, action.include_pending)
-    if isinstance(action, (t.StartCommandAction, t.MonitorAction)):
+    if isinstance(action, t.MonitorAction):
+        return _monitor_target(action)
+    if isinstance(action, t.StartCommandAction):
         return _described_command_target(action)
     if isinstance(action, (t.ReadProcessAction, t.StopProcessAction)):
         return action.process_id
@@ -272,7 +279,9 @@ def build_action_target(action: object) -> str:
         return ", ".join(action.paths)
     if isinstance(action, (t.CheckGitCommitAction, t.GitCommitAction)):
         return summarize(action.message, 80)
-    if isinstance(action, (t.RunCommandAction, t.CheckStartCommandAction, t.StartCommandAction, t.MonitorAction)):
+    if isinstance(action, t.MonitorAction):
+        return _monitor_target(action)
+    if isinstance(action, (t.RunCommandAction, t.CheckStartCommandAction, t.StartCommandAction)):
         return _described_command_target(action)
     if isinstance(action, (t.CheckRunCommandsAction, t.RunCommandsAction)):
         return command_batch_target(action.commands)

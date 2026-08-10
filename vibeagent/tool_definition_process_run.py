@@ -5,6 +5,59 @@ from typing import Any
 from .tool_definition_output_schema import COMMAND_OUTPUT_EXTRACTION_PROPERTIES
 
 
+MONITOR_INPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "command": {
+            "type": "string",
+            "description": "Shell script whose stdout lines are monitor events.",
+        },
+        "ws": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "pattern": "^wss?://",
+                    "description": "Public ws:// or wss:// endpoint without credentials.",
+                },
+                "protocols": {
+                    "type": "array",
+                    "items": {"type": "string", "minLength": 1, "maxLength": 128},
+                    "maxItems": 20,
+                    "uniqueItems": True,
+                },
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+        "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Short description shown with monitor events.",
+        },
+        "timeout_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 3600000,
+            "default": 300000,
+            "description": "Kill deadline in milliseconds. Defaults to 300000.",
+        },
+        "persistent": {
+            "type": "boolean",
+            "default": False,
+            "description": "Run for the session lifetime until TaskStop or session exit.",
+        },
+    },
+    "required": ["description"],
+    "oneOf": [
+        {"required": ["command"], "not": {"required": ["ws"]}},
+        {"required": ["ws"], "not": {"required": ["command"]}},
+    ],
+    "additionalProperties": False,
+}
+
+
 PROCESS_RUN_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "run_command",
@@ -75,32 +128,12 @@ PROCESS_RUN_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "monitor",
-        "description": "Run a background watcher and deliver each stdout line to the agent as an untrusted event. Requires command approval.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "command": {"type": "string", "description": "Shell script whose stdout lines are monitor events."},
-                "description": {"type": "string", "minLength": 1, "maxLength": 500, "description": "Short description shown with monitor events."},
-                "timeout_ms": {"type": "integer", "minimum": 100, "maximum": 3600000, "default": 300000, "description": "Kill deadline in milliseconds. Defaults to 300000."},
-                "persistent": {"type": "boolean", "default": False, "description": "Run for the session lifetime until TaskStop or session exit."},
-            },
-            "required": ["command", "description"],
-            "additionalProperties": False,
-        },
+        "description": "Run a background command or public WebSocket watcher and deliver each event to the agent as untrusted runtime evidence.",
+        "input_schema": MONITOR_INPUT_SCHEMA,
     },
     {
         "name": "Monitor",
-        "description": "Claude-compatible background monitor that streams each stdout line back as an event. Uses Bash permission rules.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "command": {"type": "string"},
-                "description": {"type": "string", "minLength": 1, "maxLength": 500},
-                "timeout_ms": {"type": "integer", "minimum": 100, "maximum": 3600000, "default": 300000},
-                "persistent": {"type": "boolean", "default": False},
-            },
-            "required": ["command", "description"],
-            "additionalProperties": False,
-        },
+        "description": "Claude-compatible background monitor for command stdout lines or public WebSocket messages.",
+        "input_schema": MONITOR_INPUT_SCHEMA,
     },
 ]

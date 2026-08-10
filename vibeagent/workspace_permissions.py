@@ -175,6 +175,10 @@ def match_project_permission(
 
 
 def permission_subjects(action: object) -> tuple[str, ...]:
+    ws = getattr(action, "ws", None)
+    ws_url = getattr(ws, "url", None)
+    if isinstance(ws_url, str):
+        return (ws_url,)
     command = getattr(action, "command", None)
     if isinstance(command, str):
         return (command,)
@@ -266,6 +270,12 @@ def _parse_permission_rules(payload: dict[str, object], source: str) -> list[Pro
 
 
 def _tool_matches(rule_tool: str, tool_name: str, action: object) -> bool:
+    if (
+        rule_tool == "Bash"
+        and getattr(action, "type", None) == "monitor"
+        and getattr(action, "ws", None) is not None
+    ):
+        return False
     action_type = getattr(action, "type", None)
     if rule_tool.startswith("mcp__") and (tool_name == "mcp_call" or action_type == "mcp_call"):
         parts = rule_tool.split("__", 2)

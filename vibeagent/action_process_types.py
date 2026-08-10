@@ -122,12 +122,19 @@ class StartCommandAction:
 
 
 @dataclass(frozen=True)
+class MonitorWebSocketSource:
+    url: str
+    protocols: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class MonitorAction:
     type: Literal["monitor"]
-    command: str
+    command: str | None
     description: str
     timeout_ms: int = 300_000
     persistent: bool = False
+    ws: MonitorWebSocketSource | None = None
 
 
 @dataclass(frozen=True)

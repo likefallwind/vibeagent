@@ -20,12 +20,14 @@ from .process_stop_runtime import list_background_processes, stop_background_pro
 from .redaction import redact_sensitive_text
 from .types import MonitorAction, MonitorObservation, TaskStopObservation
 from .workspace_core import RunWorkspace
+from .monitor_websocket_runtime import start_websocket_monitor_process
 
 
 MAX_MONITOR_NOTIFICATIONS = 50
 MAX_MONITOR_BATCH_CHARS = 20_000
 MAX_MONITOR_LINE_CHARS = 4_000
 MAX_MONITOR_READ_BYTES = 65_536
+MAX_WEBSOCKET_MONITOR_READ_BYTES = 6_400_000
 
 
 @dataclass(frozen=True)
@@ -41,17 +43,27 @@ def start_monitor_command(
     workspace: RunWorkspace,
     action: MonitorAction,
 ) -> MonitorObservation:
-    started = start_background_command(
-        workspace,
-        action.command,
-        max_output_chars=20_000,
-    )
+    if action.ws is not None:
+        started = start_websocket_monitor_process(workspace, action.ws)
+        source = "websocket"
+        target = action.ws.url
+    else:
+        assert action.command is not None
+        started = start_background_command(
+            workspace,
+            action.command,
+            max_output_chars=20_000,
+        )
+        source = "command"
+        target = action.command
     if not started.ok:
         return MonitorObservation(
             kind="monitor",
             task_id="",
             pid=started.pid,
             command=action.command,
+            ws_url=action.ws.url if action.ws is not None else None,
+            protocols=action.ws.protocols if action.ws is not None else (),
             description=action.description,
             timeout_ms=action.timeout_ms,
             persistent=action.persistent,
@@ -70,6 +82,8 @@ def start_monitor_command(
             task_id="",
             pid=started.pid,
             command=action.command,
+            ws_url=action.ws.url if action.ws is not None else None,
+            protocols=action.ws.protocols if action.ws is not None else (),
             description=action.description,
             timeout_ms=action.timeout_ms,
             persistent=action.persistent,
@@ -90,6 +104,8 @@ def start_monitor_command(
             monitor_session_id=workspace.run_id,
             monitor_stdout_offset=0,
             monitor_exit_delivered=False,
+            monitor_source=source,
+            monitor_target=redact_sensitive_text(target),
         ),
     )
     return MonitorObservation(
@@ -97,14 +113,16 @@ def start_monitor_command(
         task_id=started.process_id,
         pid=started.pid,
         command=action.command,
+        ws_url=action.ws.url if action.ws is not None else None,
+        protocols=action.ws.protocols if action.ws is not None else (),
         description=action.description,
         timeout_ms=action.timeout_ms,
         persistent=action.persistent,
         ok=True,
         message=(
-            f"Started persistent monitor {started.process_id}."
+            f"Started persistent {source} monitor {started.process_id}."
             if action.persistent
-            else f"Started monitor {started.process_id} with timeout {action.timeout_ms} ms."
+            else f"Started {source} monitor {started.process_id} with timeout {action.timeout_ms} ms."
         ),
         stdout_path=started.stdout_path,
         stderr_path=started.stderr_path,
@@ -274,7 +292,12 @@ def _read_monitor_lines(
         size = record.stdout_path.stat().st_size
         with record.stdout_path.open("rb") as stream:
             stream.seek(min(record.monitor_stdout_offset, size))
-            data = stream.read(MAX_MONITOR_READ_BYTES)
+            read_limit = (
+                MAX_WEBSOCKET_MONITOR_READ_BYTES
+                if record.monitor_source == "websocket"
+                else MAX_MONITOR_READ_BYTES
+            )
+            data = stream.read(read_limit)
     except OSError:
         return [], record.monitor_stdout_offset, False
     if not data:
@@ -285,10 +308,10 @@ def _read_monitor_lines(
     used_chars = 0
     for raw_line in data.splitlines(keepends=True):
         complete = raw_line.endswith((b"\n", b"\r"))
-        forced = not complete and len(data) >= MAX_MONITOR_READ_BYTES
+        forced = not complete and len(data) >= read_limit
         if not complete and running and not forced:
             break
-        text = raw_line.rstrip(b"\r\n").decode("utf-8", errors="replace")
+        text = _decode_monitor_output(record, raw_line.rstrip(b"\r\n"))
         text = redact_sensitive_text(text)
         if len(text) > MAX_MONITOR_LINE_CHARS:
             text = text[:MAX_MONITOR_LINE_CHARS] + " [line truncated]"
@@ -319,6 +342,19 @@ def _monitor_exit_detail(
         stderr = ""
     stderr = redact_sensitive_text(stderr.strip())
     return f"{prefix} stderr: {stderr}" if stderr else prefix
+
+
+def _decode_monitor_output(record: PersistentProcessRecord, raw_line: bytes) -> str:
+    text = raw_line.decode("utf-8", errors="replace")
+    if record.monitor_source != "websocket":
+        return text
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return "[invalid WebSocket monitor event]"
+    if not isinstance(payload, dict) or not isinstance(payload.get("message"), str):
+        return "[invalid WebSocket monitor event]"
+    return payload["message"]
 
 
 __all__ = [
