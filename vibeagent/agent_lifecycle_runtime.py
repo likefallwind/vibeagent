@@ -1,0 +1,150 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+
+from .agent_lifecycle_hooks import LifecycleHookResult, run_instruction_loaded_hooks, run_lifecycle_hooks
+from .types import (
+    AgentLogger,
+    ApprovalHandler,
+    ApprovalPolicy,
+    ChatMessage,
+    Observation,
+)
+from .workspace_core import RunWorkspace
+from .workspace_hooks import HookEvent, ProjectHooks
+from .workspace_permissions import ProjectPermissions
+from .workspace_project_instructions import read_project_instruction_sources
+
+
+@dataclass
+class AgentLifecycleRuntime:
+    hooks: ProjectHooks
+    permissions: ProjectPermissions
+    command_timeout_ms: int
+    logger: AgentLogger | None
+    approval_handler: ApprovalHandler | None
+    approval_policy: ApprovalPolicy
+    execute_action_safely: Callable[[RunWorkspace, object, int, str], Observation]
+    stop_continuations: int = 0
+
+    def start(
+        self,
+        workspace: RunWorkspace,
+        messages: list[ChatMessage],
+        task: str,
+        *,
+        resumed: bool,
+    ) -> str | None:
+        source = "resume" if resumed else "startup"
+        session_start = self._run(
+            workspace, "SessionStart", source, {"source": source}, iteration=0
+        )
+        _append_lifecycle_context(
+            messages, "SessionStart hook context", session_start.contexts
+        )
+        self._run_startup_instruction_hooks(workspace)
+        prompt_submit = self._run(
+            workspace, "UserPromptSubmit", "", {"prompt": task}, iteration=0
+        )
+        if prompt_submit.blocking_message is not None:
+            return prompt_submit.blocking_message
+        _append_lifecycle_context(
+            messages, "UserPromptSubmit hook context", prompt_submit.contexts
+        )
+        return None
+
+    def stop_feedback_if_needed(
+        self, workspace: RunWorkspace, message: str, iteration: int
+    ) -> str | None:
+        if self.stop_continuations >= 8:
+            return None
+        result = self._run(
+            workspace,
+            "Stop",
+            "",
+            {
+                "stop_hook_active": self.stop_continuations > 0,
+                "last_assistant_message": message,
+                "background_tasks": [],
+                "session_crons": [],
+            },
+            iteration=iteration,
+        )
+        if result.blocking_message is None:
+            return None
+        self.stop_continuations += 1
+        return "Stop hook feedback:\n" + result.blocking_message
+
+    def instruction_hook_runner(
+        self,
+        workspace: RunWorkspace,
+        context: dict[str, object],
+        iteration: int,
+    ) -> tuple[object, ...]:
+        return run_instruction_loaded_hooks(
+            workspace,
+            self.hooks,
+            context,
+            iteration=iteration,
+            command_timeout_ms=self.command_timeout_ms,
+            logger=self.logger,
+            approval_handler=self.approval_handler,
+            approval_policy=self.approval_policy,
+            execute_action_safely_func=self.execute_action_safely,
+            permissions=self.permissions,
+        )
+
+    def _run(
+        self,
+        workspace: RunWorkspace,
+        event: HookEvent,
+        matcher: str,
+        fields: dict[str, object],
+        *,
+        iteration: int,
+    ) -> LifecycleHookResult:
+        return run_lifecycle_hooks(
+            workspace,
+            self.hooks,
+            event,
+            matcher,
+            fields,
+            iteration=iteration,
+            command_timeout_ms=self.command_timeout_ms,
+            logger=self.logger,
+            approval_handler=self.approval_handler,
+            approval_policy=self.approval_policy,
+            execute_action_safely_func=self.execute_action_safely,
+            permissions=self.permissions,
+        )
+
+    def _run_startup_instruction_hooks(self, workspace: RunWorkspace) -> None:
+        report = read_project_instruction_sources(workspace)
+        startup_sources = [
+            source
+            for source in report["files"]
+            if isinstance(source, dict) and source.get("included") is True
+        ]
+        self.instruction_hook_runner(
+            workspace, {"paths": [], "files": startup_sources}, 0
+        )
+
+
+def _append_lifecycle_context(
+    messages: list[ChatMessage], label: str, contexts: tuple[str, ...]
+) -> None:
+    if not contexts:
+        return
+    addition = f"{label}:\n" + "\n\n".join(contexts)
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if message.role == "user" and isinstance(message.content, str):
+            messages[index] = ChatMessage(
+                role="user", content=f"{message.content}\n\n{addition}"
+            )
+            return
+    messages.append(ChatMessage(role="user", content=addition))
+
+
+__all__ = ["AgentLifecycleRuntime"]

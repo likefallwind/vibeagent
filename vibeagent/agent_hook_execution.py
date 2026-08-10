@@ -1,0 +1,200 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import shlex
+from collections.abc import Callable
+from uuid import uuid4
+
+from .agent_hook_results import HookRunResult, hook_result_from_observation
+from .agent_observation_utils import summarize
+from .agent_permissions import authorize_tool_action
+from .agent_runtime_utils import append_session_event
+from .redaction import redact_jsonable_payload
+from .types import (
+    AgentLogger,
+    ApprovalDecision,
+    ApprovalHandler,
+    ApprovalPolicy,
+    ApprovalRequest,
+    Observation,
+    RunCommandAction,
+)
+from .workspace_core import RunWorkspace
+from .workspace_hooks import ProjectHook
+from .workspace_permissions import ProjectPermissions
+
+
+ExecuteActionSafely = Callable[[RunWorkspace, object, int, str], Observation]
+
+
+def run_project_hook_command(
+    workspace: RunWorkspace,
+    hook: ProjectHook,
+    *,
+    target: str,
+    hook_input: dict[str, object],
+    environment: dict[str, str] | None = None,
+    iteration: int,
+    hook_index: int,
+    command_timeout_ms: int,
+    logger: AgentLogger | None,
+    approval_handler: ApprovalHandler | None,
+    approval_policy: ApprovalPolicy,
+    execute_action_safely_func: ExecuteActionSafely,
+    permissions: ProjectPermissions,
+) -> HookRunResult:
+    event_payload = {
+        "iteration": iteration,
+        "index": hook_index,
+        "event": hook.event,
+        "tool": target,
+        "source": hook.source,
+        "matcher": hook.matcher,
+        "command": hook.command,
+    }
+    if approval_policy == "plan":
+        result = HookRunResult(
+            event=hook.event,
+            command=hook.command,
+            source=hook.source,
+            status="skipped",
+            ok=True,
+            exit_code=None,
+            timed_out=False,
+            stdout="",
+            stderr="",
+            message="Hook skipped because Plan mode does not run commands.",
+        )
+        append_session_event(
+            workspace.session_dir, "hook_skipped", {**event_payload, "result": result}
+        )
+        return result
+
+    request = ApprovalRequest(
+        action_type="run_command",
+        target=f"{hook.event} hook for {target}: {hook.command}",
+        risk="This project hook will run a shell command in the active project.",
+    )
+    append_session_event(
+        workspace.session_dir,
+        "hook_approval_requested",
+        {**event_payload, "request": request},
+    )
+    hook_action = RunCommandAction(
+        type="run_command",
+        command=hook.command,
+        timeout_ms=min(hook.timeout_ms, command_timeout_ms),
+        max_output_chars=4_000,
+    )
+    authorization = authorize_tool_action(
+        workspace,
+        permissions,
+        "run_command",
+        hook_action,
+        iteration,
+        approval_handler,
+        approval_policy,
+        logger,
+        default_request=request,
+    )
+    decision = authorization.decision or ApprovalDecision(
+        approved=authorization.allowed,
+        message=(
+            "Hook command authorized."
+            if authorization.allowed
+            else getattr(
+                authorization.denial,
+                "message",
+                "Hook command denied by project permissions.",
+            )
+        ),
+    )
+    append_session_event(
+        workspace.session_dir,
+        "hook_approval_decision",
+        {**event_payload, "decision": decision},
+    )
+    if not authorization.allowed:
+        result = HookRunResult(
+            event=hook.event,
+            command=hook.command,
+            source=hook.source,
+            status="denied",
+            ok=False,
+            exit_code=None,
+            timed_out=False,
+            stdout="",
+            stderr="",
+            message=decision.message or f"{hook.event} hook command was denied.",
+        )
+        append_session_event(
+            workspace.session_dir, "hook_completed", {**event_payload, "result": result}
+        )
+        return result
+
+    input_path = _write_hook_input(workspace, hook_input)
+    try:
+        wrapped_command = _hook_command_with_input(
+            hook, hook_input, input_path, environment or {}
+        )
+        if logger:
+            logger("running hook", f"{hook.event} {target} from {hook.source}")
+        observation: Observation = execute_action_safely_func(
+            workspace,
+            RunCommandAction(
+                type="run_command",
+                command=wrapped_command,
+                timeout_ms=hook_action.timeout_ms,
+                max_output_chars=4_000,
+            ),
+            hook_action.timeout_ms,
+            f"hook:{hook.event}",
+        )
+    finally:
+        input_path.unlink(missing_ok=True)
+    result = hook_result_from_observation(hook, observation)
+    append_session_event(
+        workspace.session_dir,
+        "hook_completed",
+        {**event_payload, "result": redact_jsonable_payload(result)},
+    )
+    if logger:
+        logger(
+            "hook passed" if result.ok else "hook failed",
+            summarize(result.message, 500),
+        )
+    return result
+
+
+def _hook_command_with_input(
+    hook: ProjectHook,
+    hook_input: dict[str, object],
+    input_path: Path,
+    environment: dict[str, str],
+) -> str:
+    encoded = json.dumps(hook_input, ensure_ascii=False, separators=(",", ":"))
+    values = {
+        "VIBEAGENT_HOOK_EVENT": hook.event,
+        "VIBEAGENT_HOOK_INPUT": encoded,
+        **environment,
+    }
+    environment_args = " ".join(shlex.quote(f"{name}={value}") for name, value in values.items())
+    return f"env {environment_args} {hook.command} < {shlex.quote(str(input_path))}"
+
+
+def _write_hook_input(workspace: RunWorkspace, hook_input: dict[str, object]) -> Path:
+    path = workspace.session_dir / f".hook-input-{uuid4().hex}.json"
+    encoded = json.dumps(hook_input, ensure_ascii=False, separators=(",", ":"))
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(encoded)
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+    return path
+
+
+__all__ = ["run_project_hook_command"]

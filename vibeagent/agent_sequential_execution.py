@@ -4,8 +4,14 @@ from dataclasses import dataclass
 
 from .actions import ActionParseError, parse_tool_action
 from .agent_runtime_utils import append_session_event, tool_error_observation
+from .agent_lifecycle_hooks import run_instruction_loaded_hooks
 from .agent_special_tools import execute_special_tool_action
-from .agent_tool_execution import CreateAutoCheckpoint, ExecuteActionSafely, ShouldAutoCheckpoint, execute_parsed_tool_action
+from .agent_tool_execution import (
+    CreateAutoCheckpoint,
+    ExecuteActionSafely,
+    ShouldAutoCheckpoint,
+    execute_parsed_tool_action,
+)
 from .agent_tool_results import ToolObservationContext, record_tool_observation
 from .agent_tool_registry import prepare_action_for_policy
 from .types import (
@@ -73,7 +79,9 @@ def execute_sequential_tool_call(
     checkpoint_attempted = auto_checkpoint_attempted
 
     try:
-        action = prepare_action_for_policy(parse_tool_action(tool_name, tool_input), approval_policy)
+        action = prepare_action_for_policy(
+            parse_tool_action(tool_name, tool_input), approval_policy
+        )
         if isinstance(action, (AskUserAction, DelegateTaskAction)):
             wrapped = execute_special_tool_action(
                 workspace,
@@ -147,6 +155,18 @@ def execute_sequential_tool_call(
             iteration=iteration,
             approval_policy=approval_policy,
             logger=logger,
+            instruction_hook_runner=lambda context: run_instruction_loaded_hooks(
+                workspace,
+                hooks,
+                context,
+                iteration=iteration,
+                command_timeout_ms=command_timeout_ms,
+                logger=logger,
+                approval_handler=approval_handler,
+                approval_policy=approval_policy,
+                execute_action_safely_func=execute_action_safely_func,
+                permissions=permissions,
+            ),
         ),
     )
     return SequentialToolCallResult(

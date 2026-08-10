@@ -47,7 +47,7 @@ The automated suite currently covers these 1.0 surfaces:
   compact, permission overrides, `acceptEdits`, disallowed tools, and
   pending-user-input output.
 - Project integrations: `.mcp.json`, strict MCP config, `.claude/skills`,
-  `.claude/agents`, project hooks, project slash commands, checkpoints,
+  `.claude/agents`, tool and session lifecycle hooks, project slash commands, checkpoints,
   session handoff, focused tests, code-mode subagents, and background read-only
   subagent lifecycle control.
 - Safety boundaries: workspace path guards, approval policy, hard command

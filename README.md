@@ -1110,17 +1110,26 @@ hook map directly or under `hooks`:
 }
 ```
 
-Supported lifecycle events are `PreToolUse`, `PostToolUse`, and
-`PostToolUseFailure`; matchers are regular expressions applied to the model
-tool name, the parsed VibeAgent action type, and matching Claude-compatible
-aliases. Every matching hook command requires approval under the current
-session policy and still passes command hard-block checks. Plan mode records and
-skips command hooks. A failed or denied pre-tool hook blocks the target tool; a
-failed post-tool hook preserves the target result but records an additional
-tool error that prevents an unqualified successful completion. Hook commands
-receive `VIBEAGENT_HOOK_EVENT`, `VIBEAGENT_TOOL_NAME`, and
-`VIBEAGENT_TOOL_TARGET` environment variables and are recorded in the session
-timeline with bounded output.
+Supported lifecycle events are `SessionStart`, `InstructionsLoaded`,
+`UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, and
+`Stop`. Tool-event matchers apply to the model tool name, parsed VibeAgent
+action type, and Claude-compatible aliases. `SessionStart` matches `startup` or
+`resume`; `InstructionsLoaded` matches `session_start`, `nested_traversal`, or
+`path_glob_match`. Plain stdout or structured `additionalContext` from startup
+and prompt hooks enters the first model turn. Prompt hooks can exit 2 or return
+`decision: block`; Stop hooks can return a block reason or structured context
+to continue the agent, with an eight-continuation limit.
+
+Every matching command hook requires approval under the current session policy
+and still passes command hard-block checks. Plan mode records and skips command
+hooks. A failed or denied pre-tool hook blocks the target tool; a failed
+post-tool hook preserves the target result but records an additional tool error
+that prevents an unqualified successful completion. Hook commands receive a
+Claude-compatible JSON object on stdin, plus `VIBEAGENT_HOOK_EVENT` and
+`VIBEAGENT_HOOK_INPUT`; tool hooks also receive `VIBEAGENT_TOOL_NAME` and
+`VIBEAGENT_TOOL_TARGET`. Inputs use private temporary files inside the session
+directory and are deleted after execution. Results are recorded in the session
+timeline with bounded, redacted output.
 
 ## Command sandbox
 
@@ -1370,9 +1379,11 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   `vibeagent/mcp_action_executor.py`: validate project MCP configuration, run
   newline-delimited JSON-RPC stdio sessions, and expose approved tool discovery
   and calls without leaving MCP subprocesses running.
-- `vibeagent/workspace_hooks.py` and `vibeagent/agent_hooks.py`: load bounded
-  project hook configuration, match tool lifecycle events, request approval for
-  command hooks, preserve command hard blocks, and emit auditable hook results.
+- `vibeagent/workspace_hooks.py`, `vibeagent/agent_hook_execution.py`,
+  `vibeagent/agent_hooks.py`, and `vibeagent/agent_lifecycle_runtime.py`: load
+  bounded project hook configuration, match tool and session lifecycle events,
+  deliver JSON stdin, request approval for command hooks, preserve command hard
+  blocks, inject bounded lifecycle context, and emit auditable hook results.
 - `vibeagent/workspace_permissions.py` and `vibeagent/agent_permissions.py`:
   load bounded project permission rules, match Claude-compatible tool/path/
   command patterns, enforce explicit trust for allow rules, and centralize

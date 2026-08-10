@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from .agent_multimodal import build_tool_result_block
@@ -8,8 +9,17 @@ from .agent_observation_utils import observation_failed
 from .agent_runtime_utils import append_session_event, summarize_command, to_jsonable
 from .agent_tool_registry import activate_tools_from_observations
 from .redaction import redact_jsonable_payload
-from .types import AgentLogger, ApprovalPolicy, ContentBlock, Observation, RunCommandObservation
+from .types import (
+    AgentLogger,
+    ApprovalPolicy,
+    ContentBlock,
+    Observation,
+    RunCommandObservation,
+)
 from .workspace_core import RunWorkspace
+
+
+_INSTRUCTION_CONTEXT_UNSET = object()
 
 
 @dataclass
@@ -19,9 +29,14 @@ class ToolObservationContext:
     iteration: int
     approval_policy: ApprovalPolicy
     logger: AgentLogger | None
+    instruction_hook_runner: (
+        Callable[[dict[str, object]], tuple[object, ...]] | None
+    ) = None
 
 
-def build_tool_result_payload(observation: Observation, hook_results: tuple[object, ...] = ()) -> dict[str, object]:
+def build_tool_result_payload(
+    observation: Observation, hook_results: tuple[object, ...] = ()
+) -> dict[str, object]:
     result_payload = redact_jsonable_payload(to_jsonable(observation))
     if not isinstance(result_payload, dict):
         result_payload = {"result": result_payload}
@@ -31,7 +46,9 @@ def build_tool_result_payload(observation: Observation, hook_results: tuple[obje
     return result_payload
 
 
-def scrub_internal_preview_fingerprint_fields(result_payload: dict[str, object]) -> None:
+def scrub_internal_preview_fingerprint_fields(
+    result_payload: dict[str, object],
+) -> None:
     kind = result_payload.get("kind")
     if kind in {
         "write_file",
@@ -72,11 +89,18 @@ def record_tool_result_event(
     hook_results: tuple[object, ...] = (),
     auto: bool = False,
     event_extra: dict[str, object] | None = None,
+    instruction_context: object = _INSTRUCTION_CONTEXT_UNSET,
 ) -> dict[str, object]:
     result_payload = build_tool_result_payload(observation, hook_results)
-    instruction_context = instruction_context_for_observation(workspace, observation)
+    if instruction_context is _INSTRUCTION_CONTEXT_UNSET:
+        instruction_context = instruction_context_for_observation(
+            workspace, observation
+        )
     if instruction_context is not None:
-        result_payload["pathInstructions"] = redact_jsonable_payload(instruction_context)
+        assert isinstance(instruction_context, dict)
+        result_payload["pathInstructions"] = redact_jsonable_payload(
+            instruction_context
+        )
         append_session_event(
             workspace.session_dir,
             "instructions_loaded",
@@ -200,17 +224,27 @@ def record_tool_observation(
         context.approval_policy,
     )
 
+    instruction_context = instruction_context_for_observation(workspace, observation)
+    instruction_hook_results: tuple[object, ...] = ()
+    if instruction_context is not None and callable(context.instruction_hook_runner):
+        instruction_hook_results = tuple(
+            context.instruction_hook_runner(instruction_context)
+        )
     result_payload = record_tool_result_event(
         workspace,
         tool_id=tool_id,
         tool_name=tool_name,
         observation=observation,
         iteration=context.iteration,
-        hook_results=hook_results,
+        hook_results=hook_results + instruction_hook_results,
+        instruction_context=instruction_context,
     )
     if isinstance(observation, RunCommandObservation) and context.logger:
         ok = observation.result.exit_code == 0 and not observation.result.timed_out
-        context.logger("observed success" if ok else "observed failure", summarize_command(observation.result))
+        context.logger(
+            "observed success" if ok else "observed failure",
+            summarize_command(observation.result),
+        )
     return build_tool_result_block(workspace, tool_id, observation, result_payload)
 
 

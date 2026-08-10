@@ -9,6 +9,7 @@ from .agent_message_flow import (
     compact_agent_context_if_needed,
     recover_agent_context_limit,
 )
+from .agent_lifecycle_runtime import AgentLifecycleRuntime
 from .agent_model_turn import handle_no_tool_call_response, record_model_turn
 from .agent_multimodal import strip_consumed_tool_images
 from .agent_parallel_execution import execute_parallel_tool_call_batch
@@ -77,6 +78,33 @@ def run_agent_loop(
     project_hooks = setup.project_hooks
     project_permissions = setup.project_permissions
     auto_checkpoint_attempted = False
+    lifecycle = AgentLifecycleRuntime(
+        hooks=project_hooks,
+        permissions=project_permissions,
+        command_timeout_ms=command_timeout_ms,
+        logger=logger,
+        approval_handler=approval_handler,
+        approval_policy=approval_policy,
+        execute_action_safely=runtime.execute_action_safely,
+    )
+    startup_block = lifecycle.start(
+        current_workspace, messages, task, resumed=bool(prior_context)
+    )
+    if startup_block is not None:
+        return runtime.finish_agent_run(
+            current_workspace,
+            success=False,
+            message=startup_block,
+            iterations=0,
+            observations=observations,
+            steps=steps,
+            plan=plan,
+            command_timeout_ms=command_timeout_ms,
+            logger=logger,
+        )
+
+    def stop_feedback_if_needed(message: str, iteration: int) -> str | None:
+        return lifecycle.stop_feedback_if_needed(current_workspace, message, iteration)
 
     for iteration in range(1, max_iterations + 1):
         # Tool loop: provider-neutral tool_call blocks -> local execution -> tool_result blocks.
@@ -151,6 +179,7 @@ def run_agent_loop(
                 logger=logger,
                 completion_blocked_feedback_if_needed_func=runtime.completion_blocked_feedback_if_needed,
                 finish_agent_run_func=runtime.finish_agent_run,
+                stop_feedback_if_needed_func=stop_feedback_if_needed,
             )
             if no_tool_result.should_continue:
                 continue
@@ -167,7 +196,7 @@ def run_agent_loop(
         observation_start = len(observations)
         parallel_batch_result = (
             None
-            if project_hooks.enabled or project_permissions.enabled
+            if project_hooks.requires_sequential_tools or project_permissions.enabled
             else execute_parallel_tool_call_batch(
                 current_workspace,
                 tool_calls,
@@ -246,16 +275,23 @@ def run_agent_loop(
             )
 
             if observation.kind == "finish":
-                blocked_completion_feedback = runtime.completion_blocked_feedback_if_needed(
-                    current_workspace,
-                    success=True,
-                    message=observation.message,
-                    iteration=iteration,
-                    max_iterations=max_iterations,
-                    observations=observations,
-                    plan=plan,
-                    command_timeout_ms=command_timeout_ms,
-                    logger=logger,
+                blocked_completion_feedback = (
+                    runtime.completion_blocked_feedback_if_needed(
+                        current_workspace,
+                        success=True,
+                        message=observation.message,
+                        iteration=iteration,
+                        max_iterations=max_iterations,
+                        observations=observations,
+                        plan=plan,
+                        command_timeout_ms=command_timeout_ms,
+                        logger=logger,
+                    )
+                )
+                if blocked_completion_feedback is not None:
+                    break
+                blocked_completion_feedback = stop_feedback_if_needed(
+                    observation.message, iteration
                 )
                 if blocked_completion_feedback is not None:
                     break
@@ -275,7 +311,9 @@ def run_agent_loop(
 
         if blocked_completion_feedback is not None:
             messages.append(ChatMessage(role="user", content=tool_results))
-            messages.append(ChatMessage(role="user", content=blocked_completion_feedback))
+            messages.append(
+                ChatMessage(role="user", content=blocked_completion_feedback)
+            )
             continue
 
         messages = append_tool_results_and_compact(
