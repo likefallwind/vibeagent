@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -7,6 +8,7 @@ from unittest.mock import patch
 from vibeagent.agent_result import AgentResult
 from vibeagent.cli_context import OneShotPriorContext
 from vibeagent.cli_one_shot_output import (
+    apply_model_budget_result,
     apply_structured_output_result,
     build_one_shot_chat_payload,
     build_one_shot_code_payload,
@@ -16,6 +18,8 @@ from vibeagent.cli_one_shot_output import (
     emit_one_shot_code_payload,
     one_shot_code_exit_code,
 )
+from vibeagent.config import CostRates
+from vibeagent.model_budget import ModelCostBudget
 from vibeagent.structured_output import StructuredOutputResult
 
 
@@ -320,6 +324,21 @@ class CliOneShotOutputTests(unittest.TestCase):
         self.assertEqual(payload["subtype"], "error_max_structured_output_retries")
         self.assertEqual(payload["structured_output_error"], "schema mismatch")
         self.assertEqual(one_shot_code_exit_code(result, structured), 1)
+
+    def test_healthy_budget_does_not_mark_an_unrelated_agent_failure_successful(self) -> None:
+        payload = {"kind": "code", "message": "provider failed", "success": False}
+        budget = ModelCostBudget(
+            Decimal("1"),
+            CostRates(
+                input_usd_per_million=Decimal("1"),
+                output_usd_per_million=Decimal("2"),
+            ),
+        )
+
+        apply_model_budget_result(payload, budget)
+
+        self.assertFalse(payload["success"])
+        self.assertNotIn("subtype", payload)
 
     def test_emit_code_payload_prints_agent_result_for_text_output(self) -> None:
         root = Path("/tmp/vibeagent-one-shot-output")

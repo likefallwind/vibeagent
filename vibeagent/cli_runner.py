@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from decimal import Decimal
 from pathlib import Path
 from time import monotonic
 
@@ -68,6 +69,7 @@ def run_one_shot(
     output_format: str | None = None,
     print_mode: bool = False,
     structured_output_schema: dict[str, object] | None = None,
+    max_budget_usd: Decimal | None = None,
     permission_overrides=None,
     provider_args: argparse.Namespace | None = None,
     create_chat_client_func=create_chat_client,
@@ -152,6 +154,7 @@ def run_one_shot(
             output_json=output_json,
             print_mode=print_mode,
             structured_output_schema=structured_output_schema,
+            max_budget_usd=max_budget_usd,
             elapsed_ms=elapsed_milliseconds(started_at),
             stream=stream,
             input_prior_context=input_prior_context,

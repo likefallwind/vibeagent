@@ -164,6 +164,7 @@ python -m vibeagent -c
 python -m vibeagent --compact <run-id> --compact-max-output-chars 0 --compact-max-checks 20 "continue from a compact handoff"
 python -m vibeagent --cwd ../my-project --max-iterations 8 --command-timeout-ms 120000 --max-output-tokens 8192 --model-retries 2 --model-retry-delay-ms 500 --model-timeout-ms 120000 "run the release checks"
 python -m vibeagent --json --cwd ../my-project "run the release checks"
+python -m vibeagent -p --output-format json --max-budget-usd 1.00 --cwd ../my-project "run the release checks"
 python -m vibeagent -p --output-format json --json-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"]}' --cwd ../my-project "run the release checks"
 python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
 python -m vibeagent --cwd ../my-project --add-dir ../shared-lib "update both codebases"
@@ -246,6 +247,15 @@ local inspection commands, resume, continue, or compact modes.
 (`ask`, `allow`, `deny`, `plan`) and Claude-style values (`default` -> `ask`,
 `acceptEdits` -> `ask` plus automatic `Write`, `Edit`, `MultiEdit`, and `NotebookEdit` allow rules,
 `bypassPermissions` -> `allow`), and `--max-turns` maps to `--max-iterations`.
+`-p --max-budget-usd AMOUNT` stops a one-shot coding task when the shared
+provider-cost estimate reaches the positive USD limit. Configure at least
+`VIBEAGENT_INPUT_USD_PER_MILLION` and
+`VIBEAGENT_OUTPUT_USD_PER_MILLION`; cache rates are required when the provider
+reports cache usage. Main-agent, profile, subagent, goal-evaluator, and
+structured-output calls share one serialized budget gate. Reaching the limit
+returns subtype `error_max_budget_usd` without retrying or executing that model
+response. Missing rates or provider usage fail closed instead of being treated
+as zero cost.
 `--agent PROFILE` selects one exact project or plugin agent profile for every
 coding turn in a one-shot or interactive session. The profile prompt, preloaded
 skills, memory namespace, `mode`, `model`, `effort`, `tools`,
@@ -320,6 +330,10 @@ prior context, completion, latest-completion, changed-file, verification,
 pending-user-input, and timing fields where applicable.
 Machine-readable error results include `exitCode` and `exit_code` when the
 CLI knows the process exit status for that failure.
+Budgeted machine results include `budget`, `totalCostUsd`, and
+`total_cost_usd`. Successful runs use subtype `success`; exhausted runs omit
+the `result` alias, exit nonzero, and use subtype and stop reason
+`error_max_budget_usd`.
 `-p --json-schema '<schema>'` adds a validated final result to one-shot coding
 tasks. VibeAgent completes the normal tool-using workflow first, then asks the
 same provider for exactly one JSON value without tools. The schema must be a

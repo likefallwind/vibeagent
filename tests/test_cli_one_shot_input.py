@@ -21,6 +21,13 @@ from vibeagent.cli_one_shot_input import (
 
 
 class CliOneShotInputTests(unittest.TestCase):
+    def test_build_one_shot_kwargs_includes_max_budget(self) -> None:
+        args = cli_module.parse_args(["-p", "--max-budget-usd", "0.75", "inspect"])
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertEqual(str(kwargs["max_budget_usd"]), "0.75")
+
     def test_resolve_task_input_reads_plain_stdin(self) -> None:
         with patch("sys.stdin", io.StringIO(" fix from stdin \n")):
             task_input = resolve_task_input(["-"])

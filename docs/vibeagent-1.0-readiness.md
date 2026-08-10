@@ -70,8 +70,8 @@ The automated suite currently covers these 1.0 surfaces:
   `CronCreate`, `CronList`, `CronDelete`, `WebFetch`, `Task`, `TaskOutput`,
   `TaskStop`, `Agent`, and `ExitPlanMode`.
 - Real CLI JSON and stream-json entrypoints, stdin input formats, resume,
-  compact, permission overrides, `acceptEdits`, disallowed tools, and
-  pending-user-input output.
+  compact, permission overrides, `acceptEdits`, disallowed tools,
+  shared provider-cost budgets, and pending-user-input output.
 - Durable main-session conversation continuity: private atomic checkpoints at
   safe model/tool boundaries, fresh system/project context on every prompt,
   explicit resume and branch restoration, corrupt-state handoff fallback, and

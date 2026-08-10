@@ -15,6 +15,7 @@ from .cli_result_payloads import (
 )
 from .cli_stream_output import JsonEventStream
 from .config import resolve_cost_rates
+from .model_budget import ModelBudgetExceededError, ModelCostBudget
 from .session_usage import build_run_cost_report, build_run_usage_report
 from .structured_output import StructuredOutputResult
 
@@ -164,10 +165,44 @@ def apply_structured_output_result(
     payload["structured_output_error"] = structured.error
 
 
+def apply_model_budget_result(
+    payload: dict[str, object],
+    budget: ModelCostBudget | None,
+) -> None:
+    if budget is None:
+        return
+    report = budget.report()
+    payload["budget"] = report
+    payload["totalCostUsd"] = report["estimatedCostUsd"]
+    payload["total_cost_usd"] = report["estimatedCostUsd"]
+    if budget.failure is None:
+        if payload.get("success") is True:
+            payload.setdefault("subtype", "success")
+        return
+    exceeded = isinstance(budget.failure, ModelBudgetExceededError)
+    subtype = "error_max_budget_usd" if exceeded else "error_during_execution"
+    stop_reason = "error_max_budget_usd" if exceeded else "failed"
+    payload["success"] = False
+    payload.pop("result", None)
+    payload.update(
+        machine_result_status_fields(
+            status="failed",
+            stop_reason=stop_reason,
+            exit_code=1,
+        )
+    )
+    payload["subtype"] = subtype
+    payload["budgetError"] = str(budget.failure)
+    payload["budget_error"] = str(budget.failure)
+
+
 def one_shot_code_exit_code(
     result: AgentResult,
     structured: StructuredOutputResult | None = None,
+    budget: ModelCostBudget | None = None,
 ) -> int:
+    if budget is not None and budget.failure is not None:
+        return 1
     if structured is not None and not structured.success:
         return 1
     return 0 if result.success and result.completion_ready else 1

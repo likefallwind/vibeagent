@@ -6,6 +6,7 @@ import time
 from typing import Any
 
 from .agent_runtime_utils import append_session_event, format_exception
+from .model_budget import is_terminal_model_request_error, terminal_model_error_event_details
 from .types import AgentLogger, ChatClient, ChatMessage
 
 
@@ -51,7 +52,8 @@ def complete_with_retries(
         except Exception as error:
             recovered_context = False
             context_recovery_error: str | None = None
-            if context_recovery_available and is_context_limit_error(error):
+            terminal_error = is_terminal_model_request_error(error)
+            if not terminal_error and context_recovery_available and is_context_limit_error(error):
                 context_recovery_available = False
                 try:
                     recovered_context = bool(recover_context and recover_context())
@@ -59,7 +61,7 @@ def complete_with_retries(
                     context_recovery_error = format_exception(recovery_error)
                 if recovered_context:
                     attempt_budget += 1
-            use_regular_retry = not recovered_context and remaining_retries > 0
+            use_regular_retry = not terminal_error and not recovered_context and remaining_retries > 0
             if use_regular_retry:
                 remaining_retries -= 1
             will_retry = recovered_context or use_regular_retry
@@ -79,6 +81,7 @@ def complete_with_retries(
                     **({"context_recovery_error": context_recovery_error} if context_recovery_error else {}),
                     "error_type": type(error).__name__,
                     "message": last_message,
+                    **terminal_model_error_event_details(error),
                 },
             )
             if logger:

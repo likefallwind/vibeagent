@@ -103,7 +103,8 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
                 if text:
                     final_message = text
                     completed = True
-        elif event.type in {"model_error", "subagent_model_error"}:
+        elif event.type in {"model_error", "subagent_model_error", "structured_output_model_error"}:
+            usage_totals.add_payload(event.payload.get("usage"))
             model_errors += 1
             message = model_error_message(event.payload)
             if message:

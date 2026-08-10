@@ -8,6 +8,21 @@ from vibeagent.tool_search_options import tool_search_approval_choices
 
 
 class CliArgsValidationTests(unittest.TestCase):
+    def test_max_budget_requires_print_one_shot_code(self) -> None:
+        valid = cli_module.parse_args(["-p", "--max-budget-usd", "1.25", "inspect"])
+        no_print = cli_module.parse_args(["--max-budget-usd", "1", "inspect"])
+        chat = cli_module.parse_args(["-p", "--chat", "--max-budget-usd", "1", "hello"])
+
+        self.assertIsNone(cli_module.validate_cli_args(valid))
+        self.assertEqual(str(valid.max_budget_usd), "1.25")
+        self.assertIn("one-shot coding task", cli_module.validate_cli_args(no_print) or "")
+        self.assertIn("one-shot coding task", cli_module.validate_cli_args(chat) or "")
+
+    def test_max_budget_rejects_nonpositive_and_nonfinite_values(self) -> None:
+        for value in ("0", "-1", "NaN", "Infinity", "bad"):
+            with self.subTest(value=value), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                cli_module.parse_args(["-p", "--max-budget-usd", value, "inspect"])
+
     def test_json_schema_requires_print_mode_one_shot_code(self) -> None:
         schema = '{"type":"object"}'
         valid = cli_module.parse_args(["-p", "--json-schema", schema, "inspect"])

@@ -15,12 +15,13 @@ from vibeagent.agent_result import AgentResult
 from vibeagent.session_commands import get_resume_context, get_session_handoff_report
 from vibeagent.session_conversation import read_session_conversation
 from vibeagent.session_handoff_details import extract_session_handoff_details
-from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, ContentBlock, WebFetchObservation
+from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, ContentBlock, ModelUsage, WebFetchObservation
 
 
 class DogfoodClient:
-    def __init__(self, responses: list[list[ContentBlock]]) -> None:
+    def __init__(self, responses: list[list[ContentBlock]], usages: list[ModelUsage | None] | None = None) -> None:
         self.responses = responses
+        self.usages = usages or [None] * len(responses)
         self.messages: list[list[ChatMessage]] = []
         self.tools: list[list[dict]] = []
 
@@ -28,7 +29,11 @@ class DogfoodClient:
         self.messages.append(list(messages))
         self.tools.append(list(tools or []))
         content = self.responses[len(self.messages) - 1]
-        return AssistantResponse(content=content, raw={"content": content})
+        return AssistantResponse(
+            content=content,
+            raw={"content": content},
+            usage=self.usages[len(self.messages) - 1],
+        )
 
 
 def approve_all(_request: ApprovalRequest) -> ApprovalDecision:

@@ -99,6 +99,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
             if args.json_schema is not None
             else None
         ),
+        "max_budget_usd": args.max_budget_usd,
         "permission_overrides": build_permission_overrides(args),
         "provider_args": args,
     }

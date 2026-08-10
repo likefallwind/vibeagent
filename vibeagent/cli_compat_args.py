@@ -13,7 +13,7 @@ PERMISSION_MODE_ALIASES = {
 PERMISSION_MODE_CHOICES = ("ask", "allow", "deny", "plan", *PERMISSION_MODE_ALIASES)
 
 
-def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int) -> None:
+def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, positive_decimal) -> None:
     parser.add_argument(
         "-p",
         "--print",
@@ -58,6 +58,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int) -> No
         "--json-schema",
         metavar="SCHEMA",
         help="Return validated structured_output matching a JSON Schema Draft-07 object (print mode only).",
+    )
+    parser.add_argument(
+        "--max-budget-usd",
+        type=positive_decimal,
+        help="Stop a print-mode coding task when configured provider cost reaches this USD amount.",
     )
 
 

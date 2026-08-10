@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -36,7 +37,7 @@ from tests.test_v1_dogfood import (
 from vibeagent.cli import main
 from vibeagent.session_commands import get_session_handoff_report
 from vibeagent.session_handoff_details import extract_session_handoff_details
-from vibeagent.types import WebFetchObservation
+from vibeagent.types import ModelUsage, WebFetchObservation
 
 
 def _run_cli(client: DogfoodClient, args: list[str]) -> tuple[int, str]:
@@ -204,6 +205,49 @@ def _assert_clean_notebook_commit(
 
 
 class V1CliSmokeTests(unittest.TestCase):
+    def test_v1_cli_budgeted_repair_verify_commit_and_report_cost(self) -> None:
+        responses = v1_dogfood_responses()
+        client = DogfoodClient(
+            responses,
+            usages=[ModelUsage(input_tokens=10, output_tokens=5, total_tokens=15)] * len(responses),
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-budget-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            with patch.dict(
+                os.environ,
+                {
+                    "VIBEAGENT_INPUT_USD_PER_MILLION": "1",
+                    "VIBEAGENT_OUTPUT_USD_PER_MILLION": "2",
+                },
+                clear=False,
+            ):
+                exit_code, payload = _run_json_cli(
+                    client,
+                    [
+                        "-p",
+                        "--output-format",
+                        "json",
+                        "--max-budget-usd",
+                        "0.001",
+                        "--approval",
+                        "allow",
+                        "--cwd",
+                        str(root),
+                        "--max-iterations",
+                        "14",
+                        "Fix the calculator test failure and commit the verified fix.",
+                    ],
+                )
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload, num_turns=11)
+        self.assertEqual(payload["subtype"], "success")
+        self.assertEqual(payload["totalCostUsd"], "0.000220")
+        self.assertEqual(payload["budget"]["maximumUsd"], "0.001000")
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add")
+
     def test_v1_cli_json_schema_repairs_then_returns_validated_output(self) -> None:
         responses = v1_dogfood_responses()[:11]
         responses.extend(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Mapping, Sequence
+from decimal import Decimal, InvalidOperation
 import json
 
 from .process_request_parsing import validate_max_output_chars
@@ -62,6 +63,16 @@ def nonnegative_int(value: str) -> int:
         raise argparse.ArgumentTypeError("must be a non-negative integer") from error
     if parsed < 0:
         raise argparse.ArgumentTypeError("must be a non-negative integer")
+    return parsed
+
+
+def positive_decimal(value: str) -> Decimal:
+    try:
+        parsed = Decimal(value)
+    except InvalidOperation as error:
+        raise argparse.ArgumentTypeError("must be a positive finite decimal") from error
+    if not parsed.is_finite() or parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive finite decimal")
     return parsed
 
 

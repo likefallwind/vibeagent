@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
 
 from .agent_result import AgentResult
@@ -9,6 +10,7 @@ from .cli_context import OneShotPriorContext, SessionContextGetter
 from .cli_one_shot_agent_kwargs import build_one_shot_agent_kwargs
 from .cli_one_shot_input import combine_optional_text, resolve_one_shot_context_from_limits
 from .cli_one_shot_output import (
+    apply_model_budget_result,
     apply_structured_output_result,
     build_one_shot_code_payload,
     emit_one_shot_code_payload,
@@ -22,20 +24,20 @@ from .cli_goal import evaluate_and_store_goal
 from .commands import parse_local_command
 from .goal_loop import goal_turn_prompt
 from .goal_state import GoalState, new_goal, read_session_goal, reset_restored_goal, write_goal
-from .session_usage import summarize_run_usage
+from .model_budget import BudgetedChatClient, ModelCostBudget, create_model_cost_budget
 from .peer_runtime import create_peer_runtime
-from .types import ApprovalPolicy
-from .workspace_core import create_local_workspace
-from .workspace_permissions import ProjectPermissions
 from .session_additional_directories import (
     merge_additional_directories,
     restore_session_additional_directories,
 )
 from .session_branching import create_session_branch
-from .session_names import name_session, normalize_session_name
 from .session_conversation import load_session_conversation
-from .types import ChatMessage
+from .session_names import name_session, normalize_session_name
+from .session_usage import summarize_run_usage
 from .structured_output import StructuredOutputResult, generate_structured_output
+from .types import ApprovalPolicy, ChatMessage
+from .workspace_core import create_local_workspace
+from .workspace_permissions import ProjectPermissions
 
 
 def run_one_shot_code(
@@ -55,6 +57,7 @@ def run_one_shot_code(
     output_json: bool,
     print_mode: bool,
     structured_output_schema: dict[str, object] | None = None,
+    max_budget_usd: Decimal | None = None,
     elapsed_ms: int,
     stream: JsonEventStream | None,
     input_prior_context: str | None,
@@ -118,7 +121,12 @@ def run_one_shot_code(
         return 1, replace(prior_context, error=str(error))
 
     merged_prior_context = combine_optional_text(prior_context.context, input_prior_context)
+    model_budget: ModelCostBudget | None = None
+    if max_budget_usd is not None:
+        model_budget = create_model_cost_budget(max_budget_usd, provider_env)
     client = create_chat_client_func(provider_env)
+    if model_budget is not None:
+        client = BudgetedChatClient(client, model_budget)
     goal_state, steering_task = _resolve_one_shot_goal(task, prior_context, project_root)
     if goal_state is not None:
         task = goal_turn_prompt(goal_state, steering_task)
@@ -254,6 +262,7 @@ def run_one_shot_code(
         provider_env=provider_env,
     )
     apply_structured_output_result(result_payload, structured_output)
+    apply_model_budget_result(result_payload, model_budget)
     if goal_state is not None:
         result_payload["goal"] = {
             "condition": goal_state.condition,
@@ -277,7 +286,7 @@ def run_one_shot_code(
         output_json=output_json,
         print_mode=print_mode,
     )
-    return one_shot_code_exit_code(result, structured_output), prior_context
+    return one_shot_code_exit_code(result, structured_output, model_budget), prior_context
 
 
 def _resolve_one_shot_goal(

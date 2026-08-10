@@ -16,7 +16,7 @@ from .cli_inspection_args import add_inspection_arguments
 from .cli_local_report_args import add_local_report_arguments
 from .cli_one_shot_args import add_one_shot_arguments
 from .cli_output_args import add_output_arguments
-from .cli_parse_core import nonnegative_int, positive_int, timeout_ms
+from .cli_parse_core import nonnegative_int, positive_decimal, positive_int, timeout_ms
 from .cli_process_args import add_process_local_arguments, add_process_option_arguments
 from .cli_project_args import (
     add_project_check_local_arguments,
@@ -114,5 +114,5 @@ def add_cli_arguments(parser: argparse.ArgumentParser) -> None:
         timeout_ms=timeout_ms,
     )
     add_output_arguments(parser)
-    add_compat_arguments(parser, positive_int=positive_int)
+    add_compat_arguments(parser, positive_int=positive_int, positive_decimal=positive_decimal)
     parser.add_argument("task", nargs="*", help="One-shot task text. Omit it to start the interactive prompt.")
