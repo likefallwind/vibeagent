@@ -35,6 +35,9 @@ from .agent_execution_support import (
     execute_action_safely as _shared_execute_action_safely,
     should_auto_checkpoint_before_action as _shared_should_auto_checkpoint_before_action,
 )
+from .agent_auto_checkpoint import (
+    create_auto_checkpoint_for_prompt as _create_auto_checkpoint_for_prompt,
+)
 from .agent_run_completion import (
     auto_run_final_review_if_needed as _auto_run_final_review_if_needed,
     completion_blocked_feedback_if_needed as _completion_blocked_feedback_if_needed,
@@ -143,6 +146,7 @@ def run_agent(
                 finish_agent_run=finish_agent_run,
                 should_auto_checkpoint_before_action=should_auto_checkpoint_before_action,
                 create_auto_checkpoint_before_action=create_auto_checkpoint_before_action,
+                create_auto_checkpoint_for_prompt=create_auto_checkpoint_for_prompt,
                 sleep=time.sleep,
             ),
             peer_runtime=peer_runtime,
@@ -257,6 +261,23 @@ def create_auto_checkpoint_before_action(
         action,
         steps,
         iteration,
+        command_timeout_ms,
+        logger,
+        execute_action_safely,
+    )
+
+
+def create_auto_checkpoint_for_prompt(
+    workspace: RunWorkspace,
+    task: str,
+    steps: list[TaskStep],
+    command_timeout_ms: int,
+    logger: AgentLogger | None,
+) -> Observation | None:
+    return _create_auto_checkpoint_for_prompt(
+        workspace,
+        task,
+        steps,
         command_timeout_ms,
         logger,
         execute_action_safely,

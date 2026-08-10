@@ -23,6 +23,7 @@ from vibeagent.final_review_actions import final_review_session_verification_iss
 from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
 from vibeagent.session_verification_action_executor import session_verification_observation
+from vibeagent.session_rewind import list_session_rewind_points
 from vibeagent.types import ApprovalDecision, ApprovalDeniedObservation, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckGitStageObservation, CheckRunCommandsObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CodeReference, CodeReferencesObservation, CommandCheckObservation, ContentBlock, EnvironmentInfoObservation, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ProjectInstructionSource, ProjectInstructionsObservation, ProjectManifest, ProjectManifestItem, ProjectManifestsObservation, ProjectOverviewObservation, ProjectTodo, ProjectTodosObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, RuntimeToolInfo, SearchObservation, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, ToolErrorObservation, ToolSearchObservation, WaitProcessObservation
 from vibeagent.types import CheckGitPushObservation, GitInfoObservation, HttpCheckObservation, PortCheckObservation
 from vibeagent.types import CheckEditFileObservation, CheckJsonSetObservation, CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, GitChangesObservation, GitCommitObservation, GitDiffObservation, GitStageObservation, GitStatusObservation, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PatchFilesObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSessionVerificationObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
@@ -12055,11 +12056,11 @@ class AgentTests(unittest.TestCase):
         self.assertEqual([item.kind for item in result.observations[:2]], ["checkpoint_create", "write_file"])
         self.assertTrue(result.observations[0].ok)
         self.assertIsNotNone(result.observations[0].checkpoint)
-        self.assertEqual(result.observations[0].checkpoint.label, "auto before write_file")
+        self.assertEqual(result.observations[0].checkpoint.label, "prompt: create note")
         self.assertEqual(result.observations[0].checkpoint.unstaged_files, 1)
         self.assertEqual(note_content, "ok\n")
-        self.assertEqual([step.action_type for step in result.steps[:2]], ["write_file", "checkpoint_create"])
-        self.assertEqual([step.status for step in result.steps[:2]], ["completed", "completed"])
+        self.assertEqual([step.action_type for step in result.steps[:1]], ["write_file"])
+        self.assertEqual([step.status for step in result.steps[:1]], ["completed"])
         self.assertEqual(len(client.messages[1][-1].content), 1)
         self.assertIn("write_file", client.messages[1][-1].content[0]["content"])
         auto_events = [
@@ -12069,7 +12070,76 @@ class AgentTests(unittest.TestCase):
         ]
         self.assertEqual(len(auto_events), 1)
         self.assertEqual(auto_events[0]["name"], "checkpoint_create")
-        self.assertEqual(auto_events[0]["before_action_type"], "write_file")
+        self.assertTrue(auto_events[0]["prompt_checkpoint"])
+        self.assertEqual(auto_events[0]["iteration"], 0)
+
+    def test_run_agent_creates_prompt_checkpoint_before_model_turn_without_mutation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            init_git_repo_with_commit(root)
+            client = MockClient([[{"type": "text", "text": "The code is already correct."}]])
+
+            result = run_agent(
+                "inspect only",
+                base_dir=root,
+                client=client,
+                max_iterations=1,
+                approval_handler=approve_all,
+            )
+            checkpoint_dirs = list((root / ".vibeagent" / "checkpoints").iterdir())
+            self.assertEqual(len(checkpoint_dirs), 1)
+            metadata = json.loads(
+                checkpoint_dirs[0].joinpath("metadata.json").read_text(encoding="utf-8")
+            )
+            events = [
+                json.loads(line)
+                for line in (
+                    root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+                ).read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations, [])
+        self.assertEqual(metadata["label"], "prompt: inspect only")
+        self.assertEqual(metadata["session_run_id"], result.run_id)
+        boundary = metadata["session_event_line"]
+        self.assertIn("task", [event["type"] for event in events[:boundary]])
+        self.assertNotIn("model", [event["type"] for event in events[:boundary]])
+        self.assertIn("model", [event["type"] for event in events[boundary:]])
+
+    def test_reused_session_accumulates_one_rewind_point_per_prompt(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            init_git_repo_with_commit(root)
+            first = run_agent(
+                "inspect first",
+                base_dir=root,
+                client=MockClient([[{"type": "text", "text": "First done."}]]),
+                max_iterations=1,
+                approval_handler=approve_all,
+            )
+            workspace = create_run_workspace(root, run_id=first.run_id)
+            second = run_agent(
+                "inspect second",
+                workspace=workspace,
+                client=MockClient([[{"type": "text", "text": "Second done."}]]),
+                max_iterations=1,
+                approval_handler=approve_all,
+                prior_context="first context",
+            )
+            points = list_session_rewind_points(root, first.run_id)
+            summary = summarize_session(root, first.run_id)
+            events = [
+                json.loads(line)
+                for line in workspace.session_dir.joinpath("events.jsonl").read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertEqual(second.run_id, first.run_id)
+        self.assertEqual(len(points), 2)
+        self.assertEqual([point.label for point in points], ["prompt: inspect second", "prompt: inspect first"])
+        self.assertEqual([event["type"] for event in events].count("task"), 2)
+        self.assertEqual(summary.task, "inspect second")
+        self.assertEqual(summary.auto_checkpoints_created, 2)
 
     def test_auto_checkpoint_covers_local_mutating_git_actions(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
@@ -12122,7 +12192,7 @@ class AgentTests(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual([item.kind for item in result.observations[:2]], ["checkpoint_create", "run_command"])
         self.assertTrue(result.observations[0].ok)
-        self.assertEqual(result.observations[0].checkpoint.label, "auto before run_command")
+        self.assertEqual(result.observations[0].checkpoint.label, "prompt: generate file")
         self.assertEqual(result.observations[0].checkpoint.unstaged_files, 1)
         self.assertEqual(generated_content, "ok\n")
         self.assertEqual(len(client.messages[1][-1].content), 1)
@@ -12133,7 +12203,7 @@ class AgentTests(unittest.TestCase):
             if event.get("type") == "tool_result" and event.get("auto") is True and event.get("name") == "checkpoint_create"
         ]
         self.assertEqual(len(auto_events), 1)
-        self.assertEqual(auto_events[0]["before_action_type"], "run_command")
+        self.assertTrue(auto_events[0]["prompt_checkpoint"])
 
     def test_run_agent_redacts_auto_final_review_session_event(self) -> None:
         secret_path = "src/sk-testsecret1234567890.py"
@@ -12290,10 +12360,12 @@ class AgentTests(unittest.TestCase):
             for event in events
             if event.get("type") == "tool_result" and event.get("auto") is True and event.get("name") == "checkpoint_create"
         ]
-        self.assertEqual(len(auto_events), 1)
+        self.assertEqual(len(auto_events), 2)
         self.assertEqual(auto_events[0]["result"]["message"], "git diff failed.")
+        self.assertTrue(auto_events[0]["prompt_checkpoint"])
+        self.assertEqual(auto_events[1]["before_action_type"], "write_file")
 
-    def test_run_agent_does_not_auto_checkpoint_denied_project_change(self) -> None:
+    def test_run_agent_prompt_checkpoints_even_when_project_change_is_denied(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)
             init_git_repo_with_commit(root)
@@ -12315,11 +12387,11 @@ class AgentTests(unittest.TestCase):
 
         self.assertTrue(result.success)
         self.assertEqual(result.observations[0].kind, "approval_denied")
-        self.assertFalse(checkpoint_dir_exists)
+        self.assertTrue(checkpoint_dir_exists)
         self.assertEqual(result.steps[0].action_type, "write_file")
         self.assertEqual(result.steps[0].status, "denied")
 
-    def test_run_agent_does_not_auto_checkpoint_denied_finite_command(self) -> None:
+    def test_run_agent_prompt_checkpoints_even_when_finite_command_is_denied(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)
             init_git_repo_with_commit(root)
@@ -12342,7 +12414,7 @@ class AgentTests(unittest.TestCase):
 
         self.assertTrue(result.success)
         self.assertEqual(result.observations[0].kind, "approval_denied")
-        self.assertFalse(checkpoint_dir_exists)
+        self.assertTrue(checkpoint_dir_exists)
         self.assertEqual(result.steps[0].action_type, "run_command")
         self.assertEqual(result.steps[0].status, "denied")
 

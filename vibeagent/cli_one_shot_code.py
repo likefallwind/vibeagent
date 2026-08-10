@@ -186,7 +186,12 @@ def run_one_shot_code(
                     break
                 task = goal_turn_prompt(goal_state)
                 run_kwargs["prior_context"] = next_context
-                run_kwargs["task_source_run_id"] = selected or result.run_id
+                run_kwargs["workspace"] = create_local_workspace(
+                    project_root,
+                    result.run_id,
+                    additional_roots=additional_directories,
+                )
+                run_kwargs.pop("task_source_run_id", None)
     finally:
         if peer_runtime is not None:
             peer_runtime.close()

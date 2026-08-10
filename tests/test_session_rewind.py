@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.checkpoint_session import checkpoint_session_metadata
+from vibeagent.checkpoint_session import prune_session_checkpoints
 from vibeagent.cli_interactive_rewind import run_interactive_rewind_command
 from vibeagent.command_types import LocalCommand
 from vibeagent.session_rewind import list_session_rewind_points, rewind_session
@@ -131,6 +132,46 @@ class SessionRewindTests(unittest.TestCase):
         )
         self.assertIsNotNone(result)
         self.assertIn("Usage: /rewind", result.text)  # type: ignore[union-attr]
+
+    def test_session_checkpoint_retention_prunes_only_selected_session(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-rewind-") as base:
+            root = Path(base)
+            checkpoint_root = root / ".vibeagent" / "checkpoints"
+            for index in range(4):
+                checkpoint_id = f"2026-08-10T00-00-0{index}-000Z-session{index}"
+                checkpoint_dir = checkpoint_root / checkpoint_id
+                checkpoint_dir.mkdir(parents=True)
+                checkpoint_dir.joinpath("metadata.json").write_text(
+                    json.dumps(
+                        {
+                            "id": checkpoint_id,
+                            "created_at": f"2026-08-10T00:00:0{index}Z",
+                            "session_run_id": "target-run",
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+            other_id = "2026-08-10T00-00-09-000Z-other001"
+            other_dir = checkpoint_root / other_id
+            other_dir.mkdir(parents=True)
+            other_dir.joinpath("metadata.json").write_text(
+                json.dumps(
+                    {
+                        "id": other_id,
+                        "created_at": "2026-08-10T00:00:09Z",
+                        "session_run_id": "other-run",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            deleted, warnings = prune_session_checkpoints(root, "target-run", keep_last=2)
+
+            self.assertEqual(len(deleted), 2)
+            self.assertEqual(warnings, ())
+            self.assertTrue(other_dir.is_dir())
+            remaining = [path for path in checkpoint_root.iterdir() if path.is_dir()]
+            self.assertEqual(len(remaining), 3)
 
     @staticmethod
     def _write_checkpoint(root: Path, run_id: str, event_line: int) -> str:

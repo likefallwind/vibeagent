@@ -153,6 +153,7 @@ def run_interactive_loop(
             selected_approval_handler = panel.wrap_approval_handler(approval_handler)
             selected_user_input_handler = panel.wrap_user_input_handler(prompt_user_input)
         source_run_id = resume_run_id
+        active_workspace = pending_workspace
         try:
             result = run_agent_func(
                 task,
@@ -173,9 +174,13 @@ def run_interactive_loop(
                 task_metadata=task_metadata,
                 task_source_run_id=(
                     pending_branch_source_run_id
-                    or (resume_run_id if resume_context is not None else None)
+                    or (
+                        resume_run_id
+                        if active_workspace is None and resume_context is not None
+                        else None
+                    )
                 ),
-                workspace=pending_workspace,
+                workspace=active_workspace,
                 peer_runtime=peer_runtime,
                 agent=initial_agent,
                 additional_directories=additional_directories,
@@ -186,12 +191,16 @@ def run_interactive_loop(
         if panel.config_error and panel.config_error != initial_panel_error:
             print(f"Plugin subagentStatusLine warning: {panel.config_error}")
         print_agent_result(result)
-        if pending_workspace is None:
+        if active_workspace is None:
             try:
                 transfer_session_name(Path.cwd(), source_run_id, result.run_id)
             except (OSError, ValueError) as error:
                 print(f"Session name persistence warning: {format_error(error)}")
-        pending_workspace = None
+        pending_workspace = create_local_workspace(
+            Path.cwd(),
+            result.run_id,
+            additional_roots=additional_directories,
+        )
         pending_branch_source_run_id = None
         selected, next_context, _ = get_resume_context_func(result.run_id)
         if next_context:
@@ -506,6 +515,11 @@ def run_interactive_loop(
             )
             if update.changed:
                 additional_directories = update.directories
+                if pending_workspace is not None:
+                    pending_workspace = replace(
+                        pending_workspace,
+                        additional_roots=additional_directories,
+                    )
                 if workflow_manager is not None:
                     workflow_manager.close()
                     workflow_manager = None

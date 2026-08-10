@@ -1365,6 +1365,10 @@ not automatically load the latest compact session context. When no run id is sup
 `local-*` sessions created by read-only CLI utilities. `/resume off` or `/clear`
 clears it before a fresh task.
 `-n/--name <name>` names a new interactive or one-shot coding session at startup.
+Consecutive interactive coding prompts and evaluator-driven `/goal` turns reuse
+the active Session workspace and run ID, so their plans, transcript, usage, and
+rewind points form one coherent history. `/clear`, an explicit resume into a
+continuation, and `/branch` remain deliberate Session boundaries.
 `/rename [name]` updates the active session name; without a name it derives a
 unique filesystem-safe name from the first coding task. Exact session IDs take
 precedence over names during resume, and duplicate or reserved names are rejected.
@@ -1422,8 +1426,11 @@ pending or failed verification commands so resumed work can pick up from the
 exact blocker. Sessions whose final agent response returned `success: true` but
 did not pass `completionReady` are reported as `blocked`, not `completed`, in
 session summaries and usage totals.
-`/checkpoint [label]` saves a local
-handoff snapshot of `git status`, HEAD, unstaged diff, staged diff, and ordinary
+Before each coding prompt, VibeAgent automatically saves a Git-backed checkpoint
+after recording the prompt and before calling the model. It retains the newest
+100 linked checkpoints per Session; a failed prompt checkpoint is retried before
+the first approved project mutation or finite command. `/checkpoint [label]`
+saves a local handoff snapshot of `git status`, HEAD, unstaged diff, staged diff, and ordinary
 untracked file contents for later review or restore; `latest` can be used as the
 checkpoint id for the newest saved checkpoint. `/check-checkpoint-restore <id>`
 previews the restore constraints before `/checkpoint-restore <id>` rewrites

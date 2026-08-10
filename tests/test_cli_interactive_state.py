@@ -12,9 +12,42 @@ from vibeagent.cli import main
 from vibeagent.types import ApprovalRequest
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.session_branching import read_session_branch_info
+from vibeagent.workspace_core import create_run_workspace
 
 
 class CliInteractiveStateTests(unittest.TestCase):
+    def test_main_interactive_reuses_session_workspace_across_code_turns(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-session-") as base:
+            root = Path(base)
+            calls: list[dict[str, object]] = []
+            created_run_ids: list[str] = []
+
+            def run_agent(task, **kwargs):
+                calls.append(kwargs)
+                workspace = kwargs["workspace"] or create_run_workspace(root)
+                if kwargs["workspace"] is None:
+                    created_run_ids.append(workspace.run_id)
+                return AgentResult(True, "done", root, workspace.run_id, 1, [], [])
+
+            def get_context(run_id, **kwargs):
+                return run_id, f"context for {run_id}", "loaded"
+
+            with (
+                patch("builtins.input", side_effect=["first task", "second task", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", side_effect=run_agent),
+                patch("vibeagent.cli.get_resume_context", side_effect=get_context),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", str(root)])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIsNone(calls[0]["workspace"])
+        second_workspace = calls[1]["workspace"]
+        self.assertIsNotNone(second_workspace)
+        self.assertEqual(second_workspace.run_id, created_run_ids[0])
+        self.assertIsNone(calls[1]["task_source_run_id"])
+
     def test_main_interactive_agent_profile_is_forwarded_to_code_turns(self) -> None:
         result = AgentResult(
             success=True,
@@ -270,7 +303,7 @@ class CliInteractiveStateTests(unittest.TestCase):
             rewound_workspace = calls[0]["workspace"]
             self.assertEqual(exit_code, 0)
             self.assertNotEqual(rewound_workspace.run_id, "source-run")
-            self.assertEqual(calls[0]["task_source_run_id"], rewound_workspace.run_id)
+            self.assertIsNone(calls[0]["task_source_run_id"])
             self.assertEqual(calls[0]["prior_context"], f"context for {rewound_workspace.run_id}")
             self.assertEqual(source_dir.joinpath("events.jsonl").read_bytes(), source_events)
             self.assertIn("Rewound conversation", stdout.getvalue())

@@ -10,6 +10,7 @@ from .agent_message_flow import (
     compact_agent_context_if_needed,
     recover_agent_context_limit,
 )
+from .agent_observation_utils import observation_failed
 from .agent_lifecycle_runtime import AgentLifecycleRuntime
 from .agent_model_turn import handle_no_tool_call_response, record_model_turn
 from .agent_multimodal import strip_consumed_tool_images
@@ -41,6 +42,7 @@ from .types import (
     TaskStep,
     UserInputHandler,
 )
+from .workspace_core import RunWorkspace
 
 
 @dataclass(frozen=True)
@@ -52,6 +54,7 @@ class AgentLoopRuntime:
     finish_agent_run: Callable[..., AgentResult]
     should_auto_checkpoint_before_action: Callable[..., bool]
     create_auto_checkpoint_before_action: Callable[..., Observation | None]
+    create_auto_checkpoint_for_prompt: Callable[..., Observation | None]
     sleep: Callable[[float], None]
 
 
@@ -85,7 +88,42 @@ def run_agent_loop(
     active_tool_names = setup.active_tool_names
     project_hooks = setup.project_hooks
     project_permissions = setup.project_permissions
+    prompt_checkpoint_steps: list[TaskStep] = []
+    prompt_checkpoint = runtime.create_auto_checkpoint_for_prompt(
+        current_workspace,
+        task,
+        prompt_checkpoint_steps,
+        command_timeout_ms,
+        logger,
+    )
+    pending_prompt_checkpoint = (
+        prompt_checkpoint
+        if prompt_checkpoint is not None and not observation_failed(prompt_checkpoint)
+        else None
+    )
     auto_checkpoint_attempted = False
+
+    def create_checkpoint_before_action(
+        workspace: RunWorkspace,
+        action: object,
+        action_steps: list[TaskStep],
+        iteration: int,
+        timeout_ms: int,
+        action_logger: AgentLogger | None,
+    ) -> Observation | None:
+        nonlocal pending_prompt_checkpoint
+        if pending_prompt_checkpoint is not None:
+            checkpoint = pending_prompt_checkpoint
+            pending_prompt_checkpoint = None
+            return checkpoint
+        return runtime.create_auto_checkpoint_before_action(
+            workspace,
+            action,
+            action_steps,
+            iteration,
+            timeout_ms,
+            action_logger,
+        )
     lifecycle = AgentLifecycleRuntime(
         hooks=project_hooks,
         permissions=project_permissions,
@@ -316,7 +354,7 @@ def run_agent_loop(
                 auto_checkpoint_attempted=auto_checkpoint_attempted,
                 execute_action_safely_func=runtime.execute_action_safely,
                 should_auto_checkpoint_before_action_func=runtime.should_auto_checkpoint_before_action,
-                create_auto_checkpoint_before_action_func=runtime.create_auto_checkpoint_before_action,
+                create_auto_checkpoint_before_action_func=create_checkpoint_before_action,
                 tool_call_allowed=setup.main_profile.allows_tool_call,
                 excluded_tool_names=setup.main_profile.disallowed_tool_names,
                 allowed_tool_names=setup.main_profile.allowed_tool_names,

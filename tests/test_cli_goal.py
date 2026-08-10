@@ -64,6 +64,9 @@ class CliGoalTests(unittest.TestCase):
             self.assertEqual(run_agent.call_count, 2)
             self.assertIn("all tests pass", run_agent.call_args_list[0].args[0])
             self.assertIn("tests missing", run_agent.call_args_list[1].args[0])
+            self.assertNotIn("workspace", run_agent.call_args_list[0].kwargs)
+            self.assertEqual(run_agent.call_args_list[1].kwargs["workspace"].run_id, "goal-run")
+            self.assertNotIn("task_source_run_id", run_agent.call_args_list[1].kwargs)
             self.assertNotIn("tools", client.calls[0][1])
             stored = read_session_goal(base, "goal-run")
             self.assertEqual(stored.status, "achieved")  # type: ignore[union-attr]
