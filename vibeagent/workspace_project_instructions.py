@@ -12,6 +12,7 @@ from .workspace_instruction_rules import (
     startup_instruction_documents,
 )
 from .workspace_instruction_state import claim_unloaded_instruction_documents
+from .workspace_instruction_state import DEFAULT_INSTRUCTION_CONSUMER
 
 
 def read_project_instructions(workspace: RunWorkspace, max_bytes: int = 12_000, max_files: int = 20) -> str | None:
@@ -64,18 +65,20 @@ def read_path_instruction_context(
     max_bytes: int = 12_000,
     max_files: int = 20,
     claim: bool = True,
+    consumer_id: str = DEFAULT_INSTRUCTION_CONSUMER,
 ) -> dict[str, object]:
     _validate_instruction_limits(max_bytes, max_files)
     documents = discover_path_instruction_documents(workspace, relative_paths)
     matching = matching_instruction_documents(documents, relative_paths)
     selected = matching[:max_files]
     if claim:
-        selected = claim_unloaded_instruction_documents(workspace, selected)
+        selected = claim_unloaded_instruction_documents(workspace, selected, consumer_id)
     text, text_truncated = _format_instruction_documents(selected, max_bytes)
     omitted_files = max(0, len(matching) - min(len(matching), max_files))
     return {
         "ok": True,
         "paths": list(dict.fromkeys(relative_paths)),
+        "consumer": consumer_id,
         "files": [_source_metadata(document, True) for document in selected],
         "total_files": len(matching),
         "scanned_files": min(len(matching), max_files),

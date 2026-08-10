@@ -16,6 +16,7 @@ from .session_event_sanitization import sanitize_session_event_payload
 from .session_event_observers import notify_session_event_observers
 from .types import ApprovalPolicy, ChatMessage, ContentBlock, ListFilesObservation, Observation, PlanItem, ToolErrorObservation
 from .workspace_core import RunWorkspace
+from .workspace_instruction_state import reset_loaded_instruction_documents
 
 
 AGENT_MESSAGE_COMPACT_THRESHOLD = 18
@@ -99,6 +100,7 @@ def compact_agent_message_history(
     if compacted_messages == messages or ((force or char_threshold_reached) and new_chars >= previous_chars):
         return messages
     resolved_reason = reason or compaction_threshold_reason(message_threshold_reached, char_threshold_reached)
+    reset_count, reset_error = _reset_path_instruction_state(workspace, "main")
     append_session_event(
         workspace.session_dir,
         "context_compacted",
@@ -113,9 +115,18 @@ def compact_agent_message_history(
             "retained_observations": min(len(observations), observation_limit),
             "retained_image_tool_results": pending_image_tool_result_count(messages),
             "reason": resolved_reason,
+            "path_instruction_sources_reset": reset_count,
+            "path_instruction_reset_error": reset_error,
         },
     )
     return compacted_messages
+
+
+def _reset_path_instruction_state(workspace: RunWorkspace, consumer_id: str) -> tuple[int, str | None]:
+    try:
+        return reset_loaded_instruction_documents(workspace, consumer_id), None
+    except (OSError, ValueError) as error:
+        return 0, str(error)
 
 
 def compaction_threshold_reason(message_threshold_reached: bool, char_threshold_reached: bool) -> str:

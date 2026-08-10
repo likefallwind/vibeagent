@@ -265,6 +265,9 @@ local changes when asked, and resume from recorded session context.
   covers resume-time verification reuse.
 - `tests.test_delegation.DelegationTests.test_parent_agent_receives_subagent_summary_as_tool_result`
   covers parent/subagent message flow and safe subagent lifecycle events.
+- `tests.test_instruction_context_compaction.InstructionContextCompactionTests`
+  covers independent main/subagent path-instruction loading and rule reload
+  after either context is compacted.
 - `tests.test_project_permissions`, `tests.test_workspace`, and
   `tests.test_command_sandbox` cover the main workspace and safety boundaries.
 

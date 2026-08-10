@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from .agent_delegate_completion import clip_delegate_summary, delegate_completion_message, finish_delegate_task
 from .agent_delegate_context import compact_delegate_message_history, recover_delegate_context_limit
 from .agent_delegate_tools import delegate_tool_definitions, execute_delegate_tool_call
+from .agent_execution_support import execute_action_safely
+from .agent_lifecycle_hooks import run_instruction_loaded_hooks
 from .agent_model import complete_with_retries
 from .agent_runtime_utils import append_session_event, content_blocks_to_text, normalize_assistant_content, to_jsonable
 from .agent_tool_results import record_subagent_tool_observation
@@ -164,6 +166,18 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                         tool_name=tool_name,
                         observation=execution.observation,
                         hook_results=execution.hook_results,
+                        instruction_hook_runner=lambda instruction_context: run_instruction_loaded_hooks(
+                            context.workspace,
+                            context.hooks,
+                            instruction_context,
+                            iteration=child_iteration,
+                            command_timeout_ms=context.command_timeout_ms,
+                            logger=context.logger,
+                            approval_handler=context.approval_handler,
+                            approval_policy=context.approval_policy,
+                            execute_action_safely_func=execute_action_safely,
+                            permissions=context.permissions,
+                        ),
                     )
                 )
 

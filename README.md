@@ -968,8 +968,11 @@ through read-only tools, inspect fixed runtime/tool availability, preflight prop
 metadata and current changes. Root `AGENTS.md`, `CLAUDE.md`,
 `.claude/CLAUDE.md`, `CLAUDE.local.md`, and unscoped `.claude/rules/**/*.md`
 files are included in the initial coding prompt. Nested instruction files and
-rules with `paths` frontmatter are loaded once per session after a matching file
-is read, so directory-specific guidance does not leak into unrelated work.
+rules with `paths` frontmatter are loaded once per agent context after a
+matching file is read, so directory-specific guidance does not leak into
+unrelated work. Main-agent and subagent contexts track loaded sources
+independently. When either context is compacted, its lazy-load markers are
+cleared so the applicable rules are injected again on the next matching read.
 Project commands from root or nested `package.json`, `pyproject.toml`,
 and `Makefile` files are shown as command hints with their `cwd` and executable availability. Long-running commands can be started as background
 processes, inspected through captured stdout/stderr tails across CLI calls, sent exact stdin input while the starting runtime is still attached, checked
@@ -1431,6 +1434,10 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
 - `vibeagent/workspace_memory.py`: manages bounded auto-memory loading and
   approved atomic Markdown writes in a repository-shared, machine-local runtime
   directory with path, symlink, size, and credential-redaction guards.
+- `vibeagent/workspace_instruction_state.py` and
+  `vibeagent/agent_instruction_context.py`: atomically track path-scoped
+  instruction sources per main-agent or subagent consumer, migrate legacy
+  session state, and allow rules to reload after context compaction.
 - `vibeagent/workspace.py`: treats the current directory as the project root,
   creates `.vibeagent/sessions/<session-id>/`, resolves relative file paths,
   rejects path escapes, protects `.git/` and `.vibeagent/`, rejects symlink

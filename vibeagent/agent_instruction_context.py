@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .workspace_core import RunWorkspace
 from .workspace_project_instructions import read_path_instruction_context
+from .workspace_instruction_state import DEFAULT_INSTRUCTION_CONSUMER
 
 
 LAZY_INSTRUCTION_OBSERVATION_KINDS = {
@@ -17,14 +18,18 @@ LAZY_INSTRUCTION_OBSERVATION_KINDS = {
 }
 
 
-def instruction_context_for_observation(workspace: RunWorkspace, observation: object) -> dict[str, object] | None:
+def instruction_context_for_observation(
+    workspace: RunWorkspace,
+    observation: object,
+    consumer_id: str = DEFAULT_INSTRUCTION_CONSUMER,
+) -> dict[str, object] | None:
     if getattr(observation, "kind", None) not in LAZY_INSTRUCTION_OBSERVATION_KINDS:
         return None
     paths = _successful_observation_paths(observation)
     if not paths:
         return None
     try:
-        context = read_path_instruction_context(workspace, paths)
+        context = read_path_instruction_context(workspace, paths, consumer_id=consumer_id)
     except (OSError, ValueError) as error:
         return {
             "ok": False,

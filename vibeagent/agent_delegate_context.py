@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from .agent_multimodal import pending_image_tool_exchange, pending_image_tool_result_count
+from .agent_tool_results import subagent_instruction_consumer
 from .agent_runtime_utils import (
     AGENT_MESSAGE_COMPACT_CHAR_THRESHOLD,
     AGENT_COMPACT_CONTEXT_MAX_LENGTH,
@@ -16,6 +17,7 @@ from .prompt_observations import format_observations
 from .types import ChatMessage, DelegateTaskAction, Observation
 from .workspace import format_project_skill_catalog, read_project_instructions, read_workspace_snapshot
 from .workspace_core import RunWorkspace
+from .workspace_instruction_state import reset_loaded_instruction_documents
 
 
 DELEGATE_SYSTEM_PROMPT = """You are a read-only repository exploration subagent.
@@ -104,6 +106,7 @@ def compact_delegate_message_history(
     if compacted_messages == messages or ((force or char_threshold_reached) and new_chars >= previous_chars):
         return messages
     resolved_reason = reason or compaction_threshold_reason(message_threshold_reached, char_threshold_reached)
+    reset_count, reset_error = _reset_subagent_instruction_state(workspace, subagent_id)
     append_session_event(
         workspace.session_dir,
         "subagent_context_compacted",
@@ -121,9 +124,19 @@ def compact_delegate_message_history(
             "retained_observations": min(len(observations), observation_limit),
             "retained_image_tool_results": pending_image_tool_result_count(messages),
             "reason": resolved_reason,
+            "path_instruction_sources_reset": reset_count,
+            "path_instruction_reset_error": reset_error,
         },
     )
     return compacted_messages
+
+
+def _reset_subagent_instruction_state(workspace: RunWorkspace, subagent_id: str) -> tuple[int, str | None]:
+    try:
+        consumer = subagent_instruction_consumer(subagent_id)
+        return reset_loaded_instruction_documents(workspace, consumer), None
+    except (OSError, ValueError) as error:
+        return 0, str(error)
 
 
 def recover_delegate_context_limit(

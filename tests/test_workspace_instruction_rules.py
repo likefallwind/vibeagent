@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
 import tempfile
@@ -9,6 +10,7 @@ from vibeagent.agent_tool_results import record_tool_result_event
 from vibeagent.observation_read_types import ReadFileObservation, ReadFileResult, ReadFilesObservation
 from vibeagent.workspace_core import create_run_workspace
 from vibeagent.workspace_instruction_rules import parse_rule_frontmatter, rule_pattern_matches
+from vibeagent.workspace_instruction_state import reset_loaded_instruction_documents
 from vibeagent.workspace_project_instructions import (
     read_path_instruction_context,
     read_project_instruction_sources,
@@ -75,7 +77,94 @@ class WorkspaceInstructionRuleTests(unittest.TestCase):
             self.assertEqual([item["path"] for item in first["files"]], ["pkg/CLAUDE.md"])
             self.assertEqual(second["files"], [])
             state = json.loads((workspace.session_dir / "loaded_instructions.json").read_text(encoding="utf-8"))
-            self.assertEqual(state, ["pkg/CLAUDE.md"])
+            self.assertEqual(state["version"], 2)
+            self.assertEqual(state["consumers"]["main"], ["pkg/CLAUDE.md"])
+
+    def test_path_instruction_claims_are_isolated_by_consumer_and_reset_independently(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workspace = create_run_workspace(root, run_id="instruction-consumers")
+            self._write(root / "pkg" / "CLAUDE.md", "Package rule.\n")
+
+            main = read_path_instruction_context(workspace, ["pkg/main.py"])
+            child = read_path_instruction_context(workspace, ["pkg/child.py"], consumer_id="subagent:delegate-1")
+            main_again = read_path_instruction_context(workspace, ["pkg/other.py"])
+            removed = reset_loaded_instruction_documents(workspace, "main")
+            main_after_reset = read_path_instruction_context(workspace, ["pkg/other.py"])
+            child_again = read_path_instruction_context(
+                workspace,
+                ["pkg/child.py"],
+                consumer_id="subagent:delegate-1",
+            )
+
+            state = json.loads((workspace.session_dir / "loaded_instructions.json").read_text(encoding="utf-8"))
+
+        self.assertEqual([item["path"] for item in main["files"]], ["pkg/CLAUDE.md"])
+        self.assertEqual([item["path"] for item in child["files"]], ["pkg/CLAUDE.md"])
+        self.assertEqual(main_again["files"], [])
+        self.assertEqual(removed, 1)
+        self.assertEqual([item["path"] for item in main_after_reset["files"]], ["pkg/CLAUDE.md"])
+        self.assertEqual(child_again["files"], [])
+        self.assertEqual(set(state["consumers"]), {"main", "subagent:delegate-1"})
+
+    def test_legacy_instruction_state_migrates_when_another_consumer_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workspace = create_run_workspace(root, run_id="instruction-migrate")
+            self._write(root / "pkg" / "CLAUDE.md", "Package rule.\n")
+            state_path = workspace.session_dir / "loaded_instructions.json"
+            state_path.write_text('["pkg/CLAUDE.md"]\n', encoding="utf-8")
+
+            main = read_path_instruction_context(workspace, ["pkg/main.py"])
+            child = read_path_instruction_context(workspace, ["pkg/child.py"], consumer_id="subagent:delegate-1")
+            migrated = json.loads(state_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(main["files"], [])
+        self.assertEqual([item["path"] for item in child["files"]], ["pkg/CLAUDE.md"])
+        self.assertEqual(migrated["version"], 2)
+        self.assertEqual(migrated["consumers"]["main"], ["pkg/CLAUDE.md"])
+        self.assertEqual(migrated["consumers"]["subagent:delegate-1"], ["pkg/CLAUDE.md"])
+
+    def test_concurrent_consumers_claim_without_losing_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workspace = create_run_workspace(root, run_id="instruction-concurrent")
+            self._write(root / "pkg" / "CLAUDE.md", "Package rule.\n")
+            consumers = [f"subagent:delegate-{index}" for index in range(12)]
+
+            def claim(consumer: str) -> list[str]:
+                context = read_path_instruction_context(workspace, ["pkg/module.py"], consumer_id=consumer)
+                return [item["path"] for item in context["files"]]
+
+            with ThreadPoolExecutor(max_workers=6) as executor:
+                first = list(executor.map(claim, consumers))
+                second = list(executor.map(claim, consumers))
+            state = json.loads((workspace.session_dir / "loaded_instructions.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(first, [["pkg/CLAUDE.md"]] * len(consumers))
+        self.assertEqual(second, [[]] * len(consumers))
+        self.assertEqual(set(state["consumers"]), set(consumers))
+
+    def test_consumer_limit_evicts_old_subagent_but_preserves_main(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workspace = create_run_workspace(root, run_id="instruction-consumer-limit")
+            self._write(root / "pkg" / "CLAUDE.md", "Package rule.\n")
+            read_path_instruction_context(workspace, ["pkg/main.py"])
+            for index in range(100):
+                read_path_instruction_context(
+                    workspace,
+                    ["pkg/module.py"],
+                    consumer_id=f"subagent:delegate-{index:03d}",
+                )
+
+            main_again = read_path_instruction_context(workspace, ["pkg/main.py"])
+            state = json.loads((workspace.session_dir / "loaded_instructions.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(main_again["files"], [])
+        self.assertEqual(len(state["consumers"]), 100)
+        self.assertIn("main", state["consumers"])
+        self.assertIn("subagent:delegate-099", state["consumers"])
 
     def test_tool_result_injects_lazy_instructions_and_records_audit_event(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

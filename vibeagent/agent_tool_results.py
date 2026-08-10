@@ -161,8 +161,31 @@ def record_subagent_tool_result_event(
     observation: Observation,
     failed: bool,
     hook_results: tuple[object, ...] = (),
+    instruction_context: object = _INSTRUCTION_CONTEXT_UNSET,
 ) -> dict[str, object]:
     result_payload = build_tool_result_payload(observation, hook_results)
+    if instruction_context is _INSTRUCTION_CONTEXT_UNSET:
+        instruction_context = instruction_context_for_observation(
+            workspace,
+            observation,
+            consumer_id=subagent_instruction_consumer(subagent_id),
+        )
+    if instruction_context is not None:
+        assert isinstance(instruction_context, dict)
+        result_payload["pathInstructions"] = redact_jsonable_payload(instruction_context)
+        append_session_event(
+            workspace.session_dir,
+            "subagent_instructions_loaded",
+            {
+                "subagent_id": subagent_id,
+                "parent_iteration": parent_iteration,
+                "iteration": iteration,
+                "tool": tool_name,
+                "paths": instruction_context.get("paths", []),
+                "files": instruction_context.get("files", []),
+                "message": instruction_context.get("message", ""),
+            },
+        )
     append_session_event(
         workspace.session_dir,
         "subagent_tool_result",
@@ -179,6 +202,10 @@ def record_subagent_tool_result_event(
     return result_payload
 
 
+def subagent_instruction_consumer(subagent_id: str) -> str:
+    return f"subagent:{subagent_id}"
+
+
 def record_subagent_tool_observation(
     workspace: RunWorkspace,
     *,
@@ -189,7 +216,16 @@ def record_subagent_tool_observation(
     tool_name: str,
     observation: Observation,
     hook_results: tuple[object, ...] = (),
+    instruction_hook_runner: Callable[[dict[str, object]], tuple[object, ...]] | None = None,
 ) -> ContentBlock:
+    instruction_context = instruction_context_for_observation(
+        workspace,
+        observation,
+        consumer_id=subagent_instruction_consumer(subagent_id),
+    )
+    instruction_hook_results: tuple[object, ...] = ()
+    if instruction_context is not None and instruction_hook_runner is not None:
+        instruction_hook_results = tuple(instruction_hook_runner(instruction_context))
     result_payload = record_subagent_tool_result_event(
         workspace,
         subagent_id=subagent_id,
@@ -199,7 +235,8 @@ def record_subagent_tool_observation(
         tool_name=tool_name,
         observation=observation,
         failed=observation_failed(observation),
-        hook_results=hook_results,
+        hook_results=hook_results + instruction_hook_results,
+        instruction_context=instruction_context,
     )
     return build_tool_result_block(workspace, tool_id, observation, result_payload)
 
@@ -256,4 +293,5 @@ __all__ = [
     "record_tool_observation",
     "record_tool_result_event",
     "record_tool_result_observation",
+    "subagent_instruction_consumer",
 ]
