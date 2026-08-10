@@ -222,6 +222,18 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             target=action.server,
             risk="This will start the configured MCP server process and request its tool catalog.",
         )
+    if isinstance(action, t.McpResourcesAction):
+        return t.ApprovalRequest(
+            action_type="mcp_resources",
+            target=action.server,
+            risk="This will start the configured MCP server process and request its resource catalog.",
+        )
+    if isinstance(action, t.McpReadResourceAction):
+        return t.ApprovalRequest(
+            action_type="mcp_read_resource",
+            target=f"{action.server}/{action.uri}",
+            risk="This will start configured code and read bounded content from an advertised MCP resource.",
+        )
     if isinstance(action, t.McpCallAction):
         arguments = summarize(json.dumps(redact_jsonable_payload(action.arguments), ensure_ascii=False), 500)
         return t.ApprovalRequest(

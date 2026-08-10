@@ -104,6 +104,41 @@ class _McpHttpHandler(BaseHTTPRequestHandler):
                 }
             )
             return
+        if method == "resources/list":
+            self._json_response(
+                {
+                    "jsonrpc": "2.0",
+                    "id": message["id"],
+                    "result": {
+                        "resources": [
+                            {
+                                "uri": "docs://remote",
+                                "name": "remote-doc",
+                                "mimeType": "text/plain",
+                            }
+                        ]
+                    },
+                }
+            )
+            return
+        if method == "resources/read":
+            uri = message.get("params", {}).get("uri")
+            self._json_response(
+                {
+                    "jsonrpc": "2.0",
+                    "id": message["id"],
+                    "result": {
+                        "contents": [
+                            {
+                                "uri": uri,
+                                "mimeType": "text/plain",
+                                "text": "Remote resource body",
+                            }
+                        ]
+                    },
+                }
+            )
+            return
         self._json_response({"jsonrpc": "2.0", "id": message.get("id"), "error": {"code": -32601}})
 
     def do_DELETE(self):
@@ -151,6 +186,37 @@ def _write_http_config(root: Path, url: str, **extra) -> None:
 
 
 class McpHttpRuntimeTests(unittest.TestCase):
+    def test_modern_http_lists_and_reads_resources_with_protocol_headers(self) -> None:
+        with _McpHttpServer() as server, tempfile.TemporaryDirectory(
+            prefix="vibeagent-mcp-http-"
+        ) as base:
+            root = Path(base)
+            _write_http_config(root, server.url)
+            workspace = create_run_workspace(root, "run-1")
+            listed = execute_action(
+                workspace,
+                parse_tool_action("mcp_resources", {"server": "remote"}),
+            )
+            read = execute_action(
+                workspace,
+                parse_tool_action(
+                    "mcp_read_resource",
+                    {"server": "remote", "uri": "docs://remote"},
+                ),
+            )
+
+        self.assertTrue(listed.ok, listed.error)
+        self.assertEqual(listed.resources[0].uri, "docs://remote")
+        self.assertTrue(read.ok, read.error)
+        self.assertIn("Remote resource body", read.output)
+        resource_read = next(
+            (headers, message)
+            for _, headers, message in server.server.requests
+            if message.get("method") == "resources/read"
+        )
+        self.assertEqual(resource_read[0]["Mcp-Method"], "resources/read")
+        self.assertEqual(resource_read[0]["Mcp-Name"], "docs://remote")
+
     def test_modern_json_lists_and_calls_with_metadata_and_mirrored_headers(self) -> None:
         with _McpHttpServer() as server, tempfile.TemporaryDirectory(prefix="vibeagent-mcp-http-") as base:
             root = Path(base)

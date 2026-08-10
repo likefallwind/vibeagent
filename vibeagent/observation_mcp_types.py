@@ -50,6 +50,44 @@ class McpToolsObservation:
 
 
 @dataclass(frozen=True)
+class McpResourceInfo:
+    uri: str
+    name: str
+    title: str
+    description: str
+    mime_type: str
+    size: int | None = None
+
+
+@dataclass(frozen=True)
+class McpResourcesObservation:
+    kind: Literal["mcp_resources"]
+    ok: bool
+    server: str
+    resources: list[McpResourceInfo]
+    total: int
+    truncated: bool
+    timeout_ms: int
+    error: str | None
+    message: str
+
+
+@dataclass(frozen=True)
+class McpReadResourceObservation:
+    kind: Literal["mcp_read_resource"]
+    ok: bool
+    server: str
+    uri: str
+    output: str
+    mime_types: list[str]
+    truncated: bool
+    max_output_chars: int
+    timeout_ms: int
+    error: str | None
+    message: str
+
+
+@dataclass(frozen=True)
 class McpCallObservation:
     kind: Literal["mcp_call"]
     ok: bool

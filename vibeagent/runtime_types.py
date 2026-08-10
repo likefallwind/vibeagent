@@ -130,6 +130,8 @@ class ApprovalRequest:
         "web_fetch",
         "mcp_tools",
         "mcp_call",
+        "mcp_resources",
+        "mcp_read_resource",
     ]
     target: str
     risk: str

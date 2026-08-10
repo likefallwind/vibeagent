@@ -51,6 +51,10 @@ PROJECT_NEXT_ACTION_KINDS = {
     "mcp_servers",
     "mcp_tools",
     "mcp_call",
+    "mcp_resources",
+    "mcp_read_resource",
+    "ListMcpResourcesTool",
+    "ReadMcpResourceTool",
     "memory_list",
     "memory_read",
 }
@@ -261,7 +265,7 @@ def project_next_action_instruction(base: str, latest: Observation) -> str:
         if not getattr(latest, "ok", False):
             return f"{base} MCP configuration could not be read. Fix .mcp.json or continue without MCP."
         if getattr(latest, "servers", []):
-            return f"{base} Choose a configured MCP server and use mcp_tools after approval before calling one of its advertised tools."
+            return f"{base} Choose a configured MCP server. Use tool_search to activate mcp_tools for advertised tools or mcp_resources for advertised documents and data."
         return f"{base} No MCP servers are configured. Continue with built-in tools."
     if latest.kind == "mcp_tools":
         if not getattr(latest, "ok", False):
@@ -271,6 +275,14 @@ def project_next_action_instruction(base: str, latest: Observation) -> str:
         if not getattr(latest, "ok", False):
             return f"{base} The MCP tool call failed or reported an error. Use its bounded output to correct arguments or choose another tool."
         return f"{base} Use the MCP result as external evidence and continue the task or answer directly if complete."
+    if latest.kind == "mcp_resources":
+        if not getattr(latest, "ok", False):
+            return f"{base} MCP resource discovery failed. Inspect the server command, timeout, and protocol error before retrying."
+        return f"{base} Read a relevant exact advertised URI with mcp_read_resource, or continue without loading resource content."
+    if latest.kind == "mcp_read_resource":
+        if not getattr(latest, "ok", False):
+            return f"{base} MCP resource reading failed. Use an exact advertised URI or inspect the bounded protocol error."
+        return f"{base} Use the MCP resource as external evidence and continue the task or answer directly if complete."
     if latest.kind == "delegate_task":
         if getattr(latest, "background", False) and getattr(latest, "running", False):
             return f"{base} Continue independent work and wait for its completion notification, or use TaskOutput with task_id={latest.task_id} to check progress."

@@ -21,12 +21,14 @@ CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
     "Grep": "search",
     "KillBash": "stop_process",
     "LSP": "lsp_query",
+    "ListMcpResourcesTool": "mcp_resources",
     "ListAgents": "list_agents",
     "LS": "list_tree",
     "MultiEdit": "multi_edit_file",
     "NotebookEdit": "notebook_edit",
     "NotebookRead": "notebook_read",
     "Read": "read_file",
+    "ReadMcpResourceTool": "mcp_read_resource",
     "SendMessage": "send_message",
     "Skill": "skill",
     "Task": "delegate_task",
@@ -151,11 +153,13 @@ CLAUDE_TOOL_ALIASES = {
             "python_symbols",
         }
     ),
+    "ListMcpResourcesTool": frozenset({"mcp_resources"}),
     "ListAgents": frozenset({"list_agents"}),
     "MultiEdit": frozenset({"multi_edit_file"}),
     "NotebookEdit": FILE_EDIT_TOOL_NAMES | frozenset({"notebook_edit"}),
     "NotebookRead": FILE_READ_TOOL_NAMES | frozenset({"notebook_read"}),
     "Read": FILE_READ_TOOL_NAMES,
+    "ReadMcpResourceTool": frozenset({"mcp_read_resource"}),
     "SendMessage": frozenset({"send_message"}),
     "Skill": frozenset({"skill"}),
     "Task": frozenset({"delegate_task"}),
@@ -196,12 +200,18 @@ PROFILE_TOOL_ALIAS_EXPANSIONS = {
     "ExitWorktree": frozenset({"ExitWorktree", "exit_worktree"}),
     "LS": frozenset({"LS", "list_tree"}),
     "LSP": frozenset({"LSP", "lsp_query"}),
+    "ListMcpResourcesTool": frozenset(
+        {"ListMcpResourcesTool", "mcp_resources"}
+    ),
     "MultiEdit": frozenset({"MultiEdit", "multi_edit_file"}),
     "NotebookEdit": frozenset(
         {"NotebookEdit", "edit_file", "notebook_edit", "regex_replace"}
     ),
     "NotebookRead": frozenset({"NotebookRead", "notebook_read"}),
     "Read": frozenset({"Read", "read_file"}),
+    "ReadMcpResourceTool": frozenset(
+        {"ReadMcpResourceTool", "mcp_read_resource"}
+    ),
     "Skill": frozenset({"Skill", "skill"}),
     "TaskCreate": frozenset({"TaskCreate", "task_create"}),
     "TaskGet": frozenset({"TaskGet", "task_get"}),

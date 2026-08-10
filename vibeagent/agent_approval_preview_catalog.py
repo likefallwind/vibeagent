@@ -62,4 +62,12 @@ PREVIEW_KIND_BY_ACTION_TYPE = {
 
 # External requests cannot be meaningfully previewed without performing the
 # disclosure that approval is intended to guard.
-APPROVAL_WITHOUT_PREVIEW_ACTION_TYPES = {"enter_worktree", "mcp_call", "mcp_tools", "web_fetch", "web_search"}
+APPROVAL_WITHOUT_PREVIEW_ACTION_TYPES = {
+    "enter_worktree",
+    "mcp_call",
+    "mcp_read_resource",
+    "mcp_resources",
+    "mcp_tools",
+    "web_fetch",
+    "web_search",
+}

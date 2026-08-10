@@ -9,11 +9,16 @@ from .command_safety import get_blocked_command_reason
 from .mcp_config import McpServerConfig, get_mcp_server_config, mcp_config_paths, read_mcp_server_configs, safe_mcp_endpoint
 from .mcp_http import McpHttpClient
 from .mcp_protocol import MCP_STDIO_PROTOCOL_VERSION
+from .mcp_resource_runtime import mcp_resource_result_text, normalize_mcp_resource
 from .mcp_stdio import McpStdioClient
 from .redaction import redact_jsonable_payload, redact_sensitive_text
 from .types import (
     McpCallAction,
     McpCallObservation,
+    McpReadResourceAction,
+    McpReadResourceObservation,
+    McpResourcesAction,
+    McpResourcesObservation,
     McpServerInfo,
     McpServersAction,
     McpServersObservation,
@@ -88,6 +93,91 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
             return McpToolsObservation(
                 kind="mcp_tools", ok=False, server=action.server, tools=[], total=0, truncated=False,
                 timeout_ms=action.timeout_ms, error=str(error), message=f"Could not list MCP tools from {action.server}: {error}"
+            )
+
+    if isinstance(action, McpResourcesAction):
+        try:
+            config = _safe_server_config(workspace, action.server)
+            with _mcp_client(workspace, config, action.timeout_ms) as client:
+                raw_resources, total, truncated = client.list_resources(
+                    action.max_resources
+                )
+            resources = [normalize_mcp_resource(item) for item in raw_resources]
+            uris = [resource.uri for resource in resources]
+            if len(set(uris)) != len(uris):
+                raise ValueError("MCP resource catalog contains duplicate URIs.")
+            return McpResourcesObservation(
+                kind="mcp_resources",
+                ok=True,
+                server=action.server,
+                resources=resources,
+                total=total,
+                truncated=truncated,
+                timeout_ms=action.timeout_ms,
+                error=None,
+                message=f"Listed {len(resources)} MCP resource(s) from {action.server}.",
+            )
+        except (OSError, RuntimeError, TimeoutError, ValueError) as error:
+            return McpResourcesObservation(
+                kind="mcp_resources",
+                ok=False,
+                server=action.server,
+                resources=[],
+                total=0,
+                truncated=False,
+                timeout_ms=action.timeout_ms,
+                error=str(error),
+                message=f"Could not list MCP resources from {action.server}: {error}",
+            )
+
+    if isinstance(action, McpReadResourceAction):
+        try:
+            config = _safe_server_config(workspace, action.server)
+            with _mcp_client(workspace, config, action.timeout_ms) as client:
+                raw_resources, _, truncated_catalog = client.list_resources(500)
+                advertised = {
+                    resource.uri
+                    for resource in map(normalize_mcp_resource, raw_resources)
+                }
+                if truncated_catalog:
+                    raise ValueError(
+                        "MCP resource catalog exceeds the safe discovery limit; narrow server resources before reading."
+                    )
+                if action.uri not in advertised:
+                    raise ValueError(
+                        f"MCP resource {action.uri!r} was not advertised by server {action.server!r}."
+                    )
+                result = client.read_resource(action.uri)
+            raw_output, mime_types = mcp_resource_result_text(result, action.uri)
+            output = redact_sensitive_text(raw_output)
+            truncated = len(output) > action.max_output_chars
+            output = output[: action.max_output_chars]
+            return McpReadResourceObservation(
+                kind="mcp_read_resource",
+                ok=True,
+                server=action.server,
+                uri=action.uri,
+                output=output,
+                mime_types=mime_types,
+                truncated=truncated,
+                max_output_chars=action.max_output_chars,
+                timeout_ms=action.timeout_ms,
+                error=None,
+                message=f"Read MCP resource {action.server}/{action.uri}.",
+            )
+        except (OSError, RuntimeError, TimeoutError, ValueError) as error:
+            return McpReadResourceObservation(
+                kind="mcp_read_resource",
+                ok=False,
+                server=action.server,
+                uri=action.uri,
+                output="",
+                mime_types=[],
+                truncated=False,
+                max_output_chars=action.max_output_chars,
+                timeout_ms=action.timeout_ms,
+                error=str(error),
+                message=f"Could not read MCP resource {action.server}/{action.uri}: {error}",
             )
 
     if isinstance(action, McpCallAction):

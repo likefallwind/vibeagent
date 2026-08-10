@@ -19,6 +19,23 @@ class McpToolsAction:
 
 
 @dataclass(frozen=True)
+class McpResourcesAction:
+    type: Literal["mcp_resources"]
+    server: str
+    max_resources: int = 100
+    timeout_ms: int = 10_000
+
+
+@dataclass(frozen=True)
+class McpReadResourceAction:
+    type: Literal["mcp_read_resource"]
+    server: str
+    uri: str
+    timeout_ms: int = 30_000
+    max_output_chars: int = 20_000
+
+
+@dataclass(frozen=True)
 class McpCallAction:
     type: Literal["mcp_call"]
     server: str

@@ -88,7 +88,13 @@ from .observation_notebook_types import (
     NotebookEditObservation,
     NotebookReadObservation,
 )
-from .observation_mcp_types import McpCallObservation, McpServersObservation, McpToolsObservation
+from .observation_mcp_types import (
+    McpCallObservation,
+    McpReadResourceObservation,
+    McpResourcesObservation,
+    McpServersObservation,
+    McpToolsObservation,
+)
 from .observation_memory_types import (
     CheckMemoryWriteObservation,
     MemoryListObservation,
@@ -213,6 +219,8 @@ Observation: TypeAlias = (
     | ConfigCheckObservation
     | McpServersObservation
     | McpToolsObservation
+    | McpResourcesObservation
+    | McpReadResourceObservation
     | McpCallObservation
     | LspQueryObservation
     | LspDiagnosticsObservation

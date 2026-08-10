@@ -88,7 +88,13 @@ from .action_json_types import (
 from .action_notebook_types import (
     NotebookReadAction,
 )
-from .action_mcp_types import McpCallAction, McpServersAction, McpToolsAction
+from .action_mcp_types import (
+    McpCallAction,
+    McpReadResourceAction,
+    McpResourcesAction,
+    McpServersAction,
+    McpToolsAction,
+)
 from .action_memory_types import CheckMemoryWriteAction, MemoryListAction, MemoryReadAction, MemoryWriteAction
 from .action_process_union_types import ProcessAgentAction
 from .action_project_types import (
@@ -189,6 +195,8 @@ AgentAction: TypeAlias = (
     | JsonPatchAction
     | McpServersAction
     | McpToolsAction
+    | McpResourcesAction
+    | McpReadResourceAction
     | McpCallAction
     | MemoryListAction
     | MemoryReadAction

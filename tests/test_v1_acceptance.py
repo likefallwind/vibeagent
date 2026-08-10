@@ -97,6 +97,7 @@ EXPECTED_GATES = {
             "test_tool_search_does_not_rediscover_globally_denied_tools",
             "test_matches_mcp_server_and_wildcard_deny_rules",
             "test_agent_answers_structured_batch_and_exposes_machine_requests",
+            "test_agent_discovers_lists_and_reads_mcp_resource",
             "test_v1_cli_tools_restriction_completes_repair_without_extra_tools",
             "test_v1_cli_stream_json_disallowed_tools_override_accept_edits",
         },

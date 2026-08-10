@@ -66,6 +66,8 @@ APPROVAL_REQUIRED_TOOL_NAMES = {
     "web_search",
     "mcp_tools",
     "mcp_call",
+    "mcp_resources",
+    "mcp_read_resource",
     "memory_write",
 }
 
@@ -81,9 +83,31 @@ def categorize_tools() -> dict[str, list[str]]:
 def tool_category(name: str) -> str:
     if name.startswith("mcp__"):
         return "project"
-    if name in {"delegate_task", "mcp_call", "mcp_servers", "mcp_tools", "web_fetch", "web_search"}:
+    if name in {
+        "delegate_task",
+        "mcp_call",
+        "mcp_read_resource",
+        "mcp_resources",
+        "mcp_servers",
+        "mcp_tools",
+        "web_fetch",
+        "web_search",
+    }:
         return "project"
-    if name in {"Agent", "ListAgents", "Task", "TaskOutput", "TaskStop", "Skill", "ToolSearch", "WebFetch", "WebSearch", "LSP"}:
+    if name in {
+        "Agent",
+        "ListAgents",
+        "ListMcpResourcesTool",
+        "Task",
+        "TaskOutput",
+        "TaskStop",
+        "ReadMcpResourceTool",
+        "Skill",
+        "ToolSearch",
+        "WebFetch",
+        "WebSearch",
+        "LSP",
+    }:
         return "project"
     if name in {
         "AskUserQuestion",

@@ -312,6 +312,9 @@ from .observation_notebook_types import (
 )
 from .observation_mcp_types import (
     McpCallObservation,
+    McpReadResourceObservation,
+    McpResourceInfo,
+    McpResourcesObservation,
     McpServerInfo,
     McpServersObservation,
     McpToolInfo,

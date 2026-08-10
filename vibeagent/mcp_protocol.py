@@ -8,6 +8,7 @@ MCP_STDIO_PROTOCOL_VERSION = "2025-11-25"
 MCP_HTTP_PROTOCOL_VERSION = "2026-07-28"
 MCP_MAX_MESSAGE_BYTES = 1_000_000
 MCP_MAX_TOOLS = 500
+MCP_MAX_RESOURCES = 500
 MCP_MAX_PAGES = 20
 
 
@@ -37,6 +38,34 @@ class McpToolsClient:
 
     def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         return self.request("tools/call", {"name": name, "arguments": arguments})
+
+    def list_resources(
+        self,
+        max_resources: int = 100,
+    ) -> tuple[list[dict[str, Any]], int, bool]:
+        resources: list[dict[str, Any]] = []
+        cursor: str | None = None
+        for _ in range(MCP_MAX_PAGES):
+            params = {"cursor": cursor} if cursor else {}
+            result = self.request("resources/list", params)
+            page = result.get("resources")
+            if not isinstance(page, list):
+                raise McpProtocolError(
+                    "MCP resources/list result did not include a resources list."
+                )
+            resources.extend(item for item in page if isinstance(item, dict))
+            cursor = (
+                result.get("nextCursor")
+                if isinstance(result.get("nextCursor"), str)
+                else None
+            )
+            if len(resources) > MCP_MAX_RESOURCES or not cursor:
+                break
+        bounded = resources[: min(max_resources, MCP_MAX_RESOURCES)]
+        return bounded, len(resources), len(resources) > len(bounded) or bool(cursor)
+
+    def read_resource(self, uri: str) -> dict[str, Any]:
+        return self.request("resources/read", {"uri": uri})
 
     def _prepare_tools(self, tools: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
         return list(tools)

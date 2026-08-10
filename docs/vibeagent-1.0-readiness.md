@@ -72,6 +72,9 @@ The automated suite currently covers these 1.0 surfaces:
 - Structured `AskUserQuestion` batches with one to four questions, short
   headers, described choices, single/multi-select terminal input, consolidated
   tool results, session evidence, and per-question machine output.
+- MCP resource discovery and reading over stdio and Streamable HTTP, including
+  cursor pagination, exact advertised-URI enforcement, bounded redacted text,
+  hidden binary blobs, Claude-compatible aliases, and explicit approvals.
 - Real CLI JSON and stream-json entrypoints, stdin input formats, resume,
   compact, permission overrides, `acceptEdits`, non-interactive `dontAsk`
   with trusted pre-approval and default denial, bounded invocation-scoped

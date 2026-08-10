@@ -192,6 +192,15 @@ def mcp_tools_activation_names(observation: object) -> list[str]:
     return names
 
 
+def mcp_resources_activation_names(observation: object) -> list[str]:
+    if (
+        getattr(observation, "kind", None) != "mcp_resources"
+        or not getattr(observation, "ok", False)
+    ):
+        return []
+    return ["mcp_read_resource", "ReadMcpResourceTool"]
+
+
 def background_task_activation_names(observation: object) -> list[str]:
     if (
         getattr(observation, "kind", None) == "delegate_task"
@@ -273,13 +282,14 @@ def activate_tools_from_observations(
     requested_names = []
     for observation in observations:
         requested_names.extend(mcp_tools_activation_names(observation))
+        requested_names.extend(mcp_resources_activation_names(observation))
     activated.extend(
         activate_tools_for_run(
             workspace,
             active_names,
             requested_names,
             iteration,
-            source="mcp_tools",
+            source="mcp_discovery",
             approval_policy=approval_policy,
             excluded_names=excluded_names,
             allowed_names=allowed_names,

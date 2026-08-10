@@ -222,6 +222,10 @@ def build_action_target(action: object) -> str:
         return "MCP servers"
     if isinstance(action, t.McpToolsAction):
         return action.server
+    if isinstance(action, t.McpResourcesAction):
+        return action.server
+    if isinstance(action, t.McpReadResourceAction):
+        return f"{action.server}/{action.uri}"
     if isinstance(action, t.McpCallAction):
         return f"{action.server}/{action.name}"
     if isinstance(action, t.ProjectOverviewAction):

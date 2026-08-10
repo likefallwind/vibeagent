@@ -10,8 +10,18 @@ from vibeagent.agent import run_agent
 from vibeagent.agent_approval import build_approval_request
 from vibeagent.agent_delegate import execute_delegate_task_action
 from vibeagent.mcp_config import read_mcp_server_configs
+from vibeagent.mcp_protocol import McpToolsClient
 from vibeagent.redaction import redact_jsonable_payload
-from vibeagent.types import ApprovalDecision, AssistantResponse, ChatMessage, ContentBlock, McpCallAction, McpToolsAction
+from vibeagent.types import (
+    ApprovalDecision,
+    AssistantResponse,
+    ChatMessage,
+    ContentBlock,
+    McpCallAction,
+    McpReadResourceAction,
+    McpResourcesAction,
+    McpToolsAction,
+)
 from vibeagent.workspace import create_run_workspace
 
 
@@ -27,7 +37,7 @@ for raw in sys.stdin:
         print(json.dumps({"jsonrpc": "2.0", "id": message["id"], "method": "sampling/createMessage", "params": {}}), flush=True)
         result = {
             "protocolVersion": "2025-11-25",
-            "capabilities": {"tools": {}},
+            "capabilities": {"tools": {}, "resources": {}},
             "serverInfo": {"name": "test-server", "version": "1.0"},
         }
     elif method == "tools/list":
@@ -48,6 +58,31 @@ for raw in sys.stdin:
             "structuredContent": {"env": os.environ.get("MCP_TEST_VALUE", "")},
             "isError": False,
         }
+    elif method == "resources/list":
+        result = {
+            "resources": [
+                {
+                    "uri": "docs://guide",
+                    "name": "guide",
+                    "title": "Project Guide",
+                    "description": "Repository integration guide",
+                    "mimeType": "text/markdown",
+                    "size": 120,
+                },
+                {
+                    "uri": "asset://logo",
+                    "name": "logo",
+                    "mimeType": "image/png",
+                },
+            ]
+        }
+    elif method == "resources/read":
+        uri = message.get("params", {}).get("uri")
+        if uri == "docs://guide":
+            contents = [{"uri": uri, "mimeType": "text/markdown", "text": "Use the documented API."}]
+        else:
+            contents = [{"uri": uri, "mimeType": "image/png", "blob": "aGVsbG8="}]
+        result = {"contents": contents}
     else:
         continue
     print(json.dumps({"jsonrpc": "2.0", "id": message["id"], "result": result}), flush=True)
@@ -65,6 +100,15 @@ class _Client:
         response = self.responses[self.calls]
         self.calls += 1
         return AssistantResponse(content=response, raw={"content": response})
+
+
+class _PagedResourceClient(McpToolsClient):
+    def request(self, method, params):
+        if method != "resources/list":
+            raise AssertionError(method)
+        if params.get("cursor") == "next":
+            return {"resources": [{"uri": "docs://two"}]}
+        return {"resources": [{"uri": "docs://one"}], "nextCursor": "next"}
 
 
 def _write_mcp_project(root: Path, *, cwd: str = ".") -> None:
@@ -116,6 +160,13 @@ def _write_agent(root: Path, name: str, tools: str) -> None:
 
 
 class McpRuntimeTests(unittest.TestCase):
+    def test_protocol_resource_listing_follows_cursor_and_applies_limit(self) -> None:
+        resources, total, truncated = _PagedResourceClient().list_resources(1)
+
+        self.assertEqual(resources, [{"uri": "docs://one"}])
+        self.assertEqual(total, 2)
+        self.assertTrue(truncated)
+
     def test_lists_config_without_exposing_environment_values(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
             root = Path(base)
@@ -226,6 +277,134 @@ class McpRuntimeTests(unittest.TestCase):
         self.assertEqual(called.arguments, {"message": "hello"})
         self.assertIn('"message": "hello"', called.output)
         self.assertIn('"env": "expanded"', called.output)
+
+    def test_lists_and_reads_resources_over_real_stdio_protocol(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
+            root = Path(base)
+            _write_mcp_project(root)
+            workspace = create_run_workspace(root, "run-1")
+            listed = execute_action(
+                workspace,
+                McpResourcesAction(
+                    type="mcp_resources",
+                    server="test",
+                    timeout_ms=2_000,
+                ),
+            )
+            text = execute_action(
+                workspace,
+                McpReadResourceAction(
+                    type="mcp_read_resource",
+                    server="test",
+                    uri="docs://guide",
+                    timeout_ms=2_000,
+                ),
+            )
+            binary = execute_action(
+                workspace,
+                McpReadResourceAction(
+                    type="mcp_read_resource",
+                    server="test",
+                    uri="asset://logo",
+                    timeout_ms=2_000,
+                ),
+            )
+
+        self.assertTrue(listed.ok, listed.error)
+        self.assertEqual([item.uri for item in listed.resources], ["docs://guide", "asset://logo"])
+        self.assertEqual(listed.resources[0].mime_type, "text/markdown")
+        self.assertTrue(text.ok, text.error)
+        self.assertIn("Use the documented API.", text.output)
+        self.assertEqual(text.mime_types, ["text/markdown"])
+        self.assertTrue(binary.ok, binary.error)
+        self.assertIn("binary content omitted", binary.output)
+        self.assertNotIn("aGVsbG8=", binary.output)
+
+    def test_read_resource_rejects_uri_not_advertised_by_server(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
+            root = Path(base)
+            _write_mcp_project(root)
+            workspace = create_run_workspace(root, "run-1")
+            observation = execute_action(
+                workspace,
+                McpReadResourceAction(
+                    type="mcp_read_resource",
+                    server="test",
+                    uri="docs://missing",
+                    timeout_ms=2_000,
+                ),
+            )
+
+        self.assertFalse(observation.ok)
+        self.assertIn("was not advertised", observation.error or "")
+
+    def test_claude_resource_aliases_parse_and_require_approval(self) -> None:
+        listed = parse_tool_action(
+            "ListMcpResourcesTool",
+            {"server": "test", "max_resources": 2},
+        )
+        read = parse_tool_action(
+            "ReadMcpResourceTool",
+            {"server": "test", "uri": "docs://guide"},
+        )
+
+        self.assertIsInstance(listed, McpResourcesAction)
+        self.assertIsInstance(read, McpReadResourceAction)
+        self.assertEqual(build_approval_request(listed).action_type, "mcp_resources")
+        self.assertEqual(build_approval_request(read).action_type, "mcp_read_resource")
+
+    def test_agent_discovers_lists_and_reads_mcp_resource(self) -> None:
+        client = _Client(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "search-1",
+                        "name": "ToolSearch",
+                        "input": {"query": "MCP resource", "max_results": 10},
+                    }
+                ],
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "list-1",
+                        "name": "ListMcpResourcesTool",
+                        "input": {"server": "test"},
+                    }
+                ],
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "read-1",
+                        "name": "ReadMcpResourceTool",
+                        "input": {"server": "test", "uri": "docs://guide"},
+                    }
+                ],
+                [{"type": "text", "text": "Used the MCP project guide."}],
+            ]
+        )
+        approvals = []
+        with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:
+            root = Path(base)
+            _write_mcp_project(root)
+            result = run_agent(
+                "Read the MCP guide",
+                base_dir=root,
+                client=client,
+                max_iterations=4,
+                approval_policy="allow",
+                approval_handler=lambda request: approvals.append(request.action_type)
+                or ApprovalDecision(True, "approved"),
+            )
+
+        self.assertTrue(result.success, result.message)
+        self.assertEqual(
+            [item.kind for item in result.observations],
+            ["tool_search", "mcp_resources", "mcp_read_resource"],
+        )
+        self.assertIn("ListMcpResourcesTool", {tool["name"] for tool in client.tools[1]})
+        self.assertIn("ReadMcpResourceTool", {tool["name"] for tool in client.tools[2]})
+        self.assertEqual(approvals, ["mcp_resources", "mcp_read_resource"])
 
     def test_call_rejects_unadvertised_tool(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:

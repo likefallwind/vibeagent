@@ -134,6 +134,8 @@ ACTION_LOG_SPECS: dict[str, tuple[str, ActionTargetBuilder]] = {
     "skill": ("loading project skill", _target_action),
     "mcp_servers": ("listing MCP servers", _target_none),
     "mcp_tools": ("listing MCP tools", _target_action),
+    "mcp_resources": ("listing MCP resources", _target_action),
+    "mcp_read_resource": ("reading MCP resource", _target_action),
     "mcp_call": ("calling MCP tool", _target_action),
     "project_overview": ("reading project overview", _target_none),
     "command_check": ("checking command", _target_action),

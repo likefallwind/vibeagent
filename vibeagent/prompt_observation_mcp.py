@@ -8,6 +8,10 @@ def format_mcp_observation(index: int, observation: object) -> str | None:
         return _format_mcp_servers(index, observation)
     if observation.kind == "mcp_tools":
         return _format_mcp_tools(index, observation)
+    if observation.kind == "mcp_resources":
+        return _format_mcp_resources(index, observation)
+    if observation.kind == "mcp_read_resource":
+        return _format_mcp_read_resource(index, observation)
     if observation.kind == "mcp_call":
         return _format_mcp_call(index, observation)
     return None
@@ -47,6 +51,30 @@ def _format_mcp_call(index: int, observation: object) -> str:
     parts = [
         f"{index}. mcp_call {observation.server}/{observation.name}: {observation.message}",
         f"ok: {str(observation.ok).lower()} isError={str(observation.is_error).lower()} truncated={str(observation.truncated).lower()} maxOutputChars={observation.max_output_chars} timeoutMs={observation.timeout_ms}",
+        f"error: {observation.error or 'none'}",
+    ]
+    if observation.output:
+        parts.append(f"output:\n{truncate(observation.output)}")
+    return "\n".join(parts)
+
+
+def _format_mcp_resources(index: int, observation: object) -> str:
+    parts = [
+        f"{index}. mcp_resources {observation.server}: {observation.message}",
+        f"ok: {str(observation.ok).lower()} shown={len(observation.resources)}/{observation.total} truncated={str(observation.truncated).lower()} timeoutMs={observation.timeout_ms}",
+        f"error: {observation.error or 'none'}",
+    ]
+    for resource in observation.resources:
+        parts.append(
+            f"resource: uri={resource.uri} name={resource.name or '.'} title={resource.title or '.'} mimeType={resource.mime_type or '.'} size={resource.size if resource.size is not None else 'unknown'} description={resource.description or '.'}"
+        )
+    return "\n".join(parts)
+
+
+def _format_mcp_read_resource(index: int, observation: object) -> str:
+    parts = [
+        f"{index}. mcp_read_resource {observation.server}/{observation.uri}: {observation.message}",
+        f"ok: {str(observation.ok).lower()} mimeTypes={observation.mime_types} truncated={str(observation.truncated).lower()} maxOutputChars={observation.max_output_chars} timeoutMs={observation.timeout_ms}",
         f"error: {observation.error or 'none'}",
     ]
     if observation.output:
