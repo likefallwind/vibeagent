@@ -27,7 +27,7 @@ class HookRunResult:
     additional_context: str | None = None
     async_started: bool = False
     process_id: str | None = None
-    handler_type: Literal["command", "http", "mcp_tool"] = "command"
+    handler_type: Literal["command", "http", "mcp_tool", "prompt"] = "command"
     http_status: int | None = None
     non_blocking_error: bool = False
 
@@ -41,6 +41,7 @@ class HookBatchResult:
     effective_input: dict[str, object] | None = None
     permission_decision: Literal["allow", "deny", "ask", "defer"] | None = None
     permission_reason: str | None = None
+    halt_turn_message: str | None = None
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,7 @@ class HookWrappedToolResult:
     hook_results: tuple[HookRunResult, ...] = ()
     additional_observations: tuple[Observation, ...] = ()
     deferred: bool = False
+    halt_turn_message: str | None = None
 
 
 def hook_command_with_context(hook: ProjectHook, tool_name: str, action: object) -> str:

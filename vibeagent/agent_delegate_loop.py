@@ -10,6 +10,7 @@ from .agent_delegate_hooks import DelegateLifecycleHooks
 from .agent_delegate_inbox import DelegateInbox
 from .agent_delegate_tools import delegate_tool_definitions, execute_delegate_tool_call
 from .agent_execution_support import execute_action_safely
+from .agent_hook_prompt import HookModelRuntime
 from .agent_lifecycle_hooks import run_instruction_loaded_hooks
 from .agent_model import complete_with_retries
 from .agent_runtime_utils import content_blocks_to_text, normalize_assistant_content
@@ -61,6 +62,7 @@ class DelegateLoopContext:
     permissions: ProjectPermissions
     cancel_requested: Callable[[], bool] | None
     nested_runtime: NestedDelegateRuntime
+    hook_model_runtime: HookModelRuntime | None = None
     transcript_checkpoint: Callable[[list[ChatMessage]], None] | None = None
     inbox: DelegateInbox | None = None
 
@@ -202,6 +204,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                 coordination_tool_names=(
                     context.nested_runtime.coordination_tool_names
                 ),
+                hook_model_runtime=context.hook_model_runtime,
             )
             auto_checkpoint_attempted = execution.auto_checkpoint_attempted
             if execution.finish_action is not None:
@@ -275,8 +278,23 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                             approval_policy=context.approval_policy,
                             execute_action_safely_func=execute_action_safely,
                             permissions=context.permissions,
+                            hook_model_runtime=context.hook_model_runtime,
                         ),
                     )
+                )
+            if execution.halt_turn_message is not None:
+                if context.inbox is not None:
+                    context.inbox.close()
+                return finish_delegate_task(
+                    context.workspace,
+                    context.action,
+                    context.subagent_id,
+                    ok=False,
+                    summary="",
+                    iterations=child_iteration,
+                    tool_calls=tool_calls_used,
+                    message=execution.halt_turn_message,
+                    logger=context.logger,
                 )
 
         context.messages.append(ChatMessage(role="user", content=tool_results))

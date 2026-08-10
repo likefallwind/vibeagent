@@ -96,7 +96,12 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
                 approvals_approved += 1
             elif approved is False:
                 approvals_denied += 1
-        elif event.type in {"model", "subagent_model", "structured_output_model"}:
+        elif event.type in {
+            "model",
+            "subagent_model",
+            "structured_output_model",
+            "hook_model",
+        }:
             usage_totals.add_payload(event.payload.get("usage"))
             if event.type == "model":
                 text = model_final_message(event.payload.get("content"))

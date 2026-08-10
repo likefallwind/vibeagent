@@ -13,6 +13,8 @@ from .agent_delegate_context import (
     compact_delegate_message_history,
 )
 from .agent_delegate_hooks import DelegateLifecycleHooks
+from .agent_hook_prompt import HookModelRuntime
+from .agent_model import complete_with_retries
 from .agent_delegate_inbox import DelegateInbox
 from .agent_delegate_loop import DelegateLoopContext, run_delegate_iterations
 from .agent_delegate_profile import (
@@ -222,6 +224,14 @@ def execute_delegate_task_action(
             )
         transcript_started = True
 
+        hook_model_runtime = HookModelRuntime(
+            client=client,
+            complete_with_retries=complete_with_retries,
+            max_output_tokens=max_output_tokens,
+            model_retries=model_retries,
+            model_retry_delay_ms=model_retry_delay_ms,
+            logger=logger,
+        )
         lifecycle = DelegateLifecycleHooks(
             workspace=delegate_workspace,
             action=action,
@@ -232,6 +242,7 @@ def execute_delegate_task_action(
             approval_handler=approval_handler,
             approval_policy=approval_policy,
             permissions=permissions,
+            hook_model_runtime=hook_model_runtime,
         )
         lifecycle.start(messages)
     except Exception as error:
@@ -337,6 +348,7 @@ def execute_delegate_task_action(
                 permissions=permissions,
                 cancel_requested=cancel_requested,
                 nested_runtime=nested_runtime,
+                hook_model_runtime=hook_model_runtime,
                 transcript_checkpoint=transcript_checkpoint,
                 inbox=inbox,
             )

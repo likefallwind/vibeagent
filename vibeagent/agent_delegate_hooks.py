@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from .agent_execution_support import execute_action_safely
 from .agent_hook_results import HookRunResult
+from .agent_hook_prompt import HookModelRuntime
 from .agent_lifecycle_hooks import LifecycleHookResult, run_lifecycle_hooks
 from .types import (
     AgentLogger,
@@ -31,6 +32,7 @@ class DelegateLifecycleHooks:
     approval_handler: ApprovalHandler | None
     approval_policy: ApprovalPolicy
     permissions: ProjectPermissions
+    hook_model_runtime: HookModelRuntime | None = None
     stop_continuations: int = 0
 
     @property
@@ -91,6 +93,7 @@ class DelegateLifecycleHooks:
             approval_policy=self.approval_policy,
             execute_action_safely_func=execute_action_safely,
             permissions=self.permissions,
+            hook_model_runtime=self.hook_model_runtime,
         )
 
 

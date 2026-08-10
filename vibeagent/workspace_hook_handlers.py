@@ -6,13 +6,15 @@ from typing import cast
 from urllib.parse import urlsplit
 
 from .mcp_config import MCP_NAME_PATTERN
-from .workspace_hook_types import HookEvent, ProjectHook
+from .workspace_hook_types import PROMPT_HOOK_EVENTS, HookEvent, ProjectHook
 
 
 MAX_HOOK_COMMAND_CHARS = 4_000
 MAX_HOOK_URL_CHARS = 4_000
 MAX_HOOK_HEADERS = 32
 MAX_HOOK_HEADER_CHARS = 4_000
+MAX_HOOK_PROMPT_CHARS = 50_000
+MAX_HOOK_MODEL_CHARS = 200
 HOOK_HEADER_NAME_PATTERN = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
 ENVIRONMENT_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 FORBIDDEN_HOOK_HEADERS = frozenset(
@@ -32,7 +34,11 @@ def parse_hook_handler(
         return _parse_http_hook(event, matcher, payload, source)
     if handler_type == "mcp_tool":
         return _parse_mcp_tool_hook(event, matcher, payload, source)
-    raise ValueError(f"{source} hook type must be command, http, or mcp_tool.")
+    if handler_type == "prompt":
+        return _parse_prompt_hook(event, matcher, payload, source)
+    raise ValueError(
+        f"{source} hook type must be command, http, mcp_tool, or prompt."
+    )
 
 
 def _parse_command_hook(
@@ -175,11 +181,56 @@ def _parse_mcp_tool_hook(
     )
 
 
-def _parse_hook_timeout(payload: dict[str, object], source: str) -> int:
+def _parse_prompt_hook(
+    event: str, matcher: str, payload: dict[str, object], source: str
+) -> ProjectHook:
+    if event not in PROMPT_HOOK_EVENTS:
+        raise ValueError(f"{source} {event} hooks do not support prompt handlers.")
+    if "async" in payload or "asyncRewake" in payload:
+        raise ValueError(f"{source} prompt hooks do not support async or asyncRewake.")
+    prompt = payload.get("prompt")
+    if (
+        not isinstance(prompt, str)
+        or not prompt.strip()
+        or len(prompt) > MAX_HOOK_PROMPT_CHARS
+        or "\x00" in prompt
+    ):
+        raise ValueError(
+            f"{source} hook prompt must contain 1-{MAX_HOOK_PROMPT_CHARS} characters."
+        )
+    model = payload.get("model")
+    if model is not None and (
+        not isinstance(model, str)
+        or not model.strip()
+        or len(model) > MAX_HOOK_MODEL_CHARS
+        or any(not character.isprintable() for character in model)
+    ):
+        raise ValueError(
+            f"{source} hook model must contain 1-{MAX_HOOK_MODEL_CHARS} printable characters."
+        )
+    continue_on_block = payload.get("continueOnBlock", False)
+    if not isinstance(continue_on_block, bool):
+        raise ValueError(f"{source} hook continueOnBlock must be a boolean.")
+    return ProjectHook(
+        event=cast(HookEvent, event),
+        matcher=matcher,
+        command="",
+        timeout_ms=_parse_hook_timeout(payload, source, default_ms=30_000),
+        source=source,
+        handler_type="prompt",
+        prompt=prompt.strip(),
+        model=model.strip() if isinstance(model, str) else None,
+        continue_on_block=continue_on_block,
+    )
+
+
+def _parse_hook_timeout(
+    payload: dict[str, object], source: str, *, default_ms: int = 600_000
+) -> int:
     if "timeout" in payload and "timeout_ms" in payload:
         raise ValueError(f"{source} hook cannot define both timeout and timeout_ms.")
     timeout_seconds = payload.get("timeout")
-    timeout_ms = payload.get("timeout_ms", 600_000)
+    timeout_ms = payload.get("timeout_ms", default_ms)
     if timeout_seconds is not None:
         if (
             isinstance(timeout_seconds, bool)

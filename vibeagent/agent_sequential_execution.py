@@ -6,6 +6,7 @@ from collections.abc import Callable
 from .actions import ActionParseError, parse_tool_action
 from .agent_runtime_utils import append_session_event, tool_error_observation
 from .agent_hook_updated_input import apply_hook_supplied_answers
+from .agent_hook_prompt import HookModelRuntime
 from .agent_lifecycle_hooks import run_instruction_loaded_hooks
 from .agent_special_tools import execute_special_tool_action
 from .session_working_directory import prepare_action_shell_cwd
@@ -43,6 +44,7 @@ class SequentialToolCallResult:
     plan: list[PlanItem]
     auto_checkpoint_attempted: bool
     deferred_tool_use: dict[str, object] | None = None
+    halt_turn_message: str | None = None
 
 
 def execute_sequential_tool_call(
@@ -75,6 +77,7 @@ def execute_sequential_tool_call(
     allowed_tool_names: frozenset[str] | None = None,
     tool_ceiling_names: frozenset[str] | None = None,
     defer_tool_calls: bool = False,
+    hook_model_runtime: HookModelRuntime | None = None,
 ) -> SequentialToolCallResult:
     tool_id = str(block.get("id") or "")
     tool_name = str(block.get("name") or "")
@@ -87,6 +90,7 @@ def execute_sequential_tool_call(
     hook_results: tuple[object, ...] = ()
     additional_observations: tuple[Observation, ...] = ()
     checkpoint_attempted = auto_checkpoint_attempted
+    halt_turn_message: str | None = None
 
     try:
         def prepare_tool_input(candidate_input: dict[str, object]) -> object:
@@ -149,11 +153,13 @@ def execute_sequential_tool_call(
                 apply_updated_input=prepare_hook_input,
                 defer_tool_calls=defer_tool_calls,
                 tool_use_id=tool_id,
+                hook_model_runtime=hook_model_runtime,
             )
             observation = wrapped.observation
             hook_results = wrapped.hook_results
             additional_observations = wrapped.additional_observations
             deferred = wrapped.deferred
+            halt_turn_message = wrapped.halt_turn_message
         else:
             execution = execute_parsed_tool_action(
                 workspace,
@@ -176,12 +182,14 @@ def execute_sequential_tool_call(
                 prepare_hook_input,
                 defer_tool_calls,
                 tool_id,
+                hook_model_runtime,
             )
             observation = execution.observation
             hook_results = execution.hook_results
             additional_observations = execution.additional_observations
             checkpoint_attempted = execution.auto_checkpoint_attempted
             deferred = execution.deferred
+            halt_turn_message = execution.halt_turn_message
             if execution.auto_checkpoint is not None:
                 observations.append(execution.auto_checkpoint)
         if deferred:
@@ -195,6 +203,7 @@ def execute_sequential_tool_call(
                     "name": tool_name,
                     "input": raw_tool_input,
                 },
+                halt_turn_message=halt_turn_message,
             )
         if observation.kind in {
             "update_plan",
@@ -236,6 +245,7 @@ def execute_sequential_tool_call(
                 approval_policy=approval_policy,
                 execute_action_safely_func=execute_action_safely_func,
                 permissions=permissions,
+                hook_model_runtime=hook_model_runtime,
             ),
         ),
     )
@@ -244,4 +254,5 @@ def execute_sequential_tool_call(
         observation=observation,
         plan=plan,
         auto_checkpoint_attempted=checkpoint_attempted,
+        halt_turn_message=halt_turn_message,
     )

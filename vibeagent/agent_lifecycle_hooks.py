@@ -7,6 +7,7 @@ import json
 from .agent_hook_execution import run_project_hook
 from .session_environment import lifecycle_hook_environment
 from .agent_hook_results import HookRunResult
+from .agent_hook_prompt import HookModelRuntime
 from .types import AgentLogger, ApprovalHandler, ApprovalPolicy, Observation
 from .workspace_core import RunWorkspace
 from .workspace_hooks import HookEvent, ProjectHooks, matching_lifecycle_hooks
@@ -40,6 +41,7 @@ def run_lifecycle_hooks(
     approval_policy: ApprovalPolicy,
     execute_action_safely_func: ExecuteActionSafely,
     permissions: ProjectPermissions,
+    hook_model_runtime: HookModelRuntime | None = None,
 ) -> LifecycleHookResult:
     hooks = matching_lifecycle_hooks(config, event, matcher_value)
     if not hooks:
@@ -74,6 +76,7 @@ def run_lifecycle_hooks(
             approval_policy=approval_policy,
             execute_action_safely_func=execute_action_safely_func,
             permissions=permissions,
+            hook_model_runtime=hook_model_runtime,
         )
         results.append(result)
         output = _parse_hook_output(result)
@@ -102,6 +105,7 @@ def run_instruction_loaded_hooks(
     approval_policy: ApprovalPolicy,
     execute_action_safely_func: ExecuteActionSafely,
     permissions: ProjectPermissions,
+    hook_model_runtime: HookModelRuntime | None = None,
 ) -> tuple[HookRunResult, ...]:
     results: list[HookRunResult] = []
     raw_trigger_paths = instruction_context.get("paths")
@@ -149,6 +153,7 @@ def run_instruction_loaded_hooks(
             approval_policy=approval_policy,
             execute_action_safely_func=execute_action_safely_func,
             permissions=permissions,
+            hook_model_runtime=hook_model_runtime,
         )
         results.extend(batch.results)
     return tuple(results)
@@ -205,6 +210,8 @@ def _parse_hook_output(result: HookRunResult) -> _ParsedHookOutput:
 
 
 def _blocking_message(result: HookRunResult, output: _ParsedHookOutput) -> str | None:
+    if result.handler_type == "prompt" and result.status == "blocked":
+        return result.message
     if result.exit_code == 2:
         return result.stderr.strip() or result.message
     if output.decision == "block":

@@ -114,6 +114,7 @@ EXPECTED_GATES = {
         "tests": {
             "test_parallel_calls_share_one_strict_gate",
             "test_v1_cli_budgeted_repair_verify_commit_and_report_cost",
+            "test_hook_model_usage_is_included_in_session_totals",
         },
     },
     "VA1-OUTPUT": {
@@ -226,6 +227,14 @@ EXPECTED_GATES = {
             "test_mcp_hook_error_is_non_blocking",
             "test_unconfigured_mcp_server_is_non_blocking",
             "test_lifecycle_mcp_plain_text_adds_model_context",
+            "test_pre_tool_prompt_hook_blocks_turn_by_default",
+            "test_pre_tool_prompt_hook_blocks_write_with_hook_input",
+            "test_post_tool_prompt_block_ends_turn_after_side_effect",
+            "test_invalid_prompt_response_is_non_blocking",
+            "test_prompt_model_failure_is_non_blocking",
+            "test_stop_prompt_hook_continues_then_allows",
+            "test_subagent_stop_prompt_hook_continues_then_allows",
+            "test_subagent_pre_tool_prompt_block_halts_subagent_turn",
         },
     },
 }

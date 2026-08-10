@@ -13,6 +13,7 @@ from .agent_hook_results import (
     hook_failure_observation as _hook_failure_observation,
     hook_result_from_observation as _hook_result_from_observation,
 )
+from .agent_hook_prompt import HookModelRuntime
 from .agent_permissions import authorize_tool_action
 from .agent_pre_tool_hook_output import (
     PreToolHookOutputError,
@@ -74,6 +75,7 @@ def run_hooks_around_tool(
     finalize_action: Callable[[object], object] | None = None,
     defer_tool_calls: bool = False,
     tool_use_id: str | None = None,
+    hook_model_runtime: HookModelRuntime | None = None,
 ) -> HookWrappedToolResult:
     pre_hooks = run_tool_hooks(
         workspace,
@@ -91,6 +93,7 @@ def run_hooks_around_tool(
         tool_input=tool_input,
         apply_updated_input=apply_updated_input,
         tool_use_id=tool_use_id,
+        hook_model_runtime=hook_model_runtime,
     )
     if pre_hooks.blocking_message is not None:
         return HookWrappedToolResult(
@@ -99,6 +102,7 @@ def run_hooks_around_tool(
             deferred=(
                 defer_tool_calls and pre_hooks.permission_decision == "defer"
             ),
+            halt_turn_message=pre_hooks.halt_turn_message,
         )
     effective_action = pre_hooks.effective_action or action
     if finalize_action is not None:
@@ -146,11 +150,13 @@ def run_hooks_around_tool(
         permissions,
         tool_input=pre_hooks.effective_input,
         tool_use_id=tool_use_id,
+        hook_model_runtime=hook_model_runtime,
     )
     return HookWrappedToolResult(
         observation=observation,
         hook_results=pre_hooks.results + post_hooks.results,
         additional_observations=post_hooks.failures,
+        halt_turn_message=post_hooks.halt_turn_message,
     )
 
 
@@ -171,6 +177,7 @@ def run_tool_hooks(
     tool_input: dict[str, object] | None = None,
     apply_updated_input: ApplyUpdatedInput | None = None,
     tool_use_id: str | None = None,
+    hook_model_runtime: HookModelRuntime | None = None,
 ) -> HookBatchResult:
     if config.error is not None:
         message = f"Workspace hook configuration is invalid: {config.error}"
@@ -192,6 +199,7 @@ def run_tool_hooks(
     current_input = tool_input if tool_input is not None else _action_input(action)
     permission_decision = None
     permission_reason: str | None = None
+    halt_turn_message: str | None = None
     for index, hook in enumerate(hooks, start=1):
         result = _run_one_hook(
             workspace,
@@ -208,6 +216,7 @@ def run_tool_hooks(
             approval_policy,
             execute_action_safely_func,
             permissions,
+            hook_model_runtime,
         )
         if result.ok and event == "PreToolUse":
             try:
@@ -245,6 +254,13 @@ def run_tool_hooks(
         if not result.ok and not result.non_blocking_error:
             failure = _hook_failure_observation(event, tool_name, result.message)
             failures.append(failure)
+            if (
+                result.handler_type == "prompt"
+                and result.status == "blocked"
+                and not hook.continue_on_block
+                and event in {"PreToolUse", "PostToolUse"}
+            ):
+                halt_turn_message = result.message
             if event == "PreToolUse":
                 return HookBatchResult(
                     results=tuple(results),
@@ -254,6 +270,7 @@ def run_tool_hooks(
                     effective_input=current_input,
                     permission_decision=permission_decision,
                     permission_reason=permission_reason,
+                    halt_turn_message=halt_turn_message,
                 )
     blocking_message: str | None = None
     if event == "PreToolUse" and permission_decision == "defer":
@@ -270,6 +287,7 @@ def run_tool_hooks(
         effective_input=current_input if event == "PreToolUse" else None,
         permission_decision=permission_decision,
         permission_reason=permission_reason,
+        halt_turn_message=halt_turn_message,
     )
 
 
@@ -288,6 +306,7 @@ def _run_one_hook(
     approval_policy: ApprovalPolicy,
     execute_action_safely_func: ExecuteActionSafely,
     permissions: ProjectPermissions,
+    hook_model_runtime: HookModelRuntime | None,
 ) -> HookRunResult:
     return run_project_hook(
         workspace,
@@ -322,6 +341,7 @@ def _run_one_hook(
         approval_policy=approval_policy,
         execute_action_safely_func=execute_action_safely_func,
         permissions=permissions,
+        hook_model_runtime=hook_model_runtime,
     )
 
 

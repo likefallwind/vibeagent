@@ -33,6 +33,16 @@ HOOK_EVENTS = frozenset(
 SEQUENTIAL_TOOL_HOOK_EVENTS = frozenset(
     {"CwdChanged", "InstructionsLoaded", "PostToolUse", "PostToolUseFailure", "PreToolUse"}
 )
+PROMPT_HOOK_EVENTS = frozenset(
+    {
+        "PostToolUse",
+        "PostToolUseFailure",
+        "PreToolUse",
+        "Stop",
+        "SubagentStop",
+        "UserPromptSubmit",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -42,13 +52,16 @@ class ProjectHook:
     command: str
     timeout_ms: int
     source: str
-    handler_type: Literal["command", "http", "mcp_tool"] = "command"
+    handler_type: Literal["command", "http", "mcp_tool", "prompt"] = "command"
     url: str = ""
     headers: tuple[tuple[str, str], ...] = ()
     allowed_env_vars: tuple[str, ...] = ()
     mcp_server: str = ""
     mcp_tool: str = ""
     mcp_input: dict[str, Any] = field(default_factory=dict)
+    prompt: str = ""
+    model: str | None = None
+    continue_on_block: bool = False
     environment: dict[str, str] = field(default_factory=dict)
     async_: bool = False
     async_rewake: bool = False
@@ -59,7 +72,9 @@ class ProjectHook:
             return self.command
         if self.handler_type == "http":
             return self.url
-        return f"{self.mcp_server}/{self.mcp_tool}"
+        if self.handler_type == "mcp_tool":
+            return f"{self.mcp_server}/{self.mcp_tool}"
+        return self.prompt
 
 
 @dataclass(frozen=True)
@@ -79,4 +94,10 @@ class ProjectHooks:
         )
 
 
-__all__ = ["HOOK_EVENTS", "HookEvent", "ProjectHook", "ProjectHooks"]
+__all__ = [
+    "HOOK_EVENTS",
+    "PROMPT_HOOK_EVENTS",
+    "HookEvent",
+    "ProjectHook",
+    "ProjectHooks",
+]

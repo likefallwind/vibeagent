@@ -143,6 +143,12 @@ The automated suite currently covers these 1.0 surfaces:
   stdio or HTTP MCP server through the normal command and transport safety path,
   feed successful plain or structured output into Hook decisions, and keep
   missing servers, protocol failures, and `isError` results non-blocking.
+- Claude-compatible prompt hooks: supported lifecycle and tool events expand
+  bounded `$ARGUMENTS`, run one strict no-tool `{ok, reason}` evaluation through
+  the shared provider budget/fallback path, honor scoped model and 30-second
+  default timeout settings, halt default Pre/Post blocks, feed
+  `continueOnBlock` and Stop/SubagentStop reasons back for another turn, and
+  keep model or validation failures non-blocking.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

@@ -1640,10 +1640,12 @@ receive `CLAUDE_ENV_FILE`; changes they write there apply to later Bash
 commands in the session.
 
 Every matching command, HTTP, or MCP tool hook requires approval under the
-current session policy. Command handlers still pass command hard-block checks,
+current session policy. Prompt hooks make a bounded call through the active
+provider client without a separate tool approval. Command handlers still pass command hard-block checks,
 HTTP handlers validate their destination before connecting, and MCP handlers
 reuse configured-server and advertised-tool validation. Plan mode records and
-skips all three handler types. A failed or denied command pre-tool hook blocks the
+skips those three external handler types; prompt hooks still evaluate in Plan
+mode. A failed or denied command pre-tool hook blocks the
 target tool, as does a denied HTTP or MCP handler approval. A failed post-tool
 command hook preserves the target result but
 records an additional tool error that prevents an unqualified successful
@@ -1702,6 +1704,22 @@ as a normal `mcp_call`. Successful text is processed as ordinary hook stdout,
 including structured `PreToolUse` decisions. Missing servers, unavailable tools,
 protocol failures, and MCP `isError` results are recorded as non-blocking hook
 errors so they do not suppress the triggering action.
+
+Prompt handlers use Claude-compatible `type: "prompt"`, `prompt`, optional
+`model`, `timeout`, and `continueOnBlock` fields on `PreToolUse`, `PostToolUse`,
+`PostToolUseFailure`, `UserPromptSubmit`, `Stop`, and `SubagentStop`. The full
+bounded Hook input replaces `$ARGUMENTS`, or is appended when the placeholder
+is absent; `\$` preserves a literal dollar sign. The evaluator runs without
+tools through the existing provider-neutral client, shared cost budget,
+fallback state, and retry path. An explicit model uses the same scoped model
+override contract as agent profiles; without one VibeAgent inherits the active
+model. Responses must be exactly one JSON object containing boolean `ok`, with
+a bounded non-empty `reason` when false. A default false Pre/Post decision ends
+the current agent turn; `continueOnBlock: true` returns the reason as tool
+feedback so the model can continue. Stop and SubagentStop false decisions feed
+the reason into another turn. Model, expansion, and response-validation errors
+are bounded, redacted, and non-blocking. Prompt Hook timeout defaults to 30
+seconds, and successful usage is included in session cost totals.
 
 Successful `PreToolUse` hooks can return Claude-compatible structured JSON under
 `hookSpecificOutput`. `permissionDecision` accepts `allow`, `ask`, `deny`, or

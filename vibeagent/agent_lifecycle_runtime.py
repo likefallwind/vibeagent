@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from .agent_lifecycle_hooks import LifecycleHookResult, run_instruction_loaded_hooks, run_lifecycle_hooks
+from .agent_hook_prompt import HookModelRuntime
 from .types import (
     AgentLogger,
     ApprovalHandler,
@@ -26,6 +27,7 @@ class AgentLifecycleRuntime:
     approval_handler: ApprovalHandler | None
     approval_policy: ApprovalPolicy
     execute_action_safely: Callable[[RunWorkspace, object, int, str], Observation]
+    hook_model_runtime: HookModelRuntime | None = None
     stop_continuations: int = 0
 
     def start(
@@ -93,6 +95,7 @@ class AgentLifecycleRuntime:
             approval_policy=self.approval_policy,
             execute_action_safely_func=self.execute_action_safely,
             permissions=self.permissions,
+            hook_model_runtime=self.hook_model_runtime,
         )
 
     def _run(
@@ -117,6 +120,7 @@ class AgentLifecycleRuntime:
             approval_policy=self.approval_policy,
             execute_action_safely_func=self.execute_action_safely,
             permissions=self.permissions,
+            hook_model_runtime=self.hook_model_runtime,
         )
 
     def _run_startup_instruction_hooks(self, workspace: RunWorkspace) -> None:

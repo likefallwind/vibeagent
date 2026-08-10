@@ -5,6 +5,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from .agent_async_hook_notifications import inject_async_hook_notifications
+from .agent_hook_prompt import HookModelRuntime
 from .agent_background_notifications import inject_background_delegate_notifications
 from .agent_conversation import conversation_for_next_prompt
 from .agent_message_flow import (
@@ -122,6 +123,14 @@ def run_agent_loop(
     )
     current_approval_handler = approval_handler
     hook_system_messages: list[str] = []
+    hook_model_runtime = HookModelRuntime(
+        client=client,
+        complete_with_retries=runtime.complete_with_retries,
+        max_output_tokens=max_output_tokens,
+        model_retries=model_retries,
+        model_retry_delay_ms=model_retry_delay_ms,
+        logger=logger,
+    )
 
     def tool_call_allowed(name: str, action: object) -> bool:
         if (
@@ -240,6 +249,7 @@ def run_agent_loop(
         approval_handler=current_approval_handler,
         approval_policy=plan_mode.current_policy,
         execute_action_safely=runtime.execute_action_safely,
+        hook_model_runtime=hook_model_runtime,
     )
     startup_block = lifecycle.start(
         current_workspace, messages, task, resumed=bool(prior_context)
@@ -352,6 +362,7 @@ def run_agent_loop(
                 allowed_tool_names=setup.main_profile.allowed_tool_names,
                 tool_ceiling_names=setup.tool_ceiling_names,
                 defer_tool_calls=defer_tool_calls,
+                hook_model_runtime=hook_model_runtime,
             )
 
         def on_resume(pending: dict[str, object], completed_results: int) -> None:
@@ -620,6 +631,7 @@ def run_agent_loop(
                 allowed_tool_names=setup.main_profile.allowed_tool_names,
                 tool_ceiling_names=setup.tool_ceiling_names,
                 defer_tool_calls=defer_tool_calls,
+                hook_model_runtime=hook_model_runtime,
             )
             if sequential.deferred_tool_use is not None:
                 deferred_state = DeferredToolState(
@@ -634,6 +646,21 @@ def run_agent_loop(
             assert sequential.tool_result is not None
             tool_results.append(sequential.tool_result)
             observation = apply_sequential_runtime_state(sequential, iteration)
+
+            if sequential.halt_turn_message is not None:
+                messages.append(ChatMessage(role="user", content=tool_results))
+                return finish_with_conversation(
+                    current_workspace,
+                    False,
+                    sequential.halt_turn_message,
+                    iteration,
+                    observations,
+                    steps,
+                    plan,
+                    command_timeout_ms,
+                    logger,
+                    stop_reason="hook_blocked",
+                )
 
             if observation.kind == "finish":
                 blocked_completion_feedback = (

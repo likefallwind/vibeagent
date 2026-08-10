@@ -7,6 +7,7 @@ from .agent_action_logging import log_action
 from .agent_approval import build_approval_request
 from .agent_approval_preview import attach_approval_preview
 from .agent_hooks import ApplyUpdatedInput, HookBatchResult, HookRunResult, run_tool_hooks
+from .agent_hook_prompt import HookModelRuntime
 from .agent_lifecycle_hooks import run_lifecycle_hooks
 from .agent_observation_utils import observation_failed
 from .agent_permissions import authorize_tool_action
@@ -41,6 +42,7 @@ class ToolActionExecutionResult:
     hook_results: tuple[HookRunResult, ...] = ()
     additional_observations: tuple[Observation, ...] = ()
     deferred: bool = False
+    halt_turn_message: str | None = None
 
 
 def execute_parsed_tool_action(
@@ -64,6 +66,7 @@ def execute_parsed_tool_action(
     apply_updated_input: ApplyUpdatedInput | None = None,
     defer_tool_calls: bool = False,
     tool_use_id: str | None = None,
+    hook_model_runtime: HookModelRuntime | None = None,
 ) -> ToolActionExecutionResult:
     pre_hooks = run_tool_hooks(
         workspace,
@@ -81,6 +84,7 @@ def execute_parsed_tool_action(
         tool_input=tool_input,
         apply_updated_input=apply_updated_input,
         tool_use_id=tool_use_id,
+        hook_model_runtime=hook_model_runtime,
     )
     if defer_tool_calls and pre_hooks.permission_decision == "defer":
         return ToolActionExecutionResult(
@@ -89,6 +93,7 @@ def execute_parsed_tool_action(
             auto_checkpoint_attempted=auto_checkpoint_attempted,
             hook_results=pre_hooks.results,
             deferred=True,
+            halt_turn_message=pre_hooks.halt_turn_message,
         )
     action = pre_hooks.effective_action or action
     step = start_task_step(workspace, steps, iteration, action, logger)
@@ -103,6 +108,7 @@ def execute_parsed_tool_action(
     checkpoint_attempted = auto_checkpoint_attempted
     hook_results: tuple[HookRunResult, ...] = pre_hooks.results
     additional_observations: tuple[Observation, ...] = ()
+    halt_turn_message = pre_hooks.halt_turn_message
     if pre_hooks.blocking_message is not None:
         pass
     elif observation is not None:
@@ -129,6 +135,7 @@ def execute_parsed_tool_action(
             checkpoint_attempted,
             hook_results,
             additional_observations,
+            halt_turn_message,
         ) = _execute_non_repeated_action(
             workspace,
             action,
@@ -149,6 +156,7 @@ def execute_parsed_tool_action(
             permissions,
             pre_hooks,
             tool_use_id,
+            hook_model_runtime,
         )
 
     complete_task_step(workspace, step, observation, iteration, logger)
@@ -158,6 +166,7 @@ def execute_parsed_tool_action(
         auto_checkpoint_attempted=checkpoint_attempted,
         hook_results=hook_results,
         additional_observations=additional_observations,
+        halt_turn_message=halt_turn_message,
     )
 
 
@@ -188,7 +197,15 @@ def _execute_non_repeated_action(
     permissions: ProjectPermissions,
     pre_hooks: HookBatchResult,
     tool_use_id: str | None,
-) -> tuple[Observation, Observation | None, bool, tuple[HookRunResult, ...], tuple[Observation, ...]]:
+    hook_model_runtime: HookModelRuntime | None,
+) -> tuple[
+    Observation,
+    Observation | None,
+    bool,
+    tuple[HookRunResult, ...],
+    tuple[Observation, ...],
+    str | None,
+]:
     approval_request = build_approval_request(action)
     if approval_request:
         approval_request = attach_approval_preview(approval_request, action, observations)
@@ -227,8 +244,16 @@ def _execute_non_repeated_action(
                 auto_checkpoint_attempted,
                 pre_hooks.results,
                 (),
+                pre_hooks.halt_turn_message,
             )
-        return authorization.denial, None, auto_checkpoint_attempted, pre_hooks.results, ()
+        return (
+            authorization.denial,
+            None,
+            auto_checkpoint_attempted,
+            pre_hooks.results,
+            (),
+            pre_hooks.halt_turn_message,
+        )
 
     auto_checkpoint, checkpoint_attempted = _maybe_create_auto_checkpoint(
         workspace,
@@ -267,6 +292,7 @@ def _execute_non_repeated_action(
         permissions,
         tool_input=pre_hooks.effective_input,
         tool_use_id=tool_use_id,
+        hook_model_runtime=hook_model_runtime,
     )
     cwd_hooks: tuple[HookRunResult, ...] = ()
     if (
@@ -291,6 +317,7 @@ def _execute_non_repeated_action(
             approval_policy=approval_policy,
             execute_action_safely_func=execute_action_safely_func,
             permissions=permissions,
+            hook_model_runtime=hook_model_runtime,
         )
         cwd_hooks = cwd_lifecycle.results
     diagnostics = automatic_lsp_diagnostics(workspace, observation)
@@ -300,6 +327,7 @@ def _execute_non_repeated_action(
         checkpoint_attempted,
         pre_hooks.results + post_hooks.results + cwd_hooks,
         tuple(post_hooks.failures) + diagnostics,
+        post_hooks.halt_turn_message,
     )
 
 

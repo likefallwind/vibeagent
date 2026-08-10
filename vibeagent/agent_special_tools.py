@@ -13,6 +13,7 @@ from .agent_hooks import (
     HookWrappedToolResult,
     run_hooks_around_tool,
 )
+from .agent_hook_prompt import HookModelRuntime
 from .agent_runtime_utils import append_session_event
 from .agent_team_runtime import teammate_spawn_error
 from .agent_steps import complete_task_step, start_task_step
@@ -65,6 +66,7 @@ def execute_special_tool_action(
     apply_updated_input: ApplyUpdatedInput | None = None,
     defer_tool_calls: bool = False,
     tool_use_id: str | None = None,
+    hook_model_runtime: HookModelRuntime | None = None,
 ) -> HookWrappedToolResult:
     return run_hooks_around_tool(
         workspace,
@@ -108,6 +110,7 @@ def execute_special_tool_action(
         ),
         defer_tool_calls=defer_tool_calls,
         tool_use_id=tool_use_id,
+        hook_model_runtime=hook_model_runtime,
     )
 
 

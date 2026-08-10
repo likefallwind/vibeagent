@@ -11,6 +11,7 @@ from .agent_execution_support import (
     should_auto_checkpoint_before_action,
 )
 from .agent_hooks import HookRunResult
+from .agent_hook_prompt import HookModelRuntime
 from .agent_delegate_policy import (
     CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
     DELEGATE_TOOL_NAMES,
@@ -67,6 +68,7 @@ class DelegateToolCallExecution:
     finish_action: FinishAction | None
     auto_checkpoint_attempted: bool
     hook_results: tuple[HookRunResult, ...] = ()
+    halt_turn_message: str | None = None
 
 
 def code_delegate_initial_tool_names(
@@ -159,7 +161,9 @@ def execute_delegate_tool_call(
     special_action_handler: Callable[[object], Observation | None] | None = None,
     coordination_tool_names: frozenset[str] = frozenset(),
     tool_id: str | None = None,
+    hook_model_runtime: HookModelRuntime | None = None,
 ) -> DelegateToolCallExecution:
+    halt_turn_message: str | None = None
     try:
         def prepare_tool_input(candidate_input: dict[str, object]) -> object:
             candidate = prepare_action_for_policy(
@@ -219,7 +223,12 @@ def execute_delegate_tool_call(
                     None,
                     auto_checkpoint_attempted,
                 )
-        observation, checkpoint_attempted, hook_results = execute_delegate_action(
+        (
+            observation,
+            checkpoint_attempted,
+            hook_results,
+            halt_turn_message,
+        ) = execute_delegate_action(
             workspace,
             mode=mode,
             tool_name=tool_name,
@@ -237,6 +246,7 @@ def execute_delegate_tool_call(
             tool_input=raw_tool_input,
             apply_updated_input=prepare_tool_input,
             tool_use_id=tool_id,
+            hook_model_runtime=hook_model_runtime,
         )
     except ActionParseError as error:
         observation = tool_error_observation(tool_name, error)
@@ -263,7 +273,13 @@ def execute_delegate_tool_call(
             approval_policy,
             CODE_DELEGATE_EXCLUDED_TOOL_NAMES | disallowed_tool_names,
         )
-    return DelegateToolCallExecution(observation, None, checkpoint_attempted, hook_results)
+    return DelegateToolCallExecution(
+        observation,
+        None,
+        checkpoint_attempted,
+        hook_results,
+        halt_turn_message,
+    )
 
 
 def _profile_allows_tool_call(
@@ -323,7 +339,8 @@ def execute_delegate_action(
     tool_input: dict[str, object] | None = None,
     apply_updated_input: Callable[[dict[str, object]], object] | None = None,
     tool_use_id: str | None = None,
-) -> tuple[Observation, bool, tuple[HookRunResult, ...]]:
+    hook_model_runtime: HookModelRuntime | None = None,
+) -> tuple[Observation, bool, tuple[HookRunResult, ...], str | None]:
     action_type = getattr(parsed, "type", None)
     if mode == "explore":
         allowed_read_only_tool = (
@@ -340,6 +357,7 @@ def execute_delegate_action(
                 ),
                 auto_checkpoint_attempted,
                 (),
+                None,
             )
         return _execute_delegate_with_tool_layer(
             workspace,
@@ -358,6 +376,7 @@ def execute_delegate_action(
             tool_input=tool_input,
             apply_updated_input=apply_updated_input,
             tool_use_id=tool_use_id,
+            hook_model_runtime=hook_model_runtime,
         )
     if tool_name in CODE_DELEGATE_EXCLUDED_TOOL_NAMES or action_type in CODE_DELEGATE_EXCLUDED_TOOL_NAMES:
         return (
@@ -368,6 +387,7 @@ def execute_delegate_action(
             ),
             auto_checkpoint_attempted,
             (),
+            None,
         )
 
     return _execute_delegate_with_tool_layer(
@@ -387,6 +407,7 @@ def execute_delegate_action(
         tool_input=tool_input,
         apply_updated_input=apply_updated_input,
         tool_use_id=tool_use_id,
+        hook_model_runtime=hook_model_runtime,
     )
 
 
@@ -408,7 +429,8 @@ def _execute_delegate_with_tool_layer(
     tool_input: dict[str, object] | None = None,
     apply_updated_input: Callable[[dict[str, object]], object] | None = None,
     tool_use_id: str | None = None,
-) -> tuple[Observation, bool, tuple[HookRunResult, ...]]:
+    hook_model_runtime: HookModelRuntime | None = None,
+) -> tuple[Observation, bool, tuple[HookRunResult, ...], str | None]:
     execution = execute_parsed_tool_action(
         workspace,
         parsed,
@@ -430,8 +452,14 @@ def _execute_delegate_with_tool_layer(
         apply_updated_input,
         False,
         tool_use_id,
+        hook_model_runtime,
     )
     if execution.auto_checkpoint is not None:
         observations.append(execution.auto_checkpoint)
     observations.extend(execution.additional_observations)
-    return execution.observation, execution.auto_checkpoint_attempted, execution.hook_results
+    return (
+        execution.observation,
+        execution.auto_checkpoint_attempted,
+        execution.hook_results,
+        execution.halt_turn_message,
+    )
