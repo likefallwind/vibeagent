@@ -84,6 +84,12 @@ class NetworkUrlSafetyTests(unittest.TestCase):
             with self.assertRaisesRegex(UrlSafetyError, "public"):
                 handler.redirect_request(None, None, 302, "Found", {}, "http://localhost/admin")
 
+    def test_https_only_redirect_handler_rejects_public_http_downgrade(self) -> None:
+        handler = _ScopedRedirectHandler("public", require_https=True)
+        with patch("vibeagent.network_url_safety.socket.getaddrinfo", return_value=_address_info("93.184.216.34")):
+            with self.assertRaisesRegex(UrlSafetyError, "must use HTTPS"):
+                handler.redirect_request(None, None, 302, "Found", {}, "http://example.com/catalog.json")
+
 
 class WebFetchTests(unittest.TestCase):
     def test_extracts_readable_html_without_script_or_style(self) -> None:

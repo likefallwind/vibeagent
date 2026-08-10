@@ -20,7 +20,7 @@ local changes when asked, and resume from recorded session context.
 | VA1-PEER | Coordinate independent local coding sessions | `ListAgents` discovers live same-machine sessions, `SendMessage` delivers bounded untrusted text over a user-only Unix socket, and running or idle receivers process messages without changing permission boundaries. |
 | VA1-DELEGATE | Split bounded investigation into a subagent | `delegate_task`, `Task`, and `Agent` can run isolated read-only investigations synchronously or in the background; `TaskOutput` collects results, `TaskStop` requests cancellation, and completion remains blocked while a result is running or unread. |
 | VA1-WORKFLOW | Orchestrate resumable multi-agent fan-out | `/workflows run` executes a permission-restricted JavaScript workflow with `agent()` and bounded `pipeline()`, persists source and completed calls, and supports list, show, stop, and cache-backed resume. |
-| VA1-PLUGIN | Load and distribute reusable extension bundles without bypassing safety | `/plugin` validates, installs, lists, details, enables, disables, and atomically uninstalls project-local plugins; local marketplaces add, list, inspect, refresh, remove, and install `plugin@marketplace`; enabled namespaced skills, commands, agents, hooks, and MCP servers flow through their existing parsers, approvals, and path guards. |
+| VA1-PLUGIN | Load and distribute reusable extension bundles without bypassing safety | `/plugin` validates, installs, lists, details, enables, disables, and atomically uninstalls project-local plugins; local and public-HTTPS GitHub/Git/JSON marketplaces add, list, inspect, refresh, remove, and install relative or remote `plugin@marketplace` sources; enabled namespaced skills, commands, agents, hooks, and MCP servers flow through their existing parsers, approvals, network checks, and path guards. |
 | VA1-PLAN | Produce a concrete read-only implementation plan | Plan mode exposes only read-only tools such as `project_overview`, `read_file`, and `tool_search`, denies hidden write attempts, and leaves the workspace unchanged. |
 | VA1-SAFETY | Enforce workspace and command safety | Workspace path guards, protected files, approval policy, project permissions, hooks, sandbox support, and hard command blocks prevent unsafe side effects. |
 
@@ -70,6 +70,11 @@ local changes when asked, and resume from recorded session context.
   lifecycle commands, reload counts, provider-free management, local marketplace
   validation and snapshot caching, qualified installation, refresh, cascade
   removal, version-one state compatibility, and state-write rollback.
+- `tests.test_plugin_remote_sources` covers public credential-free HTTPS
+  enforcement, HTTPS-only redirects, sanitized non-interactive Git execution,
+  GitHub and direct-JSON marketplace refresh, `github`/`url`/`git-subdir`
+  plugin sources, SHA/ref selection, runtime skill discovery, temporary-cache
+  cleanup, and removal races that must not leave orphan plugins.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `LS`, `Glob`, `Grep`, `Read`, `Bash`, `Edit`, and `TodoRead`,

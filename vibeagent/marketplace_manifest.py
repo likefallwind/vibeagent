@@ -5,6 +5,12 @@ from pathlib import Path
 from typing import Any
 
 from .plugin_manifest import PLUGIN_VERSION_PATTERN, read_plugin_manifest
+from .plugin_remote_sources import (
+    github_repository_url,
+    normalize_public_https_url,
+    validate_git_revision,
+    validate_git_sha,
+)
 from .plugin_state import validate_plugin_name
 from .plugin_types import MarketplaceManifest, MarketplacePlugin
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
@@ -95,19 +101,31 @@ def _read_plugin_entry(root: Path, entry: object, index: int) -> MarketplacePlug
     if not isinstance(name, str):
         raise ValueError(f"{label} name must be a string.")
     validate_plugin_name(name)
-    source = entry.get("source")
-    if not isinstance(source, str):
-        raise ValueError(
-            f"{label} source must be a ./ relative directory; network and package sources are not supported yet."
+    source_value = entry.get("source")
+    if isinstance(source_value, str):
+        source = source_value
+        source_kind = "relative"
+        path = _resolve_plugin_source(root, source, label)
+        manifest = read_plugin_manifest(path)
+        if manifest.name != name:
+            raise ValueError(
+                f"{label} name {name!r} does not match plugin manifest name {manifest.name!r}."
+            )
+        url = ref = sha = subdirectory = None
+        fallback_description = manifest.description
+        fallback_version = manifest.version
+    elif isinstance(source_value, dict):
+        source_kind, source, url, ref, sha, subdirectory = _read_remote_plugin_source(
+            source_value,
+            label,
         )
-    path = _resolve_plugin_source(root, source, label)
-    manifest = read_plugin_manifest(path)
-    if manifest.name != name:
-        raise ValueError(
-            f"{label} name {name!r} does not match plugin manifest name {manifest.name!r}."
-        )
-    description = _optional_text(entry, "description", max_length=1_000) or manifest.description
-    version = entry.get("version", manifest.version)
+        path = None
+        fallback_description = ""
+        fallback_version = None
+    else:
+        raise ValueError(f"{label} source must be a relative path or supported Git source object.")
+    description = _optional_text(entry, "description", max_length=1_000) or fallback_description
+    version = entry.get("version", fallback_version)
     if version is not None and (
         not isinstance(version, str) or not PLUGIN_VERSION_PATTERN.fullmatch(version)
     ):
@@ -115,10 +133,60 @@ def _read_plugin_entry(root: Path, entry: object, index: int) -> MarketplacePlug
     return MarketplacePlugin(
         name=name,
         source=source,
+        source_kind=source_kind,
         path=path,
+        url=url,
+        ref=ref,
+        sha=sha,
+        subdirectory=subdirectory,
         description=" ".join(description.split()),
         version=version,
     )
+
+
+def _read_remote_plugin_source(
+    source: dict[str, Any],
+    label: str,
+) -> tuple[str, str, str, str | None, str | None, str | None]:
+    kind = source.get("source")
+    if kind == "github":
+        repository = source.get("repo")
+        if not isinstance(repository, str):
+            raise ValueError(f"{label} GitHub source requires repo=owner/repository.")
+        url = github_repository_url(repository)
+        display = f"github:{repository}"
+        subdirectory = None
+    elif kind in {"url", "git-subdir"}:
+        raw_url = source.get("url")
+        if not isinstance(raw_url, str):
+            raise ValueError(f"{label} {kind} source requires an HTTPS url.")
+        url = normalize_public_https_url(raw_url, label=f"{label} Git URL")
+        display = url
+        subdirectory = _safe_subdirectory(source.get("path"), label) if kind == "git-subdir" else None
+    elif kind == "npm":
+        raise ValueError(f"{label} npm sources are not supported yet.")
+    else:
+        raise ValueError(f"{label} source object must use github, url, or git-subdir.")
+    ref_value = source.get("ref")
+    if ref_value is not None and not isinstance(ref_value, str):
+        raise ValueError(f"{label} Git ref must be a string.")
+    ref = validate_git_revision(ref_value)
+    sha_value = source.get("sha")
+    if sha_value is not None and not isinstance(sha_value, str):
+        raise ValueError(f"{label} Git SHA must be a string.")
+    sha = validate_git_sha(sha_value)
+    if ref is not None and sha is not None:
+        raise ValueError(f"{label} source must not specify both ref and sha.")
+    return str(kind), display, url, ref, sha, subdirectory
+
+
+def _safe_subdirectory(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value or value.startswith("/"):
+        raise ValueError(f"{label} git-subdir source requires a relative path.")
+    path = Path(value)
+    if ".." in path.parts or len(path.parts) > 12:
+        raise ValueError(f"{label} git-subdir path must stay inside the Git repository.")
+    return path.as_posix()
 
 
 def _resolve_plugin_source(root: Path, source: str, label: str) -> Path:

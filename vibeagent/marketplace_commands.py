@@ -3,18 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 
 from .marketplace_store import (
-    add_local_marketplace,
+    add_marketplace,
     list_installed_marketplaces,
     read_installed_marketplace_manifest,
     remove_marketplace,
-    update_local_marketplace,
+    update_marketplace,
 )
 from .plugin_types import InstalledMarketplace, MarketplaceManifest
 
 
 MARKETPLACE_USAGE = (
     "Usage: /plugin marketplace "
-    "[list|add <project-path>|details <name>|update <name>|remove <name>]"
+    "[list|add <project-path|owner/repo[#ref]|https-url>|details <name>|update <name>|remove <name>]"
 )
 
 
@@ -25,7 +25,7 @@ def handle_marketplace_command(project_root: Path, parts: list[str]) -> tuple[st
         return MARKETPLACE_USAGE, False
     operation, value = parts
     if operation == "add":
-        marketplace = add_local_marketplace(project_root, value)
+        marketplace = add_marketplace(project_root, value)
         return (
             f"Added marketplace {marketplace.name} with {marketplace.plugin_count} plugin(s).",
             True,
@@ -34,7 +34,7 @@ def handle_marketplace_command(project_root: Path, parts: list[str]) -> tuple[st
         manifest = read_installed_marketplace_manifest(project_root, value)
         return format_marketplace_details(manifest), False
     if operation == "update":
-        marketplace = update_local_marketplace(project_root, value)
+        marketplace = update_marketplace(project_root, value)
         return (
             f"Updated marketplace {marketplace.name}; {marketplace.plugin_count} plugin(s) available.",
             True,

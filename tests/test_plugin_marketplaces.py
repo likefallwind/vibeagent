@@ -110,7 +110,7 @@ class MarketplaceRuntimeTests(unittest.TestCase):
             payload["description"] = "Should not persist"
             manifest_path.write_text(json.dumps(payload), encoding="utf-8")
 
-            with patch("vibeagent.marketplace_store._write_state", side_effect=OSError("disk full")):
+            with patch("vibeagent.marketplace_state_ops._write_state", side_effect=OSError("disk full")):
                 with self.assertRaisesRegex(OSError, "disk full"):
                     update_local_marketplace(root, "team-tools")
 
@@ -128,7 +128,7 @@ class MarketplaceRuntimeTests(unittest.TestCase):
             marketplace_cache = root / ".vibeagent/plugins/marketplaces/team-tools"
             plugin_cache = root / ".vibeagent/plugins/cache/demo-plugin"
 
-            with patch("vibeagent.marketplace_store._write_state", side_effect=OSError("disk full")):
+            with patch("vibeagent.marketplace_state_ops._write_state", side_effect=OSError("disk full")):
                 with self.assertRaisesRegex(OSError, "disk full"):
                     remove_marketplace(root, "team-tools")
 

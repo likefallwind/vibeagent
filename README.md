@@ -942,7 +942,7 @@ workflow, `/workflows` to list runs, and `/workflows show|resume|stop <id>` to
 inspect or control one run, and
 `/plugin install <project-path>` to validate and install a local plugin,
 `/plugin list|details|enable|disable|uninstall|validate` to manage it, and
-`/plugin marketplace add|list|details|update|remove` to manage project-local
+`/plugin marketplace add|list|details|update|remove` to manage local and remote
 plugin catalogs and install `plugin@marketplace`, and
 `/reload-plugins` to refresh plugin-aware runtimes, and
 `/clear` to clear the goal, local chat history, and loaded resume context,
@@ -1077,13 +1077,15 @@ VibeAgent supports project-local plugins that package skills, commands, agents,
 command hooks, and MCP servers behind one manifest and lifecycle. A plugin uses
 the Claude-compatible root layout: optional `.claude-plugin/plugin.json`,
 `skills/`, `commands/`, `agents/`, `hooks/hooks.json`, and `.mcp.json`.
-Install only a directory inside the current project:
+Install a project directory directly or register a local/remote marketplace:
 
 ```text
 /plugin validate extensions/team-tools
 /plugin install extensions/team-tools
 /plugin marketplace add extensions/team-marketplace
 /plugin install review-tools@team-marketplace
+/plugin marketplace add acme/coding-plugins#v1
+/plugin marketplace add https://plugins.example.com/marketplace.json
 /reload-plugins
 /plugin list
 ```
@@ -1102,9 +1104,17 @@ relative. Project-local marketplaces use `.claude-plugin/marketplace.json`,
 cache a non-symlink snapshot without Git/runtime metadata, verify each relative
 plugin source and manifest identity, support add/list/details/update/remove, and
 atomically uninstall marketplace-owned plugins when the catalog is removed.
-Inline hook/MCP objects, network Git/URL/npm marketplace sources, LSP servers,
-monitors, default settings, user/project installation scopes, and remote updates
-are not yet implemented and are reported rather than silently loaded.
+Remote marketplaces support GitHub `owner/repository[#ref]`, public HTTPS Git
+repositories, and public HTTPS `marketplace.json` files. Remote catalog entries
+support `github`, `url`, and `git-subdir` Git sources with optional `ref` or
+`sha`. Network URLs must be credential-free public HTTPS, HTTP redirects are
+disabled for Git and cannot downgrade JSON downloads, Git authentication is
+non-interactive, inherited Git configuration injection is removed, and each
+fetch uses a bounded temporary checkout. Set `VIBEAGENT_PLUGIN_GIT_TIMEOUT_MS`
+between 1,000 and 600,000 milliseconds to override the 120-second Git timeout.
+Inline hook/MCP objects, SSH and npm plugin sources, LSP servers, monitors,
+default settings, user/project installation scopes, and automatic background
+updates are not yet implemented and are reported rather than silently loaded.
 On Linux and macOS, interactive and one-shot CLI sessions register a user-only
 Unix socket under `/tmp/vibeagent-<uid>/peers`. `ListAgents` combines current
 session subagents with other live local sessions, and `SendMessage` sends plain

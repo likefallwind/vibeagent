@@ -132,6 +132,7 @@ EXPECTED_GATES = {
         "tools": set(),
         "tests": {
             "test_installed_plugin_loads_all_supported_components_with_namespaces",
+            "test_direct_https_catalog_installs_github_plugin_into_runtime",
             "test_marketplace_add_install_update_and_remove_are_runtime_complete",
             "test_uninstall_rolls_cache_back_when_state_write_fails",
         },

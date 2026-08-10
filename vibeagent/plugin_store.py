@@ -49,6 +49,10 @@ def _install_plugin_directory(
         existing_plugins = state.get("plugins", {})
         existing_entry = existing_plugins.get(manifest.name) if isinstance(existing_plugins, dict) else None
         try:
+            if marketplace is not None:
+                marketplaces = state.get("marketplaces")
+                if not isinstance(marketplaces, dict) or marketplace not in marketplaces:
+                    raise ValueError(f"Marketplace was removed during plugin installation: {marketplace}")
             if destination.exists():
                 destination.replace(backup)
             staging.replace(destination)

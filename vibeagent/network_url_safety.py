@@ -14,10 +14,12 @@ class UrlSafetyError(ValueError):
     pass
 
 
-def validate_scoped_url(url: str, scope: UrlScope) -> None:
+def validate_scoped_url(url: str, scope: UrlScope, *, require_https: bool = False) -> None:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise UrlSafetyError("URL must use HTTP or HTTPS and include a host.")
+    if require_https and parsed.scheme != "https":
+        raise UrlSafetyError("URL and redirects must use HTTPS.")
     if parsed.username is not None or parsed.password is not None:
         raise UrlSafetyError("URL credentials are not allowed.")
     try:
@@ -40,9 +42,10 @@ def open_scoped_url(
     *,
     timeout: float,
     scope: UrlScope,
+    require_https: bool = False,
 ):
-    validate_scoped_url(request.full_url, scope)
-    opener = urllib.request.build_opener(_ScopedRedirectHandler(scope))
+    validate_scoped_url(request.full_url, scope, require_https=require_https)
+    opener = urllib.request.build_opener(_ScopedRedirectHandler(scope, require_https=require_https))
     return opener.open(request, timeout=timeout)
 
 
@@ -60,9 +63,10 @@ def _address_allowed(address: ipaddress.IPv4Address | ipaddress.IPv6Address, sco
 
 
 class _ScopedRedirectHandler(urllib.request.HTTPRedirectHandler):
-    def __init__(self, scope: UrlScope) -> None:
+    def __init__(self, scope: UrlScope, *, require_https: bool = False) -> None:
         self.scope = scope
+        self.require_https = require_https
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
-        validate_scoped_url(newurl, self.scope)
+        validate_scoped_url(newurl, self.scope, require_https=self.require_https)
         return super().redirect_request(req, fp, code, msg, headers, newurl)

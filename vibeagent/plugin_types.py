@@ -51,7 +51,12 @@ class InstalledPlugin:
 class MarketplacePlugin:
     name: str
     source: str
-    path: Path
+    source_kind: str
+    path: Path | None
+    url: str | None
+    ref: str | None
+    sha: str | None
+    subdirectory: str | None
     description: str
     version: str | None
 
@@ -75,6 +80,8 @@ class InstalledMarketplace:
     cache_path: str
     added_at: str
     plugin_count: int
+    source_kind: str = "local"
+    source_ref: str | None = None
     error: str | None = None
 
 
