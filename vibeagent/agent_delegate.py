@@ -23,6 +23,7 @@ from .agent_delegate_tools import (
     execute_delegate_tool_call,
 )
 from .agent_profile_client import configure_agent_profile_client
+from .permission_tool_visibility import globally_denied_tool_names
 from .agent_runtime_utils import append_session_event
 from .agent_team_runtime import TEAM_COORDINATION_TOOL_NAMES, teammate_spawn_error
 from .nested_delegate_runtime import NestedDelegateRuntime
@@ -103,7 +104,9 @@ def execute_delegate_task_action(
         action = replace(action, isolation="worktree")
     profile_prompt = profile.prompt
     allowed_tool_names = profile.allowed_tool_names
-    disallowed_tool_names = profile.disallowed_tool_names
+    disallowed_tool_names = (
+        profile.disallowed_tool_names | globally_denied_tool_names(permissions)
+    )
     if tool_ceiling_names is not None:
         allowed_tool_names = (
             tool_ceiling_names

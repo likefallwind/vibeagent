@@ -1277,6 +1277,11 @@ class V1CliSmokeTests(unittest.TestCase):
                 if record["event"]["type"] == "permission_rule_evaluated"
             ]
             permissions = next(record["event"] for record in event_records if record["event"]["type"] == "permissions_loaded")
+            restrictions = next(
+                record["event"]
+                for record in event_records
+                if record["event"]["type"] == "tool_restrictions_loaded"
+            )
             final = records[-1]
             state = _calculator_commit_state(root)
 
@@ -1286,24 +1291,19 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertEqual(final["status"], "blocked")
         self.assertEqual(final["stopReason"], "blocked")
         self.assertTrue(final["success"])
-        self.assertIn("1 approval request(s) were denied.", final["completionBlockers"])
-        self.assertIn("Denied by permission rule Edit", final["latestCompletionDeniedApprovals"][0])
+        self.assertIn("1 tool error(s) occurred.", final["completionBlockers"])
+        self.assertIn("active tool restrictions", final["latestCompletionToolErrors"][0])
         self.assertIn("permissions_loaded", event_types)
-        self.assertIn("permission_rule_evaluated", event_types)
+        self.assertIn("tool_restrictions_loaded", event_types)
         self.assertNotIn("approval_requested", event_types)
         self.assertEqual(permissions["count"], 5)
         self.assertIn("<cli --permission-mode acceptEdits>", permissions["sources"])
         self.assertIn("<cli --disallowed-tools>", permissions["sources"])
-        self.assertTrue(
-            any(
-                event["tool"] == "Edit"
-                and event["effect"] == "deny"
-                and event["rule"] == "Edit"
-                and event["source"] == "<cli --disallowed-tools>"
-                and event["subjects"] == ["calc.py"]
-                for event in permission_evaluations
-            )
-        )
+        self.assertFalse(any(event["tool"] == "Edit" for event in permission_evaluations))
+        self.assertIn("Edit", restrictions["disallowed_tools"])
+        self.assertIn("write_file", restrictions["disallowed_tools"])
+        self.assertNotIn("Edit", {str(tool["name"]) for tool in client.tools[0]})
+        self.assertNotIn("write_file", {str(tool["name"]) for tool in client.tools[0]})
         self.assertEqual(state[0], "")
         self.assertEqual(state[1], "initial broken calculator")
         self.assertIn("return left - right", state[2])

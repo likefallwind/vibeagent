@@ -71,7 +71,9 @@ The automated suite currently covers these 1.0 surfaces:
   `TaskStop`, `Agent`, and `ExitPlanMode`.
 - Real CLI JSON and stream-json entrypoints, stdin input formats, resume,
   compact, permission overrides, `acceptEdits`, disallowed tools, one-shot
-  `--tools` visibility and execution ceilings inherited by subagents,
+  `--tools` visibility and execution ceilings inherited by subagents, global
+  deny alias-family removal across schemas, tool search, MCP wildcards, and
+  every subagent path while scoped deny rules retain action-level matching,
   shared provider-cost budgets, sticky overload-model fallback, and
   pending-user-input output.
 - Durable main-session conversation continuity: private atomic checkpoints at

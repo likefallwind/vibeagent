@@ -25,6 +25,9 @@ from vibeagent.agent_tool_registry import (
     tool_search_activation_names,
     validate_core_agent_tools,
 )
+from vibeagent.cli_args import parse_args
+from vibeagent.cli_permission_overrides import build_permission_overrides
+from vibeagent.permission_tool_visibility import globally_denied_tool_names
 from vibeagent.session_timeline_reports import format_session_event_timeline_item
 from vibeagent.session_types import SessionEvent
 from vibeagent.tool_definitions import AGENT_TOOL_DEFINITIONS
@@ -183,6 +186,20 @@ class AgentToolRegistryTests(unittest.TestCase):
             activate_agent_tool_names(active, ["python_dependencies", "code_dependencies"], excluded_names=excluded),
             ["code_dependencies"],
         )
+
+    def test_visibility_policy_supports_mcp_server_and_wildcard_denies(self) -> None:
+        server_denied = ToolVisibilityPolicy(
+            excluded_names=frozenset({"mcp__docs__*"})
+        )
+        exact_denied = ToolVisibilityPolicy(
+            excluded_names=frozenset({"mcp__repo__delete"})
+        )
+
+        self.assertFalse(server_denied.allows("mcp__docs__search"))
+        self.assertFalse(server_denied.allows("mcp__docs__lookup"))
+        self.assertTrue(server_denied.allows("mcp__repo__search"))
+        self.assertFalse(exact_denied.allows("mcp__repo__delete"))
+        self.assertTrue(exact_denied.allows("mcp__repo__search"))
 
     def test_run_level_activation_honors_excluded_tools(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-tools-") as base:
@@ -403,6 +420,38 @@ class AgentToolRegistryTests(unittest.TestCase):
         self.assertTrue(first_names.issubset(second_names))
         activated = [event for event in events if event["type"] == "tools_activated"]
         self.assertTrue(any(event["source"] == "tool_search" for event in activated))
+
+    def test_tool_search_does_not_rediscover_globally_denied_tools(self) -> None:
+        permissions = build_permission_overrides(
+            parse_args(["--disallowed-tools", "Edit", "inspect"])
+        )
+        client = ToolLoadingClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "search-1",
+                        "name": "tool_search",
+                        "input": {"query": "write edit file", "max_matches": 100},
+                    }
+                ],
+                [{"type": "text", "text": "No editing tools are available."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-denied-tool-search-") as base:
+            result = run_agent(
+                "Search without editing",
+                base_dir=Path(base),
+                client=client,
+                max_iterations=2,
+                permission_overrides=permissions,
+            )
+
+        denied = globally_denied_tool_names(permissions)
+        observation = next(item for item in result.observations if item.kind == "tool_search")
+        matched = {str(item["name"]) for item in observation.matches}
+        self.assertTrue(matched.isdisjoint(denied))
+        self.assertTrue(set(observation.suggestions).isdisjoint(denied))
 
     def test_direct_hidden_tool_call_remains_compatible_and_stays_active(self) -> None:
         client = ToolLoadingClient(

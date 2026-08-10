@@ -322,6 +322,8 @@ def run_agent_loop(
                 execute=runtime.execute_action,
                 approval_policy=approval_policy,
                 tool_call_allowed=setup.main_profile.allows_tool_call,
+                excluded_tool_names=setup.main_profile.disallowed_tool_names,
+                allowed_tool_names=setup.main_profile.allowed_tool_names,
             )
         )
         tool_results: list[ContentBlock] = []

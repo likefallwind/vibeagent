@@ -13,6 +13,8 @@ from vibeagent.agent_delegate import (
     delegate_tool_definitions,
     execute_delegate_task_action,
 )
+from vibeagent.cli_args import parse_args
+from vibeagent.cli_permission_overrides import build_permission_overrides
 from vibeagent.session_timeline_reports import format_session_event_timeline_item
 from vibeagent.session import read_session_events, summarize_session
 from vibeagent.session_types import SessionEvent
@@ -82,6 +84,56 @@ def approve_hook(_request) -> ApprovalDecision:
 
 
 class DelegationTests(unittest.TestCase):
+    def test_code_subagent_inherits_unconditional_permission_denies(self) -> None:
+        client = DelegationClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "write-1",
+                        "name": "Write",
+                        "input": {"file_path": "blocked.txt", "content": "blocked\n"},
+                    }
+                ],
+                [{"type": "text", "text": "Restricted inspection complete."}],
+            ]
+        )
+        permissions = build_permission_overrides(
+            parse_args(["--disallowed-tools", "Edit", "inspect"])
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-deny-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root)
+            action = parse_tool_action(
+                "delegate_task",
+                {"task": "Inspect only", "mode": "code", "max_iterations": 2},
+            )
+
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_policy="allow",
+                permissions=permissions,
+            )
+
+            self.assertFalse(root.joinpath("blocked.txt").exists())
+        advertised = set(client.tool_names[0])
+        self.assertTrue(observation.ok)
+        self.assertNotIn("Edit", advertised)
+        self.assertNotIn("Write", advertised)
+        self.assertNotIn("edit_file", advertised)
+        self.assertNotIn("write_file", advertised)
+        self.assertEqual(observation.tool_calls, ["Write"])
+
     def test_code_subagent_inherits_cli_tool_ceiling(self) -> None:
         client = DelegationClient(
             [

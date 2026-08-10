@@ -58,6 +58,8 @@ class ToolSearchAction:
     max_matches: int = 20
     category: str | None = None
     approval_required: bool | None = None
+    excluded_tool_names: frozenset[str] = frozenset()
+    allowed_tool_names: frozenset[str] | None = None
 
 
 @dataclass(frozen=True)

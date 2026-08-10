@@ -8,6 +8,7 @@ from vibeagent.agent import run_agent
 from vibeagent.agent_run_setup import prepare_agent_run
 from vibeagent.agent_tool_registry import activate_tools_from_observations
 from vibeagent.cli import parse_args
+from vibeagent.cli_permission_overrides import build_permission_overrides
 from vibeagent.cli_one_shot_agent_kwargs import build_one_shot_agent_kwargs
 from vibeagent.cli_validation import validate_cli_args
 from vibeagent.config import ExecutionConfig
@@ -96,7 +97,7 @@ class MainAgentProfileTests(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(set(client.tool_names[0]), {"Read", "read_file"})
         self.assertEqual(result.observations[0].kind, "tool_error")
-        self.assertIn("CLI tool restriction", result.observations[0].message)
+        self.assertIn("active tool restrictions", result.observations[0].message)
         self.assertIn('"type": "tool_restrictions_loaded"', events)
 
     def test_cli_tool_ceiling_intersects_selected_main_profile(self) -> None:
@@ -149,7 +150,7 @@ class MainAgentProfileTests(unittest.TestCase):
             self.assertFalse(root.joinpath("blocked.txt").exists())
         self.assertTrue(result.success)
         self.assertEqual(result.observations[0].kind, "tool_error")
-        self.assertIn("selected main agent profile", result.observations[0].message)
+        self.assertIn("active tool restrictions", result.observations[0].message)
         self.assertEqual(set(client.tool_names[0]), {"Read", "finish", "read_file"})
         self.assertIn("MAIN_REVIEW_INSTRUCTION", str(client.messages[0][0].content))
 
@@ -186,6 +187,48 @@ class MainAgentProfileTests(unittest.TestCase):
         self.assertNotIn("Write", client.tool_names[0])
         self.assertNotIn("Bash", client.tool_names[0])
         self.assertEqual(result.observations[0].kind, "tool_error")
+
+    def test_unconditional_permission_deny_hides_alias_family_and_blocks_calls(self) -> None:
+        client = ScriptedClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "write-1",
+                        "name": "Write",
+                        "input": {"file_path": "blocked.txt", "content": "blocked\n"},
+                    }
+                ],
+                [{"type": "text", "text": "The denied write was unavailable."}],
+            ]
+        )
+        permissions = build_permission_overrides(
+            parse_args(["--disallowed-tools", "Edit", "inspect"])
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-denied-tools-") as base:
+            root = Path(base)
+            result = run_agent(
+                "Inspect without editing",
+                client,
+                base_dir=root,
+                permission_overrides=permissions,
+                max_iterations=2,
+                model_retries=0,
+                approval_policy="allow",
+            )
+            events = (root / ".vibeagent/sessions" / result.run_id / "events.jsonl").read_text(
+                encoding="utf-8"
+            )
+
+            self.assertFalse(root.joinpath("blocked.txt").exists())
+        advertised = set(client.tool_names[0])
+        self.assertTrue(result.success)
+        self.assertEqual(result.observations[0].kind, "tool_error")
+        self.assertNotIn("Edit", advertised)
+        self.assertNotIn("Write", advertised)
+        self.assertNotIn("edit_file", advertised)
+        self.assertNotIn("write_file", advertised)
+        self.assertIn('"disallowed_tools"', events)
 
     def test_profile_max_turns_caps_the_main_loop(self) -> None:
         client = ScriptedClient(

@@ -14,7 +14,7 @@ from .agent_tool_execution import (
     execute_parsed_tool_action,
 )
 from .agent_tool_results import ToolObservationContext, record_tool_observation
-from .agent_tool_registry import prepare_action_for_policy
+from .agent_tool_registry import prepare_action_for_policy, prepare_action_for_visibility
 from .types import (
     AgentLogger,
     ApprovalHandler,
@@ -89,13 +89,18 @@ def execute_sequential_tool_call(
         action = prepare_action_for_policy(
             parse_tool_action(tool_name, tool_input), approval_policy
         )
+        action = prepare_action_for_visibility(
+            action,
+            excluded_tool_names,
+            allowed_tool_names,
+        )
         if tool_call_allowed is not None and not tool_call_allowed(tool_name, action):
             observation = ToolErrorObservation(
                 kind="tool_error",
                 tool=tool_name or "unknown",
                 message=(
                     "Tool call is blocked by the selected main agent profile "
-                    "or CLI tool restriction."
+                    "or active tool restrictions."
                 ),
             )
         elif isinstance(action, (AskUserAction, DelegateTaskAction, SendMessageAction)):

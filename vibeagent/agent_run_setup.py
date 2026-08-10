@@ -18,6 +18,7 @@ from .prompt_file_mentions import (
     load_prompt_file_context,
     prompt_file_context_metadata,
 )
+from .permission_tool_visibility import globally_denied_tool_names
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .session_tasks import inherit_task_store
@@ -82,7 +83,6 @@ def prepare_agent_run(
         main_selection.name,
         source=main_selection.source,
     )
-    main_profile = apply_tool_ceiling(main_profile, tool_names)
     current_workspace = main_profile.workspace or current_workspace
     effective_append_system_prompt = append_main_profile_prompt(
         append_system_prompt, main_profile
@@ -90,6 +90,12 @@ def prepare_agent_run(
     project_permissions = _prepare_project_permissions(
         current_workspace,
         permission_overrides,
+    )
+    permission_denied_tool_names = globally_denied_tool_names(project_permissions)
+    main_profile = apply_tool_ceiling(
+        main_profile,
+        tool_names,
+        permission_denied_tool_names,
     )
     tasks_inherited, task_restore_error = inherit_task_store(current_workspace, task_source_run_id)
     schedules_inherited, schedule_restore_error = inherit_schedule_store(current_workspace, task_source_run_id)
@@ -136,11 +142,15 @@ def prepare_agent_run(
         allowed_names=main_profile.allowed_tool_names,
     )
     _append_main_profile_event(current_workspace, main_profile)
-    if tool_names is not None:
+    if tool_names is not None or permission_denied_tool_names:
         append_session_event(
             current_workspace.session_dir,
             "tool_restrictions_loaded",
-            {"tools": sorted(tool_names), "total": len(tool_names)},
+            {
+                "tools": sorted(tool_names) if tool_names is not None else None,
+                "total": len(tool_names) if tool_names is not None else None,
+                "disallowed_tools": sorted(permission_denied_tool_names),
+            },
         )
     schedule_path = schedule_store_path(current_workspace)
     if schedule_path.exists() or schedule_path.is_symlink():

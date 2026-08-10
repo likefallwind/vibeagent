@@ -15,7 +15,7 @@ from .agent_runtime_utils import (
 )
 from .agent_steps import complete_task_step, start_task_step
 from .agent_tool_results import record_tool_result_observation
-from .agent_tool_registry import prepare_action_for_policy
+from .agent_tool_registry import prepare_action_for_policy, prepare_action_for_visibility
 from .types import ApprovalPolicy, AgentLogger, ContentBlock, ListFilesObservation, Observation, TaskStep, ToolErrorObservation
 from .workspace_core import RunWorkspace
 
@@ -47,6 +47,8 @@ def execute_parallel_tool_call_batch(
     execute: Callable[[RunWorkspace, object, int], Observation] = execute_action,
     approval_policy: ApprovalPolicy = "ask",
     tool_call_allowed: Callable[[str, object], bool] | None = None,
+    excluded_tool_names: frozenset[str] = frozenset(),
+    allowed_tool_names: frozenset[str] | None = None,
 ) -> ParallelToolCallBatchResult | None:
     if len(tool_calls) < 2:
         return None
@@ -58,6 +60,11 @@ def execute_parallel_tool_call_batch(
         tool_input = block.get("input") or {}
         try:
             action = prepare_action_for_policy(parse_tool_action(tool_name, tool_input), approval_policy)
+            action = prepare_action_for_visibility(
+                action,
+                excluded_tool_names,
+                allowed_tool_names,
+            )
         except ActionParseError:
             break
         if not is_parallel_safe_action(action):

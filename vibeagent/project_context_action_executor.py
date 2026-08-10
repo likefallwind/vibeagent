@@ -88,6 +88,8 @@ def execute_project_context_action(
                 max_matches=action.max_matches,
                 category=action.category,
                 approval_required=action.approval_required,
+                excluded_names=action.excluded_tool_names,
+                allowed_names=action.allowed_tool_names,
             )
             return ToolSearchObservation(
                 kind="tool_search",

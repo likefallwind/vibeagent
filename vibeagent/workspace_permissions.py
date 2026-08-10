@@ -22,8 +22,11 @@ MAX_PERMISSION_CONFIG_BYTES = 128_000
 MAX_PERMISSION_RULES = 200
 MAX_PERMISSION_RULE_CHARS = 1_000
 RULE_PATTERN = re.compile(
-    r"^([A-Za-z_][A-Za-z0-9_.:-]*)(?:\((.*)\))?$",
+    r"^([A-Za-z_][A-Za-z0-9_.:*-]*)(?:\((.*)\))?$",
     re.DOTALL,
+)
+MCP_WILDCARD_RULE_PATTERN = re.compile(
+    r"^mcp__[A-Za-z0-9][A-Za-z0-9._-]{0,63}__\*$"
 )
 PATH_PERMISSION_RULE_TOOLS = frozenset({"Edit", "Glob", "LS", "MultiEdit", "NotebookEdit", "NotebookRead", "Read", "Write"})
 
@@ -248,6 +251,8 @@ def _parse_permission_rules(payload: dict[str, object], source: str) -> list[Pro
             if match is None:
                 raise ValueError(f"{source} permission rule is invalid: {raw}")
             tool, specifier = match.groups()
+            if "*" in tool and not MCP_WILDCARD_RULE_PATTERN.fullmatch(tool):
+                raise ValueError(f"{source} permission rule is invalid: {raw}")
             parsed.append(
                 ProjectPermissionRule(
                     effect=cast(PermissionEffect, effect),
@@ -264,7 +269,13 @@ def _tool_matches(rule_tool: str, tool_name: str, action: object) -> bool:
     action_type = getattr(action, "type", None)
     if rule_tool.startswith("mcp__") and (tool_name == "mcp_call" or action_type == "mcp_call"):
         parts = rule_tool.split("__", 2)
-        return len(parts) == 3 and parts[1] == getattr(action, "server", None) and parts[2] == getattr(action, "name", None)
+        if len(parts) == 2:
+            return parts[1] == getattr(action, "server", None)
+        return (
+            len(parts) == 3
+            and parts[1] == getattr(action, "server", None)
+            and parts[2] in {"*", getattr(action, "name", None)}
+        )
     return rule_tool in tool_name_candidates(tool_name, action)
 
 

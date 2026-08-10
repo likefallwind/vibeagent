@@ -90,7 +90,12 @@ EXPECTED_GATES = {
         "tests": {
             "test_cli_tool_ceiling_hides_and_blocks_unlisted_main_tools",
             "test_code_subagent_inherits_cli_tool_ceiling",
+            "test_unconditional_permission_deny_hides_alias_family_and_blocks_calls",
+            "test_code_subagent_inherits_unconditional_permission_denies",
+            "test_tool_search_does_not_rediscover_globally_denied_tools",
+            "test_matches_mcp_server_and_wildcard_deny_rules",
             "test_v1_cli_tools_restriction_completes_repair_without_extra_tools",
+            "test_v1_cli_stream_json_disallowed_tools_override_accept_edits",
         },
     },
     "VA1-RELIABILITY": {

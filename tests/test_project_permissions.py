@@ -33,9 +33,11 @@ class PermissionClient:
     def __init__(self, responses: list[list[ContentBlock]]) -> None:
         self.responses = responses
         self.messages: list[list[ChatMessage]] = []
+        self.tools: list[list[dict]] = []
 
     def complete(self, messages, tools=None, max_tokens=4096, temperature=0.2, timeout_ms=120_000):
         self.messages.append(list(messages))
+        self.tools.append(list(tools or []))
         content = self.responses[len(self.messages) - 1]
         return AssistantResponse(content=content, raw={"content": content})
 
@@ -273,6 +275,39 @@ class ProjectPermissionConfigTests(unittest.TestCase):
         self.assertEqual(match_project_permission(config, "mcp__docs__search", allowed).effect, "allow")
         self.assertIsNone(match_project_permission(config, "mcp__repo__search", wrong_server))
         self.assertIsNone(match_project_permission(config, "mcp__docs__lookup", wrong_tool))
+
+    def test_matches_mcp_server_and_wildcard_deny_rules(self) -> None:
+        permissions = build_permission_overrides(
+            parse_args(
+                [
+                    "--disallowed-tools",
+                    "mcp__docs",
+                    "--disallowed-tools",
+                    "mcp__repo__*",
+                    "inspect",
+                ]
+            )
+        )
+        docs_search = parse_tool_action("mcp__docs__search", {"query": "python"})
+        docs_lookup = parse_tool_action("mcp__docs__lookup", {"id": "page"})
+        repo_search = parse_tool_action("mcp__repo__search", {"query": "python"})
+        other_search = parse_tool_action("mcp__other__search", {"query": "python"})
+
+        self.assertEqual(
+            match_project_permission(permissions, "mcp__docs__search", docs_search).effect,
+            "deny",
+        )
+        self.assertEqual(
+            match_project_permission(permissions, "mcp__docs__lookup", docs_lookup).effect,
+            "deny",
+        )
+        self.assertEqual(
+            match_project_permission(permissions, "mcp__repo__search", repo_search).effect,
+            "deny",
+        )
+        self.assertIsNone(
+            match_project_permission(permissions, "mcp__other__search", other_search)
+        )
 
     def test_web_fetch_domain_rules_accept_claude_and_internal_names(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
@@ -512,6 +547,26 @@ class ProjectPermissionExecutionTests(unittest.TestCase):
         self.assertFalse(exists)
         self.assertEqual(result.observations[0].kind, "approval_denied")
         self.assertIn(DISALLOWED_TOOLS_SOURCE, result.observations[0].message)
+
+    def test_scoped_deny_stays_visible_for_action_level_matching(self) -> None:
+        client = PermissionClient([[{"type": "text", "text": "No edit needed."}]])
+        permissions = build_permission_overrides(
+            parse_args(["--disallowed-tools", "Edit(src/**)", "inspect"])
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-scoped-deny-") as base:
+            run_agent(
+                "Inspect only",
+                base_dir=Path(base),
+                client=client,
+                max_iterations=1,
+                permission_overrides=permissions,
+            )
+
+        advertised = {str(tool["name"]) for tool in client.tools[0]}
+        self.assertIn("Edit", advertised)
+        self.assertIn("Write", advertised)
+        self.assertIn("edit_file", advertised)
+        self.assertIn("write_file", advertised)
 
     def test_ask_rule_prompts_for_read_only_tools_and_disables_parallel_bypass(self) -> None:
         client = PermissionClient(

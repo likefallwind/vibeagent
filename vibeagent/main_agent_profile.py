@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from .action_tool_aliases import tool_name_candidates
+from .action_tool_aliases import tool_name_candidates, tool_name_is_restricted
 from .agent_delegate_policy import (
     DELEGATE_TOOL_NAMES,
     NESTED_DELEGATE_TOOL_NAMES,
@@ -56,7 +56,7 @@ class MainAgentProfile:
 
     def allows_tool_call(self, tool_name: str, action: object | None = None) -> bool:
         candidates = frozenset(tool_name_candidates(tool_name, action))
-        if candidates & self.disallowed_tool_names:
+        if any(tool_name_is_restricted(self.disallowed_tool_names, candidate) for candidate in candidates):
             return False
         return self.allowed_tool_names is None or bool(candidates & self.allowed_tool_names)
 
@@ -149,15 +149,21 @@ def append_main_profile_prompt(
 def apply_tool_ceiling(
     profile: MainAgentProfile,
     tool_names: frozenset[str] | None,
+    disallowed_tool_names: frozenset[str] = frozenset(),
 ) -> MainAgentProfile:
-    if tool_names is None:
+    if tool_names is None and not disallowed_tool_names:
         return profile
-    allowed = (
-        tool_names
-        if profile.allowed_tool_names is None
-        else profile.allowed_tool_names & tool_names
+    if tool_names is None:
+        allowed = profile.allowed_tool_names
+    elif profile.allowed_tool_names is None:
+        allowed = tool_names
+    else:
+        allowed = profile.allowed_tool_names & tool_names
+    return replace(
+        profile,
+        allowed_tool_names=allowed,
+        disallowed_tool_names=profile.disallowed_tool_names | disallowed_tool_names,
     )
-    return replace(profile, allowed_tool_names=allowed)
 
 
 __all__ = [

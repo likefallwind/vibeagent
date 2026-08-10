@@ -9,7 +9,7 @@ local changes when asked, and resume from recorded session context.
 
 | Gate | Capability | Required runtime evidence |
 | --- | --- | --- |
-| VA1-TOOLS | Restrict model-visible and executable tools | Bare `--tools` remains a provider-free catalog command; `--tools "Read,Edit"` on a one-shot coding task expands compatible aliases, intersects main and subagent profiles, filters initial and deferred tool schemas, rejects hidden calls at runtime, and records the effective ceiling. `--tools ""` disables all tools and `--tools default` restores the default catalog. |
+| VA1-TOOLS | Restrict model-visible and executable tools | Bare `--tools` remains a provider-free catalog command; `--tools "Read,Edit"` on a one-shot coding task expands compatible aliases, intersects main and subagent profiles, filters initial, deferred, and `ToolSearch` results, rejects hidden calls at runtime, and records the effective ceiling. Unconditional deny/`--disallowedTools` rules remove complete compatible alias families from the main agent, every subagent path, MCP server/wildcard results, and tool search; scoped path, command, domain, or agent rules remain available for action-level permission matching. `--tools ""` disables all tools and `--tools default` restores the default catalog. |
 | VA1-BUDGET | Bound unattended provider spending | `-p --max-budget-usd` shares one provider-neutral cost gate across the main agent, profiles, subagents, goal evaluation, and structured output; terminal budget errors do not retry or execute an over-budget response, and missing usage or rates fail closed. |
 | VA1-RELIABILITY | Continue through primary-model overload | `-p --fallback-model` switches only on typed 503/529 or explicit overload evidence, then keeps the fallback model across the main agent, profiles, subagents, retries, goal evaluation, and structured output while preserving audit events and budget accounting. |
 | VA1-OUTPUT | Return validated machine-readable results | `-p --json-schema` runs the normal coding workflow first, then validates one provider-neutral Draft-07 JSON value without tools, retries invalid output up to three times, and exposes the result in JSON or stream-JSON output. |
@@ -36,6 +36,14 @@ local changes when asked, and resume from recorded session context.
   prove CLI parsing, alias expansion, profile intersection, schema filtering,
   runtime rejection, subagent inheritance, audit events, and a complete
   restricted repair, verification, and commit workflow.
+- `tests.test_main_agent_profile.MainAgentProfileTests.test_unconditional_permission_deny_hides_alias_family_and_blocks_calls`,
+  `tests.test_delegation.DelegationTests.test_code_subagent_inherits_unconditional_permission_denies`,
+  `tests.test_agent_tool_registry.AgentToolRegistryTests.test_tool_search_does_not_rediscover_globally_denied_tools`,
+  `tests.test_project_permissions.ProjectPermissionConfigTests.test_matches_mcp_server_and_wildcard_deny_rules`,
+  and `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_stream_json_disallowed_tools_override_accept_edits`
+  cover global deny visibility, runtime enforcement, alias families, all
+  subagent entrypoints, tool-search filtering, MCP server wildcards, audit
+  events, and deny precedence over `acceptEdits`.
 - `tests.test_model_budget.ModelCostBudgetTests.test_parallel_calls_share_one_strict_gate`
   confirms concurrent model callers serialize through one shared budget and
   cannot all pass a stale pre-call check.

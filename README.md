@@ -275,6 +275,13 @@ subagent profiles, and hidden model calls are rejected at runtime. Use
 `--tools ""` to expose no tools or `--tools default` for the normal catalog.
 This is separate from `--allowed-tools`, which grants matching operations
 without an approval prompt but does not make tools visible or hide them.
+An unconditional `--disallowed-tools Edit` rule removes the full compatible
+edit alias family from model schemas, delayed activation, `ToolSearch`, and all
+subagents, while still rejecting hallucinated calls at runtime. MCP rules can
+disable one tool (`mcp__docs__search`) or a whole server (`mcp__docs` or
+`mcp__docs__*`). Scoped rules such as `Edit(src/**)`, `Bash(git push:*)`, and
+`WebFetch(domain:private.example.com)` stay visible and are evaluated against
+the concrete action instead of disabling the whole tool.
 `--agent PROFILE` selects one exact project or plugin agent profile for every
 coding turn in a one-shot or interactive session. The profile prompt, preloaded
 skills, memory namespace, `mode`, `model`, `effort`, `tools`,

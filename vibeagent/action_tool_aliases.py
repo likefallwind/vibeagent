@@ -57,6 +57,23 @@ def profile_tool_names(name: str) -> frozenset[str]:
     return frozenset({CLAUDE_TOOL_ACTION_ALIASES.get(name, name)})
 
 
+def tool_name_matches_restriction(restriction: str, name: str) -> bool:
+    if restriction == name:
+        return True
+    if not restriction.startswith("mcp__") or not name.startswith("mcp__"):
+        return False
+    if restriction.endswith("__*"):
+        return name.startswith(restriction[:-1])
+    return restriction.count("__") == 1 and name.startswith(f"{restriction}__")
+
+
+def tool_name_is_restricted(restrictions: frozenset[str], name: str) -> bool:
+    return any(
+        tool_name_matches_restriction(restriction, name)
+        for restriction in restrictions
+    )
+
+
 def normalize_tool_action(name: str, tool_input: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     mcp_action = _normalize_claude_mcp_tool_action(name, tool_input)
     if mcp_action is not None:

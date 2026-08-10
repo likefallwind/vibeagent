@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from .action_tool_aliases import tool_name_is_restricted
 from .tool_categories import valid_tool_categories
 from .tool_catalog_core import suggest_tool_names, tool_category, tool_requires_approval
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
@@ -15,6 +16,8 @@ def get_tool_search_report(
     max_matches: int = 20,
     category: str | None = None,
     approval_required: bool | None = None,
+    excluded_names: frozenset[str] = frozenset(),
+    allowed_names: frozenset[str] | None = None,
 ) -> dict[str, object]:
     normalized_query = (query or "").strip()
     if not normalized_query:
@@ -54,6 +57,11 @@ def get_tool_search_report(
     terms = _search_terms(normalized_query)
     matches = []
     for tool in AGENT_TOOL_DEFINITIONS:
+        name = str(tool.get("name", ""))
+        if tool_name_is_restricted(excluded_names, name) or (
+            allowed_names is not None and name not in allowed_names
+        ):
+            continue
         match = _match_tool(tool, normalized_query, terms)
         if match is None:
             continue
@@ -76,7 +84,12 @@ def get_tool_search_report(
         "total": total,
         "shown": len(shown_matches),
         "truncated": truncated,
-        "suggestions": suggest_tool_names(normalized_query),
+        "suggestions": [
+            name
+            for name in suggest_tool_names(normalized_query)
+            if not tool_name_is_restricted(excluded_names, name)
+            and (allowed_names is None or name in allowed_names)
+        ],
         "message": f"Found {total} matching tool(s).",
     }
 

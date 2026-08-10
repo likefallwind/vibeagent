@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from typing import Any
 
-from .action_tool_aliases import CLAUDE_MCP_TOOL_NAME_PATTERN
+from .action_tool_aliases import CLAUDE_MCP_TOOL_NAME_PATTERN, tool_name_is_restricted
 from .agent_core_tools import CORE_AGENT_TOOL_NAMES
 from .agent_runtime_utils import append_session_event
 from .scheduled_task_store import CRON_TOOL_NAMES, scheduled_tasks_enabled
@@ -32,7 +32,7 @@ class ToolVisibilityPolicy:
 
     def allows(self, name: str) -> bool:
         return (
-            name not in self.excluded_names
+            not tool_name_is_restricted(self.excluded_names, name)
             and (self.allowed_names is None or name in self.allowed_names)
             and (
                 self.approval_policy != "plan"
@@ -73,6 +73,20 @@ def prepare_action_for_policy(action: object, approval_policy: ApprovalPolicy) -
     if approval_policy == "plan" and isinstance(action, ToolSearchAction):
         return replace(action, approval_required=False)
     return action
+
+
+def prepare_action_for_visibility(
+    action: object,
+    excluded_names: frozenset[str] = frozenset(),
+    allowed_names: frozenset[str] | None = None,
+) -> object:
+    if not isinstance(action, ToolSearchAction):
+        return action
+    return replace(
+        action,
+        excluded_tool_names=excluded_names,
+        allowed_tool_names=allowed_names,
+    )
 
 
 def initialize_agent_tools(
