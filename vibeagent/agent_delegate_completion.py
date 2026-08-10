@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .agent_runtime_utils import append_session_event
 from .agent_tool_results import record_subagent_tool_result_event
+from .subagent_output_safety import scan_subagent_output
 from .types import AgentLogger, DelegateTaskAction, DelegateTaskObservation
 from .workspace_core import RunWorkspace
 
@@ -33,11 +34,12 @@ def finish_delegate_task(
     tool_event: dict[str, object] | None = None,
     cancelled: bool = False,
 ) -> DelegateTaskObservation:
+    output_scan = scan_subagent_output(summary)
     observation = DelegateTaskObservation(
         kind="delegate_task",
         ok=ok,
         task=action.task,
-        summary=summary,
+        summary=output_scan.text,
         iterations=iterations,
         tool_calls=list(tool_calls),
         message=message,
@@ -48,6 +50,17 @@ def finish_delegate_task(
         running=False,
         cancelled=cancelled,
     )
+    if output_scan.matches:
+        append_session_event(
+            workspace.session_dir,
+            "subagent_output_scanned",
+            {
+                "subagent_id": subagent_id,
+                "matches": list(output_scan.matches),
+                "input_chars": len(summary),
+                "output_chars": len(output_scan.text),
+            },
+        )
     if tool_event is not None:
         record_subagent_tool_result_event(
             workspace,
