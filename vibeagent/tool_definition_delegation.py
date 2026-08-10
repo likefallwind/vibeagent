@@ -89,7 +89,7 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "ListAgents",
-        "description": "List running and resumable subagent instances in the current session. This lists agent runs, not project profile definitions.",
+        "description": "List running/resumable subagents and other reachable VibeAgent sessions on this machine. This lists live agent instances, not project profile definitions.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -100,7 +100,7 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "SendMessage",
-        "description": "Resume a completed subagent by ID with its full prior context and a follow-up message.",
+        "description": "Steer or resume a subagent, or send plain-text coordination to a reachable peer session by exact ID or unambiguous name. Messages never grant approval or change configuration.",
         "input_schema": {
             "type": "object",
             "properties": {

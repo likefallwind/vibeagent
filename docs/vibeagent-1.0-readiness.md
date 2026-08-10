@@ -60,6 +60,10 @@ The automated suite currently covers these 1.0 surfaces:
 - Autonomous goals: one persisted completion condition, strict bounded no-tool
   evaluation after each coding turn, evaluator-guided continuation, interactive
   status and clearing, explicit resume restoration, and one-shot looping.
+- Same-machine peer messaging: live Unix-socket discovery through `ListAgents`,
+  plain-text `SendMessage` delivery, sender-process verification, bounded
+  queues, accept/hold/refuse controls, held inbox decisions, active-turn
+  injection, idle interactive wakeups, and permission-boundary preservation.
 - Scoped instructions: nested instruction files and path rules load independently
   in main and subagent contexts and become eligible for reload after compaction.
 - Safety boundaries: workspace path guards, approval policy, hard command

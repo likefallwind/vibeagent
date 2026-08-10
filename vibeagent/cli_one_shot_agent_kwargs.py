@@ -8,6 +8,7 @@ from .project_trust import is_project_permissions_trusted
 from .types import ApprovalPolicy
 from .workspace_core import RunWorkspace
 from .workspace_permissions import ProjectPermissions
+from .peer_runtime import PeerSessionRuntime
 
 
 def build_one_shot_agent_kwargs(
@@ -27,6 +28,7 @@ def build_one_shot_agent_kwargs(
     append_system_prompt: str | None,
     task_metadata: dict[str, object] | None,
     workspace: RunWorkspace | None = None,
+    peer_runtime: PeerSessionRuntime | None = None,
 ) -> dict[str, object]:
     kwargs: dict[str, object] = {
         "client": client,
@@ -51,4 +53,6 @@ def build_one_shot_agent_kwargs(
     }
     if workspace is not None:
         kwargs["workspace"] = workspace
+    if peer_runtime is not None:
+        kwargs["peer_runtime"] = peer_runtime
     return kwargs

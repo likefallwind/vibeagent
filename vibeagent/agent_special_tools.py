@@ -19,11 +19,14 @@ from .types import (
     ChatClient,
     DelegateTaskAction,
     Observation,
+    PeerMessageObservation,
     SendMessageAction,
     TaskStep,
     ToolErrorObservation,
     UserInputHandler,
 )
+from .peer_protocol import send_peer_message
+from .peer_types import PeerMessagingError
 from .subagent_transcripts import SubagentTranscriptError, read_subagent_transcript
 from .workspace_core import RunWorkspace
 from .workspace_hooks import ProjectHooks
@@ -185,9 +188,35 @@ def _execute_special_tool(
                 {"subagent_id": action.to, "resumed": True},
             )
         except SubagentTranscriptError as error:
-            delegate_observation = ToolErrorObservation(
-                kind="tool_error", tool="SendMessage", message=str(error)
-            )
+            try:
+                delivery = send_peer_message(action.to, action.message)
+            except PeerMessagingError as peer_error:
+                delegate_observation = ToolErrorObservation(
+                    kind="tool_error", tool="SendMessage", message=str(peer_error)
+                )
+            else:
+                if delivery is None:
+                    delegate_observation = ToolErrorObservation(
+                        kind="tool_error", tool="SendMessage", message=str(error)
+                    )
+                else:
+                    delegate_observation = PeerMessageObservation(
+                        kind="peer_message",
+                        ok=delivery.status == "delivered",
+                        to=action.to,
+                        peer_id=delivery.target_id,
+                        status=delivery.status,
+                        message=delivery.message,
+                    )
+                    append_session_event(
+                        workspace.session_dir,
+                        "peer_message_sent",
+                        {
+                            "peer_id": delivery.target_id,
+                            "peer_name": delivery.target_name,
+                            "status": delivery.status,
+                        },
+                    )
         complete_task_step(workspace, step, delegate_observation, iteration, logger)
         return delegate_observation
     step = start_task_step(workspace, steps, iteration, action, logger)

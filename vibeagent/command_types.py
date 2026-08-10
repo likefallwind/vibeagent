@@ -32,6 +32,8 @@ CoreCommandType: TypeAlias = Literal[
     "chat",
     "code",
     "goal",
+    "list_agents_local",
+    "peer_inbox",
 ]
 
 RuntimeCommandType: TypeAlias = Literal[

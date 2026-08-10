@@ -51,6 +51,7 @@ from .types import (
 )
 from .workspace_core import RunWorkspace
 from .workspace_permissions import ProjectPermissions
+from .peer_runtime import PeerSessionRuntime
 
 
 def run_agent(
@@ -77,6 +78,7 @@ def run_agent(
     strict_mcp_config: bool = False,
     system_prompt: str | None = None,
     append_system_prompt: str | None = None,
+    peer_runtime: PeerSessionRuntime | None = None,
 ) -> AgentResult:
     setup = prepare_agent_run(
         task,
@@ -93,6 +95,8 @@ def run_agent(
         system_prompt=system_prompt,
         append_system_prompt=append_system_prompt,
     )
+    if peer_runtime is not None:
+        peer_runtime.update_workspace(setup.workspace, approval_policy)
     return run_agent_loop(
         task,
         client,
@@ -120,6 +124,7 @@ def run_agent(
             create_auto_checkpoint_before_action=create_auto_checkpoint_before_action,
             sleep=time.sleep,
         ),
+        peer_runtime=peer_runtime,
     )
 
 

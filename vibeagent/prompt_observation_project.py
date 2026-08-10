@@ -184,7 +184,7 @@ def _format_project_agents(index: int, observation: object) -> str:
     parts = [
         (
             f"{index}. project_agents: {observation.message} "
-            f"shown={len(observation.agents)}/{observation.total} "
+            f"shown={len(observation.agents) + len(getattr(observation, 'peers', []))}/{observation.total} "
             f"invalid={observation.invalid} truncated={str(observation.truncated).lower()}"
         ),
         f"ok: {str(observation.ok).lower()}",
@@ -200,6 +200,12 @@ def _format_project_agents(index: int, observation: object) -> str:
             f"source={agent.source} path={agent.path} "
             f"isolation={isolation} available={str(agent.available).lower()} "
             f"description={agent.description or '.'} message={agent.message}"
+        )
+    for peer in getattr(observation, "peers", []):
+        parts.append(
+            f"peer: id={peer.id} name={peer.name} pid={peer.pid} "
+            f"projectRoot={peer.project_root} runId={peer.run_id or '.'} "
+            f"bypassesPermissions={str(peer.bypasses_permissions).lower()}"
         )
     return "\n".join(parts)
 

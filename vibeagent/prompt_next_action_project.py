@@ -242,11 +242,11 @@ def _environment_info_next_action_instruction(base: str, latest: Observation) ->
 
 def project_next_action_instruction(base: str, latest: Observation) -> str:
     if latest.kind == "ListAgents":
-        return f"{base} Use an exact listed subagent ID with SendMessage, TaskOutput, or TaskStop, or continue without delegation."
+        return f"{base} Use an exact listed subagent or peer ID with SendMessage; TaskOutput and TaskStop apply only to subagents."
     if latest.kind == "list_agents":
         if not getattr(latest, "ok", False):
             return f"{base} Session subagents could not be listed. Continue with known IDs or inspect the reported transcript error."
-        return f"{base} Use an exact listed subagent ID with SendMessage, TaskOutput, or TaskStop, or continue the parent task."
+        return f"{base} Use an exact listed subagent or peer ID with SendMessage; TaskOutput and TaskStop apply only to subagents."
     if latest.kind == "SendMessage":
         return f"{base} Use the resumed subagent result as evidence and continue the parent task."
     if latest.kind == "memory_list":

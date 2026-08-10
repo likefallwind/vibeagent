@@ -113,6 +113,10 @@ EXPECTED_GATES = {
         "tools": set(),
         "tests": {"test_one_shot_goal_continues_until_evaluator_accepts"},
     },
+    "VA1-PEER": {
+        "tools": {"ListAgents", "SendMessage"},
+        "tests": {"test_list_agents_and_send_message_tools_include_peer_sessions"},
+    },
     "VA1-DELEGATE": {
         "tools": {"delegate_task", "Task", "Agent"},
         "tests": {"test_parent_agent_receives_subagent_summary_as_tool_result"},

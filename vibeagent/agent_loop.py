@@ -14,6 +14,8 @@ from .agent_lifecycle_runtime import AgentLifecycleRuntime
 from .agent_model_turn import handle_no_tool_call_response, record_model_turn
 from .agent_multimodal import strip_consumed_tool_images
 from .agent_parallel_execution import execute_parallel_tool_call_batch
+from .agent_peer_notifications import inject_peer_notifications
+from .peer_runtime import PeerSessionRuntime
 from .agent_scheduled_notifications import inject_scheduled_task_notifications
 from .agent_result import AgentResult
 from .agent_run_setup import AgentRunSetup
@@ -70,6 +72,7 @@ def run_agent_loop(
     system_prompt: str | None,
     append_system_prompt: str | None,
     runtime: AgentLoopRuntime,
+    peer_runtime: PeerSessionRuntime | None = None,
 ) -> AgentResult:
     observations: list[Observation] = []
     steps: list[TaskStep] = []
@@ -121,6 +124,13 @@ def run_agent_loop(
             logger=logger,
         )
         inject_scheduled_task_notifications(
+            current_workspace,
+            messages,
+            iteration=iteration,
+            logger=logger,
+        )
+        inject_peer_notifications(
+            peer_runtime,
             current_workspace,
             messages,
             iteration=iteration,

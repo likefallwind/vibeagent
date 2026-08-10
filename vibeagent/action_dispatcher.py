@@ -135,10 +135,27 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
         )
 
     if isinstance(action, SendMessageAction):
+        from .peer_protocol import send_peer_message
+        from .peer_types import PeerMessagingError
+        from .types import PeerMessageObservation
+
+        try:
+            delivery = send_peer_message(action.to, action.message)
+        except PeerMessagingError as error:
+            return ToolErrorObservation(kind="tool_error", tool="SendMessage", message=str(error))
+        if delivery is not None:
+            return PeerMessageObservation(
+                kind="peer_message",
+                ok=delivery.status == "delivered",
+                to=action.to,
+                peer_id=delivery.target_id,
+                status=delivery.status,
+                message=delivery.message,
+            )
         return ToolErrorObservation(
             kind="tool_error",
             tool="SendMessage",
-            message="Subagent resume is unavailable without an agent model client.",
+            message="Subagent resume is unavailable without an agent model client, and no peer session matched.",
         )
 
     return FinishObservation(kind="finish", message=action.message)

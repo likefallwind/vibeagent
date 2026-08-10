@@ -37,6 +37,7 @@ from .observation_common_types import (
     DelegateTaskObservation,
     FinishObservation,
     ListAgentsObservation,
+    PeerMessageObservation,
     TaskOutputObservation,
     TaskStopObservation,
     ToolErrorObservation,
@@ -349,6 +350,7 @@ Observation: TypeAlias = (
     | UserInputObservation
     | DelegateTaskObservation
     | ListAgentsObservation
+    | PeerMessageObservation
     | TaskOutputObservation
     | TaskStopObservation
     | FinishObservation

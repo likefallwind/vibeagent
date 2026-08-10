@@ -17,6 +17,7 @@ from .commands import parse_local_command
 from .goal_loop import goal_turn_prompt
 from .goal_state import GoalState, new_goal, read_session_goal, reset_restored_goal, write_goal
 from .session_usage import summarize_run_usage
+from .peer_runtime import create_peer_runtime
 from .types import ApprovalPolicy
 from .workspace_core import create_local_workspace
 from .workspace_permissions import ProjectPermissions
@@ -96,6 +97,7 @@ def run_one_shot_code(
         mcp_config_paths=resolved_mcp_config_paths,
         strict_mcp_config=strict_mcp_config,
     )
+    peer_runtime = create_peer_runtime(project_root, approval_policy)
     run_kwargs = build_one_shot_agent_kwargs(
         client=client,
         project_root=project_root,
@@ -112,39 +114,44 @@ def run_one_shot_code(
         append_system_prompt=append_system_prompt,
         task_metadata=task_metadata,
         workspace=stream_scope.workspace,
+        peer_runtime=peer_runtime,
     )
     if prior_context.run_id is not None:
         run_kwargs["task_source_run_id"] = prior_context.run_id
     goal_turns = 0
     recorded_session_tokens: dict[str, int] = {}
-    with stream_scope.event_scope:
-        while True:
-            result = run_agent_func(task, **run_kwargs)
-            goal_turns += 1
-            if goal_state is None:
-                break
-            workspace = create_local_workspace(project_root, result.run_id)
-            write_goal(workspace, goal_state)
-            if not result.success:
-                break
-            selected, next_context, _ = get_resume_context_func(result.run_id, project_root)
-            session_tokens = summarize_run_usage(project_root, result.run_id).total_tokens
-            agent_tokens = max(0, session_tokens - recorded_session_tokens.get(result.run_id, 0))
-            recorded_session_tokens[result.run_id] = session_tokens
-            goal_state, evaluation = evaluate_and_store_goal(
-                goal_state,
-                result,
-                next_context,
-                client=client,
-                execution_config=execution_config,
-                project_root=project_root,
-                agent_tokens=agent_tokens,
-            )
-            if evaluation.achieved:
-                break
-            task = goal_turn_prompt(goal_state)
-            run_kwargs["prior_context"] = next_context
-            run_kwargs["task_source_run_id"] = selected or result.run_id
+    try:
+        with stream_scope.event_scope:
+            while True:
+                result = run_agent_func(task, **run_kwargs)
+                goal_turns += 1
+                if goal_state is None:
+                    break
+                workspace = create_local_workspace(project_root, result.run_id)
+                write_goal(workspace, goal_state)
+                if not result.success:
+                    break
+                selected, next_context, _ = get_resume_context_func(result.run_id, project_root)
+                session_tokens = summarize_run_usage(project_root, result.run_id).total_tokens
+                agent_tokens = max(0, session_tokens - recorded_session_tokens.get(result.run_id, 0))
+                recorded_session_tokens[result.run_id] = session_tokens
+                goal_state, evaluation = evaluate_and_store_goal(
+                    goal_state,
+                    result,
+                    next_context,
+                    client=client,
+                    execution_config=execution_config,
+                    project_root=project_root,
+                    agent_tokens=agent_tokens,
+                )
+                if evaluation.achieved:
+                    break
+                task = goal_turn_prompt(goal_state)
+                run_kwargs["prior_context"] = next_context
+                run_kwargs["task_source_run_id"] = selected or result.run_id
+    finally:
+        if peer_runtime is not None:
+            peer_runtime.close()
     result_payload = build_one_shot_code_payload(
         result,
         prior_context,

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import os
+
 from .background_delegate_runtime import list_background_delegate_snapshots
 from .subagent_transcripts import SubagentTranscriptError, list_subagent_transcripts
 from .types import ListAgentsAction, ListAgentsObservation, SubagentInstance
+from .peer_registry import list_peer_sessions
+from .peer_types import PeerMessagingError
 from .workspace_core import RunWorkspace
 
 
@@ -21,16 +25,26 @@ def list_session_agents(
 ) -> ListAgentsObservation:
     max_agents = max(1, min(max_agents, 500))
     try:
+        peers, invalid_peers = list_peer_sessions()
+        peers = [
+            peer
+            for peer in peers
+            if not (peer.pid == os.getpid() and peer.run_id == workspace.run_id)
+        ]
+    except (OSError, PeerMessagingError):
+        peers, invalid_peers = [], 0
+    try:
         transcripts, invalid, store_truncated = list_subagent_transcripts(workspace)
     except SubagentTranscriptError as error:
         return ListAgentsObservation(
             kind="list_agents",
             ok=False,
             agents=[],
-            total=0,
-            truncated=False,
-            invalid=0,
-            message=str(error),
+            total=len(peers),
+            truncated=len(peers) > max_agents,
+            invalid=invalid_peers,
+            message=f"{error} Listed {min(len(peers), max_agents)}/{len(peers)} peer session(s).",
+            peers=peers[:max_agents],
         )
     by_id = {
         transcript.subagent_id: SubagentInstance(
@@ -75,17 +89,24 @@ def list_session_agents(
         by_id.values(),
         key=lambda item: (item.status != "running", item.id),
     )
-    total = len(ordered)
+    total = len(ordered) + len(peers)
+    combined = [("subagent", item) for item in ordered] + [("peer", item) for item in peers]
     truncated = store_truncated or total > max_agents
-    shown = ordered[:max_agents]
+    shown_pairs = combined[:max_agents]
+    shown = [item for kind, item in shown_pairs if kind == "subagent"]
+    shown_peers = [item for kind, item in shown_pairs if kind == "peer"]
     return ListAgentsObservation(
         kind="list_agents",
         ok=True,
         agents=shown,
         total=total,
         truncated=truncated,
-        invalid=invalid,
-        message=f"Listed {len(shown)}/{total} session subagent instance(s); invalid transcripts: {invalid}.",
+        invalid=invalid + invalid_peers,
+        message=(
+            f"Listed {len(shown_pairs)}/{total} reachable agent(s): {len(shown)} subagent(s), "
+            f"{len(shown_peers)} peer session(s); invalid records: {invalid + invalid_peers}."
+        ),
+        peers=shown_peers,
     )
 
 

@@ -52,6 +52,10 @@ from .providers import create_chat_client as default_create_chat_client
 from .types import ApprovalPolicy, ChatMessage
 from .scheduled_task_store import collect_due_scheduled_tasks, scheduled_tasks_enabled
 from .session_usage import summarize_run_usage
+from .agent_peer_notifications import peer_messages_as_task
+from .peer_runtime import create_peer_runtime
+from .peer_commands import get_peer_sessions_text
+from .peer_inbox_commands import handle_peer_inbox_command
 from .workspace_core import create_local_workspace
 
 
@@ -77,6 +81,7 @@ def run_interactive_loop(
     mode = "code"
     approval_policy: ApprovalPolicy = "ask"
     approval_handler = build_approval_handler(approval_policy)
+    peer_runtime = create_peer_runtime(Path.cwd(), approval_policy)
     chat_history: list[ChatMessage] = []
     resume_run_id: str | None = initial_resume_run_id
     resume_context: str | None = initial_resume_context
@@ -109,6 +114,7 @@ def run_interactive_loop(
             append_system_prompt=append_system_prompt,
             task_metadata=task_metadata,
             task_source_run_id=resume_run_id,
+            peer_runtime=peer_runtime,
         )
         print_agent_result(result)
         selected, next_context, _ = get_resume_context_func(result.run_id)
@@ -145,9 +151,15 @@ def run_interactive_loop(
                 return
 
     def run_due_tasks_while_idle() -> None:
-        if resume_run_id is None or not scheduled_tasks_enabled():
-            return
         try:
+            if peer_runtime is not None:
+                peer_task = peer_messages_as_task(peer_runtime)
+                if peer_task is not None:
+                    task, metadata = peer_task
+                    print("\nPeer session message received.")
+                    run_code_task(task, metadata)
+            if resume_run_id is None or not scheduled_tasks_enabled():
+                return
             workspace = create_local_workspace(Path.cwd(), resume_run_id)
             due = collect_due_scheduled_tasks(workspace)
             if due:
@@ -174,7 +186,7 @@ def run_interactive_loop(
         except KeyboardInterrupt:
             raise
         except Exception as error:
-            print(f"\nScheduled task error: {format_error(error)}")
+            print(f"\nIdle task error: {format_error(error)}")
 
     while True:
         try:
@@ -185,6 +197,8 @@ def run_interactive_loop(
             ).strip()
         except (EOFError, KeyboardInterrupt):
             print()
+            if peer_runtime is not None:
+                peer_runtime.close()
             return 0
 
         if not task:
@@ -201,6 +215,8 @@ def run_interactive_loop(
             if custom_command is not None:
                 task = str(custom_command["prompt"])
         if command and command.type == "exit":
+            if peer_runtime is not None:
+                peer_runtime.close()
             return 0
         if command and (
             project_text := run_interactive_project_command(command, command_namespace, approval_policy, Path.cwd())
@@ -282,6 +298,12 @@ def run_interactive_loop(
             except Exception as error:
                 print(f"\nGoal error: {format_error(error)}")
             continue
+        if command and command.type == "list_agents_local":
+            print(get_peer_sessions_text())
+            continue
+        if command and command.type == "peer_inbox":
+            print(handle_peer_inbox_command(peer_runtime, command.argument))
+            continue
         if command and command.type == "system_prompt":
             system_prompt, text = update_system_prompt_state(system_prompt, command.argument, label="System prompt")
             print(text)
@@ -299,6 +321,8 @@ def run_interactive_loop(
             approval_policy, text = handle_approval_command(command.argument, approval_policy)
             if approval_policy != previous_policy:
                 approval_handler = build_approval_handler(approval_policy)
+                if peer_runtime is not None:
+                    peer_runtime.update_approval_policy(approval_policy)
             print(text)
             continue
         if command and (session_text := run_interactive_session_command(command, command_namespace)) is not None:

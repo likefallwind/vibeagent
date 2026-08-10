@@ -17,6 +17,7 @@ local changes when asked, and resume from recorded session context.
 | VA1-COMMIT | Commit verified local work when requested | `check_git_stage`, `git_stage`, `check_git_commit`, and `git_commit` can stage explicit paths and create a local commit after approval. |
 | VA1-RESUME | Recover useful session context | `session_summary`, `session_verification`, `run_session_verification`, `session_handoff`, `--resume`, and `--compact` preserve enough context to continue work. |
 | VA1-GOAL | Continue until an independently checked condition is met | `/goal` persists one bounded condition, runs evaluator-guided coding turns without changing approvals, and restores active goals only on explicit resume. |
+| VA1-PEER | Coordinate independent local coding sessions | `ListAgents` discovers live same-machine sessions, `SendMessage` delivers bounded untrusted text over a user-only Unix socket, and running or idle receivers process messages without changing permission boundaries. |
 | VA1-DELEGATE | Split bounded investigation into a subagent | `delegate_task`, `Task`, and `Agent` can run isolated read-only investigations synchronously or in the background; `TaskOutput` collects results, `TaskStop` requests cancellation, and completion remains blocked while a result is running or unread. |
 | VA1-PLAN | Produce a concrete read-only implementation plan | Plan mode exposes only read-only tools such as `project_overview`, `read_file`, and `tool_search`, denies hidden write attempts, and leaves the workspace unchanged. |
 | VA1-SAFETY | Enforce workspace and command safety | Workspace path guards, protected files, approval policy, project permissions, hooks, sandbox support, and hard command blocks prevent unsafe side effects. |
@@ -47,6 +48,11 @@ local changes when asked, and resume from recorded session context.
   `tests.test_cli_goal.CliGoalTests` cover strict atomic goal state, symlink
   refusal, bounded no-tool evaluation, immediate interactive execution, and
   one-shot continuation until independent acceptance.
+- `tests.test_peer_messaging.PeerMessagingTests` and
+  `tests.test_cli_peer_messaging.CliPeerMessagingTests` cover real Unix-socket
+  registration and delivery, `SO_PEERCRED` sender validation, peer discovery,
+  tool routing, accept/hold/refuse controls, held-message decisions, duplicate
+  and queue bounds, active-turn injection, idle wakeups, and cleanup.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `LS`, `Glob`, `Grep`, `Read`, `Bash`, `Edit`, and `TodoRead`,

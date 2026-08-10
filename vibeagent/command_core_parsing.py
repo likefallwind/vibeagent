@@ -22,6 +22,10 @@ def parse_core_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("clear", None)
     if trimmed == "/goal" or trimmed.startswith("/goal "):
         return make_local_command("goal", trimmed[5:].strip() or None)
+    if trimmed in {"/list-agents", "/peers"}:
+        return make_local_command("list_agents_local", None)
+    if trimmed == "/peer-inbox" or trimmed.startswith("/peer-inbox "):
+        return make_local_command("peer_inbox", trimmed[11:].strip() or None)
     if trimmed == "/usage":
         return make_local_command("usage", None)
     if trimmed == "/cost":

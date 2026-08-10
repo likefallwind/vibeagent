@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from .action_types import PlanItem
+from .peer_types import PeerSession
 
 
 @dataclass(frozen=True)
@@ -80,6 +81,17 @@ class ListAgentsObservation:
     total: int
     truncated: bool
     invalid: int
+    message: str
+    peers: list[PeerSession] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class PeerMessageObservation:
+    kind: Literal["peer_message"]
+    ok: bool
+    to: str
+    peer_id: str | None
+    status: Literal["delivered", "held", "refused", "error"]
     message: str
 
 

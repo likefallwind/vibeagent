@@ -184,6 +184,8 @@ def get_help_text() -> str:
             "  /diff-contexts [--staged] [--context-lines N] [--max-hunks N] [--max-bytes N] [path]  Show source context around git diff hunks.",
             "  /clear  Clear chat history and loaded resume context.",
             "  /goal [condition|clear]  Set an autonomous completion goal, show status, or clear it.",
+            "  /list-agents  List reachable local peer sessions. Alias: /peers.",
+            "  /peer-inbox [accept|deny <sender-id|all>]  Inspect or decide held peer messages.",
             "  /usage  Show local session usage from recorded events.",
             "  /cost   Show token usage and configured cost estimate.",
             "  /approval [ask|allow|deny|plan]  Show or set the session approval policy.",

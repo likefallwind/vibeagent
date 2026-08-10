@@ -934,6 +934,9 @@ an id also accept `latest` for the newest saved checkpoint,
 `/checkpoint-prune <keep-last>` to delete older checkpoints while keeping the
 newest entries, `/goal <condition>` to start an evaluator-controlled autonomous
 coding loop, `/goal` to inspect its state, `/goal clear` to stop it, and
+`/list-agents` (or `/peers`) to list reachable local sessions,
+`/peer-inbox` to inspect held inbound messages and `/peer-inbox accept|deny
+<sender-id|all>` to decide them, and
 `/clear` to clear the goal, local chat history, and loaded resume context,
 `/usage` to summarize local session events,
 iterations, tool calls, approvals, and recorded token usage, `/cost` to estimate
@@ -1032,6 +1035,24 @@ The condition is limited to 4,000 characters, evaluator text cannot approve
 tools, and the normal approval policy remains in force on every coding turn.
 One-shot `vibeagent -p "/goal <condition>"` runs until achievement, agent
 failure, evaluator error, or interruption in the same process.
+On Linux and macOS, interactive and one-shot CLI sessions register a user-only
+Unix socket under `/tmp/vibeagent-<uid>/peers`. `ListAgents` combines current
+session subagents with other live local sessions, and `SendMessage` sends plain
+text to an exact peer ID or unambiguous peer name. A receiving agent reads
+messages between tool calls, while an idle interactive session starts a coding
+turn on the next one-second wakeup. Incoming text is always labeled untrusted:
+it cannot approve tools, answer permission prompts, execute slash commands,
+change configuration or project instructions, or override local safety rules.
+`crossSessionInbound` in trusted `.claude/settings.json` or local
+`.claude/settings.local.json` accepts `accept`, `hold`, or `refuse`; the
+`VIBEAGENT_CROSS_SESSION_INBOUND` environment variable overrides both. Without
+an explicit value, matching permission-mode classes deliver and mismatched
+classes hold for `/peer-inbox`. Socket and registration paths reject symlinks,
+Linux verifies the sender PID with `SO_PEERCRED`, duplicate messages are
+throttled, and delivered/held queues are bounded. Set
+`VIBEAGENT_DISABLE_CROSS_SESSION=1` to disable registration. This transport is
+same-machine only and does not implement Claude Remote Control or cross-machine
+replies.
 If a successful run finishes while the latest plan still
 has `pending` or `in_progress` items, the final result and session summary
 include a completion warning and completion blocker. If no plan exists after
@@ -1483,6 +1504,10 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
 - `vibeagent/goal_state.py`, `vibeagent/goal_evaluator.py`, and
   `vibeagent/goal_loop.py`: persist one session completion goal, evaluate bounded
   evidence without tools, and construct evaluator-guided continuation turns.
+- `vibeagent/peer_registry.py`, `vibeagent/peer_protocol.py`, and
+  `vibeagent/peer_runtime.py`: register live same-machine sessions, validate and
+  deliver bounded Unix-socket messages, enforce inbound controls, and clean up
+  per-process inbox state.
 - `vibeagent/workspace_memory.py`: manages bounded auto-memory loading and
   approved atomic Markdown writes for the main agent and isolated named-agent
   stores with path, symlink-component, size, and credential-redaction guards.
