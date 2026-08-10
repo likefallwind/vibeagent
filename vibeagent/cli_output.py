@@ -9,7 +9,10 @@ from .cli_stream_output import JsonEventStream
 from .project_trust import is_project_permissions_trusted, trust_project_permissions
 from .session_approval import SessionApprovalHandler
 from .types import ApprovalDecision, ApprovalHandler, ApprovalPolicy, ApprovalRequest, UserInputRequest
-from .workspace_permissions import read_project_permissions_from_root
+from .workspace_permissions import read_project_permissions_from_root, safe_permission_rule_text
+
+
+MAX_SHOWN_PERMISSION_TRUST_RULES = 20
 
 
 def print_output(payload: dict[str, object], output_json: bool) -> None:
@@ -147,8 +150,11 @@ def prompt_project_permission_trust(root: str | Path) -> bool:
         return False
     print("\nThis project defines permission allow rules that can skip side-effect prompts.")
     print(f"Project: {Path(root).resolve()}")
-    for rule in allow_rules:
-        print(f"  - {rule.raw} ({rule.source})")
+    for rule in allow_rules[:MAX_SHOWN_PERMISSION_TRUST_RULES]:
+        print(f"  - {safe_permission_rule_text(rule)} ({rule.source})")
+    hidden_rules = len(allow_rules) - MAX_SHOWN_PERMISSION_TRUST_RULES
+    if hidden_rules > 0:
+        print(f"  ... {hidden_rules} more allow rule(s) not shown.")
     try:
         answer = input("Trust these permission allow rules for this project? [y/N] ").strip().lower()
     except (EOFError, KeyboardInterrupt):

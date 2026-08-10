@@ -6,10 +6,12 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
+from . import __version__
 from .agent import run_agent as default_run_agent
 from .agent_runtime_utils import append_session_event
 from .chat import run_chat as default_run_chat
 from .cli_checkpoint_local_flags import run_interactive_checkpoint_command
+from .cli_completion import interactive_prompt_completion
 from .cli_code_intel_local_flags import run_interactive_code_intel_command
 from .cli_command_local_flags import run_interactive_command_execution
 from .cli_config import build_provider_env
@@ -87,7 +89,7 @@ def run_interactive_loop(
     initial_agent: str | None = None,
 ) -> int:
     # Entry loop: parse local commands first, otherwise delegate to the agent.
-    print("VibeAgent v0.1")
+    print(f"VibeAgent {__version__}")
     print("Type a programming task, or use /chat for daily conversation. Use /help for commands.")
     if initial_resume_message:
         print(initial_resume_message)
@@ -268,11 +270,12 @@ def run_interactive_loop(
 
     while True:
         try:
-            task = input_with_idle_callback(
-                "\nvibeagent> ",
-                run_due_tasks_while_idle,
-                input_func=input,
-            ).strip()
+            with interactive_prompt_completion(Path.cwd()):
+                task = input_with_idle_callback(
+                    "\nvibeagent> ",
+                    run_due_tasks_while_idle,
+                    input_func=input,
+                ).strip()
         except (EOFError, KeyboardInterrupt):
             print()
             if workflow_manager is not None:

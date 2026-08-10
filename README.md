@@ -178,7 +178,11 @@ printf "summarize the project risks\n" | python -m vibeagent -
 
 Coding prompts accept Claude-style `@path` file references. Unquoted paths end
 at whitespace; use `@"path with spaces.md"` or `@'path with spaces.md'` when
-needed. VibeAgent resolves at most ten unique references inside the active
+needed. In an interactive terminal, type `@` plus a path prefix or file-name
+fragment and press Tab for bounded project path completion; slash commands use
+the same terminal-native completion. Suggestions exclude ignored, sensitive,
+protected, and symlinked paths and never launch a GUI file picker. VibeAgent
+resolves at most ten unique references inside the active
 workspace before calling the model. UTF-8 text is limited to 20 KB per file and
 100 KB total; up to two supported images are limited to 5 MB each and 10 MB
 total. Missing, escaping, sensitive, binary, oversized, or excess references
@@ -1778,6 +1782,9 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
 - `vibeagent/prompt_file_mentions.py`: resolves bounded `@path` text and image
   references inside the active workspace, builds provider-neutral prompt blocks,
   and emits content-free session metadata.
+- `vibeagent/cli_completion.py`: provides bounded terminal-native `@path` and
+  slash-command completion, filters candidates through workspace ignore and
+  sensitive-path policy, and restores process readline state after each prompt.
 - `vibeagent/agent_tool_registry.py`: defines the compact always-available tool
   set, preserves the canonical catalog order, and activates complete schemas
   returned by `tool_search` without changing parser or approval behavior.

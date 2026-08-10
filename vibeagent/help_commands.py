@@ -6,7 +6,7 @@ def get_help_text() -> str:
     return "\n".join(
         [
             "Commands:",
-            "  @path  Attach a bounded project text file or image to a coding prompt; quote paths with spaces.",
+            "  @path  Attach a bounded project text file or image; press Tab for safe terminal path completion.",
             "  /help   Show this help.",
             "  /model  Show model provider configuration.",
             "  /config Show resolved provider and execution configuration.",

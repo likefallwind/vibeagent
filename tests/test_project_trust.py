@@ -195,6 +195,45 @@ class ProjectTrustIntegrationTests(unittest.TestCase):
         self.assertFalse(trusted)
         input_mock.assert_not_called()
 
+    def test_interactive_prompt_redacts_sensitive_permission_rule_values(self) -> None:
+        secret = "prompt-secret-value"
+        with tempfile.TemporaryDirectory(prefix="vibeagent-trust-") as base:
+            root = Path(base, "project")
+            root.mkdir()
+            settings = root / ".claude/settings.json"
+            settings.parent.mkdir()
+            settings.write_text(
+                json.dumps({"permissions": {"allow": [f"Bash(API_KEY={secret} python3 -V)"]}}),
+                encoding="utf-8",
+            )
+            stdout = StringIO()
+            with patch("builtins.input", return_value="no"), redirect_stdout(stdout):
+                trusted = prompt_project_permission_trust(root)
+
+        self.assertFalse(trusted)
+        self.assertIn("API_KEY=[REDACTED]", stdout.getvalue())
+        self.assertNotIn(secret, stdout.getvalue())
+
+    def test_interactive_prompt_bounds_displayed_permission_rules(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-trust-") as base:
+            root = Path(base, "project")
+            root.mkdir()
+            settings = root / ".claude/settings.json"
+            settings.parent.mkdir()
+            settings.write_text(
+                json.dumps({"permissions": {"allow": [f"Bash(command-{index})" for index in range(25)]}}),
+                encoding="utf-8",
+            )
+            stdout = StringIO()
+            with patch("builtins.input", return_value="no"), redirect_stdout(stdout):
+                trusted = prompt_project_permission_trust(root)
+
+        output = stdout.getvalue()
+        self.assertFalse(trusted)
+        self.assertIn("Bash(command-19)", output)
+        self.assertNotIn("Bash(command-20)", output)
+        self.assertIn("5 more allow rule(s) not shown", output)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -14,8 +14,11 @@ npm run test:v1:release
 The release suite also covers bounded coding-prompt `@path` references for
 UTF-8 text and images, including workspace/sensitive-file rejection, metadata-
 only session persistence, one-turn image payload cleanup, and compaction-safe
-text context. Permission rule text is redacted before it becomes model-visible
-or enters session events while the original rule remains available for matching.
+text context. Interactive terminals add bounded Tab completion for safe project
+paths and slash commands without opening a GUI; non-TTY input remains unchanged.
+Permission rule text is redacted before it becomes model-visible
+or enters session events, and terminal trust previews are redacted and limited
+to 20 displayed rules while the original rule remains available for matching.
 
 That release gate expands to:
 

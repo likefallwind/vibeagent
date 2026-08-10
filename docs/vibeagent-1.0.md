@@ -122,6 +122,14 @@ local changes when asked, and resume from recorded session context.
   execution, hard command blocks, resumable command evidence, persisted-output
   redaction, same-session continuation, and session-directory/event-file
   symlink refusal before command execution.
+- `tests.test_cli_completion.CliCompletionTests` and
+  `tests.test_cli_idle_input.CliIdleInputTests` cover terminal-native fuzzy
+  `@path` and slash-command Tab completion, ignored/sensitive/symlink filtering,
+  scan and match bounds, readline restoration, non-TTY fallback, real input on
+  the main thread, and idle callbacks that preserve scheduled and peer wakeups.
+- `tests.test_project_trust.ProjectTrustIntegrationTests` covers bounded and
+  secret-redacted terminal previews before project permission allow rules are
+  trusted; raw rules remain available only for permission matching.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `LS`, `Glob`, `Grep`, `Read`, `Bash`, `Edit`, and `TodoRead`,
