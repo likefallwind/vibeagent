@@ -11,6 +11,7 @@ from .marketplace_state_ops import (
     remove_marketplace_snapshot,
 )
 from .plugin_manifest import read_plugin_manifest
+from .plugin_scope_settings import PluginScope
 from .plugin_state import (
     PLUGIN_STORE_LOCK as _STORE_LOCK,
     read_plugin_state as _read_state,
@@ -72,7 +73,12 @@ def remove_marketplace(project_root: Path, name: str) -> InstalledMarketplace:
     return _installed_marketplace(remove_marketplace_snapshot(project_root, name))
 
 
-def install_marketplace_plugin(project_root: Path, qualified_name: str) -> InstalledPlugin:
+def install_marketplace_plugin(
+    project_root: Path,
+    qualified_name: str,
+    *,
+    scope: PluginScope | None = None,
+) -> InstalledPlugin:
     plugin_name, marketplace_name = parse_qualified_plugin_name(qualified_name)
     manifest = read_installed_marketplace_manifest(project_root, marketplace_name)
     plugin = next((item for item in manifest.plugins if item.name == plugin_name), None)
@@ -94,6 +100,7 @@ def install_marketplace_plugin(project_root: Path, qualified_name: str) -> Insta
             source_label=qualified_name,
             marketplace=marketplace_name,
             resolved_version=fetched_manifest.version or plugin.version,
+            scope=scope,
         )
 
 

@@ -1096,6 +1096,8 @@ Install a project directory directly or register a local/remote marketplace:
 /plugin install extensions/team-tools
 /plugin marketplace add extensions/team-marketplace
 /plugin install review-tools@team-marketplace
+/plugin install review-tools@team-marketplace --scope project
+/plugin disable review-tools --scope local
 /plugin update review-tools
 /plugin marketplace update
 /plugin marketplace auto-update team-marketplace on
@@ -1113,6 +1115,13 @@ Installation rejects path escapes, symbolic links, non-regular files, more than
 gitignored `.vibeagent/plugins/cache/` store. Reinstall preserves the current
 enabled state; disable removes every component from discovery without deleting
 the cache; uninstall rolls state and cache removal back together on failure.
+Explicit `--scope project` and `--scope local` installations write qualified
+plugin IDs to `.claude/settings.json` and `.claude/settings.local.json`
+respectively. Local declarations override project declarations. One cached
+plugin may belong to both scopes, and uninstalling one scope retains the cache
+until the last declaration is removed. Settings, state, and cache mutations
+share one rollback transaction. Commands without `--scope` retain the original
+project-local VibeAgent store behavior for compatibility.
 Plugin skills, commands, and agents use `plugin-name:component` names, while MCP
 and LSP servers use `plugin-name.server`. `${CLAUDE_PLUGIN_ROOT}` and
 `${CLAUDE_PROJECT_DIR}` are expanded in skill and agent text, command templates,
@@ -1205,8 +1214,8 @@ language-server diagnostics back to the model after successful file edits.
 Language-server binaries remain separately installed dependencies. Socket
 transport is rejected explicitly; when no enabled plugin claims a file,
 `LSP` retains the built-in lexical code-intelligence fallback.
-User/project installation scopes are not yet
-implemented and are reported rather than silently loaded.
+User-global installation scope and cache discovery are not yet implemented;
+`--scope user` is rejected rather than silently treated as project-local.
 On Linux and macOS, interactive and one-shot CLI sessions register a user-only
 Unix socket under `/tmp/vibeagent-<uid>/peers`. `ListAgents` combines current
 session subagents with other live local sessions, and `SendMessage` sends plain

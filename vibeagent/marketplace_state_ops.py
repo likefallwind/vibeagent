@@ -5,6 +5,11 @@ from uuid import uuid4
 
 from .marketplace_manifest import read_marketplace_manifest
 from .plugin_installation import copy_plugin_tree, remove_plugin_tree
+from .plugin_scope_settings import (
+    restore_plugin_settings,
+    write_plugin_enabled_setting,
+)
+from .plugin_scoped_state import plugin_entry_scopes
 from .plugin_state import (
     PLUGIN_STORE_LOCK,
     ensure_directory,
@@ -121,7 +126,18 @@ def remove_marketplace_snapshot(project_root: Path, name: str) -> dict[str, obje
         ]
         paths.append(marketplace_path)
         moved: list[tuple[Path, Path]] = []
+        settings_snapshots = []
         try:
+            for plugin_name in plugin_names:
+                for scope in sorted(plugin_entry_scopes(plugins[plugin_name])):
+                    settings_snapshots.append(
+                        write_plugin_enabled_setting(
+                            project_root,
+                            scope,
+                            f"{plugin_name}@{name}",
+                            None,
+                        )
+                    )
             for path in paths:
                 if not path.exists():
                     continue
@@ -136,6 +152,8 @@ def remove_marketplace_snapshot(project_root: Path, name: str) -> dict[str, obje
             for path, trash in reversed(moved):
                 if trash.exists() and not path.exists():
                     trash.replace(path)
+            for snapshot in reversed(settings_snapshots):
+                restore_plugin_settings(snapshot)
             raise
         for _path, trash in moved:
             if trash.exists():

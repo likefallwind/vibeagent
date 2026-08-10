@@ -10,6 +10,7 @@ from .marketplace_manifest import marketplace_manifest_exists, read_marketplace_
 from .marketplace_store import install_marketplace_plugin
 from .plugin_manifest import read_plugin_manifest
 from .plugin_monitor_config import monitor_count_for_manifest
+from .plugin_scope_settings import PluginScope, validate_plugin_scope
 from .plugin_store import (
     install_local_plugin,
     list_installed_plugins,
@@ -30,8 +31,9 @@ from .workspace_resolve import resolve_mutation_path
 
 
 PLUGIN_USAGE = (
-    "Usage: /plugin [list|details <name>|install <project-path|name@marketplace>|enable <name>|"
-    "disable <name>|update <name>|uninstall <name>|validate <project-path>|"
+    "Usage: /plugin [list|details <name>|install <project-path|name@marketplace> [--scope local|project]|"
+    "enable <name> [--scope local|project]|disable <name> [--scope local|project]|"
+    "update <name> [--scope local|project]|uninstall <name> [--scope local|project]|validate <project-path>|"
     "config <operation>|marketplace <operation>]"
 )
 
@@ -55,14 +57,15 @@ def handle_plugin_command(project_root: Path, argument: str | None) -> PluginCom
             return PluginCommandResult(text, changed=changed)
         if parts[0] == "config":
             return _handle_plugin_config_command(project_root, parts[1:])
-        if len(parts) != 2:
+        parsed_operation = _parse_plugin_operation(parts)
+        if parsed_operation is None:
             return PluginCommandResult(PLUGIN_USAGE)
-        operation, value = parts
+        operation, value, scope = parsed_operation
         if operation == "install":
             plugin = (
-                install_marketplace_plugin(project_root, value)
+                install_marketplace_plugin(project_root, value, scope=scope)
                 if "@" in value
-                else install_local_plugin(project_root, value)
+                else install_local_plugin(project_root, value, scope=scope)
             )
             source_suffix = f" from {plugin.marketplace}" if plugin.marketplace else ""
             manifest = read_installed_plugin_manifest(project_root, plugin.name)
@@ -76,19 +79,22 @@ def handle_plugin_command(project_root: Path, argument: str | None) -> PluginCom
             return PluginCommandResult(
                 f"Installed plugin {plugin.name}{_version_suffix(plugin.version)} "
                 f"({'enabled' if plugin.enabled else 'disabled'}){source_suffix}."
+                f"{f' Scope: {scope}.' if scope is not None else ''}"
                 f"{configuration_suffix}",
                 changed=True,
             )
         if operation == "enable":
             manifest = read_installed_plugin_manifest(project_root, value)
             require_plugin_user_config(resolve_plugin_user_config(project_root, manifest))
-            plugin = set_plugin_enabled(project_root, value, True)
-            return PluginCommandResult(f"Enabled plugin {plugin.name}.", changed=True)
+            plugin = set_plugin_enabled(project_root, value, True, scope=scope)
+            suffix = f" at {scope} scope" if scope is not None else ""
+            return PluginCommandResult(f"Enabled plugin {plugin.name}{suffix}.", changed=True)
         if operation == "disable":
-            plugin = set_plugin_enabled(project_root, value, False)
-            return PluginCommandResult(f"Disabled plugin {plugin.name}.", changed=True)
+            plugin = set_plugin_enabled(project_root, value, False, scope=scope)
+            suffix = f" at {scope} scope" if scope is not None else ""
+            return PluginCommandResult(f"Disabled plugin {plugin.name}{suffix}.", changed=True)
         if operation == "update":
-            result = update_installed_plugin(project_root, value)
+            result = update_installed_plugin(project_root, value, scope=scope)
             if not result.updated:
                 return PluginCommandResult(
                     f"Plugin {result.plugin.name}{_version_suffix(result.plugin.version)} is already current."
@@ -100,8 +106,9 @@ def handle_plugin_command(project_root: Path, argument: str | None) -> PluginCom
                 changed=True,
             )
         if operation == "uninstall":
-            plugin = uninstall_plugin(project_root, value)
-            return PluginCommandResult(f"Uninstalled plugin {plugin.name}.", changed=True)
+            plugin = uninstall_plugin(project_root, value, scope=scope)
+            suffix = f" from {scope} scope" if scope is not None else ""
+            return PluginCommandResult(f"Uninstalled plugin {plugin.name}{suffix}.", changed=True)
         if operation == "details":
             return PluginCommandResult(format_plugin_details(read_installed_plugin_manifest(project_root, value)))
         if operation == "validate":
@@ -151,9 +158,10 @@ def format_plugin_list(plugins: list[InstalledPlugin]) -> str:
     for plugin in plugins:
         status = "error" if plugin.error else ("enabled" if plugin.enabled else "disabled")
         origin = f" @{plugin.marketplace}" if plugin.marketplace else ""
+        scopes = f" scopes={','.join(plugin.scopes)}" if plugin.scopes else ""
         lines.append(
             f"  {plugin.name}{_version_suffix(plugin.version)}{origin}  "
-            f"{status:<8} components={plugin.component_count}  {plugin.description}"
+            f"{status:<8} components={plugin.component_count}{scopes}  {plugin.description}"
         )
         if plugin.error:
             lines.append(f"    error: {plugin.error}")
@@ -199,6 +207,26 @@ def format_marketplace_validation(manifest: MarketplaceManifest) -> str:
 
 def _version_suffix(version: str | None) -> str:
     return f" {version}" if version else ""
+
+
+def _parse_plugin_operation(
+    parts: list[str],
+) -> tuple[str, str, PluginScope | None] | None:
+    if len(parts) == 2:
+        return parts[0], parts[1], None
+    if len(parts) != 4 or parts[0] not in {
+        "install",
+        "enable",
+        "disable",
+        "update",
+        "uninstall",
+    }:
+        return None
+    if parts[2] in {"--scope", "-s"}:
+        return parts[0], parts[1], validate_plugin_scope(parts[3])
+    if parts[1] in {"--scope", "-s"}:
+        return parts[0], parts[3], validate_plugin_scope(parts[2])
+    return None
 
 
 def _handle_plugin_config_command(

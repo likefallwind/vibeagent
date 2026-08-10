@@ -63,6 +63,8 @@ local changes when asked, and resume from recorded session context.
   resume, path validation, command routing, and provider-free status listing.
 - `tests.test_plugins.PluginManifestTests`, `tests.test_plugins.PluginRuntimeTests`,
   `tests.test_plugin_inline_components.PluginInlineComponentTests`,
+  `tests.test_plugin_scope_settings.PluginScopeSettingsTests`,
+  `tests.test_plugin_install_scopes.PluginInstallScopeTests`,
   `tests.test_plugin_marketplaces`, `tests.test_plugin_updates`, and
   `tests.test_cli_plugins.CliPluginTests`
   cover manifest and component
@@ -70,7 +72,8 @@ local changes when asked, and resume from recorded session context.
   uninstall rollback, enable-state preservation, five-component namespaced
   discovery, file-backed and manifest-inline hook/MCP loading, plugin
   path-variable and sensitive user-configuration expansion, protected MCP cwd rejection,
-  lifecycle commands, reload counts, provider-free management, local marketplace
+  lifecycle commands, reload counts, provider-free management, atomic project/local
+  `enabledPlugins` scopes and precedence, multi-scope cache retention and rollback, local marketplace
   validation and snapshot caching, qualified installation, refresh, cascade
   removal, version-one state compatibility, state-write rollback, explicit
   version-aware plugin updates, batch catalog refresh, per-marketplace automatic

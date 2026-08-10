@@ -100,6 +100,7 @@ class InstalledPlugin:
     component_count: int
     marketplace: str | None = None
     error: str | None = None
+    scopes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
