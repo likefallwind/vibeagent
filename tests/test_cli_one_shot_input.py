@@ -523,6 +523,7 @@ class CliOneShotInputTests(unittest.TestCase):
             ("default", "ask"),
             ("acceptEdits", "ask"),
             ("bypassPermissions", "allow"),
+            ("dontAsk", "dontAsk"),
             ("plan", "plan"),
         ]
 

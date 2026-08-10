@@ -96,8 +96,12 @@ class CliApprovalHelpersTests(unittest.TestCase):
         self.assertEqual(handle_approval_command(None, "ask"), ("ask", "Approval policy: ask"))
         self.assertEqual(handle_approval_command("allow", "ask"), ("allow", "Approval policy: allow"))
         self.assertEqual(handle_approval_command("deny", "allow"), ("deny", "Approval policy: deny"))
-        self.assertEqual(handle_approval_command("plan", "deny"), ("plan", "Approval policy: plan"))
-        self.assertEqual(handle_approval_command("bad", "deny"), ("deny", "Usage: /approval [ask|allow|deny|plan]"))
+        self.assertEqual(handle_approval_command("dontAsk", "deny"), ("dontAsk", "Approval policy: dontAsk"))
+        self.assertEqual(handle_approval_command("plan", "dontAsk"), ("plan", "Approval policy: plan"))
+        self.assertEqual(
+            handle_approval_command("bad", "deny"),
+            ("deny", "Usage: /approval [ask|allow|deny|dontAsk|plan]"),
+        )
 
     def test_build_approval_handler_uses_policy_without_prompting(self) -> None:
         request = ApprovalRequest(
@@ -110,6 +114,9 @@ class CliApprovalHelpersTests(unittest.TestCase):
         denied = build_approval_handler("deny")(request)
         self.assertFalse(denied.approved)
         self.assertIn("Denied by policy", denied.message)
+        dont_ask_denied = build_approval_handler("dontAsk")(request)
+        self.assertFalse(dont_ask_denied.approved)
+        self.assertIn("does not prompt", dont_ask_denied.message)
         plan_denied = build_approval_handler("plan")(request)
         self.assertFalse(plan_denied.approved)
         self.assertIn("Plan mode is read-only", plan_denied.message)

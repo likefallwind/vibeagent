@@ -26,10 +26,16 @@ local changes when asked, and resume from recorded session context.
 | VA1-WORKFLOW | Orchestrate resumable multi-agent fan-out | `/workflows run` executes a permission-restricted JavaScript workflow with `agent()` and bounded `pipeline()`, persists source and completed calls, and supports list, show, stop, and cache-backed resume. |
 | VA1-PLUGIN | Load and distribute reusable extension bundles without bypassing safety | `/plugin` validates, installs, lists, details, enables, disables, and atomically uninstalls project-local plugins; local and public-HTTPS GitHub/Git/JSON marketplaces add, list, inspect, refresh, remove, and install relative or remote `plugin@marketplace` sources; enabled namespaced skills, commands, agents, hooks, and MCP servers flow through their existing parsers, approvals, network checks, and path guards. |
 | VA1-PLAN | Produce a concrete read-only implementation plan | Plan mode exposes only read-only tools such as `project_overview`, `read_file`, and `tool_search`, denies hidden write attempts, and leaves the workspace unchanged. |
-| VA1-SAFETY | Enforce workspace and command safety | Workspace path guards, protected files, approval policy, project permissions, hooks, sandbox support, and hard command blocks prevent unsafe side effects. |
+| VA1-SAFETY | Enforce workspace and command safety | Workspace path guards, protected files, approval policy, project permissions, hooks, sandbox support, and hard command blocks prevent unsafe side effects. Claude-compatible `dontAsk` keeps read-only tools available, executes only trusted explicit allow rules, disables approval prompts and sandbox auto-approval for other side effects, and records machine-readable denial decisions without request events. |
 
 ## Current Evidence
 
+- `tests.test_project_permissions.ProjectPermissionConfigTests.test_dont_ask_allows_trusted_cli_rules_and_denies_other_writes_without_prompting`,
+  `tests.test_sandbox_auto_approval.SandboxAutoApprovalTests.test_noninteractive_policies_override_sandbox_auto_approval`,
+  and `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_dont_ask_completes_preapproved_repair_without_prompting`
+  prove default non-interactive denial, trusted CLI allow behavior, sandbox
+  isolation, zero approval-request events, and a complete pre-approved repair,
+  verification, and commit workflow.
 - `tests.test_main_agent_profile.MainAgentProfileTests.test_cli_tool_ceiling_hides_and_blocks_unlisted_main_tools`,
   `tests.test_delegation.DelegationTests.test_code_subagent_inherits_cli_tool_ceiling`,
   and `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_tools_restriction_completes_repair_without_extra_tools`

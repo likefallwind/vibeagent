@@ -241,7 +241,7 @@ def _read_inbound_mode(project_root: Path, *, trusted: bool = False) -> PeerInbo
 
 
 def _bypasses_permissions(policy: ApprovalPolicy) -> bool:
-    return policy in {"allow", "deny", "plan"}
+    return policy in {"allow", "deny", "dontAsk", "plan"}
 
 
 def _default_name(project_root: Path, peer_id: str) -> str:

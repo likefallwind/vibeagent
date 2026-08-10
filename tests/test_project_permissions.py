@@ -521,6 +521,56 @@ class ProjectPermissionExecutionTests(unittest.TestCase):
         self.assertIn("allow: Edit(cli.py)", prompt)
         self.assertIn(ALLOWED_TOOLS_SOURCE, prompt)
 
+    def test_dont_ask_allows_trusted_cli_rules_and_denies_other_writes_without_prompting(self) -> None:
+        def unexpected_prompt(request):
+            raise AssertionError(f"dontAsk prompted for {request.action_type}")
+
+        allowed_client = PermissionClient(
+            [
+                [{"type": "tool_call", "id": "write-1", "name": "write_file", "input": {"path": "allowed.py", "content": "x = 1\n"}}],
+                [{"type": "text", "text": "Trusted CLI allow completed."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-dont-ask-allowed-") as base:
+            root = Path(base)
+            allowed = run_agent(
+                "Write allowed.py",
+                base_dir=root,
+                client=allowed_client,
+                max_iterations=2,
+                approval_handler=unexpected_prompt,
+                approval_policy="dontAsk",
+                permission_overrides=build_permission_overrides(
+                    parse_args(["--allowed-tools", "Edit(allowed.py)", "write"])
+                ),
+            )
+            content = root.joinpath("allowed.py").read_text(encoding="utf-8")
+
+        self.assertEqual(allowed.observations[0].kind, "write_file")
+        self.assertEqual(content, "x = 1\n")
+
+        denied_client = PermissionClient(
+            [
+                [{"type": "tool_call", "id": "write-1", "name": "write_file", "input": {"path": "denied.py", "content": "x = 2\n"}}],
+                [{"type": "text", "text": "The unlisted write was denied."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-dont-ask-denied-") as base:
+            root = Path(base)
+            denied = run_agent(
+                "Write denied.py",
+                base_dir=root,
+                client=denied_client,
+                max_iterations=2,
+                approval_handler=unexpected_prompt,
+                approval_policy="dontAsk",
+            )
+            events = [json.loads(line) for line in root.joinpath(".vibeagent", "sessions", denied.run_id, "events.jsonl").read_text(encoding="utf-8").splitlines()]
+
+        self.assertEqual(denied.observations[0].kind, "approval_denied")
+        self.assertIn("dontAsk mode does not prompt", denied.observations[0].message)
+        self.assertNotIn("approval_requested", {event["type"] for event in events})
+
     def test_cli_disallowed_tools_override_project_and_cli_allow_rules(self) -> None:
         client = PermissionClient(
             [

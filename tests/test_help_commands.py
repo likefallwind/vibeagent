@@ -4,7 +4,7 @@ from vibeagent.commands import get_help_text
 
 
 HELP_SNIPPETS = [
-    "/approval [ask|allow|deny|plan]",
+    "/approval [ask|allow|deny|dontAsk|plan]",
     "/custom-commands",
     "/agents [--max-agents N]",
     "/skills [--max-skills N]",

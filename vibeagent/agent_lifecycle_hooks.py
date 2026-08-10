@@ -212,6 +212,7 @@ def _claude_permission_mode(policy: ApprovalPolicy) -> str:
         "allow": "bypassPermissions",
         "ask": "default",
         "deny": "dontAsk",
+        "dontAsk": "dontAsk",
         "plan": "plan",
     }[policy]
 

@@ -106,7 +106,7 @@ def authorize_tool_action(
     if (
         request is not None
         and auto_approval_reason is not None
-        and approval_policy not in {"deny", "plan"}
+        and approval_policy not in {"deny", "dontAsk", "plan"}
         and (rule_match is None or rule_match.effect != "ask")
     ):
         decision = ApprovalDecision(approved=True, message=auto_approval_reason)
@@ -127,13 +127,14 @@ def authorize_tool_action(
     if request is None:
         return ToolAuthorization(True, rule_match=rule_match)
 
-    append_session_event(
-        workspace.session_dir,
-        "approval_requested",
-        {"iteration": iteration, "step": step, "request": request, "permission_rule": _rule_payload(rule_match)},
-    )
-    if logger:
-        logger("approval required", summarize_approval_request(request))
+    if approval_policy != "dontAsk":
+        append_session_event(
+            workspace.session_dir,
+            "approval_requested",
+            {"iteration": iteration, "step": step, "request": request, "permission_rule": _rule_payload(rule_match)},
+        )
+        if logger:
+            logger("approval required", summarize_approval_request(request))
     if approval_policy == "plan":
         decision = ApprovalDecision(
             approved=False,
@@ -143,6 +144,11 @@ def authorize_tool_action(
         decision = ApprovalDecision(
             approved=False,
             message=f"Denied by session policy for {request.action_type}.",
+        )
+    elif approval_policy == "dontAsk":
+        decision = ApprovalDecision(
+            approved=False,
+            message=f"Denied because dontAsk mode does not prompt for {request.action_type}.",
         )
     else:
         decision = request_approval(approval_handler, request)

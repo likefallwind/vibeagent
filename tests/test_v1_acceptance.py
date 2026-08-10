@@ -42,6 +42,7 @@ DOGFOOD_TESTS = {
     "test_v1_agent_can_apply_claude_multi_edit_and_commit",
 }
 CLI_SMOKE_TESTS = {
+    "test_v1_cli_dont_ask_completes_preapproved_repair_without_prompting",
     "test_v1_cli_tools_restriction_completes_repair_without_extra_tools",
     "test_v1_cli_fallback_model_completes_repair_after_primary_overload",
     "test_v1_cli_budgeted_repair_verify_commit_and_report_cost",
@@ -184,7 +185,12 @@ EXPECTED_GATES = {
     },
     "VA1-SAFETY": {
         "tools": {"command_check", "final_review", "check_git_push"},
-        "tests": {"test_run_agent_returns_blocked_command_as_tool_result"},
+        "tests": {
+            "test_run_agent_returns_blocked_command_as_tool_result",
+            "test_dont_ask_allows_trusted_cli_rules_and_denies_other_writes_without_prompting",
+            "test_noninteractive_policies_override_sandbox_auto_approval",
+            "test_v1_cli_dont_ask_completes_preapproved_repair_without_prompting",
+        },
     },
 }
 

@@ -126,6 +126,11 @@ def build_messages(
                 ]
             )
         )
+    elif approval_policy == "dontAsk":
+        chunks.append(
+            "dontAsk permission mode is active. Approval prompts are disabled. Read-only actions and actions "
+            "covered by trusted allow rules can execute; other actions that require approval are denied."
+        )
     if prior_context:
         chunks.append(
             "\n".join(

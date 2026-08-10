@@ -17,7 +17,7 @@ ToolSpec: TypeAlias = dict[str, Any]
 TaskStatus: TypeAlias = Literal["pending", "running", "completed", "failed", "denied"]
 
 
-ApprovalPolicy: TypeAlias = Literal["ask", "allow", "deny", "plan"]
+ApprovalPolicy: TypeAlias = Literal["ask", "allow", "deny", "dontAsk", "plan"]
 
 
 @dataclass(frozen=True)

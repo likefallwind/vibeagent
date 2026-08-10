@@ -63,6 +63,7 @@ class SubagentPanel:
     def authorize_custom(self, handler: ApprovalHandler | None, policy: ApprovalPolicy) -> None:
         self.permission_mode = {
             "allow": "bypassPermissions",
+            "dontAsk": "dontAsk",
             "plan": "plan",
         }.get(policy, "default")
         if self.config is None:
@@ -70,7 +71,7 @@ class SubagentPanel:
         if policy == "allow":
             self.custom_authorized = True
             return
-        if policy in {"deny", "plan"} or handler is None:
+        if policy in {"deny", "dontAsk", "plan"} or handler is None:
             return
         decision = handler(
             ApprovalRequest(

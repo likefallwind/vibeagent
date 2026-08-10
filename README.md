@@ -245,9 +245,11 @@ defaults are copied into the linked checkout, while API keys remain environment
 or command-line configuration. Worktree launch cannot be combined with chat,
 local inspection commands, resume, continue, or compact modes.
 `--permission-mode` maps to `--approval`, accepting both VibeAgent values
-(`ask`, `allow`, `deny`, `plan`) and Claude-style values (`default` -> `ask`,
+(`ask`, `allow`, `deny`, `dontAsk`, `plan`) and Claude-style values (`default` -> `ask`,
 `acceptEdits` -> `ask` plus automatic `Write`, `Edit`, `MultiEdit`, and `NotebookEdit` allow rules,
-`bypassPermissions` -> `allow`), and `--max-turns` maps to `--max-iterations`.
+`bypassPermissions` -> `allow`). `dontAsk` never opens an approval prompt: read-only
+actions and trusted explicit allow rules can run, while every other action that
+requires approval is denied. `--max-turns` maps to `--max-iterations`.
 `-p --max-budget-usd AMOUNT` stops a one-shot coding task when the shared
 provider-cost estimate reaches the positive USD limit. Configure at least
 `VIBEAGENT_INPUT_USD_PER_MILLION` and
@@ -1039,7 +1041,7 @@ and the latest plan, `/changes [--max-files N]` to inspect a structured changed-
 `/diff [--staged] [--max-chars N] [path]` to inspect the current patch,
 `/diff-hunks [--staged] [--max-hunks N] [--max-lines N] [path]` to inspect structured git diff hunks,
 `/diff-contexts [--staged] [--context-lines N] [--max-hunks N] [--max-bytes N] [path]` to inspect source context around git diff hunks,
-`/approval [ask|allow|deny|plan]` to control
+`/approval [ask|allow|deny|dontAsk|plan]` to control
 the session approval policy, `/system-prompt [text|off]` and
 `/append-system-prompt [text|off]` to set or clear session-only system-prompt
 instructions for chat and coding turns, `/add-dir [path|remove path|clear]` to
@@ -2189,8 +2191,10 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   do not provide an approval handler deny those actions by default.
 - CLI approval defaults to `ask`; `/approval allow` approves future actions in
   the current session, `/approval deny` rejects them without prompting, and
-  `/approval plan` exposes read-only agent tools and produces an implementation
-  plan without mutating the workspace.
+  `/approval dontAsk` runs trusted pre-approved actions but rejects other
+  approval-requiring actions without prompting. `/approval plan` exposes
+  read-only agent tools and produces an implementation plan without mutating
+  the workspace.
 - Ctrl-C during a running local command, one-shot task, or interactive task
   prints `Interrupted.` instead of a traceback; one-shot and local-command
   invocations exit with status 130, while the interactive prompt returns to the

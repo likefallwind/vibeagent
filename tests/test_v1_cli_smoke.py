@@ -205,6 +205,54 @@ def _assert_clean_notebook_commit(
 
 
 class V1CliSmokeTests(unittest.TestCase):
+    def test_v1_cli_dont_ask_completes_preapproved_repair_without_prompting(self) -> None:
+        allowed_tools = [
+            "project_overview",
+            "read_file",
+            "run_command",
+            "update_plan",
+            "write_file",
+            "git_stage",
+            "git_commit",
+            "run_suggested_checks",
+            "run_session_verification",
+        ]
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-dont-ask-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(v1_dogfood_responses())
+            args = [
+                "-p",
+                "--output-format",
+                "json",
+                "--permission-mode",
+                "dontAsk",
+            ]
+            for tool in allowed_tools:
+                args.extend(["--allowed-tools", tool])
+            args.extend(
+                [
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "14",
+                    "Fix the calculator test failure and commit the verified fix.",
+                ]
+            )
+            exit_code, payload = _run_json_cli(client, args)
+            events = _session_events(root, payload["runId"])
+            event_types = {str(event["type"]) for event in events}
+            permissions = next(event for event in events if event["type"] == "permissions_loaded")
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload, num_turns=11)
+        self.assertIn("dontAsk permission mode is active", _initial_prompt(client))
+        self.assertNotIn("approval_requested", event_types)
+        self.assertIn("permission_rule_evaluated", event_types)
+        self.assertIn("<cli --allowed-tools>", permissions["trusted_allow_sources"])
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add")
+
     def test_v1_cli_tools_restriction_completes_repair_without_extra_tools(self) -> None:
         requested_tools = {
             "project_overview",

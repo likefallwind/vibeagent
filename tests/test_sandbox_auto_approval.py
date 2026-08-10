@@ -160,8 +160,8 @@ class SandboxAutoApprovalDecisionTests(unittest.TestCase):
         self.assertTrue(authorization.allowed)
         handler.assert_called_once_with(request)
 
-    def test_session_deny_and_plan_override_sandbox_auto_approval(self) -> None:
-        for policy in ("deny", "plan"):
+    def test_noninteractive_policies_override_sandbox_auto_approval(self) -> None:
+        for policy in ("deny", "dontAsk", "plan"):
             with self.subTest(policy=policy), tempfile.TemporaryDirectory(prefix="vibeagent-sandbox-auto-") as base:
                 workspace = create_run_workspace(base)
                 action = RunCommandAction(type="run_command", command="npm test")

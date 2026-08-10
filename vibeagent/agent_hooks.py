@@ -204,6 +204,7 @@ def _run_one_hook(
                 "allow": "bypassPermissions",
                 "ask": "default",
                 "deny": "dontAsk",
+                "dontAsk": "dontAsk",
                 "plan": "plan",
             }[approval_policy],
             "hook_event_name": hook.event,

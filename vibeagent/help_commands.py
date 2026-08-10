@@ -194,7 +194,7 @@ def get_help_text() -> str:
             "  /peer-inbox [accept|deny <sender-id|all>]  Inspect or decide held peer messages.",
             "  /usage  Show local session usage from recorded events.",
             "  /cost   Show token usage and configured cost estimate.",
-            "  /approval [ask|allow|deny|plan]  Show or set the session approval policy.",
+            "  /approval [ask|allow|deny|dontAsk|plan]  Show or set the session approval policy.",
             "  /system-prompt [text|off]  Show, set, or clear the session system-prompt override.",
             "  /append-system-prompt [text|off]  Show, set, or clear extra session system-prompt instructions.",
             "  /add-dir [path|remove path|clear]  Show or update additional working directories for this session.",
