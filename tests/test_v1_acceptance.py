@@ -109,6 +109,10 @@ EXPECTED_GATES = {
         "tools": {"session_summary", "session_verification", "run_session_verification", "session_handoff"},
         "tests": {"test_run_agent_uses_existing_session_verification_on_resume"},
     },
+    "VA1-GOAL": {
+        "tools": set(),
+        "tests": {"test_one_shot_goal_continues_until_evaluator_accepts"},
+    },
     "VA1-DELEGATE": {
         "tools": {"delegate_task", "Task", "Agent"},
         "tests": {"test_parent_agent_receives_subagent_summary_as_tool_result"},

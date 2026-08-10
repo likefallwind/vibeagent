@@ -37,9 +37,21 @@ from .cli_system_prompt_state import update_system_prompt_state
 from .cli_text_edit_local_flags import run_interactive_text_edit_command
 from .commands import get_resume_context as default_get_resume_context, parse_local_command
 from .config import resolve_execution_config
+from .cli_goal import evaluate_and_store_goal
+from .goal_loop import goal_turn_prompt
+from .goal_state import (
+    GoalState,
+    clear_goal,
+    format_goal_status,
+    new_goal,
+    read_session_goal,
+    reset_restored_goal,
+    write_goal,
+)
 from .providers import create_chat_client as default_create_chat_client
 from .types import ApprovalPolicy, ChatMessage
 from .scheduled_task_store import collect_due_scheduled_tasks, scheduled_tasks_enabled
+from .session_usage import summarize_run_usage
 from .workspace_core import create_local_workspace
 
 
@@ -70,8 +82,12 @@ def run_interactive_loop(
     resume_context: str | None = initial_resume_context
     system_prompt: str | None = None
     append_system_prompt: str | None = None
+    goal_state: GoalState | None = None
+    if initial_resume_run_id is not None:
+        restored_goal = read_session_goal(Path.cwd(), initial_resume_run_id)
+        goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
 
-    def run_code_task(task: str, task_metadata: dict[str, object] | None = None) -> None:
+    def run_code_task(task: str, task_metadata: dict[str, object] | None = None) -> tuple[object, str | None]:
         nonlocal client, resume_run_id, resume_context
         execution_config = resolve_execution_config(Path.cwd())
         client = client or create_chat_client_func(build_provider_env(None, Path.cwd()))
@@ -99,6 +115,34 @@ def run_interactive_loop(
         if next_context:
             resume_run_id = selected
             resume_context = next_context
+        return result, next_context
+
+    def run_goal(steering_task: str | None = None) -> None:
+        nonlocal goal_state
+        while goal_state is not None and goal_state.status == "active":
+            result, next_context = run_code_task(
+                goal_turn_prompt(goal_state, steering_task),
+                {"source": "goal", "condition": goal_state.condition},
+            )
+            steering_task = None
+            write_goal(create_local_workspace(Path.cwd(), result.run_id), goal_state)
+            if not getattr(result, "success", False):
+                print("Goal remains active because the agent turn failed.")
+                return
+            execution_config = resolve_execution_config(Path.cwd())
+            goal_state, evaluation = evaluate_and_store_goal(
+                goal_state,
+                result,  # type: ignore[arg-type]
+                next_context,
+                client=client,
+                execution_config=execution_config,
+                project_root=Path.cwd(),
+                agent_tokens=summarize_run_usage(Path.cwd(), result.run_id).total_tokens,
+            )
+            print(f"Goal evaluator: {evaluation.reason}")
+            if evaluation.achieved:
+                print("Goal achieved.")
+                return
 
     def run_due_tasks_while_idle() -> None:
         if resume_run_id is None or not scheduled_tasks_enabled():
@@ -209,10 +253,34 @@ def run_interactive_loop(
             print(review_text)
             continue
         if command and command.type == "clear":
+            if goal_state is not None and resume_run_id is not None:
+                goal_state = clear_goal(goal_state)
+                write_goal(create_local_workspace(Path.cwd(), resume_run_id), goal_state)
+            goal_state = None
             chat_history.clear()
             resume_run_id = None
             resume_context = None
             print("Cleared chat history and resume context.")
+            continue
+        if command and command.type == "goal":
+            argument = command.argument
+            if argument is None:
+                print(format_goal_status(goal_state))
+                continue
+            if argument.strip().lower() in {"clear", "stop", "off", "reset", "none", "cancel"}:
+                if goal_state is not None and resume_run_id is not None:
+                    goal_state = clear_goal(goal_state)
+                    write_goal(create_local_workspace(Path.cwd(), resume_run_id), goal_state)
+                goal_state = None
+                print("Goal cleared.")
+                continue
+            goal_state = new_goal(argument)
+            try:
+                run_goal()
+            except KeyboardInterrupt:
+                print("\nInterrupted. Goal remains active.")
+            except Exception as error:
+                print(f"\nGoal error: {format_error(error)}")
             continue
         if command and command.type == "system_prompt":
             system_prompt, text = update_system_prompt_state(system_prompt, command.argument, label="System prompt")
@@ -243,6 +311,8 @@ def run_interactive_loop(
             selected, context, text = resume_result
             resume_run_id = selected
             resume_context = context
+            restored_goal = read_session_goal(Path.cwd(), selected) if selected is not None else None
+            goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
             print(text)
             continue
         request_mode = "code" if custom_command is not None else mode
@@ -286,12 +356,15 @@ def run_interactive_loop(
                 print(f"\n{response}")
                 continue
 
-            run_code_task(
-                task,
-                project_command_task_metadata(custom_command)
-                if custom_command is not None
-                else None,
-            )
+            if goal_state is not None and goal_state.status == "active":
+                run_goal(task)
+            else:
+                run_code_task(
+                    task,
+                    project_command_task_metadata(custom_command)
+                    if custom_command is not None
+                    else None,
+                )
         except KeyboardInterrupt:
             print("\nInterrupted.")
         except Exception as error:

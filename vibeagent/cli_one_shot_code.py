@@ -12,7 +12,13 @@ from .cli_one_shot_stream import build_one_shot_stream_scope
 from .cli_output_mode import CliOutputMode
 from .cli_stream_output import JsonEventStream
 from .config import ExecutionConfig
+from .cli_goal import evaluate_and_store_goal
+from .commands import parse_local_command
+from .goal_loop import goal_turn_prompt
+from .goal_state import GoalState, new_goal, read_session_goal, reset_restored_goal, write_goal
+from .session_usage import summarize_run_usage
 from .types import ApprovalPolicy
+from .workspace_core import create_local_workspace
 from .workspace_permissions import ProjectPermissions
 
 
@@ -81,6 +87,9 @@ def run_one_shot_code(
 
     merged_prior_context = combine_optional_text(prior_context.context, input_prior_context)
     client = create_chat_client_func(provider_env)
+    goal_state, steering_task = _resolve_one_shot_goal(task, prior_context, project_root)
+    if goal_state is not None:
+        task = goal_turn_prompt(goal_state, steering_task)
     stream_scope = build_one_shot_stream_scope(
         stream,
         project_root=project_root,
@@ -106,8 +115,36 @@ def run_one_shot_code(
     )
     if prior_context.run_id is not None:
         run_kwargs["task_source_run_id"] = prior_context.run_id
+    goal_turns = 0
+    recorded_session_tokens: dict[str, int] = {}
     with stream_scope.event_scope:
-        result = run_agent_func(task, **run_kwargs)
+        while True:
+            result = run_agent_func(task, **run_kwargs)
+            goal_turns += 1
+            if goal_state is None:
+                break
+            workspace = create_local_workspace(project_root, result.run_id)
+            write_goal(workspace, goal_state)
+            if not result.success:
+                break
+            selected, next_context, _ = get_resume_context_func(result.run_id, project_root)
+            session_tokens = summarize_run_usage(project_root, result.run_id).total_tokens
+            agent_tokens = max(0, session_tokens - recorded_session_tokens.get(result.run_id, 0))
+            recorded_session_tokens[result.run_id] = session_tokens
+            goal_state, evaluation = evaluate_and_store_goal(
+                goal_state,
+                result,
+                next_context,
+                client=client,
+                execution_config=execution_config,
+                project_root=project_root,
+                agent_tokens=agent_tokens,
+            )
+            if evaluation.achieved:
+                break
+            task = goal_turn_prompt(goal_state)
+            run_kwargs["prior_context"] = next_context
+            run_kwargs["task_source_run_id"] = selected or result.run_id
     result_payload = build_one_shot_code_payload(
         result,
         prior_context,
@@ -116,6 +153,15 @@ def run_one_shot_code(
         project_root=project_root,
         provider_env=provider_env,
     )
+    if goal_state is not None:
+        result_payload["goal"] = {
+            "condition": goal_state.condition,
+            "status": goal_state.status,
+            "evaluatedTurns": goal_state.evaluated_turns,
+            "totalTokens": goal_state.total_tokens,
+            "lastReason": goal_state.last_reason,
+        }
+        result_payload["goalTurns"] = goal_turns
     emit_one_shot_code_payload(
         result,
         result_payload,
@@ -124,3 +170,21 @@ def run_one_shot_code(
         print_mode=print_mode,
     )
     return one_shot_code_exit_code(result), prior_context
+
+
+def _resolve_one_shot_goal(
+    task: str,
+    prior_context: OneShotPriorContext,
+    project_root: Path,
+) -> tuple[GoalState | None, str | None]:
+    command = parse_local_command(task)
+    if command is not None and command.type == "goal":
+        argument = command.argument
+        if argument is None or argument.strip().lower() in {"clear", "stop", "off", "reset", "none", "cancel"}:
+            raise ValueError("One-shot /goal requires a non-empty completion condition.")
+        return new_goal(argument), None
+    if prior_context.source != "resume":
+        return None, None
+    restored = read_session_goal(project_root, prior_context.run_id)
+    active = reset_restored_goal(restored) if restored is not None else None
+    return active, task if active is not None else None

@@ -932,9 +932,10 @@ an id also accept `latest` for the newest saved checkpoint,
 `/checkpoint-delete <id>` to delete one saved checkpoint snapshot,
 `/check-checkpoint-prune <keep-last>` to preview deleting older checkpoints,
 `/checkpoint-prune <keep-last>` to delete older checkpoints while keeping the
-newest entries,
-`/clear` to clear local chat
-history and loaded resume context, `/usage` to summarize local session events,
+newest entries, `/goal <condition>` to start an evaluator-controlled autonomous
+coding loop, `/goal` to inspect its state, `/goal clear` to stop it, and
+`/clear` to clear the goal, local chat history, and loaded resume context,
+`/usage` to summarize local session events,
 iterations, tool calls, approvals, and recorded token usage, `/cost` to estimate
 cost from configured per-million-token rates, and `/exit` to leave the interactive prompt.
 Use `/chat` to switch to daily conversation mode and `/code` to switch back to coding
@@ -1021,6 +1022,16 @@ delete themselves after delivery. Unexpired schedules are atomically stored in
 Scheduled prompts are task direction only and cannot grant tool approval.
 Set `VIBEAGENT_DISABLE_CRON=1` or `CLAUDE_CODE_DISABLE_CRON=1` to hide the cron
 tools and stop delivery.
+`/goal` keeps one completion condition per session. Each coding turn is followed
+by a separate model request with no tools; that evaluator uses only bounded
+session evidence and returns a strict achieved/reason decision. A negative
+decision becomes guidance for the next coding turn. Active goals survive an
+explicit `--resume` or interactive `/resume`, with elapsed time and accounting
+reset for the resumed invocation; achieved and cleared goals do not restart.
+The condition is limited to 4,000 characters, evaluator text cannot approve
+tools, and the normal approval policy remains in force on every coding turn.
+One-shot `vibeagent -p "/goal <condition>"` runs until achievement, agent
+failure, evaluator error, or interruption in the same process.
 If a successful run finishes while the latest plan still
 has `pending` or `in_progress` items, the final result and session summary
 include a completion warning and completion blocker. If no plan exists after
@@ -1362,7 +1373,7 @@ Core modules:
 
 - `vibeagent/cli.py`: interactive command-line entry point. It handles local
 commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`, `/permissions`, `/sandbox`, `/checks`, `/check-suggested-checks`, `/run-suggested-checks`, `/commands`, `/related-tests`, `/focused-tests`, `/check-focused-tests`, `/run-focused-tests`, `/manifests`, `/instructions`, `/todos`, `/command`, `/run`, `/check-run-seq`, `/run-seq`, `/check-start`, `/start`, `/port`, `/http`, `/http-fetch`, `/overview`, `/repo-map`, `/search`, `/search-contexts`, `/find-files`, `/glob`, `/tree`, `/symbols`, `/file-info`, `/image-info`, `/read`, `/around`, `/around-many`, `/output-contexts`, `/output-diagnostics`, `/python-traceback`, `/tail`, `/read-files`, `/read-ranges`, `/python-check`, `/python-deps`, `/python-defs`, `/python-refs`, `/python-ref-contexts`, `/python-calls`, `/python-call-graph`, `/python-rename-preview`, `/python-rename`, `/check-replace-python-def`, `/replace-python-def`, `/config-check`, `/check-json-set`, `/json-set`, `/check-json-remove`, `/json-remove`, `/check-json-patch`, `/json-patch`, `/check-replace-lines`, `/replace-lines`, `/check-insert-lines`, `/insert-lines`, `/check-append`, `/append`, `/check-write`, `/write`, `/check-write-files`, `/write-files`, `/check-edit`, `/edit`, `/check-multi-edit`, `/multi-edit`, `/check-delete`, `/delete`, `/check-delete-files`, `/delete-files`, `/check-move`, `/move`, `/check-move-files`, `/move-files`, `/check-copy`, `/copy`, `/check-copy-files`, `/copy-files`, `/check-move-dir`, `/move-dir`, `/check-move-dirs`, `/move-dirs`, `/check-copy-dir`, `/copy-dir`, `/check-copy-dirs`, `/copy-dirs`, `/check-mkdir`, `/mkdir`, `/check-mkdirs`, `/mkdirs`, `/check-rmdir`, `/rmdir`, `/check-rmdirs`, `/check-executable`, `/set-executable`, `/check-patch`, `/patch`, `/check-patches`, `/patches`, `/check-regex-replace`, `/regex-replace`, `/code-deps`, `/code-refs`, `/code-ref-contexts`, `/code-defs`, `/code-rename-preview`, `/code-rename`, `/git-status`, `/conflicts`, `/git-info`, `/branches`, `/log`, `/show`, `/blame`, `/stashes`, `/check-fetch`, `/fetch`, `/check-pull`, `/pull`, `/check-push`, `/push`, `/check-stash`, `/stash`, `/check-stash-apply`, `/stash-apply`, `/check-stash-drop`, `/stash-drop`, `/check-stage`, `/stage`, `/check-unstage`, `/unstage`, `/check-commit`, `/commit`, `/check-restore`, `/restore`, `/check-switch`, `/switch`, `/env`, `/processes`, `/process`, `/process-output-contexts`, `/process-output-diagnostics`, `/wait-process`, `/check-write-process`, `/write-process`, `/check-stop-process`, `/stop-process`, `/check-stop-processes`, `/check-stop-all-processes`, `/stop-processes`, `/stop-all-processes`, `/status`, `/context`, `/init`, `/doctor`, `/review`, `/handoff`, `/changes`, `/diff`, `/diff-hunks`, `/diff-contexts`, `/clear`, `/usage`, `/cost`, `/approval`, `/plan`, `/transcript`, `/session-search`, `/session-commands`, `/session-output-contexts`, `/session-output-diagnostics`, `/session-files`, `/session-failures`, `/session-verification`, `/run-session-verification`, `/session-audit`, `/session-handoff`, `/checkpoint`, `/checkpoints`, `/checkpoint-show`, `/checkpoint-diff`, `/checkpoint-status`, `/check-checkpoint-restore`, `/checkpoint-restore`, `/check-checkpoint-delete`, `/checkpoint-delete`, `/check-checkpoint-prune`, `/checkpoint-prune`, `/resume`,
-  `/compact`, `/chat`, `/code`, and
+  `/compact`, `/goal`, `/chat`, `/code`, and
   `/exit`, then delegates input to the selected mode.
   `/custom-commands` lists prompt templates from `.claude/commands/**/*.md`
   and `.agents/commands/**/*.md`. Built-in commands take precedence; nested
@@ -1469,6 +1480,9 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   `vibeagent/scheduled_task_persistence.py`: validate cron expressions, apply
   local-time scheduling and deterministic jitter, atomically persist schedules,
   collect due prompts without catch-up storms, and restore unexpired tasks.
+- `vibeagent/goal_state.py`, `vibeagent/goal_evaluator.py`, and
+  `vibeagent/goal_loop.py`: persist one session completion goal, evaluate bounded
+  evidence without tools, and construct evaluator-guided continuation turns.
 - `vibeagent/workspace_memory.py`: manages bounded auto-memory loading and
   approved atomic Markdown writes for the main agent and isolated named-agent
   stores with path, symlink-component, size, and credential-redaction guards.

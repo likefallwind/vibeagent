@@ -57,6 +57,9 @@ The automated suite currently covers these 1.0 surfaces:
 - Session scheduling: standard local-time cron expressions, deterministic
   jitter, one-shot and recurring delivery, idle CLI wakeups, seven-day expiry,
   no-catch-up behavior, atomic persistence, and filtered resume restoration.
+- Autonomous goals: one persisted completion condition, strict bounded no-tool
+  evaluation after each coding turn, evaluator-guided continuation, interactive
+  status and clearing, explicit resume restoration, and one-shot looping.
 - Scoped instructions: nested instruction files and path rules load independently
   in main and subagent contexts and become eligible for reload after compaction.
 - Safety boundaries: workspace path guards, approval policy, hard command

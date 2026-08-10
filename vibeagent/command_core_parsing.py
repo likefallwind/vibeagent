@@ -20,6 +20,8 @@ def parse_core_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("skills", trimmed[7:].strip() or None)
     if trimmed == "/clear":
         return make_local_command("clear", None)
+    if trimmed == "/goal" or trimmed.startswith("/goal "):
+        return make_local_command("goal", trimmed[5:].strip() or None)
     if trimmed == "/usage":
         return make_local_command("usage", None)
     if trimmed == "/cost":

@@ -31,6 +31,7 @@ CoreCommandType: TypeAlias = Literal[
     "command",
     "chat",
     "code",
+    "goal",
 ]
 
 RuntimeCommandType: TypeAlias = Literal[

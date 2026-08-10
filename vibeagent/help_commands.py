@@ -183,6 +183,7 @@ def get_help_text() -> str:
             "  /diff-hunks [--staged] [--max-hunks N] [--max-lines N] [path]  Show structured git diff hunks.",
             "  /diff-contexts [--staged] [--context-lines N] [--max-hunks N] [--max-bytes N] [path]  Show source context around git diff hunks.",
             "  /clear  Clear chat history and loaded resume context.",
+            "  /goal [condition|clear]  Set an autonomous completion goal, show status, or clear it.",
             "  /usage  Show local session usage from recorded events.",
             "  /cost   Show token usage and configured cost estimate.",
             "  /approval [ask|allow|deny|plan]  Show or set the session approval policy.",
