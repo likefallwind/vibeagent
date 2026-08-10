@@ -8,6 +8,7 @@ from typing import Literal, cast
 from urllib.parse import urlsplit
 
 from .action_tool_aliases import tool_name_candidates
+from .redaction import redact_sensitive_text
 from .tool_catalog_core import tool_category
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
@@ -135,7 +136,9 @@ def format_project_permissions_for_prompt(workspace: RunWorkspace) -> str:
 
 def format_permissions_for_prompt(config: ProjectPermissions) -> str:
     if config.error is not None:
-        return f"Permission configuration is invalid and tool calls will be denied: {config.error}"
+        return "Permission configuration is invalid and tool calls will be denied: " + redact_sensitive_text(
+            config.error
+        )
     if not config.rules:
         return ""
     lines = [
@@ -145,8 +148,12 @@ def format_permissions_for_prompt(config: ProjectPermissions) -> str:
     if config.trusted_allow_sources:
         sources = ", ".join(config.trusted_allow_sources)
         lines.append(f"Allow rules from these sources are trusted for this run: {sources}.")
-    lines.extend(f"- {rule.effect}: {rule.raw} ({rule.source})" for rule in config.rules)
+    lines.extend(f"- {rule.effect}: {safe_permission_rule_text(rule)} ({rule.source})" for rule in config.rules)
     return "\n".join(lines)
+
+
+def safe_permission_rule_text(rule: ProjectPermissionRule) -> str:
+    return redact_sensitive_text(rule.raw)
 
 
 def match_project_permission(

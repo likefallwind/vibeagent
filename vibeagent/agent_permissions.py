@@ -10,6 +10,7 @@ from .agent_approval import (
 )
 from .agent_runtime_utils import append_session_event
 from .command_sandbox import sandbox_auto_approval_reason
+from .redaction import redact_sensitive_text
 from .types import (
     AgentLogger,
     ApprovalDecision,
@@ -20,7 +21,12 @@ from .types import (
     Observation,
 )
 from .workspace_core import RunWorkspace
-from .workspace_permissions import PermissionRuleMatch, ProjectPermissions, match_project_permission
+from .workspace_permissions import (
+    PermissionRuleMatch,
+    ProjectPermissions,
+    match_project_permission,
+    safe_permission_rule_text,
+)
 
 
 @dataclass(frozen=True)
@@ -44,7 +50,7 @@ def authorize_tool_action(
     step: object | None = None,
 ) -> ToolAuthorization:
     if permissions.error is not None:
-        message = f"Permission configuration is invalid: {permissions.error}"
+        message = f"Permission configuration is invalid: {redact_sensitive_text(permissions.error)}"
         append_session_event(
             workspace.session_dir,
             "permission_rule_evaluated",
@@ -59,6 +65,7 @@ def authorize_tool_action(
 
     rule_match = match_project_permission(permissions, tool_name, action)
     if rule_match is not None:
+        visible_rule = safe_permission_rule_text(rule_match.rule)
         append_session_event(
             workspace.session_dir,
             "permission_rule_evaluated",
@@ -72,7 +79,7 @@ def authorize_tool_action(
             },
         )
         if rule_match.effect == "deny":
-            message = f"Denied by permission rule {rule_match.rule.raw} from {rule_match.rule.source}."
+            message = f"Denied by permission rule {visible_rule} from {rule_match.rule.source}."
             return ToolAuthorization(False, _denial(tool_name, action, message), rule_match=rule_match)
         allow_can_skip_approval = (
             default_request is None
@@ -84,7 +91,7 @@ def authorize_tool_action(
         ):
             decision = ApprovalDecision(
                 approved=True,
-                message=f"Approved by permission rule {rule_match.rule.raw}.",
+                message=f"Approved by permission rule {visible_rule}.",
             )
             return ToolAuthorization(True, rule_match=rule_match, decision=decision)
 

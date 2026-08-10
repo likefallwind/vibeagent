@@ -11,6 +11,11 @@ from .main_agent_profile import (
     load_main_agent_profile,
 )
 from .main_agent_settings import resolve_main_agent_selection
+from .prompt_file_mentions import (
+    PromptFileContext,
+    load_prompt_file_context,
+    prompt_file_context_metadata,
+)
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .session_tasks import inherit_task_store
@@ -81,6 +86,7 @@ def prepare_agent_run(
     tasks_inherited, task_restore_error = inherit_task_store(current_workspace, task_source_run_id)
     schedules_inherited, schedule_restore_error = inherit_schedule_store(current_workspace, task_source_run_id)
     auto_memory = read_auto_memory(current_workspace)
+    prompt_file_context = load_prompt_file_context(task, current_workspace)
     messages = build_messages(
         task,
         current_workspace,
@@ -90,8 +96,10 @@ def prepare_agent_run(
         system_prompt=system_prompt,
         append_system_prompt=effective_append_system_prompt,
         auto_memory=auto_memory,
+        prompt_file_context=prompt_file_context,
     )
     _append_task_event(current_workspace, task, approval_policy, prior_context, task_metadata)
+    _append_prompt_files_event(current_workspace, prompt_file_context)
     _append_task_restore_event(current_workspace, task_source_run_id, tasks_inherited, task_restore_error)
     _append_schedule_restore_event(
         current_workspace,
@@ -203,6 +211,13 @@ def _append_task_restore_event(
             "error": error,
         },
     )
+
+
+def _append_prompt_files_event(workspace: RunWorkspace, context: PromptFileContext) -> None:
+    metadata = prompt_file_context_metadata(context)
+    if int(metadata["count"]) == 0:
+        return
+    append_session_event(workspace.session_dir, "prompt_files_loaded", metadata)
 
 
 def _append_memory_event(workspace: RunWorkspace, memory: AutoMemorySnapshot) -> None:

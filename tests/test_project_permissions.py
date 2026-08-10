@@ -678,6 +678,36 @@ class ProjectPermissionExecutionTests(unittest.TestCase):
         self.assertIn("deny run_command", summary)
         self.assertIn("Bash(git push *)", summary)
 
+    def test_permission_rules_are_redacted_before_becoming_model_visible(self) -> None:
+        secret = "secret-token-value"
+        client = PermissionClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "bash-1",
+                        "name": "run_command",
+                        "input": {"command": f"API_KEY={secret} python3 -V"},
+                    }
+                ],
+                [{"type": "text", "text": "Denied safely."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-permissions-") as base:
+            root = Path(base)
+            _write_permissions(root, {"deny": [f"Bash(API_KEY={secret} python3 -V)"]})
+            result = run_agent("Check command", base_dir=root, client=client, max_iterations=2)
+            prompt = "\n".join(str(message.content) for message in client.messages[0])
+            events = root.joinpath(".vibeagent", "sessions", result.run_id, "events.jsonl").read_text(
+                encoding="utf-8"
+            )
+
+        self.assertIn("API_KEY=[REDACTED]", prompt)
+        self.assertIn("API_KEY=[REDACTED]", result.observations[0].message)
+        self.assertNotIn(secret, prompt)
+        self.assertNotIn(secret, result.observations[0].message)
+        self.assertNotIn(secret, events)
+
 
 if __name__ == "__main__":
     unittest.main()

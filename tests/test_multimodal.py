@@ -36,6 +36,19 @@ class _VisionClient:
         return AssistantResponse(content=content, raw={"content": content})
 
 
+class _PromptMentionVisionClient:
+    def __init__(self) -> None:
+        self.messages: list[list[ChatMessage]] = []
+
+    def complete(self, messages, tools=None, max_tokens=4096, temperature=0.2, timeout_ms=120_000):
+        self.messages.append(copy.deepcopy(messages))
+        if len(self.messages) == 1:
+            content = [{"type": "tool_call", "id": "info-1", "name": "file_info", "input": {"paths": ["app.py"]}}]
+        else:
+            content = [{"type": "text", "text": "Prompt references inspected."}]
+        return AssistantResponse(content=content, raw={"content": content})
+
+
 def _image_tool_message() -> ChatMessage:
     return ChatMessage(
         role="user",
@@ -183,6 +196,35 @@ class ViewImageTests(unittest.TestCase):
         self.assertEqual(event["reason"], "char_threshold")
         self.assertEqual(event["retained_image_tool_results"], 1)
         self.assertLess(event["new_chars"], event["previous_chars"])
+
+    def test_prompt_image_is_sent_once_while_text_reference_remains(self) -> None:
+        client = _PromptMentionVisionClient()
+        with tempfile.TemporaryDirectory(prefix="vibeagent-image-mention-") as base:
+            root = Path(base)
+            (root / "pixel.png").write_bytes(PNG_1X1)
+            (root / "app.py").write_text("MENTION_VALUE = 9\n", encoding="utf-8")
+
+            result = run_agent(
+                "Compare @pixel.png with @app.py",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+            )
+            events = root.joinpath(".vibeagent", "sessions", result.run_id, "events.jsonl").read_text(
+                encoding="utf-8"
+            )
+
+        first = json.dumps([message.content for message in client.messages[0]], ensure_ascii=False)
+        second = json.dumps([message.content for message in client.messages[1]], ensure_ascii=False)
+        encoded = base64.b64encode(PNG_1X1).decode("ascii")
+        self.assertTrue(result.success)
+        self.assertIn(encoded, first)
+        self.assertNotIn(encoded, second)
+        self.assertIn("prompt image payload consumed", second)
+        self.assertIn("MENTION_VALUE = 9", first)
+        self.assertIn("MENTION_VALUE = 9", second)
+        self.assertNotIn(encoded, events)
+        self.assertNotIn("MENTION_VALUE = 9", events)
 
 
 if __name__ == "__main__":

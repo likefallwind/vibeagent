@@ -11,6 +11,7 @@ from .agent_multimodal import pending_image_tool_exchange, pending_image_tool_re
 from .agent_observation_utils import summarize
 from .prompt_observations import format_observations
 from .prompts import build_messages
+from .prompt_file_mentions import PROMPT_FILE_REFERENCE_MARKER
 from .redaction import redact_jsonable_payload
 from .session_event_sanitization import sanitize_session_event_payload
 from .session_event_observers import notify_session_event_observers
@@ -94,6 +95,7 @@ def compact_agent_message_history(
         system_prompt=system_prompt,
         append_system_prompt=append_system_prompt,
     )
+    _retain_prompt_file_reference_blocks(messages, compacted_messages)
     pending_image_exchange = pending_image_tool_exchange(messages)
     compacted_messages.extend(pending_image_exchange)
     new_chars = message_history_char_count(compacted_messages)
@@ -120,6 +122,33 @@ def compact_agent_message_history(
         },
     )
     return compacted_messages
+
+
+def _retain_prompt_file_reference_blocks(
+    messages: list[ChatMessage],
+    compacted_messages: list[ChatMessage],
+) -> None:
+    reference_blocks: list[ContentBlock] = []
+    for message in messages:
+        if message.role != "user" or not isinstance(message.content, list):
+            continue
+        for index, block in enumerate(message.content):
+            if block.get("type") == "text" and str(block.get("text") or "").startswith(
+                PROMPT_FILE_REFERENCE_MARKER
+            ):
+                reference_blocks = [dict(item) for item in message.content[index:]]
+                break
+        if reference_blocks:
+            break
+    if not reference_blocks or len(compacted_messages) < 2:
+        return
+    user_message = compacted_messages[1]
+    base_blocks = (
+        [dict(item) for item in user_message.content]
+        if isinstance(user_message.content, list)
+        else [{"type": "text", "text": user_message.content}]
+    )
+    compacted_messages[1] = ChatMessage(role="user", content=[*base_blocks, *reference_blocks])
 
 
 def _reset_path_instruction_state(workspace: RunWorkspace, consumer_id: str) -> tuple[int, str | None]:

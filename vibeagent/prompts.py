@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from .agent_team_runtime import agent_teams_enabled
+from .prompt_file_mentions import PromptFileContext, prompt_file_reference_blocks
 from .prompt_next_action import get_next_action_instruction
 from .prompt_observations import format_observations
 from .prompt_system import build_effective_system_prompt
-from .agent_team_runtime import agent_teams_enabled
 from .types import ApprovalPolicy, ChatMessage, Observation
 from .workspace_core import RunWorkspace
 from .workspace import (
@@ -95,6 +96,7 @@ def build_messages(
     system_prompt: str | None = None,
     append_system_prompt: str | None = None,
     auto_memory: AutoMemorySnapshot | None = None,
+    prompt_file_context: PromptFileContext | None = None,
 ) -> list[ChatMessage]:
     # Assemble initial context for the model: goal and current workspace state.
     snapshot = read_workspace_snapshot(workspace)
@@ -182,7 +184,7 @@ def build_messages(
         ]
     )
     content = "\n\n".join(chunks)
-    return [
+    messages = [
         ChatMessage(
             role="system",
             content=build_effective_system_prompt(
@@ -193,3 +195,10 @@ def build_messages(
         ),
         ChatMessage(role="user", content=content),
     ]
+    reference_blocks = prompt_file_reference_blocks(prompt_file_context or PromptFileContext())
+    if reference_blocks:
+        messages[1] = ChatMessage(
+            role="user",
+            content=[{"type": "text", "text": content}, *reference_blocks],
+        )
+    return messages

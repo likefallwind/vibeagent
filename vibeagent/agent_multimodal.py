@@ -48,6 +48,15 @@ def strip_consumed_tool_images(messages: list[ChatMessage]) -> None:
         compacted: list[ContentBlock] = []
         changed = False
         for block in message.content:
+            if block.get("type") == "image":
+                compacted.append(
+                    {
+                        "type": "text",
+                        "text": "[prompt image payload consumed by model and removed from history]",
+                    }
+                )
+                changed = True
+                continue
             if block.get("type") != "tool_result" or not isinstance(block.get("content"), list):
                 compacted.append(block)
                 continue

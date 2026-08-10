@@ -11,6 +11,12 @@ Run from a clean worktree:
 npm run test:v1:release
 ```
 
+The release suite also covers bounded coding-prompt `@path` references for
+UTF-8 text and images, including workspace/sensitive-file rejection, metadata-
+only session persistence, one-turn image payload cleanup, and compaction-safe
+text context. Permission rule text is redacted before it becomes model-visible
+or enters session events while the original rule remains available for matching.
+
 That release gate expands to:
 
 ```sh

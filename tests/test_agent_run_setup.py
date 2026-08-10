@@ -72,6 +72,34 @@ class AgentRunSetupTests(unittest.TestCase):
         self.assertTrue(setup.workspace.strict_mcp_config)
         self.assertTrue(setup.project_permissions.allow_rules_trusted)
 
+    def test_prepare_agent_run_records_prompt_file_metadata_but_keeps_original_task(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-run-setup-") as base:
+            root = Path(base)
+            (root / "app.py").write_text("REFERENCE_BODY = 42\n", encoding="utf-8")
+            setup = prepare_agent_run(
+                "Review @app.py",
+                base_dir=root,
+                workspace=None,
+                prior_context=None,
+                approval_policy="ask",
+                task_metadata=None,
+                trust_project_permissions=False,
+                permission_overrides=None,
+                mcp_config_paths=(),
+                strict_mcp_config=False,
+                system_prompt=None,
+                append_system_prompt=None,
+            )
+            events_text = setup.workspace.session_dir.joinpath("events.jsonl").read_text(encoding="utf-8")
+            events = [json.loads(line) for line in events_text.splitlines()]
+
+        self.assertEqual(events[0]["type"], "task")
+        self.assertEqual(events[0]["task"], "Review @app.py")
+        loaded = next(event for event in events if event["type"] == "prompt_files_loaded")
+        self.assertEqual(loaded["files"], [{"path": "app.py", "kind": "text", "bytes": 20, "truncated": False}])
+        self.assertNotIn("REFERENCE_BODY", events_text)
+        self.assertIn("REFERENCE_BODY = 42", str(setup.messages[1].content))
+
 
 if __name__ == "__main__":
     unittest.main()

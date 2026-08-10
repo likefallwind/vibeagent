@@ -172,8 +172,20 @@ python -m vibeagent --mcp-config docs.mcp.json --strict-mcp-config "use only thi
 python -m vibeagent --cwd ../my-project --worktree feature-auth "implement authentication"
 python -m vibeagent --cwd ../my-project -w feature-auth
 python -m vibeagent --provider deepseek --model deepseek-reasoner --base-url https://api.deepseek.com "inspect this repo"
+python -m vibeagent 'review @src/app.py and @"docs/design notes.md"'
 printf "summarize the project risks\n" | python -m vibeagent -
 ```
+
+Coding prompts accept Claude-style `@path` file references. Unquoted paths end
+at whitespace; use `@"path with spaces.md"` or `@'path with spaces.md'` when
+needed. VibeAgent resolves at most ten unique references inside the active
+workspace before calling the model. UTF-8 text is limited to 20 KB per file and
+100 KB total; up to two supported images are limited to 5 MB each and 10 MB
+total. Missing, escaping, sensitive, binary, oversized, or excess references
+fail before the provider call. Session events retain the original task and
+bounded file metadata, never injected text or image bytes; image payloads are
+removed from model history after the first response while text context survives
+compaction.
 
 `--provider`, `--model MODEL` / `--model-name MODEL`, `--base-url`, `--api-key`,
 `--max-iterations`, `--command-timeout-ms`, `--max-output-tokens`,
@@ -1763,6 +1775,9 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   Each prompt includes the original task, optional resumed session context,
   scoped `AGENTS.md`/`CLAUDE.md` instructions, discovered project command hints with
   command `cwd` and executable availability, current run directory, workspace file snapshot, and previous observations.
+- `vibeagent/prompt_file_mentions.py`: resolves bounded `@path` text and image
+  references inside the active workspace, builds provider-neutral prompt blocks,
+  and emits content-free session metadata.
 - `vibeagent/agent_tool_registry.py`: defines the compact always-available tool
   set, preserves the canonical catalog order, and activates complete schemas
   returned by `tool_search` without changing parser or approval behavior.
