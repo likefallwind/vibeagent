@@ -58,6 +58,7 @@ from .types import (
     UserInputHandler,
 )
 from .workspace_core import RunWorkspace
+from .dynamic_agent_profiles import DynamicAgentProfile
 from .workspace_permissions import ProjectPermissions
 from .peer_runtime import PeerSessionRuntime
 
@@ -93,6 +94,7 @@ def run_agent(
     tool_names: frozenset[str] | None = None,
     workspace_observer: Callable[[RunWorkspace], None] | None = None,
     additional_directories: tuple[Path, ...] = (),
+    dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = (),
 ) -> AgentResult:
     setup = prepare_agent_run(
         task,
@@ -112,6 +114,7 @@ def run_agent(
         agent=agent,
         tool_names=tool_names,
         additional_directories=additional_directories,
+        dynamic_agent_profiles=dynamic_agent_profiles,
     )
     if workspace_observer is not None:
         workspace_observer(setup.workspace)

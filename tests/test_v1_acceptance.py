@@ -42,6 +42,7 @@ DOGFOOD_TESTS = {
     "test_v1_agent_can_apply_claude_multi_edit_and_commit",
 }
 CLI_SMOKE_TESTS = {
+    "test_v1_cli_json_can_delegate_with_dynamic_agent_before_repair_and_commit",
     "test_v1_cli_dont_ask_completes_preapproved_repair_without_prompting",
     "test_v1_cli_tools_restriction_completes_repair_without_extra_tools",
     "test_v1_cli_fallback_model_completes_repair_after_primary_overload",
@@ -161,7 +162,11 @@ EXPECTED_GATES = {
     },
     "VA1-DELEGATE": {
         "tools": {"delegate_task", "Task", "Agent"},
-        "tests": {"test_parent_agent_receives_subagent_summary_as_tool_result"},
+        "tests": {
+            "test_parent_agent_receives_subagent_summary_as_tool_result",
+            "test_dynamic_profile_controls_delegated_prompt_mode_and_tools",
+            "test_v1_cli_json_can_delegate_with_dynamic_agent_before_repair_and_commit",
+        },
     },
     "VA1-WORKFLOW": {
         "tools": set(),

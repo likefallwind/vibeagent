@@ -27,6 +27,7 @@ from .cli_stream_output import JsonEventStream
 from .commands import get_compact_context, get_resume_context
 from .providers import create_chat_client
 from .types import ApprovalPolicy
+from .dynamic_agent_profiles import DynamicAgentProfile
 
 
 def run_one_shot(
@@ -34,6 +35,7 @@ def run_one_shot(
     request_mode: str,
     approval_policy: ApprovalPolicy,
     agent: str | None = None,
+    dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = (),
     session_name: str | None = None,
     trust_project_permissions: bool = False,
     resume_arg: str | None = None,
@@ -147,6 +149,7 @@ def run_one_shot(
             provider_env=provider_env,
             approval_policy=approval_policy,
             agent=agent,
+            dynamic_agent_profiles=dynamic_agent_profiles,
             session_name=session_name,
             trust_project_permissions=trust_project_permissions,
             permission_overrides=permission_overrides,

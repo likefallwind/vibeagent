@@ -17,6 +17,7 @@ from vibeagent.workspace_core import create_local_workspace
 def _args(**overrides) -> Namespace:
     values = {
         "agent": None,
+        "agents": None,
         "add_dir": [],
         "system_prompt": None,
         "system_prompt_file": None,
@@ -45,6 +46,22 @@ def _args(**overrides) -> Namespace:
 
 
 class CliStartupContextTests(unittest.TestCase):
+    def test_dynamic_agents_are_validated_for_interactive_startup(self) -> None:
+        context = resolve_interactive_startup_context(
+            _args(
+                agents=(
+                    '{"reviewer":{"description":"Reviews code",'
+                    '"prompt":"Inspect evidence only","tools":["Read"]}}'
+                )
+            ),
+            Path.cwd(),
+            get_resume_context_func=Mock(),
+            get_compact_context_func=Mock(),
+        )
+
+        self.assertEqual(len(context.dynamic_agent_profiles), 1)
+        self.assertEqual(context.dynamic_agent_profiles[0].name, "reviewer")
+
     def test_name_creates_a_pending_interactive_session(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-startup-name-") as base:
             root = Path(base)

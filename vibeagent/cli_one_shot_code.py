@@ -40,6 +40,7 @@ from .structured_output import StructuredOutputResult, generate_structured_outpu
 from .types import ApprovalPolicy, ChatMessage
 from .workspace_core import create_local_workspace
 from .workspace_permissions import ProjectPermissions
+from .dynamic_agent_profiles import DynamicAgentProfile
 
 
 def run_one_shot_code(
@@ -50,6 +51,7 @@ def run_one_shot_code(
     provider_env: dict[str, str | None],
     approval_policy: ApprovalPolicy,
     agent: str | None = None,
+    dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = (),
     session_name: str | None = None,
     trust_project_permissions: bool,
     permission_overrides: ProjectPermissions | None,
@@ -166,6 +168,7 @@ def run_one_shot_code(
         execution_config=execution_config,
         approval_policy=approval_policy,
         agent=agent,
+        dynamic_agent_profiles=dynamic_agent_profiles,
         tool_names=tool_names,
         trust_project_permissions=trust_project_permissions,
         permission_overrides=permission_overrides,

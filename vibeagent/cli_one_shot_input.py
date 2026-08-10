@@ -18,6 +18,7 @@ from .cli_system_prompt_files import resolve_system_prompt_inputs
 from .cli_additional_directories import resolve_additional_directories
 from .structured_output import parse_structured_output_schema
 from .cli_tool_restrictions import parse_cli_tool_names
+from .dynamic_agent_profiles import parse_dynamic_agent_profiles
 
 
 def resolve_task_text(parts: Sequence[str], input_format: str = "text") -> str:
@@ -36,6 +37,8 @@ def resolve_task_input(parts: Sequence[str], input_format: str = "text") -> Stre
 
 
 def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, object]:
+    if args.chat and args.agents is not None:
+        raise ValueError("--agents is available for coding sessions only and cannot be combined with --chat.")
     task_input = resolve_task_input(args.task, args.input_format)
     additional_directories = resolve_additional_directories(args.add_dir, invocation_root=Path.cwd())
     system_prompt, append_system_prompt = resolve_system_prompt_inputs(
@@ -55,6 +58,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "request_mode": "chat" if args.chat else "code",
         "approval_policy": args.approval,
         "agent": args.agent,
+        "dynamic_agent_profiles": parse_dynamic_agent_profiles(args.agents),
         "session_name": args.name,
         "trust_project_permissions": args.trust_project_permissions,
         "resume_arg": resolve_input_resume_arg(

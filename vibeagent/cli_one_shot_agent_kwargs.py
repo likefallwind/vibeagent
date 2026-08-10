@@ -9,6 +9,7 @@ from .types import ApprovalPolicy
 from .workspace_core import RunWorkspace
 from .workspace_permissions import ProjectPermissions
 from .peer_runtime import PeerSessionRuntime
+from .dynamic_agent_profiles import DynamicAgentProfile
 
 
 def build_one_shot_agent_kwargs(
@@ -29,6 +30,7 @@ def build_one_shot_agent_kwargs(
     system_prompt: str | None,
     append_system_prompt: str | None,
     additional_directories: tuple[Path, ...] = (),
+    dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = (),
     task_metadata: dict[str, object] | None,
     workspace: RunWorkspace | None = None,
     peer_runtime: PeerSessionRuntime | None = None,
@@ -55,6 +57,7 @@ def build_one_shot_agent_kwargs(
         "system_prompt": system_prompt,
         "append_system_prompt": append_system_prompt,
         "task_metadata": task_metadata,
+        "dynamic_agent_profiles": dynamic_agent_profiles,
     }
     if additional_directories:
         kwargs["additional_directories"] = additional_directories

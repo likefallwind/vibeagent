@@ -803,6 +803,57 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn("PROFILED_CALC_REVIEWER_INSTRUCTION", first_subagent_prompt)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add after profiled delegation")
 
+    def test_v1_cli_json_can_delegate_with_dynamic_agent_before_repair_and_commit(self) -> None:
+        dynamic_agents = json.dumps(
+            {
+                "calc-reviewer": {
+                    "description": "Reviews calculator failures",
+                    "prompt": "DYNAMIC_CALC_REVIEWER_INSTRUCTION: inspect calculator code and test evidence only.",
+                    "mode": "explore",
+                    "tools": ["Read"],
+                    "maxTurns": 2,
+                }
+            }
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-dynamic-agent-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(profiled_delegated_dogfood_responses())
+            exit_code, payload = _run_json_cli(
+                client,
+                [
+                    "--output-format",
+                    "json",
+                    "--approval",
+                    "allow",
+                    "--agents",
+                    dynamic_agents,
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "15",
+                    "Delegate the initial investigation to the dynamic calc-reviewer, then fix and commit.",
+                ],
+            )
+            events = _session_events(root, payload["runId"])
+            events_text = "\n".join(json.dumps(event, sort_keys=True) for event in events)
+            first_subagent_prompt = str(client.messages[1][0].content)
+            commit_state = _calculator_commit_state(root)
+            agent_file_exists = root.joinpath(".claude", "agents", "calc-reviewer.md").exists()
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload)
+        self.assertIn('"agent": "calc-reviewer"', events_text)
+        self.assertIn('"type": "dynamic_agents_loaded"', events_text)
+        self.assertIn('"names": ["calc-reviewer"]', events_text)
+        self.assertNotIn("DYNAMIC_CALC_REVIEWER_INSTRUCTION", events_text)
+        self.assertIn('"profile_skills": []', events_text)
+        self.assertIn('"name": "Read"', events_text)
+        self.assertIn("Profiled review", events_text)
+        self.assertIn("DYNAMIC_CALC_REVIEWER_INSTRUCTION", first_subagent_prompt)
+        self.assertFalse(agent_file_exists)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add after profiled delegation")
+
     def test_v1_cli_json_can_delegate_code_subagent_repair_and_commit(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-cli-code-delegate-smoke-") as base:
             root = Path(base)

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import subprocess
+from dataclasses import replace
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -15,6 +17,7 @@ from vibeagent.subagent_transcripts import SubagentWorktreeRecord, read_subagent
 from vibeagent.subagent_worktrees import SubagentWorktreeError, prepare_subagent_worktree
 from vibeagent.types import ApprovalDecision, AssistantResponse, ContentBlock
 from vibeagent.workspace import create_run_workspace
+from vibeagent.dynamic_agent_profiles import parse_dynamic_agent_profiles
 
 
 class IsolationClient:
@@ -156,6 +159,63 @@ class SubagentWorktreeIsolationTests(unittest.TestCase):
         self.assertTrue(result.worktree_preserved)
         self.assertEqual(isolated_content, "from_profile = True\n")
         self.assertFalse(parent_has_file)
+
+    def test_dynamic_agent_profile_can_require_worktree_isolation(self) -> None:
+        profiles = parse_dynamic_agent_profiles(
+            json.dumps(
+                {
+                    "isolated-writer": {
+                        "description": "Writes away from the parent",
+                        "prompt": "DYNAMIC_ISOLATED_WRITER_INSTRUCTION",
+                        "mode": "code",
+                        "tools": ["Write"],
+                        "isolation": "worktree",
+                    }
+                }
+            )
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-isolated-agent-") as base:
+            root = Path(base)
+            _repository(root)
+            workspace = replace(
+                create_run_workspace(root, run_id="dynamic-profile-isolation"),
+                dynamic_agent_profiles=profiles,
+            )
+            client = IsolationClient(
+                [
+                    [
+                        {
+                            "type": "tool_call",
+                            "id": "write-profile",
+                            "name": "Write",
+                            "input": {
+                                "file_path": "dynamic-isolated.py",
+                                "content": "from_dynamic_profile = True\n",
+                            },
+                        }
+                    ],
+                    [{"type": "text", "text": "Dynamic isolated edit complete."}],
+                ]
+            )
+            result = _execute(
+                workspace,
+                parse_tool_action(
+                    "Agent",
+                    {"prompt": "Create dynamic-isolated.py", "subagent_type": "isolated-writer"},
+                ),
+                client,
+            )
+            isolated_content = Path(result.worktree_path or "").joinpath(
+                "dynamic-isolated.py"
+            ).read_text(encoding="utf-8")
+            parent_has_file = root.joinpath("dynamic-isolated.py").exists()
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.isolation, "worktree")
+        self.assertTrue(result.worktree_preserved)
+        self.assertEqual(isolated_content, "from_dynamic_profile = True\n")
+        self.assertFalse(parent_has_file)
+        self.assertIn("DYNAMIC_ISOLATED_WRITER_INSTRUCTION", str(client.messages[0][0].content))
 
     def test_worktree_isolation_fails_closed_outside_git(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-isolated-agent-") as base:

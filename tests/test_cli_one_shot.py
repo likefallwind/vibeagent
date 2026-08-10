@@ -177,6 +177,42 @@ class CliOneShotTests(unittest.TestCase):
         self.assertIn("Cannot read --system-prompt-file", payload["error"])
         create_client.assert_not_called()
 
+    def test_main_reports_dynamic_agent_errors_before_provider_creation(self) -> None:
+        stdout = io.StringIO()
+        create_client = Mock()
+
+        with (
+            patch("vibeagent.cli.create_chat_client", create_client),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--json", "--agents", '{"reviewer":{"prompt":"missing description"}}', "inspect"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 2)
+        self.assertIn("Invalid --agents profile", payload["error"])
+        create_client.assert_not_called()
+
+    def test_main_rejects_dynamic_agents_in_one_shot_chat_mode(self) -> None:
+        stdout = io.StringIO()
+        create_client = Mock()
+
+        with (
+            patch("vibeagent.cli.create_chat_client", create_client),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(
+                [
+                    "--chat",
+                    "--agents",
+                    '{"reviewer":{"description":"Review","prompt":"Inspect"}}',
+                    "hello",
+                ]
+            )
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("coding sessions only", stdout.getvalue())
+        create_client.assert_not_called()
+
     def test_main_reports_missing_additional_directory_before_provider_creation(self) -> None:
         stdout = io.StringIO()
         create_client = Mock()

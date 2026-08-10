@@ -160,6 +160,40 @@ class CliInteractiveStateTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(run_agent.call_args.kwargs["agent"], "reviewer")
 
+    def test_main_interactive_dynamic_agents_are_forwarded_to_each_code_turn(self) -> None:
+        result = AgentResult(
+            success=True,
+            message="done",
+            run_dir=Path(tempfile.gettempdir()),
+            run_id="test-run",
+            iterations=1,
+            observations=[],
+            steps=[],
+        )
+        run_agent = Mock(return_value=result)
+        definitions = json.dumps(
+            {
+                "reviewer": {
+                    "description": "Reviews code",
+                    "prompt": "Inspect evidence only",
+                    "tools": ["Read"],
+                }
+            }
+        )
+
+        with (
+            patch("builtins.input", side_effect=["inspect code", "/exit"]),
+            patch("vibeagent.cli.create_chat_client", return_value=object()),
+            patch("vibeagent.cli.run_agent", run_agent),
+            redirect_stdout(io.StringIO()),
+        ):
+            exit_code = main(["--agents", definitions])
+
+        self.assertEqual(exit_code, 0)
+        profiles = run_agent.call_args.kwargs["dynamic_agent_profiles"]
+        self.assertEqual(len(profiles), 1)
+        self.assertEqual(profiles[0].name, "reviewer")
+
     def test_main_interactive_prompt_files_are_resolved_before_changing_cwd(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             root = Path(base)

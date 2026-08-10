@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from .dynamic_agent_profiles import DynamicAgentProfile
+
 from .agent_runtime_utils import append_session_event, compact_session_context
 from .agent_conversation import continue_conversation
 from .agent_tool_registry import activate_tools_for_run, initialize_agent_tools
@@ -68,6 +70,7 @@ def prepare_agent_run(
     agent: str | None = None,
     tool_names: frozenset[str] | None = None,
     additional_directories: tuple[Path, ...] = (),
+    dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = (),
 ) -> AgentRunSetup:
     current_workspace = _prepare_workspace(
         base_dir,
@@ -76,6 +79,7 @@ def prepare_agent_run(
         strict_mcp_config,
         trust_project_permissions,
         additional_directories,
+        dynamic_agent_profiles,
     )
     main_selection = resolve_main_agent_selection(current_workspace, agent)
     main_profile = load_main_agent_profile(
@@ -115,6 +119,15 @@ def prepare_agent_run(
     if prior_messages:
         messages = continue_conversation(prior_messages, messages)
     _append_task_event(current_workspace, task, approval_policy, prior_context, task_metadata)
+    if current_workspace.dynamic_agent_profiles:
+        append_session_event(
+            current_workspace.session_dir,
+            "dynamic_agents_loaded",
+            {
+                "count": len(current_workspace.dynamic_agent_profiles),
+                "names": [profile.name for profile in current_workspace.dynamic_agent_profiles],
+            },
+        )
     if prior_messages:
         append_session_event(
             current_workspace.session_dir,
@@ -184,6 +197,7 @@ def _prepare_workspace(
     strict_mcp_config: bool,
     trust_project_permissions: bool,
     additional_directories: tuple[Path, ...],
+    dynamic_agent_profiles: tuple[DynamicAgentProfile, ...],
 ) -> RunWorkspace:
     current_workspace = workspace or create_run_workspace(
         base_dir,
@@ -204,6 +218,11 @@ def _prepare_workspace(
         current_workspace = replace(current_workspace, strict_mcp_config=strict_mcp_config)
     if trust_project_permissions and not current_workspace.project_config_trusted:
         current_workspace = replace(current_workspace, project_config_trusted=True)
+    if dynamic_agent_profiles and dynamic_agent_profiles != current_workspace.dynamic_agent_profiles:
+        current_workspace = replace(
+            current_workspace,
+            dynamic_agent_profiles=dynamic_agent_profiles,
+        )
     return current_workspace
 
 

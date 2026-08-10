@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 import tempfile
 import threading
 import time
@@ -24,6 +25,7 @@ from vibeagent.types import (
 from vibeagent.workspace import create_run_workspace
 from vibeagent.workspace_hooks import ProjectHooks
 from vibeagent.workspace_permissions import ProjectPermissions
+from vibeagent.dynamic_agent_profiles import parse_dynamic_agent_profiles
 
 
 class BlockingDelegateClient:
@@ -140,6 +142,67 @@ class BackgroundDelegateTests(unittest.TestCase):
         self.assertTrue(completed.result.ok)
         self.assertEqual(completed.result.mode, "code")
         self.assertEqual(completed.result.summary, "Profile code task completed.")
+
+    def test_background_agent_inherits_dynamic_profile(self) -> None:
+        profiles = parse_dynamic_agent_profiles(
+            json.dumps(
+                {
+                    "reviewer": {
+                        "description": "Reviews in background",
+                        "prompt": "DYNAMIC_BACKGROUND_REVIEWER_INSTRUCTION",
+                        "tools": ["Read"],
+                    }
+                }
+            )
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-background-profile-") as base:
+            workspace = replace(
+                create_run_workspace(Path(base)),
+                dynamic_agent_profiles=profiles,
+            )
+            client = SequenceDelegateClient(
+                [[{"type": "text", "text": "Dynamic background review complete."}]]
+            )
+            wrapped = execute_special_tool_action(
+                workspace,
+                DelegateTaskAction(
+                    type="delegate_task",
+                    task="Inspect only",
+                    agent="reviewer",
+                    run_in_background=True,
+                ),
+                client,
+                steps=[],
+                observations=[],
+                iteration=1,
+                tool_name="Task",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=None,
+                approval_policy="ask",
+                user_input_handler=None,
+                hooks=ProjectHooks(),
+                permissions=ProjectPermissions(),
+                execute_action_safely_func=_unexpected_execute_action_safely,
+            )
+            completed = execute_action(
+                workspace,
+                TaskOutputAction(
+                    type="task_output",
+                    task_id=wrapped.observation.task_id or "",
+                    block=True,
+                    timeout_ms=2_000,
+                ),
+            )
+
+        self.assertTrue(completed.completed)
+        self.assertIsNotNone(completed.result)
+        self.assertEqual(completed.result.agent, "reviewer")
+        self.assertIn("DYNAMIC_BACKGROUND_REVIEWER_INSTRUCTION", str(client.messages[0][0].content))
 
     def test_background_task_can_be_polled_and_collected(self) -> None:
         client = BlockingDelegateClient()

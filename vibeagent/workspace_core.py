@@ -4,9 +4,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 import re
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from .session_id import is_valid_session_id
+
+if TYPE_CHECKING:
+    from .dynamic_agent_profiles import DynamicAgentProfile
 
 
 @dataclass(frozen=True)
@@ -21,6 +25,7 @@ class RunWorkspace:
     memory_scope: str | None = None
     memory_namespace: str | None = None
     additional_roots: tuple[Path, ...] = ()
+    dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = ()
 
 
 @dataclass(frozen=True)

@@ -54,6 +54,17 @@ def read_project_agent(workspace: RunWorkspace, name: str) -> dict[str, object]:
         raise ValueError(f"Project agent profile {normalized!r} is unavailable: {detail}")
 
     agent = available[0]
+    if agent["source"] == "cli":
+        profile = next(
+            profile for profile in workspace.dynamic_agent_profiles if profile.name == normalized
+        )
+        return {
+            **profile.metadata(),
+            **agent,
+            "prompt": profile.prompt,
+            "bytes": len(profile.prompt.encode("utf-8")),
+            "message": f"Loaded invocation-scoped agent profile {normalized!r} from --agents.",
+        }
     path = workspace.root / str(agent["path"])
     raw = _read_agent_bytes(path)
     content = raw.decode("utf-8")
@@ -106,7 +117,16 @@ def format_project_agent_catalog(workspace: RunWorkspace, max_agents: int = 20) 
 
 
 def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]:
-    discovered: list[dict[str, object]] = []
+    discovered: list[dict[str, object]] = [
+        {
+            **profile.metadata(),
+            "path": f"<cli --agents:{profile.name}>",
+            "source": "cli",
+            "available": True,
+            "message": "Available from --agents for this invocation.",
+        }
+        for profile in workspace.dynamic_agent_profiles
+    ]
     home = user_home()
     roots = [
         *((workspace.root / relative_root, source) for relative_root, source in AGENT_ROOTS),
@@ -220,6 +240,8 @@ def _agent_files(root: Path) -> list[Path]:
 
 
 def _agent_source_priority(source: str) -> int:
+    if source == "cli":
+        return 0
     if source in {"claude", "agents"}:
         return 1
     if source == "user":

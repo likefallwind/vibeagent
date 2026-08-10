@@ -27,6 +27,22 @@ MAX_AGENT_PROFILE_SKILLS = 10
 MAX_AGENT_TURNS = 50
 AGENT_MEMORY_SCOPES = frozenset({"user", "project", "local"})
 KNOWN_TOOL_NAMES = frozenset(str(tool["name"]) for tool in AGENT_TOOL_DEFINITIONS)
+DYNAMIC_AGENT_FIELDS = frozenset(
+    {
+        "name",
+        "description",
+        "prompt",
+        "model",
+        "effort",
+        "mode",
+        "tools",
+        "disallowedTools",
+        "maxTurns",
+        "skills",
+        "memory",
+        "isolation",
+    }
+)
 
 
 def parse_agent_content(path: Path, content: str) -> tuple[dict[str, object], str]:
@@ -48,8 +64,37 @@ def parse_agent_content(path: Path, content: str) -> tuple[dict[str, object], st
             }
         ),
     )
-    name = str(metadata.get("name", "")).strip()
-    description = str(metadata.get("description", "")).strip()
+    return _normalize_agent_profile(path.stem, metadata, body, require_matching_name=True)
+
+
+def parse_agent_mapping(name: str, payload: dict[str, object]) -> tuple[dict[str, object], str]:
+    unknown = sorted(str(field) for field in payload if field not in DYNAMIC_AGENT_FIELDS)
+    if unknown:
+        raise ValueError(f"Agent profile contains unknown field(s): {', '.join(unknown)}.")
+    declared_name = payload.get("name")
+    if declared_name is not None and declared_name != name:
+        raise ValueError("Agent profile name must match its --agents object key.")
+    prompt = payload.get("prompt")
+    if not isinstance(prompt, str):
+        raise ValueError("Agent profile requires a string prompt field.")
+    metadata = {field: value for field, value in payload.items() if field != "prompt"}
+    metadata["name"] = name
+    return _normalize_agent_profile(name, metadata, prompt, require_matching_name=False)
+
+
+def _normalize_agent_profile(
+    expected_name: str,
+    metadata: dict[str, object],
+    body: str,
+    *,
+    require_matching_name: bool,
+) -> tuple[dict[str, object], str]:
+    raw_name = metadata.get("name", "")
+    raw_description = metadata.get("description", "")
+    if not isinstance(raw_name, str) or not isinstance(raw_description, str):
+        raise ValueError("Agent profile name and description fields must be strings.")
+    name = raw_name.strip()
+    description = raw_description.strip()
     mode = str(metadata.get("mode", "explore")).strip().lower()
     model = _parse_model(metadata.get("model"))
     effort = _parse_effort(metadata.get("effort"))
@@ -57,8 +102,8 @@ def parse_agent_content(path: Path, content: str) -> tuple[dict[str, object], st
         raise ValueError("Agent profile frontmatter requires non-empty name and description fields.")
     if not AGENT_NAME_PATTERN.fullmatch(name):
         raise ValueError("Agent profile frontmatter name is invalid.")
-    if name != path.stem:
-        raise ValueError(f"Agent profile name {name!r} does not match filename {path.stem!r}.")
+    if require_matching_name and name != expected_name:
+        raise ValueError(f"Agent profile name {name!r} does not match filename {expected_name!r}.")
     if mode not in {"explore", "code"}:
         raise ValueError("Agent profile mode must be explore or code.")
     tools = _parse_tool_names(metadata.get("tools"), "tools")
@@ -174,7 +219,15 @@ def _parse_isolation(value: object) -> str | None:
 
 
 def _parse_string_list(value: object, field: str) -> list[str] | None:
-    if value is None or not str(value).strip():
+    if value is None:
+        return None
+    if isinstance(value, list):
+        if not all(isinstance(item, str) for item in value):
+            raise ValueError(f"Agent profile {field} list must contain strings only.")
+        return list(value)
+    if not isinstance(value, str):
+        raise ValueError(f"Agent profile {field} must be a string or string list.")
+    if not value.strip():
         return None
     text = str(value).strip()
     if text.startswith("["):
@@ -224,4 +277,4 @@ def _validate_known_tools(tools: frozenset[str], field: str) -> None:
         raise ValueError(f"Agent profile {field} references unknown tool(s): {', '.join(unknown)}.")
 
 
-__all__ = ["AGENT_NAME_PATTERN", "parse_agent_content"]
+__all__ = ["AGENT_NAME_PATTERN", "parse_agent_content", "parse_agent_mapping"]

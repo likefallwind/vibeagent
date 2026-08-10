@@ -232,6 +232,14 @@ paths are skipped instead of expanding the workspace boundary.
 `--model-retries`, `--model-retry-delay-ms`, and `--model-timeout-ms` are
 per-command overrides; they do not rewrite environment variables or local config
 files.
+`--agents JSON` defines up to 100 invocation-scoped agent profiles for coding
+sessions. The value is an object keyed by agent name; each definition uses
+the normal profile fields plus a required `prompt`, for example
+`--agents '{"reviewer":{"description":"Reviews code","prompt":"Inspect evidence only","tools":["Read"]}}'`.
+Dynamic profiles use the same mode, model, effort, tool, skill, memory, turn,
+and isolation validation as VibeAgent's file-backed `.claude/agents` profiles,
+override a same-name file profile for that invocation, propagate to delegated
+runtimes, and do not create agent profile files.
 For Claude-style scripting compatibility, `-p` / `--print` runs a one-shot task
 and prints only the final text in normal text output, `-r` is an alias for
 `--resume`, `--session-id RUN_ID` is an alias for `--resume RUN_ID`,

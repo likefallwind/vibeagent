@@ -23,6 +23,11 @@ def add_one_shot_arguments(
         help="Run coding turns with an exact project or plugin main agent profile.",
     )
     parser.add_argument(
+        "--agents",
+        metavar="JSON",
+        help="Define invocation-scoped subagent profiles as a JSON object keyed by agent name.",
+    )
+    parser.add_argument(
         "--name",
         "-n",
         metavar="NAME",

@@ -21,6 +21,7 @@ from .session_names import name_session, normalize_session_name
 from .session_conversation import load_session_conversation
 from .types import ChatMessage
 from .workspace_core import RunWorkspace, create_local_workspace, create_run_workspace
+from .dynamic_agent_profiles import DynamicAgentProfile, parse_dynamic_agent_profiles
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,7 @@ class InteractiveStartupContext:
     pending_workspace: RunWorkspace | None = None
     branch_source_run_id: str | None = None
     conversation: tuple[ChatMessage, ...] = ()
+    dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = ()
 
 
 def resolve_interactive_startup_context(
@@ -46,6 +48,7 @@ def resolve_interactive_startup_context(
     get_compact_context_func=get_compact_context,
 ) -> InteractiveStartupContext:
     selected_agent = getattr(args, "agent", None)
+    dynamic_agent_profiles = parse_dynamic_agent_profiles(getattr(args, "agents", None))
     additional_directories = resolve_additional_directories(args.add_dir, invocation_root=Path.cwd())
     system_prompt, append_system_prompt = resolve_system_prompt_inputs(
         system_prompt=args.system_prompt,
@@ -59,6 +62,7 @@ def resolve_interactive_startup_context(
         "system_prompt": system_prompt,
         "append_system_prompt": append_system_prompt,
         "additional_directories": additional_directories,
+        "dynamic_agent_profiles": dynamic_agent_profiles,
     }
     session_resume = args.resume if args.resume is not None else args.session_id
     if session_resume is None and args.compact is None:

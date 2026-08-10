@@ -60,6 +60,7 @@ from .goal_state import (
 from .interactive_shell import SHELL_MODE_USAGE, parse_shell_mode_input, run_interactive_shell
 from .providers import create_chat_client as default_create_chat_client
 from .types import ApprovalPolicy, ChatMessage
+from .dynamic_agent_profiles import DynamicAgentProfile
 from .scheduled_task_store import collect_due_scheduled_tasks, scheduled_tasks_enabled
 from .session_usage import summarize_run_usage
 from .session_names import transfer_session_name
@@ -99,6 +100,7 @@ def run_interactive_loop(
     initial_resume_context: str | None = None,
     initial_resume_message: str | None = None,
     initial_agent: str | None = None,
+    initial_dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = (),
     initial_system_prompt: str | None = None,
     initial_append_system_prompt: str | None = None,
     initial_additional_directories: tuple[Path, ...] = (),
@@ -188,6 +190,7 @@ def run_interactive_loop(
                 workspace=active_workspace,
                 peer_runtime=peer_runtime,
                 agent=initial_agent,
+                dynamic_agent_profiles=initial_dynamic_agent_profiles,
                 additional_directories=additional_directories,
                 **panel_kwargs,
             )
@@ -298,6 +301,11 @@ def run_interactive_loop(
             if resume_run_id is not None
             else create_run_workspace(Path.cwd(), additional_roots=additional_directories)
         )
+        if initial_dynamic_agent_profiles:
+            workspace = replace(
+                workspace,
+                dynamic_agent_profiles=initial_dynamic_agent_profiles,
+            )
         resume_run_id = workspace.run_id
         hooks = read_project_hooks(workspace)
         permissions = read_project_permissions(workspace)

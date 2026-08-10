@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from dataclasses import replace
+import json
 from pathlib import Path
 from threading import Event
 import tempfile
 import unittest
 from unittest.mock import patch
 
+from tests.test_project_agents import ProfileClient
 from vibeagent.config_execution import ExecutionConfig
+from vibeagent.dynamic_agent_profiles import parse_dynamic_agent_profiles
 from vibeagent.dynamic_workflow_agent import background_workflow_approval_handler, execute_workflow_agent_request
 from vibeagent.dynamic_workflow_types import WorkflowAgentRequest
 from vibeagent.types import ApprovalDecision, ApprovalRequest, DelegateTaskObservation
@@ -78,6 +82,51 @@ class DynamicWorkflowAgentTests(unittest.TestCase):
             self.assertEqual(execute.call_args.kwargs["subagent_id"], "wf-123456789abc-call-0007")
             self.assertEqual(execute.call_args.kwargs["approval_policy"], "ask")
             self.assertEqual(result["summary"], "done")
+
+    def test_request_can_select_invocation_scoped_agent_profile(self) -> None:
+        profiles = parse_dynamic_agent_profiles(
+            json.dumps(
+                {
+                    "reviewer": {
+                        "description": "Reviews workflow output",
+                        "prompt": "DYNAMIC_WORKFLOW_REVIEW_INSTRUCTION",
+                        "mode": "explore",
+                        "tools": ["Read"],
+                    }
+                }
+            )
+        )
+        client = ProfileClient([[{"type": "text", "text": "Workflow review complete."}]])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workflow-agent-") as base:
+            workspace = replace(
+                create_run_workspace(Path(base), run_id="run-1"),
+                dynamic_agent_profiles=profiles,
+            )
+            request = WorkflowAgentRequest(
+                call_id="call-0007",
+                workflow_id="workflow-123456789abc",
+                task="review the workflow output",
+                mode="code",
+                agent="reviewer",
+                max_iterations=2,
+            )
+            result = execute_workflow_agent_request(
+                workspace,
+                request,
+                client,
+                execution_config=ExecutionConfig(),
+                approval_handler=None,
+                approval_policy="ask",
+                hooks=ProjectHooks(),
+                permissions=ProjectPermissions(),
+                cancel_requested=lambda: False,
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["agent"], "reviewer")
+        self.assertEqual(result["mode"], "explore")
+        self.assertIn("DYNAMIC_WORKFLOW_REVIEW_INSTRUCTION", str(client.messages[0][0].content))
+        self.assertEqual(set(client.tool_names[0]), {"Read", "finish", "read_file"})
 
 
 if __name__ == "__main__":
