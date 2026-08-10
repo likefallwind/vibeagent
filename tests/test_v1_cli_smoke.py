@@ -205,6 +205,59 @@ def _assert_clean_notebook_commit(
 
 
 class V1CliSmokeTests(unittest.TestCase):
+    def test_v1_cli_fallback_model_completes_repair_after_primary_overload(self) -> None:
+        fallback = DogfoodClient(v1_dogfood_responses())
+
+        class PrimaryOverloadedClient:
+            model = "primary"
+
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def complete(self, *args, **kwargs):
+                self.calls += 1
+                error = RuntimeError("primary overloaded")
+                error.status = 529
+                raise error
+
+            def with_agent_profile(self, *, model, effort):
+                self.assert_model = model
+                if model != "backup" or effort is not None:
+                    raise AssertionError("unexpected fallback configuration")
+                return fallback
+
+        primary = PrimaryOverloadedClient()
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-fallback-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            exit_code, payload = _run_json_cli(
+                primary,
+                [
+                    "-p",
+                    "--output-format",
+                    "json",
+                    "--fallback-model",
+                    "backup",
+                    "--approval",
+                    "allow",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "14",
+                    "Fix the calculator test failure and commit the verified fix.",
+                ],
+            )
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload, num_turns=11)
+        self.assertEqual(primary.calls, 1)
+        self.assertEqual(len(fallback.messages), 11)
+        self.assertEqual(payload["subtype"], "success")
+        self.assertTrue(payload["modelFallback"]["activated"])
+        self.assertEqual(payload["modelFallback"]["uses"], 11)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add")
+
     def test_v1_cli_budgeted_repair_verify_commit_and_report_cost(self) -> None:
         responses = v1_dogfood_responses()
         client = DogfoodClient(

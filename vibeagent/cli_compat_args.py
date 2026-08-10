@@ -64,6 +64,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         type=positive_decimal,
         help="Stop a print-mode coding task when configured provider cost reaches this USD amount.",
     )
+    parser.add_argument(
+        "--fallback-model",
+        metavar="MODEL",
+        help="Use this model after a primary-model overload in print-mode coding tasks.",
+    )
 
 
 def normalize_compat_arguments(args: argparse.Namespace) -> argparse.Namespace:

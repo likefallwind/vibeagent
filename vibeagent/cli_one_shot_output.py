@@ -16,6 +16,7 @@ from .cli_result_payloads import (
 from .cli_stream_output import JsonEventStream
 from .config import resolve_cost_rates
 from .model_budget import ModelBudgetExceededError, ModelCostBudget
+from .model_fallback import ModelFallbackState
 from .session_usage import build_run_cost_report, build_run_usage_report
 from .structured_output import StructuredOutputResult
 
@@ -194,6 +195,19 @@ def apply_model_budget_result(
     payload["subtype"] = subtype
     payload["budgetError"] = str(budget.failure)
     payload["budget_error"] = str(budget.failure)
+
+
+def apply_model_fallback_result(
+    payload: dict[str, object],
+    fallback: ModelFallbackState | None,
+) -> None:
+    if fallback is None:
+        return
+    report = fallback.report()
+    payload["modelFallback"] = report
+    payload["model_fallback"] = report
+    if payload.get("success") is True:
+        payload.setdefault("subtype", "success")
 
 
 def one_shot_code_exit_code(

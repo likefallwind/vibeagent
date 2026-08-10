@@ -6,6 +6,7 @@ from threading import Lock
 from typing import Any, Mapping
 
 from .config import CostRates, resolve_cost_rates
+from .model_fallback import extract_model_fallback_event
 from .session_costs import decimal_usd_string, estimate_token_costs
 from .types import AssistantResponse, ChatClient, ChatMessage, ModelUsage, ToolSpec
 
@@ -40,9 +41,16 @@ class BudgetUsage:
 
 
 class TerminalModelRequestError(RuntimeError):
-    def __init__(self, message: str, *, usage: ModelUsage | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        usage: ModelUsage | None = None,
+        model_fallback_event: dict[str, object] | None = None,
+    ) -> None:
         super().__init__(message)
         self.usage = usage
+        self.model_fallback_event = model_fallback_event
 
     def event_details(self) -> dict[str, object]:
         return {"terminal": True, **({"usage": _usage_payload(self.usage)} if self.usage else {})}
@@ -55,6 +63,7 @@ class ModelBudgetExceededError(TerminalModelRequestError):
         maximum_usd: Decimal,
         estimated_cost_usd: Decimal,
         usage: ModelUsage | None = None,
+        model_fallback_event: dict[str, object] | None = None,
     ) -> None:
         self.maximum_usd = maximum_usd
         self.estimated_cost_usd = estimated_cost_usd
@@ -63,6 +72,7 @@ class ModelBudgetExceededError(TerminalModelRequestError):
             f"${_budget_usd_string(estimated_cost_usd)} is at least the "
             f"${_budget_usd_string(maximum_usd)} limit.",
             usage=usage,
+            model_fallback_event=model_fallback_event,
         )
 
     def event_details(self) -> dict[str, object]:
@@ -121,10 +131,12 @@ class ModelCostBudget:
                 timeout_ms=timeout_ms,
             )
             usage = response.usage
+            fallback_event = extract_model_fallback_event(response)
             if usage is None or not _usage_has_tokens(usage):
                 self._failure = ModelBudgetAccountingError(
                     "Cannot enforce --max-budget-usd because the provider response did not include token usage.",
                     usage=usage,
+                    model_fallback_event=fallback_event,
                 )
                 raise self._failure
             self.usage.add(usage)
@@ -132,6 +144,7 @@ class ModelCostBudget:
                 self._failure = ModelBudgetAccountingError(
                     "Cannot enforce --max-budget-usd because provider token usage cannot be split into input and output cost.",
                     usage=usage,
+                    model_fallback_event=fallback_event,
                 )
                 raise self._failure
             missing = _missing_reported_rates(usage, self.rates)
@@ -141,6 +154,7 @@ class ModelCostBudget:
                     + ", ".join(missing)
                     + ".",
                     usage=usage,
+                    model_fallback_event=fallback_event,
                 )
                 raise self._failure
             estimated = self.estimated_cost_usd()
@@ -149,6 +163,7 @@ class ModelCostBudget:
                     maximum_usd=self.maximum_usd,
                     estimated_cost_usd=estimated,
                     usage=usage,
+                    model_fallback_event=fallback_event,
                 )
                 raise self._failure
             return response

@@ -8,6 +8,17 @@ from vibeagent.tool_search_options import tool_search_approval_choices
 
 
 class CliArgsValidationTests(unittest.TestCase):
+    def test_fallback_model_requires_print_one_shot_code(self) -> None:
+        valid = cli_module.parse_args(["-p", "--fallback-model", "backup", "inspect"])
+        no_print = cli_module.parse_args(["--fallback-model", "backup", "inspect"])
+        chat = cli_module.parse_args(["-p", "--chat", "--fallback-model", "backup", "hello"])
+        empty = cli_module.parse_args(["-p", "--fallback-model", " ", "inspect"])
+
+        self.assertIsNone(cli_module.validate_cli_args(valid))
+        self.assertIn("one-shot coding task", cli_module.validate_cli_args(no_print) or "")
+        self.assertIn("one-shot coding task", cli_module.validate_cli_args(chat) or "")
+        self.assertIn("cannot be empty", cli_module.validate_cli_args(empty) or "")
+
     def test_max_budget_requires_print_one_shot_code(self) -> None:
         valid = cli_module.parse_args(["-p", "--max-budget-usd", "1.25", "inspect"])
         no_print = cli_module.parse_args(["--max-budget-usd", "1", "inspect"])

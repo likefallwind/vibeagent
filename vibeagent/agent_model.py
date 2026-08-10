@@ -7,6 +7,11 @@ from typing import Any
 
 from .agent_runtime_utils import append_session_event, format_exception
 from .model_budget import is_terminal_model_request_error, terminal_model_error_event_details
+from .model_fallback import (
+    extract_model_fallback_error_event,
+    extract_model_fallback_event,
+    fallback_model_error_event_details,
+)
 from .types import AgentLogger, ChatClient, ChatMessage
 
 
@@ -48,8 +53,23 @@ def complete_with_retries(
     while attempt < attempt_budget:
         attempt += 1
         try:
-            return client.complete(messages, tools=tools, max_tokens=max_output_tokens, timeout_ms=model_timeout_ms), None
+            response = client.complete(messages, tools=tools, max_tokens=max_output_tokens, timeout_ms=model_timeout_ms)
+            fallback_event = extract_model_fallback_event(response)
+            if fallback_event is not None:
+                append_session_event(
+                    session_dir,
+                    "model_fallback",
+                    {"iteration": iteration, "attempt": attempt, **fallback_event},
+                )
+            return response, None
         except Exception as error:
+            fallback_error_event = extract_model_fallback_error_event(error)
+            if fallback_error_event is not None:
+                append_session_event(
+                    session_dir,
+                    "model_fallback",
+                    {"iteration": iteration, "attempt": attempt, **fallback_error_event},
+                )
             recovered_context = False
             context_recovery_error: str | None = None
             terminal_error = is_terminal_model_request_error(error)
@@ -82,6 +102,7 @@ def complete_with_retries(
                     "error_type": type(error).__name__,
                     "message": last_message,
                     **terminal_model_error_event_details(error),
+                    **fallback_model_error_event_details(error),
                 },
             )
             if logger:

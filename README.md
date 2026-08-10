@@ -165,6 +165,7 @@ python -m vibeagent --compact <run-id> --compact-max-output-chars 0 --compact-ma
 python -m vibeagent --cwd ../my-project --max-iterations 8 --command-timeout-ms 120000 --max-output-tokens 8192 --model-retries 2 --model-retry-delay-ms 500 --model-timeout-ms 120000 "run the release checks"
 python -m vibeagent --json --cwd ../my-project "run the release checks"
 python -m vibeagent -p --output-format json --max-budget-usd 1.00 --cwd ../my-project "run the release checks"
+python -m vibeagent -p --output-format json --fallback-model backup-model --cwd ../my-project "run the release checks"
 python -m vibeagent -p --output-format json --json-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"]}' --cwd ../my-project "run the release checks"
 python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
 python -m vibeagent --cwd ../my-project --add-dir ../shared-lib "update both codebases"
@@ -256,6 +257,16 @@ structured-output calls share one serialized budget gate. Reaching the limit
 returns subtype `error_max_budget_usd` without retrying or executing that model
 response. Missing rates or provider usage fail closed instead of being treated
 as zero cost.
+`-p --fallback-model MODEL` creates a provider-scoped backup model before the
+coding run. Typed HTTP 503/529 failures or explicit overload errors activate it;
+authentication, rate-limit, invalid-request, timeout, and ordinary runtime
+errors do not. Once activated, the fallback remains sticky across main-agent,
+profile, subagent, retry, goal-evaluator, and structured-output calls, avoiding
+repeated probes of an overloaded primary. `model_fallback` session events and
+the `modelFallback` / `model_fallback` machine result report the selected model,
+activation, use count, and bounded primary error. When combined with
+`--max-budget-usd`, both models consume the same budget and fallback evidence is
+retained even if the response reaches the cost limit.
 `--agent PROFILE` selects one exact project or plugin agent profile for every
 coding turn in a one-shot or interactive session. The profile prompt, preloaded
 skills, memory namespace, `mode`, `model`, `effort`, `tools`,

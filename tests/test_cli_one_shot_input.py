@@ -21,6 +21,13 @@ from vibeagent.cli_one_shot_input import (
 
 
 class CliOneShotInputTests(unittest.TestCase):
+    def test_build_one_shot_kwargs_includes_fallback_model(self) -> None:
+        args = cli_module.parse_args(["-p", "--fallback-model", "backup", "inspect"])
+
+        kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertEqual(kwargs["fallback_model"], "backup")
+
     def test_build_one_shot_kwargs_includes_max_budget(self) -> None:
         args = cli_module.parse_args(["-p", "--max-budget-usd", "0.75", "inspect"])
 

@@ -10,6 +10,7 @@ local changes when asked, and resume from recorded session context.
 | Gate | Capability | Required runtime evidence |
 | --- | --- | --- |
 | VA1-BUDGET | Bound unattended provider spending | `-p --max-budget-usd` shares one provider-neutral cost gate across the main agent, profiles, subagents, goal evaluation, and structured output; terminal budget errors do not retry or execute an over-budget response, and missing usage or rates fail closed. |
+| VA1-RELIABILITY | Continue through primary-model overload | `-p --fallback-model` switches only on typed 503/529 or explicit overload evidence, then keeps the fallback model across the main agent, profiles, subagents, retries, goal evaluation, and structured output while preserving audit events and budget accounting. |
 | VA1-OUTPUT | Return validated machine-readable results | `-p --json-schema` runs the normal coding workflow first, then validates one provider-neutral Draft-07 JSON value without tools, retries invalid output up to three times, and exposes the result in JSON or stream-JSON output. |
 | VA1-READ | Inspect repository state before editing | `project_overview`, `repo_map`, `read_file`, `read_file_context`, `search`, and `project_instructions` can gather bounded project context without approval. |
 | VA1-EDIT | Make workspace-scoped code changes safely | `check_write_file`, `write_file`, `check_edit_file`, `edit_file`, `multi_edit_file`, and related file tools reject protected paths and require approval for mutation. |
@@ -34,6 +35,12 @@ local changes when asked, and resume from recorded session context.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_budgeted_repair_verify_commit_and_report_cost`
   runs the complete deterministic repair, verification, and commit workflow
   through the real CLI under a USD budget and verifies auditable cost output.
+- `tests.test_model_fallback.ModelFallbackTests.test_fallback_failure_retries_only_the_sticky_fallback`
+  confirms an overloaded primary activates fallback once and later retries stay
+  on the fallback model instead of repeatedly probing the primary.
+- `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_fallback_model_completes_repair_after_primary_overload`
+  starts with a typed primary overload, then completes the full deterministic
+  repair, verification, and local commit workflow through the fallback model.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_read_repair_verify_commit_and_finish`
   is the dedicated deterministic 1.0 dogfood scenario: project overview,
   file reads, failing test reproduction, fix, passing test rerun, local commit,
