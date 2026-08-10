@@ -41,6 +41,8 @@ class MainAgentProfile:
     source: str | None = None
     prompt: str | None = None
     mode: str = "code"
+    model: str | None = None
+    effort: str | None = None
     allowed_tool_names: frozenset[str] | None = None
     disallowed_tool_names: frozenset[str] = frozenset()
     max_turns: int | None = None
@@ -99,6 +101,8 @@ def load_main_agent_profile(
         source=source,
         prompt=loaded.prompt,
         mode=loaded.mode or "code",
+        model=loaded.model,
+        effort=loaded.effort,
         allowed_tool_names=allowed,
         disallowed_tool_names=loaded.disallowed_tool_names,
         max_turns=loaded.max_turns,

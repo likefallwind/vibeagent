@@ -21,6 +21,15 @@ class FakeHttpResponse:
 
 
 class OpenAICompatibleTests(unittest.TestCase):
+    def test_agent_profile_can_override_model_but_rejects_claude_effort(self) -> None:
+        client = OpenAICompatibleClient(api_key="key", model="parent-model")
+        profiled = client.with_agent_profile(model="review-model", effort=None)
+
+        self.assertEqual(profiled.model, "review-model")
+        self.assertEqual(client.model, "parent-model")
+        with self.assertRaisesRegex(ValueError, "do not support"):
+            client.with_agent_profile(model=None, effort="low")
+
     def test_openai_compat_reexports_message_conversion_helpers(self) -> None:
         self.assertIs(openai_compat.flatten_messages, openai_compat_messages.flatten_messages)
         self.assertIs(openai_compat.flatten_tool_results, openai_compat_messages.flatten_tool_results)

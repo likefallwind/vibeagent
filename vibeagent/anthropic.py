@@ -36,6 +36,7 @@ class AnthropicClient(ChatClient):
         model: str = "claude-sonnet-5",
         *,
         use_auth_token: bool = False,
+        effort: str | None = None,
     ) -> None:
         if not api_key:
             raise MissingAnthropicApiKeyError()
@@ -43,6 +44,21 @@ class AnthropicClient(ChatClient):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.use_auth_token = use_auth_token
+        self.effort = effort
+
+    def with_agent_profile(
+        self,
+        *,
+        model: str | None,
+        effort: str | None,
+    ) -> "AnthropicClient":
+        return AnthropicClient(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            model=model or self.model,
+            use_auth_token=self.use_auth_token,
+            effort=self.effort if effort is None else effort,
+        )
 
     def complete(
         self,
@@ -61,6 +77,8 @@ class AnthropicClient(ChatClient):
         )
         if self.model.startswith(("claude-sonnet-5", "claude-opus-5", "claude-fable-5")):
             body.pop("temperature", None)
+        if self.effort is not None:
+            body["output_config"] = {"effort": self.effort}
         headers = {
             "Content-Type": "application/json",
             "anthropic-version": ANTHROPIC_API_VERSION,

@@ -68,6 +68,21 @@ class AnthropicClientTests(unittest.TestCase):
         self.assertIsNone(request.get_header("X-api-key"))
         self.assertEqual(body["temperature"], 0.3)
 
+    def test_agent_profile_overrides_model_and_sends_output_effort(self) -> None:
+        client = AnthropicClient(api_key="anthropic-key", model="parent-model")
+        profiled = client.with_agent_profile(model="claude-opus-5", effort="medium")
+        with patch(
+            "vibeagent.anthropic.urlopen",
+            return_value=_FakeResponse({"content": [{"type": "text", "text": "ok"}]}),
+        ) as urlopen:
+            profiled.complete([ChatMessage(role="user", content="Hi")])
+
+        body = json.loads(urlopen.call_args.args[0].data)
+        self.assertEqual(body["model"], "claude-opus-5")
+        self.assertEqual(body["output_config"], {"effort": "medium"})
+        self.assertEqual(client.model, "parent-model")
+        self.assertIsNone(client.effort)
+
 
 if __name__ == "__main__":
     unittest.main()

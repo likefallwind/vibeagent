@@ -299,6 +299,8 @@ def _append_main_profile_event(
             "name": profile.name,
             "source": profile.source,
             "mode": profile.mode,
+            "model": profile.model,
+            "effort": profile.effort,
             "max_turns": profile.max_turns,
             "skills": list(profile.skills),
             "memory_scope": profile.memory_scope,

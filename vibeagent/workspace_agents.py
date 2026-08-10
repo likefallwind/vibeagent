@@ -83,11 +83,13 @@ def format_project_agent_catalog(workspace: RunWorkspace, max_agents: int = 20) 
         skills = agent.get("skills")
         skill_text = f", skills={','.join(str(name) for name in skills)}" if skills else ""
         turn_text = f", maxTurns={agent['max_turns']}" if agent.get("max_turns") is not None else ""
+        model_text = f", model={agent['model']}" if agent.get("model") is not None else ""
+        effort_text = f", effort={agent['effort']}" if agent.get("effort") is not None else ""
         memory_text = f", memory={agent['memory']}" if agent.get("memory") is not None else ""
         isolation_text = f", isolation={agent['isolation']}" if agent.get("isolation") is not None else ""
         lines.append(
             f"- {agent['name']}: {agent['description']} "
-            f"(mode={agent['mode']}{tool_text}{denied_text}{skill_text}{turn_text}{memory_text}{isolation_text}, {agent['path']})"
+            f"(mode={agent['mode']}{model_text}{effort_text}{tool_text}{denied_text}{skill_text}{turn_text}{memory_text}{isolation_text}, {agent['path']})"
         )
     if metadata["truncated"]:
         lines.append(f"[{int(metadata['total']) - len(metadata['agents'])} additional agent profile(s) omitted]")
@@ -114,6 +116,8 @@ def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]
                     "name": path.stem,
                     "description": metadata.get("description", ""),
                     "mode": metadata.get("mode", "explore"),
+                    "model": metadata.get("model"),
+                    "effort": metadata.get("effort"),
                     "tools": metadata.get("tools"),
                     "disallowed_tools": metadata.get("disallowed_tools", []),
                     "max_turns": metadata.get("max_turns"),
@@ -142,6 +146,8 @@ def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]
                 "name": f"{component.plugin}:{declared_name}",
                 "description": metadata.get("description", ""),
                 "mode": metadata.get("mode", "explore"),
+                "model": metadata.get("model"),
+                "effort": metadata.get("effort"),
                 "tools": metadata.get("tools"),
                 "disallowed_tools": metadata.get("disallowed_tools", []),
                 "max_turns": metadata.get("max_turns"),

@@ -21,6 +21,7 @@ from .agent_approval_preview import (
 from .agent_loop import AgentLoopRuntime, run_agent_loop
 from .agent_model import complete_with_retries
 from .agent_observation_utils import observation_failed
+from .agent_profile_client import configure_agent_profile_client
 from .agent_parallel_safety import PARALLEL_SAFE_TOOL_NAMES, is_parallel_safe_action
 from .plugin_monitor_runtime import PluginMonitorRuntime
 from .agent_result import AgentResult
@@ -100,11 +101,16 @@ def run_agent(
     )
     if peer_runtime is not None:
         peer_runtime.update_workspace(setup.workspace, approval_policy)
+    profile_client = configure_agent_profile_client(
+        client,
+        model=setup.main_profile.model,
+        effort=setup.main_profile.effort,
+    )
     plugin_monitors = PluginMonitorRuntime(setup.workspace)
     try:
         return run_agent_loop(
             task,
-            client,
+            profile_client,
             setup,
             max_iterations=(
                 min(max_iterations, setup.main_profile.max_turns)

@@ -32,6 +32,15 @@ class FakeHttpResponse:
 
 
 class MiniMaxTests(unittest.TestCase):
+    def test_agent_profile_can_override_model_but_rejects_effort(self) -> None:
+        client = MiniMaxClient(api_key="key", model="parent-model")
+        profiled = client.with_agent_profile(model="review-model", effort=None)
+
+        self.assertEqual(profiled.model, "review-model")
+        self.assertEqual(client.model, "parent-model")
+        with self.assertRaisesRegex(ValueError, "does not support"):
+            client.with_agent_profile(model=None, effort="low")
+
     def test_get_minimax_api_key_from_env_reads_supported_variables_in_priority_order(self) -> None:
         self.assertEqual(
             get_minimax_api_key_from_env(

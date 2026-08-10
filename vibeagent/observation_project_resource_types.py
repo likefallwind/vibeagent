@@ -100,6 +100,8 @@ class ProjectAgentProfile:
     skills: list[str] = field(default_factory=list)
     memory: str | None = None
     isolation: str | None = None
+    model: str | None = None
+    effort: str | None = None
 
 
 @dataclass(frozen=True)

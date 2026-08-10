@@ -24,6 +24,8 @@ class DelegateProfileRuntime:
     disallowed_tool_names: frozenset[str] = DELEGATE_MEMORY_TOOL_NAMES
     enabled_tool_names: frozenset[str] = frozenset()
     mode: str | None = None
+    model: str | None = None
+    effort: str | None = None
     max_turns: int | None = None
     skills: tuple[str, ...] = ()
     memory_scope: str | None = None
@@ -86,6 +88,8 @@ def load_delegate_profile_runtime(
             disallowed_tool_names=disallowed,
             enabled_tool_names=memory_tools - disallowed,
             mode=str(profile["mode"]),
+            model=str(profile["model"]) if profile.get("model") is not None else None,
+            effort=str(profile["effort"]) if profile.get("effort") is not None else None,
             max_turns=max_turns if isinstance(max_turns, int) else None,
             skills=skills,
             memory_scope=memory_scope if scoped_workspace is not None else None,

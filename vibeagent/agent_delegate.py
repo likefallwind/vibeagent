@@ -22,6 +22,7 @@ from .agent_delegate_tools import (
     delegate_tool_definitions,
     execute_delegate_tool_call,
 )
+from .agent_profile_client import configure_agent_profile_client
 from .agent_runtime_utils import append_session_event
 from .agent_team_runtime import teammate_spawn_error
 from .nested_delegate_runtime import NestedDelegateRuntime
@@ -82,6 +83,16 @@ def execute_delegate_task_action(
     parent_subagent_id: str | None = None,
 ) -> DelegateTaskObservation:
     profile = load_delegate_profile_runtime(workspace, action)
+    profile_error = profile.error
+    if profile_error is None:
+        try:
+            client = configure_agent_profile_client(
+                client,
+                model=profile.model,
+                effort=profile.effort,
+            )
+        except ValueError as error:
+            profile_error = str(error)
     delegate_workspace = profile.workspace or workspace
     if profile.mode is not None:
         action = replace(action, mode=profile.mode)
@@ -107,7 +118,7 @@ def execute_delegate_task_action(
         delegate_workspace,
         action,
         approval_policy,
-        profile.error,
+        profile_error,
         depth,
         resume_transcript is not None,
         subagent_id,
@@ -405,6 +416,8 @@ def _record_delegate_start(
             "mode": action.mode,
             "agent": action.agent,
             "profile_skills": list(profile.skills),
+            "profile_model": profile.model,
+            "profile_effort": profile.effort,
             "profile_disallowed_tools": sorted(profile.disallowed_tool_names),
             "profile_memory_scope": profile.memory_scope,
             "isolation": action.isolation,

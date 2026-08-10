@@ -195,7 +195,8 @@ def _format_project_agents(index: int, observation: object) -> str:
         skills = ",".join(agent.skills) or "none"
         isolation = getattr(agent, "isolation", None) or "none"
         parts.append(
-            f"agent: name={agent.name} mode={agent.mode} tools={tools} disallowedTools={denied} "
+            f"agent: name={agent.name} mode={agent.mode} model={agent.model or 'inherit'} "
+            f"effort={agent.effort or 'inherit'} tools={tools} disallowedTools={denied} "
             f"maxTurns={agent.max_turns or 'default'} skills={skills} memory={agent.memory or 'none'} "
             f"source={agent.source} path={agent.path} "
             f"isolation={isolation} available={str(agent.available).lower()} "

@@ -76,6 +76,11 @@ local changes when asked, and resume from recorded session context.
   validation, CLI/project/plugin selection precedence, namespaced and unique
   bare plugin profiles, disabled defaults, conflict failure before provider
   access, and honest reporting of the unsupported subagent panel status line.
+- `tests.test_agent_profile_models.AgentProfileModelTests` and the provider
+  client suites cover model/effort metadata, invalid values, main and subagent
+  client scoping, `inherit`, parent-client isolation, Anthropic
+  `output_config.effort`, model overrides for every built-in provider, and
+  pre-request failure when a provider or custom client cannot apply effort.
 - `tests.test_plugin_remote_sources` covers public credential-free HTTPS
   enforcement, HTTPS-only redirects, sanitized non-interactive Git execution,
   GitHub and direct-JSON marketplace refresh, `github`/`url`/`git-subdir`

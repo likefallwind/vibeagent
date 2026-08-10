@@ -53,6 +53,22 @@ class OpenAICompatibleClient(ChatClient):
         self.base_url = (base_url or defaults["base_url"]).rstrip("/")
         self.model = model or defaults["model"]
 
+    def with_agent_profile(
+        self,
+        *,
+        model: str | None,
+        effort: str | None,
+    ) -> "OpenAICompatibleClient":
+        if effort is not None:
+            raise ValueError(
+                "OpenAI-compatible providers do not support Claude agent profile effort overrides."
+            )
+        return OpenAICompatibleClient(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            model=model or self.model,
+        )
+
     def complete(
         self,
         messages: list[ChatMessage],

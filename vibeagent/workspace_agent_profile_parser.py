@@ -21,6 +21,8 @@ AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 AGENT_REFERENCE_PATTERN = re.compile(
     r"^(?:[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9]):)?[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
 )
+AGENT_MODEL_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$")
+AGENT_EFFORT_LEVELS = frozenset({"low", "medium", "high", "xhigh", "max"})
 MAX_AGENT_PROFILE_SKILLS = 10
 MAX_AGENT_TURNS = 50
 AGENT_MEMORY_SCOPES = frozenset({"project", "local"})
@@ -34,6 +36,8 @@ def parse_agent_content(path: Path, content: str) -> tuple[dict[str, object], st
             {
                 "name",
                 "description",
+                "model",
+                "effort",
                 "mode",
                 "tools",
                 "disallowedTools",
@@ -47,6 +51,8 @@ def parse_agent_content(path: Path, content: str) -> tuple[dict[str, object], st
     name = str(metadata.get("name", "")).strip()
     description = str(metadata.get("description", "")).strip()
     mode = str(metadata.get("mode", "explore")).strip().lower()
+    model = _parse_model(metadata.get("model"))
+    effort = _parse_effort(metadata.get("effort"))
     if not name or not description:
         raise ValueError("Agent profile frontmatter requires non-empty name and description fields.")
     if not AGENT_NAME_PATTERN.fullmatch(name):
@@ -72,6 +78,8 @@ def parse_agent_content(path: Path, content: str) -> tuple[dict[str, object], st
         "name": name,
         "description": " ".join(description.split())[:500],
         "mode": mode,
+        "model": model,
+        "effort": effort,
         "tools": sorted(tools) if tools is not None else None,
         "disallowed_tools": sorted(disallowed_tools),
         "max_turns": max_turns,
@@ -79,6 +87,26 @@ def parse_agent_content(path: Path, content: str) -> tuple[dict[str, object], st
         "memory": memory,
         "isolation": isolation,
     }, body.strip()
+
+
+def _parse_model(value: object) -> str | None:
+    if value is None or not str(value).strip():
+        return None
+    model = str(value).strip()
+    if not AGENT_MODEL_PATTERN.fullmatch(model):
+        raise ValueError("Agent profile model must be a valid model ID or inherit.")
+    return model
+
+
+def _parse_effort(value: object) -> str | None:
+    if value is None or not str(value).strip():
+        return None
+    effort = str(value).strip().lower()
+    if effort not in AGENT_EFFORT_LEVELS:
+        raise ValueError(
+            "Agent profile effort must be low, medium, high, xhigh, or max."
+        )
+    return effort
 
 
 def _parse_tool_names(
