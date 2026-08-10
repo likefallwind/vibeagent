@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass, field
-from threading import Event, RLock, Thread
+from threading import RLock, Thread
 from time import monotonic
 from uuid import uuid4
 
+from .background_delegate_types import (
+    BackgroundDelegateCloseResult,
+    BackgroundDelegateRunner,
+    BackgroundDelegateTask,
+)
 from .types import (
     DelegateTaskAction,
     DelegateTaskObservation,
@@ -15,34 +18,6 @@ from .types import (
     TaskStopObservation,
 )
 from .workspace_core import RunWorkspace
-
-
-BackgroundDelegateRunner = Callable[
-    [str, Callable[[], bool], Callable[[bool], list[str]]],
-    DelegateTaskObservation,
-]
-
-
-@dataclass
-class BackgroundDelegateTask:
-    task_id: str
-    action: DelegateTaskAction
-    cancel_event: Event = field(default_factory=Event)
-    done_event: Event = field(default_factory=Event)
-    result: DelegateTaskObservation | None = None
-    error: str | None = None
-    thread: Thread | None = None
-    discard_when_done: bool = False
-    pending_messages: list[str] = field(default_factory=list)
-    accepting_messages: bool = True
-
-
-@dataclass(frozen=True)
-class BackgroundDelegateCloseResult:
-    task_ids: tuple[str, ...]
-    cancel_requested_task_ids: tuple[str, ...]
-    discarded_task_ids: tuple[str, ...]
-    still_running_task_ids: tuple[str, ...]
 
 
 _TASKS_LOCK = RLock()
@@ -155,6 +130,23 @@ def execute_background_task_action(
     return None
 
 
+def collect_background_delegate_notifications(
+    workspace: RunWorkspace,
+) -> list[TaskOutputObservation]:
+    workspace_key = _workspace_key(workspace)
+    with _TASKS_LOCK:
+        tasks = [
+            task
+            for (key, _task_id), task in _TASKS.items()
+            if key == workspace_key
+            and task.done_event.is_set()
+            and not task.notification_delivered
+        ]
+        for task in tasks:
+            task.notification_delivered = True
+    return [_completed_task_observation(task) for task in tasks]
+
+
 def read_background_delegate_task(
     workspace: RunWorkspace,
     action: TaskOutputAction,
@@ -182,25 +174,31 @@ def read_background_delegate_task(
             result=None,
             message=f"Background task {action.task_id} is still running.",
         )
+    with _TASKS_LOCK:
+        task.notification_delivered = True
+    return _completed_task_observation(task)
+
+
+def _completed_task_observation(task: BackgroundDelegateTask) -> TaskOutputObservation:
     if task.result is not None:
         status = "completed" if task.result.ok else "failed"
         return TaskOutputObservation(
             kind="task_output",
             ok=True,
-            task_id=action.task_id,
+            task_id=task.task_id,
             running=False,
             completed=True,
             result=task.result,
-            message=f"Background task {action.task_id} {status}: {task.result.message}",
+            message=f"Background task {task.task_id} {status}: {task.result.message}",
         )
     return TaskOutputObservation(
         kind="task_output",
         ok=False,
-        task_id=action.task_id,
+        task_id=task.task_id,
         running=False,
         completed=True,
         result=None,
-        message=f"Background task {action.task_id} failed unexpectedly: {task.error or 'unknown worker error'}",
+        message=f"Background task {task.task_id} failed unexpectedly: {task.error or 'unknown worker error'}",
     )
 
 

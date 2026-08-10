@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from .agent_background_notifications import inject_background_delegate_notifications
 from .agent_message_flow import (
     append_tool_results_and_compact,
     compact_agent_context_if_needed,
@@ -110,6 +111,14 @@ def run_agent_loop(
         # Tool loop: provider-neutral tool_call blocks -> local execution -> tool_result blocks.
         if logger:
             logger("thinking", f"iteration {iteration}/{max_iterations}")
+
+        inject_background_delegate_notifications(
+            current_workspace,
+            messages,
+            observations,
+            iteration=iteration,
+            logger=logger,
+        )
 
         messages = compact_agent_context_if_needed(
             task=task,

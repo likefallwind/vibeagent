@@ -70,7 +70,7 @@ def completion_blocked_next_actions(blockers: list[str], details: dict[str, list
     if details.get("activeBackgroundProcesses"):
         actions.append("Use list_processes and read_process to inspect active background processes; stop_process any process no longer needed before final_review.")
     if details.get("activeBackgroundTasks"):
-        actions.append("Use TaskOutput to collect each background subagent result, or TaskStop to cancel work that is no longer needed.")
+        actions.append("Wait for background completion notifications, use TaskOutput to check progress, or TaskStop work that is no longer needed.")
     if details.get("deniedApprovals"):
         actions.append("Choose an allowed alternative for denied approval requests, or ask the user before retrying the same protected action.")
     return actions
