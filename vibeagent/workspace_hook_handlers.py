@@ -1,0 +1,161 @@
+from __future__ import annotations
+
+import re
+from typing import cast
+from urllib.parse import urlsplit
+
+from .workspace_hook_types import HookEvent, ProjectHook
+
+
+MAX_HOOK_COMMAND_CHARS = 4_000
+MAX_HOOK_URL_CHARS = 4_000
+MAX_HOOK_HEADERS = 32
+MAX_HOOK_HEADER_CHARS = 4_000
+HOOK_HEADER_NAME_PATTERN = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+ENVIRONMENT_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+FORBIDDEN_HOOK_HEADERS = frozenset(
+    {"content-length", "content-type", "host", "transfer-encoding"}
+)
+
+
+def parse_hook_handler(
+    event: str, matcher: str, payload: object, source: str
+) -> ProjectHook:
+    if not isinstance(payload, dict):
+        raise ValueError(f"{source} hook handlers must be objects.")
+    handler_type = payload.get("type")
+    if handler_type == "command":
+        return _parse_command_hook(event, matcher, payload, source)
+    if handler_type == "http":
+        return _parse_http_hook(event, matcher, payload, source)
+    raise ValueError(f"{source} hook type must be command or http.")
+
+
+def _parse_command_hook(
+    event: str, matcher: str, payload: dict[str, object], source: str
+) -> ProjectHook:
+    command = payload.get("command")
+    if (
+        not isinstance(command, str)
+        or not command.strip()
+        or len(command) > MAX_HOOK_COMMAND_CHARS
+    ):
+        raise ValueError(
+            f"{source} hook command must contain 1-{MAX_HOOK_COMMAND_CHARS} characters."
+        )
+    timeout_ms = _parse_hook_timeout(payload, source)
+    async_value = payload.get("async", False)
+    async_rewake = payload.get("asyncRewake", False)
+    if not isinstance(async_value, bool):
+        raise ValueError(f"{source} hook async must be a boolean.")
+    if not isinstance(async_rewake, bool):
+        raise ValueError(f"{source} hook asyncRewake must be a boolean.")
+    return ProjectHook(
+        event=cast(HookEvent, event),
+        matcher=matcher,
+        command=command.strip(),
+        timeout_ms=timeout_ms,
+        source=source,
+        async_=async_value or async_rewake,
+        async_rewake=async_rewake,
+    )
+
+
+def _parse_http_hook(
+    event: str, matcher: str, payload: dict[str, object], source: str
+) -> ProjectHook:
+    if "async" in payload or "asyncRewake" in payload:
+        raise ValueError(f"{source} HTTP hooks do not support async or asyncRewake.")
+    url = payload.get("url")
+    if not isinstance(url, str) or not url.strip() or len(url) > MAX_HOOK_URL_CHARS:
+        raise ValueError(
+            f"{source} HTTP hook URL must contain 1-{MAX_HOOK_URL_CHARS} characters."
+        )
+    normalized_url = url.strip()
+    parsed_url = urlsplit(normalized_url)
+    if parsed_url.scheme not in {"http", "https"} or not parsed_url.hostname:
+        raise ValueError(f"{source} HTTP hook URL must use HTTP or HTTPS and include a host.")
+    if parsed_url.username is not None or parsed_url.password is not None:
+        raise ValueError(f"{source} HTTP hook URL credentials are not allowed.")
+    try:
+        parsed_url.port
+    except ValueError as error:
+        raise ValueError(f"{source} HTTP hook URL has an invalid port: {error}.") from error
+
+    headers_payload = payload.get("headers", {})
+    if not isinstance(headers_payload, dict) or len(headers_payload) > MAX_HOOK_HEADERS:
+        raise ValueError(
+            f"{source} HTTP hook headers must be an object with at most {MAX_HOOK_HEADERS} entries."
+        )
+    headers: list[tuple[str, str]] = []
+    for name, value in headers_payload.items():
+        if (
+            not isinstance(name, str)
+            or not HOOK_HEADER_NAME_PATTERN.fullmatch(name)
+            or name.lower() in FORBIDDEN_HOOK_HEADERS
+        ):
+            raise ValueError(
+                f"{source} HTTP hook header name is invalid or reserved: {name!r}."
+            )
+        if (
+            not isinstance(value, str)
+            or len(value) > MAX_HOOK_HEADER_CHARS
+            or "\r" in value
+            or "\n" in value
+        ):
+            raise ValueError(
+                f"{source} HTTP hook header {name!r} must be a single-line string of at most {MAX_HOOK_HEADER_CHARS} characters."
+            )
+        headers.append((name, value))
+
+    allowed_payload = payload.get("allowedEnvVars", [])
+    if (
+        not isinstance(allowed_payload, list)
+        or len(allowed_payload) > MAX_HOOK_HEADERS
+        or any(
+            not isinstance(name, str) or not ENVIRONMENT_NAME_PATTERN.fullmatch(name)
+            for name in allowed_payload
+        )
+    ):
+        raise ValueError(
+            f"{source} HTTP hook allowedEnvVars must contain at most {MAX_HOOK_HEADERS} environment variable names."
+        )
+    timeout_ms = _parse_hook_timeout(payload, source)
+    return ProjectHook(
+        event=cast(HookEvent, event),
+        matcher=matcher,
+        command="",
+        timeout_ms=timeout_ms,
+        source=source,
+        handler_type="http",
+        url=normalized_url,
+        headers=tuple(headers),
+        allowed_env_vars=tuple(dict.fromkeys(cast(list[str], allowed_payload))),
+    )
+
+
+def _parse_hook_timeout(payload: dict[str, object], source: str) -> int:
+    if "timeout" in payload and "timeout_ms" in payload:
+        raise ValueError(f"{source} hook cannot define both timeout and timeout_ms.")
+    timeout_seconds = payload.get("timeout")
+    timeout_ms = payload.get("timeout_ms", 600_000)
+    if timeout_seconds is not None:
+        if (
+            isinstance(timeout_seconds, bool)
+            or not isinstance(timeout_seconds, (int, float))
+            or timeout_seconds < 0.1
+            or timeout_seconds > 600
+        ):
+            raise ValueError(f"{source} hook timeout must be between 0.1 and 600 seconds.")
+        timeout_ms = round(timeout_seconds * 1000)
+    if (
+        isinstance(timeout_ms, bool)
+        or not isinstance(timeout_ms, int)
+        or timeout_ms < 100
+        or timeout_ms > 600_000
+    ):
+        raise ValueError(f"{source} hook timeout_ms must be between 100 and 600000.")
+    return timeout_ms
+
+
+__all__ = ["parse_hook_handler"]

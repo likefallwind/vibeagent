@@ -179,6 +179,9 @@ def permission_subjects(action: object) -> tuple[str, ...]:
     ws_url = getattr(ws, "url", None)
     if isinstance(ws_url, str):
         return (ws_url,)
+    url = getattr(action, "url", None)
+    if isinstance(url, str):
+        return (url,)
     command = getattr(action, "command", None)
     if isinstance(command, str):
         return (command,)

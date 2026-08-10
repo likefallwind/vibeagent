@@ -1,9 +1,15 @@
 import socket
 import unittest
+import urllib.request
 from unittest.mock import patch
 
 from vibeagent.agent_approval import build_approval_request
-from vibeagent.network_url_safety import UrlSafetyError, _ScopedRedirectHandler, validate_scoped_url
+from vibeagent.network_url_safety import (
+    UrlSafetyError,
+    _ScopedRedirectHandler,
+    open_local_or_public_url,
+    validate_scoped_url,
+)
 from vibeagent.tool_catalog_core import tool_category, tool_requires_approval
 from vibeagent.types import WebFetchAction
 from vibeagent.web_fetch import _extract_readable_text, fetch_public_document
@@ -77,6 +83,36 @@ class NetworkUrlSafetyTests(unittest.TestCase):
         with patch("vibeagent.network_url_safety.socket.getaddrinfo", return_value=_address_info("93.184.216.34")):
             with self.assertRaisesRegex(UrlSafetyError, "local or private"):
                 validate_scoped_url("https://example.com", "local")
+
+    def test_local_or_public_open_preserves_the_resolved_scope(self) -> None:
+        cases = (("127.0.0.1", "local"), ("93.184.216.34", "public"))
+        for address, expected_scope in cases:
+            with self.subTest(scope=expected_scope), patch(
+                "vibeagent.network_url_safety.socket.getaddrinfo",
+                return_value=_address_info(address),
+            ), patch(
+                "vibeagent.network_url_safety.open_scoped_url",
+                return_value=expected_scope,
+            ) as open_url:
+                result = open_local_or_public_url(
+                    urllib.request.Request("https://example.com/hook"),
+                    timeout=2,
+                )
+
+            self.assertEqual(result, expected_scope)
+            self.assertEqual(open_url.call_args.kwargs["scope"], expected_scope)
+            self.assertFalse(open_url.call_args.kwargs["use_environment_proxy"])
+
+    def test_local_or_public_open_rejects_mixed_dns_answers(self) -> None:
+        with patch(
+            "vibeagent.network_url_safety.socket.getaddrinfo",
+            return_value=_address_info("93.184.216.34", "127.0.0.1"),
+        ):
+            with self.assertRaises(UrlSafetyError):
+                open_local_or_public_url(
+                    urllib.request.Request("https://example.com/hook"),
+                    timeout=2,
+                )
 
     def test_redirect_handler_revalidates_destination(self) -> None:
         handler = _ScopedRedirectHandler("public")

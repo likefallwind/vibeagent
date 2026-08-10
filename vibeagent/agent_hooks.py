@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import replace
 
 from .agent_action_targets import build_action_target
-from .agent_hook_execution import run_project_hook_command
+from .agent_hook_execution import run_project_hook
 from .agent_hook_results import (
     HookBatchResult,
     HookRunResult,
@@ -242,7 +242,7 @@ def run_tool_hooks(
                     message=f"PreToolUse hook output was rejected: {error}",
                 )
         results.append(result)
-        if not result.ok:
+        if not result.ok and not result.non_blocking_error:
             failure = _hook_failure_observation(event, tool_name, result.message)
             failures.append(failure)
             if event == "PreToolUse":
@@ -289,7 +289,7 @@ def _run_one_hook(
     execute_action_safely_func: ExecuteActionSafely,
     permissions: ProjectPermissions,
 ) -> HookRunResult:
-    return run_project_hook_command(
+    return run_project_hook(
         workspace,
         hook,
         target=tool_name,

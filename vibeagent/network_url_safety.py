@@ -43,10 +43,41 @@ def open_scoped_url(
     timeout: float,
     scope: UrlScope,
     require_https: bool = False,
+    use_environment_proxy: bool = True,
 ):
     validate_scoped_url(request.full_url, scope, require_https=require_https)
-    opener = urllib.request.build_opener(_ScopedRedirectHandler(scope, require_https=require_https))
+    handlers: list[object] = [
+        _ScopedRedirectHandler(scope, require_https=require_https)
+    ]
+    if not use_environment_proxy:
+        handlers.insert(0, urllib.request.ProxyHandler({}))
+    opener = urllib.request.build_opener(*handlers)
     return opener.open(request, timeout=timeout)
+
+
+def open_local_or_public_url(
+    request: urllib.request.Request,
+    *,
+    timeout: float,
+):
+    """Open a URL while preventing redirects across local/public trust scopes."""
+    local_error: UrlSafetyError | None = None
+    try:
+        validate_scoped_url(request.full_url, "local")
+        scope: UrlScope = "local"
+    except UrlSafetyError as error:
+        local_error = error
+        try:
+            validate_scoped_url(request.full_url, "public")
+            scope = "public"
+        except UrlSafetyError:
+            raise local_error
+    return open_scoped_url(
+        request,
+        timeout=timeout,
+        scope=scope,
+        use_environment_proxy=False,
+    )
 
 
 def _resolve_addresses(host: str, port: int) -> set[ipaddress.IPv4Address | ipaddress.IPv6Address]:

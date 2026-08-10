@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field, replace
+from dataclasses import replace
 from pathlib import Path
-from typing import Literal, cast
 
 from .action_tool_aliases import tool_name_candidates
 from .plugin_runtime import (
@@ -17,73 +16,16 @@ from .plugin_runtime import (
 )
 from .plugin_store import enabled_plugin_manifests
 from .workspace_core import RunWorkspace
+from .workspace_hook_handlers import parse_hook_handler
+from .workspace_hook_types import HOOK_EVENTS, HookEvent, ProjectHook, ProjectHooks
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
 from .workspace_settings_sources import claude_settings_files, project_config_file
 
 
-HookEvent = Literal[
-    "CwdChanged",
-    "InstructionsLoaded",
-    "PostToolUse",
-    "PostToolUseFailure",
-    "PreToolUse",
-    "SessionStart",
-    "Stop",
-    "SubagentStart",
-    "SubagentStop",
-    "UserPromptSubmit",
-]
-HOOK_EVENTS = frozenset(
-    {
-        "CwdChanged",
-        "InstructionsLoaded",
-        "PostToolUse",
-        "PostToolUseFailure",
-        "PreToolUse",
-        "SessionStart",
-        "Stop",
-        "SubagentStart",
-        "SubagentStop",
-        "UserPromptSubmit",
-    }
-)
-SEQUENTIAL_TOOL_HOOK_EVENTS = frozenset(
-    {"CwdChanged", "InstructionsLoaded", "PostToolUse", "PostToolUseFailure", "PreToolUse"}
-)
 HOOK_CONFIG_PATH = ".vibeagent/hooks.json"
 MAX_HOOK_CONFIG_BYTES = 128_000
 MAX_HOOKS = 100
-MAX_HOOK_COMMAND_CHARS = 4_000
 MAX_HOOK_MATCHER_CHARS = 500
-
-
-@dataclass(frozen=True)
-class ProjectHook:
-    event: HookEvent
-    matcher: str
-    command: str
-    timeout_ms: int
-    source: str
-    environment: dict[str, str] = field(default_factory=dict)
-    async_: bool = False
-    async_rewake: bool = False
-
-
-@dataclass(frozen=True)
-class ProjectHooks:
-    hooks: tuple[ProjectHook, ...] = ()
-    sources: tuple[str, ...] = ()
-    error: str | None = None
-
-    @property
-    def enabled(self) -> bool:
-        return bool(self.hooks) or self.error is not None
-
-    @property
-    def requires_sequential_tools(self) -> bool:
-        return self.error is not None or any(
-            hook.event in SEQUENTIAL_TOOL_HOOK_EVENTS for hook in self.hooks
-        )
 
 
 def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
@@ -111,7 +53,7 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
             hooks.extend(_parse_hook_events(hook_payload, config.source))
             if len(hooks) > MAX_HOOKS:
                 raise ValueError(
-                    f"Workspace hook configuration exceeds {MAX_HOOKS} command hooks."
+                    f"Workspace hook configuration exceeds {MAX_HOOKS} hooks."
                 )
         for component in enabled_plugin_component_files(workspace, "hook"):
             source = f"{component.source}:{component.relative_path}"
@@ -119,7 +61,7 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
             payload = _read_hook_config(component.plugin_root, component.path, source)
             _append_plugin_hooks(hooks, workspace, component, payload, source)
             if len(hooks) > MAX_HOOKS:
-                raise ValueError(f"Workspace and plugin hooks exceed {MAX_HOOKS} command hooks.")
+                raise ValueError(f"Workspace and plugin hooks exceed {MAX_HOOKS} hooks.")
         for manifest in enabled_plugin_manifests(workspace.root):
             if manifest.inline_hooks is None:
                 continue
@@ -134,7 +76,7 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
                 source,
             )
             if len(hooks) > MAX_HOOKS:
-                raise ValueError(f"Workspace and plugin hooks exceed {MAX_HOOKS} command hooks.")
+                raise ValueError(f"Workspace and plugin hooks exceed {MAX_HOOKS} hooks.")
     except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
         return ProjectHooks(hooks=(), sources=tuple(sources), error=str(error))
     return ProjectHooks(hooks=tuple(hooks), sources=tuple(sources))
@@ -144,7 +86,7 @@ def parse_inline_hooks(payload: dict[str, object], source: str) -> ProjectHooks:
     try:
         hooks = _parse_hook_events(payload, source)
         if len(hooks) > MAX_HOOKS:
-            raise ValueError(f"{source} exceeds {MAX_HOOKS} command hooks.")
+            raise ValueError(f"{source} exceeds {MAX_HOOKS} hooks.")
     except ValueError as error:
         return ProjectHooks(sources=(source,), error=str(error))
     return ProjectHooks(hooks=tuple(hooks), sources=(source,))
@@ -162,7 +104,7 @@ def merge_project_hooks(base: ProjectHooks, extra: ProjectHooks | None) -> Proje
     error = base.error or extra.error
     hooks = (*base.hooks, *extra.hooks)
     if len(hooks) > MAX_HOOKS:
-        error = f"Combined hook configuration exceeds {MAX_HOOKS} command hooks."
+        error = f"Combined hook configuration exceeds {MAX_HOOKS} hooks."
         hooks = ()
     return ProjectHooks(
         hooks=tuple(hooks),
@@ -275,10 +217,8 @@ def _parse_hook_events(payload: dict[str, object], source: str) -> list[ProjectH
                 raise ValueError(
                     f"{source} hook matcher {matcher!r} requires a non-empty hooks list."
                 )
-            for command_hook in commands:
-                parsed.append(
-                    _parse_command_hook(event_name, matcher, command_hook, source)
-                )
+            for hook_payload in commands:
+                parsed.append(parse_hook_handler(event_name, matcher, hook_payload, source))
     return parsed
 
 
@@ -295,54 +235,3 @@ __all__ = [
     "subagent_project_hooks",
     "validate_inline_hooks",
 ]
-
-
-def _parse_command_hook(
-    event: str, matcher: str, payload: object, source: str
-) -> ProjectHook:
-    if not isinstance(payload, dict) or payload.get("type") != "command":
-        raise ValueError(f"{source} supports command hooks only.")
-    command = payload.get("command")
-    if (
-        not isinstance(command, str)
-        or not command.strip()
-        or len(command) > MAX_HOOK_COMMAND_CHARS
-    ):
-        raise ValueError(
-            f"{source} hook command must contain 1-{MAX_HOOK_COMMAND_CHARS} characters."
-        )
-    if "timeout" in payload and "timeout_ms" in payload:
-        raise ValueError(f"{source} hook cannot define both timeout and timeout_ms.")
-    timeout_seconds = payload.get("timeout")
-    timeout_ms = payload.get("timeout_ms", 600_000)
-    if timeout_seconds is not None:
-        if (
-            isinstance(timeout_seconds, bool)
-            or not isinstance(timeout_seconds, (int, float))
-            or timeout_seconds < 0.1
-            or timeout_seconds > 600
-        ):
-            raise ValueError(f"{source} hook timeout must be between 0.1 and 600 seconds.")
-        timeout_ms = round(timeout_seconds * 1000)
-    if (
-        isinstance(timeout_ms, bool)
-        or not isinstance(timeout_ms, int)
-        or timeout_ms < 100
-        or timeout_ms > 600_000
-    ):
-        raise ValueError(f"{source} hook timeout_ms must be between 100 and 600000.")
-    async_value = payload.get("async", False)
-    async_rewake = payload.get("asyncRewake", False)
-    if not isinstance(async_value, bool):
-        raise ValueError(f"{source} hook async must be a boolean.")
-    if not isinstance(async_rewake, bool):
-        raise ValueError(f"{source} hook asyncRewake must be a boolean.")
-    return ProjectHook(
-        event=cast(HookEvent, event),
-        matcher=matcher,
-        command=command.strip(),
-        timeout_ms=timeout_ms,
-        source=source,
-        async_=async_value or async_rewake,
-        async_rewake=async_rewake,
-    )

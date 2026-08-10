@@ -27,7 +27,7 @@ local changes when asked, and resume from recorded session context.
 | VA1-WORKFLOW | Orchestrate resumable multi-agent fan-out | `/workflows run` executes a permission-restricted JavaScript workflow with `agent()` and bounded `pipeline()`, persists source and completed calls, and supports list, show, stop, and cache-backed resume. |
 | VA1-PLUGIN | Load and distribute reusable extension bundles without bypassing safety | `/plugin` validates, installs, lists, details, enables, disables, and atomically uninstalls project-local plugins; local and public-HTTPS GitHub/Git/JSON marketplaces add, list, inspect, refresh, remove, and install relative or remote `plugin@marketplace` sources; enabled namespaced skills, commands, agents, hooks, and MCP servers flow through their existing parsers, approvals, network checks, and path guards. |
 | VA1-PLAN | Produce and approve a concrete read-only implementation plan | `EnterPlanMode` switches a running agent to a read-only catalog; Plan mode denies hidden write attempts, and `ExitPlanMode` lets the user resume with per-action review, allow subsequent actions, or keep planning with feedback. The selected mode reaches later interactive turns, while profile-forced Plan mode cannot be exited by the model. |
-| VA1-SAFETY | Enforce workspace and command safety | Workspace path guards, protected files, approval policy, project permissions, hooks, sandbox support, and hard command blocks prevent unsafe side effects. Claude-compatible `dontAsk` keeps read-only tools available, executes only trusted explicit allow rules, disables approval prompts and sandbox auto-approval for other side effects, and records machine-readable denial decisions without request events. Approved async hooks retain the same command safety and sandbox boundary, cannot apply late permission decisions, separate user-only `systemMessage` from model `additionalContext`, wake idle interactive sessions only through `asyncRewake` exit code 2, and cancel at print/CLI teardown. |
+| VA1-SAFETY | Enforce workspace and command safety | Workspace path guards, protected files, approval policy, project permissions, hooks, sandbox support, and hard command blocks prevent unsafe side effects. Claude-compatible `dontAsk` keeps read-only tools available, executes only trusted explicit allow rules, disables approval prompts and sandbox auto-approval for other side effects, and records machine-readable denial decisions without request events. Approved async command hooks retain the same command safety and sandbox boundary, cannot apply late permission decisions, separate user-only `systemMessage` from model `additionalContext`, wake idle interactive sessions only through `asyncRewake` exit code 2, and cancel at print/CLI teardown. Approved HTTP hooks POST at most 1 MiB of lifecycle input without environment proxies, use allowlisted header environment expansion, reject credential-bearing or cross-scope URLs and reserved transport headers, process 2xx plain/structured output through the normal decision path, and keep status, connection, input-limit, and timeout failures non-blocking. |
 
 ## Current Evidence
 
@@ -490,6 +490,12 @@ local changes when asked, and resume from recorded session context.
   state, user/model output separation, exactly-once next-turn context,
   exit-code-2 `asyncRewake`, print/CLI teardown cancellation, interactive idle
   wakeups, timeouts, and bounded session-timeline summaries.
+- `tests.test_http_hooks.HttpHookConfigTests` and
+  `tests.test_http_hooks.HttpHookIntegrationTests` cover bounded handler
+  configuration, URL/header validation, explicit environment interpolation,
+  real loopback JSON POST input, structured `PreToolUse` denial, lifecycle
+  context delivery, proxy-independent scoped connections, request/response
+  bounds, non-blocking failure behavior, and redacted session audit metadata.
 
 ## Verified 1.0 Exit Criteria
 

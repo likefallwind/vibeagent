@@ -1639,11 +1639,13 @@ directory transition. `SessionStart` and `CwdChanged` hook processes also
 receive `CLAUDE_ENV_FILE`; changes they write there apply to later Bash
 commands in the session.
 
-Every matching command hook requires approval under the current session policy
-and still passes command hard-block checks. Plan mode records and skips command
-hooks. A failed or denied pre-tool hook blocks the target tool; a failed
-post-tool hook preserves the target result but records an additional tool error
-that prevents an unqualified successful completion. Hook commands receive a
+Every matching command or HTTP hook requires approval under the current session
+policy. Command handlers still pass command hard-block checks, while HTTP
+handlers validate their destination before connecting. Plan mode records and
+skips both handler types. A failed or denied command pre-tool hook blocks the
+target tool; a failed post-tool command hook preserves the target result but
+records an additional tool error that prevents an unqualified successful
+completion. Hook commands receive a
 Claude-compatible JSON object on stdin, `CLAUDE_PROJECT_DIR`, plus `VIBEAGENT_HOOK_EVENT` and
 `VIBEAGENT_HOOK_INPUT`; tool hooks also receive `VIBEAGENT_TOOL_NAME` and
 `VIBEAGENT_TOOL_TARGET`. Inputs use private temporary files inside the session
@@ -1672,6 +1674,20 @@ and interactive CLI exit cancel unfinished async hooks; hooks that must outlive
 the session must launch their own detached work. Async hook commands retain the
 same approval, command hard-block, workspace, and sandbox boundaries as
 synchronous hooks. `timeout` defaults to 600 seconds.
+
+HTTP handlers use Claude-compatible `type: "http"`, `url`, `headers`, and
+`allowedEnvVars` fields. They POST up to 1 MiB of hook input as JSON without
+using environment-configured proxies and process a
+successful response body through the existing plain-text or structured hook
+output path, so a 2xx `PreToolUse` response can return `permissionDecision`,
+`updatedInput`, or `additionalContext`. Header environment references expand
+only when explicitly named by `allowedEnvVars`; unlisted references become
+empty. URL credentials, malformed ports, reserved transport headers, mixed
+local/public DNS answers, and redirects crossing the original network scope are
+rejected. Non-2xx responses, connection failures, oversized inputs, and
+timeouts are recorded as
+bounded non-blocking hook errors; they cannot block a tool unless a 2xx JSON
+response returns an explicit decision.
 
 Successful `PreToolUse` hooks can return Claude-compatible structured JSON under
 `hookSpecificOutput`. `permissionDecision` accepts `allow`, `ask`, `deny`, or

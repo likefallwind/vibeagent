@@ -9,6 +9,7 @@ from collections.abc import Callable
 from uuid import uuid4
 
 from .agent_hook_results import HookRunResult, hook_result_from_observation
+from .agent_hook_http import run_project_http_hook
 from .async_hook_runtime import start_async_hook
 from .agent_observation_utils import summarize
 from .agent_permissions import authorize_tool_action
@@ -32,7 +33,7 @@ ExecuteActionSafely = Callable[[RunWorkspace, object, int, str], Observation]
 ENVIRONMENT_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
-def run_project_hook_command(
+def run_project_hook(
     workspace: RunWorkspace,
     hook: ProjectHook,
     *,
@@ -40,6 +41,55 @@ def run_project_hook_command(
     hook_input: dict[str, object],
     cwd: str | None = None,
     environment: dict[str, str] | None = None,
+    iteration: int,
+    hook_index: int,
+    command_timeout_ms: int,
+    logger: AgentLogger | None,
+    approval_handler: ApprovalHandler | None,
+    approval_policy: ApprovalPolicy,
+    execute_action_safely_func: ExecuteActionSafely,
+    permissions: ProjectPermissions,
+) -> HookRunResult:
+    if hook.handler_type == "http":
+        return run_project_http_hook(
+            workspace,
+            hook,
+            target=target,
+            hook_input=hook_input,
+            environment=environment,
+            iteration=iteration,
+            hook_index=hook_index,
+            logger=logger,
+            approval_handler=approval_handler,
+            approval_policy=approval_policy,
+            permissions=permissions,
+        )
+    return _run_project_command_hook(
+        workspace,
+        hook,
+        target=target,
+        hook_input=hook_input,
+        cwd=cwd,
+        environment=environment,
+        iteration=iteration,
+        hook_index=hook_index,
+        command_timeout_ms=command_timeout_ms,
+        logger=logger,
+        approval_handler=approval_handler,
+        approval_policy=approval_policy,
+        execute_action_safely_func=execute_action_safely_func,
+        permissions=permissions,
+    )
+
+
+def _run_project_command_hook(
+    workspace: RunWorkspace,
+    hook: ProjectHook,
+    *,
+    target: str,
+    hook_input: dict[str, object],
+    cwd: str | None,
+    environment: dict[str, str] | None,
     iteration: int,
     hook_index: int,
     command_timeout_ms: int,
@@ -265,4 +315,4 @@ def _write_hook_environment(
     return path
 
 
-__all__ = ["run_project_hook_command"]
+__all__ = ["run_project_hook"]

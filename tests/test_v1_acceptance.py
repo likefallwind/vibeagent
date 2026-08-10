@@ -219,6 +219,9 @@ EXPECTED_GATES = {
             "test_async_pre_tool_decision_cannot_block_completed_action",
             "test_async_rewake_starts_an_idle_resumed_agent_turn",
             "test_print_mode_teardown_cancels_running_async_hook",
+            "test_pre_tool_http_hook_receives_input_and_denies_write",
+            "test_non_success_http_status_is_non_blocking",
+            "test_lifecycle_http_plain_text_adds_model_context",
         },
     },
 }

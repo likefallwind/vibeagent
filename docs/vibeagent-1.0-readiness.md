@@ -131,6 +131,13 @@ The automated suite currently covers these 1.0 surfaces:
   wakes an idle interactive session only for exit code 2; print-mode and CLI
   teardown cancel unfinished hooks, and all async decisions remain non-blocking
   under the normal command safety and sandbox path.
+- Claude-compatible HTTP hooks: approved handlers POST lifecycle JSON to a
+  validated local or public endpoint without environment proxies, cap request
+  input at 1 MiB, expand only explicitly allowlisted
+  environment variables in bounded headers, consume 2xx plain or structured
+  decisions, reject credential-bearing and cross-network-scope URLs, and record
+  non-2xx, connection, and timeout failures without blocking the triggering
+  action.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

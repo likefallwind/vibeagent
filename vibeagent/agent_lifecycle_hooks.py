@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 import json
 
-from .agent_hook_execution import run_project_hook_command
+from .agent_hook_execution import run_project_hook
 from .session_environment import lifecycle_hook_environment
 from .agent_hook_results import HookRunResult
 from .types import AgentLogger, ApprovalHandler, ApprovalPolicy, Observation
@@ -55,7 +55,7 @@ def run_lifecycle_hooks(
     results: list[HookRunResult] = []
     contexts: list[str] = []
     for index, hook in enumerate(hooks, start=1):
-        result = run_project_hook_command(
+        result = run_project_hook(
             workspace,
             hook,
             target=matcher_value or event,
