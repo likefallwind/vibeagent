@@ -27,6 +27,8 @@ class CommandCoreParsingTests(unittest.TestCase):
             "/resume off": LocalCommand(type="resume", argument="off"),
             "/compact": LocalCommand(type="compact"),
             "/compact run-1": LocalCommand(type="compact", argument="run-1"),
+            "/branch": LocalCommand(type="branch"),
+            "/branch try-streaming": LocalCommand(type="branch", argument="try-streaming"),
             "/chat": LocalCommand(type="chat"),
             "/chat hello": LocalCommand(type="chat", argument="hello"),
             "/code": LocalCommand(type="code"),

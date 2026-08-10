@@ -27,6 +27,25 @@ class CliOneShotStreamTests(unittest.TestCase):
         with scope.event_scope:
             pass
 
+    def test_force_workspace_creates_branch_target_without_stream_observer(self) -> None:
+        workspace = SimpleNamespace(session_dir=Path("/project/.vibeagent/sessions/run-1"))
+        calls: list[str] = []
+
+        scope = build_one_shot_stream_scope(
+            None,
+            project_root=Path("/project"),
+            mcp_config_paths=(),
+            strict_mcp_config=False,
+            force_workspace=True,
+            create_workspace_func=lambda *args, **kwargs: calls.append("workspace") or workspace,
+            observe_events_func=lambda *args, **kwargs: calls.append("events") or nullcontext(),
+        )
+
+        self.assertIs(scope.workspace, workspace)
+        self.assertEqual(calls, ["workspace"])
+        with scope.event_scope:
+            pass
+
     def test_stream_scope_creates_workspace_and_event_observer(self) -> None:
         stream = JsonEventStream()
         project_root = Path("/project")

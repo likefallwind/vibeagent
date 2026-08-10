@@ -242,6 +242,12 @@ local changes when asked, and resume from recorded session context.
   later agent turns, workflows, idle tasks, and absolute-path completion. The
   latest set is persisted as session state and restored by resume or compact,
   with missing stored paths ignored safely.
+- `tests.test_session_branching.SessionBranchingTests`, interactive CLI state
+  tests, and one-shot code tests cover named session branches, immutable source
+  transcripts, task/cron/goal/directory inheritance, parent-context fallback
+  before the first branch task, branch-local context afterward, first-turn
+  workspace pinning, and malformed, cyclic, duplicate-name, or nonempty-target
+  rejection.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_use_strict_mcp_config_before_repair_and_commit`
   runs the real CLI JSON path with `--mcp-config explicit.mcp.json
   --strict-mcp-config`, confirming an explicit MCP configuration can expose a

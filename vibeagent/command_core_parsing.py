@@ -50,6 +50,8 @@ def parse_core_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("resume", trimmed[8:].strip() or None)
     if trimmed == "/compact" or trimmed.startswith("/compact "):
         return make_local_command("compact", trimmed[9:].strip() or None)
+    if trimmed == "/branch" or trimmed.startswith("/branch "):
+        return make_local_command("branch", trimmed[7:].strip() or None)
     if trimmed == "/chat" or trimmed.startswith("/chat "):
         return make_local_command("chat", trimmed[5:].strip() or None)
     if trimmed == "/code" or trimmed.startswith("/code "):

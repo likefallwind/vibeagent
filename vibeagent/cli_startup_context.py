@@ -16,6 +16,8 @@ from .session_additional_directories import (
     merge_additional_directories,
     restore_session_additional_directories,
 )
+from .session_branching import create_session_branch
+from .workspace_core import RunWorkspace
 
 
 @dataclass(frozen=True)
@@ -28,6 +30,8 @@ class InteractiveStartupContext:
     system_prompt: str | None = None
     append_system_prompt: str | None = None
     additional_directories: tuple[Path, ...] = ()
+    pending_workspace: RunWorkspace | None = None
+    branch_source_run_id: str | None = None
 
 
 def resolve_interactive_startup_context(
@@ -68,10 +72,11 @@ def resolve_interactive_startup_context(
         run_id, context, message = get_resume_context_func(normalized_resume, project_root, **resume_kwargs)
         if context is None and not is_resume_clear_arg(normalized_resume):
             return InteractiveStartupContext(run_id=run_id, message=message, error=message, **prompt_kwargs)
-        return _with_restored_directories(
+        context = _with_restored_directories(
             InteractiveStartupContext(run_id=run_id, context=context, message=message, **prompt_kwargs),
             project_root,
         )
+        return _with_forked_session(context, project_root) if getattr(args, "fork_session", False) else context
 
     compact_kwargs = build_context_limit_kwargs(
         max_failures=args.compact_max_failures,
@@ -84,10 +89,11 @@ def resolve_interactive_startup_context(
     run_id, context, message = get_compact_context_func(normalize_resume_arg(args.compact), project_root, **compact_kwargs)
     if context is None:
         return InteractiveStartupContext(run_id=run_id, message=message, error=message, **prompt_kwargs)
-    return _with_restored_directories(
+    context = _with_restored_directories(
         InteractiveStartupContext(run_id=run_id, context=context, message=message, **prompt_kwargs),
         project_root,
     )
+    return _with_forked_session(context, project_root) if getattr(args, "fork_session", False) else context
 
 
 def _with_restored_directories(
@@ -101,11 +107,37 @@ def _with_restored_directories(
             context.additional_directories,
             restored.directories,
         )
-    except ValueError as error:
+    except (OSError, ValueError) as error:
         return replace(context, error=str(error))
     message_parts = [part for part in (context.message, restored.message) if part]
     return replace(
         context,
         message="\n".join(message_parts) or None,
         additional_directories=directories,
+    )
+
+
+def _with_forked_session(
+    context: InteractiveStartupContext,
+    project_root: Path,
+) -> InteractiveStartupContext:
+    if context.error is not None:
+        return context
+    if context.run_id is None or context.context is None:
+        return replace(context, error="--fork-session requires a resolved source session.")
+    try:
+        branch = create_session_branch(
+            project_root,
+            context.run_id,
+            additional_directories=context.additional_directories,
+        )
+    except (OSError, ValueError) as error:
+        return replace(context, error=str(error))
+    message_parts = [part for part in (context.message, branch.text) if part]
+    return replace(
+        context,
+        run_id=branch.workspace.run_id,
+        message="\n".join(message_parts),
+        pending_workspace=branch.workspace,
+        branch_source_run_id=branch.source_run_id,
     )

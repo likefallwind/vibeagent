@@ -151,6 +151,7 @@ python -m vibeagent --untrust-project --cwd ../my-project
 python -m vibeagent --sandbox-status --cwd ../my-project
 python -m vibeagent --chat "explain this repository at a high level"
 python -m vibeagent --resume <run-id> --resume-max-files 25 --resume-max-commands 5 --resume-max-checks 20 "continue the previous change"
+python -m vibeagent --resume <run-id> --fork-session "try a different implementation"
 python -m vibeagent --session-id <run-id> "continue the previous change"
 python -m vibeagent --session-id latest "continue the latest session"
 python -m vibeagent --resume -- "continue the latest session"
@@ -990,7 +991,8 @@ the session approval policy, `/system-prompt [text|off]` and
 instructions for chat and coding turns, `/add-dir [path|remove path|clear]` to
 inspect or update session working directories, `/resume [run-id|off]` to carry a previous coding
 session handoff into the next task or clear it, `/compact [run-id]` to explicitly
-compact the newest or selected session into context, `/plan [run-id]` to inspect
+compact the newest or selected session into context, `/branch [name]` to fork
+the active coding context into an independent named session, `/plan [run-id]` to inspect
 the latest recorded task plan, `/transcript [run-id]` to inspect a safe session
 event timeline without dumping full tool payloads, `/checkpoint [label]` to save
 current git status, staged and unstaged patch files, and ordinary untracked file
@@ -1353,6 +1355,14 @@ user instruction. Use `--no-auto-compact` for a one-shot coding task that should
 not automatically load the latest compact session context. When no run id is supplied, these recovery commands skip
 `local-*` sessions created by read-only CLI utilities. `/resume off` or `/clear`
 clears it before a fresh task.
+`/branch [name]` creates a new session from the active coding context and switches
+the next coding turn into that branch. `--fork-session` provides the same behavior
+when combined with `--continue`, `--resume`, or `--session-id`; one-shot JSON adds
+`sessionBranch.runId` and `sessionBranch.sourceRunId`. The source transcript is
+never modified. Branches copy task, eligible scheduled-task, active-goal, and
+additional-directory state, retain explicit parent lineage, appear in
+`/sessions`, and can be resumed by exact branch name. An unstarted branch follows
+its parent context on resume; after its first task it resumes from its own events.
 Tool result payloads sent back to the model and persisted session events redact
 common API keys, tokens, passwords, bearer values, and secret query parameters.
 Session summaries, handoffs, resumes, transcripts, and command-output tails apply
@@ -1702,7 +1712,7 @@ Core modules:
 
 - `vibeagent/cli.py`: interactive command-line entry point. It handles local
 commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`, `/permissions`, `/sandbox`, `/checks`, `/check-suggested-checks`, `/run-suggested-checks`, `/commands`, `/related-tests`, `/focused-tests`, `/check-focused-tests`, `/run-focused-tests`, `/manifests`, `/instructions`, `/todos`, `/command`, `/run`, `/check-run-seq`, `/run-seq`, `/check-start`, `/start`, `/port`, `/http`, `/http-fetch`, `/overview`, `/repo-map`, `/search`, `/search-contexts`, `/find-files`, `/glob`, `/tree`, `/symbols`, `/file-info`, `/image-info`, `/read`, `/around`, `/around-many`, `/output-contexts`, `/output-diagnostics`, `/python-traceback`, `/tail`, `/read-files`, `/read-ranges`, `/python-check`, `/python-deps`, `/python-defs`, `/python-refs`, `/python-ref-contexts`, `/python-calls`, `/python-call-graph`, `/python-rename-preview`, `/python-rename`, `/check-replace-python-def`, `/replace-python-def`, `/config-check`, `/check-json-set`, `/json-set`, `/check-json-remove`, `/json-remove`, `/check-json-patch`, `/json-patch`, `/check-replace-lines`, `/replace-lines`, `/check-insert-lines`, `/insert-lines`, `/check-append`, `/append`, `/check-write`, `/write`, `/check-write-files`, `/write-files`, `/check-edit`, `/edit`, `/check-multi-edit`, `/multi-edit`, `/check-delete`, `/delete`, `/check-delete-files`, `/delete-files`, `/check-move`, `/move`, `/check-move-files`, `/move-files`, `/check-copy`, `/copy`, `/check-copy-files`, `/copy-files`, `/check-move-dir`, `/move-dir`, `/check-move-dirs`, `/move-dirs`, `/check-copy-dir`, `/copy-dir`, `/check-copy-dirs`, `/copy-dirs`, `/check-mkdir`, `/mkdir`, `/check-mkdirs`, `/mkdirs`, `/check-rmdir`, `/rmdir`, `/check-rmdirs`, `/check-executable`, `/set-executable`, `/check-patch`, `/patch`, `/check-patches`, `/patches`, `/check-regex-replace`, `/regex-replace`, `/code-deps`, `/code-refs`, `/code-ref-contexts`, `/code-defs`, `/code-rename-preview`, `/code-rename`, `/git-status`, `/conflicts`, `/git-info`, `/branches`, `/log`, `/show`, `/blame`, `/stashes`, `/check-fetch`, `/fetch`, `/check-pull`, `/pull`, `/check-push`, `/push`, `/check-stash`, `/stash`, `/check-stash-apply`, `/stash-apply`, `/check-stash-drop`, `/stash-drop`, `/check-stage`, `/stage`, `/check-unstage`, `/unstage`, `/check-commit`, `/commit`, `/check-restore`, `/restore`, `/check-switch`, `/switch`, `/env`, `/processes`, `/process`, `/process-output-contexts`, `/process-output-diagnostics`, `/wait-process`, `/check-write-process`, `/write-process`, `/check-stop-process`, `/stop-process`, `/check-stop-processes`, `/check-stop-all-processes`, `/stop-processes`, `/stop-all-processes`, `/status`, `/context`, `/init`, `/doctor`, `/review`, `/handoff`, `/changes`, `/diff`, `/diff-hunks`, `/diff-contexts`, `/clear`, `/usage`, `/cost`, `/approval`, `/plan`, `/transcript`, `/session-search`, `/session-commands`, `/session-output-contexts`, `/session-output-diagnostics`, `/session-files`, `/session-failures`, `/session-verification`, `/run-session-verification`, `/session-audit`, `/session-handoff`, `/checkpoint`, `/checkpoints`, `/checkpoint-show`, `/checkpoint-diff`, `/checkpoint-status`, `/check-checkpoint-restore`, `/checkpoint-restore`, `/check-checkpoint-delete`, `/checkpoint-delete`, `/check-checkpoint-prune`, `/checkpoint-prune`, `/resume`,
-  `/compact`, `/add-dir`, `/goal`, `/chat`, `/code`, and
+  `/compact`, `/branch`, `/add-dir`, `/goal`, `/chat`, `/code`, and
   `/exit`, then delegates input to the selected mode.
   `/custom-commands` lists prompt templates from personal
   `~/.claude/commands/**/*.md` and project `.claude/commands/**/*.md` or

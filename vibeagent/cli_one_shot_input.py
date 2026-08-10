@@ -69,6 +69,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "resume_max_output_chars": args.resume_max_output_chars,
         "resume_max_text": args.resume_max_text,
         "auto_compact": not args.no_auto_compact,
+        "fork_session": args.fork_session,
         "compact_max_failures": args.compact_max_failures,
         "compact_max_files": args.compact_max_files,
         "compact_max_commands": args.compact_max_commands,

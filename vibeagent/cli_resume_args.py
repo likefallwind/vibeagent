@@ -17,6 +17,12 @@ def validate_resume_arguments(args: argparse.Namespace, *, local_selected: bool)
     if args.no_auto_compact and (args.resume is not None or args.compact is not None or args.continue_latest):
         return "--no-auto-compact cannot be combined with --resume, --compact, or --continue."
     resume_context_selected = args.resume is not None or args.session_id is not None
+    if args.fork_session and args.compact is not None:
+        return "--fork-session cannot be combined with --compact."
+    if args.fork_session and isinstance(args.resume, str) and args.resume.strip().lower() in {"off", "clear", "none"}:
+        return "--fork-session requires a resumable source session, not --resume off."
+    if args.fork_session and not resume_context_selected:
+        return "--fork-session requires --resume, --session-id, or --continue."
     if resume_context_selected and args.compact is not None:
         return "--resume/--session-id and --compact cannot be used together."
     resume_limit_error = _validate_limit_options(

@@ -10,6 +10,7 @@ from vibeagent.agent import AgentResult
 from vibeagent.cli import main
 from vibeagent.types import ApprovalRequest
 from vibeagent.agent_runtime_utils import append_session_event
+from vibeagent.session_branching import read_session_branch_info
 
 
 class CliInteractiveStateTests(unittest.TestCase):
@@ -182,6 +183,42 @@ class CliInteractiveStateTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(run_agent.call_args.kwargs["additional_directories"], (shared.resolve(),))
+
+    def test_main_interactive_branch_runs_next_turn_in_new_session(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-branch-") as base:
+            root = Path(base)
+            source_dir = root / ".vibeagent" / "sessions" / "source-run"
+            append_session_event(source_dir, "task", {"task": "source task"})
+            source_events = source_dir.joinpath("events.jsonl").read_bytes()
+            calls: list[dict[str, object]] = []
+
+            def run_agent(task, **kwargs):
+                calls.append(kwargs)
+                workspace = kwargs["workspace"]
+                return AgentResult(True, "done", root, workspace.run_id, 1, [], [])
+
+            def get_context(run_id, project_root=root, **kwargs):
+                selected = run_id or "source-run"
+                return selected, f"context for {selected}", f"Loaded {selected}."
+
+            with (
+                patch("builtins.input", side_effect=["/branch try-oauth", "implement alternative", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", side_effect=run_agent),
+                patch("vibeagent.cli.get_resume_context", side_effect=get_context),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", str(root), "--resume", "source-run"])
+
+            branch_workspace = calls[0]["workspace"]
+            branch_info = read_session_branch_info(root, branch_workspace.run_id)
+
+            self.assertEqual(exit_code, 0)
+            self.assertNotEqual(branch_workspace.run_id, "source-run")
+            self.assertEqual(calls[0]["task_source_run_id"], "source-run")
+            self.assertEqual(branch_info.source_run_id, "source-run")  # type: ignore[union-attr]
+            self.assertEqual(branch_info.name, "try-oauth")  # type: ignore[union-attr]
+            self.assertEqual(source_dir.joinpath("events.jsonl").read_bytes(), source_events)
 
     def test_main_updates_approval_policy_and_passes_handler_to_agent(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:

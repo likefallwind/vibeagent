@@ -24,6 +24,8 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--no-auto-compact requires a one-shot coding task."
     if args.worktree is not None and (has_local_flag(args) or args.chat):
         return "--worktree requires an interactive or one-shot coding session."
+    if args.fork_session and (has_local_flag(args) or args.chat):
+        return "--fork-session requires an interactive or one-shot coding session."
     if args.add_dir and (has_local_flag(args) or args.chat):
         return "--add-dir requires an interactive or one-shot coding session."
     if any(not value.strip() for value in args.add_dir):

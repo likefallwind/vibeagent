@@ -29,6 +29,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int) -> No
         help="Claude-compatible alias for loading the newest session resume context.",
     )
     parser.add_argument(
+        "--fork-session",
+        action="store_true",
+        help="Fork a resumed coding session under a new session id.",
+    )
+    parser.add_argument(
         "--permission-mode",
         choices=PERMISSION_MODE_CHOICES,
         help="Claude-compatible alias for --approval.",

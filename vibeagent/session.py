@@ -48,6 +48,7 @@ from .session_store import (
     read_session_info,
     session_info_has_rows,
 )
+from .session_branching import read_session_branch_info
 from .session_summary_builder import summarize_session
 from .session_timeline_reports import (
     format_detail_suffix,
@@ -131,16 +132,24 @@ def format_sessions(project_root: str | Path, limit: int = 20) -> str:
     lines = ["Recent sessions:"]
     for info in sessions:
         summary = summarize_session(project_root, info.run_id)
+        try:
+            branch = read_session_branch_info(Path(project_root), info.run_id)
+        except ValueError:
+            branch = None
         last = (
             info.last_event_time.isoformat(timespec="seconds").replace("+00:00", "Z")
             if info.last_event_time
             else "unknown"
         )
         malformed = f", {info.malformed_count} malformed" if info.malformed_count else ""
+        branch_text = ""
+        if branch is not None:
+            name = f" name={compact(branch.name, 80)}" if branch.name else ""
+            branch_text = f"  branch={branch.source_run_id}{name}"
         task = f"  task={compact(summary.task, 160)}" if summary.task else ""
         lines.append(
             f"  {info.run_id}  status={session_summary_status(summary)}  "
-            f"events={info.event_count}{malformed}  last={last}{task}"
+            f"events={info.event_count}{malformed}  last={last}{branch_text}{task}"
         )
     return "\n".join(lines)
 
@@ -165,6 +174,10 @@ def build_sessions_report(project_root: str | Path, limit: int = 20, max_text: i
 
 def serialize_session_info(project_root: str | Path, info: SessionInfo, max_text: int = 240) -> dict[str, Any]:
     summary = summarize_session(project_root, info.run_id)
+    try:
+        branch = read_session_branch_info(Path(project_root), info.run_id)
+    except ValueError:
+        branch = None
     return {
         "session": info.run_id,
         "status": session_summary_status(summary),
@@ -175,6 +188,11 @@ def serialize_session_info(project_root: str | Path, info: SessionInfo, max_text
         "completed": summary.completed,
         "failed": summary.failed,
         "blocked": summary.blocked,
+        "branch": (
+            {"sourceSession": branch.source_run_id, "name": branch.name}
+            if branch is not None
+            else None
+        ),
     }
 
 

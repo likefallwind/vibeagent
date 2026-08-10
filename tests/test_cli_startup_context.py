@@ -33,6 +33,7 @@ def _args(**overrides) -> Namespace:
         "compact_max_checks": None,
         "compact_max_output_chars": None,
         "compact_max_text": None,
+        "fork_session": False,
     }
     values.update(overrides)
     return Namespace(**values)
@@ -86,6 +87,26 @@ class CliStartupContextTests(unittest.TestCase):
 
         self.assertEqual(context.additional_directories, (explicit.resolve(), shared.resolve()))
         self.assertIsNone(context.error)
+
+    def test_resume_fork_creates_pending_branch_workspace(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-startup-branch-") as base:
+            root = Path(base)
+            source_dir = root / ".vibeagent" / "sessions" / "run-1"
+            append_session_event(source_dir, "task", {"task": "source task"})
+            original = source_dir.joinpath("events.jsonl").read_bytes()
+
+            context = resolve_interactive_startup_context(
+                _args(resume="run-1", fork_session=True),
+                root,
+                get_resume_context_func=Mock(return_value=("run-1", "source context", "Resume loaded.")),
+                get_compact_context_func=Mock(),
+            )
+
+            self.assertIsNone(context.error)
+            self.assertIsNotNone(context.pending_workspace)
+            self.assertNotEqual(context.run_id, "run-1")
+            self.assertEqual(context.branch_source_run_id, "run-1")
+            self.assertEqual(source_dir.joinpath("events.jsonl").read_bytes(), original)
 
 
 if __name__ == "__main__":

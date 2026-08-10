@@ -71,6 +71,10 @@ The automated suite currently covers these 1.0 surfaces:
 - Real CLI JSON and stream-json entrypoints, stdin input formats, resume,
   compact, permission overrides, `acceptEdits`, disallowed tools, and
   pending-user-input output.
+- Interactive `/branch [name]` and resumed `--fork-session`, including immutable
+  source events, independent first-turn workspaces, state inheritance, named
+  resume, branch discovery, bounded lineage fallback, and malformed/cyclic
+  metadata rejection.
 - Interactive and one-shot system-prompt text/file inputs, including bounded
   UTF-8 reads, deterministic structured-input merging, and machine-readable
   validation failures before provider creation.

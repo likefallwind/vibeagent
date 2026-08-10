@@ -39,6 +39,7 @@ from .cli_runtime_local_flags import run_interactive_runtime_command
 from .cli_session_local_flags import run_interactive_resume_command, run_interactive_session_command
 from .cli_system_prompt_state import update_system_prompt_state
 from .cli_additional_directory_state import update_additional_directory_state
+from .cli_interactive_branch import prepare_interactive_branch_switch
 from .cli_subagent_panel import SubagentPanel
 from .cli_text_edit_local_flags import run_interactive_text_edit_command
 from .commands import get_resume_context as default_get_resume_context, parse_local_command
@@ -80,6 +81,7 @@ from .session_additional_directories import (
     record_session_additional_directories,
     restore_session_additional_directories,
 )
+from .workspace_core import RunWorkspace
 
 
 def run_interactive_loop(
@@ -96,6 +98,8 @@ def run_interactive_loop(
     initial_system_prompt: str | None = None,
     initial_append_system_prompt: str | None = None,
     initial_additional_directories: tuple[Path, ...] = (),
+    initial_pending_workspace: RunWorkspace | None = None,
+    initial_branch_source_run_id: str | None = None,
 ) -> int:
     # Entry loop: parse local commands first, otherwise delegate to the agent.
     print(f"VibeAgent {__version__}")
@@ -117,6 +121,8 @@ def run_interactive_loop(
     system_prompt = initial_system_prompt
     append_system_prompt = initial_append_system_prompt
     additional_directories = initial_additional_directories
+    pending_workspace = initial_pending_workspace
+    pending_branch_source_run_id = initial_branch_source_run_id
     goal_state: GoalState | None = None
     workflow_manager: DynamicWorkflowManager | None = None
     workflow_client_lock = Lock()
@@ -125,7 +131,7 @@ def run_interactive_loop(
         goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
 
     def run_code_task(task: str, task_metadata: dict[str, object] | None = None) -> tuple[object, str | None]:
-        nonlocal client, resume_run_id, resume_context
+        nonlocal client, resume_run_id, resume_context, pending_workspace, pending_branch_source_run_id
         execution_config = resolve_execution_config(Path.cwd())
         client = client or create_chat_client_func(build_provider_env(None, Path.cwd()))
         panel = SubagentPanel(Path.cwd())
@@ -161,7 +167,8 @@ def run_interactive_loop(
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
                 task_metadata=task_metadata,
-                task_source_run_id=resume_run_id,
+                task_source_run_id=pending_branch_source_run_id or resume_run_id,
+                workspace=pending_workspace,
                 peer_runtime=peer_runtime,
                 agent=initial_agent,
                 additional_directories=additional_directories,
@@ -172,6 +179,8 @@ def run_interactive_loop(
         if panel.config_error and panel.config_error != initial_panel_error:
             print(f"Plugin subagentStatusLine warning: {panel.config_error}")
         print_agent_result(result)
+        pending_workspace = None
+        pending_branch_source_run_id = None
         selected, next_context, _ = get_resume_context_func(result.run_id)
         if next_context:
             resume_run_id = selected
@@ -253,7 +262,7 @@ def run_interactive_loop(
         nonlocal client, resume_run_id, workflow_manager
         if workflow_manager is not None:
             return workflow_manager
-        workspace = (
+        workspace = pending_workspace or (
             create_local_workspace(
                 Path.cwd(),
                 resume_run_id,
@@ -408,6 +417,8 @@ def run_interactive_loop(
             chat_history.clear()
             resume_run_id = None
             resume_context = None
+            pending_workspace = None
+            pending_branch_source_run_id = None
             print("Cleared chat history and resume context.")
             continue
         if command and command.type == "goal":
@@ -528,12 +539,36 @@ def run_interactive_loop(
                 workflow_manager = None
             resume_run_id = selected
             resume_context = context
+            pending_workspace = None
+            pending_branch_source_run_id = None
             additional_directories = next_additional_directories
             restored_goal = read_session_goal(Path.cwd(), selected) if selected is not None else None
             goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
             print(text)
             if restored_directories.message:
                 print(restored_directories.message)
+            continue
+        if command and command.type == "branch":
+            branch = prepare_interactive_branch_switch(
+                Path.cwd(),
+                resume_run_id,
+                command.argument,
+                additional_directories,
+                get_resume_context=get_resume_context_func,
+            )
+            if branch.error is not None or branch.workspace is None or branch.source_run_id is None:
+                print(f"Branch error: {branch.error or 'branch state is incomplete.'}")
+                continue
+            if workflow_manager is not None:
+                workflow_manager.close()
+                workflow_manager = None
+            pending_workspace = branch.workspace
+            pending_branch_source_run_id = branch.source_run_id
+            resume_run_id = branch.workspace.run_id
+            resume_context = branch.context
+            restored_goal = read_session_goal(Path.cwd(), resume_run_id)
+            goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
+            print(branch.text)
             continue
         request_mode = "code" if custom_command is not None else mode
         if command and command.type == "chat":

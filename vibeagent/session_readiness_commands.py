@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .session import build_session_audit_report, build_session_handoff_report, build_session_resume_context, get_last_session_id
 from .session_input import normalize_optional_run_id
+from .session_branching import resolve_session_reference
 
 
 def get_session_audit_report(
@@ -146,6 +147,7 @@ def _load_session_context(
     if not selected:
         return None, None, "No sessions found."
     try:
+        selected = resolve_session_reference(Path(project_root), selected)
         context = build_session_resume_context(
             project_root,
             selected,

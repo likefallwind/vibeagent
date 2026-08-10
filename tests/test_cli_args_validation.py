@@ -102,6 +102,39 @@ class CliArgsValidationTests(unittest.TestCase):
             "--resume, --compact, and --continue cannot be combined with local command flags.",
         )
 
+    def test_cli_fork_session_requires_resume_and_coding_mode(self) -> None:
+        valid_continue = cli_module.parse_args(["--continue", "--fork-session"])
+        valid_resume = cli_module.parse_args(["--resume", "run-1", "--fork-session", "continue"])
+        missing_source = cli_module.parse_args(["--fork-session", "continue"])
+        compact = cli_module.parse_args(["--compact", "run-1", "--fork-session", "continue"])
+        chat = cli_module.parse_args(["--chat", "--resume", "run-1", "--fork-session", "hello"])
+        local = cli_module.parse_args(["--sessions", "--resume", "run-1", "--fork-session"])
+        cleared = cli_module.parse_args(["--resume", "off", "--fork-session", "continue"])
+
+        self.assertIsNone(cli_module.validate_cli_args(valid_continue))
+        self.assertIsNone(cli_module.validate_cli_args(valid_resume))
+        self.assertTrue(cli_module.build_one_shot_kwargs_from_args(valid_resume)["fork_session"])
+        self.assertEqual(
+            cli_module.validate_cli_args(missing_source),
+            "--fork-session requires --resume, --session-id, or --continue.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(compact),
+            "--fork-session cannot be combined with --compact.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(chat),
+            "--fork-session requires an interactive or one-shot coding session.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(local),
+            "--fork-session requires an interactive or one-shot coding session.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(cleared),
+            "--fork-session requires a resumable source session, not --resume off.",
+        )
+
     def test_cli_no_auto_compact_requires_plain_one_shot_code_task(self) -> None:
         no_task_args = cli_module.parse_args(["--no-auto-compact"])
         chat_args = cli_module.parse_args(["--no-auto-compact", "--chat", "hello"])

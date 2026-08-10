@@ -11,6 +11,8 @@ from vibeagent import MACHINE_OUTPUT_SCHEMA_VERSION, __version__
 from vibeagent.agent import AgentResult
 from vibeagent.cli import main
 from vibeagent.types import ApprovalRequest, PlanItem, TaskStep
+from vibeagent.agent_runtime_utils import append_session_event
+from vibeagent.session_branching import read_session_branch_info
 
 
 class CliOneShotTests(unittest.TestCase):
@@ -750,6 +752,49 @@ class CliOneShotTests(unittest.TestCase):
         )
         self.assertEqual(run_agent.call_args.kwargs["base_dir"], Path(base).resolve())
         self.assertEqual(run_agent.call_args.kwargs["prior_context"], "previous context")
+
+    def test_main_one_shot_json_forks_resumed_session(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-branch-") as base:
+            root = Path(base)
+            source_dir = root / ".vibeagent" / "sessions" / "source-run"
+            append_session_event(source_dir, "task", {"task": "source task"})
+            source_events = source_dir.joinpath("events.jsonl").read_bytes()
+            stdout = io.StringIO()
+
+            def run_agent(task, **kwargs):
+                workspace = kwargs["workspace"]
+                return AgentResult(True, "done", root, workspace.run_id, 1, [], [])
+
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch(
+                    "vibeagent.cli.get_resume_context",
+                    return_value=("source-run", "source context", "Resume loaded."),
+                ),
+                patch("vibeagent.cli.run_agent", side_effect=run_agent) as run_agent_mock,
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "--json",
+                        "--cwd",
+                        base,
+                        "--resume",
+                        "source-run",
+                        "--fork-session",
+                        "try alternative",
+                    ]
+                )
+
+            payload = json.loads(stdout.getvalue())
+            branch_id = payload["sessionBranch"]["runId"]
+            branch_info = read_session_branch_info(root, branch_id)
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(payload["sessionBranch"]["sourceRunId"], "source-run")
+            self.assertEqual(run_agent_mock.call_args.kwargs["task_source_run_id"], "source-run")
+            self.assertEqual(branch_info.source_run_id, "source-run")  # type: ignore[union-attr]
+            self.assertEqual(source_dir.joinpath("events.jsonl").read_bytes(), source_events)
 
     def test_main_one_shot_session_id_alias_loads_resume_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:

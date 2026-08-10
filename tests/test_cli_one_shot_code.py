@@ -10,6 +10,7 @@ from vibeagent.cli_one_shot_code import run_one_shot_code
 from vibeagent.cli_output_mode import CliOutputMode
 from vibeagent.config import ExecutionConfig
 from vibeagent.agent_runtime_utils import append_session_event
+from vibeagent.session_branching import read_session_branch_info
 
 
 class CliOneShotCodeTests(unittest.TestCase):
@@ -139,7 +140,7 @@ class CliOneShotCodeTests(unittest.TestCase):
                 calls.append(kwargs)
                 return AgentResult(True, "done", root, "run-new", 1, [], [])
 
-            with patch("vibeagent.cli_one_shot_code.emit_one_shot_code_payload"):
+            with patch("vibeagent.cli_one_shot_code.emit_one_shot_code_payload") as emit_payload:
                 exit_code, _ = run_one_shot_code(
                     "continue",
                     project_root=root,
@@ -174,6 +175,65 @@ class CliOneShotCodeTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(calls[0]["additional_directories"], (shared.resolve(),))
+
+    def test_run_one_shot_code_forks_resumed_session_into_forced_workspace(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-one-shot-branch-") as base:
+            root = Path(base)
+            source_dir = root / ".vibeagent" / "sessions" / "source-run"
+            append_session_event(source_dir, "task", {"task": "source task"})
+            source_events = source_dir.joinpath("events.jsonl").read_bytes()
+            calls: list[dict[str, object]] = []
+
+            def run_agent(task, **kwargs):
+                calls.append(kwargs)
+                workspace = kwargs["workspace"]
+                return AgentResult(True, "done", root, workspace.run_id, 1, [], [])
+
+            with patch("vibeagent.cli_one_shot_code.emit_one_shot_code_payload") as emit_payload:
+                exit_code, _ = run_one_shot_code(
+                    "try alternative",
+                    project_root=root,
+                    execution_config=ExecutionConfig(),
+                    provider_env={},
+                    approval_policy="allow",
+                    trust_project_permissions=True,
+                    permission_overrides=None,
+                    resolved_mcp_config_paths=(),
+                    strict_mcp_config=False,
+                    output_mode=CliOutputMode(format="text", machine=False, stream_json=False),
+                    output_json=False,
+                    print_mode=False,
+                    elapsed_ms=1,
+                    stream=None,
+                    input_prior_context=None,
+                    system_prompt=None,
+                    append_system_prompt=None,
+                    task_metadata=None,
+                    resume_arg="source-run",
+                    compact_arg=None,
+                    auto_compact=False,
+                    fork_session=True,
+                    create_chat_client_func=lambda env: object(),
+                    run_agent_func=run_agent,
+                    get_resume_context_func=lambda run_id, project_root, **kwargs: (
+                        "source-run",
+                        "source context",
+                        "Loaded source.",
+                    ),
+                    get_compact_context_func=lambda run_id, project_root, **kwargs: (None, None, "unused"),
+                )
+
+            branch_workspace = calls[0]["workspace"]
+            branch_info = read_session_branch_info(root, branch_workspace.run_id)
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(calls[0]["task_source_run_id"], "source-run")
+            self.assertEqual(branch_info.source_run_id, "source-run")  # type: ignore[union-attr]
+            self.assertEqual(source_dir.joinpath("events.jsonl").read_bytes(), source_events)
+            self.assertEqual(
+                emit_payload.call_args.args[1]["sessionBranch"],
+                {"runId": branch_workspace.run_id, "sourceRunId": "source-run"},
+            )
 
 
 if __name__ == "__main__":

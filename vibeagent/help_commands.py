@@ -227,6 +227,7 @@ def get_help_text() -> str:
             "  /checkpoint-prune <keep-last>  Prune old checkpoints while keeping the newest entries.",
             "  /resume [run-id|off] [--max-failures N] [--max-files N] [--max-commands N] [--max-checks N] [--max-output-chars N] [--max-text N]  Use a previous session handoff as context, or clear it.",
             "  /compact [run-id] [--max-failures N] [--max-files N] [--max-commands N] [--max-checks N] [--max-output-chars N] [--max-text N]  Compact the newest or selected session handoff into resume context.",
+            "  /branch [name]  Fork the current coding session into an independent branch.",
             "  /chat   Switch to daily conversation mode, or chat once with /chat <message>.",
             "  /code   Switch to coding mode, or run one coding task with /code <task>.",
             "  /exit   Exit the interactive prompt.",

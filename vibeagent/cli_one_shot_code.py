@@ -26,6 +26,7 @@ from .session_additional_directories import (
     merge_additional_directories,
     restore_session_additional_directories,
 )
+from .session_branching import create_session_branch
 
 
 def run_one_shot_code(
@@ -53,6 +54,7 @@ def run_one_shot_code(
     resume_arg: str | None,
     compact_arg: str | None,
     auto_compact: bool,
+    fork_session: bool = False,
     resume_max_failures: int | None = None,
     resume_max_files: int | None = None,
     resume_max_commands: int | None = None,
@@ -114,6 +116,7 @@ def run_one_shot_code(
         mcp_config_paths=resolved_mcp_config_paths,
         strict_mcp_config=strict_mcp_config,
         additional_roots=additional_directories,
+        force_workspace=fork_session,
     )
     peer_runtime = create_peer_runtime(project_root, approval_policy)
     run_kwargs = build_one_shot_agent_kwargs(
@@ -142,6 +145,15 @@ def run_one_shot_code(
     recorded_session_tokens: dict[str, int] = {}
     try:
         with stream_scope.event_scope:
+            if fork_session:
+                if prior_context.run_id is None or stream_scope.workspace is None:
+                    raise ValueError("--fork-session requires a resolved source session.")
+                create_session_branch(
+                    project_root,
+                    prior_context.run_id,
+                    additional_directories=additional_directories,
+                    workspace=stream_scope.workspace,
+                )
             while True:
                 result = run_agent_func(task, **run_kwargs)
                 goal_turns += 1
@@ -189,6 +201,11 @@ def run_one_shot_code(
             "lastReason": goal_state.last_reason,
         }
         result_payload["goalTurns"] = goal_turns
+    if fork_session:
+        result_payload["sessionBranch"] = {
+            "runId": result.run_id,
+            "sourceRunId": prior_context.run_id,
+        }
     emit_one_shot_code_payload(
         result,
         result_payload,
