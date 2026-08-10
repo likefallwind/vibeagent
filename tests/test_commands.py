@@ -7453,7 +7453,7 @@ class CommandTests(unittest.TestCase):
         self.assertIn("pkg/CLAUDE.md (scope=pkg", text)
         self.assertIn("File: AGENTS.md", text)
         self.assertIn("Use Python.", text)
-        self.assertIn("Use unittest.", text)
+        self.assertNotIn("Use unittest.", text)
 
     def test_get_instructions_text_respects_bounds(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:

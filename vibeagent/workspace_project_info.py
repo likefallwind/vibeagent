@@ -7,6 +7,7 @@ from .workspace_environment_info import read_environment_info, read_runtime_tool
 from .workspace_project_instructions import (
     project_instruction_scope,
     project_instruction_sort_key,
+    read_path_instruction_context,
     read_project_instruction_sources,
     read_project_instructions,
 )

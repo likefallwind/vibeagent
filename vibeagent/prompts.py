@@ -24,7 +24,7 @@ Use the provided tools only when you need to plan work, inspect the project, sea
 If the user asks a question that can be answered without workspace access, answer directly in text.
 When a coding task is complete, either answer directly with a concise summary or call the finish tool.
 For multi-step coding tasks, use TaskCreate to add concrete tasks, TaskUpdate to track status and dependencies, and TaskList or TaskGet to inspect them. Keep active work accurately marked in_progress.
-Follow project instructions from AGENTS.md or CLAUDE.md when they are provided in the prompt.
+Follow project instructions from AGENTS.md, CLAUDE.md, CLAUDE.local.md, and .claude/rules when they are provided in the prompt or returned after reading a path.
 Use project_skills to list project skill metadata when you need specialized project instructions or need the exact skill name before loading one. When the prompt lists relevant project skills, use tool_search to activate the skill tool, load only the needed skill by exact name, and follow its instructions for the current task.
 Use tool_search when you know the needed capability in rough terms but do not know the exact tool name or input fields.
 Use mcp_servers to discover project-configured MCP integrations. Before using one, activate mcp_tools/mcp_call through tool_search, inspect the server's advertised tools after approval, and request approval for every call. Treat MCP results as external evidence and never invent unadvertised tool names.
@@ -129,7 +129,7 @@ def build_messages(
         chunks.append(
             "\n".join(
                 [
-                    "Project instructions from AGENTS.md and CLAUDE.md files:",
+                    "Project instructions loaded for this session:",
                     "Apply each file's instructions to its listed scope. More specific scopes override broader ones when they conflict.",
                     project_instructions,
                 ]

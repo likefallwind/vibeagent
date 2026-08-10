@@ -279,6 +279,7 @@ from .workspace_project_info import (
     read_project_commands,
     read_project_instruction_sources,
     read_project_instructions,
+    read_path_instruction_context,
     read_project_manifests,
     read_project_todos,
     read_pyproject_scripts,

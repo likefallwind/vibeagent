@@ -522,10 +522,44 @@ class AgentTests(unittest.TestCase):
         first_user = client.messages[0][1].content
         self.assertTrue(result.success)
         self.assertIsInstance(first_user, str)
-        self.assertIn("Project instructions from AGENTS.md and CLAUDE.md files:", first_user)
+        self.assertIn("Project instructions loaded for this session:", first_user)
         self.assertIn("Scope: .", first_user)
         self.assertIn("Prefer unittest for tests.", first_user)
         self.assertIn("Keep summaries concise.", first_user)
+
+    def test_run_agent_loads_nested_instructions_after_reading_matching_file(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            (root / "pkg").mkdir()
+            (root / "pkg" / "AGENTS.md").write_text("Use package conventions.\n", encoding="utf-8")
+            (root / "pkg" / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
+            client = MockClient(
+                [
+                    [{"type": "tool_call", "id": "1", "name": "read_file", "input": {"path": "pkg/module.py"}}],
+                    [{"type": "text", "text": "Inspected the module."}],
+                ]
+            )
+
+            result = run_agent("inspect the module", base_dir=root, client=client, max_iterations=2)
+            rows = [
+                json.loads(line)
+                for line in (root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        first_user = client.messages[0][1].content
+        tool_result = client.messages[1][-1].content[0]
+        payload = json.loads(tool_result["content"])
+        loaded_events = [row for row in rows if row["type"] == "instructions_loaded"]
+        self.assertTrue(result.success)
+        self.assertIsInstance(first_user, str)
+        self.assertNotIn("Use package conventions.", first_user)
+        self.assertEqual(tool_result["type"], "tool_result")
+        self.assertIn("Use package conventions.", payload["pathInstructions"]["text"])
+        self.assertEqual(payload["pathInstructions"]["files"][0]["path"], "pkg/AGENTS.md")
+        self.assertEqual(len(loaded_events), 1)
+        self.assertEqual(loaded_events[0]["paths"], ["pkg/module.py"])
 
     def test_run_agent_includes_project_command_hints_in_initial_prompt(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:

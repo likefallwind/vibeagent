@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .agent_multimodal import build_tool_result_block
+from .agent_instruction_context import instruction_context_for_observation
 from .agent_observation_utils import observation_failed
 from .agent_runtime_utils import append_session_event, summarize_command, to_jsonable
 from .agent_tool_registry import activate_tools_from_observations
@@ -73,6 +74,20 @@ def record_tool_result_event(
     event_extra: dict[str, object] | None = None,
 ) -> dict[str, object]:
     result_payload = build_tool_result_payload(observation, hook_results)
+    instruction_context = instruction_context_for_observation(workspace, observation)
+    if instruction_context is not None:
+        result_payload["pathInstructions"] = redact_jsonable_payload(instruction_context)
+        append_session_event(
+            workspace.session_dir,
+            "instructions_loaded",
+            {
+                "iteration": iteration,
+                "tool": tool_name,
+                "paths": instruction_context.get("paths", []),
+                "files": instruction_context.get("files", []),
+                "message": instruction_context.get("message", ""),
+            },
+        )
     event: dict[str, object] = {
         "iteration": iteration,
         "id": tool_id,

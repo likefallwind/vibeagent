@@ -85,6 +85,7 @@ from vibeagent.workspace import (
     read_project_file_info,
     read_project_instruction_sources,
     read_project_instructions,
+    read_path_instruction_context,
     read_project_file,
     read_project_file_context_result,
     read_project_file_result,
@@ -1464,17 +1465,20 @@ class WorkspaceTests(unittest.TestCase):
             write_run_file(workspace, "empty/CLAUDE.md", "\n")
             short = read_project_instructions(workspace)
             bounded = read_project_instructions(workspace, max_bytes=40)
+            nested = read_path_instruction_context(workspace, ["pkg/module.py"], claim=False)
 
         self.assertIn("File: AGENTS.md", short or "")
         self.assertIn("File: CLAUDE.md", short or "")
         self.assertIn("Scope: .", short or "")
         self.assertIn("Use Python.", short or "")
         self.assertIn("Prefer concise answers.", short or "")
-        self.assertIn("File: pkg/AGENTS.md", short or "")
-        self.assertIn("File: pkg/CLAUDE.md", short or "")
-        self.assertIn("Scope: pkg", short or "")
-        self.assertIn("Use unittest in this package.", short or "")
-        self.assertIn("Prefer focused tests in this package.", short or "")
+        self.assertNotIn("File: pkg/AGENTS.md", short or "")
+        self.assertNotIn("File: pkg/CLAUDE.md", short or "")
+        self.assertIn("File: pkg/AGENTS.md", str(nested["text"]))
+        self.assertIn("File: pkg/CLAUDE.md", str(nested["text"]))
+        self.assertIn("Scope: pkg", str(nested["text"]))
+        self.assertIn("Use unittest in this package.", str(nested["text"]))
+        self.assertIn("Prefer focused tests in this package.", str(nested["text"]))
         self.assertNotIn("empty/AGENTS.md", short or "")
         self.assertNotIn("empty/CLAUDE.md", short or "")
         self.assertTrue((bounded or "").endswith("[project instructions truncated]"))
@@ -1495,12 +1499,12 @@ class WorkspaceTests(unittest.TestCase):
             [
                 ("AGENTS.md", ".", True),
                 ("CLAUDE.md", ".", True),
-                ("0pkg/AGENTS.md", "0pkg", True),
+                ("0pkg/AGENTS.md", "0pkg", False),
             ],
         )
         text = str(metadata["text"])
         self.assertLess(text.index("File: AGENTS.md"), text.index("File: CLAUDE.md"))
-        self.assertLess(text.index("File: CLAUDE.md"), text.index("File: 0pkg/AGENTS.md"))
+        self.assertNotIn("File: 0pkg/AGENTS.md", text)
         self.assertEqual(metadata["omitted_files"], 1)
 
     def test_read_project_instruction_sources_reports_metadata_and_bounds(self) -> None:
