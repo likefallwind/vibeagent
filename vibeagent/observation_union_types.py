@@ -36,6 +36,7 @@ from .observation_common_types import (
     ApprovalDeniedObservation,
     DelegateTaskObservation,
     FinishObservation,
+    ListAgentsObservation,
     TaskOutputObservation,
     TaskStopObservation,
     ToolErrorObservation,
@@ -343,6 +344,7 @@ Observation: TypeAlias = (
     | UpdatePlanObservation
     | UserInputObservation
     | DelegateTaskObservation
+    | ListAgentsObservation
     | TaskOutputObservation
     | TaskStopObservation
     | FinishObservation

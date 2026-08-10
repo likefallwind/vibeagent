@@ -18,6 +18,8 @@ def _described_command_target(action: object) -> str:
 
 
 def build_action_target(action: object) -> str:
+    if isinstance(action, t.ListAgentsAction):
+        return "session subagents"
     if isinstance(action, t.SendMessageAction):
         return action.to
     if isinstance(action, (t.CheckMemoryWriteAction, t.MemoryReadAction, t.MemoryWriteAction)):

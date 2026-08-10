@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from threading import Event, Thread
+from typing import Literal
 
 from .types import DelegateTaskAction, DelegateTaskObservation
 
@@ -29,6 +30,13 @@ class BackgroundDelegateTask:
 
 
 @dataclass(frozen=True)
+class BackgroundDelegateSnapshot:
+    task_id: str
+    action: DelegateTaskAction
+    status: Literal["running", "completed", "failed", "cancelled"]
+
+
+@dataclass(frozen=True)
 class BackgroundDelegateCloseResult:
     task_ids: tuple[str, ...]
     cancel_requested_task_ids: tuple[str, ...]
@@ -39,5 +47,6 @@ class BackgroundDelegateCloseResult:
 __all__ = [
     "BackgroundDelegateCloseResult",
     "BackgroundDelegateRunner",
+    "BackgroundDelegateSnapshot",
     "BackgroundDelegateTask",
 ]

@@ -24,6 +24,8 @@ def format_project_observation(index: int, observation: object) -> str | None:
         return _format_project_skills(index, observation)
     if observation.kind == "project_agents":
         return _format_project_agents(index, observation)
+    if observation.kind == "list_agents":
+        return _format_list_agents(index, observation)
     if observation.kind == "skill":
         return _format_skill(index, observation)
     if observation.kind == "project_todos":
@@ -173,6 +175,24 @@ def _format_project_agents(index: int, observation: object) -> str:
             f"maxTurns={agent.max_turns or 'default'} skills={skills} memory={agent.memory or 'none'} "
             f"source={agent.source} path={agent.path} "
             f"available={str(agent.available).lower()} description={agent.description or '.'} message={agent.message}"
+        )
+    return "\n".join(parts)
+
+
+def _format_list_agents(index: int, observation: object) -> str:
+    parts = [
+        (
+            f"{index}. list_agents: {observation.message} "
+            f"shown={len(observation.agents)}/{observation.total} "
+            f"invalid={observation.invalid} truncated={str(observation.truncated).lower()}"
+        ),
+        f"ok: {str(observation.ok).lower()}",
+    ]
+    for agent in observation.agents:
+        parts.append(
+            f"agent: id={agent.id} status={agent.status} mode={agent.mode} "
+            f"profile={agent.agent or '.'} background={str(agent.background).lower()} "
+            f"runs={agent.runs} resumable={str(agent.resumable).lower()} task={agent.task}"
         )
     return "\n".join(parts)
 

@@ -18,6 +18,7 @@ CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
     "Grep": "search",
     "KillBash": "stop_process",
     "LSP": "lsp_query",
+    "ListAgents": "list_agents",
     "LS": "list_tree",
     "MultiEdit": "multi_edit_file",
     "NotebookEdit": "notebook_edit",
@@ -144,6 +145,7 @@ CLAUDE_TOOL_ALIASES = {
             "python_symbols",
         }
     ),
+    "ListAgents": frozenset({"list_agents"}),
     "MultiEdit": frozenset({"multi_edit_file"}),
     "NotebookEdit": FILE_EDIT_TOOL_NAMES | frozenset({"notebook_edit"}),
     "NotebookRead": FILE_READ_TOOL_NAMES | frozenset({"notebook_read"}),

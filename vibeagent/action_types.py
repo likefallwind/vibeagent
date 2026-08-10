@@ -241,6 +241,7 @@ from .action_workflow_types import (
     AskUserAction,
     DelegateTaskAction,
     FinishAction,
+    ListAgentsAction,
     PlanItem,
     PlanItemStatus,
     SendMessageAction,

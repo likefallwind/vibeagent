@@ -5,6 +5,7 @@ import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from threading import RLock
+from typing import Literal
 from uuid import uuid4
 
 from .redaction import redact_jsonable_payload
@@ -15,6 +16,7 @@ from .workspace_core import RunWorkspace
 
 TRANSCRIPT_VERSION = 1
 MAX_TRANSCRIPT_BYTES = 8_000_000
+MAX_TRANSCRIPT_FILES = 1_000
 SUBAGENT_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _STORE_LOCK = RLock()
 
@@ -28,7 +30,7 @@ class SubagentTranscript:
     subagent_id: str
     action: DelegateTaskAction
     messages: list[ChatMessage]
-    status: str
+    status: Literal["running", "completed", "failed", "cancelled"]
     runs: int
 
 
@@ -108,6 +110,36 @@ def read_subagent_transcript(workspace: RunWorkspace, subagent_id: str) -> Subag
         except (OSError, json.JSONDecodeError) as error:
             raise SubagentTranscriptError(f"Invalid subagent transcript: {error}") from error
     return _parse_transcript(payload, subagent_id)
+
+
+def list_subagent_transcripts(
+    workspace: RunWorkspace,
+) -> tuple[list[SubagentTranscript], int, bool]:
+    root = workspace.session_dir / "subagents"
+    with _STORE_LOCK:
+        if root.is_symlink():
+            raise SubagentTranscriptError(f"Subagent transcript directory must not be a symlink: {root}")
+        if not root.exists():
+            return [], 0, False
+        if not root.is_dir():
+            raise SubagentTranscriptError(f"Subagent transcript path is not a directory: {root}")
+        entries = sorted(
+            (path for path in root.iterdir() if not (path.name.startswith(".") and path.suffix == ".tmp")),
+            key=lambda path: path.name,
+        )
+        truncated = len(entries) > MAX_TRANSCRIPT_FILES
+        transcripts: list[SubagentTranscript] = []
+        invalid = 0
+        for path in entries[:MAX_TRANSCRIPT_FILES]:
+            if path.is_symlink() or not path.is_file() or path.suffix != ".json":
+                invalid += 1
+                continue
+            subagent_id = path.stem
+            try:
+                transcripts.append(read_subagent_transcript(workspace, subagent_id))
+            except SubagentTranscriptError:
+                invalid += 1
+    return transcripts, invalid, truncated
 
 
 def _write_transcript(workspace: RunWorkspace, transcript: SubagentTranscript) -> None:

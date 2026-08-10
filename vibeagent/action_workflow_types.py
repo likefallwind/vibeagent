@@ -48,6 +48,12 @@ class SendMessageAction:
 
 
 @dataclass(frozen=True)
+class ListAgentsAction:
+    type: Literal["list_agents"]
+    max_agents: int = 100
+
+
+@dataclass(frozen=True)
 class TaskOutputAction:
     type: Literal["task_output"]
     task_id: str

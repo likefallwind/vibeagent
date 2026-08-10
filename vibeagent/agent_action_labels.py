@@ -39,6 +39,8 @@ def build_step_label(action: object) -> str:
         return "Ask user"
     if isinstance(action, t.DelegateTaskAction):
         return "Delegate task"
+    if isinstance(action, t.ListAgentsAction):
+        return "List session subagents"
     if isinstance(action, t.SendMessageAction):
         return f"Resume subagent {action.to}"
     if isinstance(action, t.RepoMapAction):

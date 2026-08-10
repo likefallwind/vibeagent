@@ -14,6 +14,7 @@ OK_FLAG_FAILURE_KINDS = {
     "enter_worktree",
     "exit_worktree",
     "delegate_task",
+    "list_agents",
     "task_output",
     "task_stop",
     "task_create",

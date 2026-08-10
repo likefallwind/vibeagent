@@ -108,6 +108,41 @@ class PromptObservationProjectTests(unittest.TestCase):
             ),
         )
 
+    def test_format_list_agents_includes_resume_metadata(self) -> None:
+        text = format_project_observation(
+            4,
+            SimpleNamespace(
+                kind="list_agents",
+                message="Found 1 session agent.",
+                ok=True,
+                agents=[
+                    SimpleNamespace(
+                        id="delegate-1-1",
+                        status="completed",
+                        mode="explore",
+                        agent="reviewer",
+                        background=False,
+                        runs=2,
+                        resumable=True,
+                        task="Inspect tests",
+                    )
+                ],
+                total=1,
+                invalid=0,
+                truncated=False,
+            ),
+        )
+
+        self.assertEqual(
+            text,
+            (
+                "4. list_agents: Found 1 session agent. shown=1/1 invalid=0 truncated=false\n"
+                "ok: true\n"
+                "agent: id=delegate-1-1 status=completed mode=explore profile=reviewer "
+                "background=false runs=2 resumable=true task=Inspect tests"
+            ),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -75,6 +75,17 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "ListAgents",
+        "description": "List running and resumable subagent instances in the current session. This lists agent runs, not project profile definitions.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "max_agents": {"type": "integer", "minimum": 1, "maximum": 500},
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "SendMessage",
         "description": "Resume a completed subagent by ID with its full prior context and a follow-up message.",
         "input_schema": {

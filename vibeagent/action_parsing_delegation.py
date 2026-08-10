@@ -4,13 +4,21 @@ import re
 from typing import Any
 
 from .action_parsing_helpers import ActionParseError
-from .types import DelegateTaskAction, SendMessageAction, TaskOutputAction, TaskStopAction
+from .types import DelegateTaskAction, ListAgentsAction, SendMessageAction, TaskOutputAction, TaskStopAction
 
 
 AGENT_PROFILE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 
 def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str) -> object | None:
+    if action_type == "list_agents":
+        max_agents = value.get("max_agents", 100)
+        if isinstance(max_agents, bool) or not isinstance(max_agents, int):
+            raise ActionParseError("list_agents action max_agents must be an integer.", raw)
+        if not 1 <= max_agents <= 500:
+            raise ActionParseError("list_agents action max_agents must be between 1 and 500.", raw)
+        return ListAgentsAction(type="list_agents", max_agents=max_agents)
+
     if action_type == "send_message":
         recipient = value.get("to")
         if not isinstance(recipient, str) or not AGENT_PROFILE_NAME_PATTERN.fullmatch(recipient.strip()):

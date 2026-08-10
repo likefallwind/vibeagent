@@ -24,6 +24,8 @@ PROJECT_NEXT_ACTION_KINDS = {
     "Agent",
     "Task",
     "SendMessage",
+    "ListAgents",
+    "list_agents",
     "WebFetch",
     "WebSearch",
     "delegate_task",
@@ -239,6 +241,12 @@ def _environment_info_next_action_instruction(base: str, latest: Observation) ->
 
 
 def project_next_action_instruction(base: str, latest: Observation) -> str:
+    if latest.kind == "ListAgents":
+        return f"{base} Use an exact listed subagent ID with SendMessage, TaskOutput, or TaskStop, or continue without delegation."
+    if latest.kind == "list_agents":
+        if not getattr(latest, "ok", False):
+            return f"{base} Session subagents could not be listed. Continue with known IDs or inspect the reported transcript error."
+        return f"{base} Use an exact listed subagent ID with SendMessage, TaskOutput, or TaskStop, or continue the parent task."
     if latest.kind == "SendMessage":
         return f"{base} Use the resumed subagent result as evidence and continue the parent task."
     if latest.kind == "memory_list":
@@ -265,7 +273,7 @@ def project_next_action_instruction(base: str, latest: Observation) -> str:
         return f"{base} Use the MCP result as external evidence and continue the task or answer directly if complete."
     if latest.kind == "delegate_task":
         if getattr(latest, "background", False) and getattr(latest, "running", False):
-            return f"{base} Continue independent work, then use TaskOutput with task_id={latest.task_id} to collect the background result before finishing."
+            return f"{base} Continue independent work and wait for its completion notification, or use TaskOutput with task_id={latest.task_id} to check progress."
         if not getattr(latest, "ok", False):
             return (
                 f"{base} The delegated task failed. Continue the necessary work in the main agent context "

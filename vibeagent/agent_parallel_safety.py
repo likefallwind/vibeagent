@@ -5,6 +5,7 @@ from .agent_approval import build_approval_request
 
 PARALLEL_SAFE_TOOL_NAMES = {
     "list_files",
+    "list_agents",
     "list_tree",
     "repo_map",
     "read_file",

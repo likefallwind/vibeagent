@@ -47,6 +47,29 @@ class DelegateTaskObservation:
 
 
 @dataclass(frozen=True)
+class SubagentInstance:
+    id: str
+    task: str
+    status: Literal["running", "completed", "failed", "cancelled"]
+    mode: Literal["explore", "code"]
+    agent: str | None
+    background: bool
+    runs: int
+    resumable: bool
+
+
+@dataclass(frozen=True)
+class ListAgentsObservation:
+    kind: Literal["list_agents"]
+    ok: bool
+    agents: list[SubagentInstance]
+    total: int
+    truncated: bool
+    invalid: int
+    message: str
+
+
+@dataclass(frozen=True)
 class TaskOutputObservation:
     kind: Literal["task_output"]
     ok: bool

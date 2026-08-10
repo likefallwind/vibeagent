@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from threading import RLock, Thread
 from time import monotonic
+from typing import Literal
 from uuid import uuid4
 
 from .background_delegate_types import (
     BackgroundDelegateCloseResult,
     BackgroundDelegateRunner,
+    BackgroundDelegateSnapshot,
     BackgroundDelegateTask,
 )
 from .types import (
@@ -130,6 +132,34 @@ def execute_background_task_action(
     return None
 
 
+def _background_task_status(
+    task: BackgroundDelegateTask,
+) -> Literal["running", "completed", "failed", "cancelled"]:
+    if not task.done_event.is_set():
+        return "running"
+    if task.result is None:
+        return "failed"
+    if task.result.cancelled:
+        return "cancelled"
+    return "completed" if task.result.ok else "failed"
+
+
+def list_background_delegate_snapshots(
+    workspace: RunWorkspace,
+) -> list[BackgroundDelegateSnapshot]:
+    selected_workspace_key = _workspace_key(workspace)
+    with _TASKS_LOCK:
+        return [
+            BackgroundDelegateSnapshot(
+                task_id=task.task_id,
+                action=task.action,
+                status=_background_task_status(task),
+            )
+            for (workspace_key, _task_id), task in _TASKS.items()
+            if workspace_key == selected_workspace_key
+        ]
+
+
 def collect_background_delegate_notifications(
     workspace: RunWorkspace,
 ) -> list[TaskOutputObservation]:
@@ -153,6 +183,7 @@ def read_background_delegate_task(
 ) -> TaskOutputObservation:
     task = _find_task(workspace, action.task_id)
     if task is None:
+        hint = _available_agent_hint(workspace)
         return TaskOutputObservation(
             kind="task_output",
             ok=False,
@@ -160,7 +191,7 @@ def read_background_delegate_task(
             running=False,
             completed=False,
             result=None,
-            message=f"Background task {action.task_id} was not found in this session.",
+            message=f"Background task {action.task_id} was not found in this session.{hint}",
         )
     if action.block and not task.done_event.is_set():
         task.done_event.wait(action.timeout_ms / 1000)
@@ -208,13 +239,14 @@ def stop_background_delegate_task(
 ) -> TaskStopObservation:
     task = _find_task(workspace, action.task_id)
     if task is None:
+        hint = _available_agent_hint(workspace)
         return TaskStopObservation(
             kind="task_stop",
             ok=False,
             task_id=action.task_id,
             running=False,
             stopped=False,
-            message=f"Background task {action.task_id} was not found in this session.",
+            message=f"Background task {action.task_id} was not found in this session.{hint}",
         )
     task.cancel_event.set()
     task.done_event.wait(0.1)
@@ -279,6 +311,17 @@ def close_background_delegate_tasks(
 def _find_task(workspace: RunWorkspace, task_id: str) -> BackgroundDelegateTask | None:
     with _TASKS_LOCK:
         return _TASKS.get((_workspace_key(workspace), task_id))
+
+
+def _available_agent_hint(workspace: RunWorkspace) -> str:
+    from .subagent_listing import list_session_agents
+
+    listed = list_session_agents(workspace, max_agents=10)
+    if not listed.ok or not listed.agents:
+        return ""
+    labels = ", ".join(f"{agent.id} ({agent.status})" for agent in listed.agents)
+    suffix = ", ..." if listed.truncated else ""
+    return f" Available session agents: {labels}{suffix}."
 
 
 def _workspace_key(workspace: RunWorkspace) -> str:

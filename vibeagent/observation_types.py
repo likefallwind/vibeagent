@@ -50,6 +50,8 @@ from .observation_common_types import (
     ApprovalDeniedObservation,
     DelegateTaskObservation,
     FinishObservation,
+    ListAgentsObservation,
+    SubagentInstance,
     TaskOutputObservation,
     TaskStopObservation,
     ToolErrorObservation,
