@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 from typing import Any
 
+from .plugin_default_settings import read_plugin_default_settings
 from .plugin_types import PluginManifest
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
 
@@ -66,15 +67,15 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
     lsp = () if inline_lsp is not None else _config_files(root, payload, "lspServers", ".lsp.json")
     executables = _executable_files(root)
     monitor_files, inline_monitors = _monitor_components(root, payload)
-    warnings: list[str] = []
-    if (root / "settings.json").exists() or "settings" in payload:
-        warnings.append("Plugin default settings are not supported yet.")
+    default_settings = read_plugin_default_settings(root, payload, tuple(agents))
+    warnings = list(default_settings.warnings)
 
     all_components = (*skills, *commands, *agents, *hooks, *mcp, *lsp, *executables, *monitor_files)
     component_count = (
         len(all_components)
         + (1 if inline_lsp is not None else 0)
         + len(inline_monitors or ())
+        + (1 if default_settings.enabled else 0)
     )
     if component_count > MAX_PLUGIN_COMPONENTS:
         raise ValueError(f"Plugin exposes more than {MAX_PLUGIN_COMPONENTS} components.")
@@ -97,6 +98,9 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
         monitor_files=tuple(monitor_files),
         inline_lsp_servers=dict(inline_lsp) if inline_lsp is not None else None,
         inline_monitors=inline_monitors,
+        default_agent=default_settings.agent,
+        default_settings_source=default_settings.source,
+        has_subagent_status_line=default_settings.has_subagent_status_line,
         warnings=tuple(warnings),
     )
 

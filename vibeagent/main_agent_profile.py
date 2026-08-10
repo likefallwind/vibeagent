@@ -10,6 +10,7 @@ from .agent_delegate_policy import (
 )
 from .agent_delegate_profile import load_delegate_profile_runtime
 from .types import DelegateTaskAction
+from .workspace_agents import read_project_agents
 from .workspace_core import RunWorkspace
 
 
@@ -37,6 +38,7 @@ MAIN_EXPLORE_TOOL_NAMES = (
 @dataclass(frozen=True)
 class MainAgentProfile:
     name: str | None = None
+    source: str | None = None
     prompt: str | None = None
     mode: str = "code"
     allowed_tool_names: frozenset[str] | None = None
@@ -58,13 +60,17 @@ class MainAgentProfile:
 
 
 def load_main_agent_profile(
-    workspace: RunWorkspace, name: str | None
+    workspace: RunWorkspace,
+    name: str | None,
+    *,
+    source: str | None = None,
 ) -> MainAgentProfile:
     if name is None:
         return MainAgentProfile()
     selected = name.strip()
     if not selected:
         raise ValueError("Main agent profile name must not be empty.")
+    selected = _resolve_profile_reference(workspace, selected)
     loaded = load_delegate_profile_runtime(
         workspace,
         DelegateTaskAction(
@@ -83,9 +89,14 @@ def load_main_agent_profile(
         )
     allowed = loaded.allowed_tool_names
     if loaded.mode == "explore":
-        allowed = MAIN_EXPLORE_TOOL_NAMES if allowed is None else allowed & MAIN_EXPLORE_TOOL_NAMES
+        allowed = (
+            MAIN_EXPLORE_TOOL_NAMES
+            if allowed is None
+            else allowed & MAIN_EXPLORE_TOOL_NAMES
+        )
     return MainAgentProfile(
         name=selected,
+        source=source,
         prompt=loaded.prompt,
         mode=loaded.mode or "code",
         allowed_tool_names=allowed,
@@ -95,6 +106,27 @@ def load_main_agent_profile(
         memory_scope=loaded.memory_scope,
         workspace=loaded.workspace,
     )
+
+
+def _resolve_profile_reference(workspace: RunWorkspace, name: str) -> str:
+    catalog = read_project_agents(workspace, max_agents=500)
+    profiles = catalog["agents"]
+    if any(str(profile["name"]) == name for profile in profiles):
+        return name
+    if ":" in name:
+        return name
+    matches = sorted(
+        str(profile["name"])
+        for profile in profiles
+        if str(profile["name"]).endswith(f":{name}")
+    )
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        raise ValueError(
+            f"Main agent profile name {name!r} is ambiguous: {', '.join(matches)}."
+        )
+    return name
 
 
 def append_main_profile_prompt(

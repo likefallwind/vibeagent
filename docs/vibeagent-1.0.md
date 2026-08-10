@@ -70,6 +70,12 @@ local changes when asked, and resume from recorded session context.
   lifecycle commands, reload counts, provider-free management, local marketplace
   validation and snapshot caching, qualified installation, refresh, cascade
   removal, version-one state compatibility, and state-write rollback.
+- `tests.test_main_agent_settings.PluginDefaultSettingsTests` and
+  `tests.test_main_agent_settings.MainAgentSettingsTests` cover bounded
+  non-symlink plugin settings, root-over-inline precedence, default-agent
+  validation, CLI/project/plugin selection precedence, namespaced and unique
+  bare plugin profiles, disabled defaults, conflict failure before provider
+  access, and honest reporting of the unsupported subagent panel status line.
 - `tests.test_plugin_remote_sources` covers public credential-free HTTPS
   enforcement, HTTPS-only redirects, sanitized non-interactive Git execution,
   GitHub and direct-JSON marketplace refresh, `github`/`url`/`git-subdir`

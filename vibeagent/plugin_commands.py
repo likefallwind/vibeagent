@@ -92,6 +92,7 @@ def reload_plugins_text(project_root: Path) -> str:
         "LSP servers": 0,
         "executables": 0,
         "monitors": 0,
+        "default agents": 0,
     }
     for plugin in enabled:
         manifest = read_installed_plugin_manifest(project_root, plugin.name)
@@ -103,6 +104,7 @@ def reload_plugins_text(project_root: Path) -> str:
         totals["LSP servers"] += _lsp_server_count(manifest)
         totals["executables"] += len(manifest.bin_files)
         totals["monitors"] += monitor_count_for_manifest(manifest)
+        totals["default agents"] += 1 if manifest.default_agent is not None else 0
     counts = ", ".join(f"{name}={count}" for name, count in totals.items())
     return f"Reloaded {len(enabled)} enabled plugin(s): {counts}; errors={len(errors)}."
 
@@ -136,6 +138,8 @@ def format_plugin_details(manifest: PluginManifest) -> str:
         f"  LSP configs: {len(manifest.lsp_files) + (1 if manifest.inline_lsp_servers is not None else 0)}",
         f"  executables: {len(manifest.bin_files)}",
         f"  monitors: {monitor_count_for_manifest(manifest)}",
+        f"  default agent: {manifest.default_agent or '(none)'}",
+        f"  default settings source: {manifest.default_settings_source or '(none)'}",
     ]
     lines.extend(f"  warning: {warning}" for warning in manifest.warnings)
     return "\n".join(lines)

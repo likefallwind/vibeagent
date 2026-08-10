@@ -10,6 +10,7 @@ from .main_agent_profile import (
     append_main_profile_prompt,
     load_main_agent_profile,
 )
+from .main_agent_settings import resolve_main_agent_selection
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .session_tasks import inherit_task_store
@@ -63,7 +64,12 @@ def prepare_agent_run(
         strict_mcp_config,
         trust_project_permissions,
     )
-    main_profile = load_main_agent_profile(current_workspace, agent)
+    main_selection = resolve_main_agent_selection(current_workspace, agent)
+    main_profile = load_main_agent_profile(
+        current_workspace,
+        main_selection.name,
+        source=main_selection.source,
+    )
     current_workspace = main_profile.workspace or current_workspace
     effective_append_system_prompt = append_main_profile_prompt(
         append_system_prompt, main_profile
@@ -291,6 +297,7 @@ def _append_main_profile_event(
         "main_agent_profile_loaded",
         {
             "name": profile.name,
+            "source": profile.source,
             "mode": profile.mode,
             "max_turns": profile.max_turns,
             "skills": list(profile.skills),

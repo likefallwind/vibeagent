@@ -22,6 +22,9 @@ class PluginManifest:
     monitor_files: tuple[Path, ...]
     inline_lsp_servers: dict[str, object] | None = None
     inline_monitors: tuple[object, ...] | None = None
+    default_agent: str | None = None
+    default_settings_source: str | None = None
+    has_subagent_status_line: bool = False
     warnings: tuple[str, ...] = ()
 
     @property
@@ -40,6 +43,10 @@ class PluginManifest:
             )
         ) + (1 if self.inline_lsp_servers is not None else 0) + len(
             self.inline_monitors or ()
+        ) + (
+            1
+            if self.default_agent is not None or self.has_subagent_status_line
+            else 0
         )
 
 
