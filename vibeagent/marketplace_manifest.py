@@ -13,7 +13,7 @@ from .plugin_npm_sources import (
 )
 from .plugin_remote_sources import (
     github_repository_url,
-    normalize_public_https_url,
+    normalize_git_url,
     validate_git_revision,
     validate_git_sha,
 )
@@ -180,8 +180,8 @@ def _read_remote_plugin_source(
     elif kind in {"url", "git-subdir"}:
         raw_url = source.get("url")
         if not isinstance(raw_url, str):
-            raise ValueError(f"{label} {kind} source requires an HTTPS url.")
-        url = normalize_public_https_url(raw_url, label=f"{label} Git URL")
+            raise ValueError(f"{label} {kind} source requires an HTTPS or SSH Git URL.")
+        url = normalize_git_url(raw_url, label=f"{label} Git URL")
         display = url
         subdirectory = _safe_subdirectory(source.get("path"), label) if kind == "git-subdir" else None
     elif kind == "npm":

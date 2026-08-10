@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from .plugin_installation import remove_plugin_tree
 from .plugin_npm_sources import download_npm_plugin
-from .plugin_remote_sources import clone_public_git
+from .plugin_remote_sources import clone_remote_git
 from .plugin_state import ensure_directory, plugins_root
 from .plugin_types import MarketplacePlugin
 from .workspace_metadata_files import has_symlink_component
@@ -40,7 +40,7 @@ def acquire_marketplace_plugin(
         else:
             if plugin.url is None:
                 raise ValueError(f"Remote plugin source is missing its Git URL: {plugin.name}")
-            clone_public_git(plugin.url, temporary, ref=plugin.ref, sha=plugin.sha)
+            clone_remote_git(plugin.url, temporary, ref=plugin.ref, sha=plugin.sha)
             selected = temporary / plugin.subdirectory if plugin.subdirectory else temporary
         if has_symlink_component(temporary, selected):
             raise ValueError(f"Remote plugin subdirectory contains a symbolic link: {plugin.name}")

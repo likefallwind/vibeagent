@@ -1182,17 +1182,19 @@ and print a `/reload-plugins` notification without initializing a model client.
 `FORCE_AUTOUPDATE_PLUGINS=1` keeps plugin updates enabled when the global updater
 is disabled. Background failures retain the last valid catalog and plugin cache
 and are reported on the next idle CLI tick.
-Remote marketplaces support GitHub `owner/repository[#ref]`, public HTTPS Git
-repositories, and public HTTPS `marketplace.json` files. Remote catalog entries
+Remote marketplaces support GitHub `owner/repository[#ref]`, public HTTPS or SSH
+Git repositories, and public HTTPS `marketplace.json` files. Remote catalog entries
 support `github`, `url`, and `git-subdir` Git sources with optional `ref` or
 `sha`, plus `npm` sources with a package, exact version or dist-tag, and optional
 registry. npm packages are fetched without executing lifecycle scripts, require
 registry-provided SHA-512 integrity or SHA-1 shasum metadata, and are extracted
 with the same path, file-count, and size boundaries as other plugins. Network
-URLs must be credential-free public HTTPS, HTTP redirects are
-disabled for Git and cannot downgrade JSON downloads, Git authentication is
-non-interactive, inherited Git configuration injection is removed, and each
-fetch uses a bounded temporary checkout. Set `VIBEAGENT_PLUGIN_GIT_TIMEOUT_MS`
+HTTPS URLs must be credential-free and all Git hosts must resolve publicly.
+HTTP redirects are disabled for Git and cannot downgrade JSON downloads. SSH
+sources use `ssh-agent`, require a pre-existing strict `known_hosts` entry, disable
+passwords, prompts, user SSH configuration, proxies, and local commands, and never
+fall back to interactive authentication. Inherited Git configuration injection is
+removed and each fetch uses a bounded temporary checkout. Set `VIBEAGENT_PLUGIN_GIT_TIMEOUT_MS`
 between 1,000 and 600,000 milliseconds to override the 120-second Git timeout.
 LSP configuration accepts a root `.lsp.json`, a manifest-relative JSON path, or
 an inline `lspServers` object. Each server declares `command`, optional `args`
@@ -1203,7 +1205,7 @@ language-server diagnostics back to the model after successful file edits.
 Language-server binaries remain separately installed dependencies. Socket
 transport is rejected explicitly; when no enabled plugin claims a file,
 `LSP` retains the built-in lexical code-intelligence fallback.
-SSH plugin sources and user/project installation scopes are not yet
+User/project installation scopes are not yet
 implemented and are reported rather than silently loaded.
 On Linux and macOS, interactive and one-shot CLI sessions register a user-only
 Unix socket under `/tmp/vibeagent-<uid>/peers`. `ListAgents` combines current

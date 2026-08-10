@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import socket
 import subprocess
@@ -23,6 +24,12 @@ GITHUB_REPOSITORY_PATTERN = re.compile(
 )
 GIT_REVISION_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/@+~-]{0,199}$")
 GIT_SHA_PATTERN = re.compile(r"^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$")
+SSH_SCP_GIT_PATTERN = re.compile(
+    r"^(?P<user>[A-Za-z0-9][A-Za-z0-9._-]{0,63})@"
+    r"(?P<host>[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?):"
+    r"(?P<path>[A-Za-z0-9._~+/-]{1,500})$"
+)
+SSH_PATH_PATTERN = re.compile(r"^/[A-Za-z0-9._~+/-]{1,500}$")
 
 
 def github_repository_url(repository: str) -> str:
@@ -47,6 +54,43 @@ def normalize_public_https_url(value: str, *, label: str) -> str:
     return urlunsplit((parsed.scheme, parsed.netloc, parsed.path or "/", parsed.query, ""))
 
 
+def normalize_git_url(value: str, *, label: str = "Git URL") -> str:
+    if value.startswith("https://"):
+        return normalize_public_https_url(value, label=label)
+    scp_match = SSH_SCP_GIT_PATTERN.fullmatch(value)
+    if scp_match is not None:
+        _validate_ssh_path(scp_match.group("path"), label=label)
+        return value
+    parsed = urlsplit(value)
+    if parsed.scheme != "ssh" or not parsed.hostname:
+        raise ValueError(f"{label} must use credential-free HTTPS or SSH Git syntax.")
+    if parsed.username is None or parsed.password is not None:
+        raise ValueError(f"{label} SSH URLs require a username and must not include a password.")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", parsed.username):
+        raise ValueError(f"{label} SSH username contains unsupported characters.")
+    if parsed.query or parsed.fragment:
+        raise ValueError(f"{label} SSH URLs must not contain a query or fragment.")
+    try:
+        port = parsed.port
+    except ValueError as error:
+        raise ValueError(f"{label} has an invalid port: {error}.") from error
+    if port is not None and (port < 1 or port > 65_535):
+        raise ValueError(f"{label} SSH port must be between 1 and 65535.")
+    _validate_ssh_path(parsed.path, label=label)
+    return urlunsplit(("ssh", parsed.netloc, parsed.path, "", ""))
+
+
+def _validate_ssh_path(value: str, *, label: str) -> None:
+    selected = value[1:] if value.startswith("/") else value
+    if (
+        not selected
+        or not SSH_PATH_PATTERN.fullmatch("/" + selected)
+        or any(part in {".", ".."} for part in Path(selected).parts)
+        or "//" in value
+    ):
+        raise ValueError(f"{label} SSH repository path contains unsupported components.")
+
+
 def validate_git_revision(value: str | None, *, label: str = "Git ref") -> str | None:
     if value is None:
         return None
@@ -63,6 +107,44 @@ def validate_git_sha(value: str | None) -> str | None:
     return value.lower()
 
 
+def clone_remote_git(
+    url: str,
+    destination: Path,
+    *,
+    ref: str | None = None,
+    sha: str | None = None,
+) -> None:
+    normalized_url = normalize_git_url(url)
+    if ref is not None and sha is not None:
+        raise ValueError("Git plugin source must not specify both ref and sha.")
+    revision = validate_git_sha(sha) or validate_git_revision(ref) or "HEAD"
+    ssh = _is_ssh_git_url(normalized_url)
+    _validate_git_host(normalized_url, ssh=ssh)
+    if destination.exists() or destination.is_symlink():
+        raise ValueError(f"Git destination already exists: {destination}")
+    if shutil.which("git") is None:
+        raise ValueError("Git executable is required for remote plugin sources.")
+    if ssh and shutil.which("ssh") is None:
+        raise ValueError("SSH executable is required for SSH plugin sources.")
+    destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    try:
+        _run_git(["init", "--quiet", str(destination)], ssh=ssh)
+        _run_git(["-C", str(destination), "remote", "add", "origin", normalized_url], ssh=ssh)
+        fetch_args = ["-C", str(destination)]
+        if not ssh:
+            fetch_args.extend(["-c", "http.followRedirects=false"])
+        fetch_args.extend(["fetch", "--depth", "1", "origin", revision])
+        _run_git(fetch_args, ssh=ssh)
+        _run_git(
+            ["-C", str(destination), "checkout", "--quiet", "--detach", "FETCH_HEAD"],
+            ssh=ssh,
+        )
+    except Exception:
+        if destination.exists():
+            remove_plugin_tree(destination)
+        raise
+
+
 def clone_public_git(
     url: str,
     destination: Path,
@@ -70,37 +152,29 @@ def clone_public_git(
     ref: str | None = None,
     sha: str | None = None,
 ) -> None:
-    normalized_url = normalize_public_https_url(url, label="Git URL")
-    if ref is not None and sha is not None:
-        raise ValueError("Git plugin source must not specify both ref and sha.")
-    revision = validate_git_sha(sha) or validate_git_revision(ref) or "HEAD"
-    validate_scoped_url(normalized_url, "public")
-    if destination.exists() or destination.is_symlink():
-        raise ValueError(f"Git destination already exists: {destination}")
-    if shutil.which("git") is None:
-        raise ValueError("Git executable is required for remote plugin sources.")
-    destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    try:
-        _run_git(["init", "--quiet", str(destination)])
-        _run_git(["-C", str(destination), "remote", "add", "origin", normalized_url])
-        _run_git(
-            [
-                "-C",
-                str(destination),
-                "-c",
-                "http.followRedirects=false",
-                "fetch",
-                "--depth",
-                "1",
-                "origin",
-                revision,
-            ]
-        )
-        _run_git(["-C", str(destination), "checkout", "--quiet", "--detach", "FETCH_HEAD"])
-    except Exception:
-        if destination.exists():
-            remove_plugin_tree(destination)
-        raise
+    clone_remote_git(url, destination, ref=ref, sha=sha)
+
+
+def _is_ssh_git_url(value: str) -> bool:
+    return value.startswith("ssh://") or SSH_SCP_GIT_PATTERN.fullmatch(value) is not None
+
+
+def _validate_git_host(value: str, *, ssh: bool) -> None:
+    if not ssh:
+        validate_scoped_url(value, "public", require_https=True)
+        return
+    if value.startswith("ssh://"):
+        parsed = urlsplit(value)
+        host = parsed.hostname or ""
+        port = parsed.port or 22
+    else:
+        match = SSH_SCP_GIT_PATTERN.fullmatch(value)
+        if match is None:
+            raise ValueError("SSH Git URL is invalid.")
+        host = match.group("host")
+        port = 22
+    rendered_host = f"[{host}]" if ":" in host else host
+    validate_scoped_url(f"https://{rendered_host}:{port}/", "public", require_https=True)
 
 
 def download_public_json(url: str, destination: Path) -> str:
@@ -141,7 +215,7 @@ def remote_git_timeout_ms() -> int:
     return timeout
 
 
-def _run_git(args: list[str]) -> None:
+def _run_git(args: list[str], *, ssh: bool = False) -> None:
     environment = _sanitized_git_environment()
     environment.update(
         {
@@ -152,6 +226,25 @@ def _run_git(args: list[str]) -> None:
             "GIT_TERMINAL_PROMPT": "0",
         }
     )
+    if ssh:
+        executable = shutil.which("ssh")
+        if executable is None:
+            raise ValueError("SSH executable is required for SSH plugin sources.")
+        environment["GIT_SSH_COMMAND"] = " ".join(
+            (
+                shlex.quote(executable),
+                f"-F {shlex.quote(os.devnull)}",
+                "-oBatchMode=yes",
+                "-oStrictHostKeyChecking=yes",
+                "-oPasswordAuthentication=no",
+                "-oKbdInteractiveAuthentication=no",
+                "-oNumberOfPasswordPrompts=0",
+                "-oPermitLocalCommand=no",
+                "-oProxyCommand=none",
+                "-oProxyJump=none",
+            )
+        )
+        environment["GIT_SSH_VARIANT"] = "ssh"
     try:
         result = subprocess.run(
             ["git", *args],
@@ -182,6 +275,7 @@ def _sanitized_git_environment() -> dict[str, str]:
         "GIT_PROXY_COMMAND",
         "GIT_SSH",
         "GIT_SSH_COMMAND",
+        "GIT_SSH_VARIANT",
         "GIT_TEMPLATE_DIR",
         "GIT_WORK_TREE",
         "SSH_ASKPASS",
@@ -202,9 +296,11 @@ def _sanitized_git_environment() -> dict[str, str]:
 
 __all__ = [
     "clone_public_git",
+    "clone_remote_git",
     "download_public_json",
     "github_repository_url",
     "normalize_public_https_url",
+    "normalize_git_url",
     "validate_git_revision",
     "validate_git_sha",
 ]
