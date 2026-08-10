@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from .plugin_store import enabled_plugin_manifests
+from .user_paths import user_home
 from .workspace_agent_profile_parser import AGENT_REFERENCE_PATTERN
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
@@ -15,6 +16,7 @@ PROJECT_AGENT_SETTINGS_PATHS = (
     ".claude/settings.local.json",
     ".claude/settings.json",
 )
+USER_AGENT_SETTINGS_PATH = "~/.claude/settings.json"
 
 
 @dataclass(frozen=True)
@@ -37,13 +39,30 @@ def resolve_main_agent_selection(
         path = workspace.root / relative
         if not path.exists() and not path.is_symlink():
             continue
-        payload = _read_project_settings(workspace.root, path, relative)
+        payload = _read_agent_settings(workspace.root, path, relative)
         if "agent" not in payload:
             continue
         return MainAgentSelection(
             name=_validate_reference(payload["agent"], f"{relative} agent"),
             source=relative,
         )
+
+    home = user_home()
+    user_settings = home / ".claude/settings.json"
+    if user_settings.exists() or user_settings.is_symlink():
+        payload = _read_agent_settings(
+            home,
+            user_settings,
+            USER_AGENT_SETTINGS_PATH,
+        )
+        if "agent" in payload:
+            return MainAgentSelection(
+                name=_validate_reference(
+                    payload["agent"],
+                    f"{USER_AGENT_SETTINGS_PATH} agent",
+                ),
+                source=USER_AGENT_SETTINGS_PATH,
+            )
 
     defaults = [
         (manifest.name, manifest.default_agent, manifest.default_settings_source)
@@ -65,7 +84,7 @@ def resolve_main_agent_selection(
     return MainAgentSelection()
 
 
-def _read_project_settings(
+def _read_agent_settings(
     root: Path,
     path: Path,
     relative: str,
@@ -90,12 +109,13 @@ def _validate_reference(value: object, source: str) -> str:
     if not isinstance(value, str) or not AGENT_REFERENCE_PATTERN.fullmatch(
         value.strip()
     ):
-        raise ValueError(f"{source} must be a valid project or plugin agent name.")
+        raise ValueError(f"{source} must be a valid agent name.")
     return value.strip()
 
 
 __all__ = [
     "MainAgentSelection",
     "PROJECT_AGENT_SETTINGS_PATHS",
+    "USER_AGENT_SETTINGS_PATH",
     "resolve_main_agent_selection",
 ]

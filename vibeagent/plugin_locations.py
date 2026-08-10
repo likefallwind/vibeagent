@@ -1,18 +1,10 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Literal
 
 from .plugin_state import read_plugin_state
-
-
-VIBEAGENT_USER_HOME = "VIBEAGENT_USER_HOME"
-
-
-def user_home() -> Path:
-    configured = os.environ.get(VIBEAGENT_USER_HOME)
-    return (Path(configured).expanduser() if configured else Path.home()).resolve()
+from .user_paths import VIBEAGENT_USER_HOME, user_home
 
 
 def plugin_storage_root(project_root: Path, scope: str | None) -> Path:

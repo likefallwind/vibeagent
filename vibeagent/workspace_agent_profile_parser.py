@@ -25,7 +25,7 @@ AGENT_MODEL_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$")
 AGENT_EFFORT_LEVELS = frozenset({"low", "medium", "high", "xhigh", "max"})
 MAX_AGENT_PROFILE_SKILLS = 10
 MAX_AGENT_TURNS = 50
-AGENT_MEMORY_SCOPES = frozenset({"project", "local"})
+AGENT_MEMORY_SCOPES = frozenset({"user", "project", "local"})
 KNOWN_TOOL_NAMES = frozenset(str(tool["name"]) for tool in AGENT_TOOL_DEFINITIONS)
 
 
@@ -159,10 +159,8 @@ def _parse_memory_scope(value: object) -> str | None:
     if value is None or not str(value).strip():
         return None
     scope = str(value).strip().lower()
-    if scope == "user":
-        raise ValueError("Agent profile memory scope user is outside the project workspace and is unsupported.")
     if scope not in AGENT_MEMORY_SCOPES:
-        raise ValueError("Agent profile memory must be project or local.")
+        raise ValueError("Agent profile memory must be user, project, or local.")
     return scope
 
 

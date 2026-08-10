@@ -190,7 +190,7 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertFalse(agents["bad-isolation"]["available"])
         self.assertIn("isolation must be worktree", str(agents["bad-isolation"]["message"]))
 
-    def test_profile_memory_metadata_rejects_unsupported_scopes(self) -> None:
+    def test_profile_memory_metadata_accepts_user_and_rejects_unknown_scopes(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
             root = Path(base)
             _write_agent(
@@ -226,11 +226,12 @@ class ProjectAgentProfileTests(unittest.TestCase):
         agents = {str(agent["name"]): agent for agent in catalog["agents"]}
         self.assertEqual(agents["project-memory"]["memory"], "project")
         self.assertTrue(agents["project-memory"]["available"])
-        self.assertFalse(agents["user-memory"]["available"])
-        self.assertIn("outside the project workspace", str(agents["user-memory"]["message"]))
+        self.assertTrue(agents["user-memory"]["available"])
+        self.assertEqual(agents["user-memory"]["memory"], "user")
         self.assertFalse(agents["invalid-memory"]["available"])
-        self.assertIn("must be project or local", str(agents["invalid-memory"]["message"]))
+        self.assertIn("must be user, project, or local", str(agents["invalid-memory"]["message"]))
         self.assertIn("memory=project", formatted or "")
+        self.assertIn("memory=user", formatted or "")
 
     def test_project_agents_tool_lists_metadata_without_prompt_body(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:

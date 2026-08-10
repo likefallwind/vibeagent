@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from .config import read_project_config
 from .redaction import redact_sensitive_text
+from .user_paths import user_home
 from .workspace_core import RunWorkspace
 from .workspace_git_utils import run_readonly_git
 
@@ -22,7 +23,7 @@ MEMORY_WRITE_MAX_BYTES = 64_000
 MEMORY_FILE_LIMIT = 100
 _MEMORY_FILE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.md$")
 _MEMORY_NAMESPACE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
-AGENT_MEMORY_SCOPES = frozenset({"project", "local"})
+AGENT_MEMORY_SCOPES = frozenset({"user", "project", "local"})
 _DISABLE_VALUES = {"1", "true", "yes", "on"}
 _MEMORY_LOCK = RLock()
 
@@ -66,6 +67,8 @@ def project_memory_root(workspace: RunWorkspace) -> Path:
     project_root = _shared_project_root(workspace.root)
     if workspace.memory_namespace is not None:
         namespace = _validate_memory_namespace(workspace.memory_namespace)
+        if workspace.memory_scope == "user":
+            return user_home() / ".claude" / "agent-memory" / namespace
         if workspace.memory_scope == "project":
             return project_root / ".claude" / "agent-memory" / namespace
         if workspace.memory_scope == "local":
@@ -157,6 +160,8 @@ def write_memory_file(
         temporary = root / f".{name}.{uuid4().hex}.tmp"
         try:
             temporary.write_text(updated, encoding="utf-8")
+            if workspace.memory_scope == "user":
+                os.chmod(temporary, 0o600)
             temporary.replace(target)
         finally:
             try:
@@ -255,11 +260,16 @@ def _validate_memory_namespace(name: str) -> str:
 
 
 def _validate_memory_root(workspace: RunWorkspace, root: Path, *, create: bool) -> None:
-    boundary = _shared_project_root(workspace.root)
+    boundary = (
+        user_home()
+        if workspace.memory_namespace is not None and workspace.memory_scope == "user"
+        else _shared_project_root(workspace.root)
+    )
     try:
         relative = root.relative_to(boundary)
     except ValueError as error:
-        raise MemoryStoreError("Memory root must stay inside the current project.") from error
+        location = "user home" if workspace.memory_scope == "user" else "current project"
+        raise MemoryStoreError(f"Memory root must stay inside the {location}.") from error
     current = boundary
     paths: list[Path] = []
     for part in relative.parts:
@@ -271,10 +281,17 @@ def _validate_memory_root(workspace: RunWorkspace, root: Path, *, create: bool) 
         if path.exists() and not path.is_dir():
             raise MemoryStoreError(f"Memory path component must be a directory: {path}")
     if create:
-        root.mkdir(parents=True, exist_ok=True)
+        root.mkdir(
+            mode=0o700 if workspace.memory_scope == "user" else 0o777,
+            parents=True,
+            exist_ok=True,
+        )
         for path in paths:
             if path.is_symlink() or not path.is_dir():
                 raise MemoryStoreError(f"Memory path component must be a regular directory: {path}")
+        if workspace.memory_scope == "user":
+            os.chmod(root.parent, 0o700)
+            os.chmod(root, 0o700)
 
 
 def _validate_memory_target(path: Path) -> None:

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import Counter
 from pathlib import Path
 
 from .plugin_runtime import (
@@ -10,6 +9,7 @@ from .plugin_runtime import (
     plugin_component_path_reference,
 )
 from .plugin_store import read_installed_plugin_manifest
+from .user_paths import user_home
 from .workspace_agent_profile_parser import AGENT_NAME_PATTERN, AGENT_REFERENCE_PATTERN, parse_agent_content
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import (
@@ -22,6 +22,7 @@ from .workspace_skills import read_project_skills
 AGENT_ROOTS = ((".claude/agents", "claude"), (".agents/agents", "agents"))
 MAX_AGENT_FILE_BYTES = 64_000
 MAX_AGENT_SCAN = 500
+MAX_AGENT_SCAN_DEPTH = 8
 
 
 def read_project_agents(workspace: RunWorkspace, max_agents: int = 100) -> dict[str, object]:
@@ -105,19 +106,18 @@ def format_project_agent_catalog(workspace: RunWorkspace, max_agents: int = 20) 
 
 def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]:
     discovered: list[dict[str, object]] = []
-    for relative_root, source in AGENT_ROOTS:
-        root = workspace.root / relative_root
-        if not root.exists() or not root.is_dir() or has_symlink_component(workspace.root, root):
+    home = user_home()
+    roots = [
+        *((workspace.root / relative_root, source) for relative_root, source in AGENT_ROOTS),
+        (home / ".claude/agents", "user"),
+    ]
+    for root, source in roots:
+        boundary = workspace.root if source != "user" else home
+        if not root.exists() or not root.is_dir() or has_symlink_component(boundary, root):
             continue
-        try:
-            children = sorted(root.iterdir(), key=lambda path: path.name)[:MAX_AGENT_SCAN]
-        except OSError:
-            continue
-        for path in children:
-            if path.suffix.lower() != ".md" or not AGENT_NAME_PATTERN.fullmatch(path.stem):
-                continue
-            relative_path = path.relative_to(workspace.root).as_posix()
-            available, metadata, message = _inspect_agent_file(workspace.root, path)
+        for path in _agent_files(root):
+            relative_path = plugin_component_path_reference(workspace.root, path)
+            available, metadata, message = _inspect_agent_file(boundary, path)
             discovered.append(
                 {
                     "name": path.stem,
@@ -182,13 +182,58 @@ def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]
             agent["available"] = False
             agent["message"] = f"Agent profile references unavailable skill(s): {', '.join(missing)}."
 
-    counts = Counter(str(agent["name"]) for agent in discovered)
-    duplicates = {name for name, count in counts.items() if count > 1}
-    for agent in discovered:
-        if agent["name"] in duplicates:
-            agent["available"] = False
-            agent["message"] = f"Duplicate agent profile name {agent['name']!r} exists in multiple roots."
-    return sorted(discovered, key=lambda agent: (str(agent["name"]), str(agent["source"])))
+    selected: list[dict[str, object]] = []
+    names = sorted({str(agent["name"]) for agent in discovered})
+    for name in names:
+        matches = [agent for agent in discovered if str(agent["name"]) == name]
+        priority = min(_agent_source_priority(str(agent["source"])) for agent in matches)
+        preferred = [
+            agent
+            for agent in matches
+            if _agent_source_priority(str(agent["source"])) == priority
+        ]
+        if len(preferred) > 1:
+            for agent in preferred:
+                agent["available"] = False
+                agent["message"] = (
+                    f"Duplicate agent profile name {agent['name']!r} exists in multiple roots."
+                )
+        selected.extend(preferred)
+    return sorted(selected, key=lambda agent: (str(agent["name"]), str(agent["source"])))
+
+
+def _agent_files(root: Path) -> list[Path]:
+    files: list[Path] = []
+
+    def visit(directory: Path, depth: int) -> None:
+        if depth > MAX_AGENT_SCAN_DEPTH or len(files) >= MAX_AGENT_SCAN:
+            return
+        try:
+            children = sorted(directory.iterdir(), key=lambda path: path.as_posix())
+        except OSError:
+            return
+        for child in children:
+            if len(files) >= MAX_AGENT_SCAN:
+                return
+            if child.is_symlink():
+                if child.suffix.lower() == ".md":
+                    files.append(child)
+                continue
+            if child.is_dir():
+                visit(child, depth + 1)
+            elif child.is_file() and child.suffix.lower() == ".md":
+                files.append(child)
+
+    visit(root, 1)
+    return files
+
+
+def _agent_source_priority(source: str) -> int:
+    if source in {"claude", "agents"}:
+        return 1
+    if source == "user":
+        return 2
+    return 3
 
 
 def _inspect_agent_file(root: Path, path: Path) -> tuple[bool, dict[str, object], str]:

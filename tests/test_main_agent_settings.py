@@ -188,7 +188,7 @@ class MainAgentSettingsTests(unittest.TestCase):
             settings = root / ".claude/settings.json"
             settings.parent.mkdir(parents=True)
             settings.write_text(json.dumps({"agent": 3}), encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "valid project or plugin agent"):
+            with self.assertRaisesRegex(ValueError, "valid agent name"):
                 resolve_main_agent_selection(create_run_workspace(root), None)
 
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-settings-") as base:
