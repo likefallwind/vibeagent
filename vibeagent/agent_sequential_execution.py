@@ -5,6 +5,7 @@ from collections.abc import Callable
 
 from .actions import ActionParseError, parse_tool_action
 from .agent_runtime_utils import append_session_event, tool_error_observation
+from .agent_hook_updated_input import apply_hook_supplied_answers
 from .agent_lifecycle_hooks import run_instruction_loaded_hooks
 from .agent_special_tools import execute_special_tool_action
 from .session_working_directory import prepare_action_shell_cwd
@@ -37,10 +38,11 @@ from .workspace_permissions import ProjectPermissions
 
 @dataclass(frozen=True)
 class SequentialToolCallResult:
-    tool_result: ContentBlock
+    tool_result: ContentBlock | None
     observation: Observation
     plan: list[PlanItem]
     auto_checkpoint_attempted: bool
+    deferred_tool_use: dict[str, object] | None = None
 
 
 def execute_sequential_tool_call(
@@ -72,6 +74,7 @@ def execute_sequential_tool_call(
     excluded_tool_names: frozenset[str] = frozenset(),
     allowed_tool_names: frozenset[str] | None = None,
     tool_ceiling_names: frozenset[str] | None = None,
+    defer_tool_calls: bool = False,
 ) -> SequentialToolCallResult:
     tool_id = str(block.get("id") or "")
     tool_name = str(block.get("name") or "")
@@ -105,6 +108,19 @@ def execute_sequential_tool_call(
                 )
             return candidate
 
+        def prepare_hook_input(candidate_input: dict[str, object]) -> object:
+            parsed_input = dict(candidate_input)
+            has_supplied_answers = "answers" in parsed_input
+            supplied_answers = parsed_input.pop("answers", None)
+            candidate = prepare_tool_input(parsed_input)
+            if not has_supplied_answers:
+                return candidate
+            return apply_hook_supplied_answers(
+                candidate,
+                supplied_answers,
+                str(candidate_input),
+            )
+
         raw_tool_input = tool_input if isinstance(tool_input, dict) else {}
         action = prepare_tool_input(raw_tool_input)
         if isinstance(action, (AskUserAction, DelegateTaskAction, SendMessageAction)):
@@ -130,11 +146,14 @@ def execute_sequential_tool_call(
                 execute_action_safely_func=execute_action_safely_func,
                 tool_ceiling_names=tool_ceiling_names,
                 tool_input=raw_tool_input,
-                apply_updated_input=prepare_tool_input,
+                apply_updated_input=prepare_hook_input,
+                defer_tool_calls=defer_tool_calls,
+                tool_use_id=tool_id,
             )
             observation = wrapped.observation
             hook_results = wrapped.hook_results
             additional_observations = wrapped.additional_observations
+            deferred = wrapped.deferred
         else:
             execution = execute_parsed_tool_action(
                 workspace,
@@ -154,14 +173,29 @@ def execute_sequential_tool_call(
                 hooks,
                 permissions,
                 raw_tool_input,
-                prepare_tool_input,
+                prepare_hook_input,
+                defer_tool_calls,
+                tool_id,
             )
             observation = execution.observation
             hook_results = execution.hook_results
             additional_observations = execution.additional_observations
             checkpoint_attempted = execution.auto_checkpoint_attempted
+            deferred = execution.deferred
             if execution.auto_checkpoint is not None:
                 observations.append(execution.auto_checkpoint)
+        if deferred:
+            return SequentialToolCallResult(
+                tool_result=None,
+                observation=observation,
+                plan=plan,
+                auto_checkpoint_attempted=checkpoint_attempted,
+                deferred_tool_use={
+                    "id": tool_id,
+                    "name": tool_name,
+                    "input": raw_tool_input,
+                },
+            )
         if observation.kind in {
             "update_plan",
             "exit_plan_mode",

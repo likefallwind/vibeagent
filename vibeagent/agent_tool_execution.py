@@ -40,6 +40,7 @@ class ToolActionExecutionResult:
     auto_checkpoint_attempted: bool
     hook_results: tuple[HookRunResult, ...] = ()
     additional_observations: tuple[Observation, ...] = ()
+    deferred: bool = False
 
 
 def execute_parsed_tool_action(
@@ -61,6 +62,8 @@ def execute_parsed_tool_action(
     permissions: ProjectPermissions = ProjectPermissions(),
     tool_input: dict[str, object] | None = None,
     apply_updated_input: ApplyUpdatedInput | None = None,
+    defer_tool_calls: bool = False,
+    tool_use_id: str | None = None,
 ) -> ToolActionExecutionResult:
     pre_hooks = run_tool_hooks(
         workspace,
@@ -77,7 +80,16 @@ def execute_parsed_tool_action(
         permissions,
         tool_input=tool_input,
         apply_updated_input=apply_updated_input,
+        tool_use_id=tool_use_id,
     )
+    if defer_tool_calls and pre_hooks.permission_decision == "defer":
+        return ToolActionExecutionResult(
+            observation=pre_hooks.failures[-1],
+            auto_checkpoint=None,
+            auto_checkpoint_attempted=auto_checkpoint_attempted,
+            hook_results=pre_hooks.results,
+            deferred=True,
+        )
     action = pre_hooks.effective_action or action
     step = start_task_step(workspace, steps, iteration, action, logger)
     log_action(logger, action)
@@ -136,6 +148,7 @@ def execute_parsed_tool_action(
             hooks,
             permissions,
             pre_hooks,
+            tool_use_id,
         )
 
     complete_task_step(workspace, step, observation, iteration, logger)
@@ -174,6 +187,7 @@ def _execute_non_repeated_action(
     hooks: ProjectHooks,
     permissions: ProjectPermissions,
     pre_hooks: HookBatchResult,
+    tool_use_id: str | None,
 ) -> tuple[Observation, Observation | None, bool, tuple[HookRunResult, ...], tuple[Observation, ...]]:
     approval_request = build_approval_request(action)
     if approval_request:
@@ -252,6 +266,7 @@ def _execute_non_repeated_action(
         execute_action_safely_func,
         permissions,
         tool_input=pre_hooks.effective_input,
+        tool_use_id=tool_use_id,
     )
     cwd_hooks: tuple[HookRunResult, ...] = ()
     if (

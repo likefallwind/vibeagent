@@ -43,10 +43,14 @@ def execute_user_input_action(
     answers: dict[str, str] = {}
     answer_error: str | None = None
     message = "User input is unavailable in this run. Return the question to the user without guessing."
-    if handler is not None:
+    if handler is not None or action.answers:
         for request in requests:
             try:
-                provided = handler(request)
+                provided = action.answers.get(request.question)
+                if provided is None:
+                    if handler is None:
+                        break
+                    provided = handler(request)
             except (EOFError, KeyboardInterrupt):
                 message = "User input was interrupted. Return the unanswered question to the user without guessing."
                 break

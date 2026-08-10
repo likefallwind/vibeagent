@@ -26,6 +26,7 @@ def build_one_shot_agent_kwargs(
     strict_mcp_config: bool,
     machine_output: bool,
     stream_json: bool,
+    print_mode: bool = False,
     prior_context: str | None,
     system_prompt: str | None,
     append_system_prompt: str | None,
@@ -58,6 +59,7 @@ def build_one_shot_agent_kwargs(
         "append_system_prompt": append_system_prompt,
         "task_metadata": task_metadata,
         "dynamic_agent_profiles": dynamic_agent_profiles,
+        "defer_tool_calls": print_mode,
     }
     if additional_directories:
         kwargs["additional_directories"] = additional_directories

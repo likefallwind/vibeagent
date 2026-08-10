@@ -481,6 +481,10 @@ local changes when asked, and resume from recorded session context.
   cross-project user permissions, trusted user allow rules, user hooks with
   `CLAUDE_PROJECT_DIR`, source-aware sandbox exceptions and security floors,
   project deny precedence, and symlink refusal for user runtime settings.
+- `tests.test_deferred_tool_state.DeferredToolStateTests` covers print-mode
+  `PreToolUse: defer`, private atomic pending-state persistence, exact tool ID
+  replay on resume, completed batch-result preservation, unavailable-tool
+  failure, machine output, and hook-supplied `AskUserQuestion` answers.
 
 ## Verified 1.0 Exit Criteria
 

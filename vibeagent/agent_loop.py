@@ -26,6 +26,12 @@ from .agent_scheduled_notifications import inject_scheduled_task_notifications
 from .agent_result import AgentResult
 from .agent_run_setup import AgentRunSetup
 from .agent_sequential_execution import execute_sequential_tool_call
+from .agent_sequential_execution import SequentialToolCallResult
+from .agent_runtime_utils import append_session_event
+from .agent_deferred_loop import (
+    persist_deferred_tool_batch,
+    resume_deferred_tool_batch,
+)
 from .agent_tool_registry import (
     activate_tools_for_run,
     activate_tools_from_observations,
@@ -47,6 +53,7 @@ from .types import (
     UserInputHandler,
 )
 from .workspace_core import RunWorkspace
+from .deferred_tool_state import DeferredToolState
 
 
 @dataclass(frozen=True)
@@ -83,6 +90,8 @@ def run_agent_loop(
     runtime: AgentLoopRuntime,
     peer_runtime: PeerSessionRuntime | None = None,
     plugin_monitor_runtime: PluginMonitorRuntime | None = None,
+    deferred_tool_state: DeferredToolState | None = None,
+    defer_tool_calls: bool = False,
 ) -> AgentResult:
     observations: list[Observation] = []
     steps: list[TaskStep] = []
@@ -133,6 +142,10 @@ def run_agent_loop(
         finish_plan: list[PlanItem],
         timeout_ms: int,
         finish_logger: AgentLogger | None,
+        *,
+        stop_reason: str | None = None,
+        deferred_tool_use: dict[str, object] | None = None,
+        is_error: bool = False,
     ) -> AgentResult:
         checkpoint_session_conversation(workspace, messages, task)
         return replace(
@@ -146,6 +159,9 @@ def run_agent_loop(
                 plan=finish_plan,
                 command_timeout_ms=timeout_ms,
                 logger=finish_logger,
+                stop_reason=stop_reason,
+                deferred_tool_use=deferred_tool_use,
+                is_error=is_error,
             ),
             approval_policy=plan_mode.current_policy,
             conversation=conversation_for_next_prompt(messages, task),
@@ -162,6 +178,34 @@ def run_agent_loop(
             plan,
             command_timeout_ms,
             logger,
+        )
+
+    def finish_deferred_run(
+        state: DeferredToolState,
+        iterations: int,
+        *,
+        unavailable: bool = False,
+    ) -> AgentResult:
+        pending = state.pending_tool_use
+        stop_reason = "tool_deferred_unavailable" if unavailable else "tool_deferred"
+        message = (
+            f"Deferred tool is no longer available: {pending['name']}."
+            if unavailable
+            else f"Tool call deferred: {pending['name']}."
+        )
+        return finish_with_conversation(
+            current_workspace,
+            not unavailable,
+            message,
+            iterations,
+            observations,
+            steps,
+            plan,
+            command_timeout_ms,
+            logger,
+            stop_reason=stop_reason,
+            deferred_tool_use=pending,
+            is_error=unavailable,
         )
 
     def create_checkpoint_before_action(
@@ -212,6 +256,147 @@ def run_agent_loop(
 
     def stop_feedback_if_needed(message: str, iteration: int) -> str | None:
         return lifecycle.stop_feedback_if_needed(current_workspace, message, iteration)
+
+    def apply_sequential_runtime_state(
+        sequential: SequentialToolCallResult,
+        iteration: int,
+    ) -> Observation:
+        nonlocal plan, auto_checkpoint_attempted, current_workspace
+        nonlocal current_approval_handler, plugin_monitors
+        observation = sequential.observation
+        plugin_monitors.observe(observation, iteration=iteration)
+        plan = sequential.plan
+        auto_checkpoint_attempted = sequential.auto_checkpoint_attempted
+        current_workspace = apply_workspace_transition(
+            current_workspace,
+            observation,
+            iteration=iteration,
+        )
+        if plan_mode.apply(current_workspace, observation, iteration=iteration):
+            current_approval_handler = approval_handler_after_plan(
+                approval_handler,
+                plan_mode.current_policy,
+            )
+            lifecycle.approval_policy = plan_mode.current_policy
+            lifecycle.approval_handler = current_approval_handler
+            active_tool_names.add(
+                "ExitPlanMode"
+                if plan_mode.current_policy == "plan"
+                else "EnterPlanMode"
+            )
+            if peer_runtime is not None:
+                peer_runtime.update_approval_policy(plan_mode.current_policy)
+            plugin_monitors = AgentPluginMonitorController.create(
+                plugin_monitor_runtime,
+                current_workspace,
+                project_permissions,
+                current_approval_handler,
+                plan_mode.current_policy,
+                logger,
+            )
+        return observation
+
+    def resume_deferred_batch(state: DeferredToolState) -> AgentResult | None:
+        nonlocal messages
+        deferred_workspace = current_workspace
+        tool_calls = list(state.tool_calls)
+        activate_tools_for_run(
+            current_workspace,
+            active_tool_names,
+            [str(block.get("name") or "") for block in tool_calls],
+            0,
+            source="deferred_resume",
+            approval_policy=plan_mode.current_policy,
+            excluded_names=setup.main_profile.disallowed_tool_names,
+            allowed_names=setup.main_profile.allowed_tool_names,
+        )
+        available_names = {
+            str(tool.get("name") or "")
+            for tool in agent_tool_definitions(
+                active_tool_names,
+                plan_mode.current_policy,
+                excluded_names=setup.main_profile.disallowed_tool_names,
+                allowed_names=setup.main_profile.allowed_tool_names,
+            )
+        }
+        def execute_block(block: ContentBlock) -> SequentialToolCallResult:
+            return execute_sequential_tool_call(
+                current_workspace,
+                block,
+                client,
+                observations=observations,
+                steps=steps,
+                plan=plan,
+                active_tool_names=active_tool_names,
+                iteration=0,
+                max_output_tokens=max_output_tokens,
+                model_retries=model_retries,
+                model_retry_delay_ms=model_retry_delay_ms,
+                model_timeout_ms=model_timeout_ms,
+                command_timeout_ms=command_timeout_ms,
+                logger=logger,
+                approval_handler=current_approval_handler,
+                approval_policy=plan_mode.current_policy,
+                user_input_handler=user_input_handler,
+                hooks=project_hooks,
+                permissions=project_permissions,
+                auto_checkpoint_attempted=auto_checkpoint_attempted,
+                execute_action_safely_func=runtime.execute_action_safely,
+                should_auto_checkpoint_before_action_func=runtime.should_auto_checkpoint_before_action,
+                create_auto_checkpoint_before_action_func=create_checkpoint_before_action,
+                tool_call_allowed=tool_call_allowed,
+                excluded_tool_names=setup.main_profile.disallowed_tool_names,
+                allowed_tool_names=setup.main_profile.allowed_tool_names,
+                tool_ceiling_names=setup.tool_ceiling_names,
+                defer_tool_calls=defer_tool_calls,
+            )
+
+        def on_resume(pending: dict[str, object], completed_results: int) -> None:
+            messages.append(
+                ChatMessage(role="assistant", content=list(state.assistant_content))
+            )
+            append_session_event(
+                current_workspace.session_dir,
+                "tool_deferred_resumed",
+                {"tool": pending, "completed_results": completed_results},
+            )
+
+        outcome = resume_deferred_tool_batch(
+            deferred_workspace,
+            state,
+            available_names,
+            execute_block=execute_block,
+            apply_result=lambda result: apply_sequential_runtime_state(result, 0),
+            on_resume=on_resume,
+            finish_deferred=lambda next_state, unavailable: finish_deferred_run(
+                next_state, 0, unavailable=unavailable
+            ),
+            finish_action=lambda observation: finish_run(
+                True, observation.message, 0
+            ),
+        )
+        if outcome.result is not None:
+            return outcome.result
+        messages = append_tool_results_and_compact(
+            task=task,
+            workspace=current_workspace,
+            messages=messages,
+            tool_results=list(outcome.tool_results),
+            observations=observations,
+            plan=plan,
+            original_prior_context=prior_context,
+            iteration=0,
+            approval_policy=plan_mode.current_policy,
+            system_prompt=system_prompt,
+            append_system_prompt=append_system_prompt,
+        )
+        checkpoint_conversation()
+        return None
+
+    if deferred_tool_state is not None:
+        deferred_result = resume_deferred_batch(deferred_tool_state)
+        if deferred_result is not None:
+            return deferred_result
 
     for iteration in range(1, max_iterations + 1):
         # Tool loop: provider-neutral tool_call blocks -> local execution -> tool_result blocks.
@@ -385,7 +570,9 @@ def run_agent_loop(
             continue
 
         blocked_completion_feedback: str | None = None
-        for block in tool_calls[handled_tool_calls:]:
+        for tool_index, block in enumerate(
+            tool_calls[handled_tool_calls:], start=handled_tool_calls
+        ):
             sequential = execute_sequential_tool_call(
                 current_workspace,
                 block,
@@ -414,39 +601,21 @@ def run_agent_loop(
                 excluded_tool_names=setup.main_profile.disallowed_tool_names,
                 allowed_tool_names=setup.main_profile.allowed_tool_names,
                 tool_ceiling_names=setup.tool_ceiling_names,
+                defer_tool_calls=defer_tool_calls,
             )
+            if sequential.deferred_tool_use is not None:
+                deferred_state = DeferredToolState(
+                    assistant_content=tuple(tool_calls),
+                    completed_tool_results=tuple(tool_results),
+                    next_tool_index=tool_index,
+                )
+                persist_deferred_tool_batch(
+                    current_workspace, deferred_state, resumed=False
+                )
+                return finish_deferred_run(deferred_state, iteration)
+            assert sequential.tool_result is not None
             tool_results.append(sequential.tool_result)
-            observation = sequential.observation
-            plugin_monitors.observe(observation, iteration=iteration)
-            plan = sequential.plan
-            auto_checkpoint_attempted = sequential.auto_checkpoint_attempted
-            current_workspace = apply_workspace_transition(
-                current_workspace,
-                observation,
-                iteration=iteration,
-            )
-            if plan_mode.apply(current_workspace, observation, iteration=iteration):
-                current_approval_handler = approval_handler_after_plan(
-                    approval_handler,
-                    plan_mode.current_policy,
-                )
-                lifecycle.approval_policy = plan_mode.current_policy
-                lifecycle.approval_handler = current_approval_handler
-                active_tool_names.add(
-                    "ExitPlanMode"
-                    if plan_mode.current_policy == "plan"
-                    else "EnterPlanMode"
-                )
-                if peer_runtime is not None:
-                    peer_runtime.update_approval_policy(plan_mode.current_policy)
-                plugin_monitors = AgentPluginMonitorController.create(
-                    plugin_monitor_runtime,
-                    current_workspace,
-                    project_permissions,
-                    current_approval_handler,
-                    plan_mode.current_policy,
-                    logger,
-                )
+            observation = apply_sequential_runtime_state(sequential, iteration)
 
             if observation.kind == "finish":
                 blocked_completion_feedback = (

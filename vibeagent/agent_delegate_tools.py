@@ -158,6 +158,7 @@ def execute_delegate_tool_call(
     permissions: ProjectPermissions = ProjectPermissions(),
     special_action_handler: Callable[[object], Observation | None] | None = None,
     coordination_tool_names: frozenset[str] = frozenset(),
+    tool_id: str | None = None,
 ) -> DelegateToolCallExecution:
     try:
         def prepare_tool_input(candidate_input: dict[str, object]) -> object:
@@ -235,6 +236,7 @@ def execute_delegate_tool_call(
             permissions=permissions,
             tool_input=raw_tool_input,
             apply_updated_input=prepare_tool_input,
+            tool_use_id=tool_id,
         )
     except ActionParseError as error:
         observation = tool_error_observation(tool_name, error)
@@ -320,6 +322,7 @@ def execute_delegate_action(
     permissions: ProjectPermissions,
     tool_input: dict[str, object] | None = None,
     apply_updated_input: Callable[[dict[str, object]], object] | None = None,
+    tool_use_id: str | None = None,
 ) -> tuple[Observation, bool, tuple[HookRunResult, ...]]:
     action_type = getattr(parsed, "type", None)
     if mode == "explore":
@@ -354,6 +357,7 @@ def execute_delegate_action(
             permissions=permissions,
             tool_input=tool_input,
             apply_updated_input=apply_updated_input,
+            tool_use_id=tool_use_id,
         )
     if tool_name in CODE_DELEGATE_EXCLUDED_TOOL_NAMES or action_type in CODE_DELEGATE_EXCLUDED_TOOL_NAMES:
         return (
@@ -382,6 +386,7 @@ def execute_delegate_action(
         permissions=permissions,
         tool_input=tool_input,
         apply_updated_input=apply_updated_input,
+        tool_use_id=tool_use_id,
     )
 
 
@@ -402,6 +407,7 @@ def _execute_delegate_with_tool_layer(
     permissions: ProjectPermissions,
     tool_input: dict[str, object] | None = None,
     apply_updated_input: Callable[[dict[str, object]], object] | None = None,
+    tool_use_id: str | None = None,
 ) -> tuple[Observation, bool, tuple[HookRunResult, ...]]:
     execution = execute_parsed_tool_action(
         workspace,
@@ -422,6 +428,8 @@ def _execute_delegate_with_tool_layer(
         permissions,
         tool_input,
         apply_updated_input,
+        False,
+        tool_use_id,
     )
     if execution.auto_checkpoint is not None:
         observations.append(execution.auto_checkpoint)

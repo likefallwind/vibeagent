@@ -61,6 +61,7 @@ from .workspace_core import RunWorkspace
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .workspace_permissions import ProjectPermissions
 from .peer_runtime import PeerSessionRuntime
+from .deferred_tool_state import DeferredToolState
 
 
 @lock_existing_session_turn
@@ -95,6 +96,8 @@ def run_agent(
     workspace_observer: Callable[[RunWorkspace], None] | None = None,
     additional_directories: tuple[Path, ...] = (),
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = (),
+    deferred_tool_state: DeferredToolState | None = None,
+    defer_tool_calls: bool = False,
 ) -> AgentResult:
     setup = prepare_agent_run(
         task,
@@ -161,6 +164,8 @@ def run_agent(
             ),
             peer_runtime=peer_runtime,
             plugin_monitor_runtime=plugin_monitors,
+            deferred_tool_state=deferred_tool_state,
+            defer_tool_calls=defer_tool_calls,
         )
     finally:
         plugin_monitors.close()
@@ -201,6 +206,10 @@ def finish_agent_run(
     plan: list[PlanItem],
     command_timeout_ms: int,
     logger: AgentLogger | None,
+    *,
+    stop_reason: str | None = None,
+    deferred_tool_use: dict[str, object] | None = None,
+    is_error: bool = False,
 ) -> AgentResult:
     return _finish_agent_run(
         workspace,
@@ -213,6 +222,9 @@ def finish_agent_run(
         command_timeout_ms,
         logger,
         execute_action_safely,
+        stop_reason=stop_reason,
+        deferred_tool_use=deferred_tool_use,
+        is_error=is_error,
     )
 
 

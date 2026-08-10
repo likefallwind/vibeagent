@@ -85,6 +85,7 @@ class UserInputTests(unittest.TestCase):
                 ]
             },
             {"questions": [valid_question], "question": "mixed"},
+            {"questions": [valid_question], "answers": {"Choose a database": "SQLite"}},
         ]
 
         for tool_input in invalid_inputs:

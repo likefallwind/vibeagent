@@ -42,6 +42,7 @@ from .workspace_core import create_local_workspace
 from .workspace_permissions import ProjectPermissions
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .monitor_runtime import stop_session_monitors
+from .deferred_tool_state import read_deferred_tool_state
 
 
 def run_one_shot_code(
@@ -177,6 +178,7 @@ def run_one_shot_code(
         strict_mcp_config=strict_mcp_config,
         machine_output=output_mode.machine,
         stream_json=output_mode.stream_json,
+        print_mode=print_mode,
         prior_context=merged_prior_context,
         system_prompt=system_prompt,
         append_system_prompt=append_system_prompt,
@@ -199,6 +201,10 @@ def run_one_shot_code(
             )
         if prior_messages:
             run_kwargs["prior_messages"] = prior_messages
+        if resumed_workspace is not None:
+            deferred_state = read_deferred_tool_state(resumed_workspace)
+            if deferred_state is not None:
+                run_kwargs["deferred_tool_state"] = deferred_state
     goal_turns = 0
     structured_output: StructuredOutputResult | None = None
     result: AgentResult | None = None
@@ -222,6 +228,8 @@ def run_one_shot_code(
                 result = run_agent_func(task, **run_kwargs)
                 goal_turns += 1
                 if goal_state is None:
+                    break
+                if result.stop_reason in {"tool_deferred", "tool_deferred_unavailable"}:
                     break
                 workspace = create_local_workspace(project_root, result.run_id)
                 write_goal(workspace, goal_state)

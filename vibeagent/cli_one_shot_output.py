@@ -12,6 +12,7 @@ from .cli_result_payloads import (
     build_chat_result_payload,
     build_code_result_payload,
     error_result_payload,
+    code_result_exit_code,
 )
 from .cli_stream_output import JsonEventStream
 from .config import resolve_cost_rates
@@ -219,4 +220,4 @@ def one_shot_code_exit_code(
         return 1
     if structured is not None and not structured.success:
         return 1
-    return 0 if result.success and result.completion_ready else 1
+    return code_result_exit_code(result)

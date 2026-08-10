@@ -16,9 +16,74 @@ from vibeagent.session_conversation import checkpoint_session_conversation
 from vibeagent.types import ChatMessage
 from vibeagent.structured_output import StructuredOutputResult
 from vibeagent.workspace_core import create_local_workspace
+from vibeagent.deferred_tool_state import DeferredToolState, write_deferred_tool_state
 
 
 class CliOneShotCodeTests(unittest.TestCase):
+    def test_resume_passes_persisted_deferred_tool_state_to_agent(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-one-shot-deferred-") as base:
+            root = Path(base)
+            workspace = create_local_workspace(root, "run-old")
+            state = DeferredToolState(
+                (
+                    {
+                        "type": "tool_call",
+                        "id": "tool-1",
+                        "name": "read_file",
+                        "input": {"path": "README.md"},
+                    },
+                ),
+                (),
+                0,
+            )
+            write_deferred_tool_state(workspace, state)
+            calls: list[dict[str, object]] = []
+
+            def run_agent(task, **kwargs):
+                calls.append(kwargs)
+                return AgentResult(True, "done", root, "run-old", 1, [], [])
+
+            with patch("vibeagent.cli_one_shot_code.emit_one_shot_code_payload"):
+                exit_code, _ = run_one_shot_code(
+                    "continue",
+                    project_root=root,
+                    execution_config=ExecutionConfig(),
+                    provider_env={},
+                    approval_policy="allow",
+                    trust_project_permissions=True,
+                    permission_overrides=None,
+                    resolved_mcp_config_paths=(),
+                    strict_mcp_config=False,
+                    output_mode=CliOutputMode(format="json", machine=True, stream_json=False),
+                    output_json=True,
+                    print_mode=True,
+                    elapsed_ms=1,
+                    stream=None,
+                    input_prior_context=None,
+                    system_prompt=None,
+                    append_system_prompt=None,
+                    task_metadata=None,
+                    resume_arg="run-old",
+                    compact_arg=None,
+                    auto_compact=False,
+                    create_chat_client_func=lambda env: object(),
+                    run_agent_func=run_agent,
+                    get_resume_context_func=lambda *args, **kwargs: (
+                        "run-old",
+                        "prior context",
+                        "ok",
+                    ),
+                    get_compact_context_func=lambda *args, **kwargs: (
+                        None,
+                        None,
+                        "unused",
+                    ),
+                )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(calls[0]["deferred_tool_state"], state)
+        self.assertTrue(calls[0]["defer_tool_calls"])
+
     def test_run_one_shot_code_generates_structured_output_after_completed_workflow(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-one-shot-structured-") as base:
             root = Path(base)

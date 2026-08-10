@@ -76,6 +76,29 @@ class CliOneShotAgentKwargsTests(unittest.TestCase):
         self.assertEqual(kwargs["permission_overrides"], ProjectPermissions(sources=("cli",)))
         self.assertEqual(kwargs["mcp_config_paths"], (root / ".mcp.json",))
         self.assertNotIn("workspace", kwargs)
+        self.assertFalse(kwargs["defer_tool_calls"])
+
+    def test_print_mode_enables_deferred_tool_calls(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-kwargs-") as base:
+            kwargs = build_one_shot_agent_kwargs(
+                client=object(),
+                project_root=Path(base),
+                execution_config=ExecutionConfig(),
+                approval_policy="allow",
+                trust_project_permissions=False,
+                permission_overrides=None,
+                mcp_config_paths=(),
+                strict_mcp_config=False,
+                machine_output=True,
+                stream_json=False,
+                print_mode=True,
+                prior_context=None,
+                system_prompt=None,
+                append_system_prompt=None,
+                task_metadata=None,
+            )
+
+        self.assertTrue(kwargs["defer_tool_calls"])
 
     def test_trust_project_permissions_uses_explicit_or_project_trust(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-kwargs-") as base:

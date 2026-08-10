@@ -82,6 +82,10 @@ def finish_agent_run(
     command_timeout_ms: int,
     logger: AgentLogger | None,
     execute_action_safely_func: ExecuteActionSafely,
+    *,
+    stop_reason: str | None = None,
+    deferred_tool_use: dict[str, object] | None = None,
+    is_error: bool = False,
 ) -> AgentResult:
     background_close = close_background_delegate_tasks(workspace)
     clear_team_runtime(workspace)
@@ -96,20 +100,34 @@ def finish_agent_run(
                 "still_running_task_ids": list(background_close.still_running_task_ids),
             },
         )
-    auto_run_final_review_if_needed(
-        workspace,
-        success,
-        observations,
-        iterations,
-        command_timeout_ms,
-        logger,
-        execute_action_safely_func,
-    )
+    suspended = stop_reason in {"tool_deferred", "tool_deferred_unavailable"}
+    if not suspended:
+        auto_run_final_review_if_needed(
+            workspace,
+            success,
+            observations,
+            iterations,
+            command_timeout_ms,
+            logger,
+            execute_action_safely_func,
+        )
     verification_status = session_completion_verification_status(workspace)
-    completion_blockers = build_completion_blockers(success, observations, plan, verification_status)
-    completion_ready = success and not completion_blockers
-    result_status = session_result_status(success, completion_ready)
-    completion_warnings = build_completion_warnings(success, observations, plan, verification_status)
+    completion_blockers = (
+        []
+        if suspended
+        else build_completion_blockers(success, observations, plan, verification_status)
+    )
+    completion_ready = success and not completion_blockers and not suspended
+    result_status = (
+        "deferred"
+        if stop_reason == "tool_deferred"
+        else session_result_status(success, completion_ready)
+    )
+    completion_warnings = (
+        []
+        if suspended
+        else build_completion_warnings(success, observations, plan, verification_status)
+    )
     completion_details = build_completion_blocker_details(success, observations, verification_status, completion_blockers)
     verification_checks, pending_verification_checks, failed_verification_checks = resolve_completion_verification_status(
         success,
@@ -136,6 +154,9 @@ def finish_agent_run(
             "pending_verification_checks": pending_verification_checks,
             "failed_verification_checks": failed_verification_checks,
             "final_review_changed_files": final_review_changed_files,
+            "stop_reason": stop_reason,
+            "deferred_tool_use": deferred_tool_use,
+            "is_error": is_error,
         },
     )
     session_summary = summarize_session(workspace.root, workspace.run_id)
@@ -167,6 +188,9 @@ def finish_agent_run(
         latest_completion_denied_approvals=session_summary.latest_completion_denied_approvals,
         latest_completion_next_actions=session_summary.latest_completion_next_actions,
         final_review_changed_files=session_summary.final_review_changed_files,
+        stop_reason=stop_reason,
+        deferred_tool_use=deferred_tool_use,
+        is_error=is_error,
     )
 
 

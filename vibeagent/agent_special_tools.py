@@ -63,6 +63,8 @@ def execute_special_tool_action(
     tool_ceiling_names: frozenset[str] | None = None,
     tool_input: dict[str, object] | None = None,
     apply_updated_input: ApplyUpdatedInput | None = None,
+    defer_tool_calls: bool = False,
+    tool_use_id: str | None = None,
 ) -> HookWrappedToolResult:
     return run_hooks_around_tool(
         workspace,
@@ -104,6 +106,8 @@ def execute_special_tool_action(
             if isinstance(candidate, DelegateTaskAction)
             else candidate
         ),
+        defer_tool_calls=defer_tool_calls,
+        tool_use_id=tool_use_id,
     )
 
 

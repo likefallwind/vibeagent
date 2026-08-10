@@ -43,6 +43,7 @@ class HookWrappedToolResult:
     observation: Observation
     hook_results: tuple[HookRunResult, ...] = ()
     additional_observations: tuple[Observation, ...] = ()
+    deferred: bool = False
 
 
 def hook_command_with_context(hook: ProjectHook, tool_name: str, action: object) -> str:

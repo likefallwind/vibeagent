@@ -27,6 +27,8 @@ CODE_RESULT_SNAKE_CASE_ALIAS_KEYS = {
     "failedVerificationChecks": "failed_verification_checks",
     "pendingUserInput": "pending_user_input",
     "userInputRequests": "user_input_requests",
+    "deferredToolUse": "deferred_tool_use",
+    "isError": "is_error",
 }
 
 
@@ -74,7 +76,12 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
         "pending_user_input": pending_user_input,
         "userInputRequests": user_input_requests,
         "user_input_requests": user_input_requests,
+        "isError": result.is_error,
     }
+    if result.deferred_tool_use is not None:
+        payload["deferredToolUse"] = result.deferred_tool_use
+    if result.stop_reason == "tool_deferred":
+        payload["subtype"] = "success"
     payload.update(code_result_snake_case_aliases(payload))
     return payload
 
@@ -99,6 +106,8 @@ def code_result_snake_case_aliases(payload: dict[str, object]) -> dict[str, obje
 
 
 def code_result_exit_code(result: AgentResult) -> int:
+    if result.stop_reason == "tool_deferred":
+        return 0
     return 0 if result.success and result.completion_ready else 1
 
 
@@ -121,6 +130,8 @@ def error_result_payload(
 
 
 def code_result_stop_reason(result: AgentResult) -> str:
+    if result.stop_reason is not None:
+        return result.stop_reason
     if code_result_has_pending_user_input(result):
         return "user_input"
     if result.success and result.completion_ready:

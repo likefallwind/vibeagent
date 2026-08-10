@@ -72,6 +72,8 @@ def run_hooks_around_tool(
     tool_input: dict[str, object] | None = None,
     apply_updated_input: ApplyUpdatedInput | None = None,
     finalize_action: Callable[[object], object] | None = None,
+    defer_tool_calls: bool = False,
+    tool_use_id: str | None = None,
 ) -> HookWrappedToolResult:
     pre_hooks = run_tool_hooks(
         workspace,
@@ -88,11 +90,15 @@ def run_hooks_around_tool(
         permissions,
         tool_input=tool_input,
         apply_updated_input=apply_updated_input,
+        tool_use_id=tool_use_id,
     )
     if pre_hooks.blocking_message is not None:
         return HookWrappedToolResult(
             observation=pre_hooks.failures[-1],
             hook_results=pre_hooks.results,
+            deferred=(
+                defer_tool_calls and pre_hooks.permission_decision == "defer"
+            ),
         )
     effective_action = pre_hooks.effective_action or action
     if finalize_action is not None:
@@ -139,6 +145,7 @@ def run_hooks_around_tool(
         execute_action_safely_func,
         permissions,
         tool_input=pre_hooks.effective_input,
+        tool_use_id=tool_use_id,
     )
     return HookWrappedToolResult(
         observation=observation,
@@ -163,6 +170,7 @@ def run_tool_hooks(
     *,
     tool_input: dict[str, object] | None = None,
     apply_updated_input: ApplyUpdatedInput | None = None,
+    tool_use_id: str | None = None,
 ) -> HookBatchResult:
     if config.error is not None:
         message = f"Workspace hook configuration is invalid: {config.error}"
@@ -191,6 +199,7 @@ def run_tool_hooks(
             tool_name,
             current_action,
             current_input,
+            tool_use_id,
             iteration,
             index,
             command_timeout_ms,
@@ -270,6 +279,7 @@ def _run_one_hook(
     tool_name: str,
     action: object,
     tool_input: dict[str, object],
+    tool_use_id: str | None,
     iteration: int,
     hook_index: int,
     command_timeout_ms: int,
@@ -297,6 +307,7 @@ def _run_one_hook(
             "hook_event_name": hook.event,
             "tool_name": tool_name,
             "tool_input": tool_input,
+            "tool_use_id": tool_use_id,
         },
         environment={
             **hook.environment,

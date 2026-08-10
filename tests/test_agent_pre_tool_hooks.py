@@ -346,6 +346,45 @@ class PreToolHookIntegrationTests(unittest.TestCase):
         self.assertEqual(result.observations[0].question, "Updated?")
         self.assertEqual(result.observations[0].answer, "later")
 
+    def test_hook_answers_structured_question_without_interactive_handler(self) -> None:
+        questions = [
+            {
+                "question": "Which framework?",
+                "header": "Framework",
+                "options": [
+                    {"label": "React", "description": "Use React."},
+                    {"label": "Vue", "description": "Use Vue."},
+                ],
+                "multiSelect": False,
+            }
+        ]
+        client = _client("AskUserQuestion", {"questions": questions})
+        output = _decision_payload(
+            "allow",
+            updated_input={
+                "questions": questions,
+                "answers": {"Which framework?": "React"},
+            },
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-pre-hook-") as base:
+            root = Path(base)
+            _write_hooks(root, [_hook_output(output)], "AskUserQuestion")
+            result = run_agent(
+                "Choose a framework",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_handler=lambda _request: ApprovalDecision(True, "approved"),
+                user_input_handler=None,
+            )
+
+        self.assertFalse(result.observations[0].cancelled)
+        self.assertEqual(result.observations[0].answer, "React")
+        self.assertEqual(
+            result.observations[0].answers,
+            {"Which framework?": "React"},
+        )
+
     def test_defer_stops_execution_with_explicit_result(self) -> None:
         client = _client("write_file", {"path": "later.py", "content": "x = 1\n"})
         with tempfile.TemporaryDirectory(prefix="vibeagent-pre-hook-") as base:

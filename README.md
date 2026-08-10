@@ -406,7 +406,7 @@ directory where VibeAgent was invoked, before `--cwd` or `--worktree` changes
 the active project. Prompt files must be non-empty bounded UTF-8 regular files
 and cannot use symbolic links.
 With `--json`, one-shot coding results include `schemaVersion`, the runtime
-`version`, `status` (`completed`, `blocked`, or `failed`), matching
+`version`, `status` (`completed`, `blocked`, `deferred`, or `failed`), matching
 `stopReason`, `exitCode`/`exit_code`, `numTurns`, final text as `message` plus
 a `result` alias,
 `runId` plus a `sessionId` alias, a
@@ -424,6 +424,12 @@ items,
 `cost` report for the current run, so automation can read the same final-review,
 blocked-attempt, changed-file, verification, timing, local token-usage, and
 configured cost estimate status shown in the text UI.
+Deferred print-mode results exit successfully with `stopReason`/`stop_reason`
+`tool_deferred` and a redacted `deferredToolUse`/`deferred_tool_use` object
+containing the pending call ID, name, and input. Resuming that session replays
+the same call before the next model turn. If its tool is no longer available,
+the resume exits nonzero with `tool_deferred_unavailable` and `isError` /
+`is_error` true.
 Machine output also includes Claude-style snake_case aliases for run status,
 prior context, completion, latest-completion, changed-file, verification,
 pending-user-input, and timing fields where applicable.
@@ -1656,8 +1662,12 @@ skip ordinary ask-mode target approval but cannot bypass deny/ask permission
 rules, Plan or dontAsk ceilings, or command hard blocks. `ask` can require
 approval for an otherwise read-only tool. `additionalContext` is included in
 the model-visible hook result. Legacy top-level `decision: approve|block` is
-also accepted. `defer` currently stops the tool with an explicit deferred result;
-the interactive runtime does not queue a pending tool call for later execution.
+also accepted. In `-p` print mode, `defer` atomically preserves the pending tool
+batch, exits with `tool_deferred`, and re-runs the same PreToolUse hook on
+`--resume`; interactive sessions retain the normal tool-error behavior. Hook
+input includes the provider `tool_use_id`. For `AskUserQuestion`, an external UI
+can resume with `allow` plus an `updatedInput.answers` map; only hook-updated
+input can supply those answers, so the model cannot impersonate the user.
 
 ## Command sandbox
 

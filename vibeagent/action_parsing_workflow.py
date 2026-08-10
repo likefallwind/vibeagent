@@ -30,6 +30,11 @@ def parse_workflow_action(action_type: object, value: dict[str, Any], raw: str) 
         return None
 
     if action_type == "ask_user":
+        if "answers" in value:
+            raise ActionParseError(
+                "ask_user answers are accepted only from PreToolUse updatedInput.",
+                raw,
+            )
         if "questions" in value:
             return _parse_structured_user_questions(value, raw)
         question = value.get("question")

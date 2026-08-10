@@ -54,6 +54,7 @@ class AskUserAction:
     options: list[str] = field(default_factory=list)
     allow_free_text: bool = True
     questions: list[AskUserQuestion] = field(default_factory=list)
+    answers: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

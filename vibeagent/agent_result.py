@@ -36,6 +36,9 @@ class AgentResult:
     latest_completion_next_actions: list[str] = field(default_factory=list)
     final_review_changed_files: list[str] = field(default_factory=list)
     approval_policy: ApprovalPolicy | None = None
+    stop_reason: str | None = None
+    deferred_tool_use: dict[str, object] | None = None
+    is_error: bool = False
     conversation: list[ChatMessage] = field(default_factory=list, repr=False)
 
     def __post_init__(self) -> None:

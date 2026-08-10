@@ -198,6 +198,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                 special_action_handler=lambda action: context.nested_runtime.execute(
                     action, child_iteration
                 ),
+                tool_id=tool_id,
                 coordination_tool_names=(
                     context.nested_runtime.coordination_tool_names
                 ),
