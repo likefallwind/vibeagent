@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from tests.user_home_test_case import IsolatedUserHomeTestCase
 from vibeagent.mcp_config import read_mcp_server_configs
 from vibeagent.actions import parse_tool_action
 from vibeagent.plugin_commands import handle_plugin_command, reload_plugins_text
@@ -121,7 +122,7 @@ def write_demo_marketplace(root: Path) -> Path:
     return marketplace
 
 
-class PluginManifestTests(unittest.TestCase):
+class PluginManifestTests(IsolatedUserHomeTestCase):
     def test_default_component_layout_is_inventoried(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-plugin-") as base:
             plugin = write_demo_plugin(Path(base))
@@ -181,7 +182,7 @@ class PluginManifestTests(unittest.TestCase):
             )
 
 
-class PluginRuntimeTests(unittest.TestCase):
+class PluginRuntimeTests(IsolatedUserHomeTestCase):
     def test_default_disabled_plugin_installs_without_exposing_components(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-plugin-") as base:
             root = Path(base)

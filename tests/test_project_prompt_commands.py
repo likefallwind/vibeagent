@@ -5,6 +5,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from tests.user_home_test_case import IsolatedUserHomeTestCase
 from vibeagent.agent_result import AgentResult
 from vibeagent.cli import main
 from vibeagent.workspace_prompt_commands import (
@@ -33,7 +34,7 @@ def _write_command(
     return path
 
 
-class ProjectPromptCommandTests(unittest.TestCase):
+class ProjectPromptCommandTests(IsolatedUserHomeTestCase):
     def test_discovers_nested_metadata_without_template_body(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)
@@ -97,7 +98,7 @@ class ProjectPromptCommandTests(unittest.TestCase):
             report = read_project_prompt_commands(root)
 
         messages = {str(command["name"]): str(command["message"]) for command in report["commands"]}
-        self.assertIn("Duplicate project command", messages["duplicate"])
+        self.assertIn("Duplicate custom command", messages["duplicate"])
         self.assertIn("must not be empty", messages["empty"])
         self.assertIn("symbolic link", messages["linked"])
         self.assertEqual(report["invalid"], 4)
@@ -115,7 +116,7 @@ class ProjectPromptCommandTests(unittest.TestCase):
         self.assertIsNone(expand_project_prompt_command(Path("."), "/not/a/command"))
 
 
-class ProjectPromptCommandCliTests(unittest.TestCase):
+class ProjectPromptCommandCliTests(IsolatedUserHomeTestCase):
     def test_one_shot_custom_command_expands_to_code_task_with_metadata(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-commands-") as base:
             root = Path(base)

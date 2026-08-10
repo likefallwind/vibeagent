@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 import shlex
-from collections import Counter
 from pathlib import Path
 
 from .command_parsing import parse_local_command
@@ -13,8 +12,11 @@ from .plugin_runtime import (
     plugin_component_path_reference,
 )
 from .plugin_store import read_installed_plugin_manifest
+from .scoped_component_selection import select_preferred_components
+from .user_paths import user_home
 from .workspace_core import create_local_workspace
 from .workspace_metadata_files import has_symlink_component, parse_scalar_frontmatter, read_regular_file_bytes
+from .workspace_skills import discover_project_skill_metadata, read_project_skill
 
 
 COMMAND_ROOTS = ((".claude/commands", "claude"), (".agents/commands", "agents"))
@@ -38,7 +40,7 @@ def read_project_prompt_commands(root: Path, max_commands: int = 100) -> dict[st
         "total": len(commands),
         "truncated": len(commands) > len(shown),
         "invalid": sum(1 for command in commands if not command["available"]),
-        "message": f"Found {len(commands)} project command template(s); {sum(1 for command in commands if command['available'])} available.",
+        "message": f"Found {len(commands)} custom command template(s); {sum(1 for command in commands if command['available'])} available.",
     }
 
 
@@ -68,9 +70,21 @@ def expand_project_prompt_command(root: Path, invocation: str) -> dict[str, obje
         return None
     name = match.group(1)
     arguments = match.group(2) or ""
+    skill = _load_invoked_skill(root.resolve(), name)
+    if skill is not None:
+        prompt = _expand_command_body(str(skill["body"]), arguments)
+        return {
+            "name": name,
+            "arguments": arguments,
+            "prompt": prompt,
+            "path": skill["path"],
+            "source": skill["source"],
+            "task_source": "custom_skill",
+            "description": skill["description"],
+        }
     command = _load_project_prompt_command(root.resolve(), name)
     if command is None:
-        raise ValueError(f"Unknown command: /{name}. Use /custom-commands to list project commands.")
+        raise ValueError(f"Unknown command: /{name}. Use /skills or /custom-commands to list custom prompts.")
     prompt = _expand_command_body(str(command["body"]), arguments)
     return {
         "name": name,
@@ -79,7 +93,27 @@ def expand_project_prompt_command(root: Path, invocation: str) -> dict[str, obje
         "path": command["path"],
         "source": command["source"],
         "description": command["description"],
+        "task_source": "project_command",
     }
+
+
+def _load_invoked_skill(root: Path, name: str) -> dict[str, object] | None:
+    workspace = create_local_workspace(root, "skill-invocation")
+    matches = [
+        skill
+        for skill in discover_project_skill_metadata(workspace)
+        if skill["name"] == name
+    ]
+    if not matches:
+        return None
+    loaded = read_project_skill(workspace, name, max_bytes=50_000)
+    _, body = parse_scalar_frontmatter(
+        str(loaded["content"]),
+        frozenset({"name", "description"}),
+    )
+    if not body.strip():
+        raise ValueError(f"Custom skill /{name} has no instruction body.")
+    return {**loaded, "body": body.strip()}
 
 
 def _load_project_prompt_command(root: Path, name: str) -> dict[str, object] | None:
@@ -108,15 +142,20 @@ def _load_project_prompt_command(root: Path, name: str) -> dict[str, object] | N
 
 def _discover_project_prompt_commands(root: Path) -> list[dict[str, object]]:
     discovered: list[dict[str, object]] = []
-    for relative_root, source in COMMAND_ROOTS:
-        command_root = root / relative_root
-        if not command_root.exists() or not command_root.is_dir() or has_symlink_component(root, command_root):
+    home = user_home()
+    roots = [
+        *((root / relative_root, source) for relative_root, source in COMMAND_ROOTS),
+        (home / ".claude/commands", "user"),
+    ]
+    for command_root, source in roots:
+        boundary = home if source == "user" else root
+        if not command_root.exists() or not command_root.is_dir() or has_symlink_component(boundary, command_root):
             continue
         for path in _command_files(command_root):
-            relative_path = path.relative_to(root).as_posix()
+            relative_path = plugin_component_path_reference(root, path)
             relative_command_path = path.relative_to(command_root).with_suffix("")
             name = ":".join(relative_command_path.parts)
-            available, metadata, message = _inspect_command_file(root, path)
+            available, metadata, message = _inspect_command_file(boundary, path)
             discovered.append(
                 {
                     "name": name,
@@ -159,16 +198,30 @@ def _discover_project_prompt_commands(root: Path) -> list[dict[str, object]]:
         if len(discovered) >= MAX_COMMAND_SCAN:
             break
 
-    counts = Counter(str(command["name"]) for command in discovered)
-    duplicates = {name for name, count in counts.items() if count > 1}
-    for command in discovered:
-        if command["name"] in duplicates:
+    selected = select_preferred_components(
+        discovered,
+        source_priority=_command_source_priority,
+        duplicate_message=lambda name: (
+            f"Duplicate custom command /{name} exists in multiple roots."
+        ),
+    )
+    skill_names = {str(skill["name"]) for skill in discover_project_skill_metadata(workspace)}
+    for command in selected:
+        if parse_local_command(f"/{command['name']}") is not None:
             command["available"] = False
-            command["message"] = f"Duplicate project command /{command['name']} exists in multiple roots."
-        elif parse_local_command(f"/{command['name']}") is not None:
+            command["message"] = f"Custom command /{command['name']} conflicts with a built-in command."
+        elif command["name"] in skill_names:
             command["available"] = False
-            command["message"] = f"Project command /{command['name']} conflicts with a built-in command."
-    return sorted(discovered, key=lambda command: (str(command["name"]), str(command["source"])))
+            command["message"] = f"Custom command /{command['name']} is shadowed by a skill with the same name."
+    return sorted(selected, key=lambda command: (str(command["name"]), str(command["source"])))
+
+
+def _command_source_priority(source: str) -> int:
+    if source == "user":
+        return 1
+    if source in {"claude", "agents"}:
+        return 2
+    return 3
 
 
 def _command_files(root: Path) -> list[Path]:

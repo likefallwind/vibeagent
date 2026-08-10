@@ -4,10 +4,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.user_home_test_case import IsolatedUserHomeTestCase
 from vibeagent.project_profile_commands import get_agents_text, get_skills_text
 
 
-class ProjectProfileCommandTests(unittest.TestCase):
+class ProjectProfileCommandTests(IsolatedUserHomeTestCase):
     def test_agents_and_skills_text_list_metadata_without_bodies(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-profile-commands-") as base:
             root = Path(base)

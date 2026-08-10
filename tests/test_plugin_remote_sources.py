@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from tests.user_home_test_case import IsolatedUserHomeTestCase
 from tests.test_plugins import write_demo_marketplace, write_demo_plugin
 from vibeagent.marketplace_manifest import read_marketplace_manifest
 from vibeagent.marketplace_store import (
@@ -73,7 +74,7 @@ def write_remote_marketplace(root: Path, source: dict[str, str]) -> Path:
     return marketplace
 
 
-class RemoteSourceSafetyTests(unittest.TestCase):
+class RemoteSourceSafetyTests(IsolatedUserHomeTestCase):
     def test_remote_urls_require_public_credential_free_https(self) -> None:
         self.assertEqual(
             normalize_public_https_url("https://example.com/catalog.git", label="source"),
@@ -290,7 +291,7 @@ class RemoteSourceSafetyTests(unittest.TestCase):
             self.assertTrue(open_url.call_args.kwargs["require_https"])
 
 
-class RemoteMarketplaceTests(unittest.TestCase):
+class RemoteMarketplaceTests(IsolatedUserHomeTestCase):
     def test_ssh_marketplace_add_and_update_preserve_source_and_ref(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-remote-market-") as base:
             root = Path(base)

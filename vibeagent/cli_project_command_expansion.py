@@ -22,7 +22,7 @@ def expand_code_task_project_command(project_root: Path, task: str) -> dict[str,
 
 def project_command_task_metadata(command: dict[str, object]) -> dict[str, object]:
     return {
-        "source": "project_command",
+        "source": command.get("task_source", "project_command"),
         "name": command["name"],
         "path": command["path"],
         "arguments": command["arguments"],

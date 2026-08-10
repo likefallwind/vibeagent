@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.user_home_test_case import IsolatedUserHomeTestCase
 from vibeagent.actions import execute_action, parse_tool_action
 from vibeagent.agent_delegate import execute_delegate_task_action
 from vibeagent.prompts import build_messages
@@ -70,7 +71,7 @@ class ProfileClient:
         return AssistantResponse(content=content, raw={"content": content})
 
 
-class ProjectAgentProfileTests(unittest.TestCase):
+class ProjectAgentProfileTests(IsolatedUserHomeTestCase):
     def test_catalog_exposes_metadata_but_loads_prompt_only_on_demand(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
             root = Path(base)

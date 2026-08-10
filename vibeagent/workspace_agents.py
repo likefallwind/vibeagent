@@ -9,6 +9,7 @@ from .plugin_runtime import (
     plugin_component_path_reference,
 )
 from .plugin_store import read_installed_plugin_manifest
+from .scoped_component_selection import select_preferred_components
 from .user_paths import user_home
 from .workspace_agent_profile_parser import AGENT_NAME_PATTERN, AGENT_REFERENCE_PATTERN, parse_agent_content
 from .workspace_core import RunWorkspace
@@ -182,23 +183,13 @@ def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]
             agent["available"] = False
             agent["message"] = f"Agent profile references unavailable skill(s): {', '.join(missing)}."
 
-    selected: list[dict[str, object]] = []
-    names = sorted({str(agent["name"]) for agent in discovered})
-    for name in names:
-        matches = [agent for agent in discovered if str(agent["name"]) == name]
-        priority = min(_agent_source_priority(str(agent["source"])) for agent in matches)
-        preferred = [
-            agent
-            for agent in matches
-            if _agent_source_priority(str(agent["source"])) == priority
-        ]
-        if len(preferred) > 1:
-            for agent in preferred:
-                agent["available"] = False
-                agent["message"] = (
-                    f"Duplicate agent profile name {agent['name']!r} exists in multiple roots."
-                )
-        selected.extend(preferred)
+    selected = select_preferred_components(
+        discovered,
+        source_priority=_agent_source_priority,
+        duplicate_message=lambda name: (
+            f"Duplicate agent profile name {name!r} exists in multiple roots."
+        ),
+    )
     return sorted(selected, key=lambda agent: (str(agent["name"]), str(agent["source"])))
 
 

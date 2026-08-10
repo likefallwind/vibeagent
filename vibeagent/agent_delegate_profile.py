@@ -103,7 +103,7 @@ def load_delegate_profile_runtime(
 def _profile_prompt(workspace: RunWorkspace, profile_prompt: str, skills: tuple[str, ...]) -> str:
     if not skills:
         return profile_prompt
-    sections = [profile_prompt, "Preloaded project skills:"]
+    sections = [profile_prompt, "Preloaded custom skills:"]
     total_bytes = 0
     for name in skills:
         skill = read_project_skill(

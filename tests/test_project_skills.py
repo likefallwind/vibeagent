@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.user_home_test_case import IsolatedUserHomeTestCase
 from vibeagent.actions import execute_action, parse_tool_action
 from vibeagent.agent_tool_registry import initial_agent_tool_names
 from vibeagent.prompts import build_messages, format_observations
@@ -16,7 +17,7 @@ def _write_skill(root: Path, base: str, name: str, description: str, body: str) 
     return path
 
 
-class ProjectSkillWorkspaceTests(unittest.TestCase):
+class ProjectSkillWorkspaceTests(IsolatedUserHomeTestCase):
     def test_discovers_metadata_then_loads_one_skill_on_demand(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-skills-") as base:
             root = Path(base)
@@ -96,7 +97,7 @@ class ProjectSkillWorkspaceTests(unittest.TestCase):
         self.assertNotIn("PRIVATE_SKILL_BODY", prompt)
 
 
-class ProjectSkillActionTests(unittest.TestCase):
+class ProjectSkillActionTests(IsolatedUserHomeTestCase):
     def test_actions_parse_and_execute_structured_observations(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-skills-") as base:
             root = Path(base)

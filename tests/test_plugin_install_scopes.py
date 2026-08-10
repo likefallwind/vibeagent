@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from tests.user_home_test_case import IsolatedUserHomeTestCase
 from tests.test_plugins import write_demo_marketplace
 from vibeagent.marketplace_store import add_marketplace, remove_marketplace
 from vibeagent.plugin_commands import handle_plugin_command
@@ -15,7 +16,7 @@ from vibeagent.workspace_core import create_run_workspace
 from vibeagent.workspace_skills import read_project_skills
 
 
-class PluginInstallScopeTests(unittest.TestCase):
+class PluginInstallScopeTests(IsolatedUserHomeTestCase):
     def test_project_and_local_scopes_follow_settings_precedence(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-plugin-scopes-") as base:
             root = Path(base)

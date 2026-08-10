@@ -50,7 +50,7 @@ PROJECT_METADATA_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "project_skills",
-        "description": "List bounded metadata for reusable project skills from .claude/skills and .agents/skills without loading skill instructions.",
+        "description": "List bounded metadata for reusable personal, project, and plugin skills without loading skill instructions.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -66,7 +66,7 @@ PROJECT_METADATA_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "project_agents",
-        "description": "List bounded metadata for custom project agent profiles without loading their system prompt bodies.",
+        "description": "List bounded metadata for custom personal, project, and plugin agent profiles without loading their system prompt bodies.",
         "input_schema": {
             "type": "object",
             "properties": {

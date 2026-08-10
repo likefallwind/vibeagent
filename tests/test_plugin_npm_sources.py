@@ -10,6 +10,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from tests.user_home_test_case import IsolatedUserHomeTestCase
 from tests.test_plugin_remote_sources import write_remote_marketplace
 from tests.test_plugins import write_demo_plugin
 from vibeagent.marketplace_manifest import read_marketplace_manifest
@@ -84,7 +85,7 @@ def npm_metadata(package: str, version: str, tarball: bytes) -> bytes:
     ).encode("utf-8")
 
 
-class NpmSourceSafetyTests(unittest.TestCase):
+class NpmSourceSafetyTests(IsolatedUserHomeTestCase):
     def test_npm_source_identifiers_and_registry_are_bounded(self) -> None:
         self.assertEqual(validate_npm_package_name("@acme/review-plugin"), "@acme/review-plugin")
         self.assertEqual(validate_npm_version_selector(None), "latest")
@@ -173,7 +174,7 @@ class NpmSourceSafetyTests(unittest.TestCase):
                     download_npm_plugin("demo-plugin", Path(base) / "plugin")
 
 
-class NpmMarketplaceTests(unittest.TestCase):
+class NpmMarketplaceTests(IsolatedUserHomeTestCase):
     def test_npm_marketplace_plugin_installs_into_runtime(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-npm-market-") as base:
             root = Path(base)

@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.user_home_test_case import IsolatedUserHomeTestCase
 from vibeagent.agent import run_agent
 from vibeagent.agent_delegate import execute_delegate_task_action
 from vibeagent.types import AssistantResponse, ContentBlock, DelegateTaskAction
@@ -74,7 +75,7 @@ class BasicClient:
         )
 
 
-class AgentProfileModelTests(unittest.TestCase):
+class AgentProfileModelTests(IsolatedUserHomeTestCase):
     def test_catalog_parses_model_effort_and_rejects_invalid_values(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-profile-model-") as base:
             root = Path(base)

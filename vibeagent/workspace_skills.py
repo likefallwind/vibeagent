@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from collections import Counter
 from pathlib import Path
 
 from .plugin_runtime import (
@@ -11,6 +10,8 @@ from .plugin_runtime import (
     plugin_component_path_reference,
 )
 from .plugin_store import read_installed_plugin_manifest
+from .scoped_component_selection import select_preferred_components
+from .user_paths import user_home
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import (
     has_symlink_component,
@@ -39,7 +40,7 @@ def read_project_skills(workspace: RunWorkspace, max_skills: int = 100) -> dict[
         "total": len(skills),
         "truncated": len(skills) > len(shown),
         "invalid": sum(1 for skill in skills if not skill["available"]),
-        "message": f"Found {len(skills)} project skill(s); {sum(1 for skill in skills if skill['available'])} available.",
+        "message": f"Found {len(skills)} custom skill(s); {sum(1 for skill in skills if skill['available'])} available.",
     }
 
 
@@ -52,11 +53,11 @@ def read_project_skill(workspace: RunWorkspace, name: str, max_bytes: int = 20_0
 
     matches = [skill for skill in _discover_project_skills(workspace) if skill["name"] == normalized]
     if not matches:
-        raise ValueError(f"Project skill not found: {normalized}.")
+        raise ValueError(f"Custom skill not found: {normalized}.")
     available = [skill for skill in matches if skill["available"]]
     if len(available) != 1:
         detail = "; ".join(str(skill["message"]) for skill in matches)
-        raise ValueError(f"Project skill {normalized!r} is unavailable: {detail}")
+        raise ValueError(f"Custom skill {normalized!r} is unavailable: {detail}")
 
     skill = available[0]
     path = workspace.root / str(skill["path"])
@@ -87,7 +88,7 @@ def read_project_skill(workspace: RunWorkspace, name: str, max_bytes: int = 20_0
         "truncated": truncated,
         "max_bytes": max_bytes,
         "message": (
-            f"Loaded project skill {normalized!r} from {skill['path']}."
+            f"Loaded custom skill {normalized!r} from {skill['path']}."
             + (" Content truncated." if truncated else "")
         ),
     }
@@ -99,7 +100,7 @@ def format_project_skill_catalog(workspace: RunWorkspace, max_skills: int = 20) 
     if not available:
         return None
     lines = [
-        "Available project skills (metadata only; use tool_search for project_skills or skill before loading one):"
+        "Available custom skills (metadata only; use tool_search for project_skills or skill before loading one):"
     ]
     for skill in available:
         lines.append(f"- {skill['name']}: {skill['description']} ({skill['path']})")
@@ -108,11 +109,20 @@ def format_project_skill_catalog(workspace: RunWorkspace, max_skills: int = 20) 
     return "\n".join(lines)
 
 
+def discover_project_skill_metadata(workspace: RunWorkspace) -> list[dict[str, object]]:
+    return _discover_project_skills(workspace)
+
+
 def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]:
     discovered: list[dict[str, object]] = []
-    for relative_root, source in SKILL_ROOTS:
-        root = workspace.root / relative_root
-        if not root.exists() or not root.is_dir() or has_symlink_component(workspace.root, root):
+    home = user_home()
+    roots = [
+        *((workspace.root / relative_root, source) for relative_root, source in SKILL_ROOTS),
+        (home / ".claude/skills", "user"),
+    ]
+    for root, source in roots:
+        boundary = home if source == "user" else workspace.root
+        if not root.exists() or not root.is_dir() or has_symlink_component(boundary, root):
             continue
         try:
             children = sorted(root.iterdir(), key=lambda path: path.name)[:MAX_SKILL_SCAN]
@@ -122,8 +132,8 @@ def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]
             if not child.is_dir() or not SKILL_NAME_PATTERN.fullmatch(child.name):
                 continue
             skill_path = child / "SKILL.md"
-            relative_path = skill_path.relative_to(workspace.root).as_posix()
-            available, description, message = _inspect_skill_file(workspace.root, skill_path)
+            relative_path = plugin_component_path_reference(workspace.root, skill_path)
+            available, description, message = _inspect_skill_file(boundary, skill_path)
             discovered.append(
                 {
                     "name": child.name,
@@ -166,13 +176,22 @@ def _discover_project_skills(workspace: RunWorkspace) -> list[dict[str, object]]
             }
         )
 
-    name_counts = Counter(str(skill["name"]) for skill in discovered)
-    duplicate_names = {name for name, count in name_counts.items() if count > 1}
-    for skill in discovered:
-        if skill["name"] in duplicate_names:
-            skill["available"] = False
-            skill["message"] = f"Duplicate skill name {skill['name']!r} exists in multiple skill roots."
-    return sorted(discovered, key=lambda skill: (str(skill["name"]), str(skill["source"])))
+    selected = select_preferred_components(
+        discovered,
+        source_priority=_skill_source_priority,
+        duplicate_message=lambda name: (
+            f"Duplicate skill name {name!r} exists in multiple skill roots."
+        ),
+    )
+    return sorted(selected, key=lambda skill: (str(skill["name"]), str(skill["source"])))
+
+
+def _skill_source_priority(source: str) -> int:
+    if source == "user":
+        return 1
+    if source in {"claude", "agents"}:
+        return 2
+    return 3
 
 
 def _inspect_skill_file(root: Path, path: Path) -> tuple[bool, str, str]:

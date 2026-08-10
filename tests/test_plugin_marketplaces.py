@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from tests.user_home_test_case import IsolatedUserHomeTestCase
 from tests.test_plugins import write_demo_marketplace, write_demo_plugin
 from vibeagent.marketplace_manifest import read_marketplace_manifest
 from vibeagent.marketplace_store import (
@@ -22,7 +23,7 @@ from vibeagent.workspace_core import create_run_workspace
 from vibeagent.workspace_skills import read_project_skills
 
 
-class MarketplaceManifestTests(unittest.TestCase):
+class MarketplaceManifestTests(IsolatedUserHomeTestCase):
     def test_local_marketplace_inventories_verified_relative_plugins(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-marketplace-") as base:
             marketplace = write_demo_marketplace(Path(base))
@@ -58,7 +59,7 @@ class MarketplaceManifestTests(unittest.TestCase):
                 read_marketplace_manifest(marketplace)
 
 
-class MarketplaceRuntimeTests(unittest.TestCase):
+class MarketplaceRuntimeTests(IsolatedUserHomeTestCase):
     def test_marketplace_add_install_update_and_remove_are_runtime_complete(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-marketplace-") as base:
             root = Path(base)
