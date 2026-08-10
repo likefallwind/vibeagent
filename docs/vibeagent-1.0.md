@@ -86,6 +86,12 @@ local changes when asked, and resume from recorded session context.
   GitHub and direct-JSON marketplace refresh, `github`/`url`/`git-subdir`
   plugin sources, SHA/ref selection, runtime skill discovery, temporary-cache
   cleanup, and removal races that must not leave orphan plugins.
+- `tests.test_plugin_user_config.PluginUserConfigTests` covers manifest
+  `userConfig` types and constraints, project/local/environment precedence,
+  required-value enable gates, local shared settings, mode-`0600` sensitive
+  storage, redacted status, model-visible secret refusal, secure hook launch,
+  and substitutions plus subprocess environments across skills, commands,
+  agents, hooks, MCP, LSP, and monitors.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `LS`, `Glob`, `Grep`, `Read`, `Bash`, `Edit`, and `TodoRead`,

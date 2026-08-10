@@ -156,6 +156,7 @@ class PluginMonitorRuntime:
             if launch.error is not None:
                 raise ValueError(launch.error)
             environment = dict(launch.environment or os.environ)
+            environment.update(config.environment)
             environment.update(
                 {
                     "CLAUDE_PLUGIN_ROOT": config.plugin_root.as_posix(),

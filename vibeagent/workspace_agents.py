@@ -3,7 +3,11 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import Path
 
-from .plugin_runtime import enabled_plugin_component_files
+from .plugin_runtime import (
+    PluginComponentFile,
+    enabled_plugin_component_files,
+    expand_plugin_path_variables,
+)
 from .plugin_store import read_installed_plugin_manifest
 from .workspace_agent_profile_parser import AGENT_NAME_PATTERN, AGENT_REFERENCE_PATTERN, parse_agent_content
 from .workspace_core import RunWorkspace
@@ -52,13 +56,15 @@ def read_project_agent(workspace: RunWorkspace, name: str) -> dict[str, object]:
     content = raw.decode("utf-8")
     metadata, body = parse_agent_content(path, content)
     if str(agent["source"]).startswith("plugin:"):
+        plugin = str(agent["source"]).removeprefix("plugin:")
         manifest = read_installed_plugin_manifest(
             workspace.root,
-            str(agent["source"]).removeprefix("plugin:"),
+            plugin,
         )
-        body = (
-            body.replace("${CLAUDE_PLUGIN_ROOT}", manifest.root.as_posix())
-            .replace("${CLAUDE_PROJECT_DIR}", workspace.root.as_posix())
+        body = expand_plugin_path_variables(
+            body,
+            PluginComponentFile(plugin, "agent", path, manifest.root),
+            workspace,
         )
     return {
         **metadata,

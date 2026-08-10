@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import os
 from pathlib import Path
 import re
 
 from .plugin_store import enabled_plugin_manifests
+from .plugin_runtime import (
+    PluginComponentFile,
+    expand_plugin_path_variables,
+    plugin_subprocess_environment,
+    resolve_plugin_component_user_config,
+)
 from .plugin_types import PluginManifest
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import read_regular_file_bytes
@@ -32,6 +38,7 @@ class PluginMonitorConfig:
     plugin_root: Path
     plugin_data: Path
     source: str
+    environment: dict[str, str] = field(default_factory=dict)
 
 
 def read_plugin_monitor_configs(workspace: RunWorkspace) -> list[PluginMonitorConfig]:
@@ -121,7 +128,26 @@ def _parse_monitor(
         if skill is None or not MONITOR_SKILL_PATTERN.fullmatch(skill):
             raise ValueError(f"{label} when must be 'always' or 'on-skill-invoke:<skill-name>'.")
     data_dir = workspace.root / ".vibeagent" / "plugin-data" / manifest.name
-    expanded = _expand_command(command.strip(), workspace, manifest.root, data_dir, label)
+    component = PluginComponentFile(
+        manifest.name,
+        "monitor",
+        manifest.root / source.split("#", 1)[0],
+        manifest.root,
+    )
+    user_config = resolve_plugin_component_user_config(workspace, component)
+    environment = plugin_subprocess_environment(
+        workspace,
+        component,
+        user_config=user_config,
+    )
+    expanded = expand_plugin_path_variables(
+        command.strip(),
+        component,
+        workspace,
+        sensitive="environment",
+        user_config=user_config,
+    )
+    expanded = _expand_environment_variables(expanded, environment)
     return PluginMonitorConfig(
         name=name,
         plugin=manifest.name,
@@ -132,28 +158,17 @@ def _parse_monitor(
         plugin_root=manifest.root,
         plugin_data=data_dir,
         source=f"plugin:{manifest.name}/{source}",
+        environment=environment,
     )
 
 
-def _expand_command(
-    command: str,
-    workspace: RunWorkspace,
-    plugin_root: Path,
-    plugin_data: Path,
-    label: str,
-) -> str:
-    values = {
-        "CLAUDE_PLUGIN_ROOT": plugin_root.as_posix(),
-        "CLAUDE_PLUGIN_DATA": plugin_data.as_posix(),
-        "CLAUDE_PROJECT_DIR": workspace.root.as_posix(),
-    }
-
+def _expand_environment_variables(command: str, environment: dict[str, str]) -> str:
     def replace(match: re.Match[str]) -> str:
         name = match.group(1)
-        if name.startswith("user_config."):
-            raise ValueError(f"{label} uses unsupported plugin user configuration variable {name!r}.")
-        if name in values:
-            return values[name]
+        if name.startswith("CLAUDE_PLUGIN_OPTION_"):
+            return match.group(0)
+        if name in environment:
+            return environment[name]
         return os.environ.get(name, "")
 
     return VARIABLE_PATTERN.sub(replace, command)

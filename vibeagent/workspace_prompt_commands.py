@@ -6,7 +6,11 @@ from collections import Counter
 from pathlib import Path
 
 from .command_parsing import parse_local_command
-from .plugin_runtime import enabled_plugin_component_files
+from .plugin_runtime import (
+    PluginComponentFile,
+    enabled_plugin_component_files,
+    expand_plugin_path_variables,
+)
 from .plugin_store import read_installed_plugin_manifest
 from .workspace_core import create_local_workspace
 from .workspace_metadata_files import has_symlink_component, parse_scalar_frontmatter, read_regular_file_bytes
@@ -91,10 +95,12 @@ def _load_project_prompt_command(root: Path, name: str) -> dict[str, object] | N
     metadata, body = _parse_command_content(content)
     source = str(command["source"])
     if source.startswith("plugin:"):
-        manifest = read_installed_plugin_manifest(root, source.removeprefix("plugin:"))
-        body = (
-            body.replace("${CLAUDE_PLUGIN_ROOT}", manifest.root.as_posix())
-            .replace("${CLAUDE_PROJECT_DIR}", root.as_posix())
+        plugin = source.removeprefix("plugin:")
+        manifest = read_installed_plugin_manifest(root, plugin)
+        body = expand_plugin_path_variables(
+            body,
+            PluginComponentFile(plugin, "command", path, manifest.root),
+            create_local_workspace(root, "plugin-command"),
         )
     return {**command, **metadata, "body": body}
 

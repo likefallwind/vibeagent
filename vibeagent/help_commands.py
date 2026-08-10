@@ -10,7 +10,7 @@ def get_help_text() -> str:
             "  /model  Show model provider configuration.",
             "  /config Show resolved provider and execution configuration.",
             "  /custom-commands  List project prompt commands from .claude/commands and .agents/commands.",
-            "  /plugin [list|details|install|enable|disable|uninstall|validate|marketplace]  Manage project-local plugins.",
+            "  /plugin [list|details|install|enable|disable|uninstall|validate|config|marketplace]  Manage project-local plugins.",
             "  /reload-plugins  Revalidate enabled plugins and refresh plugin-aware runtimes.",
             "  /agents [--max-agents N]  List project agent profiles from .claude/agents and .agents/agents.",
             "  /skills [--max-skills N]  List project skills from .claude/skills and .agents/skills.",

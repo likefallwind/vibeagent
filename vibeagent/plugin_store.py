@@ -59,15 +59,31 @@ def _install_plugin_directory(
             installed_manifest = read_plugin_manifest(destination)
             if installed_manifest.name != manifest.name:
                 raise ValueError("Plugin identity changed while copying the install source.")
+            enabled = (
+                bool(existing_entry.get("enabled"))
+                if isinstance(existing_entry, dict)
+                else installed_manifest.default_enabled
+            )
+            if enabled and installed_manifest.user_config:
+                from .plugin_user_config import resolve_plugin_user_config
+
+                plugin_id = (
+                    f"{installed_manifest.name}@{marketplace}"
+                    if marketplace is not None
+                    else installed_manifest.name
+                )
+                configured = resolve_plugin_user_config(
+                    project_root,
+                    installed_manifest,
+                    plugin_id=plugin_id,
+                )
+                if configured.missing_required:
+                    enabled = False
             entry = {
                 "name": installed_manifest.name,
                 "description": installed_manifest.description,
                 "version": installed_manifest.version,
-                "enabled": (
-                    bool(existing_entry.get("enabled"))
-                    if isinstance(existing_entry, dict)
-                    else installed_manifest.default_enabled
-                ),
+                "enabled": enabled,
                 "source": source_label,
                 "cache_path": destination.relative_to(project_root.resolve()).as_posix(),
                 "installed_at": _timestamp(),

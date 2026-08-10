@@ -4,7 +4,7 @@ import json
 import os
 import re
 import stat
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -14,7 +14,10 @@ from .plugin_runtime import (
     enabled_plugin_component_files,
     expand_plugin_path_variables,
     plugin_component_for_path,
+    plugin_subprocess_environment,
+    resolve_plugin_component_user_config,
 )
+from .plugin_user_config import ResolvedPluginUserConfig
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import has_symlink_component
 from .workspace_paths import is_protected_project_path
@@ -55,10 +58,15 @@ class McpServerConfig:
     url: str = ""
     headers: dict[str, str] | None = None
     protocol_version: str = MCP_HTTP_DEFAULT_PROTOCOL_VERSION
+    plugin_environment: dict[str, str] = field(default_factory=dict)
 
     @property
     def argv(self) -> list[str]:
-        return [self.command, *self.args]
+        environment = {**os.environ, **self.plugin_environment}
+        return [
+            _expand_environment_references(value, environment)
+            for value in (self.command, *self.args)
+        ]
 
 
 def read_mcp_server_configs(workspace: RunWorkspace) -> list[McpServerConfig]:
@@ -121,10 +129,24 @@ def _read_mcp_server_configs_from_path(
         raise ValueError(f"{label} must contain an mcpServers object.")
 
     configs: list[McpServerConfig] = []
+    user_config = (
+        resolve_plugin_component_user_config(workspace, plugin_component)
+        if plugin_component is not None
+        else None
+    )
+    plugin_environment = (
+        plugin_subprocess_environment(
+            workspace,
+            plugin_component,
+            user_config=user_config,
+        )
+        if plugin_component is not None
+        else {}
+    )
     for name, value in document.get("mcpServers", {}).items():
         selected_name = f"{plugin_component.plugin}.{name}" if plugin_component is not None else name
         selected_value = (
-            _expand_plugin_config_value(value, plugin_component, workspace)
+            _expand_plugin_config_value(value, plugin_component, workspace, user_config)
             if plugin_component is not None
             else value
         )
@@ -135,6 +157,7 @@ def _read_mcp_server_configs_from_path(
                 selected_value,
                 label,
                 plugin_root=plugin_component.plugin_root if plugin_component is not None else None,
+                plugin_environment=plugin_environment,
             )
         )
     return configs
@@ -148,15 +171,16 @@ def get_mcp_server_config(workspace: RunWorkspace, name: str) -> McpServerConfig
 
 
 def expanded_mcp_environment(config: McpServerConfig) -> dict[str, str]:
-    environment = dict(os.environ)
+    environment = {**os.environ, **config.plugin_environment}
     for key, value in config.env.items():
-        environment[key] = ENV_REFERENCE_PATTERN.sub(lambda match: os.environ.get(match.group(1), ""), value)
+        environment[key] = _expand_environment_references(value, environment)
     return environment
 
 
 def expanded_mcp_headers(config: McpServerConfig) -> dict[str, str]:
+    environment = {**os.environ, **config.plugin_environment}
     return {
-        key: ENV_REFERENCE_PATTERN.sub(lambda match: os.environ.get(match.group(1), ""), value)
+        key: _expand_environment_references(value, environment)
         for key, value in (config.headers or {}).items()
     }
 
@@ -175,6 +199,7 @@ def _parse_server_config(
     config_path: str,
     *,
     plugin_root: Path | None = None,
+    plugin_environment: dict[str, str] | None = None,
 ) -> McpServerConfig:
     if not isinstance(name, str) or not MCP_NAME_PATTERN.fullmatch(name):
         raise ValueError("MCP server names must use 1-64 letters, digits, dots, underscores, or hyphens.")
@@ -184,8 +209,20 @@ def _parse_server_config(
     if transport not in {"stdio", "http"}:
         raise ValueError(f"MCP server {name!r} type must be 'stdio' or 'http'.")
     if transport == "http":
-        return _parse_http_server_config(name, value, config_path)
-    return _parse_stdio_server_config(workspace, name, value, config_path, plugin_root=plugin_root)
+        return _parse_http_server_config(
+            name,
+            value,
+            config_path,
+            plugin_environment=plugin_environment,
+        )
+    return _parse_stdio_server_config(
+        workspace,
+        name,
+        value,
+        config_path,
+        plugin_root=plugin_root,
+        plugin_environment=plugin_environment,
+    )
 
 
 def _parse_stdio_server_config(
@@ -195,6 +232,7 @@ def _parse_stdio_server_config(
     config_path: str,
     *,
     plugin_root: Path | None = None,
+    plugin_environment: dict[str, str] | None = None,
 ) -> McpServerConfig:
     command = value.get("command")
     args = value.get("args", [])
@@ -221,6 +259,7 @@ def _parse_stdio_server_config(
         env=dict(env),
         config_path=config_path,
         transport="stdio",
+        plugin_environment=dict(plugin_environment or {}),
     )
 
 
@@ -247,26 +286,45 @@ def _expand_plugin_config_value(
     value: object,
     component: PluginComponentFile,
     workspace: RunWorkspace,
+    user_config: ResolvedPluginUserConfig | None,
 ) -> object:
     if isinstance(value, str):
-        return expand_plugin_path_variables(value, component, workspace)
+        return expand_plugin_path_variables(
+            value,
+            component,
+            workspace,
+            sensitive="environment",
+            user_config=user_config,
+        )
     if isinstance(value, list):
-        return [_expand_plugin_config_value(item, component, workspace) for item in value]
+        return [
+            _expand_plugin_config_value(item, component, workspace, user_config)
+            for item in value
+        ]
     if isinstance(value, dict):
         return {
-            key: _expand_plugin_config_value(item, component, workspace)
+            key: _expand_plugin_config_value(item, component, workspace, user_config)
             for key, item in value.items()
         }
     return value
 
 
-def _parse_http_server_config(name: str, value: dict[object, object], config_path: str) -> McpServerConfig:
+def _parse_http_server_config(
+    name: str,
+    value: dict[object, object],
+    config_path: str,
+    *,
+    plugin_environment: dict[str, str] | None = None,
+) -> McpServerConfig:
     url = value.get("url")
     headers = value.get("headers", {})
     protocol_version = value.get("protocolVersion", MCP_HTTP_DEFAULT_PROTOCOL_VERSION)
     if not isinstance(url, str) or not url.strip():
         raise ValueError(f"MCP HTTP server {name!r} requires a non-empty url.")
-    url = url.strip()
+    url = _expand_environment_references(
+        url.strip(),
+        {**os.environ, **(plugin_environment or {})},
+    )
     if len(url) > 2_048:
         raise ValueError(f"MCP HTTP server {name!r} url is too long.")
     if any(character.isspace() or ord(character) < 0x20 for character in url):
@@ -307,6 +365,14 @@ def _parse_http_server_config(name: str, value: dict[object, object], config_pat
         url=url,
         headers=dict(headers),
         protocol_version=str(protocol_version),
+        plugin_environment=dict(plugin_environment or {}),
+    )
+
+
+def _expand_environment_references(value: str, environment: dict[str, str]) -> str:
+    return ENV_REFERENCE_PATTERN.sub(
+        lambda match: environment.get(match.group(1), ""),
+        value,
     )
 
 

@@ -4,7 +4,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from .plugin_manifest import read_plugin_manifest
 from .plugin_store import enabled_plugin_manifests
+from .plugin_user_config import (
+    PluginSensitiveExpansion,
+    ResolvedPluginUserConfig,
+    expand_plugin_user_config_variables,
+    resolve_plugin_user_config,
+)
 from .workspace_core import RunWorkspace
 
 
@@ -59,11 +66,44 @@ def expand_plugin_path_variables(
     value: str,
     component: PluginComponentFile,
     workspace: RunWorkspace,
+    *,
+    sensitive: PluginSensitiveExpansion = "reject",
+    user_config: ResolvedPluginUserConfig | None = None,
 ) -> str:
-    return (
+    plugin_data = workspace.root / ".vibeagent" / "plugin-data" / component.plugin
+    expanded = (
         value.replace("${CLAUDE_PLUGIN_ROOT}", component.plugin_root.as_posix())
+        .replace("${CLAUDE_PLUGIN_DATA}", plugin_data.as_posix())
         .replace("${CLAUDE_PROJECT_DIR}", workspace.root.as_posix())
     )
+    config = user_config or resolve_plugin_component_user_config(workspace, component)
+    return expand_plugin_user_config_variables(expanded, config, sensitive=sensitive)
+
+
+def plugin_subprocess_environment(
+    workspace: RunWorkspace,
+    component: PluginComponentFile,
+    *,
+    user_config: ResolvedPluginUserConfig | None = None,
+) -> dict[str, str]:
+    config = user_config or resolve_plugin_component_user_config(workspace, component)
+    plugin_data = workspace.root / ".vibeagent" / "plugin-data" / component.plugin
+    return {
+        "CLAUDE_PLUGIN_ROOT": component.plugin_root.as_posix(),
+        "CLAUDE_PLUGIN_DATA": plugin_data.as_posix(),
+        "CLAUDE_PROJECT_DIR": workspace.root.as_posix(),
+        **config.environment,
+    }
+
+
+def resolve_plugin_component_user_config(
+    workspace: RunWorkspace,
+    component: PluginComponentFile,
+) -> ResolvedPluginUserConfig:
+    manifest = read_plugin_manifest(component.plugin_root)
+    if manifest.name != component.plugin:
+        raise ValueError(f"Plugin component identity mismatch: {component.plugin}")
+    return resolve_plugin_user_config(workspace.root, manifest)
 
 
 def plugin_component_for_path(
@@ -82,5 +122,7 @@ __all__ = [
     "PluginComponentFile",
     "enabled_plugin_component_files",
     "expand_plugin_path_variables",
+    "plugin_subprocess_environment",
+    "resolve_plugin_component_user_config",
     "plugin_component_for_path",
 ]

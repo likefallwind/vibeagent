@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal, cast
 
 from .action_tool_aliases import tool_name_candidates
-from .plugin_runtime import enabled_plugin_component_files, expand_plugin_path_variables
+from .plugin_runtime import (
+    enabled_plugin_component_files,
+    expand_plugin_path_variables,
+    plugin_subprocess_environment,
+    resolve_plugin_component_user_config,
+)
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
 
@@ -57,6 +62,7 @@ class ProjectHook:
     command: str
     timeout_ms: int
     source: str
+    environment: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -106,10 +112,22 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
             if not isinstance(hook_payload, dict):
                 raise ValueError(f"{source} hooks must be an object.")
             plugin_hooks = _parse_hook_events(hook_payload, source)
+            user_config = resolve_plugin_component_user_config(workspace, component)
             hooks.extend(
                 replace(
                     hook,
-                    command=expand_plugin_path_variables(hook.command, component, workspace),
+                    command=expand_plugin_path_variables(
+                        hook.command,
+                        component,
+                        workspace,
+                        sensitive="environment",
+                        user_config=user_config,
+                    ),
+                    environment=plugin_subprocess_environment(
+                        workspace,
+                        component,
+                        user_config=user_config,
+                    ),
                 )
                 for hook in plugin_hooks
             )

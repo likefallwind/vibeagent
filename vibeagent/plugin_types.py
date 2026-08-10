@@ -2,6 +2,25 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
+
+
+PluginUserConfigType = Literal["string", "number", "boolean", "directory", "file"]
+
+
+@dataclass(frozen=True)
+class PluginUserConfigOption:
+    key: str
+    type: PluginUserConfigType
+    title: str
+    description: str
+    sensitive: bool = False
+    required: bool = False
+    default: object | None = None
+    has_default: bool = False
+    multiple: bool = False
+    minimum: float | None = None
+    maximum: float | None = None
 
 
 @dataclass(frozen=True)
@@ -20,6 +39,7 @@ class PluginManifest:
     lsp_files: tuple[Path, ...]
     bin_files: tuple[Path, ...]
     monitor_files: tuple[Path, ...]
+    user_config: tuple[PluginUserConfigOption, ...] = ()
     inline_lsp_servers: dict[str, object] | None = None
     inline_monitors: tuple[object, ...] | None = None
     default_agent: str | None = None
@@ -47,7 +67,7 @@ class PluginManifest:
             1
             if self.default_agent is not None or self.has_subagent_status_line
             else 0
-        )
+        ) + (1 if self.user_config else 0)
 
 
 @dataclass(frozen=True)
@@ -108,4 +128,6 @@ __all__ = [
     "MarketplaceManifest",
     "MarketplacePlugin",
     "PluginManifest",
+    "PluginUserConfigOption",
+    "PluginUserConfigType",
 ]

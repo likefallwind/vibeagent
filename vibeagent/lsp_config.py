@@ -1,13 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
+import os
 from pathlib import Path
 import re
 
-from .plugin_runtime import PluginComponentFile, expand_plugin_path_variables
+from .plugin_runtime import (
+    PluginComponentFile,
+    expand_plugin_path_variables,
+    plugin_subprocess_environment,
+    resolve_plugin_component_user_config,
+)
 from .plugin_store import enabled_plugin_manifests
 from .plugin_types import PluginManifest
+from .plugin_user_config import ResolvedPluginUserConfig
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
 from .workspace_paths import is_protected_project_path
@@ -18,6 +25,7 @@ LSP_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 LSP_EXTENSION_PATTERN = re.compile(r"^\.[A-Za-z0-9][A-Za-z0-9._+-]{0,31}$")
 LSP_LANGUAGE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$")
 LSP_ENV_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
+ENV_REFERENCE_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 @dataclass(frozen=True)
@@ -36,10 +44,18 @@ class LspServerConfig:
     restart_on_crash: bool
     max_restarts: int
     config_path: str
+    plugin_environment: dict[str, str] = field(default_factory=dict)
 
     @property
     def argv(self) -> tuple[str, ...]:
-        return (self.command, *self.args)
+        environment = {**os.environ, **self.plugin_environment}
+        return tuple(
+            ENV_REFERENCE_PATTERN.sub(
+                lambda match: environment.get(match.group(1), ""),
+                value,
+            )
+            for value in (self.command, *self.args)
+        )
 
 
 def read_lsp_server_configs(workspace: RunWorkspace) -> list[LspServerConfig]:
@@ -113,7 +129,13 @@ def _parse_server(
     if not isinstance(value, dict):
         raise ValueError(f"LSP server {name!r} configuration must be an object.")
     component = PluginComponentFile(manifest.name, "lsp", manifest.root / label, manifest.root)
-    expanded = _expand_value(value, component, workspace)
+    user_config = resolve_plugin_component_user_config(workspace, component)
+    expanded = _expand_value(value, component, workspace, user_config)
+    plugin_environment = plugin_subprocess_environment(
+        workspace,
+        component,
+        user_config=user_config,
+    )
     assert isinstance(expanded, dict)
     command = expanded.get("command")
     args = expanded.get("args", [])
@@ -170,16 +192,31 @@ def _parse_server(
         restart_on_crash=restart,
         max_restarts=max_restarts,
         config_path=f"plugin:{manifest.name}/{label}",
+        plugin_environment=plugin_environment,
     )
 
 
-def _expand_value(value: object, component: PluginComponentFile, workspace: RunWorkspace) -> object:
+def _expand_value(
+    value: object,
+    component: PluginComponentFile,
+    workspace: RunWorkspace,
+    user_config: ResolvedPluginUserConfig,
+) -> object:
     if isinstance(value, str):
-        return expand_plugin_path_variables(value, component, workspace)
+        return expand_plugin_path_variables(
+            value,
+            component,
+            workspace,
+            sensitive="environment",
+            user_config=user_config,
+        )
     if isinstance(value, list):
-        return [_expand_value(item, component, workspace) for item in value]
+        return [_expand_value(item, component, workspace, user_config) for item in value]
     if isinstance(value, dict):
-        return {key: _expand_value(item, component, workspace) for key, item in value.items()}
+        return {
+            key: _expand_value(item, component, workspace, user_config)
+            for key, item in value.items()
+        }
     return value
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import shlex
 from pathlib import Path
 
@@ -17,12 +18,19 @@ from .plugin_store import (
     uninstall_plugin,
 )
 from .plugin_types import InstalledPlugin, MarketplaceManifest, PluginManifest
+from .plugin_user_config import (
+    require_plugin_user_config,
+    resolve_plugin_user_config,
+    serialize_plugin_option,
+    set_plugin_user_config_value,
+    unset_plugin_user_config_value,
+)
 from .workspace_resolve import resolve_mutation_path
 
 
 PLUGIN_USAGE = (
     "Usage: /plugin [list|details <name>|install <project-path|name@marketplace>|enable <name>|"
-    "disable <name>|uninstall <name>|validate <project-path>|marketplace <operation>]"
+    "disable <name>|uninstall <name>|validate <project-path>|config <operation>|marketplace <operation>]"
 )
 
 
@@ -43,6 +51,8 @@ def handle_plugin_command(project_root: Path, argument: str | None) -> PluginCom
         if parts[0] in {"marketplace", "market"}:
             text, changed = handle_marketplace_command(project_root, parts[1:])
             return PluginCommandResult(text, changed=changed)
+        if parts[0] == "config":
+            return _handle_plugin_config_command(project_root, parts[1:])
         if len(parts) != 2:
             return PluginCommandResult(PLUGIN_USAGE)
         operation, value = parts
@@ -53,12 +63,23 @@ def handle_plugin_command(project_root: Path, argument: str | None) -> PluginCom
                 else install_local_plugin(project_root, value)
             )
             source_suffix = f" from {plugin.marketplace}" if plugin.marketplace else ""
+            manifest = read_installed_plugin_manifest(project_root, plugin.name)
+            config = resolve_plugin_user_config(project_root, manifest)
+            configuration_suffix = (
+                f" Required configuration: {', '.join(config.missing_required)}; "
+                f"use /plugin config {plugin.name}."
+                if config.missing_required
+                else ""
+            )
             return PluginCommandResult(
                 f"Installed plugin {plugin.name}{_version_suffix(plugin.version)} "
-                f"({'enabled' if plugin.enabled else 'disabled'}){source_suffix}.",
+                f"({'enabled' if plugin.enabled else 'disabled'}){source_suffix}."
+                f"{configuration_suffix}",
                 changed=True,
             )
         if operation == "enable":
+            manifest = read_installed_plugin_manifest(project_root, value)
+            require_plugin_user_config(resolve_plugin_user_config(project_root, manifest))
             plugin = set_plugin_enabled(project_root, value, True)
             return PluginCommandResult(f"Enabled plugin {plugin.name}.", changed=True)
         if operation == "disable":
@@ -140,7 +161,14 @@ def format_plugin_details(manifest: PluginManifest) -> str:
         f"  monitors: {monitor_count_for_manifest(manifest)}",
         f"  default agent: {manifest.default_agent or '(none)'}",
         f"  default settings source: {manifest.default_settings_source or '(none)'}",
+        f"  user configuration options: {len(manifest.user_config)}",
     ]
+    lines.extend(
+        f"  user option: {option.key} ({option.type}, "
+        f"{'required' if option.required else 'optional'}, "
+        f"{'sensitive' if option.sensitive else 'shared'})"
+        for option in manifest.user_config
+    )
     lines.extend(f"  warning: {warning}" for warning in manifest.warnings)
     return "\n".join(lines)
 
@@ -156,6 +184,67 @@ def format_marketplace_validation(manifest: MarketplaceManifest) -> str:
 
 def _version_suffix(version: str | None) -> str:
     return f" {version}" if version else ""
+
+
+def _handle_plugin_config_command(
+    project_root: Path,
+    parts: list[str],
+) -> PluginCommandResult:
+    if len(parts) == 1:
+        manifest = read_installed_plugin_manifest(project_root, parts[0])
+        return PluginCommandResult(_format_plugin_user_config(project_root, manifest))
+    if len(parts) == 4 and parts[0] == "set":
+        _operation, plugin_name, key, encoded = parts
+        try:
+            value = json.loads(encoded)
+        except json.JSONDecodeError:
+            value = encoded
+        config = set_plugin_user_config_value(project_root, plugin_name, key, value)
+        option = next(item for item in config.options if item.key == key)
+        storage = "protected credentials" if option.sensitive else ".claude/settings.local.json"
+        return PluginCommandResult(
+            f"Configured plugin {plugin_name} option {key} in {storage}.",
+            changed=True,
+        )
+    if len(parts) == 3 and parts[0] == "unset":
+        _operation, plugin_name, key = parts
+        unset_plugin_user_config_value(project_root, plugin_name, key)
+        return PluginCommandResult(
+            f"Cleared local plugin {plugin_name} option {key}.",
+            changed=True,
+        )
+    return PluginCommandResult(
+        "Usage: /plugin config <name> | /plugin config set <name> <key> <json-value> | "
+        "/plugin config unset <name> <key>"
+    )
+
+
+def _format_plugin_user_config(project_root: Path, manifest: PluginManifest) -> str:
+    config = resolve_plugin_user_config(project_root, manifest)
+    lines = [
+        f"Plugin configuration {manifest.name}",
+        f"  plugin id: {config.plugin_id}",
+    ]
+    if not config.options:
+        lines.append("  no user configuration declared")
+        return "\n".join(lines)
+    for option in config.options:
+        if option.key not in config.values:
+            status = "missing required" if option.required else "unset"
+            value = ""
+        else:
+            status = "configured"
+            rendered = (
+                "<redacted>"
+                if option.sensitive
+                else serialize_plugin_option(config.values[option.key])
+            )
+            value = f" value={rendered!r} source={config.sources[option.key]}"
+        lines.append(
+            f"  {option.key}: {status} type={option.type} "
+            f"sensitive={'yes' if option.sensitive else 'no'}{value}"
+        )
+    return "\n".join(lines)
 
 
 def _lsp_server_count(manifest: PluginManifest) -> int:

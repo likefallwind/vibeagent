@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import shlex
+import re
 from collections.abc import Callable
 from uuid import uuid4
 
@@ -27,6 +28,7 @@ from .workspace_permissions import ProjectPermissions
 
 
 ExecuteActionSafely = Callable[[RunWorkspace, object, int, str], Observation]
+ENVIRONMENT_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def run_project_hook_command(
@@ -135,10 +137,22 @@ def run_project_hook_command(
         return result
 
     input_path = _write_hook_input(workspace, hook_input)
+    environment_path: Path | None = None
     try:
-        wrapped_command = _hook_command_with_input(
-            hook, hook_input, input_path, environment or {}
+        environment_path = _write_hook_environment(
+            workspace,
+            hook.command,
+            {
+                "VIBEAGENT_HOOK_EVENT": hook.event,
+                "VIBEAGENT_HOOK_INPUT": json.dumps(
+                    hook_input,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ),
+                **(environment or {}),
+            },
         )
+        wrapped_command = _hook_command_with_input(input_path, environment_path)
         if logger:
             logger("running hook", f"{hook.event} {target} from {hook.source}")
         observation: Observation = execute_action_safely_func(
@@ -154,6 +168,8 @@ def run_project_hook_command(
         )
     finally:
         input_path.unlink(missing_ok=True)
+        if environment_path is not None:
+            environment_path.unlink(missing_ok=True)
     result = hook_result_from_observation(hook, observation)
     append_session_event(
         workspace.session_dir,
@@ -169,19 +185,10 @@ def run_project_hook_command(
 
 
 def _hook_command_with_input(
-    hook: ProjectHook,
-    hook_input: dict[str, object],
     input_path: Path,
-    environment: dict[str, str],
+    environment_path: Path,
 ) -> str:
-    encoded = json.dumps(hook_input, ensure_ascii=False, separators=(",", ":"))
-    values = {
-        "VIBEAGENT_HOOK_EVENT": hook.event,
-        "VIBEAGENT_HOOK_INPUT": encoded,
-        **environment,
-    }
-    environment_args = " ".join(shlex.quote(f"{name}={value}") for name, value in values.items())
-    return f"env {environment_args} {hook.command} < {shlex.quote(str(input_path))}"
+    return f"{shlex.quote(str(environment_path))} < {shlex.quote(str(input_path))}"
 
 
 def _write_hook_input(workspace: RunWorkspace, hook_input: dict[str, object]) -> Path:
@@ -191,6 +198,27 @@ def _write_hook_input(workspace: RunWorkspace, hook_input: dict[str, object]) ->
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
             stream.write(encoded)
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+    return path
+
+
+def _write_hook_environment(
+    workspace: RunWorkspace,
+    command: str,
+    environment: dict[str, str],
+) -> Path:
+    if any(not ENVIRONMENT_NAME_PATTERN.fullmatch(name) for name in environment):
+        raise ValueError("Hook environment contains an invalid variable name.")
+    path = workspace.session_dir / f".hook-launch-{uuid4().hex}.sh"
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o700)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write("#!/bin/sh\n")
+            for name, value in environment.items():
+                stream.write(f"export {name}={shlex.quote(value)}\n")
+            stream.write(f"exec /bin/sh -c {shlex.quote(command)}\n")
     except Exception:
         path.unlink(missing_ok=True)
         raise

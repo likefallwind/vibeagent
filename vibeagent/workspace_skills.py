@@ -4,7 +4,11 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from .plugin_runtime import enabled_plugin_component_files
+from .plugin_runtime import (
+    PluginComponentFile,
+    enabled_plugin_component_files,
+    expand_plugin_path_variables,
+)
 from .plugin_store import read_installed_plugin_manifest
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import (
@@ -63,13 +67,15 @@ def read_project_skill(workspace: RunWorkspace, name: str, max_bytes: int = 20_0
     )
     content = raw[:max_bytes].decode("utf-8", errors="ignore")
     if str(skill["source"]).startswith("plugin:"):
+        plugin = str(skill["source"]).removeprefix("plugin:")
         manifest = read_installed_plugin_manifest(
             workspace.root,
-            str(skill["source"]).removeprefix("plugin:"),
+            plugin,
         )
-        content = (
-            content.replace("${CLAUDE_PLUGIN_ROOT}", manifest.root.as_posix())
-            .replace("${CLAUDE_PROJECT_DIR}", workspace.root.as_posix())
+        content = expand_plugin_path_variables(
+            content,
+            PluginComponentFile(plugin, "skill", path, manifest.root),
+            workspace,
         )
     truncated = len(raw) > max_bytes
     return {

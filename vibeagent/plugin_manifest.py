@@ -7,6 +7,7 @@ from typing import Any
 
 from .plugin_default_settings import read_plugin_default_settings
 from .plugin_types import PluginManifest
+from .plugin_user_config_schema import parse_plugin_user_config
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
 
 
@@ -67,6 +68,7 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
     lsp = () if inline_lsp is not None else _config_files(root, payload, "lspServers", ".lsp.json")
     executables = _executable_files(root)
     monitor_files, inline_monitors = _monitor_components(root, payload)
+    user_config = parse_plugin_user_config(payload.get("userConfig"))
     default_settings = read_plugin_default_settings(root, payload, tuple(agents))
     warnings = list(default_settings.warnings)
 
@@ -76,6 +78,7 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
         + (1 if inline_lsp is not None else 0)
         + len(inline_monitors or ())
         + (1 if default_settings.enabled else 0)
+        + (1 if user_config else 0)
     )
     if component_count > MAX_PLUGIN_COMPONENTS:
         raise ValueError(f"Plugin exposes more than {MAX_PLUGIN_COMPONENTS} components.")
@@ -96,6 +99,7 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
         lsp_files=tuple(lsp),
         bin_files=tuple(executables),
         monitor_files=tuple(monitor_files),
+        user_config=user_config,
         inline_lsp_servers=dict(inline_lsp) if inline_lsp is not None else None,
         inline_monitors=inline_monitors,
         default_agent=default_settings.agent,

@@ -211,6 +211,7 @@ def _run_one_hook(
             "tool_input": to_jsonable(action),
         },
         environment={
+            **hook.environment,
             "VIBEAGENT_TOOL_NAME": tool_name,
             "VIBEAGENT_TOOL_TARGET": build_action_target(action),
         },
