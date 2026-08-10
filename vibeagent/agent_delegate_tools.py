@@ -160,34 +160,35 @@ def execute_delegate_tool_call(
     coordination_tool_names: frozenset[str] = frozenset(),
 ) -> DelegateToolCallExecution:
     try:
-        parsed = prepare_action_for_policy(parse_tool_action(tool_name, tool_input), approval_policy)
-        parsed = prepare_action_for_visibility(
-            parsed,
-            CODE_DELEGATE_EXCLUDED_TOOL_NAMES | disallowed_tool_names,
-            allowed_tool_names,
-        )
-        coordination_allowed = (
-            tool_name in coordination_tool_names
-            and _profile_allows_tool_call(
-                tool_name,
-                parsed,
-                None,
-                disallowed_tool_names,
+        def prepare_tool_input(candidate_input: dict[str, object]) -> object:
+            candidate = prepare_action_for_policy(
+                parse_tool_action(tool_name, candidate_input), approval_policy
             )
-        )
-        if not coordination_allowed and not _profile_allows_tool_call(
-            tool_name, parsed, allowed_tool_names, disallowed_tool_names
-        ):
-            observation = ToolErrorObservation(
-                kind="tool_error",
-                tool=tool_name or "unknown",
-                message=(
-                    "Subagent tool is blocked by the selected project agent profile "
-                    "or active tool restrictions."
-                ),
+            candidate = prepare_action_for_visibility(
+                candidate,
+                CODE_DELEGATE_EXCLUDED_TOOL_NAMES | disallowed_tool_names,
+                allowed_tool_names,
             )
-            observations.append(observation)
-            return DelegateToolCallExecution(observation, None, auto_checkpoint_attempted)
+            coordination_allowed = (
+                tool_name in coordination_tool_names
+                and _profile_allows_tool_call(
+                    tool_name,
+                    candidate,
+                    None,
+                    disallowed_tool_names,
+                )
+            )
+            if not coordination_allowed and not _profile_allows_tool_call(
+                tool_name, candidate, allowed_tool_names, disallowed_tool_names
+            ):
+                raise ActionParseError(
+                    "Subagent tool is blocked by the selected project agent profile or active tool restrictions.",
+                    str(candidate_input),
+                )
+            return candidate
+
+        raw_tool_input = tool_input if isinstance(tool_input, dict) else {}
+        parsed = prepare_tool_input(raw_tool_input)
         if mode == "code":
             activate_agent_tool_names(
                 active_tool_names,
@@ -232,6 +233,8 @@ def execute_delegate_tool_call(
             auto_checkpoint_attempted=auto_checkpoint_attempted,
             hooks=hooks,
             permissions=permissions,
+            tool_input=raw_tool_input,
+            apply_updated_input=prepare_tool_input,
         )
     except ActionParseError as error:
         observation = tool_error_observation(tool_name, error)
@@ -315,6 +318,8 @@ def execute_delegate_action(
     auto_checkpoint_attempted: bool,
     hooks: ProjectHooks,
     permissions: ProjectPermissions,
+    tool_input: dict[str, object] | None = None,
+    apply_updated_input: Callable[[dict[str, object]], object] | None = None,
 ) -> tuple[Observation, bool, tuple[HookRunResult, ...]]:
     action_type = getattr(parsed, "type", None)
     if mode == "explore":
@@ -347,6 +352,8 @@ def execute_delegate_action(
             approval_policy=approval_policy,
             hooks=hooks,
             permissions=permissions,
+            tool_input=tool_input,
+            apply_updated_input=apply_updated_input,
         )
     if tool_name in CODE_DELEGATE_EXCLUDED_TOOL_NAMES or action_type in CODE_DELEGATE_EXCLUDED_TOOL_NAMES:
         return (
@@ -373,6 +380,8 @@ def execute_delegate_action(
         approval_policy=approval_policy,
         hooks=hooks,
         permissions=permissions,
+        tool_input=tool_input,
+        apply_updated_input=apply_updated_input,
     )
 
 
@@ -391,6 +400,8 @@ def _execute_delegate_with_tool_layer(
     approval_policy: ApprovalPolicy,
     hooks: ProjectHooks,
     permissions: ProjectPermissions,
+    tool_input: dict[str, object] | None = None,
+    apply_updated_input: Callable[[dict[str, object]], object] | None = None,
 ) -> tuple[Observation, bool, tuple[HookRunResult, ...]]:
     execution = execute_parsed_tool_action(
         workspace,
@@ -409,6 +420,8 @@ def _execute_delegate_with_tool_layer(
         approval_policy,
         hooks,
         permissions,
+        tool_input,
+        apply_updated_input,
     )
     if execution.auto_checkpoint is not None:
         observations.append(execution.auto_checkpoint)

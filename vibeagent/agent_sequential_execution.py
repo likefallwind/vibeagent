@@ -28,7 +28,6 @@ from .types import (
     PlanItem,
     SendMessageAction,
     TaskStep,
-    ToolErrorObservation,
     UserInputHandler,
 )
 from .workspace_core import RunWorkspace
@@ -87,25 +86,28 @@ def execute_sequential_tool_call(
     checkpoint_attempted = auto_checkpoint_attempted
 
     try:
-        action = prepare_action_for_policy(
-            parse_tool_action(tool_name, tool_input), approval_policy
-        )
-        action = prepare_action_for_visibility(
-            action,
-            excluded_tool_names,
-            allowed_tool_names,
-        )
-        action = prepare_action_shell_cwd(workspace, action)
-        if tool_call_allowed is not None and not tool_call_allowed(tool_name, action):
-            observation = ToolErrorObservation(
-                kind="tool_error",
-                tool=tool_name or "unknown",
-                message=(
-                    "Tool call is blocked by the selected main agent profile "
-                    "or active tool restrictions."
-                ),
+        def prepare_tool_input(candidate_input: dict[str, object]) -> object:
+            candidate = prepare_action_for_policy(
+                parse_tool_action(tool_name, candidate_input), approval_policy
             )
-        elif isinstance(action, (AskUserAction, DelegateTaskAction, SendMessageAction)):
+            candidate = prepare_action_for_visibility(
+                candidate,
+                excluded_tool_names,
+                allowed_tool_names,
+            )
+            candidate = prepare_action_shell_cwd(workspace, candidate)
+            if tool_call_allowed is not None and not tool_call_allowed(
+                tool_name, candidate
+            ):
+                raise ActionParseError(
+                    "Tool call is blocked by the selected main agent profile or active tool restrictions.",
+                    str(candidate_input),
+                )
+            return candidate
+
+        raw_tool_input = tool_input if isinstance(tool_input, dict) else {}
+        action = prepare_tool_input(raw_tool_input)
+        if isinstance(action, (AskUserAction, DelegateTaskAction, SendMessageAction)):
             wrapped = execute_special_tool_action(
                 workspace,
                 action,
@@ -127,6 +129,8 @@ def execute_sequential_tool_call(
                 permissions=permissions,
                 execute_action_safely_func=execute_action_safely_func,
                 tool_ceiling_names=tool_ceiling_names,
+                tool_input=raw_tool_input,
+                apply_updated_input=prepare_tool_input,
             )
             observation = wrapped.observation
             hook_results = wrapped.hook_results
@@ -149,6 +153,8 @@ def execute_sequential_tool_call(
                 approval_policy,
                 hooks,
                 permissions,
+                raw_tool_input,
+                prepare_tool_input,
             )
             observation = execution.observation
             hook_results = execution.hook_results

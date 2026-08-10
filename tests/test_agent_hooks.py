@@ -276,8 +276,8 @@ class AgentHookExecutionTests(unittest.TestCase):
         payload = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual(payload["hooks"][0]["exit_code"], 7)
 
-    def test_denied_pre_hook_blocks_tool_after_target_approval(self) -> None:
-        decisions = iter([True, False])
+    def test_denied_pre_hook_blocks_tool_before_target_approval(self) -> None:
+        decisions = iter([False])
 
         def decide(_request):
             approved = next(decisions)

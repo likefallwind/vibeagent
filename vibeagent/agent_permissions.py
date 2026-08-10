@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from .agent_action_targets import build_action_target
 from .agent_approval import (
@@ -48,6 +49,8 @@ def authorize_tool_action(
     logger: AgentLogger | None,
     default_request: ApprovalRequest | None = None,
     step: object | None = None,
+    hook_permission_decision: Literal["allow", "deny", "ask", "defer"] | None = None,
+    hook_permission_reason: str | None = None,
 ) -> ToolAuthorization:
     if permissions.error is not None:
         message = f"Permission configuration is invalid: {redact_sensitive_text(permissions.error)}"
@@ -62,6 +65,18 @@ def authorize_tool_action(
             },
         )
         return ToolAuthorization(False, _denial(tool_name, action, message))
+
+    if hook_permission_decision is not None:
+        append_session_event(
+            workspace.session_dir,
+            "hook_permission_decision",
+            {
+                "iteration": iteration,
+                "tool": tool_name,
+                "decision": hook_permission_decision,
+                "reason": hook_permission_reason,
+            },
+        )
 
     rule_match = match_project_permission(permissions, tool_name, action)
     if rule_match is not None:
@@ -81,13 +96,25 @@ def authorize_tool_action(
         if rule_match.effect == "deny":
             message = f"Denied by permission rule {visible_rule} from {rule_match.rule.source}."
             return ToolAuthorization(False, _denial(tool_name, action, message), rule_match=rule_match)
+        if hook_permission_decision in {"deny", "defer"}:
+            message = hook_permission_reason or (
+                "PreToolUse hook denied this tool call."
+                if hook_permission_decision == "deny"
+                else "PreToolUse hook deferred this tool call."
+            )
+            return ToolAuthorization(False, _denial(tool_name, action, message), rule_match=rule_match)
         allow_can_skip_approval = (
             default_request is None
             or permissions.allow_rules_trusted
             or rule_match.rule.source in permissions.trusted_allow_sources
         ) and not _approval_must_repeat(action)
-        if rule_match.effect == "allow" and allow_can_skip_approval and not (
-            default_request is not None and approval_policy in {"deny", "plan"}
+        if (
+            rule_match.effect == "allow"
+            and hook_permission_decision != "ask"
+            and allow_can_skip_approval
+            and not (
+                default_request is not None and approval_policy in {"deny", "plan"}
+            )
         ):
             decision = ApprovalDecision(
                 approved=True,
@@ -95,7 +122,33 @@ def authorize_tool_action(
             )
             return ToolAuthorization(True, rule_match=rule_match, decision=decision)
 
+    if hook_permission_decision in {"deny", "defer"}:
+        message = hook_permission_reason or (
+            "PreToolUse hook denied this tool call."
+            if hook_permission_decision == "deny"
+            else "PreToolUse hook deferred this tool call."
+        )
+        return ToolAuthorization(False, _denial(tool_name, action, message))
+
+    if (
+        hook_permission_decision == "allow"
+        and (rule_match is None or rule_match.effect != "ask")
+        and approval_policy not in {"deny", "dontAsk", "plan"}
+        and not _approval_must_repeat(action)
+    ):
+        decision = ApprovalDecision(
+            approved=True,
+            message=hook_permission_reason or "Approved by PreToolUse hook.",
+        )
+        return ToolAuthorization(True, rule_match=rule_match, decision=decision)
+
     request = default_request
+    if hook_permission_decision == "ask" and request is None:
+        request = ApprovalRequest(
+            action_type=tool_name,
+            target=build_action_target(action),
+            risk=hook_permission_reason or "A PreToolUse hook requires confirmation for this tool call.",
+        )
     if rule_match is not None and rule_match.effect == "ask" and request is None:
         request = ApprovalRequest(
             action_type=tool_name,
@@ -108,6 +161,7 @@ def authorize_tool_action(
         and auto_approval_reason is not None
         and approval_policy not in {"deny", "dontAsk", "plan"}
         and (rule_match is None or rule_match.effect != "ask")
+        and hook_permission_decision != "ask"
     ):
         decision = ApprovalDecision(approved=True, message=auto_approval_reason)
         append_session_event(

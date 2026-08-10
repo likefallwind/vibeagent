@@ -1647,6 +1647,18 @@ follow the same policy. Ask-mode approval requests use the parent session
 approval handler and identify the subagent; allow and deny modes still pass
 through the normal permission and command safety checks.
 
+Successful `PreToolUse` hooks can return Claude-compatible structured JSON under
+`hookSpecificOutput`. `permissionDecision` accepts `allow`, `ask`, `deny`, or
+`defer`; multiple results resolve as `deny > defer > ask > allow`. `updatedInput`
+replaces the complete model input and is reparsed before profile restrictions,
+permission rules, approval previews, checkpoints, and execution. `allow` can
+skip ordinary ask-mode target approval but cannot bypass deny/ask permission
+rules, Plan or dontAsk ceilings, or command hard blocks. `ask` can require
+approval for an otherwise read-only tool. `additionalContext` is included in
+the model-visible hook result. Legacy top-level `decision: approve|block` is
+also accepted. `defer` currently stops the tool with an explicit deferred result;
+the interactive runtime does not queue a pending tool call for later execution.
+
 ## Command sandbox
 
 Linux and WSL2 command execution can use Bubblewrap OS isolation. Sandboxing is

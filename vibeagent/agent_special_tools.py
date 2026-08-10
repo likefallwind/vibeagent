@@ -7,7 +7,12 @@ from .agent_approval import build_approval_request
 from .background_delegate_runtime import send_background_delegate_message, start_background_delegate_task
 from .agent_delegate import execute_delegate_task_action
 from .agent_delegate_profile import resolve_profile_action
-from .agent_hooks import ExecuteActionSafely, HookWrappedToolResult, run_hooks_around_tool
+from .agent_hooks import (
+    ApplyUpdatedInput,
+    ExecuteActionSafely,
+    HookWrappedToolResult,
+    run_hooks_around_tool,
+)
 from .agent_runtime_utils import append_session_event
 from .agent_team_runtime import teammate_spawn_error
 from .agent_steps import complete_task_step, start_task_step
@@ -56,9 +61,9 @@ def execute_special_tool_action(
     permissions: ProjectPermissions,
     execute_action_safely_func: ExecuteActionSafely,
     tool_ceiling_names: frozenset[str] | None = None,
+    tool_input: dict[str, object] | None = None,
+    apply_updated_input: ApplyUpdatedInput | None = None,
 ) -> HookWrappedToolResult:
-    if isinstance(action, DelegateTaskAction):
-        action = resolve_profile_action(workspace, action)
     return run_hooks_around_tool(
         workspace,
         hooks,
@@ -70,9 +75,9 @@ def execute_special_tool_action(
         approval_handler,
         approval_policy,
         execute_action_safely_func,
-        lambda: _execute_special_tool(
+        lambda effective_action: _execute_special_tool(
             workspace,
-            action,
+            effective_action,
             client,
             steps=steps,
             observations=observations,
@@ -91,7 +96,14 @@ def execute_special_tool_action(
             tool_ceiling_names=tool_ceiling_names,
         ),
         permissions,
-        default_approval_request=build_approval_request(action),
+        build_default_approval_request=build_approval_request,
+        tool_input=tool_input,
+        apply_updated_input=apply_updated_input,
+        finalize_action=lambda candidate: (
+            resolve_profile_action(workspace, candidate)
+            if isinstance(candidate, DelegateTaskAction)
+            else candidate
+        ),
     )
 
 

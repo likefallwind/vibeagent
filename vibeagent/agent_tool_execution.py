@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 from .agent_action_logging import log_action
 from .agent_approval import build_approval_request
 from .agent_approval_preview import attach_approval_preview
-from .agent_hooks import HookRunResult, run_tool_hooks
+from .agent_hooks import ApplyUpdatedInput, HookBatchResult, HookRunResult, run_tool_hooks
 from .agent_lifecycle_hooks import run_lifecycle_hooks
 from .agent_observation_utils import observation_failed
 from .agent_permissions import authorize_tool_action
@@ -59,16 +59,41 @@ def execute_parsed_tool_action(
     approval_policy: ApprovalPolicy = "ask",
     hooks: ProjectHooks = ProjectHooks(),
     permissions: ProjectPermissions = ProjectPermissions(),
+    tool_input: dict[str, object] | None = None,
+    apply_updated_input: ApplyUpdatedInput | None = None,
 ) -> ToolActionExecutionResult:
+    pre_hooks = run_tool_hooks(
+        workspace,
+        hooks,
+        "PreToolUse",
+        tool_name,
+        action,
+        iteration,
+        command_timeout_ms,
+        logger,
+        approval_handler,
+        approval_policy,
+        execute_action_safely_func,
+        permissions,
+        tool_input=tool_input,
+        apply_updated_input=apply_updated_input,
+    )
+    action = pre_hooks.effective_action or action
     step = start_task_step(workspace, steps, iteration, action, logger)
     log_action(logger, action)
 
-    observation = _build_repeated_list_observation(action, observations)
+    observation = (
+        pre_hooks.failures[-1]
+        if pre_hooks.blocking_message is not None
+        else _build_repeated_list_observation(action, observations)
+    )
     auto_checkpoint: Observation | None = None
     checkpoint_attempted = auto_checkpoint_attempted
-    hook_results: tuple[HookRunResult, ...] = ()
+    hook_results: tuple[HookRunResult, ...] = pre_hooks.results
     additional_observations: tuple[Observation, ...] = ()
-    if observation is not None:
+    if pre_hooks.blocking_message is not None:
+        pass
+    elif observation is not None:
         authorization = authorize_tool_action(
             workspace,
             permissions,
@@ -79,6 +104,8 @@ def execute_parsed_tool_action(
             approval_policy,
             logger,
             step=step,
+            hook_permission_decision=pre_hooks.permission_decision,
+            hook_permission_reason=pre_hooks.permission_reason,
         )
         if not authorization.allowed:
             assert authorization.denial is not None
@@ -108,6 +135,7 @@ def execute_parsed_tool_action(
             approval_policy,
             hooks,
             permissions,
+            pre_hooks,
         )
 
     complete_task_step(workspace, step, observation, iteration, logger)
@@ -145,6 +173,7 @@ def _execute_non_repeated_action(
     approval_policy: ApprovalPolicy,
     hooks: ProjectHooks,
     permissions: ProjectPermissions,
+    pre_hooks: HookBatchResult,
 ) -> tuple[Observation, Observation | None, bool, tuple[HookRunResult, ...], tuple[Observation, ...]]:
     approval_request = build_approval_request(action)
     if approval_request:
@@ -160,6 +189,8 @@ def _execute_non_repeated_action(
         logger,
         default_request=approval_request,
         step=step,
+        hook_permission_decision=pre_hooks.permission_decision,
+        hook_permission_reason=pre_hooks.permission_reason,
     )
     if not authorization.allowed:
         assert authorization.denial is not None
@@ -180,28 +211,10 @@ def _execute_non_repeated_action(
                 ),
                 None,
                 auto_checkpoint_attempted,
-                (),
+                pre_hooks.results,
                 (),
             )
-        return authorization.denial, None, auto_checkpoint_attempted, (), ()
-
-    pre_hooks = run_tool_hooks(
-        workspace,
-        hooks,
-        "PreToolUse",
-        tool_name,
-        action,
-        iteration,
-        command_timeout_ms,
-        logger,
-        approval_handler,
-        approval_policy,
-        execute_action_safely_func,
-        permissions,
-    )
-    if pre_hooks.blocking_message is not None:
-        failure = pre_hooks.failures[-1]
-        return failure, None, auto_checkpoint_attempted, pre_hooks.results, ()
+        return authorization.denial, None, auto_checkpoint_attempted, pre_hooks.results, ()
 
     auto_checkpoint, checkpoint_attempted = _maybe_create_auto_checkpoint(
         workspace,
@@ -238,6 +251,7 @@ def _execute_non_repeated_action(
         approval_policy,
         execute_action_safely_func,
         permissions,
+        tool_input=pre_hooks.effective_input,
     )
     cwd_hooks: tuple[HookRunResult, ...] = ()
     if (

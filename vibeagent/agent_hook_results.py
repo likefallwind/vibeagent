@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shlex
 from dataclasses import dataclass
+from typing import Literal
 
 from .agent_action_targets import build_action_target
 from .types import Observation, RunCommandObservation, ToolErrorObservation
@@ -20,6 +21,10 @@ class HookRunResult:
     stdout: str
     stderr: str
     message: str
+    permission_decision: Literal["allow", "deny", "ask", "defer"] | None = None
+    permission_reason: str | None = None
+    updated_input_applied: bool = False
+    additional_context: str | None = None
 
 
 @dataclass(frozen=True)
@@ -27,6 +32,10 @@ class HookBatchResult:
     results: tuple[HookRunResult, ...] = ()
     blocking_message: str | None = None
     failures: tuple[ToolErrorObservation, ...] = ()
+    effective_action: object | None = None
+    effective_input: dict[str, object] | None = None
+    permission_decision: Literal["allow", "deny", "ask", "defer"] | None = None
+    permission_reason: str | None = None
 
 
 @dataclass(frozen=True)
