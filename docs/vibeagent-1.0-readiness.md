@@ -68,6 +68,11 @@ The automated suite currently covers these 1.0 surfaces:
   shell commands carry a validated working directory across turns and resume;
   background Bash starts there, subagents stay isolated, outside paths reset,
   opt-out is supported, and `CwdChanged` hooks receive the transition.
+- Session Bash environment persistence: private bounded `CLAUDE_ENV_FILE`
+  state is exposed to `SessionStart` and `CwdChanged` hooks, loaded by later
+  foreground/background/interactive/subagent Bash commands, inherited by
+  branches, and rejected on symlink, oversized, unreadable, or hard-blocked
+  content.
 - Claude-compatible tool aliases: `Read`, `Edit`, `MultiEdit`, `Write`,
   `NotebookRead`, `NotebookEdit`, `Bash`, `PowerShell`, `BashOutput`, `KillBash`, `Monitor`,
   `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TeamCreate`, `TeamDelete`, `TodoWrite`, `TodoRead`,

@@ -31,6 +31,7 @@ from .process_output_analysis import (
     process_observation_failed,
 )
 from .process_output_runtime import read_background_process_output_contexts, read_background_process_output_diagnostics
+from .session_environment import wrap_bash_command_with_session_environment
 from .session_working_directory import (
     finalize_shell_cwd,
     prepare_shell_cwd,
@@ -131,10 +132,30 @@ def execute_run_command_item(
             cwd=action.cwd or ".",
             max_output_chars=max_output_chars,
         )
-    executed_command = wrap_posix_command_for_cwd_capture(
-        action.command,
-        cwd_context.capture_path,
-    )
+    try:
+        environment_command = wrap_bash_command_with_session_environment(
+            workspace,
+            action.command,
+            enabled=bool(getattr(action, "maintain_cwd", False)),
+        )
+        executed_command = wrap_posix_command_for_cwd_capture(
+            environment_command,
+            cwd_context.capture_path,
+        )
+    except ValueError as error:
+        if cwd_context.capture_path is not None:
+            cwd_context.capture_path.unlink(missing_ok=True)
+        return CommandResult(
+            command=action.command,
+            exit_code=None,
+            stdout="",
+            stderr=str(error),
+            timed_out=False,
+            signal=None,
+            timeout_ms=timeout_ms,
+            cwd=action.cwd or ".",
+            max_output_chars=max_output_chars,
+        )
     launch = prepare_command_launch(
         workspace,
         action.command,
@@ -203,6 +224,11 @@ def start_background_command(
             maintain=maintain_cwd,
             capture=False,
         ).cwd
+        environment_command = wrap_bash_command_with_session_environment(
+            workspace,
+            command,
+            enabled=maintain_cwd,
+        )
     except ValueError as error:
         return StartCommandObservation(
             kind="start_command",
@@ -224,7 +250,7 @@ def start_background_command(
     exit_code_path = process_dir / f"{process_id}.exitcode"
     stdout_handle = stdout_path.open("w", encoding="utf-8")
     stderr_handle = stderr_path.open("w", encoding="utf-8")
-    wrapped_command = wrap_background_command(command, exit_code_path)
+    wrapped_command = wrap_background_command(environment_command, exit_code_path)
     launch = prepare_command_launch(workspace, command, command_cwd, executed_command=wrapped_command)
     if launch.error is not None:
         stdout_handle.close()

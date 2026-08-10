@@ -6,6 +6,8 @@ from pathlib import Path
 
 from vibeagent.interactive_shell import parse_shell_mode_input, run_interactive_shell
 from vibeagent.session import build_session_resume_context, read_session_events
+from vibeagent.session_environment import ensure_session_environment_file
+from vibeagent.workspace_core import create_local_workspace
 
 
 class InteractiveShellTests(unittest.TestCase):
@@ -66,6 +68,23 @@ class InteractiveShellTests(unittest.TestCase):
         self.assertIn("Command blocked:", blocked.text)
         self.assertIn("[command not run]", blocked.text)
         self.assertFalse(marker.exists())
+
+    def test_interactive_shell_loads_same_session_environment_file(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-shell-") as base:
+            first = run_interactive_shell(base, "printf initial")
+            workspace = create_local_workspace(base, first.run_id)
+            ensure_session_environment_file(workspace).write_text(
+                "export INTERACTIVE_VALUE=loaded\n",
+                encoding="utf-8",
+            )
+
+            second = run_interactive_shell(
+                base,
+                "printf '%s' \"$INTERACTIVE_VALUE\"",
+                run_id=first.run_id,
+            )
+
+        self.assertEqual(second.text, "loaded")
 
 
 if __name__ == "__main__":

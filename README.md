@@ -114,6 +114,17 @@ session directory, while subagents intentionally start each command from their
 own project root. Set `CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR=1` to disable
 carry-over. Valid state is restored on session resume and branch continuation.
 
+### Session shell environment
+
+`SessionStart` and `CwdChanged` hooks receive `CLAUDE_ENV_FILE`, which points to
+the private session file `.vibeagent/sessions/<session-id>/environment.sh`.
+Hooks can append POSIX `export` statements or replace the file to configure
+later foreground, background, interactive, and subagent Bash commands. Ordinary
+`export` commands still do not persist because each Bash action uses a separate
+process. The environment file is reused on resume and copied for a session
+branch, limited to 128 KB, forced to mode `0600` on POSIX, rejected when it is a
+symlink, and checked against the same hard command blocks before it is sourced.
+
 Auto memory is enabled by default. VibeAgent stores machine-local Markdown notes
 under the main Git worktree's `.vibeagent/memory/` directory, so linked
 worktrees share one memory without committing it. At session start it loads at
@@ -1618,7 +1629,9 @@ while resumable subagent message history is atomically stored under
 actually changes the effective directory. Its JSON input includes absolute
 `old_cwd` and `new_cwd` values, its common `cwd` field is the new directory,
 and the hook command runs there. It cannot block or alter the completed
-directory transition.
+directory transition. `SessionStart` and `CwdChanged` hook processes also
+receive `CLAUDE_ENV_FILE`; changes they write there apply to later Bash
+commands in the session.
 
 Every matching command hook requires approval under the current session policy
 and still passes command hard-block checks. Plan mode records and skips command

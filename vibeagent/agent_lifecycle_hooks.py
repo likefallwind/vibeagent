@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import json
 
 from .agent_hook_execution import run_project_hook_command
+from .session_environment import lifecycle_hook_environment
 from .agent_hook_results import HookRunResult
 from .types import AgentLogger, ApprovalHandler, ApprovalPolicy, Observation
 from .workspace_core import RunWorkspace
@@ -59,6 +60,7 @@ def run_lifecycle_hooks(
             hook,
             target=matcher_value or event,
             hook_input=hook_input,
+            environment=lifecycle_hook_environment(workspace, event),
             cwd=(
                 str(event_fields["new_cwd"])
                 if event == "CwdChanged" and isinstance(event_fields.get("new_cwd"), str)

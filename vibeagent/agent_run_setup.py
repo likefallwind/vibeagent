@@ -30,6 +30,10 @@ from .powershell_runtime import powershell_tool_availability
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .session_tasks import inherit_task_store
+from .session_environment import (
+    ensure_session_environment_file,
+    inherit_session_environment,
+)
 from .session_working_directory import inherit_session_cwd
 from .scheduled_task_store import inherit_schedule_store, schedule_store_path
 from .types import ApprovalPolicy, ChatMessage
@@ -121,6 +125,11 @@ def prepare_agent_run(
         tool_names,
         permission_denied_tool_names,
     )
+    environment_inherited, environment_restore_error = inherit_session_environment(
+        current_workspace,
+        task_source_run_id,
+    )
+    ensure_session_environment_file(current_workspace)
     powershell_availability = powershell_tool_availability(current_workspace)
     if not powershell_availability.enabled:
         main_profile = replace(
@@ -175,6 +184,15 @@ def prepare_agent_run(
         )
     _append_prompt_files_event(current_workspace, prompt_file_context)
     _append_task_restore_event(current_workspace, task_source_run_id, tasks_inherited, task_restore_error)
+    append_session_event(
+        current_workspace.session_dir,
+        "session_environment_ready",
+        {
+            "source_run_id": task_source_run_id,
+            "inherited": environment_inherited,
+            "error": environment_restore_error,
+        },
+    )
     if task_source_run_id is not None:
         append_session_event(
             current_workspace.session_dir,
