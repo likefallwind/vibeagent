@@ -115,6 +115,7 @@ EXPECTED_GATES = {
             "test_parallel_calls_share_one_strict_gate",
             "test_v1_cli_budgeted_repair_verify_commit_and_report_cost",
             "test_hook_model_usage_is_included_in_session_totals",
+            "test_hook_agent_usage_is_included_in_session_totals",
         },
     },
     "VA1-OUTPUT": {
@@ -235,6 +236,12 @@ EXPECTED_GATES = {
             "test_stop_prompt_hook_continues_then_allows",
             "test_subagent_stop_prompt_hook_continues_then_allows",
             "test_subagent_pre_tool_prompt_block_halts_subagent_turn",
+            "test_pre_tool_agent_reads_file_then_blocks_turn",
+            "test_agent_finish_tool_returns_strict_decision",
+            "test_continue_on_block_returns_reason_to_main_agent",
+            "test_stop_agent_hook_continues_then_allows",
+            "test_invalid_response_and_model_failure_are_non_blocking",
+            "test_agent_model_override_and_timeout_are_scoped",
         },
     },
 }

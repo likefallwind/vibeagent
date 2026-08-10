@@ -255,7 +255,7 @@ def run_tool_hooks(
             failure = _hook_failure_observation(event, tool_name, result.message)
             failures.append(failure)
             if (
-                result.handler_type == "prompt"
+                result.handler_type in {"prompt", "agent"}
                 and result.status == "blocked"
                 and not hook.continue_on_block
                 and event in {"PreToolUse", "PostToolUse"}

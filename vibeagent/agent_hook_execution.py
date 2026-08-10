@@ -8,6 +8,7 @@ import re
 from collections.abc import Callable
 from uuid import uuid4
 
+from .agent_hook_agent import run_project_agent_hook
 from .agent_hook_results import HookRunResult, hook_result_from_observation
 from .agent_hook_http import run_project_http_hook
 from .agent_hook_mcp import run_project_mcp_hook
@@ -89,6 +90,18 @@ def run_project_hook(
             hook_input=hook_input,
             iteration=iteration,
             hook_index=hook_index,
+            runtime=hook_model_runtime,
+        )
+    if hook.handler_type == "agent":
+        return run_project_agent_hook(
+            workspace,
+            hook,
+            target=target,
+            hook_input=hook_input,
+            iteration=iteration,
+            hook_index=hook_index,
+            command_timeout_ms=command_timeout_ms,
+            permissions=permissions,
             runtime=hook_model_runtime,
         )
     return _run_project_command_hook(

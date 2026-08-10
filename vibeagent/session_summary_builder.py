@@ -101,6 +101,7 @@ def summarize_session(project_root: str | Path, run_id: str) -> SessionSummary:
             "subagent_model",
             "structured_output_model",
             "hook_model",
+            "hook_agent_model",
         }:
             usage_totals.add_payload(event.payload.get("usage"))
             if event.type == "model":

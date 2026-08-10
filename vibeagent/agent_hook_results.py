@@ -27,7 +27,7 @@ class HookRunResult:
     additional_context: str | None = None
     async_started: bool = False
     process_id: str | None = None
-    handler_type: Literal["command", "http", "mcp_tool", "prompt"] = "command"
+    handler_type: Literal["command", "http", "mcp_tool", "prompt", "agent"] = "command"
     http_status: int | None = None
     non_blocking_error: bool = False
 

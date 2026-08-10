@@ -51,7 +51,12 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         if tool_names:
             return f"{prefix} toolCalls={', '.join(tool_names)}{usage_text}"
         return f"{prefix} response{usage_text}"
-    if event.type in {"model_error", "subagent_model_error", "hook_model_error"}:
+    if event.type in {
+        "model_error",
+        "subagent_model_error",
+        "hook_model_error",
+        "hook_agent_model_error",
+    }:
         error_type = payload.get("error_type")
         message = payload.get("message")
         iteration = payload.get("iteration")
@@ -186,6 +191,12 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         return format_subagent_model_event(prefix, payload, max_text)
     if event.type == "hook_model":
         return format_subagent_model_event(prefix, payload, max_text)
+    if event.type == "hook_agent_model":
+        return format_subagent_model_event(prefix, payload, max_text)
+    if event.type == "hook_agent_tool_call":
+        return format_subagent_tool_call_event(prefix, payload)
+    if event.type == "hook_agent_tool_result":
+        return format_subagent_tool_result_event(prefix, payload)
     if event.type == "subagent_tool_call":
         return format_subagent_tool_call_event(prefix, payload)
     if event.type == "subagent_tool_result":

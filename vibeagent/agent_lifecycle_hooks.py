@@ -210,7 +210,7 @@ def _parse_hook_output(result: HookRunResult) -> _ParsedHookOutput:
 
 
 def _blocking_message(result: HookRunResult, output: _ParsedHookOutput) -> str | None:
-    if result.handler_type == "prompt" and result.status == "blocked":
+    if result.handler_type in {"prompt", "agent"} and result.status == "blocked":
         return result.message
     if result.exit_code == 2:
         return result.stderr.strip() or result.message

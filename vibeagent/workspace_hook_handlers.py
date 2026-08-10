@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import cast
+from typing import Literal, cast
 from urllib.parse import urlsplit
 
 from .mcp_config import MCP_NAME_PATTERN
@@ -35,9 +35,11 @@ def parse_hook_handler(
     if handler_type == "mcp_tool":
         return _parse_mcp_tool_hook(event, matcher, payload, source)
     if handler_type == "prompt":
-        return _parse_prompt_hook(event, matcher, payload, source)
+        return _parse_model_hook(event, matcher, payload, source, handler_type="prompt")
+    if handler_type == "agent":
+        return _parse_model_hook(event, matcher, payload, source, handler_type="agent")
     raise ValueError(
-        f"{source} hook type must be command, http, mcp_tool, or prompt."
+        f"{source} hook type must be command, http, mcp_tool, prompt, or agent."
     )
 
 
@@ -181,13 +183,22 @@ def _parse_mcp_tool_hook(
     )
 
 
-def _parse_prompt_hook(
-    event: str, matcher: str, payload: dict[str, object], source: str
+def _parse_model_hook(
+    event: str,
+    matcher: str,
+    payload: dict[str, object],
+    source: str,
+    *,
+    handler_type: Literal["prompt", "agent"],
 ) -> ProjectHook:
     if event not in PROMPT_HOOK_EVENTS:
-        raise ValueError(f"{source} {event} hooks do not support prompt handlers.")
+        raise ValueError(
+            f"{source} {event} hooks do not support {handler_type} handlers."
+        )
     if "async" in payload or "asyncRewake" in payload:
-        raise ValueError(f"{source} prompt hooks do not support async or asyncRewake.")
+        raise ValueError(
+            f"{source} {handler_type} hooks do not support async or asyncRewake."
+        )
     prompt = payload.get("prompt")
     if (
         not isinstance(prompt, str)
@@ -215,9 +226,13 @@ def _parse_prompt_hook(
         event=cast(HookEvent, event),
         matcher=matcher,
         command="",
-        timeout_ms=_parse_hook_timeout(payload, source, default_ms=30_000),
+        timeout_ms=_parse_hook_timeout(
+            payload,
+            source,
+            default_ms=60_000 if handler_type == "agent" else 30_000,
+        ),
         source=source,
-        handler_type="prompt",
+        handler_type=handler_type,
         prompt=prompt.strip(),
         model=model.strip() if isinstance(model, str) else None,
         continue_on_block=continue_on_block,

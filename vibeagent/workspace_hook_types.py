@@ -52,7 +52,7 @@ class ProjectHook:
     command: str
     timeout_ms: int
     source: str
-    handler_type: Literal["command", "http", "mcp_tool", "prompt"] = "command"
+    handler_type: Literal["command", "http", "mcp_tool", "prompt", "agent"] = "command"
     url: str = ""
     headers: tuple[tuple[str, str], ...] = ()
     allowed_env_vars: tuple[str, ...] = ()

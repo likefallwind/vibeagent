@@ -149,6 +149,11 @@ The automated suite currently covers these 1.0 surfaces:
   default timeout settings, halt default Pre/Post blocks, feed
   `continueOnBlock` and Stop/SubagentStop reasons back for another turn, and
   keep model or validation failures non-blocking.
+- Experimental Claude-compatible agent hooks: the same supported events and
+  strict decision schema can run up to 50 read-only inspection turns, with a
+  60-second default timeout, no mutation, command, delegation, or user-input
+  tools, Hook-specific audit events, shared provider budget/fallback state, and
+  the same block, feedback, and non-blocking failure semantics as prompt hooks.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

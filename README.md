@@ -1640,12 +1640,12 @@ receive `CLAUDE_ENV_FILE`; changes they write there apply to later Bash
 commands in the session.
 
 Every matching command, HTTP, or MCP tool hook requires approval under the
-current session policy. Prompt hooks make a bounded call through the active
-provider client without a separate tool approval. Command handlers still pass command hard-block checks,
+current session policy. Prompt and agent hooks make bounded calls through the
+active provider client without a separate tool approval. Command handlers still pass command hard-block checks,
 HTTP handlers validate their destination before connecting, and MCP handlers
 reuse configured-server and advertised-tool validation. Plan mode records and
-skips those three external handler types; prompt hooks still evaluate in Plan
-mode. A failed or denied command pre-tool hook blocks the
+skips those three external handler types; prompt and agent hooks still evaluate
+in Plan mode. A failed or denied command pre-tool hook blocks the
 target tool, as does a denied HTTP or MCP handler approval. A failed post-tool
 command hook preserves the target result but
 records an additional tool error that prevents an unqualified successful
@@ -1658,6 +1658,19 @@ timeline with bounded, redacted output. Background subagent hooks and tools
 follow the same policy. Ask-mode approval requests use the parent session
 approval handler and identify the subagent; allow and deny modes still pass
 through the normal permission and command safety checks.
+
+Claude-compatible `type: "prompt"` handlers perform one strict no-tool
+`{"ok": true|false, "reason": "..."}` evaluation. Experimental
+`type: "agent"` handlers use the same fields and response schema, but can take
+up to 50 model turns with bounded read-only file, search, and project-inspection
+tools. Agent handlers cannot edit files, run commands, delegate work, or ask the
+user; their activity is recorded as Hook events rather than ordinary resumable
+subagents. `$ARGUMENTS` expands to the lifecycle input JSON, `model` scopes an
+optional model override, and `continueOnBlock` returns a Pre/Post block reason
+to the active agent instead of ending that turn. Prompt handlers default to a
+30-second timeout and agent handlers to 60 seconds. Both share provider budget
+and overload fallback state, and malformed responses, timeouts, or provider
+failures are recorded as non-blocking Hook errors.
 
 Command hooks may set `"async": true` to start after approval without waiting
 for completion. `"asyncRewake": true` implies async execution and, when the
