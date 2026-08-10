@@ -4,6 +4,10 @@ from .command_types import LocalCommand, make_local_command
 
 
 def parse_session_local_command(trimmed: str) -> LocalCommand | None:
+    if trimmed == "/rename" or trimmed.startswith("/rename "):
+        return make_local_command("rename", trimmed[7:].strip() or None)
+    if trimmed == "/export" or trimmed.startswith("/export "):
+        return make_local_command("export", trimmed[7:].strip() or None)
     if trimmed == "/sessions":
         return make_local_command("sessions", None)
     if trimmed == "/last":

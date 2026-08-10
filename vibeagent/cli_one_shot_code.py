@@ -27,6 +27,7 @@ from .session_additional_directories import (
     restore_session_additional_directories,
 )
 from .session_branching import create_session_branch
+from .session_names import name_session, normalize_session_name
 
 
 def run_one_shot_code(
@@ -37,6 +38,7 @@ def run_one_shot_code(
     provider_env: dict[str, str | None],
     approval_policy: ApprovalPolicy,
     agent: str | None = None,
+    session_name: str | None = None,
     trust_project_permissions: bool,
     permission_overrides: ProjectPermissions | None,
     resolved_mcp_config_paths: tuple[Path, ...],
@@ -116,7 +118,7 @@ def run_one_shot_code(
         mcp_config_paths=resolved_mcp_config_paths,
         strict_mcp_config=strict_mcp_config,
         additional_roots=additional_directories,
-        force_workspace=fork_session,
+        force_workspace=fork_session or session_name is not None,
     )
     peer_runtime = create_peer_runtime(project_root, approval_policy)
     run_kwargs = build_one_shot_agent_kwargs(
@@ -154,6 +156,10 @@ def run_one_shot_code(
                     additional_directories=additional_directories,
                     workspace=stream_scope.workspace,
                 )
+            if session_name is not None:
+                if stream_scope.workspace is None:
+                    raise ValueError("--name requires a persistent coding session workspace.")
+                name_session(project_root, stream_scope.workspace.run_id, normalize_session_name(session_name))
             while True:
                 result = run_agent_func(task, **run_kwargs)
                 goal_turns += 1
@@ -206,6 +212,8 @@ def run_one_shot_code(
             "runId": result.run_id,
             "sourceRunId": prior_context.run_id,
         }
+    if session_name is not None:
+        result_payload["sessionName"] = normalize_session_name(session_name)
     emit_one_shot_code_payload(
         result,
         result_payload,

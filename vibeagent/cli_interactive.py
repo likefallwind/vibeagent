@@ -40,6 +40,7 @@ from .cli_session_local_flags import run_interactive_resume_command, run_interac
 from .cli_system_prompt_state import update_system_prompt_state
 from .cli_additional_directory_state import update_additional_directory_state
 from .cli_interactive_branch import prepare_interactive_branch_switch
+from .cli_interactive_session_management import interactive_session_prompt, run_interactive_session_management
 from .cli_subagent_panel import SubagentPanel
 from .cli_text_edit_local_flags import run_interactive_text_edit_command
 from .commands import get_resume_context as default_get_resume_context, parse_local_command
@@ -60,6 +61,7 @@ from .providers import create_chat_client as default_create_chat_client
 from .types import ApprovalPolicy, ChatMessage
 from .scheduled_task_store import collect_due_scheduled_tasks, scheduled_tasks_enabled
 from .session_usage import summarize_run_usage
+from .session_names import transfer_session_name
 from .agent_peer_notifications import peer_messages_as_task
 from .peer_runtime import create_peer_runtime
 from .peer_commands import get_peer_sessions_text
@@ -149,6 +151,7 @@ def run_interactive_loop(
             }
             selected_approval_handler = panel.wrap_approval_handler(approval_handler)
             selected_user_input_handler = panel.wrap_user_input_handler(prompt_user_input)
+        source_run_id = resume_run_id
         try:
             result = run_agent_func(
                 task,
@@ -167,7 +170,10 @@ def run_interactive_loop(
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
                 task_metadata=task_metadata,
-                task_source_run_id=pending_branch_source_run_id or resume_run_id,
+                task_source_run_id=(
+                    pending_branch_source_run_id
+                    or (resume_run_id if resume_context is not None else None)
+                ),
                 workspace=pending_workspace,
                 peer_runtime=peer_runtime,
                 agent=initial_agent,
@@ -179,6 +185,11 @@ def run_interactive_loop(
         if panel.config_error and panel.config_error != initial_panel_error:
             print(f"Plugin subagentStatusLine warning: {panel.config_error}")
         print_agent_result(result)
+        if pending_workspace is None:
+            try:
+                transfer_session_name(Path.cwd(), source_run_id, result.run_id)
+            except (OSError, ValueError) as error:
+                print(f"Session name persistence warning: {format_error(error)}")
         pending_workspace = None
         pending_branch_source_run_id = None
         selected, next_context, _ = get_resume_context_func(result.run_id)
@@ -300,7 +311,7 @@ def run_interactive_loop(
         try:
             with interactive_prompt_completion(Path.cwd(), additional_directories):
                 task = input_with_idle_callback(
-                    "\nvibeagent> ",
+                    interactive_session_prompt(Path.cwd(), resume_run_id, pending_workspace),
                     run_due_tasks_while_idle,
                     input_func=input,
                 ).strip()
@@ -515,6 +526,18 @@ def run_interactive_loop(
                 if peer_runtime is not None:
                     peer_runtime.update_approval_policy(approval_policy)
             print(text)
+            continue
+        if command and (
+            session_update := run_interactive_session_management(
+                command,
+                project_root=Path.cwd(),
+                run_id=resume_run_id,
+                pending_workspace=pending_workspace,
+            )
+        ) is not None:
+            resume_run_id = session_update.run_id
+            pending_workspace = session_update.pending_workspace
+            print(session_update.text)
             continue
         if command and (session_text := run_interactive_session_command(command, command_namespace)) is not None:
             print(session_text)

@@ -8,6 +8,26 @@ from vibeagent.tool_search_options import tool_search_approval_choices
 
 
 class CliArgsValidationTests(unittest.TestCase):
+    def test_cli_name_is_forwarded_and_rejects_non_session_modes(self) -> None:
+        one_shot = cli_module.parse_args(["-n", "auth-refactor", "inspect"])
+        interactive = cli_module.parse_args(["--name", "auth-refactor"])
+        chat = cli_module.parse_args(["--chat", "--name", "chat-name", "hello"])
+        local = cli_module.parse_args(["--sessions", "--name", "local-name"])
+        reserved = cli_module.parse_args(["--name", "latest"])
+
+        self.assertIsNone(cli_module.validate_cli_args(one_shot))
+        self.assertIsNone(cli_module.validate_cli_args(interactive))
+        self.assertEqual(cli_module.build_one_shot_kwargs_from_args(one_shot)["session_name"], "auth-refactor")
+        self.assertEqual(
+            cli_module.validate_cli_args(chat),
+            "--name requires a non-empty interactive or one-shot coding session name.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(local),
+            "--name requires a non-empty interactive or one-shot coding session name.",
+        )
+        self.assertEqual(cli_module.validate_cli_args(reserved), "Session name is reserved: latest")
+
     def test_model_flag_without_value_remains_local_but_model_value_is_one_shot_override(self) -> None:
         local_args = cli_module.parse_args(["--model"])
         override_args = cli_module.parse_args(["--model", "MiniMax-custom", "inspect"])

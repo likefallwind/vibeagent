@@ -23,6 +23,12 @@ def add_one_shot_arguments(
         help="Run coding turns with an exact project or plugin main agent profile.",
     )
     parser.add_argument(
+        "--name",
+        "-n",
+        metavar="NAME",
+        help="Name the coding session so it can be resumed by name.",
+    )
+    parser.add_argument(
         "--trust-project-permissions",
         action="store_true",
         help="Allow project permission allow rules to skip side-effect prompts for this one-shot run.",

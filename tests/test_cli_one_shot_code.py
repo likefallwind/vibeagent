@@ -11,9 +11,55 @@ from vibeagent.cli_output_mode import CliOutputMode
 from vibeagent.config import ExecutionConfig
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.session_branching import read_session_branch_info
+from vibeagent.session_names import read_session_name
 
 
 class CliOneShotCodeTests(unittest.TestCase):
+    def test_run_one_shot_code_names_forced_workspace(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-one-shot-name-") as base:
+            root = Path(base)
+            calls: list[dict[str, object]] = []
+
+            def run_agent(task, **kwargs):
+                calls.append(kwargs)
+                workspace = kwargs["workspace"]
+                return AgentResult(True, "done", root, workspace.run_id, 1, [], [])
+
+            with patch("vibeagent.cli_one_shot_code.emit_one_shot_code_payload") as emit_payload:
+                exit_code, _ = run_one_shot_code(
+                    "fix tests",
+                    project_root=root,
+                    execution_config=ExecutionConfig(),
+                    provider_env={},
+                    approval_policy="allow",
+                    session_name="release-check",
+                    trust_project_permissions=True,
+                    permission_overrides=None,
+                    resolved_mcp_config_paths=(),
+                    strict_mcp_config=False,
+                    output_mode=CliOutputMode(format="text", machine=False, stream_json=False),
+                    output_json=False,
+                    print_mode=False,
+                    elapsed_ms=1,
+                    stream=None,
+                    input_prior_context=None,
+                    system_prompt=None,
+                    append_system_prompt=None,
+                    task_metadata=None,
+                    resume_arg=None,
+                    compact_arg=None,
+                    auto_compact=False,
+                    create_chat_client_func=lambda env: object(),
+                    run_agent_func=run_agent,
+                    get_resume_context_func=lambda *args, **kwargs: (None, None, "unused"),
+                    get_compact_context_func=lambda *args, **kwargs: (None, None, "unused"),
+                )
+
+            workspace = calls[0]["workspace"]
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(read_session_name(root, workspace.run_id), "release-check")
+            self.assertEqual(emit_payload.call_args.args[1]["sessionName"], "release-check")
+
     def test_run_one_shot_code_runs_agent_and_emits_result(self) -> None:
         project_root = Path("/tmp/vibeagent-code")
         provider_env: dict[str, str | None] = {"VIBEAGENT_PROVIDER": "minimax"}

@@ -7,6 +7,10 @@ from vibeagent.command_session_parsing import parse_session_local_command
 class CommandSessionParsingTests(unittest.TestCase):
     def test_session_parser_recognizes_session_commands(self) -> None:
         cases = {
+            "/rename": LocalCommand(type="rename"),
+            "/rename auth work": LocalCommand(type="rename", argument="auth work"),
+            "/export": LocalCommand(type="export"),
+            "/export reports/session.txt": LocalCommand(type="export", argument="reports/session.txt"),
             "/sessions": LocalCommand(type="sessions"),
             "/last": LocalCommand(type="last"),
             "/plan": LocalCommand(type="plan"),

@@ -6,6 +6,7 @@ from .cli_local_flag_detection import has_local_flag, has_non_model_local_flag
 from .cli_local_option_validation import validate_local_option_dependencies
 from .cli_permission_overrides import has_permission_overrides, permission_override_validation_error
 from .cli_resume_args import validate_resume_arguments
+from .session_names import normalize_session_name
 
 
 def validate_cli_args(args: argparse.Namespace) -> str | None:
@@ -34,6 +35,13 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--add-dir cannot be combined with --worktree."
     if args.agent is not None and (not args.agent.strip() or has_local_flag(args) or args.chat):
         return "--agent requires a non-empty interactive or one-shot coding profile."
+    if args.name is not None and (not args.name.strip() or has_local_flag(args) or args.chat):
+        return "--name requires a non-empty interactive or one-shot coding session name."
+    if args.name is not None:
+        try:
+            normalize_session_name(args.name)
+        except ValueError as error:
+            return str(error)
     if args.worktree is not None and (
         args.resume is not None
         or args.session_id is not None

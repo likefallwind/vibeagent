@@ -8,6 +8,7 @@ from unittest.mock import Mock
 
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.cli_startup_context import resolve_interactive_startup_context
+from vibeagent.session_names import read_session_name
 
 
 def _args(**overrides) -> Namespace:
@@ -34,12 +35,49 @@ def _args(**overrides) -> Namespace:
         "compact_max_output_chars": None,
         "compact_max_text": None,
         "fork_session": False,
+        "name": None,
     }
     values.update(overrides)
     return Namespace(**values)
 
 
 class CliStartupContextTests(unittest.TestCase):
+    def test_name_creates_a_pending_interactive_session(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-startup-name-") as base:
+            root = Path(base)
+
+            context = resolve_interactive_startup_context(
+                _args(name="auth-refactor"),
+                root,
+                get_resume_context_func=Mock(),
+                get_compact_context_func=Mock(),
+            )
+
+            self.assertIsNone(context.error)
+            self.assertIsNotNone(context.pending_workspace)
+            self.assertEqual(read_session_name(root, context.run_id), "auth-refactor")  # type: ignore[arg-type]
+            self.assertIn("Session named: auth-refactor", context.message or "")
+
+    def test_name_with_resume_targets_new_pending_run_without_renaming_source(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-startup-name-") as base:
+            root = Path(base)
+            append_session_event(root / ".vibeagent" / "sessions" / "source", "task", {"task": "source"})
+
+            context = resolve_interactive_startup_context(
+                _args(name="continued-work", resume="source"),
+                root,
+                get_resume_context_func=Mock(return_value=("source", "context", "Loaded source.")),
+                get_compact_context_func=Mock(),
+            )
+
+            self.assertEqual(context.run_id, "source")
+            self.assertIsNotNone(context.pending_workspace)
+            self.assertIsNone(read_session_name(root, "source"))
+            self.assertEqual(
+                read_session_name(root, context.pending_workspace.run_id),  # type: ignore[union-attr]
+                "continued-work",
+            )
+
     def test_resume_restores_session_additional_directories(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-startup-dirs-") as base:
             root = Path(base) / "project"

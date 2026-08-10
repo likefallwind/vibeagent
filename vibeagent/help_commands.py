@@ -200,6 +200,8 @@ def get_help_text() -> str:
             "  /add-dir [path|remove path|clear]  Show or update additional working directories for this session.",
             "  /sandbox  Show command sandbox configuration and Bubblewrap availability.",
             "  /sessions  List recent local sessions.",
+            "  /rename [name]  Rename the active coding session; omit name to derive one from its first task.",
+            "  /export [filename]  Print or write a safe plain-text transcript of the active coding session.",
             "  /session <run-id>  Show a compact session summary.",
             "  /last   Show a compact summary of the newest session.",
             "  /plan [run-id]  Show the latest recorded task plan.",

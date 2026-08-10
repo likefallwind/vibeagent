@@ -12,15 +12,22 @@ from .session_additional_directories import (
     restore_session_additional_directories,
 )
 from .session_id import is_valid_session_id
-from .session_store import list_sessions, read_session_events
+from .session_names import (
+    MAX_SESSION_NAME_CHARS,
+    RESERVED_SESSION_NAMES,
+    find_named_session,
+    normalize_session_name,
+    resolve_session_reference,
+)
+from .session_store import read_session_events
 from .session_tasks import inherit_task_store
 from .workspace_core import RunWorkspace, create_run_workspace
 
 
-MAX_BRANCH_NAME_CHARS = 80
+MAX_BRANCH_NAME_CHARS = MAX_SESSION_NAME_CHARS
 MAX_BRANCH_DEPTH = 20
 SESSION_BRANCH_EVENT = "session_branched"
-RESERVED_BRANCH_NAMES = frozenset({"latest", "off", "clear", "none"})
+RESERVED_BRANCH_NAMES = RESERVED_SESSION_NAMES
 
 
 @dataclass(frozen=True)
@@ -186,44 +193,15 @@ def unstarted_branch_lineage(project_root: Path, run_id: str) -> tuple[tuple[str
     raise ValueError(f"Session branch lineage exceeds {MAX_BRANCH_DEPTH} levels.")
 
 
-def resolve_session_reference(project_root: Path, value: str) -> str:
-    root = project_root.resolve()
-    direct = root / ".vibeagent" / "sessions" / value
-    if is_valid_session_id(value) and direct.is_dir() and not direct.is_symlink():
-        return value
-    matches: list[str] = []
-    for info in list_sessions(root, limit=10_000):
-        try:
-            branch = read_session_branch_info(root, info.run_id)
-        except ValueError:
-            continue
-        if branch is not None and branch.name == value:
-            matches.append(info.run_id)
-    if len(matches) == 1:
-        return matches[0]
-    if len(matches) > 1:
-        raise ValueError(f"Session branch name is ambiguous: {value}")
-    return value
-
-
-def find_named_session(project_root: Path, name: str) -> str | None:
-    resolved = resolve_session_reference(project_root, name)
-    return resolved if resolved != name or (project_root / ".vibeagent" / "sessions" / name).is_dir() else None
-
-
 def normalize_branch_name(value: str | None) -> str | None:
     if value is None:
         return None
-    normalized = value.strip()
-    if not normalized:
+    if not value.strip():
         return None
-    if len(normalized) > MAX_BRANCH_NAME_CHARS:
-        raise ValueError(f"Session branch name must not exceed {MAX_BRANCH_NAME_CHARS} characters.")
-    if normalized.lower() in RESERVED_BRANCH_NAMES:
-        raise ValueError(f"Session branch name is reserved: {normalized}")
-    if any(ord(character) < 32 or ord(character) == 127 for character in normalized):
-        raise ValueError("Session branch name must not contain control characters.")
-    return normalized
+    try:
+        return normalize_session_name(value)
+    except ValueError as error:
+        raise ValueError(str(error).replace("Session name", "Session branch name")) from error
 
 
 def _require_source_session(project_root: Path, run_id: str) -> None:

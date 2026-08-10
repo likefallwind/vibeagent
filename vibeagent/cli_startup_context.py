@@ -17,7 +17,8 @@ from .session_additional_directories import (
     restore_session_additional_directories,
 )
 from .session_branching import create_session_branch
-from .workspace_core import RunWorkspace
+from .session_names import name_session, normalize_session_name
+from .workspace_core import RunWorkspace, create_run_workspace
 
 
 @dataclass(frozen=True)
@@ -58,7 +59,7 @@ def resolve_interactive_startup_context(
     }
     session_resume = args.resume if args.resume is not None else args.session_id
     if session_resume is None and args.compact is None:
-        return InteractiveStartupContext(**prompt_kwargs)
+        return _with_requested_name(InteractiveStartupContext(**prompt_kwargs), args, project_root)
     if session_resume is not None:
         resume_kwargs = build_context_limit_kwargs(
             max_failures=args.resume_max_failures,
@@ -76,7 +77,8 @@ def resolve_interactive_startup_context(
             InteractiveStartupContext(run_id=run_id, context=context, message=message, **prompt_kwargs),
             project_root,
         )
-        return _with_forked_session(context, project_root) if getattr(args, "fork_session", False) else context
+        context = _with_forked_session(context, project_root) if getattr(args, "fork_session", False) else context
+        return _with_requested_name(context, args, project_root)
 
     compact_kwargs = build_context_limit_kwargs(
         max_failures=args.compact_max_failures,
@@ -93,7 +95,8 @@ def resolve_interactive_startup_context(
         InteractiveStartupContext(run_id=run_id, context=context, message=message, **prompt_kwargs),
         project_root,
     )
-    return _with_forked_session(context, project_root) if getattr(args, "fork_session", False) else context
+    context = _with_forked_session(context, project_root) if getattr(args, "fork_session", False) else context
+    return _with_requested_name(context, args, project_root)
 
 
 def _with_restored_directories(
@@ -141,3 +144,29 @@ def _with_forked_session(
         pending_workspace=branch.workspace,
         branch_source_run_id=branch.source_run_id,
     )
+
+
+def _with_requested_name(
+    context: InteractiveStartupContext,
+    args: argparse.Namespace,
+    project_root: Path,
+) -> InteractiveStartupContext:
+    requested = getattr(args, "name", None)
+    if requested is None or context.error is not None:
+        return context
+    try:
+        normalized = normalize_session_name(requested)
+        workspace = context.pending_workspace
+        run_id = workspace.run_id if workspace is not None else None
+        if run_id is None:
+            workspace = create_run_workspace(
+                project_root,
+                additional_roots=context.additional_directories,
+            )
+            run_id = workspace.run_id
+        name_session(project_root, run_id, normalized)
+    except (OSError, ValueError) as error:
+        return replace(context, error=str(error))
+    message = "\n".join(part for part in (context.message, f"Session named: {normalized} ({run_id})") if part)
+    active_run_id = context.run_id if context.run_id is not None else run_id
+    return replace(context, run_id=active_run_id, message=message, pending_workspace=workspace)

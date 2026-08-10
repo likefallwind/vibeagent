@@ -49,6 +49,7 @@ from .session_store import (
     session_info_has_rows,
 )
 from .session_branching import read_session_branch_info
+from .session_names import read_session_name
 from .session_summary_builder import summarize_session
 from .session_timeline_reports import (
     format_detail_suffix,
@@ -136,6 +137,10 @@ def format_sessions(project_root: str | Path, limit: int = 20) -> str:
             branch = read_session_branch_info(Path(project_root), info.run_id)
         except ValueError:
             branch = None
+        try:
+            name = read_session_name(Path(project_root), info.run_id)
+        except ValueError:
+            name = None
         last = (
             info.last_event_time.isoformat(timespec="seconds").replace("+00:00", "Z")
             if info.last_event_time
@@ -144,12 +149,13 @@ def format_sessions(project_root: str | Path, limit: int = 20) -> str:
         malformed = f", {info.malformed_count} malformed" if info.malformed_count else ""
         branch_text = ""
         if branch is not None:
-            name = f" name={compact(branch.name, 80)}" if branch.name else ""
-            branch_text = f"  branch={branch.source_run_id}{name}"
+            branch_text = f"  branch={branch.source_run_id}"
+        name_prefix = " " if branch is not None else "  "
+        name_text = f"{name_prefix}name={compact(name, 80)}" if name else ""
         task = f"  task={compact(summary.task, 160)}" if summary.task else ""
         lines.append(
             f"  {info.run_id}  status={session_summary_status(summary)}  "
-            f"events={info.event_count}{malformed}  last={last}{branch_text}{task}"
+            f"events={info.event_count}{malformed}  last={last}{branch_text}{name_text}{task}"
         )
     return "\n".join(lines)
 
@@ -178,12 +184,17 @@ def serialize_session_info(project_root: str | Path, info: SessionInfo, max_text
         branch = read_session_branch_info(Path(project_root), info.run_id)
     except ValueError:
         branch = None
+    try:
+        name = read_session_name(Path(project_root), info.run_id)
+    except ValueError:
+        name = None
     return {
         "session": info.run_id,
         "status": session_summary_status(summary),
         "events": info.event_count,
         "malformed": info.malformed_count,
         "lastEventTime": format_session_datetime(info.last_event_time),
+        "name": name,
         "task": compact(summary.task, max_text) if summary.task else None,
         "completed": summary.completed,
         "failed": summary.failed,

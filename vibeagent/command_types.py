@@ -229,6 +229,8 @@ ReviewCommandType: TypeAlias = Literal[
 ]
 
 SessionCommandType: TypeAlias = Literal[
+    "rename",
+    "export",
     "sessions",
     "session",
     "last",

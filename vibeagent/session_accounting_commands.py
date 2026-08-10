@@ -26,9 +26,10 @@ def format_sessions_report_text(report: dict[str, object]) -> str:
         malformed = f", {item.get('malformed')} malformed" if int(item.get("malformed", 0) or 0) else ""
         last = item.get("lastEventTime") or "unknown"
         task = f"  task={item.get('task')}" if item.get("task") else ""
+        name = f"  name={item.get('name')}" if item.get("name") else ""
         lines.append(
             f"  {item.get('session')}  status={item.get('status')}  "
-            f"events={int(item.get('events', 0) or 0)}{malformed}  last={last}{task}"
+            f"events={int(item.get('events', 0) or 0)}{malformed}  last={last}{name}{task}"
         )
     return "\n".join(lines)
 
