@@ -205,6 +205,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                     context.nested_runtime.coordination_tool_names
                 ),
                 hook_model_runtime=context.hook_model_runtime,
+                teammate_name=context.nested_runtime.team_member_name,
             )
             auto_checkpoint_attempted = execution.auto_checkpoint_attempted
             if execution.finish_action is not None:

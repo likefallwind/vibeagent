@@ -168,6 +168,11 @@ The automated suite currently covers these 1.0 surfaces:
   reason for one-shot termination, interactive exit, clear, resume, and branch
   paths. These events are non-blocking, reject model handlers, and enforce the
   shared 1.5-second default session-end budget with a 60-second ceiling.
+- Claude-compatible task lifecycle hooks: `TaskCreated` and `TaskCompleted`
+  ignore matchers, receive stable task identity and available team context, and
+  can block main-agent, subagent, and teammate task transitions before the
+  atomic task store changes. Exit-code-2 feedback continues the model while
+  `continue: false` halts the active turn.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

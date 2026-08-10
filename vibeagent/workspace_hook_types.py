@@ -18,6 +18,8 @@ HookEvent = Literal[
     "Stop",
     "SubagentStart",
     "SubagentStop",
+    "TaskCompleted",
+    "TaskCreated",
     "UserPromptSubmit",
 ]
 HOOK_EVENTS = frozenset(
@@ -35,6 +37,8 @@ HOOK_EVENTS = frozenset(
         "Stop",
         "SubagentStart",
         "SubagentStop",
+        "TaskCompleted",
+        "TaskCreated",
         "UserPromptSubmit",
     }
 )
@@ -48,6 +52,8 @@ SEQUENTIAL_TOOL_HOOK_EVENTS = frozenset(
         "PostToolUse",
         "PostToolUseFailure",
         "PreToolUse",
+        "TaskCompleted",
+        "TaskCreated",
     }
 )
 PROMPT_HOOK_EVENTS = frozenset(
@@ -58,6 +64,8 @@ PROMPT_HOOK_EVENTS = frozenset(
         "PermissionRequest",
         "Stop",
         "SubagentStop",
+        "TaskCompleted",
+        "TaskCreated",
         "UserPromptSubmit",
     }
 )

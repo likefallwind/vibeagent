@@ -1615,7 +1615,7 @@ hook map directly or under `hooks`:
 Supported lifecycle events are `SessionStart`, `SessionEnd`, `PreCompact`,
 `PostCompact`, `CwdChanged`, `InstructionsLoaded`, `UserPromptSubmit`,
 `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
-`SubagentStart`, and `SubagentStop`. Tool-event
+`SubagentStart`, `SubagentStop`, `TaskCreated`, and `TaskCompleted`. Tool-event
 matchers apply to the model tool name, parsed VibeAgent action type, and
 Claude-compatible aliases.
 `SessionStart` matches `startup` or `resume`; `InstructionsLoaded` matches
@@ -1632,6 +1632,14 @@ and, on stop, `stop_hook_active`, `last_assistant_message`, and
 `agent_transcript_path`. Parent lifecycle events remain in the session event log,
 while resumable subagent message history is atomically stored under
 `.vibeagent/sessions/<session-id>/subagents/` with secret redaction.
+
+`TaskCreated` and `TaskCompleted` ignore matchers and run for main-agent,
+subagent, and teammate task transitions. Their input includes `task_id`,
+`task_subject`, `task_description`, and available teammate/team names. Exit code
+2 blocks the transition and returns stderr to the model without changing the
+atomic task store. JSON `{"continue": false, "stopReason": "..."}` also blocks
+the transition and halts the active turn. Failed or malformed handlers remain
+non-blocking.
 
 `PreCompact` and `PostCompact` match `manual` or `auto`. Automatic main-agent
 context reduction emits both events around a successful compact operation;

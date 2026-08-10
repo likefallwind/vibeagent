@@ -19,7 +19,9 @@ from .workspace_permissions import ProjectPermissions
 
 
 CONTEXT_EVENTS = frozenset({"SessionStart", "SubagentStart", "UserPromptSubmit"})
-BLOCKING_EVENTS = frozenset({"Stop", "SubagentStop", "UserPromptSubmit"})
+BLOCKING_EVENTS = frozenset(
+    {"Stop", "SubagentStop", "TaskCompleted", "TaskCreated", "UserPromptSubmit"}
+)
 ExecuteActionSafely = Callable[[RunWorkspace, object, int, str], Observation]
 SESSION_END_DEFAULT_BUDGET_MS = 1_500
 SESSION_END_MAX_BUDGET_MS = 60_000
@@ -30,6 +32,7 @@ class LifecycleHookResult:
     results: tuple[HookRunResult, ...] = ()
     contexts: tuple[str, ...] = ()
     blocking_message: str | None = None
+    halt_turn_message: str | None = None
 
 
 def run_lifecycle_hooks(
@@ -104,6 +107,7 @@ def run_lifecycle_hooks(
                     results=tuple(results),
                     contexts=tuple(contexts),
                     blocking_message=blocking_message,
+                    halt_turn_message=output.stop_reason,
                 )
     return LifecycleHookResult(results=tuple(results), contexts=tuple(contexts))
 
@@ -197,6 +201,8 @@ class _ParsedHookOutput:
     decision: str | None = None
     reason: str | None = None
     plain_text: bool = False
+    stop_reason: str | None = None
+    continue_: bool | None = None
 
 
 def _parse_hook_output(result: HookRunResult) -> _ParsedHookOutput:
@@ -215,12 +221,18 @@ def _parse_hook_output(result: HookRunResult) -> _ParsedHookOutput:
         "additionalContext", payload.get("additionalContext")
     )
     reason = payload.get("reason")
+    stop_reason = payload.get("stopReason")
+    continue_value = payload.get("continue")
     return _ParsedHookOutput(
         context=context if isinstance(context, str) and context.strip() else None,
         decision=payload.get("decision")
         if isinstance(payload.get("decision"), str)
         else None,
         reason=reason if isinstance(reason, str) and reason.strip() else None,
+        stop_reason=(
+            stop_reason if isinstance(stop_reason, str) and stop_reason.strip() else None
+        ),
+        continue_=continue_value if isinstance(continue_value, bool) else None,
     )
 
 
@@ -231,6 +243,8 @@ def _blocking_message(result: HookRunResult, output: _ParsedHookOutput) -> str |
         return result.stderr.strip() or result.message
     if output.decision == "block":
         return output.reason or "Configured hook blocked this lifecycle event."
+    if output.continue_ is False:
+        return output.stop_reason or "Configured hook stopped this lifecycle event."
     if output.context and result.event == "Stop" and not output.plain_text:
         return output.context
     return None

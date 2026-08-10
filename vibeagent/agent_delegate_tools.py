@@ -22,6 +22,7 @@ from .agent_parallel_safety import is_parallel_safe_action
 from .agent_team_runtime import TEAM_COORDINATION_TOOL_NAMES
 from .agent_runtime_utils import tool_error_observation
 from .agent_tool_execution import execute_parsed_tool_action
+from .agent_task_lifecycle_hooks import run_task_lifecycle_hooks
 from .agent_tool_registry import (
     ToolVisibilityPolicy,
     activate_agent_tool_names,
@@ -162,6 +163,7 @@ def execute_delegate_tool_call(
     coordination_tool_names: frozenset[str] = frozenset(),
     tool_id: str | None = None,
     hook_model_runtime: HookModelRuntime | None = None,
+    teammate_name: str | None = None,
 ) -> DelegateToolCallExecution:
     halt_turn_message: str | None = None
     try:
@@ -207,6 +209,37 @@ def execute_delegate_tool_call(
             )
         if isinstance(parsed, FinishAction):
             return DelegateToolCallExecution(None, parsed, auto_checkpoint_attempted)
+        task_hook_results: tuple[HookRunResult, ...] = ()
+        if special_action_handler is not None and teammate_name is not None:
+            task_lifecycle = run_task_lifecycle_hooks(
+                workspace,
+                parsed,
+                teammate_name=teammate_name,
+                iteration=iteration,
+                command_timeout_ms=command_timeout_ms,
+                logger=logger,
+                approval_handler=approval_handler,
+                approval_policy=approval_policy,
+                execute_action_safely_func=execute_action_safely,
+                hooks=hooks,
+                permissions=permissions,
+                hook_model_runtime=hook_model_runtime,
+            )
+            if task_lifecycle.blocking_message is not None:
+                observation = ToolErrorObservation(
+                    kind="tool_error",
+                    tool=f"hook:{task_lifecycle.results[-1].event}:{tool_name}",
+                    message=task_lifecycle.blocking_message,
+                )
+                observations.append(observation)
+                return DelegateToolCallExecution(
+                    observation,
+                    None,
+                    auto_checkpoint_attempted,
+                    task_lifecycle.results,
+                    task_lifecycle.halt_turn_message,
+                )
+            task_hook_results = task_lifecycle.results
         if special_action_handler is not None:
             special_observation = special_action_handler(parsed)
             if special_observation is not None:
@@ -222,6 +255,7 @@ def execute_delegate_tool_call(
                     special_observation,
                     None,
                     auto_checkpoint_attempted,
+                    task_hook_results,
                 )
         (
             observation,

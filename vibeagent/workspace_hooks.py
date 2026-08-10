@@ -201,7 +201,11 @@ def _parse_hook_events(payload: dict[str, object], source: str) -> list[ProjectH
                 raise ValueError(
                     f"{source} hook event {event_name} entries must be objects."
                 )
-            matcher = ".*" if event_name == "CwdChanged" else group.get("matcher", ".*")
+            matcher = (
+                ".*"
+                if event_name in {"CwdChanged", "TaskCreated", "TaskCompleted"}
+                else group.get("matcher", ".*")
+            )
             if not isinstance(matcher, str) or len(matcher) > MAX_HOOK_MATCHER_CHARS:
                 raise ValueError(
                     f"{source} hook matcher must be a string of at most {MAX_HOOK_MATCHER_CHARS} characters."

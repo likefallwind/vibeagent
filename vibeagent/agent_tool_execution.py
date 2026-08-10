@@ -25,6 +25,7 @@ from .agent_runtime_utils import (
     to_jsonable,
 )
 from .agent_steps import complete_task_step, start_task_step
+from .agent_task_lifecycle_hooks import run_task_lifecycle_hooks
 from .lsp_runtime import automatic_lsp_diagnostics
 from .types import (
     AgentLogger,
@@ -36,6 +37,7 @@ from .types import (
     PlanModeObservation,
     RunCommandObservation,
     TaskStep,
+    ToolErrorObservation,
 )
 from .workspace_core import RunWorkspace
 from .workspace_hooks import ProjectHooks
@@ -349,12 +351,33 @@ def _execute_non_repeated_action(
         should_auto_checkpoint_before_action_func,
         create_auto_checkpoint_before_action_func,
     )
-    observation = execute_action_safely_func(
+    task_lifecycle = run_task_lifecycle_hooks(
         effective_workspace,
         effective_action,
-        command_timeout_ms,
-        tool_name,
+        teammate_name=None,
+        iteration=iteration,
+        command_timeout_ms=command_timeout_ms,
+        logger=logger,
+        approval_handler=approval_handler,
+        approval_policy=effective_approval_policy,
+        execute_action_safely_func=execute_action_safely_func,
+        hooks=hooks,
+        permissions=effective_permissions,
+        hook_model_runtime=hook_model_runtime,
     )
+    if task_lifecycle.blocking_message is not None:
+        observation = ToolErrorObservation(
+            kind="tool_error",
+            tool=f"hook:{task_lifecycle.results[-1].event}:{tool_name}",
+            message=task_lifecycle.blocking_message,
+        )
+    else:
+        observation = execute_action_safely_func(
+            effective_workspace,
+            effective_action,
+            command_timeout_ms,
+            tool_name,
+        )
     if (
         isinstance(effective_action, ExitPlanModeAction)
         and isinstance(observation, PlanModeObservation)
@@ -413,9 +436,9 @@ def _execute_non_repeated_action(
         observation,
         auto_checkpoint,
         checkpoint_attempted,
-        authorization_hook_results + post_hooks.results + cwd_hooks,
+        authorization_hook_results + task_lifecycle.results + post_hooks.results + cwd_hooks,
         tuple(post_hooks.failures) + diagnostics,
-        post_hooks.halt_turn_message,
+        task_lifecycle.halt_turn_message or post_hooks.halt_turn_message,
         application,
     )
 

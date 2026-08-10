@@ -471,6 +471,9 @@ local changes when asked, and resume from recorded session context.
   covers automatic and interactive manual compaction inputs, bounded summaries,
   one-shot termination, interactive clear/exit/resume reasons, and SessionEnd
   timeout defaults.
+- `tests.test_task_lifecycle_hooks.TaskLifecycleHookTests` covers matcher-free
+  task Hook configuration, exact creation/completion input, rollback-safe
+  blocking, `continue: false` turn halting, and the teammate coordination path.
 - `tests.test_delegation.DelegationTests` covers `SubagentStart` context
   injection for foreground and background workers plus `SubagentStop` blocking
   and retry for both text completion and the `finish` tool protocol.
