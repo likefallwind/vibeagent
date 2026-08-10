@@ -28,7 +28,7 @@ def conversation_for_next_prompt(
         if compacted is not None:
             carried[index] = compacted
             break
-    return carried
+    return _drop_unpaired_trailing_tool_calls(carried)
 
 
 def _compact_runtime_user_message(
@@ -49,6 +49,18 @@ def _leading_text(content: str | list[ContentBlock]) -> str:
     if content and content[0].get("type") == "text":
         return str(content[0].get("text") or "")
     return ""
+
+
+def _drop_unpaired_trailing_tool_calls(messages: list[ChatMessage]) -> list[ChatMessage]:
+    if not messages or messages[-1].role != "assistant" or not isinstance(messages[-1].content, list):
+        return messages
+    content = messages[-1].content
+    if not any(block.get("type") == "tool_call" for block in content):
+        return messages
+    retained = [block for block in content if block.get("type") != "tool_call"]
+    if retained:
+        return [*messages[:-1], ChatMessage(role="assistant", content=retained)]
+    return messages[:-1]
 
 
 __all__ = ["continue_conversation", "conversation_for_next_prompt"]

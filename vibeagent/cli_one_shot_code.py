@@ -28,6 +28,8 @@ from .session_additional_directories import (
 )
 from .session_branching import create_session_branch
 from .session_names import name_session, normalize_session_name
+from .session_conversation import load_session_conversation
+from .types import ChatMessage
 
 
 def run_one_shot_code(
@@ -143,6 +145,18 @@ def run_one_shot_code(
     )
     if prior_context.run_id is not None:
         run_kwargs["task_source_run_id"] = prior_context.run_id
+    if prior_context.source == "resume" and prior_context.run_id is not None:
+        restored_conversation = load_session_conversation(project_root, prior_context.run_id)
+        prior_messages = list(restored_conversation.messages)
+        if prior_messages and input_prior_context:
+            prior_messages.append(
+                ChatMessage(
+                    role="user",
+                    content=f"Additional continuation context:\n{input_prior_context}",
+                )
+            )
+        if prior_messages:
+            run_kwargs["prior_messages"] = prior_messages
     goal_turns = 0
     recorded_session_tokens: dict[str, int] = {}
     try:

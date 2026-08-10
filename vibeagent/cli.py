@@ -237,6 +237,7 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_additional_directories=context.additional_directories,
         initial_pending_workspace=context.pending_workspace,
         initial_branch_source_run_id=context.branch_source_run_id,
+        initial_conversation_messages=context.conversation,
     )
 if __name__ == "__main__":
     import sys

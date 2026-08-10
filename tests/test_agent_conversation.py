@@ -53,6 +53,20 @@ class AgentConversationTests(unittest.TestCase):
         feedback = ChatMessage(role="user", content="Run the failing test again.")
         self.assertEqual(conversation_for_next_prompt([feedback], "task"), [feedback])
 
+    def test_carry_drops_unpaired_trailing_tool_call(self) -> None:
+        messages = [
+            ChatMessage(role="user", content="User task:\nfinish"),
+            ChatMessage(
+                role="assistant",
+                content=[{"type": "tool_call", "id": "finish-1", "name": "finish", "input": {}}],
+            ),
+        ]
+
+        self.assertEqual(
+            conversation_for_next_prompt(messages, "finish"),
+            [ChatMessage(role="user", content="User task:\nfinish")],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

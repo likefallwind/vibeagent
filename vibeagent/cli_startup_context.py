@@ -18,6 +18,8 @@ from .session_additional_directories import (
 )
 from .session_branching import create_session_branch
 from .session_names import name_session, normalize_session_name
+from .session_conversation import load_session_conversation
+from .types import ChatMessage
 from .workspace_core import RunWorkspace, create_run_workspace
 
 
@@ -33,6 +35,7 @@ class InteractiveStartupContext:
     additional_directories: tuple[Path, ...] = ()
     pending_workspace: RunWorkspace | None = None
     branch_source_run_id: str | None = None
+    conversation: tuple[ChatMessage, ...] = ()
 
 
 def resolve_interactive_startup_context(
@@ -77,6 +80,7 @@ def resolve_interactive_startup_context(
             InteractiveStartupContext(run_id=run_id, context=context, message=message, **prompt_kwargs),
             project_root,
         )
+        context = _with_restored_conversation(context, project_root)
         context = _with_forked_session(context, project_root) if getattr(args, "fork_session", False) else context
         return _with_requested_name(context, args, project_root)
 
@@ -97,6 +101,21 @@ def resolve_interactive_startup_context(
     )
     context = _with_forked_session(context, project_root) if getattr(args, "fork_session", False) else context
     return _with_requested_name(context, args, project_root)
+
+
+def _with_restored_conversation(
+    context: InteractiveStartupContext,
+    project_root: Path,
+) -> InteractiveStartupContext:
+    if context.error is not None or context.run_id is None:
+        return context
+    loaded = load_session_conversation(project_root, context.run_id)
+    message_parts = [part for part in (context.message, loaded.warning) if part]
+    return replace(
+        context,
+        conversation=loaded.messages,
+        message="\n".join(message_parts) or None,
+    )
 
 
 def _with_restored_directories(

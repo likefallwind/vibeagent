@@ -13,6 +13,7 @@ from unittest.mock import patch
 from vibeagent.agent import run_agent
 from vibeagent.agent_result import AgentResult
 from vibeagent.session_commands import get_resume_context, get_session_handoff_report
+from vibeagent.session_conversation import read_session_conversation
 from vibeagent.session_handoff_details import extract_session_handoff_details
 from vibeagent.types import ApprovalDecision, ApprovalRequest, AssistantResponse, ChatMessage, ContentBlock, WebFetchObservation
 
@@ -2669,6 +2670,7 @@ class V1DogfoodTests(unittest.TestCase):
             self.assertIsNotNone(prior_context, resume_message)
             assert prior_context is not None
             self.assertIn("python -B -m unittest discover -s tests", prior_context)
+            persisted_conversation = read_session_conversation(root, interrupted.run_id)
 
             resumed_client = DogfoodClient(resumed_dogfood_responses())
             resumed = run_v1_dogfood_agent(
@@ -2677,6 +2679,7 @@ class V1DogfoodTests(unittest.TestCase):
                 client=resumed_client,
                 max_iterations=12,
                 prior_context=prior_context,
+                prior_messages=persisted_conversation,
             )
             git_status, head_message = v1_commit_state(root)
 
@@ -2686,7 +2689,7 @@ class V1DogfoodTests(unittest.TestCase):
 
         self.assertFalse(interrupted.success)
         self.assertIn("run_command", interrupted_observations)
-        self.assertIn("Previous session context:", initial_resumed_prompt)
+        self.assertIn("Fix the calculator test failure", initial_resumed_prompt)
         self.assertIn("python -B -m unittest discover -s tests", initial_resumed_prompt)
         assert_v1_clean_commit(self, resumed, git_status, head_message, "Fix calculator add after resume")
         self.assertIn("run_session_verification", resumed_observations)

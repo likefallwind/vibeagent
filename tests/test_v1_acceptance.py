@@ -107,7 +107,10 @@ EXPECTED_GATES = {
     },
     "VA1-RESUME": {
         "tools": {"session_summary", "session_verification", "run_session_verification", "session_handoff"},
-        "tests": {"test_run_agent_uses_existing_session_verification_on_resume"},
+        "tests": {
+            "test_run_agent_uses_existing_session_verification_on_resume",
+            "test_persisted_conversation_continues_after_result_memory_is_discarded",
+        },
     },
     "VA1-GOAL": {
         "tools": set(),

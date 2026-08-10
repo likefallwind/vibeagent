@@ -1369,10 +1369,17 @@ Consecutive interactive coding prompts and evaluator-driven `/goal` turns reuse
 the active Session workspace and run ID, so their plans, transcript, usage, and
 rewind points form one coherent history. While that Session remains active in
 the current process, its full model/tool conversation is carried into the next
-prompt and automatically uses the existing context compaction thresholds.
-Persisted sessions remain redacted and resume from bounded handoff evidence;
-`/clear`, an explicit resume into a continuation, `/branch`, and conversation
-rewind therefore start a fresh in-memory conversation boundary.
+prompt and automatically uses the existing context compaction thresholds. A
+redacted, bounded copy of the non-system conversation is also atomically stored
+as mode-`0600` session state after safe model/tool boundaries. Explicit
+`--resume`, `/resume`, `--session-id`, and branches restore that copy while
+rebuilding the current system prompt, project snapshot, permissions, and prompt
+attachments. Prompt-file text/images, system messages, write/edit payloads,
+tool-result content/diffs, and common credentials are not retained verbatim.
+Malformed, oversized, mismatched, or symbolic-link conversation state falls
+back to the bounded handoff instead of being trusted. `--compact`, `/compact`,
+automatic one-shot compaction, `/clear`, and conversation rewind remain explicit
+compressed or fresh conversation boundaries.
 `/rename [name]` updates the active session name; without a name it derives a
 unique filesystem-safe name from the first coding task. Exact session IDs take
 precedence over names during resume, and duplicate or reserved names are rejected.

@@ -803,8 +803,10 @@ class V1CliSmokeTests(unittest.TestCase):
             "source": "resume",
             "runId": interrupted_payload["runId"],
         })
-        self.assertIn("Previous session context:", initial_resumed_prompt)
+        self.assertNotIn("Previous session context:", initial_resumed_prompt)
+        self.assertIn("Fix the calculator test failure", initial_resumed_prompt)
         self.assertIn("python -B -m unittest discover -s tests", initial_resumed_prompt)
+        self.assertIn("AssertionError: -1 != 5", initial_resumed_prompt)
         _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add after resume")
 
     def test_v1_cli_json_can_compact_interrupted_run_and_commit(self) -> None:

@@ -13,8 +13,9 @@ npm run test:v1:release
 
 The release suite also covers bounded coding-prompt `@path` references for
 UTF-8 text and images, including workspace/sensitive-file rejection, metadata-
-only session persistence, one-turn image payload cleanup, and compaction-safe
-text context. Text references support exact numbered `#5-10`, `#L5-L10`, and
+only event persistence, redacted conversation checkpoints that exclude prompt
+attachments, one-turn image payload cleanup, and compaction-safe text context.
+Text references support exact numbered `#5-10`, `#L5-L10`, and
 single-line selectors with strict file and 1,000-line boundaries. Interactive
 terminals add bounded Tab completion for safe project paths and slash commands
 without opening a GUI; non-TTY input remains unchanged.
@@ -71,6 +72,10 @@ The automated suite currently covers these 1.0 surfaces:
 - Real CLI JSON and stream-json entrypoints, stdin input formats, resume,
   compact, permission overrides, `acceptEdits`, disallowed tools, and
   pending-user-input output.
+- Durable main-session conversation continuity: private atomic checkpoints at
+  safe model/tool boundaries, fresh system/project context on every prompt,
+  explicit resume and branch restoration, corrupt-state handoff fallback, and
+  compact/clear/rewind boundaries that do not replay detailed history.
 - Interactive `/branch [name]` and resumed `--fork-session`, including immutable
   source events, independent first-turn workspaces, state inheritance, named
   resume, branch discovery, bounded lineage fallback, and malformed/cyclic

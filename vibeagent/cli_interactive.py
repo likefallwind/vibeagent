@@ -84,6 +84,7 @@ from .session_additional_directories import (
     record_session_additional_directories,
     restore_session_additional_directories,
 )
+from .session_conversation import load_session_conversation
 from .workspace_core import RunWorkspace
 
 
@@ -103,6 +104,7 @@ def run_interactive_loop(
     initial_additional_directories: tuple[Path, ...] = (),
     initial_pending_workspace: RunWorkspace | None = None,
     initial_branch_source_run_id: str | None = None,
+    initial_conversation_messages: tuple[ChatMessage, ...] = (),
 ) -> int:
     # Entry loop: parse local commands first, otherwise delegate to the agent.
     print(f"VibeAgent {__version__}")
@@ -119,7 +121,7 @@ def run_interactive_loop(
     plugin_auto_updates = PluginAutoUpdateRuntime(Path.cwd())
     plugin_auto_updates.start()
     chat_history: list[ChatMessage] = []
-    conversation_messages: list[ChatMessage] = []
+    conversation_messages: list[ChatMessage] = list(initial_conversation_messages)
     resume_run_id: str | None = initial_resume_run_id
     resume_context: str | None = initial_resume_context
     system_prompt = initial_system_prompt
@@ -605,13 +607,16 @@ def run_interactive_loop(
                 workflow_manager = None
             resume_run_id = selected
             resume_context = context
-            conversation_messages.clear()
+            restored_conversation = load_session_conversation(Path.cwd(), selected)
+            conversation_messages = list(restored_conversation.messages)
             pending_workspace = None
             pending_branch_source_run_id = None
             additional_directories = next_additional_directories
             restored_goal = read_session_goal(Path.cwd(), selected) if selected is not None else None
             goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
             print(text)
+            if restored_conversation.warning:
+                print(restored_conversation.warning)
             if restored_directories.message:
                 print(restored_directories.message)
             continue
@@ -633,10 +638,13 @@ def run_interactive_loop(
             pending_branch_source_run_id = branch.source_run_id
             resume_run_id = branch.workspace.run_id
             resume_context = branch.context
-            conversation_messages.clear()
+            restored_conversation = load_session_conversation(Path.cwd(), branch.source_run_id)
+            conversation_messages = list(restored_conversation.messages)
             restored_goal = read_session_goal(Path.cwd(), resume_run_id)
             goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
             print(branch.text)
+            if restored_conversation.warning:
+                print(restored_conversation.warning)
             continue
         request_mode = "code" if custom_command is not None else mode
         if command and command.type == "chat":

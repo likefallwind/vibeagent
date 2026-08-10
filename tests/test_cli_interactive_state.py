@@ -12,10 +12,47 @@ from vibeagent.cli import main
 from vibeagent.types import ApprovalRequest, ChatMessage
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.session_branching import read_session_branch_info
+from vibeagent.session_conversation import checkpoint_session_conversation
 from vibeagent.workspace_core import create_run_workspace
 
 
 class CliInteractiveStateTests(unittest.TestCase):
+    def test_explicit_resume_restores_persisted_conversation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-resume-conversation-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root, run_id="run-1")
+            checkpoint_session_conversation(
+                workspace,
+                [
+                    ChatMessage(role="user", content="User task:\nfirst"),
+                    ChatMessage(role="assistant", content="durable marker"),
+                ],
+                "first",
+            )
+            calls: list[dict[str, object]] = []
+
+            def run_agent(task, **kwargs):
+                calls.append(kwargs)
+                return AgentResult(True, "done", root, "run-2", 1, [], [])
+
+            with (
+                patch("builtins.input", side_effect=["/resume run-1", "continue", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", side_effect=run_agent),
+                patch(
+                    "vibeagent.cli.get_resume_context",
+                    side_effect=[
+                        ("run-1", "source context", "loaded"),
+                        ("run-2", "next context", "loaded"),
+                    ],
+                ),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", str(root)])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(calls[0]["prior_messages"][-1].content, "durable marker")
+
     def test_clear_starts_new_session_without_in_memory_conversation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-clear-") as base:
             root = Path(base)

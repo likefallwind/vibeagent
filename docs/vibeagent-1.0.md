@@ -15,7 +15,7 @@ local changes when asked, and resume from recorded session context.
 | VA1-REPAIR | Iterate after failing checks | The agent loop can observe failed command output, edit again, rerun checks, and keep task steps accurate. |
 | VA1-REVIEW | Block premature completion after changes | `final_review`, completion blockers, and suggested verification checks prevent finishing until changed-file review and relevant checks are complete. |
 | VA1-COMMIT | Commit verified local work when requested | `check_git_stage`, `git_stage`, `check_git_commit`, and `git_commit` can stage explicit paths and create a local commit after approval. |
-| VA1-RESUME | Recover useful session context | `session_summary`, `session_verification`, `run_session_verification`, `session_handoff`, `--resume`, and `--compact` preserve enough context to continue work. |
+| VA1-RESUME | Recover useful session context | `session_summary`, `session_verification`, `run_session_verification`, and `session_handoff` preserve bounded evidence; explicit `--resume`, `--session-id`, `/resume`, and branches additionally restore a redacted non-system model/tool conversation, while `--compact` and `/compact` deliberately start from compressed handoff context. |
 | VA1-GOAL | Continue until an independently checked condition is met | `/goal` persists one bounded condition, runs evaluator-guided coding turns without changing approvals, and restores active goals only on explicit resume. |
 | VA1-PEER | Coordinate independent local coding sessions | `ListAgents` discovers live same-machine sessions, `SendMessage` delivers bounded untrusted text over a user-only Unix socket, and running or idle receivers process messages without changing permission boundaries. |
 | VA1-DELEGATE | Split bounded investigation into a subagent | `delegate_task`, `Task`, and `Agent` can run isolated read-only investigations synchronously or in the background; `TaskOutput` collects results, `TaskStop` requests cancellation, and completion remains blocked while a result is running or unread. |
@@ -34,6 +34,12 @@ local changes when asked, and resume from recorded session context.
   covers the same repair workflow split across two runs: the first run records a
   failing verification before interruption, `get_resume_context` reloads that
   evidence, and the resumed run fixes, verifies, and commits.
+- `tests.test_session_conversation.SessionConversationTests`,
+  `tests.test_cli_startup_context.CliStartupContextTests.test_resume_restores_persisted_conversation_but_compact_does_not`,
+  and the resume coverage in `tests.test_cli_interactive_state` and
+  `tests.test_cli_one_shot_code` cover atomic private conversation checkpoints,
+  prompt/image/tool-payload redaction, corrupt-state fallback, explicit resume,
+  and compact as a deliberate conversation boundary.
 - `tests.test_session_tasks.SessionTaskTests` covers Claude-compatible
   `TaskCreate`, `TaskGet`, `TaskList`, and `TaskUpdate`, including stable IDs,
   status updates, owners, acyclic dependencies, deletion cleanup, completion

@@ -24,6 +24,7 @@ from vibeagent.prompts import format_observations, get_next_action_instruction
 from vibeagent.session import summarize_session
 from vibeagent.session_verification_action_executor import session_verification_observation
 from vibeagent.session_rewind import list_session_rewind_points
+from vibeagent.session_conversation import read_session_conversation
 from vibeagent.types import ApprovalDecision, ApprovalDeniedObservation, ApprovalRequest, AssistantResponse, ChatMessage, CheckCheckpointDeleteObservation, CheckCheckpointPruneObservation, CheckCheckpointRestoreObservation, CheckFocusedTestCommandsObservation, CheckGitCommitObservation, CheckGitStageObservation, CheckRunCommandsObservation, CheckSuggestedChecksObservation, CheckpointCreateAction, CheckpointCreateObservation, CheckpointDeleteAction, CheckpointInfo, CheckpointListObservation, CheckpointPruneAction, CheckpointPruneObservation, CheckpointRestoreAction, CheckpointRestoreObservation, CheckpointStatusObservation, CodeReference, CodeReferencesObservation, CommandCheckObservation, ContentBlock, EnvironmentInfoObservation, FocusedTestCommandsObservation, GitCommitAction, ModelUsage, ProcessInfo, ProcessOutputContextsObservation, ProcessOutputDiagnosticsObservation, ProjectCommand, ProjectCommandsObservation, ProjectInstructionSource, ProjectInstructionsObservation, ProjectManifest, ProjectManifestItem, ProjectManifestsObservation, ProjectOverviewObservation, ProjectTodo, ProjectTodosObservation, ReadFileContextObservation, ReadFileObservation, ReadProcessObservation, RelatedTestCandidate, RelatedTestsObservation, RuntimeToolInfo, SearchObservation, SessionAuditObservation, SessionAuditProcess, SessionCommandsObservation, SessionFailuresObservation, SessionFilesObservation, SessionHandoffObservation, SessionOutputContextsObservation, SessionOutputDiagnosticsObservation, SessionPlanObservation, SessionSearchObservation, SessionSummaryObservation, SessionTranscriptObservation, SessionVerificationObservation, StopAllProcessesAction, SuggestChecksObservation, ToolErrorObservation, ToolSearchObservation, WaitProcessObservation
 from vibeagent.types import CheckGitPushObservation, GitInfoObservation, HttpCheckObservation, PortCheckObservation
 from vibeagent.types import CheckEditFileObservation, CheckJsonSetObservation, CommandResult, ConfigCheckObservation, ConfigCheckResult, FinalReviewObservation, FocusedTestCommand, GitChangeFile, GitChangesObservation, GitCommitObservation, GitDiffObservation, GitStageObservation, GitStatusObservation, OutputContextResult, OutputContextsObservation, OutputDiagnostic, OutputDiagnosticsObservation, PatchFilesObservation, PythonCheckObservation, PythonCheckResult, RunCommandObservation, RunCommandsObservation, RunSessionVerificationObservation, RunSuggestedChecksObservation, StartCommandObservation, SuggestedCheck, WriteFileObservation
@@ -12177,6 +12178,33 @@ class AgentTests(unittest.TestCase):
         self.assertGreater(len(second.conversation), len(first.conversation))
         continued = [event for event in events if event["type"] == "conversation_continued"]
         self.assertEqual(continued[-1]["messages"], len(first.conversation))
+
+    def test_persisted_conversation_continues_after_result_memory_is_discarded(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            root = Path(base)
+            first = run_agent(
+                "remember durable marker",
+                base_dir=root,
+                client=MockClient([[{"type": "text", "text": "Durable marker is BETA-73."}]]),
+                max_iterations=1,
+                approval_handler=approve_all,
+            )
+            persisted = read_session_conversation(root, first.run_id)
+            second_client = MockClient([[{"type": "text", "text": "The marker is BETA-73."}]])
+
+            run_agent(
+                "recall the durable marker",
+                base_dir=root,
+                client=second_client,
+                max_iterations=1,
+                approval_handler=approve_all,
+                prior_messages=persisted,
+            )
+
+        sent = second_client.messages[0]
+        self.assertEqual(sum(message.role == "system" for message in sent), 1)
+        self.assertIn("Durable marker is BETA-73.", str([message.content for message in sent]))
+        self.assertIn("recall the durable marker", str(sent[-1].content))
 
     def test_carried_conversation_uses_existing_context_compaction_limit(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:

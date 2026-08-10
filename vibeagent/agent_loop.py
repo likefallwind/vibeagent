@@ -30,6 +30,7 @@ from .agent_tool_registry import (
     agent_tool_definitions,
 )
 from .agent_workspace_transition import apply_workspace_transition
+from .session_conversation import checkpoint_session_conversation
 from .session_tasks import read_task_plan
 from .types import (
     AgentLogger,
@@ -104,6 +105,9 @@ def run_agent_loop(
     )
     auto_checkpoint_attempted = False
 
+    def checkpoint_conversation() -> None:
+        checkpoint_session_conversation(current_workspace, messages, task)
+
     def finish_with_conversation(
         workspace: RunWorkspace,
         success: bool,
@@ -115,6 +119,7 @@ def run_agent_loop(
         timeout_ms: int,
         finish_logger: AgentLogger | None,
     ) -> AgentResult:
+        checkpoint_session_conversation(workspace, messages, task)
         return replace(
             runtime.finish_agent_run(
                 workspace,
@@ -178,6 +183,7 @@ def run_agent_loop(
     )
     if startup_block is not None:
         return finish_run(False, startup_block, 0)
+    checkpoint_conversation()
     plugin_monitors = AgentPluginMonitorController.create(
         plugin_monitor_runtime,
         current_workspace,
@@ -232,6 +238,7 @@ def run_agent_loop(
             system_prompt=system_prompt,
             append_system_prompt=append_system_prompt,
         )
+        checkpoint_conversation()
 
         response, model_error_message = runtime.complete_with_retries(
             client,
@@ -286,6 +293,7 @@ def run_agent_loop(
                 stop_feedback_if_needed_func=stop_feedback_if_needed,
             )
             if no_tool_result.should_continue:
+                checkpoint_conversation()
                 continue
             return no_tool_result.result
 
@@ -347,6 +355,7 @@ def run_agent_loop(
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
             )
+            checkpoint_conversation()
             continue
 
         blocked_completion_feedback: str | None = None
@@ -420,6 +429,7 @@ def run_agent_loop(
             messages.append(
                 ChatMessage(role="user", content=blocked_completion_feedback)
             )
+            checkpoint_conversation()
             continue
 
         messages = append_tool_results_and_compact(
@@ -435,5 +445,6 @@ def run_agent_loop(
             system_prompt=system_prompt,
             append_system_prompt=append_system_prompt,
         )
+        checkpoint_conversation()
 
     return finish_run(False, f"Reached iteration limit ({max_iterations}) before finish.", max_iterations)

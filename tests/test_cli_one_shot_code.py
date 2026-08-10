@@ -12,6 +12,9 @@ from vibeagent.config import ExecutionConfig
 from vibeagent.agent_runtime_utils import append_session_event
 from vibeagent.session_branching import read_session_branch_info
 from vibeagent.session_names import read_session_name
+from vibeagent.session_conversation import checkpoint_session_conversation
+from vibeagent.types import ChatMessage
+from vibeagent.workspace_core import create_local_workspace
 
 
 class CliOneShotCodeTests(unittest.TestCase):
@@ -180,6 +183,14 @@ class CliOneShotCodeTests(unittest.TestCase):
                 "task",
                 {"task": "inspect", "additional_directories": [str(shared.resolve())]},
             )
+            checkpoint_session_conversation(
+                create_local_workspace(root, "run-old"),
+                [
+                    ChatMessage(role="user", content="User task:\ninspect"),
+                    ChatMessage(role="assistant", content="durable one-shot marker"),
+                ],
+                "inspect",
+            )
             calls: list[dict[str, object]] = []
 
             def run_agent(task, **kwargs):
@@ -221,6 +232,7 @@ class CliOneShotCodeTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(calls[0]["additional_directories"], (shared.resolve(),))
+        self.assertEqual(calls[0]["prior_messages"][-1].content, "durable one-shot marker")
 
     def test_run_one_shot_code_forks_resumed_session_into_forced_workspace(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-one-shot-branch-") as base:
