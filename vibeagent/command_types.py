@@ -224,6 +224,7 @@ ReviewCommandType: TypeAlias = Literal[
     "approval",
     "system_prompt",
     "append_system_prompt",
+    "add_dir",
 ]
 
 SessionCommandType: TypeAlias = Literal[

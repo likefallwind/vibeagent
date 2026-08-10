@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 from vibeagent.agent import AgentResult
 from vibeagent.cli import main
 from vibeagent.types import ApprovalRequest
+from vibeagent.agent_runtime_utils import append_session_event
 
 
 class CliInteractiveStateTests(unittest.TestCase):
@@ -107,6 +108,77 @@ class CliInteractiveStateTests(unittest.TestCase):
                     exit_code = main(["--cwd", str(project), "--add-dir", "shared"])
             finally:
                 os.chdir(previous_cwd)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.kwargs["additional_directories"], (shared.resolve(),))
+
+    def test_main_interactive_add_dir_changes_following_code_turns(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            project = root / "project"
+            shared = root / "shared"
+            project.mkdir()
+            shared.mkdir()
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=project,
+                run_id="test-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+            stdout = io.StringIO()
+
+            with (
+                patch(
+                    "builtins.input",
+                    side_effect=[
+                        "/add-dir ../shared",
+                        "inspect shared",
+                        "/add-dir remove ../shared",
+                        "inspect project",
+                        "/exit",
+                    ],
+                ),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", str(project)])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args_list[0].kwargs["additional_directories"], (shared.resolve(),))
+        self.assertEqual(run_agent.call_args_list[1].kwargs["additional_directories"], ())
+        self.assertIn("Added working directory", stdout.getvalue())
+        self.assertIn("Removed additional working directory", stdout.getvalue())
+
+    def test_main_interactive_resume_restores_session_additional_directories(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base) / "project"
+            shared = Path(base) / "shared"
+            root.mkdir()
+            shared.mkdir()
+            append_session_event(
+                root / ".vibeagent" / "sessions" / "run-old",
+                "task",
+                {"additional_directories": [str(shared.resolve())]},
+            )
+            result = AgentResult(True, "done", root, "run-new", 1, [], [])
+            run_agent = Mock(return_value=result)
+
+            with (
+                patch("builtins.input", side_effect=["/resume run-old", "continue", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                patch(
+                    "vibeagent.cli.get_resume_context",
+                    return_value=("run-old", "previous context", "Resume loaded."),
+                ),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", str(root)])
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(run_agent.call_args.kwargs["additional_directories"], (shared.resolve(),))

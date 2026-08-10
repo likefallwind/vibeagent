@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -8,6 +9,7 @@ from vibeagent.agent_result import AgentResult
 from vibeagent.cli_one_shot_code import run_one_shot_code
 from vibeagent.cli_output_mode import CliOutputMode
 from vibeagent.config import ExecutionConfig
+from vibeagent.agent_runtime_utils import append_session_event
 
 
 class CliOneShotCodeTests(unittest.TestCase):
@@ -119,6 +121,59 @@ class CliOneShotCodeTests(unittest.TestCase):
         self.assertEqual(exit_code, 1)
         self.assertEqual(prior_context.error, "No matching session.")
         self.assertEqual(calls, ["resume"])
+
+    def test_run_one_shot_code_restores_additional_directories_from_resumed_session(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-one-shot-dirs-") as base:
+            root = Path(base) / "project"
+            shared = Path(base) / "shared"
+            root.mkdir()
+            shared.mkdir()
+            append_session_event(
+                root / ".vibeagent" / "sessions" / "run-old",
+                "task",
+                {"task": "inspect", "additional_directories": [str(shared.resolve())]},
+            )
+            calls: list[dict[str, object]] = []
+
+            def run_agent(task, **kwargs):
+                calls.append(kwargs)
+                return AgentResult(True, "done", root, "run-new", 1, [], [])
+
+            with patch("vibeagent.cli_one_shot_code.emit_one_shot_code_payload"):
+                exit_code, _ = run_one_shot_code(
+                    "continue",
+                    project_root=root,
+                    execution_config=ExecutionConfig(),
+                    provider_env={},
+                    approval_policy="allow",
+                    trust_project_permissions=True,
+                    permission_overrides=None,
+                    resolved_mcp_config_paths=(),
+                    strict_mcp_config=False,
+                    output_mode=CliOutputMode(format="text", machine=False, stream_json=False),
+                    output_json=False,
+                    print_mode=False,
+                    elapsed_ms=1,
+                    stream=None,
+                    input_prior_context=None,
+                    system_prompt=None,
+                    append_system_prompt=None,
+                    task_metadata=None,
+                    resume_arg="run-old",
+                    compact_arg=None,
+                    auto_compact=False,
+                    create_chat_client_func=lambda env: object(),
+                    run_agent_func=run_agent,
+                    get_resume_context_func=lambda run_id, project_root, **kwargs: (
+                        "run-old",
+                        "prior context",
+                        "ok",
+                    ),
+                    get_compact_context_func=lambda run_id, project_root, **kwargs: (None, None, "unused"),
+                )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(calls[0]["additional_directories"], (shared.resolve(),))
 
 
 if __name__ == "__main__":

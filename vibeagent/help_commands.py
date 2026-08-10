@@ -197,6 +197,7 @@ def get_help_text() -> str:
             "  /approval [ask|allow|deny|plan]  Show or set the session approval policy.",
             "  /system-prompt [text|off]  Show, set, or clear the session system-prompt override.",
             "  /append-system-prompt [text|off]  Show, set, or clear extra session system-prompt instructions.",
+            "  /add-dir [path|remove path|clear]  Show or update additional working directories for this session.",
             "  /sandbox  Show command sandbox configuration and Bubblewrap availability.",
             "  /sessions  List recent local sessions.",
             "  /session <run-id>  Show a compact session summary.",

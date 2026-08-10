@@ -38,6 +38,7 @@ from .cli_review_local_flags import run_interactive_review_command
 from .cli_runtime_local_flags import run_interactive_runtime_command
 from .cli_session_local_flags import run_interactive_resume_command, run_interactive_session_command
 from .cli_system_prompt_state import update_system_prompt_state
+from .cli_additional_directory_state import update_additional_directory_state
 from .cli_subagent_panel import SubagentPanel
 from .cli_text_edit_local_flags import run_interactive_text_edit_command
 from .commands import get_resume_context as default_get_resume_context, parse_local_command
@@ -74,6 +75,11 @@ from .dynamic_workflow_runtime import DynamicWorkflowManager
 from .workspace_core import create_local_workspace, create_run_workspace
 from .workspace_hooks import read_project_hooks
 from .workspace_permissions import read_project_permissions
+from .session_additional_directories import (
+    merge_additional_directories,
+    record_session_additional_directories,
+    restore_session_additional_directories,
+)
 
 
 def run_interactive_loop(
@@ -110,6 +116,7 @@ def run_interactive_loop(
     resume_context: str | None = initial_resume_context
     system_prompt = initial_system_prompt
     append_system_prompt = initial_append_system_prompt
+    additional_directories = initial_additional_directories
     goal_state: GoalState | None = None
     workflow_manager: DynamicWorkflowManager | None = None
     workflow_client_lock = Lock()
@@ -157,7 +164,7 @@ def run_interactive_loop(
                 task_source_run_id=resume_run_id,
                 peer_runtime=peer_runtime,
                 agent=initial_agent,
-                additional_directories=initial_additional_directories,
+                additional_directories=additional_directories,
                 **panel_kwargs,
             )
         finally:
@@ -210,7 +217,11 @@ def run_interactive_loop(
                     run_code_task(task, metadata)
             if resume_run_id is None or not scheduled_tasks_enabled():
                 return
-            workspace = create_local_workspace(Path.cwd(), resume_run_id)
+            workspace = create_local_workspace(
+                Path.cwd(),
+                resume_run_id,
+                additional_roots=additional_directories,
+            )
             due = collect_due_scheduled_tasks(workspace)
             if due:
                 append_session_event(
@@ -243,9 +254,13 @@ def run_interactive_loop(
         if workflow_manager is not None:
             return workflow_manager
         workspace = (
-            create_local_workspace(Path.cwd(), resume_run_id)
+            create_local_workspace(
+                Path.cwd(),
+                resume_run_id,
+                additional_roots=additional_directories,
+            )
             if resume_run_id is not None
-            else create_run_workspace(Path.cwd())
+            else create_run_workspace(Path.cwd(), additional_roots=additional_directories)
         )
         resume_run_id = workspace.run_id
         hooks = read_project_hooks(workspace)
@@ -274,7 +289,7 @@ def run_interactive_loop(
 
     while True:
         try:
-            with interactive_prompt_completion(Path.cwd()):
+            with interactive_prompt_completion(Path.cwd(), additional_directories):
                 task = input_with_idle_callback(
                     "\nvibeagent> ",
                     run_due_tasks_while_idle,
@@ -460,6 +475,27 @@ def run_interactive_loop(
             )
             print(text)
             continue
+        if command and command.type == "add_dir":
+            update = update_additional_directory_state(
+                additional_directories,
+                command.argument,
+                project_root=Path.cwd(),
+            )
+            if update.changed:
+                additional_directories = update.directories
+                if workflow_manager is not None:
+                    workflow_manager.close()
+                    workflow_manager = None
+                try:
+                    record_session_additional_directories(
+                        Path.cwd(),
+                        resume_run_id,
+                        additional_directories,
+                    )
+                except (OSError, ValueError) as error:
+                    print(f"Additional directory persistence warning: {format_error(error)}")
+            print(update.text)
+            continue
         if command and command.type == "approval":
             previous_policy = approval_policy
             approval_policy, text = handle_approval_command(command.argument, approval_policy)
@@ -477,11 +513,27 @@ def run_interactive_loop(
             continue
         if command and (resume_result := run_interactive_resume_command(command, command_namespace)) is not None:
             selected, context, text = resume_result
+            restored_directories = restore_session_additional_directories(Path.cwd(), selected)
+            try:
+                next_additional_directories = merge_additional_directories(
+                    Path.cwd(),
+                    additional_directories,
+                    restored_directories.directories,
+                )
+            except ValueError as error:
+                print(f"Resume error: {format_error(error)}")
+                continue
+            if workflow_manager is not None:
+                workflow_manager.close()
+                workflow_manager = None
             resume_run_id = selected
             resume_context = context
+            additional_directories = next_additional_directories
             restored_goal = read_session_goal(Path.cwd(), selected) if selected is not None else None
             goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
             print(text)
+            if restored_directories.message:
+                print(restored_directories.message)
             continue
         request_mode = "code" if custom_command is not None else mode
         if command and command.type == "chat":

@@ -20,8 +20,9 @@ SLASH_COMMAND_PATTERN = re.compile(r"(?<!\S)(/[a-z][a-z0-9-]*)")
 
 
 class InteractivePromptCompleter:
-    def __init__(self, project_root: Path) -> None:
+    def __init__(self, project_root: Path, additional_roots: tuple[Path, ...] = ()) -> None:
         self.project_root = project_root.resolve()
+        self.additional_roots = tuple(root.resolve() for root in additional_roots)
         self._paths: tuple[str, ...] | None = None
         self._last_text: str | None = None
         self._last_matches: tuple[str, ...] = ()
@@ -78,7 +79,14 @@ class InteractivePromptCompleter:
     @property
     def paths(self) -> tuple[str, ...]:
         if self._paths is None:
-            self._paths = list_safe_completion_paths(self.project_root)
+            paths = list(list_safe_completion_paths(self.project_root))
+            for root in self.additional_roots:
+                remaining = MAX_COMPLETION_PATHS - len(paths)
+                if remaining <= 0:
+                    break
+                for relative in list_safe_completion_paths(root, max_paths=remaining):
+                    paths.append(f"{root.as_posix().rstrip('/')}/{relative}")
+            self._paths = tuple(paths)
         return self._paths
 
 
@@ -130,7 +138,10 @@ def list_safe_completion_paths(
 
 
 @contextmanager
-def interactive_prompt_completion(project_root: Path) -> Iterator[None]:
+def interactive_prompt_completion(
+    project_root: Path,
+    additional_roots: tuple[Path, ...] = (),
+) -> Iterator[None]:
     readline = _terminal_readline()
     if readline is None:
         yield
@@ -138,7 +149,7 @@ def interactive_prompt_completion(project_root: Path) -> Iterator[None]:
 
     previous_completer = readline.get_completer()
     previous_delimiters = readline.get_completer_delims()
-    completer = InteractivePromptCompleter(project_root)
+    completer = InteractivePromptCompleter(project_root, additional_roots)
     try:
         readline.set_completer(completer)
         readline.set_completer_delims(" \t\n")

@@ -94,6 +94,19 @@ class CliCompletionTests(unittest.TestCase):
         self.assertIn("/session-audit", completer.matches("/sess"))
         self.assertEqual(completer.matches("email@example.com"), ())
 
+    def test_added_root_paths_complete_as_absolute_mentions(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-completion-") as base:
+            root = Path(base) / "project"
+            shared = Path(base) / "shared"
+            root.mkdir()
+            shared.mkdir()
+            (shared / "outside.py").write_text("x\n", encoding="utf-8")
+            completer = InteractivePromptCompleter(root, (shared,))
+
+            matches = completer.matches("@outside")
+
+        self.assertEqual(matches, (f"@{shared.resolve().as_posix()}/outside.py",))
+
     def test_completion_context_restores_readline_state(self) -> None:
         fake = _FakeReadline()
         previous_completer = fake.completer
@@ -149,7 +162,7 @@ class CliCompletionTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn(f"VibeAgent {__version__}", stdout.getvalue())
-        install_completion.assert_called_once_with(root)
+        install_completion.assert_called_once_with(root, ())
         completion_context.__enter__.assert_called_once_with()
         completion_context.__exit__.assert_called_once()
         plugin_updates.close.assert_called_once_with()

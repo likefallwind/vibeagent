@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 from .agent_result import AgentResult
@@ -21,6 +22,10 @@ from .peer_runtime import create_peer_runtime
 from .types import ApprovalPolicy
 from .workspace_core import create_local_workspace
 from .workspace_permissions import ProjectPermissions
+from .session_additional_directories import (
+    merge_additional_directories,
+    restore_session_additional_directories,
+)
 
 
 def run_one_shot_code(
@@ -87,6 +92,16 @@ def run_one_shot_code(
     )
     if prior_context.error is not None:
         return 1, prior_context
+
+    restored_directories = restore_session_additional_directories(project_root, prior_context.run_id)
+    try:
+        additional_directories = merge_additional_directories(
+            project_root,
+            additional_directories,
+            restored_directories.directories,
+        )
+    except ValueError as error:
+        return 1, replace(prior_context, error=str(error))
 
     merged_prior_context = combine_optional_text(prior_context.context, input_prior_context)
     client = create_chat_client_func(provider_env)

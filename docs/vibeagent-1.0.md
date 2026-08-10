@@ -238,6 +238,10 @@ local changes when asked, and resume from recorded session context.
   prompt-reference, and command-cwd workflows. Added roots remain isolated from
   project configuration, session storage, and dedicated Git tools; protected
   paths, symlink escapes, sandbox mounts, and worktree conflicts are enforced.
+  Interactive `/add-dir` can list, add, remove, and clear roots; changes reach
+  later agent turns, workflows, idle tasks, and absolute-path completion. The
+  latest set is persisted as session state and restored by resume or compact,
+  with missing stored paths ignored safely.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_use_strict_mcp_config_before_repair_and_commit`
   runs the real CLI JSON path with `--mcp-config explicit.mcp.json
   --strict-mcp-config`, confirming an explicit MCP configuration can expose a

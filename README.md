@@ -212,6 +212,15 @@ session state, dedicated Git tools, and project snapshots still come from the
 main project. `--add-dir` is not accepted in chat mode, with local inspection
 flags, or together with `--worktree`.
 
+Inside an interactive coding session, `/add-dir` lists the active roots,
+`/add-dir PATH` adds one, `/add-dir remove PATH` removes one, and `/add-dir
+clear` removes all additional roots. Quoted paths with spaces are supported.
+Changes apply to subsequent agent turns, background workflows, idle scheduled
+tasks, and terminal `@path` completion; files under added roots are suggested as
+absolute paths. The latest directory set is recorded in the active session and
+restored by interactive or one-shot resume/compact, while unavailable stored
+paths are skipped instead of expanding the workspace boundary.
+
 `--provider`, `--model MODEL` / `--model-name MODEL`, `--base-url`, `--api-key`,
 `--max-iterations`, `--command-timeout-ms`, `--max-output-tokens`,
 `--model-retries`, `--model-retry-delay-ms`, and `--model-timeout-ms` are
@@ -978,7 +987,8 @@ and the latest plan, `/changes [--max-files N]` to inspect a structured changed-
 `/approval [ask|allow|deny|plan]` to control
 the session approval policy, `/system-prompt [text|off]` and
 `/append-system-prompt [text|off]` to set or clear session-only system-prompt
-instructions for chat and coding turns, `/resume [run-id|off]` to carry a previous coding
+instructions for chat and coding turns, `/add-dir [path|remove path|clear]` to
+inspect or update session working directories, `/resume [run-id|off]` to carry a previous coding
 session handoff into the next task or clear it, `/compact [run-id]` to explicitly
 compact the newest or selected session into context, `/plan [run-id]` to inspect
 the latest recorded task plan, `/transcript [run-id]` to inspect a safe session
@@ -1692,7 +1702,7 @@ Core modules:
 
 - `vibeagent/cli.py`: interactive command-line entry point. It handles local
 commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`, `/permissions`, `/sandbox`, `/checks`, `/check-suggested-checks`, `/run-suggested-checks`, `/commands`, `/related-tests`, `/focused-tests`, `/check-focused-tests`, `/run-focused-tests`, `/manifests`, `/instructions`, `/todos`, `/command`, `/run`, `/check-run-seq`, `/run-seq`, `/check-start`, `/start`, `/port`, `/http`, `/http-fetch`, `/overview`, `/repo-map`, `/search`, `/search-contexts`, `/find-files`, `/glob`, `/tree`, `/symbols`, `/file-info`, `/image-info`, `/read`, `/around`, `/around-many`, `/output-contexts`, `/output-diagnostics`, `/python-traceback`, `/tail`, `/read-files`, `/read-ranges`, `/python-check`, `/python-deps`, `/python-defs`, `/python-refs`, `/python-ref-contexts`, `/python-calls`, `/python-call-graph`, `/python-rename-preview`, `/python-rename`, `/check-replace-python-def`, `/replace-python-def`, `/config-check`, `/check-json-set`, `/json-set`, `/check-json-remove`, `/json-remove`, `/check-json-patch`, `/json-patch`, `/check-replace-lines`, `/replace-lines`, `/check-insert-lines`, `/insert-lines`, `/check-append`, `/append`, `/check-write`, `/write`, `/check-write-files`, `/write-files`, `/check-edit`, `/edit`, `/check-multi-edit`, `/multi-edit`, `/check-delete`, `/delete`, `/check-delete-files`, `/delete-files`, `/check-move`, `/move`, `/check-move-files`, `/move-files`, `/check-copy`, `/copy`, `/check-copy-files`, `/copy-files`, `/check-move-dir`, `/move-dir`, `/check-move-dirs`, `/move-dirs`, `/check-copy-dir`, `/copy-dir`, `/check-copy-dirs`, `/copy-dirs`, `/check-mkdir`, `/mkdir`, `/check-mkdirs`, `/mkdirs`, `/check-rmdir`, `/rmdir`, `/check-rmdirs`, `/check-executable`, `/set-executable`, `/check-patch`, `/patch`, `/check-patches`, `/patches`, `/check-regex-replace`, `/regex-replace`, `/code-deps`, `/code-refs`, `/code-ref-contexts`, `/code-defs`, `/code-rename-preview`, `/code-rename`, `/git-status`, `/conflicts`, `/git-info`, `/branches`, `/log`, `/show`, `/blame`, `/stashes`, `/check-fetch`, `/fetch`, `/check-pull`, `/pull`, `/check-push`, `/push`, `/check-stash`, `/stash`, `/check-stash-apply`, `/stash-apply`, `/check-stash-drop`, `/stash-drop`, `/check-stage`, `/stage`, `/check-unstage`, `/unstage`, `/check-commit`, `/commit`, `/check-restore`, `/restore`, `/check-switch`, `/switch`, `/env`, `/processes`, `/process`, `/process-output-contexts`, `/process-output-diagnostics`, `/wait-process`, `/check-write-process`, `/write-process`, `/check-stop-process`, `/stop-process`, `/check-stop-processes`, `/check-stop-all-processes`, `/stop-processes`, `/stop-all-processes`, `/status`, `/context`, `/init`, `/doctor`, `/review`, `/handoff`, `/changes`, `/diff`, `/diff-hunks`, `/diff-contexts`, `/clear`, `/usage`, `/cost`, `/approval`, `/plan`, `/transcript`, `/session-search`, `/session-commands`, `/session-output-contexts`, `/session-output-diagnostics`, `/session-files`, `/session-failures`, `/session-verification`, `/run-session-verification`, `/session-audit`, `/session-handoff`, `/checkpoint`, `/checkpoints`, `/checkpoint-show`, `/checkpoint-diff`, `/checkpoint-status`, `/check-checkpoint-restore`, `/checkpoint-restore`, `/check-checkpoint-delete`, `/checkpoint-delete`, `/check-checkpoint-prune`, `/checkpoint-prune`, `/resume`,
-  `/compact`, `/goal`, `/chat`, `/code`, and
+  `/compact`, `/add-dir`, `/goal`, `/chat`, `/code`, and
   `/exit`, then delegates input to the selected mode.
   `/custom-commands` lists prompt templates from personal
   `~/.claude/commands/**/*.md` and project `.claude/commands/**/*.md` or

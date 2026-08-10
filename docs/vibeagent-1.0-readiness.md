@@ -30,6 +30,10 @@ prompt-reference, and command-cwd access without treating added roots as
 configuration, session, or Git roots. Every root keeps protected/sensitive-path
 and symlink boundaries, overlapping roots use the most specific boundary, and
 the command sandbox binds each explicitly granted root.
+Interactive `/add-dir` can list, add, remove, or clear roots without restarting;
+the active set is shared with agent turns, workflows, idle scheduled tasks, and
+absolute-path completion. Directory changes are session events, and resume or
+compact restores the latest valid set while ignoring unavailable stored paths.
 
 That release gate expands to:
 
@@ -74,7 +78,9 @@ The automated suite currently covers these 1.0 surfaces:
   invocation-relative CLI resolution, model-visible absolute roots, core file
   and command execution, configuration isolation, sandbox mounts, and rejection
   of unlisted, protected, sensitive, symlink-escaping, or worktree-conflicting
-  paths.
+  paths. Interactive add/remove/clear changes, external-root completion, session
+  event persistence, and interactive, one-shot, resume, and compact restoration
+  are covered directly.
 - Provider-free interactive `!` shell mode with bounded execution, hard command
   blocks, redacted resumable output, and pre-execution session-path validation.
 - User and project integrations: `~/.claude/settings.json`, trusted project and

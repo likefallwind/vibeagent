@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from .cli_context import (
@@ -12,6 +12,10 @@ from .cli_context import (
 from .commands import get_compact_context, get_resume_context
 from .cli_system_prompt_files import resolve_system_prompt_inputs
 from .cli_additional_directories import resolve_additional_directories
+from .session_additional_directories import (
+    merge_additional_directories,
+    restore_session_additional_directories,
+)
 
 
 @dataclass(frozen=True)
@@ -64,7 +68,10 @@ def resolve_interactive_startup_context(
         run_id, context, message = get_resume_context_func(normalized_resume, project_root, **resume_kwargs)
         if context is None and not is_resume_clear_arg(normalized_resume):
             return InteractiveStartupContext(run_id=run_id, message=message, error=message, **prompt_kwargs)
-        return InteractiveStartupContext(run_id=run_id, context=context, message=message, **prompt_kwargs)
+        return _with_restored_directories(
+            InteractiveStartupContext(run_id=run_id, context=context, message=message, **prompt_kwargs),
+            project_root,
+        )
 
     compact_kwargs = build_context_limit_kwargs(
         max_failures=args.compact_max_failures,
@@ -77,4 +84,28 @@ def resolve_interactive_startup_context(
     run_id, context, message = get_compact_context_func(normalize_resume_arg(args.compact), project_root, **compact_kwargs)
     if context is None:
         return InteractiveStartupContext(run_id=run_id, message=message, error=message, **prompt_kwargs)
-    return InteractiveStartupContext(run_id=run_id, context=context, message=message, **prompt_kwargs)
+    return _with_restored_directories(
+        InteractiveStartupContext(run_id=run_id, context=context, message=message, **prompt_kwargs),
+        project_root,
+    )
+
+
+def _with_restored_directories(
+    context: InteractiveStartupContext,
+    project_root: Path,
+) -> InteractiveStartupContext:
+    restored = restore_session_additional_directories(project_root, context.run_id)
+    try:
+        directories = merge_additional_directories(
+            project_root,
+            context.additional_directories,
+            restored.directories,
+        )
+    except ValueError as error:
+        return replace(context, error=str(error))
+    message_parts = [part for part in (context.message, restored.message) if part]
+    return replace(
+        context,
+        message="\n".join(message_parts) or None,
+        additional_directories=directories,
+    )

@@ -20,6 +20,8 @@ class CommandCoreParsingTests(unittest.TestCase):
             "/system-prompt You are terse": LocalCommand(type="system_prompt", argument="You are terse"),
             "/append-system-prompt": LocalCommand(type="append_system_prompt"),
             "/append-system-prompt Prefer focused tests": LocalCommand(type="append_system_prompt", argument="Prefer focused tests"),
+            "/add-dir": LocalCommand(type="add_dir"),
+            "/add-dir ../shared": LocalCommand(type="add_dir", argument="../shared"),
             "/resume": LocalCommand(type="resume"),
             "/resume run-1": LocalCommand(type="resume", argument="run-1"),
             "/resume off": LocalCommand(type="resume", argument="off"),

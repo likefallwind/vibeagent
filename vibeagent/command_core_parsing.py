@@ -44,6 +44,8 @@ def parse_core_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("system_prompt", trimmed[14:].strip() or None)
     if trimmed == "/append-system-prompt" or trimmed.startswith("/append-system-prompt "):
         return make_local_command("append_system_prompt", trimmed[21:].strip() or None)
+    if trimmed == "/add-dir" or trimmed.startswith("/add-dir "):
+        return make_local_command("add_dir", trimmed[8:].strip() or None)
     if trimmed == "/resume" or trimmed.startswith("/resume "):
         return make_local_command("resume", trimmed[8:].strip() or None)
     if trimmed == "/compact" or trimmed.startswith("/compact "):
