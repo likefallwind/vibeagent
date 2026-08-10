@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 import json
 from pathlib import Path
 
+from .checkpoint_session import checkpoint_session_metadata
 from .local_command_workspace import local_command_workspace
 from .workflow_checkpoint_formatting import format_checkpoint_create_report_text
 from .workflow_checkpoint_query_commands import serialize_checkpoint_metadata
@@ -18,13 +19,21 @@ from .workflow_review_formatting import filter_handoff_status
 from .workspace import make_run_id, read_git_diff, read_git_status
 
 
-def get_checkpoint_report(project_root: str | Path = ".", label: str | None = None) -> dict[str, object]:
-    return build_checkpoint_create_report(project_root, label=label)
+def get_checkpoint_report(
+    project_root: str | Path = ".",
+    label: str | None = None,
+    session_run_id: str | None = None,
+) -> dict[str, object]:
+    return build_checkpoint_create_report(project_root, label=label, session_run_id=session_run_id)
 
 
-def build_checkpoint_create_report(project_root: str | Path = ".", label: str | None = None) -> dict[str, object]:
+def build_checkpoint_create_report(
+    project_root: str | Path = ".",
+    label: str | None = None,
+    session_run_id: str | None = None,
+) -> dict[str, object]:
     root = Path(project_root).resolve()
-    metadata, message = create_local_checkpoint_metadata(root, label)
+    metadata, message = create_local_checkpoint_metadata(root, label, session_run_id=session_run_id)
     if metadata is None:
         return {
             "projectRoot": str(root),
@@ -47,11 +56,21 @@ def build_checkpoint_create_report(project_root: str | Path = ".", label: str | 
     }
 
 
-def get_checkpoint_text(project_root: str | Path = ".", label: str | None = None) -> str:
-    return format_checkpoint_create_report_text(get_checkpoint_report(project_root, label=label))
+def get_checkpoint_text(
+    project_root: str | Path = ".",
+    label: str | None = None,
+    session_run_id: str | None = None,
+) -> str:
+    return format_checkpoint_create_report_text(
+        get_checkpoint_report(project_root, label=label, session_run_id=session_run_id)
+    )
 
 
-def create_local_checkpoint_metadata(root: Path, label: str | None = None) -> tuple[dict[str, object] | None, str]:
+def create_local_checkpoint_metadata(
+    root: Path,
+    label: str | None = None,
+    session_run_id: str | None = None,
+) -> tuple[dict[str, object] | None, str]:
     workspace = local_command_workspace(root, "local-checkpoint")
     status = read_git_status(workspace)
     if not status.ok:
@@ -86,6 +105,7 @@ def create_local_checkpoint_metadata(root: Path, label: str | None = None) -> tu
         "unstaged_diff_chars": len(unstaged.stdout),
         "staged_diff_chars": len(staged.stdout),
     }
+    metadata.update(checkpoint_session_metadata(root, session_run_id))
     saved_untracked, skipped_untracked = save_local_checkpoint_untracked_files(root, checkpoint_dir, filtered_status)
     metadata["untracked_saved_files"] = saved_untracked
     metadata["untracked_skipped_files"] = skipped_untracked

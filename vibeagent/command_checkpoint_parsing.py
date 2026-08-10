@@ -4,6 +4,12 @@ from .command_types import LocalCommand, make_local_command
 
 
 def parse_checkpoint_local_command(trimmed: str) -> LocalCommand | None:
+    if trimmed in {"/rewind", "/undo"}:
+        return make_local_command("rewind", None)
+    if trimmed.startswith("/rewind "):
+        return make_local_command("rewind", trimmed[8:].strip() or None)
+    if trimmed.startswith("/undo "):
+        return make_local_command("rewind", trimmed[6:].strip() or None)
     if trimmed == "/checkpoint" or trimmed.startswith("/checkpoint "):
         return make_local_command("checkpoint", trimmed[11:].strip() or None)
     if trimmed == "/checkpoints":

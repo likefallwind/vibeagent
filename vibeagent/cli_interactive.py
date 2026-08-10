@@ -40,6 +40,7 @@ from .cli_session_local_flags import run_interactive_resume_command, run_interac
 from .cli_system_prompt_state import update_system_prompt_state
 from .cli_additional_directory_state import update_additional_directory_state
 from .cli_interactive_branch import prepare_interactive_branch_switch
+from .cli_interactive_rewind import run_interactive_rewind_command
 from .cli_interactive_session_management import interactive_session_prompt, run_interactive_session_management
 from .cli_subagent_panel import SubagentPanel
 from .cli_text_edit_local_flags import run_interactive_text_edit_command
@@ -542,7 +543,29 @@ def run_interactive_loop(
         if command and (session_text := run_interactive_session_command(command, command_namespace)) is not None:
             print(session_text)
             continue
-        if command and (checkpoint_text := run_interactive_checkpoint_command(command, command_namespace)) is not None:
+        if command and (
+            rewind := run_interactive_rewind_command(
+                command,
+                project_root=Path.cwd(),
+                run_id=resume_run_id,
+                get_resume_context=get_resume_context_func,
+            )
+        ) is not None:
+            if rewind.workspace is not None and rewind.context is not None:
+                if workflow_manager is not None:
+                    workflow_manager.close()
+                    workflow_manager = None
+                pending_workspace = rewind.workspace
+                pending_branch_source_run_id = None
+                resume_run_id = rewind.workspace.run_id
+                resume_context = rewind.context
+                additional_directories = rewind.workspace.additional_roots
+                goal_state = None
+            print(rewind.text)
+            continue
+        if command and (
+            checkpoint_text := run_interactive_checkpoint_command(command, command_namespace, resume_run_id)
+        ) is not None:
             print(checkpoint_text)
             continue
         if command and (resume_result := run_interactive_resume_command(command, command_namespace)) is not None:

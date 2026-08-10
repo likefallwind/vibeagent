@@ -7,6 +7,9 @@ from vibeagent.command_parsing import LocalCommand, parse_local_command
 class CommandCheckpointParsingTests(unittest.TestCase):
     def test_checkpoint_parser_recognizes_checkpoint_commands(self) -> None:
         cases = {
+            "/rewind": LocalCommand(type="rewind"),
+            "/rewind latest conversation": LocalCommand(type="rewind", argument="latest conversation"),
+            "/undo ckpt-1 code": LocalCommand(type="rewind", argument="ckpt-1 code"),
             "/checkpoint": LocalCommand(type="checkpoint"),
             "/checkpoint before refactor": LocalCommand(type="checkpoint", argument="before refactor"),
             "/checkpoints": LocalCommand(type="checkpoints"),

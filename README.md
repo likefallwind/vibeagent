@@ -1000,7 +1000,13 @@ the latest recorded task plan, `/transcript [run-id]` to inspect a safe session
 event timeline without dumping full tool payloads, `/checkpoint [label]` to save
 current git status, staged and unstaged patch files, and ordinary untracked file
 contents under `.vibeagent/checkpoints/`,
-`/checkpoints` to list saved checkpoints, `/checkpoint-show <id>` to inspect one
+`/checkpoints` to list saved checkpoints, `/rewind` to list checkpoints tied to
+the active coding session, and `/rewind <id|latest> [both|code|conversation]`
+(`/undo` is an alias) to restore code, create a new conversation Session from
+the recorded event boundary, or do both. Conversation rewind preserves the
+original Session transcript as audit history. It does not reverse command side
+effects outside the captured worktree or restore external services and processes.
+`/checkpoint-show <id>` inspects one
 checkpoint, `/checkpoint-diff <id>` to show the saved staged and unstaged patch
 contents, `/checkpoint-status <id>` to compare the current worktree with a saved
 checkpoint, `/check-checkpoint-restore <id>` to preview restoring tracked staged

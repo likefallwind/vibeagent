@@ -43,6 +43,8 @@ def serialize_checkpoint_metadata(metadata: dict[str, object]) -> dict[str, obje
         "untrackedSkippedFiles": int(metadata.get("untracked_skipped_files") or 0),
         "stagedPatchChars": int(metadata.get("staged_diff_chars") or 0),
         "unstagedPatchChars": int(metadata.get("unstaged_diff_chars") or 0),
+        "sessionRunId": str(metadata.get("session_run_id") or ""),
+        "sessionEventLine": int(metadata.get("session_event_line") or 0),
     }
 
 

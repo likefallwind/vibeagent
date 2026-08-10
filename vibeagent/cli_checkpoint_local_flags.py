@@ -104,9 +104,15 @@ def run_checkpoint_local_flag(
     return None
 
 
-def run_interactive_checkpoint_command(command: Any, commands: dict[str, Any]) -> str | None:
+def run_interactive_checkpoint_command(
+    command: Any,
+    commands: dict[str, Any],
+    run_id: str | None = None,
+) -> str | None:
     if command.type == "checkpoint":
-        return commands["get_checkpoint_text"](label=command.argument)
+        if run_id is None:
+            return commands["get_checkpoint_text"](label=command.argument)
+        return commands["get_checkpoint_text"](label=command.argument, session_run_id=run_id)
     if command.type == "checkpoints":
         return commands["get_checkpoints_text"]()
     if command.type == "checkpoint_show":

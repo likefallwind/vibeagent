@@ -223,6 +223,8 @@ def get_help_text() -> str:
             "  /checkpoint-status <id|latest>  Compare current worktree state with a checkpoint.",
             "  /check-checkpoint-restore <id|latest>  Preview restoring tracked changes and saved untracked files from a checkpoint.",
             "  /checkpoint-restore <id|latest>  Restore tracked staged/unstaged changes and saved untracked files from a checkpoint.",
+            "  /rewind [id|latest] [both|code|conversation]  List session rewind points or restore code, conversation, or both.",
+            "  /undo [id|latest] [both|code|conversation]  Alias for /rewind.",
             "  /check-checkpoint-delete <id|latest>  Preview deleting one saved local checkpoint.",
             "  /checkpoint-delete <id|latest>  Delete one saved local checkpoint.",
             "  /check-checkpoint-prune <keep-last>  Preview pruning old checkpoints.",

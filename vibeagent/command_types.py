@@ -251,6 +251,7 @@ SessionCommandType: TypeAlias = Literal[
 ]
 
 CheckpointCommandType: TypeAlias = Literal[
+    "rewind",
     "checkpoint",
     "checkpoints",
     "checkpoint_show",

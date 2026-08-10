@@ -14,6 +14,7 @@ from .checkpoint_storage import (
     read_checkpoint_git_head,
     save_checkpoint_untracked_files,
 )
+from .checkpoint_session import checkpoint_session_metadata
 from .types import (
     CheckpointCreateObservation,
     CheckpointInfo,
@@ -117,6 +118,7 @@ def create_checkpoint_observation(workspace: RunWorkspace, label: str | None = N
             message=f"Failed to create checkpoint directory: {error}",
         )
     metadata = checkpoint_info_to_metadata(info, str(workspace.root), filtered_status, len(staged.stdout), len(unstaged.stdout))
+    metadata.update(checkpoint_session_metadata(workspace.root, workspace.run_id))
     saved_untracked, skipped_untracked = save_checkpoint_untracked_files(workspace.root, checkpoint_dir, filtered_status)
     metadata["untracked_saved_files"] = saved_untracked
     metadata["untracked_skipped_files"] = skipped_untracked

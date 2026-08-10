@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import tempfile
 import unittest
@@ -219,6 +220,60 @@ class CliInteractiveStateTests(unittest.TestCase):
             self.assertEqual(branch_info.source_run_id, "source-run")  # type: ignore[union-attr]
             self.assertEqual(branch_info.name, "try-oauth")  # type: ignore[union-attr]
             self.assertEqual(source_dir.joinpath("events.jsonl").read_bytes(), source_events)
+
+    def test_main_interactive_rewind_runs_next_turn_in_new_session(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-rewind-") as base:
+            root = Path(base)
+            source_dir = root / ".vibeagent" / "sessions" / "source-run"
+            append_session_event(source_dir, "task", {"task": "before checkpoint"})
+            checkpoint_id = "2026-08-10T00-00-00-000Z-rewind01"
+            checkpoint_dir = root / ".vibeagent" / "checkpoints" / checkpoint_id
+            checkpoint_dir.mkdir(parents=True)
+            checkpoint_dir.joinpath("metadata.json").write_text(
+                json.dumps(
+                    {
+                        "id": checkpoint_id,
+                        "created_at": "2026-08-10T00:00:00Z",
+                        "head": "abc123",
+                        "session_run_id": "source-run",
+                        "session_event_line": 1,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            append_session_event(source_dir, "task", {"task": "after checkpoint"})
+            source_events = source_dir.joinpath("events.jsonl").read_bytes()
+            calls: list[dict[str, object]] = []
+
+            def run_agent(task, **kwargs):
+                calls.append(kwargs)
+                workspace = kwargs["workspace"]
+                return AgentResult(True, "done", root, workspace.run_id, 1, [], [])
+
+            def get_context(run_id, project_root=root, **kwargs):
+                selected = run_id or "source-run"
+                return selected, f"context for {selected}", f"Loaded {selected}."
+
+            stdout = io.StringIO()
+            with (
+                patch(
+                    "builtins.input",
+                    side_effect=[f"/rewind {checkpoint_id} conversation", "continue safely", "/exit"],
+                ),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", side_effect=run_agent),
+                patch("vibeagent.cli.get_resume_context", side_effect=get_context),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(["--cwd", str(root), "--resume", "source-run"])
+
+            rewound_workspace = calls[0]["workspace"]
+            self.assertEqual(exit_code, 0)
+            self.assertNotEqual(rewound_workspace.run_id, "source-run")
+            self.assertEqual(calls[0]["task_source_run_id"], rewound_workspace.run_id)
+            self.assertEqual(calls[0]["prior_context"], f"context for {rewound_workspace.run_id}")
+            self.assertEqual(source_dir.joinpath("events.jsonl").read_bytes(), source_events)
+            self.assertIn("Rewound conversation", stdout.getvalue())
 
     def test_main_updates_approval_policy_and_passes_handler_to_agent(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
