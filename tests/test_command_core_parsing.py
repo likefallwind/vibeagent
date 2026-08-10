@@ -29,6 +29,8 @@ class CommandCoreParsingTests(unittest.TestCase):
             "/chat hello": LocalCommand(type="chat", argument="hello"),
             "/code": LocalCommand(type="code"),
             "/code write a script": LocalCommand(type="code", argument="write a script"),
+            "/workflows": LocalCommand(type="workflows"),
+            "/workflows run flow.js": LocalCommand(type="workflows", argument="run flow.js"),
         }
 
         for raw, expected in cases.items():

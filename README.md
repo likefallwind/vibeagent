@@ -937,6 +937,9 @@ coding loop, `/goal` to inspect its state, `/goal clear` to stop it, and
 `/list-agents` (or `/peers`) to list reachable local sessions,
 `/peer-inbox` to inspect held inbound messages and `/peer-inbox accept|deny
 <sender-id|all>` to decide them, and
+`/workflows run <script.js>` to start a resumable multi-agent JavaScript
+workflow, `/workflows` to list runs, and `/workflows show|resume|stop <id>` to
+inspect or control one run, and
 `/clear` to clear the goal, local chat history, and loaded resume context,
 `/usage` to summarize local session events,
 iterations, tool calls, approvals, and recorded token usage, `/cost` to estimate
@@ -1025,6 +1028,36 @@ delete themselves after delivery. Unexpired schedules are atomically stored in
 Scheduled prompts are task direction only and cannot grant tool approval.
 Set `VIBEAGENT_DISABLE_CRON=1` or `CLAUDE_CODE_DISABLE_CRON=1` to hide the cron
 tools and stop delivery.
+Dynamic workflows let a project-local JavaScript file orchestrate existing
+subagents with `await agent(task, options)` and bounded fan-out with
+`await pipeline(items, worker, {concurrency})`. Agent options accept `context`,
+`mode`, `agent`, `maxIterations`, and `isolation`; the Python side executes each
+call through the normal subagent runtime with the current approval policy,
+project hooks, permissions, and optional worktree isolation. Workflows run in
+the background with at most 16 concurrent and 1,000 total agent calls. Their
+explore and worktree-isolated code calls may run concurrently; code calls that
+share the parent checkout are serialized to prevent conflicting edits.
+Their
+source snapshot, results, and call cache live under
+`.vibeagent/workflows/<workflow-id>/`; `resume` reruns the saved source and
+replays matching completed calls by deterministic call ID before continuing.
+The JavaScript VM exposes only `agent`, `pipeline`, and a bounded console;
+string code generation is disabled and Node's permission model blocks direct
+filesystem, child-process, worker, addon, and WASI access. Node.js 22 or newer
+is required only for this feature. Workflow text never grants approval. Because
+the workflow is asynchronous, `ask` mode does not open competing terminal
+prompts: side effects without a trusted project permission are denied. Use
+`/approval allow` before starting a code workflow when that broader policy is
+intended. Example:
+
+```js
+const reports = await pipeline(
+  ["authentication", "database", "tests"],
+  (area) => agent(`Inspect ${area} and report concrete risks.`, {mode: "explore"}),
+  {concurrency: 3},
+);
+return reports.map((report) => report.summary);
+```
 `/goal` keeps one completion condition per session. Each coding turn is followed
 by a separate model request with no tools; that evaluator uses only bounded
 session evidence and returns a strict achieved/reason decision. A negative

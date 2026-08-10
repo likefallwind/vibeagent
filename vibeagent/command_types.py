@@ -32,6 +32,7 @@ CoreCommandType: TypeAlias = Literal[
     "chat",
     "code",
     "goal",
+    "workflows",
     "list_agents_local",
     "peer_inbox",
 ]

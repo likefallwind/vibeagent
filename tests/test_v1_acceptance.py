@@ -121,6 +121,13 @@ EXPECTED_GATES = {
         "tools": {"delegate_task", "Task", "Agent"},
         "tests": {"test_parent_agent_receives_subagent_summary_as_tool_result"},
     },
+    "VA1-WORKFLOW": {
+        "tools": set(),
+        "tests": {
+            "test_pipeline_runs_agents_concurrently_and_preserves_result_order",
+            "test_failed_workflow_resumes_with_completed_call_cache",
+        },
+    },
     "VA1-PLAN": {
         "tools": {"project_overview", "read_file", "tool_search"},
         "tests": {"test_plan_mode_denies_hidden_write_even_with_approving_handler"},

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from .agent import run_agent as default_run_agent
@@ -56,7 +58,12 @@ from .agent_peer_notifications import peer_messages_as_task
 from .peer_runtime import create_peer_runtime
 from .peer_commands import get_peer_sessions_text
 from .peer_inbox_commands import handle_peer_inbox_command
-from .workspace_core import create_local_workspace
+from .dynamic_workflow_agent import background_workflow_approval_handler, execute_workflow_agent_request
+from .dynamic_workflow_commands import handle_workflows_command
+from .dynamic_workflow_runtime import DynamicWorkflowManager
+from .workspace_core import create_local_workspace, create_run_workspace
+from .workspace_hooks import read_project_hooks
+from .workspace_permissions import read_project_permissions
 
 
 def run_interactive_loop(
@@ -88,6 +95,8 @@ def run_interactive_loop(
     system_prompt: str | None = None
     append_system_prompt: str | None = None
     goal_state: GoalState | None = None
+    workflow_manager: DynamicWorkflowManager | None = None
+    workflow_client_lock = Lock()
     if initial_resume_run_id is not None:
         restored_goal = read_session_goal(Path.cwd(), initial_resume_run_id)
         goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
@@ -188,6 +197,40 @@ def run_interactive_loop(
         except Exception as error:
             print(f"\nIdle task error: {format_error(error)}")
 
+    def get_workflow_manager() -> DynamicWorkflowManager:
+        nonlocal client, resume_run_id, workflow_manager
+        if workflow_manager is not None:
+            return workflow_manager
+        workspace = (
+            create_local_workspace(Path.cwd(), resume_run_id)
+            if resume_run_id is not None
+            else create_run_workspace(Path.cwd())
+        )
+        resume_run_id = workspace.run_id
+        hooks = read_project_hooks(workspace)
+        permissions = read_project_permissions(workspace)
+        if workspace.project_config_trusted and permissions.enabled:
+            permissions = replace(permissions, allow_rules_trusted=True)
+
+        def execute_agent(request, cancel_requested):
+            nonlocal client
+            with workflow_client_lock:
+                client = client or create_chat_client_func(build_provider_env(None, Path.cwd()))
+            return execute_workflow_agent_request(
+                workspace,
+                request,
+                client,
+                execution_config=resolve_execution_config(Path.cwd()),
+                approval_handler=background_workflow_approval_handler(approval_policy, approval_handler),
+                approval_policy=approval_policy,
+                hooks=hooks,
+                permissions=permissions,
+                cancel_requested=cancel_requested,
+            )
+
+        workflow_manager = DynamicWorkflowManager(workspace, execute_agent)
+        return workflow_manager
+
     while True:
         try:
             task = input_with_idle_callback(
@@ -197,6 +240,8 @@ def run_interactive_loop(
             ).strip()
         except (EOFError, KeyboardInterrupt):
             print()
+            if workflow_manager is not None:
+                workflow_manager.close()
             if peer_runtime is not None:
                 peer_runtime.close()
             return 0
@@ -215,6 +260,8 @@ def run_interactive_loop(
             if custom_command is not None:
                 task = str(custom_command["prompt"])
         if command and command.type == "exit":
+            if workflow_manager is not None:
+                workflow_manager.close()
             if peer_runtime is not None:
                 peer_runtime.close()
             return 0
@@ -297,6 +344,9 @@ def run_interactive_loop(
                 print("\nInterrupted. Goal remains active.")
             except Exception as error:
                 print(f"\nGoal error: {format_error(error)}")
+            continue
+        if command and command.type == "workflows":
+            print(handle_workflows_command(get_workflow_manager(), command.argument))
             continue
         if command and command.type == "list_agents_local":
             print(get_peer_sessions_text())

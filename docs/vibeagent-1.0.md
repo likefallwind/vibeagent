@@ -19,6 +19,7 @@ local changes when asked, and resume from recorded session context.
 | VA1-GOAL | Continue until an independently checked condition is met | `/goal` persists one bounded condition, runs evaluator-guided coding turns without changing approvals, and restores active goals only on explicit resume. |
 | VA1-PEER | Coordinate independent local coding sessions | `ListAgents` discovers live same-machine sessions, `SendMessage` delivers bounded untrusted text over a user-only Unix socket, and running or idle receivers process messages without changing permission boundaries. |
 | VA1-DELEGATE | Split bounded investigation into a subagent | `delegate_task`, `Task`, and `Agent` can run isolated read-only investigations synchronously or in the background; `TaskOutput` collects results, `TaskStop` requests cancellation, and completion remains blocked while a result is running or unread. |
+| VA1-WORKFLOW | Orchestrate resumable multi-agent fan-out | `/workflows run` executes a permission-restricted JavaScript workflow with `agent()` and bounded `pipeline()`, persists source and completed calls, and supports list, show, stop, and cache-backed resume. |
 | VA1-PLAN | Produce a concrete read-only implementation plan | Plan mode exposes only read-only tools such as `project_overview`, `read_file`, and `tool_search`, denies hidden write attempts, and leaves the workspace unchanged. |
 | VA1-SAFETY | Enforce workspace and command safety | Workspace path guards, protected files, approval policy, project permissions, hooks, sandbox support, and hard command blocks prevent unsafe side effects. |
 
@@ -53,6 +54,12 @@ local changes when asked, and resume from recorded session context.
   registration and delivery, `SO_PEERCRED` sender validation, peer discovery,
   tool routing, accept/hold/refuse controls, held-message decisions, duplicate
   and queue bounds, active-turn injection, idle wakeups, and cleanup.
+- `tests.test_dynamic_workflow_node.DynamicWorkflowNodeTests`,
+  `tests.test_dynamic_workflow_runtime.DynamicWorkflowRuntimeTests`, and
+  `tests.test_cli_dynamic_workflows.CliDynamicWorkflowTests` cover parallel
+  ordered fan-out, the 16/1000 bounds, hidden host globals, disabled string code
+  generation, cancellation, atomic state, session events, deterministic cached
+  resume, path validation, command routing, and provider-free status listing.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `LS`, `Glob`, `Grep`, `Read`, `Bash`, `Edit`, and `TodoRead`,
