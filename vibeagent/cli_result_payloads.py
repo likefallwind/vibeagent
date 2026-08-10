@@ -29,6 +29,7 @@ CODE_RESULT_SNAKE_CASE_ALIAS_KEYS = {
     "userInputRequests": "user_input_requests",
     "deferredToolUse": "deferred_tool_use",
     "isError": "is_error",
+    "hookSystemMessages": "hook_system_messages",
 }
 
 
@@ -77,6 +78,7 @@ def build_code_result_payload(result: AgentResult, prior_context: object) -> dic
         "userInputRequests": user_input_requests,
         "user_input_requests": user_input_requests,
         "isError": result.is_error,
+        "hookSystemMessages": result.hook_system_messages,
     }
     if result.deferred_tool_use is not None:
         payload["deferredToolUse"] = result.deferred_tool_use

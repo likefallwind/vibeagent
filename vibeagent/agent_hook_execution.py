@@ -91,7 +91,7 @@ def run_project_hook_command(
     hook_action = RunCommandAction(
         type="run_command",
         command=hook.command,
-        timeout_ms=min(hook.timeout_ms, command_timeout_ms),
+        timeout_ms=hook.timeout_ms,
         max_output_chars=4_000,
         cwd=cwd,
     )

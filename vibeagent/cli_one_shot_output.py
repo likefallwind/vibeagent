@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 import json
 from pathlib import Path
+import sys
 
 from .agent_result import AgentResult
 from .cli_machine_output import add_duration_fields
@@ -128,6 +129,8 @@ def emit_one_shot_code_payload(
     elif output_json:
         print_output_func(payload, True)
     elif print_mode:
+        for message in result.hook_system_messages:
+            print(f"Hook message: {message}", file=sys.stderr)
         if "structured_output" in payload:
             print_output_func(
                 {"message": json.dumps(payload["structured_output"], ensure_ascii=False, sort_keys=True)},

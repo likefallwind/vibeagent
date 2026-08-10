@@ -77,8 +77,9 @@ class CliOneShotAgentKwargsTests(unittest.TestCase):
         self.assertEqual(kwargs["mcp_config_paths"], (root / ".mcp.json",))
         self.assertNotIn("workspace", kwargs)
         self.assertFalse(kwargs["defer_tool_calls"])
+        self.assertFalse(kwargs["close_async_hooks_on_finish"])
 
-    def test_print_mode_enables_deferred_tool_calls(self) -> None:
+    def test_print_mode_enables_deferred_tools_and_async_hook_cleanup(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-kwargs-") as base:
             kwargs = build_one_shot_agent_kwargs(
                 client=object(),
@@ -99,6 +100,7 @@ class CliOneShotAgentKwargsTests(unittest.TestCase):
             )
 
         self.assertTrue(kwargs["defer_tool_calls"])
+        self.assertTrue(kwargs["close_async_hooks_on_finish"])
 
     def test_trust_project_permissions_uses_explicit_or_project_trust(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-kwargs-") as base:

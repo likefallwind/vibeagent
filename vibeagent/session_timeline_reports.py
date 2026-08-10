@@ -292,6 +292,8 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         "async_hook_started",
         "async_hook_completed",
         "async_hook_notifications_delivered",
+        "async_hook_cancelled",
+        "async_hook_discarded",
     }:
         hook_event = payload.get("event")
         target = payload.get("target")
@@ -308,6 +310,9 @@ def format_session_event_timeline_item(event: SessionEvent, max_text: int = 500)
         count = payload.get("count")
         if isinstance(count, int):
             suffix.append(f"count={count}")
+        outcome = payload.get("outcome")
+        if isinstance(outcome, str):
+            suffix.append(f"outcome={compact(outcome, 80)}")
         detail = " ".join(
             value
             for value in (

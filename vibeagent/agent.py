@@ -62,6 +62,7 @@ from .dynamic_agent_profiles import DynamicAgentProfile
 from .workspace_permissions import ProjectPermissions
 from .peer_runtime import PeerSessionRuntime
 from .deferred_tool_state import DeferredToolState
+from .async_hook_runtime import close_session_async_hooks
 
 
 @lock_existing_session_turn
@@ -98,6 +99,7 @@ def run_agent(
     dynamic_agent_profiles: tuple[DynamicAgentProfile, ...] = (),
     deferred_tool_state: DeferredToolState | None = None,
     defer_tool_calls: bool = False,
+    close_async_hooks_on_finish: bool = False,
 ) -> AgentResult:
     setup = prepare_agent_run(
         task,
@@ -168,6 +170,8 @@ def run_agent(
             defer_tool_calls=defer_tool_calls,
         )
     finally:
+        if close_async_hooks_on_finish:
+            close_session_async_hooks(setup.workspace)
         plugin_monitors.close()
 
 

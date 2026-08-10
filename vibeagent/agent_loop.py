@@ -121,6 +121,7 @@ def run_agent_loop(
         locked=setup.approval_policy_locked,
     )
     current_approval_handler = approval_handler
+    hook_system_messages: list[str] = []
 
     def tool_call_allowed(name: str, action: object) -> bool:
         if (
@@ -165,6 +166,7 @@ def run_agent_loop(
                 is_error=is_error,
             ),
             approval_policy=plan_mode.current_policy,
+            hook_system_messages=list(hook_system_messages),
             conversation=conversation_for_next_prompt(messages, task),
         )
 
@@ -412,7 +414,11 @@ def run_agent_loop(
             logger=logger,
         )
         inject_async_hook_notifications(
-            current_workspace, messages, iteration=iteration, logger=logger
+            current_workspace,
+            messages,
+            hook_system_messages,
+            iteration=iteration,
+            logger=logger,
         )
         plugin_monitors.inject(
             current_workspace, messages, iteration=iteration, logger=logger
@@ -486,7 +492,11 @@ def run_agent_loop(
         tool_calls = model_turn.tool_calls
         if not tool_calls:
             late_async_hooks = inject_async_hook_notifications(
-                current_workspace, messages, iteration=iteration, logger=logger
+                current_workspace,
+                messages,
+                hook_system_messages,
+                iteration=iteration,
+                logger=logger,
             )
             late_monitors = inject_monitor_notifications(
                 current_workspace, messages, iteration=iteration, logger=logger

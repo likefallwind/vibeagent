@@ -60,6 +60,7 @@ def build_one_shot_agent_kwargs(
         "task_metadata": task_metadata,
         "dynamic_agent_profiles": dynamic_agent_profiles,
         "defer_tool_calls": print_mode,
+        "close_async_hooks_on_finish": print_mode,
     }
     if additional_directories:
         kwargs["additional_directories"] = additional_directories

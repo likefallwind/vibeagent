@@ -44,7 +44,8 @@ class AsyncHookNotification:
     process_id: str
     event: str
     target: str
-    message: str
+    additional_context: str
+    system_message: str
     exit_code: int | None
     rewake: bool
     timed_out: bool
@@ -124,7 +125,8 @@ def collect_async_hook_notifications(
                 _finish_state(
                     workspace,
                     state,
-                    message="Async hook process record is unavailable.",
+                    additional_context="",
+                    system_message="",
                     exit_code=None,
                     timed_out=False,
                 )
@@ -153,7 +155,7 @@ def collect_async_hook_notifications(
         should_rewake = state.rewake and exit_code == 2
         if rewake_only and not should_rewake:
             continue
-        message = _completion_message(
+        additional_context, system_message = _completion_output(
             record.stdout_path,
             record.stderr_path,
             exit_code=exit_code,
@@ -163,12 +165,13 @@ def collect_async_hook_notifications(
         notification = _finish_state(
             workspace,
             state,
-            message=message,
+            additional_context=additional_context,
+            system_message=system_message,
             exit_code=exit_code,
             timed_out=timed_out,
             rewake=should_rewake,
         )
-        if notification.message:
+        if notification.additional_context or notification.system_message:
             notifications.append(notification)
     return notifications
 
@@ -181,7 +184,7 @@ def async_hook_notifications_prompt(
             "processId": item.process_id,
             "event": item.event,
             "target": item.target,
-            "message": item.message,
+            "additionalContext": item.additional_context,
             "exitCode": item.exit_code,
             "rewake": item.rewake,
             "timedOut": item.timed_out,
@@ -195,11 +198,55 @@ def async_hook_notifications_prompt(
     )
 
 
+def close_session_async_hooks(workspace: RunWorkspace) -> int:
+    closed = 0
+    statuses = {
+        process.process_id: process
+        for process in list_background_processes(workspace.root).processes
+    }
+    for state in _read_states(workspace):
+        if state.delivered:
+            continue
+        status = statuses.get(state.process_id)
+        record = read_persistent_process_record(workspace.root, state.process_id)
+        running = bool(
+            record is not None
+            and (
+                status.running
+                if status is not None
+                else persistent_process_running(record)
+            )
+        )
+        if running:
+            stop_background_process(workspace.root, state.process_id)
+        else:
+            release_background_process_handle(state.process_id)
+        _cleanup_state_files(workspace, state)
+        try:
+            _write_state(workspace, replace(state, delivered=True))
+            append_session_event(
+                workspace.session_dir,
+                "async_hook_cancelled" if running else "async_hook_discarded",
+                {
+                    "process_id": state.process_id,
+                    "event": state.event,
+                    "source": state.source,
+                    "target": state.target,
+                    "outcome": "cancelled" if running else "discarded_at_teardown",
+                },
+            )
+        except (OSError, ValueError):
+            continue
+        closed += 1
+    return closed
+
+
 def _finish_state(
     workspace: RunWorkspace,
     state: AsyncHookState,
     *,
-    message: str,
+    additional_context: str,
+    system_message: str,
     exit_code: int | None,
     timed_out: bool,
     rewake: bool = False,
@@ -216,55 +263,71 @@ def _finish_state(
             "exit_code": exit_code,
             "timed_out": timed_out,
             "rewake": rewake,
-            "context_delivered": bool(message),
+            "context_delivered": bool(additional_context),
+            "system_message": system_message,
         },
     )
     return AsyncHookNotification(
         process_id=state.process_id,
         event=state.event,
         target=state.target,
-        message=message,
+        additional_context=additional_context,
+        system_message=system_message,
         exit_code=exit_code,
         rewake=rewake,
         timed_out=timed_out,
     )
 
 
-def _completion_message(
+def _completion_output(
     stdout_path: Path,
     stderr_path: Path,
     *,
     exit_code: int | None,
     rewake: bool,
     timed_out: bool,
-) -> str:
+) -> tuple[str, str]:
     stdout = _read_output(stdout_path, tail=False)
     stderr = _read_output(stderr_path, tail=True)
     if timed_out:
-        return "Asynchronous hook timed out."
+        return "", ""
     if rewake:
-        return redact_sensitive_text((stderr or stdout or "Asynchronous hook failed.").strip())[
-            :MAX_ASYNC_HOOK_CONTEXT_CHARS
-        ]
+        return (
+            redact_sensitive_text(
+                (stderr or stdout or "Asynchronous hook failed.").strip()
+            )[:MAX_ASYNC_HOOK_CONTEXT_CHARS],
+            "",
+        )
     if exit_code != 0 or not stdout.strip():
-        return ""
+        return "", ""
     try:
         payload = json.loads(stdout)
     except json.JSONDecodeError:
-        return ""
+        return "", ""
     if not isinstance(payload, dict):
-        return ""
+        return "", ""
     specific = payload.get("hookSpecificOutput")
     specific_payload = specific if isinstance(specific, dict) else {}
-    values = (
-        payload.get("systemMessage"),
+    context_values = (
         payload.get("additionalContext"),
         specific_payload.get("additionalContext"),
     )
     context = "\n".join(
-        value.strip() for value in values if isinstance(value, str) and value.strip()
+        value.strip()
+        for value in context_values
+        if isinstance(value, str) and value.strip()
     )
-    return redact_sensitive_text(context)[:MAX_ASYNC_HOOK_CONTEXT_CHARS]
+    system_message = payload.get("systemMessage")
+    return (
+        redact_sensitive_text(context)[:MAX_ASYNC_HOOK_CONTEXT_CHARS],
+        (
+            redact_sensitive_text(system_message.strip())[
+                :MAX_ASYNC_HOOK_CONTEXT_CHARS
+            ]
+            if isinstance(system_message, str) and system_message.strip()
+            else ""
+        ),
+    )
 
 
 def _read_output(path: Path, *, tail: bool) -> str:
@@ -409,5 +472,6 @@ __all__ = [
     "AsyncHookNotification",
     "async_hook_notifications_prompt",
     "collect_async_hook_notifications",
+    "close_session_async_hooks",
     "start_async_hook",
 ]

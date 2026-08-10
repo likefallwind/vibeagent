@@ -11,6 +11,7 @@ from .agent import run_agent as default_run_agent
 from .agent_runtime_utils import append_session_event
 from .async_hook_runtime import (
     async_hook_notifications_prompt,
+    close_session_async_hooks,
     collect_async_hook_notifications,
 )
 from .chat import run_chat as default_run_chat
@@ -387,9 +388,16 @@ def run_interactive_loop(
         workflow_manager = DynamicWorkflowManager(workspace, execute_agent)
         return workflow_manager
 
-    def stop_owned_monitors() -> None:
+    def stop_owned_background_runtime() -> None:
         for session_id in owned_monitor_session_ids:
             stop_session_monitors(Path.cwd(), session_id)
+            close_session_async_hooks(
+                create_local_workspace(
+                    Path.cwd(),
+                    session_id,
+                    additional_roots=additional_directories,
+                )
+            )
 
     while True:
         try:
@@ -401,7 +409,7 @@ def run_interactive_loop(
                 ).strip()
         except (EOFError, KeyboardInterrupt):
             print()
-            stop_owned_monitors()
+            stop_owned_background_runtime()
             if workflow_manager is not None:
                 workflow_manager.close()
             if peer_runtime is not None:
@@ -449,7 +457,7 @@ def run_interactive_loop(
             if custom_command is not None:
                 task = str(custom_command["prompt"])
         if command and command.type == "exit":
-            stop_owned_monitors()
+            stop_owned_background_runtime()
             if workflow_manager is not None:
                 workflow_manager.close()
             if peer_runtime is not None:

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from contextlib import redirect_stderr
+from dataclasses import replace
 from decimal import Decimal
+import io
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -269,21 +272,27 @@ class CliOneShotOutputTests(unittest.TestCase):
 
     def test_emit_code_payload_print_mode_uses_message_only(self) -> None:
         root = Path("/tmp/vibeagent-one-shot-output")
-        result = _result(root)
+        result = replace(
+            _result(root),
+            hook_system_messages=["Background lint finished."],
+        )
         payload = {"kind": "code", "message": "done", "extra": True}
         calls: list[tuple[dict[str, object], bool]] = []
+        stderr = io.StringIO()
 
-        emit_one_shot_code_payload(
-            result,
-            payload,
-            stream=None,
-            output_json=False,
-            print_mode=True,
-            print_output_func=lambda value, output_json: calls.append((value, output_json)),
-            print_agent_result_func=lambda value: self.fail("printed full agent result in print mode"),
-        )
+        with redirect_stderr(stderr):
+            emit_one_shot_code_payload(
+                result,
+                payload,
+                stream=None,
+                output_json=False,
+                print_mode=True,
+                print_output_func=lambda value, output_json: calls.append((value, output_json)),
+                print_agent_result_func=lambda value: self.fail("printed full agent result in print mode"),
+            )
 
         self.assertEqual(calls, [({"message": "done"}, False)])
+        self.assertEqual(stderr.getvalue(), "Hook message: Background lint finished.\n")
 
     def test_structured_output_success_adds_aliases_and_prints_json_value(self) -> None:
         root = Path("/tmp/vibeagent-one-shot-output")

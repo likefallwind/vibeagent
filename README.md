@@ -1661,14 +1661,17 @@ remains supported, and the two forms are mutually exclusive. Async hooks cannot
 block a tool or apply permission decisions because the triggering action has
 already continued. A successful JSON result may return `systemMessage`,
 top-level `additionalContext`, or
-`hookSpecificOutput.additionalContext`; the bounded, redacted text is injected
-once on the next model turn. Ordinary results wait for that next turn, while an
+`hookSpecificOutput.additionalContext`. Bounded, redacted `additionalContext`
+is injected once on the next model turn, while `systemMessage` is kept out of
+model context and exposed through terminal and machine results for the user.
+Ordinary results wait for that next turn, while an
 `asyncRewake` exit-code-2 result uses stderr, or stdout when stderr is empty, to
-wake the idle CLI. Private launch/input files and atomic mode-`0600` state live
-under the originating session until the process finishes, so explicit resume
-can collect a result produced after the original process exits. Async hook
-commands retain the same approval, command hard-block, workspace, and sandbox
-boundaries as synchronous hooks.
+wake the idle CLI. Private launch/input files and atomic mode-`0600` state stay
+inside the active session and are cleaned after completion. Print-mode teardown
+and interactive CLI exit cancel unfinished async hooks; hooks that must outlive
+the session must launch their own detached work. Async hook commands retain the
+same approval, command hard-block, workspace, and sandbox boundaries as
+synchronous hooks. `timeout` defaults to 600 seconds.
 
 Successful `PreToolUse` hooks can return Claude-compatible structured JSON under
 `hookSpecificOutput`. `permissionDecision` accepts `allow`, `ask`, `deny`, or

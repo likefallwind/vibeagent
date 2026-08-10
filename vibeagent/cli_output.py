@@ -76,6 +76,7 @@ def print_agent_result(result: AgentResult) -> None:
         print("\nStopped")
     print_item_section("Completion blockers:", result.completion_blockers)
     print_item_section("Warnings:", result.completion_warnings)
+    print_item_section("Hook messages:", result.hook_system_messages)
     print_item_section("Changed files:", result.final_review_changed_files)
     print_item_section("Verified:", result.verification_checks)
     print_item_section("Pending checks:", result.pending_verification_checks)

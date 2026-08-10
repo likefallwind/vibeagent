@@ -39,6 +39,7 @@ class AgentResult:
     stop_reason: str | None = None
     deferred_tool_use: dict[str, object] | None = None
     is_error: bool = False
+    hook_system_messages: list[str] = field(default_factory=list)
     conversation: list[ChatMessage] = field(default_factory=list, repr=False)
 
     def __post_init__(self) -> None:

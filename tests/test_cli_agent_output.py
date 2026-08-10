@@ -66,6 +66,7 @@ class CliAgentOutputTests(unittest.TestCase):
                 completion_ready=False,
                 completion_blockers=["Final review did not report ready."],
                 completion_warnings=["Project changes completed without a final_review observation."],
+                hook_system_messages=["Async lint hook finished."],
                 verification_checks=["python -m unittest discover -s tests"],
                 pending_verification_checks=["npm test"],
                 failed_verification_checks=["npm test (exit=1)"],
@@ -91,6 +92,8 @@ class CliAgentOutputTests(unittest.TestCase):
         self.assertIn("Final review did not report ready.", stdout.getvalue())
         self.assertIn("Warnings:", stdout.getvalue())
         self.assertIn("Project changes completed without a final_review observation.", stdout.getvalue())
+        self.assertIn("Hook messages:", stdout.getvalue())
+        self.assertIn("Async lint hook finished.", stdout.getvalue())
         self.assertIn("Changed files:", stdout.getvalue())
         self.assertIn("M app.py", stdout.getvalue())
         self.assertIn("A tests/test_app.py", stdout.getvalue())

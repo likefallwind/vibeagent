@@ -83,6 +83,7 @@ class CliOneShotCodeTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(calls[0]["deferred_tool_state"], state)
         self.assertTrue(calls[0]["defer_tool_calls"])
+        self.assertTrue(calls[0]["close_async_hooks_on_finish"])
 
     def test_run_one_shot_code_generates_structured_output_after_completed_workflow(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-one-shot-structured-") as base:

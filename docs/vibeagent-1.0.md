@@ -27,7 +27,7 @@ local changes when asked, and resume from recorded session context.
 | VA1-WORKFLOW | Orchestrate resumable multi-agent fan-out | `/workflows run` executes a permission-restricted JavaScript workflow with `agent()` and bounded `pipeline()`, persists source and completed calls, and supports list, show, stop, and cache-backed resume. |
 | VA1-PLUGIN | Load and distribute reusable extension bundles without bypassing safety | `/plugin` validates, installs, lists, details, enables, disables, and atomically uninstalls project-local plugins; local and public-HTTPS GitHub/Git/JSON marketplaces add, list, inspect, refresh, remove, and install relative or remote `plugin@marketplace` sources; enabled namespaced skills, commands, agents, hooks, and MCP servers flow through their existing parsers, approvals, network checks, and path guards. |
 | VA1-PLAN | Produce and approve a concrete read-only implementation plan | `EnterPlanMode` switches a running agent to a read-only catalog; Plan mode denies hidden write attempts, and `ExitPlanMode` lets the user resume with per-action review, allow subsequent actions, or keep planning with feedback. The selected mode reaches later interactive turns, while profile-forced Plan mode cannot be exited by the model. |
-| VA1-SAFETY | Enforce workspace and command safety | Workspace path guards, protected files, approval policy, project permissions, hooks, sandbox support, and hard command blocks prevent unsafe side effects. Claude-compatible `dontAsk` keeps read-only tools available, executes only trusted explicit allow rules, disables approval prompts and sandbox auto-approval for other side effects, and records machine-readable denial decisions without request events. Approved async hooks retain the same command safety and sandbox boundary, cannot apply late permission decisions, persist private resumable state, and wake idle interactive sessions only through `asyncRewake` exit code 2. |
+| VA1-SAFETY | Enforce workspace and command safety | Workspace path guards, protected files, approval policy, project permissions, hooks, sandbox support, and hard command blocks prevent unsafe side effects. Claude-compatible `dontAsk` keeps read-only tools available, executes only trusted explicit allow rules, disables approval prompts and sandbox auto-approval for other side effects, and records machine-readable denial decisions without request events. Approved async hooks retain the same command safety and sandbox boundary, cannot apply late permission decisions, separate user-only `systemMessage` from model `additionalContext`, wake idle interactive sessions only through `asyncRewake` exit code 2, and cancel at print/CLI teardown. |
 
 ## Current Evidence
 
@@ -486,9 +486,10 @@ local changes when asked, and resume from recorded session context.
   replay on resume, completed batch-result preservation, unavailable-tool
   failure, machine output, and hook-supplied `AskUserQuestion` answers.
 - `tests.test_async_hooks.AsyncHookRuntimeTests` covers approved non-blocking
-  command hooks, ignored late permission decisions, private resumable state,
-  exactly-once next-turn context, exit-code-2 `asyncRewake`, interactive idle
-  wakeups, and bounded session-timeline summaries.
+  command hooks, ignored late permission decisions, private current-session
+  state, user/model output separation, exactly-once next-turn context,
+  exit-code-2 `asyncRewake`, print/CLI teardown cancellation, interactive idle
+  wakeups, timeouts, and bounded session-timeline summaries.
 
 ## Verified 1.0 Exit Criteria
 

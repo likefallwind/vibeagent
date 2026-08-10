@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import unittest
 from pathlib import Path
 
@@ -104,6 +105,24 @@ class CodeResultPayloadTests(unittest.TestCase):
         self.assertFalse(payload["pending_user_input"])
         self.assertEqual(payload["userInputRequests"], [])
         self.assertEqual(payload["user_input_requests"], [])
+        self.assertEqual(payload["hookSystemMessages"], [])
+        self.assertEqual(payload["hook_system_messages"], [])
+
+    def test_result_payload_keeps_hook_system_messages_out_of_model_result_text(self) -> None:
+        root = Path("/tmp/vibeagent-result")
+        result = replace(
+            _result(root),
+            hook_system_messages=["Async hook warning."],
+        )
+
+        payload = build_code_result_payload(
+            result,
+            prior_context=OneShotPriorContext(source="none"),
+        )
+
+        self.assertEqual(payload["message"], "done")
+        self.assertEqual(payload["hookSystemMessages"], ["Async hook warning."])
+        self.assertEqual(payload["hook_system_messages"], ["Async hook warning."])
 
     def test_result_payload_marks_cancelled_user_input_as_pending(self) -> None:
         root = Path("/tmp/vibeagent-result")

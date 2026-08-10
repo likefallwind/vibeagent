@@ -218,6 +218,7 @@ EXPECTED_GATES = {
             "test_v1_cli_dont_ask_completes_preapproved_repair_without_prompting",
             "test_async_pre_tool_decision_cannot_block_completed_action",
             "test_async_rewake_starts_an_idle_resumed_agent_turn",
+            "test_print_mode_teardown_cancels_running_async_hook",
         },
     },
 }

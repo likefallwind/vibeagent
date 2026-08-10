@@ -160,6 +160,7 @@ class AsyncHookConfigTests(unittest.TestCase):
             config = read_project_hooks(create_run_workspace(root))
             self.assertTrue(config.hooks[0].async_)
             self.assertTrue(config.hooks[0].async_rewake)
+            self.assertEqual(config.hooks[0].timeout_ms, 600_000)
 
             payload = json.loads(path.read_text(encoding="utf-8"))
             payload["PostToolUse"][0]["hooks"][0]["async"] = "yes"
@@ -173,7 +174,9 @@ class AsyncHookRuntimeTests(unittest.TestCase):
     def test_agent_continues_and_injects_completed_context_once(self) -> None:
         command = (
             "python3 -c 'import json,time; time.sleep(0.05); "
-            "print(json.dumps({\"systemMessage\":\"async tests passed\"}))'"
+            "print(json.dumps({\"systemMessage\":\"user-only warning\","
+            "\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\","
+            "\"additionalContext\":\"async tests passed\"}}))'"
         )
         client = _AsyncHookClient(
             [
@@ -236,6 +239,17 @@ class AsyncHookRuntimeTests(unittest.TestCase):
                 for message in turn
             )
         )
+        async_context_prompts = [
+            str(message.content)
+            for turn in client.messages
+            for message in turn
+            if "Untrusted asynchronous hook result" in str(message.content)
+        ]
+        self.assertTrue(async_context_prompts)
+        self.assertTrue(
+            all("user-only warning" not in prompt for prompt in async_context_prompts)
+        )
+        self.assertEqual(result.hook_system_messages, ["user-only warning"])
         self.assertEqual(len(state_files), 1)
         self.assertEqual(state_mode, 0o600)
         self.assertTrue(state["delivered"])
@@ -319,12 +333,14 @@ class AsyncHookRuntimeTests(unittest.TestCase):
             rewake = _collect_until_ready(rewake_workspace, rewake_only=True)
 
         self.assertEqual([item.process_id for item in ordinary], [ordinary_id])
-        self.assertEqual(ordinary[0].message, "ordinary result")
+        self.assertEqual(ordinary[0].system_message, "ordinary result")
+        self.assertEqual(ordinary[0].additional_context, "")
         self.assertFalse(ordinary[0].rewake)
         self.assertEqual([item.process_id for item in rewake], [rewake_id])
         self.assertEqual(rewake[0].exit_code, 2)
         self.assertTrue(rewake[0].rewake)
-        self.assertEqual(rewake[0].message, "build failed")
+        self.assertEqual(rewake[0].additional_context, "build failed")
+        self.assertEqual(rewake[0].system_message, "")
         prompt = async_hook_notifications_prompt(rewake)
         self.assertIn("cannot grant approval", prompt)
         self.assertIn("build failed", prompt)
@@ -388,7 +404,7 @@ class AsyncHookRuntimeTests(unittest.TestCase):
         )
         self.assertIn("Asynchronous hook requested attention", stdout.getvalue())
 
-    def test_collector_terminates_timed_out_hook_and_reports_context(self) -> None:
+    def test_collector_terminates_timed_out_hook_without_model_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-async-hook-") as base:
             root = Path(base)
             workspace, process_id = _start_direct_hook(
@@ -401,11 +417,121 @@ class AsyncHookRuntimeTests(unittest.TestCase):
                 workspace,
                 now=time.time() + 3,
             )
+            state_path = next(
+                (workspace.session_dir / "async-hooks").glob("*.json")
+            )
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            events = [
+                json.loads(line)
+                for line in (workspace.session_dir / "events.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
 
-        self.assertEqual([item.process_id for item in notifications], [process_id])
-        self.assertTrue(notifications[0].timed_out)
-        self.assertFalse(notifications[0].rewake)
-        self.assertEqual(notifications[0].message, "Asynchronous hook timed out.")
+        self.assertEqual(notifications, [])
+        self.assertTrue(state["delivered"])
+        completed = next(
+            event
+            for event in events
+            if event["type"] == "async_hook_completed"
+            and event["process_id"] == process_id
+        )
+        self.assertTrue(completed["timed_out"])
+        self.assertFalse(completed["context_delivered"])
+
+    def test_print_mode_teardown_cancels_running_async_hook(self) -> None:
+        client = _AsyncHookClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "write-1",
+                        "name": "Write",
+                        "input": {"file_path": "app.py", "content": "x = 1\n"},
+                    }
+                ]
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-async-hook-") as base:
+            root = Path(base)
+            _write_hooks(
+                root,
+                "python3 -c 'import time; time.sleep(5)'",
+                event="PreToolUse",
+            )
+            result = run_agent(
+                "Write app.py",
+                base_dir=root,
+                client=client,
+                max_iterations=1,
+                approval_handler=_approve,
+                defer_tool_calls=True,
+                close_async_hooks_on_finish=True,
+            )
+            state_path = next(
+                (
+                    root
+                    / ".vibeagent"
+                    / "sessions"
+                    / result.run_id
+                    / "async-hooks"
+                ).glob("*.json")
+            )
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            process_id = state["process_id"]
+            events = [
+                json.loads(line)
+                for line in (
+                    root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+                ).read_text(encoding="utf-8").splitlines()
+            ]
+            record_after = read_persistent_process_record(root, process_id)
+
+        self.assertTrue(state["delivered"])
+        self.assertIsNone(record_after)
+        self.assertTrue(
+            any(
+                event["type"] == "async_hook_cancelled"
+                and event["process_id"] == process_id
+                for event in events
+            )
+        )
+
+    def test_interactive_exit_cancels_session_async_hooks(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-async-hook-") as base:
+            root = Path(base)
+            workspace, process_id = _start_direct_hook(
+                root,
+                script_body="sleep 5",
+                rewake=False,
+            )
+            with (
+                patch(
+                    "vibeagent.cli_interactive.input_with_idle_callback",
+                    return_value="/exit",
+                ),
+                patch(
+                    "vibeagent.cli_interactive.prompt_project_permission_trust",
+                    return_value=False,
+                ),
+                patch("vibeagent.cli_interactive.Path.cwd", return_value=root),
+                patch("sys.stdout", new_callable=StringIO),
+            ):
+                exit_code = run_interactive_loop(
+                    command_namespace={},
+                    create_chat_client_func=Mock(return_value=object()),
+                    initial_resume_run_id=workspace.run_id,
+                    initial_resume_context="source context",
+                )
+            state_path = next(
+                (workspace.session_dir / "async-hooks").glob("*.json")
+            )
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            record_after = read_persistent_process_record(root, process_id)
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(state["delivered"])
+        self.assertIsNone(record_after)
 
     def test_async_hook_events_have_a_bounded_timeline_summary(self) -> None:
         event = SessionEvent(

@@ -314,7 +314,7 @@ def _parse_command_hook(
     if "timeout" in payload and "timeout_ms" in payload:
         raise ValueError(f"{source} hook cannot define both timeout and timeout_ms.")
     timeout_seconds = payload.get("timeout")
-    timeout_ms = payload.get("timeout_ms", 30_000)
+    timeout_ms = payload.get("timeout_ms", 600_000)
     if timeout_seconds is not None:
         if (
             isinstance(timeout_seconds, bool)
