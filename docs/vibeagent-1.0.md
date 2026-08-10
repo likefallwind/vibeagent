@@ -87,10 +87,11 @@ local changes when asked, and resume from recorded session context.
   client scoping, `inherit`, parent-client isolation, Anthropic
   `output_config.effort`, model overrides for every built-in provider, and
   pre-request failure when a provider or custom client cannot apply effort.
-- `tests.test_plugin_remote_sources` covers public credential-free HTTPS
+- `tests.test_plugin_remote_sources` and `tests.test_plugin_npm_sources` cover public credential-free HTTPS
   enforcement, HTTPS-only redirects, sanitized non-interactive Git execution,
   GitHub and direct-JSON marketplace refresh, `github`/`url`/`git-subdir`
-  plugin sources, SHA/ref selection, runtime skill discovery, temporary-cache
+  plugin sources, SHA/ref selection, npm registry metadata and archive integrity,
+  script-free bounded npm extraction, runtime skill discovery, temporary-cache
   cleanup, and removal races that must not leave orphan plugins.
 - `tests.test_plugin_user_config.PluginUserConfigTests` covers manifest
   `userConfig` types and constraints, project/local/environment precedence,

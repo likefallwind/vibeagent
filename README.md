@@ -1185,7 +1185,11 @@ and are reported on the next idle CLI tick.
 Remote marketplaces support GitHub `owner/repository[#ref]`, public HTTPS Git
 repositories, and public HTTPS `marketplace.json` files. Remote catalog entries
 support `github`, `url`, and `git-subdir` Git sources with optional `ref` or
-`sha`. Network URLs must be credential-free public HTTPS, HTTP redirects are
+`sha`, plus `npm` sources with a package, exact version or dist-tag, and optional
+registry. npm packages are fetched without executing lifecycle scripts, require
+registry-provided SHA-512 integrity or SHA-1 shasum metadata, and are extracted
+with the same path, file-count, and size boundaries as other plugins. Network
+URLs must be credential-free public HTTPS, HTTP redirects are
 disabled for Git and cannot downgrade JSON downloads, Git authentication is
 non-interactive, inherited Git configuration injection is removed, and each
 fetch uses a bounded temporary checkout. Set `VIBEAGENT_PLUGIN_GIT_TIMEOUT_MS`
@@ -1199,7 +1203,7 @@ language-server diagnostics back to the model after successful file edits.
 Language-server binaries remain separately installed dependencies. Socket
 transport is rejected explicitly; when no enabled plugin claims a file,
 `LSP` retains the built-in lexical code-intelligence fallback.
-SSH and npm plugin sources and user/project installation scopes are not yet
+SSH plugin sources and user/project installation scopes are not yet
 implemented and are reported rather than silently loaded.
 On Linux and macOS, interactive and one-shot CLI sessions register a user-only
 Unix socket under `/tmp/vibeagent-<uid>/peers`. `ListAgents` combines current

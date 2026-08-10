@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from .plugin_manifest import PLUGIN_VERSION_PATTERN, read_plugin_manifest
+from .plugin_npm_sources import (
+    normalize_npm_registry,
+    validate_npm_package_name,
+    validate_npm_version_selector,
+)
 from .plugin_remote_sources import (
     github_repository_url,
     normalize_public_https_url,
@@ -18,6 +24,19 @@ from .workspace_metadata_files import has_symlink_component, read_regular_file_b
 
 MAX_MARKETPLACE_MANIFEST_BYTES = 1_000_000
 MAX_MARKETPLACE_PLUGINS = 1_000
+
+
+@dataclass(frozen=True)
+class _PluginSource:
+    kind: str
+    display: str
+    url: str | None = None
+    ref: str | None = None
+    sha: str | None = None
+    subdirectory: str | None = None
+    npm_package: str | None = None
+    npm_version: str | None = None
+    npm_registry: str | None = None
 
 
 def read_marketplace_manifest(source: Path) -> MarketplaceManifest:
@@ -111,14 +130,13 @@ def _read_plugin_entry(root: Path, entry: object, index: int) -> MarketplacePlug
             raise ValueError(
                 f"{label} name {name!r} does not match plugin manifest name {manifest.name!r}."
             )
-        url = ref = sha = subdirectory = None
+        source_info = _PluginSource(kind=source_kind, display=source)
         fallback_description = manifest.description
         fallback_version = manifest.version
     elif isinstance(source_value, dict):
-        source_kind, source, url, ref, sha, subdirectory = _read_remote_plugin_source(
-            source_value,
-            label,
-        )
+        source_info = _read_remote_plugin_source(source_value, label)
+        source_kind = source_info.kind
+        source = source_info.display
         path = None
         fallback_description = ""
         fallback_version = None
@@ -135,10 +153,13 @@ def _read_plugin_entry(root: Path, entry: object, index: int) -> MarketplacePlug
         source=source,
         source_kind=source_kind,
         path=path,
-        url=url,
-        ref=ref,
-        sha=sha,
-        subdirectory=subdirectory,
+        url=source_info.url,
+        ref=source_info.ref,
+        sha=source_info.sha,
+        subdirectory=source_info.subdirectory,
+        npm_package=source_info.npm_package,
+        npm_version=source_info.npm_version,
+        npm_registry=source_info.npm_registry,
         description=" ".join(description.split()),
         version=version,
     )
@@ -147,7 +168,7 @@ def _read_plugin_entry(root: Path, entry: object, index: int) -> MarketplacePlug
 def _read_remote_plugin_source(
     source: dict[str, Any],
     label: str,
-) -> tuple[str, str, str, str | None, str | None, str | None]:
+) -> _PluginSource:
     kind = source.get("source")
     if kind == "github":
         repository = source.get("repo")
@@ -164,9 +185,27 @@ def _read_remote_plugin_source(
         display = url
         subdirectory = _safe_subdirectory(source.get("path"), label) if kind == "git-subdir" else None
     elif kind == "npm":
-        raise ValueError(f"{label} npm sources are not supported yet.")
+        package = source.get("package")
+        if not isinstance(package, str):
+            raise ValueError(f"{label} npm source requires a package name.")
+        package = validate_npm_package_name(package)
+        version_value = source.get("version")
+        if version_value is not None and not isinstance(version_value, str):
+            raise ValueError(f"{label} npm package version must be a string.")
+        version = validate_npm_version_selector(version_value)
+        registry_value = source.get("registry")
+        if registry_value is not None and not isinstance(registry_value, str):
+            raise ValueError(f"{label} npm registry must be a string.")
+        registry = normalize_npm_registry(registry_value)
+        return _PluginSource(
+            kind="npm",
+            display=f"npm:{package}@{version}",
+            npm_package=package,
+            npm_version=version,
+            npm_registry=registry,
+        )
     else:
-        raise ValueError(f"{label} source object must use github, url, or git-subdir.")
+        raise ValueError(f"{label} source object must use github, url, git-subdir, or npm.")
     ref_value = source.get("ref")
     if ref_value is not None and not isinstance(ref_value, str):
         raise ValueError(f"{label} Git ref must be a string.")
@@ -177,7 +216,14 @@ def _read_remote_plugin_source(
     sha = validate_git_sha(sha_value)
     if ref is not None and sha is not None:
         raise ValueError(f"{label} source must not specify both ref and sha.")
-    return str(kind), display, url, ref, sha, subdirectory
+    return _PluginSource(
+        kind=str(kind),
+        display=display,
+        url=url,
+        ref=ref,
+        sha=sha,
+        subdirectory=subdirectory,
+    )
 
 
 def _safe_subdirectory(value: object, label: str) -> str:

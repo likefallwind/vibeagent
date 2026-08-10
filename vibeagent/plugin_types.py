@@ -112,6 +112,9 @@ class MarketplacePlugin:
     ref: str | None
     sha: str | None
     subdirectory: str | None
+    npm_package: str | None
+    npm_version: str | None
+    npm_registry: str | None
     description: str
     version: str | None
 
