@@ -125,7 +125,9 @@ def _execute_special_tool(
                 model_timeout_ms=model_timeout_ms,
                 command_timeout_ms=command_timeout_ms,
                 logger=logger,
-                approval_handler=None,
+                approval_handler=(
+                    approval_handler if approval_policy == "allow" else None
+                ),
                 approval_policy=approval_policy,
                 hooks=hooks,
                 permissions=permissions,

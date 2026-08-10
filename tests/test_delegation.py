@@ -18,6 +18,7 @@ from vibeagent.session import read_session_events, summarize_session
 from vibeagent.session_types import SessionEvent
 from vibeagent.types import ApprovalDecision, AssistantResponse, ChatMessage, ContentBlock, ModelUsage
 from vibeagent.workspace import create_run_workspace
+from vibeagent.workspace_hooks import read_project_hooks
 
 
 class DelegationClient:
@@ -63,7 +64,177 @@ class ContextOverflowDelegationClient:
         return AssistantResponse(content=content, raw={"content": content})
 
 
+def write_project_hooks(root: Path, hooks: dict[str, object]) -> None:
+    path = root / ".vibeagent" / "hooks.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(hooks), encoding="utf-8")
+
+
+def command_hook(command: str, matcher: str = ".*") -> dict[str, object]:
+    return {
+        "matcher": matcher,
+        "hooks": [{"type": "command", "command": command, "timeout_ms": 10_000}],
+    }
+
+
+def approve_hook(_request) -> ApprovalDecision:
+    return ApprovalDecision(approved=True, message="approved")
+
+
 class DelegationTests(unittest.TestCase):
+    def test_subagent_start_hook_adds_context_before_first_model_call(self) -> None:
+        command = (
+            'python3 -c "import json,sys; d=json.load(sys.stdin); '
+            "print(json.dumps({'additionalContext': 'agent=' + d['agent_type'] + ':' + d['agent_id']}))\""
+        )
+        client = DelegationClient([[{"type": "text", "text": "Inspected with hook context."}]])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root, run_id="delegate-start-hook")
+            write_project_hooks(root, {"SubagentStart": [command_hook(command, "Explore")]})
+            action = parse_tool_action("delegate_task", {"task": "Inspect hooks"})
+
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=approve_hook,
+                hooks=read_project_hooks(workspace),
+            )
+
+        first_user = client.messages[0][1].content
+        self.assertTrue(observation.ok)
+        self.assertIn("SubagentStart hook context:", first_user)
+        self.assertIn("agent=Explore:delegate-1-1", first_user)
+
+    def test_background_subagent_worker_runs_start_hook_under_allow_policy(self) -> None:
+        command = (
+            'python3 -c "import json,sys; d=json.load(sys.stdin); '
+            "print(json.dumps({'additionalContext': 'background=' + d['agent_id']}))\""
+        )
+        client = DelegationClient([[{"type": "text", "text": "Background inspection complete."}]])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root, run_id="delegate-background-hook")
+            write_project_hooks(root, {"SubagentStart": [command_hook(command, "Explore")]})
+            action = parse_tool_action(
+                "delegate_task",
+                {"task": "Inspect in background", "run_in_background": True},
+            )
+
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="task-background",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=approve_hook,
+                approval_policy="allow",
+                hooks=read_project_hooks(workspace),
+            )
+
+        self.assertTrue(observation.ok)
+        self.assertTrue(observation.background)
+        self.assertIn("background=task-background", client.messages[0][1].content)
+
+    def test_subagent_stop_hook_can_block_text_completion_then_allow_retry(self) -> None:
+        command = (
+            'python3 -c "import json,sys; d=json.load(sys.stdin); '
+            "print(json.dumps({'decision':'block','reason':'Inspect tests first: ' + "
+            "d['last_assistant_message'] + ':' + d['agent_id'] + ':' + "
+            "d['agent_transcript_path'].split('/')[-1]}) "
+            "if not d['stop_hook_active'] else '{}')\""
+        )
+        client = DelegationClient(
+            [
+                [{"type": "text", "text": "Initial incomplete report."}],
+                [{"type": "text", "text": "Verified report."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root, run_id="delegate-stop-hook")
+            write_project_hooks(root, {"SubagentStop": [command_hook(command, "Explore")]})
+            action = parse_tool_action("delegate_task", {"task": "Inspect carefully", "max_iterations": 2})
+
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=approve_hook,
+                hooks=read_project_hooks(workspace),
+            )
+
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.iterations, 2)
+        self.assertEqual(observation.summary, "Verified report.")
+        self.assertIn(
+            "SubagentStop hook feedback:\nInspect tests first: Initial incomplete report.:delegate-1-1:events.jsonl",
+            client.messages[1][-1].content,
+        )
+
+    def test_subagent_stop_hook_returns_tool_result_when_finish_is_blocked(self) -> None:
+        command = (
+            'python3 -c "import json,sys; d=json.load(sys.stdin); '
+            "print(json.dumps({'decision':'block','reason':'Add evidence.'}) "
+            "if not d['stop_hook_active'] else '{}')\""
+        )
+        client = DelegationClient(
+            [
+                [{"type": "tool_call", "id": "finish-1", "name": "finish", "input": {"message": "Draft."}}],
+                [{"type": "text", "text": "Final report with evidence."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root, run_id="delegate-stop-tool-hook")
+            write_project_hooks(root, {"SubagentStop": [command_hook(command, "Explore")]})
+            action = parse_tool_action("delegate_task", {"task": "Finish with evidence", "max_iterations": 2})
+
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=approve_hook,
+                hooks=read_project_hooks(workspace),
+            )
+
+        blocked_result = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.summary, "Final report with evidence.")
+        self.assertEqual(blocked_result["kind"], "tool_error")
+        self.assertIn("SubagentStop hook feedback", blocked_result["message"])
+
     def test_delegate_context_helpers_live_in_context_module(self) -> None:
         self.assertIs(agent_delegate.DELEGATE_SYSTEM_PROMPT, agent_delegate_context.DELEGATE_SYSTEM_PROMPT)
         self.assertIs(agent_delegate.CODE_DELEGATE_SYSTEM_PROMPT, agent_delegate_context.CODE_DELEGATE_SYSTEM_PROMPT)

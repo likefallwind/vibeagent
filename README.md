@@ -1122,14 +1122,22 @@ hook map directly or under `hooks`:
 ```
 
 Supported lifecycle events are `SessionStart`, `InstructionsLoaded`,
-`UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, and
-`Stop`. Tool-event matchers apply to the model tool name, parsed VibeAgent
-action type, and Claude-compatible aliases. `SessionStart` matches `startup` or
-`resume`; `InstructionsLoaded` matches `session_start`, `nested_traversal`, or
-`path_glob_match`. Plain stdout or structured `additionalContext` from startup
-and prompt hooks enters the first model turn. Prompt hooks can exit 2 or return
-`decision: block`; Stop hooks can return a block reason or structured context
-to continue the agent, with an eight-continuation limit.
+`UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
+`SubagentStart`, and `SubagentStop`. Tool-event matchers apply to the model tool
+name, parsed VibeAgent action type, and Claude-compatible aliases.
+`SessionStart` matches `startup` or `resume`; `InstructionsLoaded` matches
+`session_start`, `nested_traversal`, or
+`path_glob_match`; subagent lifecycle matchers use the selected project profile
+name, `Explore`, or `general-purpose`. Plain stdout or structured
+`additionalContext` from startup, prompt, and `SubagentStart` hooks enters the
+corresponding first model turn. Prompt hooks can exit 2 or return
+`decision: block`; `Stop` and `SubagentStop` hooks can return a block reason to continue
+the relevant agent, with independent eight-continuation limits. A blocked
+subagent `finish` call receives a normal tool result before retrying, preserving
+the provider tool protocol. Subagent inputs include `agent_id`, `agent_type`,
+and, on stop, `stop_hook_active`, `last_assistant_message`, and
+`agent_transcript_path`; VibeAgent currently records parent and subagent events
+in the same session transcript.
 
 Every matching command hook requires approval under the current session policy
 and still passes command hard-block checks. Plan mode records and skips command
@@ -1140,7 +1148,10 @@ Claude-compatible JSON object on stdin, plus `VIBEAGENT_HOOK_EVENT` and
 `VIBEAGENT_HOOK_INPUT`; tool hooks also receive `VIBEAGENT_TOOL_NAME` and
 `VIBEAGENT_TOOL_TARGET`. Inputs use private temporary files inside the session
 directory and are deleted after execution. Results are recorded in the session
-timeline with bounded, redacted output.
+timeline with bounded, redacted output. Background subagent hooks follow the
+same policy; because they cannot prompt interactively, ask-mode hook commands
+need a trusted matching project allow rule or are denied, while allow mode runs
+them through the normal command safety checks.
 
 ## Command sandbox
 

@@ -44,6 +44,8 @@ class LifecycleHookConfigTests(unittest.TestCase):
                 root,
                 {
                     "SessionStart": [command_hook("python3 -V", "startup")],
+                    "SubagentStart": [command_hook("python3 -V", "Explore")],
+                    "SubagentStop": [command_hook("python3 -V", "Explore")],
                     "UserPromptSubmit": [command_hook("python3 -V")],
                     "Stop": [command_hook("python3 -V")],
                     "InstructionsLoaded": [command_hook("python3 -V", "session_start|nested_traversal")],
@@ -55,7 +57,14 @@ class LifecycleHookConfigTests(unittest.TestCase):
         self.assertIsNone(config.error)
         self.assertEqual(
             {hook.event for hook in config.hooks},
-            {"SessionStart", "UserPromptSubmit", "Stop", "InstructionsLoaded"},
+            {
+                "SessionStart",
+                "SubagentStart",
+                "SubagentStop",
+                "UserPromptSubmit",
+                "Stop",
+                "InstructionsLoaded",
+            },
         )
         self.assertTrue(config.requires_sequential_tools)
 
@@ -66,6 +75,8 @@ class LifecycleHookConfigTests(unittest.TestCase):
                 root,
                 {
                     "SessionStart": [command_hook("python3 -V", "startup")],
+                    "SubagentStart": [command_hook("python3 -V", "Explore")],
+                    "SubagentStop": [command_hook("python3 -V", "Explore")],
                     "UserPromptSubmit": [command_hook("python3 -V")],
                     "Stop": [command_hook("python3 -V")],
                 },

@@ -13,8 +13,8 @@ from .workspace_instruction_rules import path_is_in_scope, rule_pattern_matches
 from .workspace_permissions import ProjectPermissions
 
 
-CONTEXT_EVENTS = frozenset({"SessionStart", "UserPromptSubmit"})
-BLOCKING_EVENTS = frozenset({"Stop", "UserPromptSubmit"})
+CONTEXT_EVENTS = frozenset({"SessionStart", "SubagentStart", "UserPromptSubmit"})
+BLOCKING_EVENTS = frozenset({"Stop", "SubagentStop", "UserPromptSubmit"})
 ExecuteActionSafely = Callable[[RunWorkspace, object, int, str], Observation]
 
 

@@ -18,6 +18,8 @@ HookEvent = Literal[
     "PreToolUse",
     "SessionStart",
     "Stop",
+    "SubagentStart",
+    "SubagentStop",
     "UserPromptSubmit",
 ]
 HOOK_EVENTS = frozenset(
@@ -28,6 +30,8 @@ HOOK_EVENTS = frozenset(
         "PreToolUse",
         "SessionStart",
         "Stop",
+        "SubagentStart",
+        "SubagentStop",
         "UserPromptSubmit",
     }
 )

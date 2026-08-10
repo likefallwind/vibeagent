@@ -12,6 +12,7 @@ from .agent_delegate_context import (
     build_delegate_messages,
     compact_delegate_message_history,
 )
+from .agent_delegate_hooks import DelegateLifecycleHooks
 from .agent_delegate_loop import DelegateLoopContext, run_delegate_iterations
 from .agent_delegate_tools import (
     DELEGATE_TOOL_DEFINITIONS,
@@ -81,6 +82,19 @@ def execute_delegate_task_action(
             logger=logger,
         )
 
+    lifecycle = DelegateLifecycleHooks(
+        workspace=workspace,
+        action=action,
+        subagent_id=subagent_id,
+        hooks=hooks,
+        command_timeout_ms=command_timeout_ms,
+        logger=logger,
+        approval_handler=approval_handler,
+        approval_policy=approval_policy,
+        permissions=permissions,
+    )
+    lifecycle.start(messages)
+
     active_tool_names = (
         code_delegate_initial_tool_names(approval_policy, allowed_tool_names)
         if action.mode == "code"
@@ -96,6 +110,7 @@ def execute_delegate_task_action(
             steps=steps,
             parent_iteration=parent_iteration,
             subagent_id=subagent_id,
+            lifecycle=lifecycle,
             profile_prompt=profile_prompt,
             allowed_tool_names=allowed_tool_names,
             active_tool_names=active_tool_names,

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from .agent_delegate_completion import clip_delegate_summary, delegate_completion_message, finish_delegate_task
 from .agent_delegate_context import compact_delegate_message_history, recover_delegate_context_limit
+from .agent_delegate_hooks import DelegateLifecycleHooks
 from .agent_delegate_tools import delegate_tool_definitions, execute_delegate_tool_call
 from .agent_execution_support import execute_action_safely
 from .agent_lifecycle_hooks import run_instruction_loaded_hooks
@@ -22,6 +23,7 @@ from .types import (
     DelegateTaskObservation,
     Observation,
     TaskStep,
+    ToolErrorObservation,
 )
 from .workspace_core import RunWorkspace
 from .workspace_hooks import ProjectHooks
@@ -38,6 +40,7 @@ class DelegateLoopContext:
     steps: list[TaskStep]
     parent_iteration: int
     subagent_id: str
+    lifecycle: DelegateLifecycleHooks
     profile_prompt: str | None
     allowed_tool_names: frozenset[str] | None
     active_tool_names: set[str]
@@ -116,6 +119,20 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
 
         tool_calls = [block for block in assistant_content if block.get("type") == "tool_call"]
         if not tool_calls:
+            stop_feedback = _text_stop_feedback(context, child_iteration, assistant_content)
+            if stop_feedback is not None:
+                context.messages.append(ChatMessage(role="user", content=stop_feedback))
+                context.messages[:] = compact_delegate_message_history(
+                    context.workspace,
+                    context.action,
+                    context.messages,
+                    context.observations[context.delegate_observation_start :],
+                    parent_iteration=context.parent_iteration,
+                    child_iteration=child_iteration,
+                    subagent_id=context.subagent_id,
+                    profile_prompt=context.profile_prompt,
+                )
+                continue
             return _finish_text_response(context, child_iteration, tool_calls_used, assistant_content)
 
         tool_results: list[ContentBlock] = []
@@ -147,6 +164,28 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
             )
             auto_checkpoint_attempted = execution.auto_checkpoint_attempted
             if execution.finish_action is not None:
+                stop_feedback = context.lifecycle.stop_feedback(
+                    execution.finish_action.message,
+                    child_iteration,
+                )
+                if stop_feedback is not None:
+                    feedback_observation = ToolErrorObservation(
+                        kind="tool_error",
+                        tool=tool_name,
+                        message=stop_feedback,
+                    )
+                    tool_results.append(
+                        record_subagent_tool_observation(
+                            context.workspace,
+                            subagent_id=context.subagent_id,
+                            parent_iteration=context.parent_iteration,
+                            iteration=child_iteration,
+                            tool_id=tool_id,
+                            tool_name=tool_name,
+                            observation=feedback_observation,
+                        )
+                    )
+                    break
                 return _finish_tool_response(
                     context,
                     child_iteration,
@@ -208,6 +247,17 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
 
 def _cancellation_requested(context: DelegateLoopContext) -> bool:
     return context.cancel_requested is not None and context.cancel_requested()
+
+
+def _text_stop_feedback(
+    context: DelegateLoopContext,
+    child_iteration: int,
+    assistant_content: list[ContentBlock],
+) -> str | None:
+    summary = content_blocks_to_text(assistant_content).strip()
+    if not summary:
+        return None
+    return context.lifecycle.stop_feedback(summary, child_iteration)
 
 
 def _finish_cancelled(

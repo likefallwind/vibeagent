@@ -268,6 +268,9 @@ local changes when asked, and resume from recorded session context.
 - `tests.test_instruction_context_compaction.InstructionContextCompactionTests`
   covers independent main/subagent path-instruction loading and rule reload
   after either context is compacted.
+- `tests.test_delegation.DelegationTests` covers `SubagentStart` context
+  injection for foreground and background workers plus `SubagentStop` blocking
+  and retry for both text completion and the `finish` tool protocol.
 - `tests.test_workspace_instruction_rules.WorkspaceInstructionRuleTests`
   covers recursive project-contained `@path` instruction imports, entrypoint
   deduplication, lazy owner claims, comment/code handling, and failure boundaries;
