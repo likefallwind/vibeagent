@@ -127,6 +127,12 @@ local changes when asked, and resume from recorded session context.
   `@path` and slash-command Tab completion, ignored/sensitive/symlink filtering,
   scan and match bounds, readline restoration, non-TTY fallback, real input on
   the main thread, and idle callbacks that preserve scheduled and peer wakeups.
+- `tests.test_prompt_file_mentions.PromptFileMentionTests` and
+  `tests.test_agent_run_setup.AgentRunSetupTests` cover whole-file and exact
+  `@path#5-10` / `@path#L5-L10` prompt references, canonical deduplication,
+  numbered selected-line injection, malformed/reversed/oversized/out-of-file
+  rejection, text-only selector enforcement, metadata-only persistence, and
+  compaction retention.
 - `tests.test_project_trust.ProjectTrustIntegrationTests` covers bounded and
   secret-redacted terminal previews before project permission allow rules are
   trusted; raw rules remain available only for permission matching.

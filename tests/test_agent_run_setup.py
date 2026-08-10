@@ -100,6 +100,50 @@ class AgentRunSetupTests(unittest.TestCase):
         self.assertNotIn("REFERENCE_BODY", events_text)
         self.assertIn("REFERENCE_BODY = 42", str(setup.messages[1].content))
 
+    def test_prepare_agent_run_injects_only_selected_prompt_file_lines(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-run-setup-") as base:
+            root = Path(base)
+            source = "OUTSIDE_BEFORE\nSELECTED_ONE\nSELECTED_TWO\nOUTSIDE_AFTER\n"
+            (root / "app.py").write_text(source, encoding="utf-8")
+            setup = prepare_agent_run(
+                "Review @app.py#2-3",
+                base_dir=root,
+                workspace=None,
+                prior_context=None,
+                approval_policy="ask",
+                task_metadata=None,
+                trust_project_permissions=False,
+                permission_overrides=None,
+                mcp_config_paths=(),
+                strict_mcp_config=False,
+                system_prompt=None,
+                append_system_prompt=None,
+            )
+            events_text = setup.workspace.session_dir.joinpath("events.jsonl").read_text(encoding="utf-8")
+            events = [json.loads(line) for line in events_text.splitlines()]
+
+        prompt = str(setup.messages[1].content)
+        loaded = next(event for event in events if event["type"] == "prompt_files_loaded")
+        self.assertEqual(events[0]["task"], "Review @app.py#2-3")
+        self.assertEqual(
+            loaded["files"],
+            [
+                {
+                    "path": "app.py",
+                    "kind": "text",
+                    "bytes": len(source.encode("utf-8")),
+                    "truncated": False,
+                    "start_line": 2,
+                    "end_line": 3,
+                }
+            ],
+        )
+        self.assertIn("2: SELECTED_ONE", prompt)
+        self.assertIn("3: SELECTED_TWO", prompt)
+        self.assertNotIn("OUTSIDE_BEFORE", prompt)
+        self.assertNotIn("OUTSIDE_AFTER", prompt)
+        self.assertNotIn("SELECTED_ONE", events_text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -90,8 +90,12 @@ class RunningPluginMonitor:
             if buffer:
                 _emit_line(self.config, buffer, on_output)
         finally:
+            return_code = self.process.wait()
+            # Exit reporting must observe stderr written immediately before the process exits.
+            if self.stderr_thread is not None:
+                self.stderr_thread.join(timeout=1)
             try:
-                on_exit(self, self.process.wait())
+                on_exit(self, return_code)
             finally:
                 stream.close()
 

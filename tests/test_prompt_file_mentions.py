@@ -62,6 +62,44 @@ class PromptFileMentionTests(unittest.TestCase):
         self.assertEqual(metadata["files"][0]["bytes"], 25_000)
         self.assertNotIn("content", metadata["files"][0])
 
+    def test_loads_numbered_line_ranges_and_normalizes_selector_syntax(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-mentions-") as base:
+            root = Path(base)
+            (root / "app.py").write_text(
+                "".join(f"value {line}\n" for line in range(1, 13)),
+                encoding="utf-8",
+            )
+            (root / "docs").mkdir()
+            (root / "docs" / "with space.md").write_text("first\nsecond\nthird\n", encoding="utf-8")
+            (root / "notes#draft.md").write_text("draft\n", encoding="utf-8")
+            workspace = create_run_workspace(root, "run-1")
+            task = (
+                'Review @app.py#5-7, @app.py#L5-L7, @app.py#L10 and '
+                '@"docs/with space.md"#L2-L3 plus @notes#draft.md.'
+            )
+            mentions = find_prompt_file_mentions(task, workspace)
+            context = load_prompt_file_context(task, workspace)
+            metadata = prompt_file_context_metadata(context)
+            block_text = str(prompt_file_reference_blocks(context)[0]["text"])
+
+        self.assertEqual(
+            mentions,
+            (
+                "app.py#5-7",
+                "app.py#10-10",
+                "docs/with space.md#2-3",
+                "notes#draft.md",
+            ),
+        )
+        self.assertEqual(context.text_files[0].content, "5: value 5\n6: value 6\n7: value 7")
+        self.assertEqual(context.text_files[1].content, "10: value 10")
+        self.assertEqual(context.text_files[2].content, "2: second\n3: third")
+        self.assertEqual(context.text_files[3].content, "draft\n")
+        self.assertEqual(metadata["files"][0]["start_line"], 5)
+        self.assertEqual(metadata["files"][0]["end_line"], 7)
+        self.assertIn('start_line="5" end_line="7"', block_text)
+        self.assertNotIn("1: value 1", block_text)
+
     def test_loads_image_as_provider_neutral_one_turn_block(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-mentions-") as base:
             root = Path(base)
@@ -82,6 +120,7 @@ class PromptFileMentionTests(unittest.TestCase):
             root = Path(base)
             (root / ".env").write_text("TOKEN=secret\n", encoding="utf-8")
             (root / "binary.bin").write_bytes(b"\x00\x01")
+            (root / "pixel.png").write_bytes(PNG_1X1)
             for index in range(MAX_PROMPT_FILE_MENTIONS + 1):
                 (root / f"file{index}.py").write_text("x\n", encoding="utf-8")
             workspace = create_run_workspace(root, "run-1")
@@ -91,6 +130,12 @@ class PromptFileMentionTests(unittest.TestCase):
                 "escape": "Inspect @../outside.py",
                 "sensitive": "Inspect @.env",
                 "binary": "Inspect @binary.bin",
+                "invalid_selector": "Inspect @file0.py#bad",
+                "zero_line": "Inspect @file0.py#0",
+                "reverse_range": "Inspect @file0.py#5-2",
+                "range_too_large": "Inspect @file0.py#1-1001",
+                "range_outside_file": "Inspect @file0.py#1-2",
+                "image_selector": "Inspect @pixel.png#1",
                 "excess": "Inspect " + " ".join(
                     f"@file{index}.py" for index in range(MAX_PROMPT_FILE_MENTIONS + 1)
                 ),

@@ -178,8 +178,11 @@ printf "summarize the project risks\n" | python -m vibeagent -
 
 Coding prompts accept Claude-style `@path` file references. Unquoted paths end
 at whitespace; use `@"path with spaces.md"` or `@'path with spaces.md'` when
-needed. In an interactive terminal, type `@` plus a path prefix or file-name
-fragment and press Tab for bounded project path completion; slash commands use
+needed. Append `#5-10` or `#L5-L10` for an inclusive text-file line range, or
+`#L5` for one line. Selected lines are numbered in model context, ranges must
+stay inside the file and contain at most 1,000 lines, and image references do
+not accept line selectors. In an interactive terminal, type `@` plus a path
+prefix or file-name fragment and press Tab for bounded project path completion; slash commands use
 the same terminal-native completion. Suggestions exclude ignored, sensitive,
 protected, and symlinked paths and never launch a GUI file picker. VibeAgent
 resolves at most ten unique references inside the active
@@ -1782,6 +1785,9 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
 - `vibeagent/prompt_file_mentions.py`: resolves bounded `@path` text and image
   references inside the active workspace, builds provider-neutral prompt blocks,
   and emits content-free session metadata.
+- `vibeagent/prompt_file_mention_parsing.py`: recognizes unquoted and quoted
+  prompt mentions, canonicalizes optional Claude-style line selectors, dedupes
+  structured references, and enforces count and range limits before file I/O.
 - `vibeagent/cli_completion.py`: provides bounded terminal-native `@path` and
   slash-command completion, filters candidates through workspace ignore and
   sensitive-path policy, and restores process readline state after each prompt.

@@ -6,7 +6,7 @@ def get_help_text() -> str:
     return "\n".join(
         [
             "Commands:",
-            "  @path  Attach a bounded project text file or image; press Tab for safe terminal path completion.",
+            "  @path[#Lx-Ly]  Attach a bounded file or exact text line range; press Tab for path completion.",
             "  /help   Show this help.",
             "  /model  Show model provider configuration.",
             "  /config Show resolved provider and execution configuration.",
