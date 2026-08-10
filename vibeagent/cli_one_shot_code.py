@@ -43,6 +43,8 @@ from .workspace_permissions import ProjectPermissions
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .monitor_runtime import stop_session_monitors
 from .deferred_tool_state import read_deferred_tool_state
+from .session_lifecycle_hooks import run_session_end_hooks
+from .agent_runtime_utils import append_session_event, format_exception
 
 
 def run_one_shot_code(
@@ -208,7 +210,34 @@ def run_one_shot_code(
     goal_turns = 0
     structured_output: StructuredOutputResult | None = None
     result: AgentResult | None = None
+    session_end_ran = False
     recorded_session_tokens: dict[str, int] = {}
+
+    def end_session() -> None:
+        nonlocal session_end_ran
+        if result is None or session_end_ran:
+            return
+        session_workspace = create_local_workspace(
+            result.run_dir,
+            result.run_id,
+            additional_roots=additional_directories,
+        )
+        session_end_ran = True
+        try:
+            run_session_end_hooks(
+                session_workspace,
+                "other",
+                command_timeout_ms=execution_config.command_timeout_ms,
+                approval_handler=run_kwargs.get("approval_handler"),
+                approval_policy=result.approval_policy or approval_policy,
+            )
+        except Exception as error:
+            append_session_event(
+                session_workspace.session_dir,
+                "session_end_hook_error",
+                {"reason": "other", "message": format_exception(error)},
+            )
+
     try:
         with stream_scope.event_scope:
             if fork_session:
@@ -271,8 +300,10 @@ def run_one_shot_code(
                     model_timeout_ms=execution_config.model_timeout_ms,
                     iteration=result.iterations,
                 )
+            end_session()
     finally:
         if result is not None:
+            end_session()
             stop_session_monitors(project_root, result.run_id)
         if peer_runtime is not None:
             peer_runtime.close()

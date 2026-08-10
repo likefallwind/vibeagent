@@ -1612,9 +1612,10 @@ hook map directly or under `hooks`:
 }
 ```
 
-Supported lifecycle events are `SessionStart`, `CwdChanged`, `InstructionsLoaded`,
-`UserPromptSubmit`, `PreToolUse`, `PermissionRequest`, `PostToolUse`,
-`PostToolUseFailure`, `Stop`, `SubagentStart`, and `SubagentStop`. Tool-event
+Supported lifecycle events are `SessionStart`, `SessionEnd`, `PreCompact`,
+`PostCompact`, `CwdChanged`, `InstructionsLoaded`, `UserPromptSubmit`,
+`PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
+`SubagentStart`, and `SubagentStop`. Tool-event
 matchers apply to the model tool name, parsed VibeAgent action type, and
 Claude-compatible aliases.
 `SessionStart` matches `startup` or `resume`; `InstructionsLoaded` matches
@@ -1631,6 +1632,18 @@ and, on stop, `stop_hook_active`, `last_assistant_message`, and
 `agent_transcript_path`. Parent lifecycle events remain in the session event log,
 while resumable subagent message history is atomically stored under
 `.vibeagent/sessions/<session-id>/subagents/` with secret redaction.
+
+`PreCompact` and `PostCompact` match `manual` or `auto`. Automatic main-agent
+context reduction emits both events around a successful compact operation;
+interactive `/compact` does the same around the bounded handoff summary.
+`PreCompact` receives `trigger` and empty `custom_instructions`, while
+`PostCompact` receives `trigger` and `compact_summary`. `SessionEnd` matches
+`clear`, `resume`, `logout`, `prompt_input_exit`,
+`bypass_permissions_disabled`, or `other`; VibeAgent emits it for one-shot
+termination, interactive exit/EOF, `/clear`, session switching, and branching.
+These events cannot block compaction or termination. Session-end handlers share
+a 1.5-second default budget, configurable up to 60 seconds through an explicit
+hook timeout or `CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS`.
 
 `CwdChanged` ignores matchers and fires after a main-session shell command
 actually changes the effective directory. Its JSON input includes absolute

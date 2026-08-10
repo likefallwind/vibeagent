@@ -55,7 +55,11 @@ def _parse_command_hook(
         raise ValueError(
             f"{source} hook command must contain 1-{MAX_HOOK_COMMAND_CHARS} characters."
         )
-    timeout_ms = _parse_hook_timeout(payload, source)
+    timeout_ms = _parse_hook_timeout(
+        payload,
+        source,
+        default_ms=_default_hook_timeout_ms(event),
+    )
     async_value = payload.get("async", False)
     async_rewake = payload.get("asyncRewake", False)
     if not isinstance(async_value, bool):
@@ -132,7 +136,11 @@ def _parse_http_hook(
         raise ValueError(
             f"{source} HTTP hook allowedEnvVars must contain at most {MAX_HOOK_HEADERS} environment variable names."
         )
-    timeout_ms = _parse_hook_timeout(payload, source)
+    timeout_ms = _parse_hook_timeout(
+        payload,
+        source,
+        default_ms=_default_hook_timeout_ms(event),
+    )
     return ProjectHook(
         event=cast(HookEvent, event),
         matcher=matcher,
@@ -174,7 +182,11 @@ def _parse_mcp_tool_hook(
         event=cast(HookEvent, event),
         matcher=matcher,
         command="",
-        timeout_ms=_parse_hook_timeout(payload, source),
+        timeout_ms=_parse_hook_timeout(
+            payload,
+            source,
+            default_ms=_default_hook_timeout_ms(event),
+        ),
         source=source,
         handler_type="mcp_tool",
         mcp_server=server,
@@ -263,6 +275,10 @@ def _parse_hook_timeout(
     ):
         raise ValueError(f"{source} hook timeout_ms must be between 100 and 600000.")
     return timeout_ms
+
+
+def _default_hook_timeout_ms(event: str) -> int:
+    return 1_500 if event == "SessionEnd" else 600_000
 
 
 __all__ = ["parse_hook_handler"]

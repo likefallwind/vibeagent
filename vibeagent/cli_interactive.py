@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from threading import Lock
-from typing import Any
+from typing import Any, Literal
 
 from . import __version__
 from .agent import run_agent as default_run_agent
@@ -96,6 +96,7 @@ from .session_additional_directories import (
     restore_session_additional_directories,
 )
 from .session_conversation import load_session_conversation
+from .session_lifecycle_hooks import run_interactive_session_hook
 from .workspace_core import RunWorkspace
 
 
@@ -399,6 +400,29 @@ def run_interactive_loop(
                 )
             )
 
+    def run_active_session_hook(
+        event: Literal["session_end", "pre_compact", "post_compact"],
+        value: str,
+        summary: str | None = None,
+    ) -> None:
+        try:
+            run_interactive_session_hook(
+                Path.cwd(),
+                resume_run_id,
+                pending_workspace,
+                additional_directories,
+                event,
+                value,
+                summary=summary,
+                command_timeout_ms=resolve_execution_config(
+                    Path.cwd()
+                ).command_timeout_ms,
+                approval_handler=approval_handler,
+                approval_policy=approval_policy,
+            )
+        except Exception as error:
+            print(f"Lifecycle hook warning: {format_error(error)}")
+
     while True:
         try:
             with interactive_prompt_completion(Path.cwd(), additional_directories):
@@ -409,6 +433,7 @@ def run_interactive_loop(
                 ).strip()
         except (EOFError, KeyboardInterrupt):
             print()
+            run_active_session_hook("session_end", "prompt_input_exit")
             stop_owned_background_runtime()
             if workflow_manager is not None:
                 workflow_manager.close()
@@ -457,6 +482,7 @@ def run_interactive_loop(
             if custom_command is not None:
                 task = str(custom_command["prompt"])
         if command and command.type == "exit":
+            run_active_session_hook("session_end", "prompt_input_exit")
             stop_owned_background_runtime()
             if workflow_manager is not None:
                 workflow_manager.close()
@@ -515,6 +541,7 @@ def run_interactive_loop(
             print(review_text)
             continue
         if command and command.type == "clear":
+            run_active_session_hook("session_end", "clear")
             if goal_state is not None and resume_run_id is not None:
                 goal_state = clear_goal(goal_state)
                 write_goal(create_local_workspace(Path.cwd(), resume_run_id), goal_state)
@@ -668,7 +695,18 @@ def run_interactive_loop(
         ) is not None:
             print(checkpoint_text)
             continue
-        if command and (resume_result := run_interactive_resume_command(command, command_namespace)) is not None:
+        if command and (
+            resume_result := run_interactive_resume_command(
+                command,
+                command_namespace,
+                before_compact=lambda: run_active_session_hook(
+                    "pre_compact", "manual"
+                ),
+                after_compact=lambda summary: run_active_session_hook(
+                    "post_compact", "manual", summary
+                ),
+            )
+        ) is not None:
             selected, context, text = resume_result
             restored_directories = restore_session_additional_directories(Path.cwd(), selected)
             try:
@@ -683,6 +721,8 @@ def run_interactive_loop(
             if workflow_manager is not None:
                 workflow_manager.close()
                 workflow_manager = None
+            if command.type == "resume" and selected != resume_run_id:
+                run_active_session_hook("session_end", "resume")
             resume_run_id = selected
             resume_context = context
             restored_conversation = (
@@ -728,6 +768,7 @@ def run_interactive_loop(
             if workflow_manager is not None:
                 workflow_manager.close()
                 workflow_manager = None
+            run_active_session_hook("session_end", "resume")
             pending_workspace = branch.workspace
             pending_branch_source_run_id = branch.source_run_id
             resume_run_id = branch.workspace.run_id

@@ -43,7 +43,12 @@ class CliOneShotCodeTests(unittest.TestCase):
                 calls.append(kwargs)
                 return AgentResult(True, "done", root, "run-old", 1, [], [])
 
-            with patch("vibeagent.cli_one_shot_code.emit_one_shot_code_payload"):
+            with (
+                patch("vibeagent.cli_one_shot_code.emit_one_shot_code_payload"),
+                patch(
+                    "vibeagent.cli_one_shot_code.run_session_end_hooks"
+                ) as session_end,
+            ):
                 exit_code, _ = run_one_shot_code(
                     "continue",
                     project_root=root,
@@ -84,6 +89,8 @@ class CliOneShotCodeTests(unittest.TestCase):
         self.assertEqual(calls[0]["deferred_tool_state"], state)
         self.assertTrue(calls[0]["defer_tool_calls"])
         self.assertTrue(calls[0]["close_async_hooks_on_finish"])
+        self.assertEqual(session_end.call_args.args[1], "other")
+        self.assertEqual(session_end.call_args.kwargs["approval_policy"], "allow")
 
     def test_run_one_shot_code_generates_structured_output_after_completed_workflow(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-one-shot-structured-") as base:

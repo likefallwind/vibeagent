@@ -162,6 +162,12 @@ The automated suite currently covers these 1.0 surfaces:
   updated actions are rechecked against project rules and workspace safety, and
   malformed or failed updates fall back to ordinary user approval with bounded
   audit evidence.
+- Claude-compatible compaction and termination hooks: `PreCompact` and
+  `PostCompact` wrap automatic main-agent and interactive manual compaction with
+  trigger and bounded summary input; `SessionEnd` receives the documented exit
+  reason for one-shot termination, interactive exit, clear, resume, and branch
+  paths. These events are non-blocking, reject model handlers, and enforce the
+  shared 1.5-second default session-end budget with a 60-second ceiling.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

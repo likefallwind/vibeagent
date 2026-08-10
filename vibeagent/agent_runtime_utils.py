@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from threading import RLock
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
@@ -25,6 +26,7 @@ AGENT_MESSAGE_COMPACT_CHAR_THRESHOLD = 96_000
 AGENT_COMPACT_OBSERVATION_LIMIT = 20
 AGENT_COMPACT_CONTEXT_MAX_LENGTH = 12_000
 _SESSION_EVENT_WRITE_LOCK = RLock()
+CompactHookRunner = Callable[[str, str, str | None], None]
 
 
 def format_exception(error: Exception) -> str:
@@ -72,12 +74,17 @@ def compact_agent_message_history(
     force: bool = False,
     reason: str | None = None,
     char_threshold: int = AGENT_MESSAGE_COMPACT_CHAR_THRESHOLD,
+    compact_hook_runner: CompactHookRunner | None = None,
 ) -> list[ChatMessage]:
     previous_chars = message_history_char_count(messages)
     message_threshold_reached = len(messages) > threshold
     char_threshold_reached = previous_chars > char_threshold
     if not force and not message_threshold_reached and not char_threshold_reached:
         return messages
+
+    trigger = "auto"
+    if compact_hook_runner is not None:
+        compact_hook_runner("pre", trigger, None)
 
     prior_context = build_compacted_agent_context(
         observations,
@@ -121,6 +128,8 @@ def compact_agent_message_history(
             "path_instruction_reset_error": reset_error,
         },
     )
+    if compact_hook_runner is not None:
+        compact_hook_runner("post", trigger, prior_context)
     return compacted_messages
 
 

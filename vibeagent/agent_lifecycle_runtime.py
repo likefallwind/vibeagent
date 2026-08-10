@@ -78,6 +78,44 @@ class AgentLifecycleRuntime:
         self.stop_continuations += 1
         return "Stop hook feedback:\n" + result.blocking_message
 
+    def compact(
+        self,
+        workspace: RunWorkspace,
+        phase: str,
+        trigger: str,
+        summary: str | None,
+        *,
+        iteration: int,
+    ) -> None:
+        event: HookEvent = "PreCompact" if phase == "pre" else "PostCompact"
+        fields: dict[str, object] = {"trigger": trigger}
+        if event == "PreCompact":
+            fields["custom_instructions"] = ""
+        else:
+            fields["compact_summary"] = summary or ""
+        self._run(
+            workspace,
+            event,
+            trigger,
+            fields,
+            iteration=iteration,
+        )
+
+    def end(
+        self,
+        workspace: RunWorkspace,
+        reason: str,
+        *,
+        iteration: int = 0,
+    ) -> LifecycleHookResult:
+        return self._run(
+            workspace,
+            "SessionEnd",
+            reason,
+            {"reason": reason},
+            iteration=iteration,
+        )
+
     def instruction_hook_runner(
         self,
         workspace: RunWorkspace,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -100,6 +101,9 @@ def run_interactive_session_command(command: Any, commands: dict[str, Any]) -> s
 def run_interactive_resume_command(
     command: Any,
     commands: dict[str, Any],
+    *,
+    before_compact: Callable[[], None] | None = None,
+    after_compact: Callable[[str], None] | None = None,
 ) -> tuple[str | None, str | None, str] | None:
     if command.type not in {"resume", "compact"}:
         return None
@@ -123,4 +127,9 @@ def run_interactive_resume_command(
     if error:
         return None, None, error
     getter_name = "get_resume_context" if command.type == "resume" else "get_compact_context"
-    return commands[getter_name](run_id, **kwargs)
+    if command.type == "compact" and before_compact is not None:
+        before_compact()
+    result = commands[getter_name](run_id, **kwargs)
+    if command.type == "compact" and result[1] is not None and after_compact is not None:
+        after_compact(result[1])
+    return result

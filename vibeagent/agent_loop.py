@@ -251,6 +251,16 @@ def run_agent_loop(
         execute_action_safely=runtime.execute_action_safely,
         hook_model_runtime=hook_model_runtime,
     )
+
+    def compact_hook_runner(iteration: int):
+        return lambda phase, trigger, summary: lifecycle.compact(
+            current_workspace,
+            phase,
+            trigger,
+            summary,
+            iteration=iteration,
+        )
+
     startup_block = lifecycle.start(
         current_workspace, messages, task, resumed=bool(prior_context)
     )
@@ -433,6 +443,7 @@ def run_agent_loop(
             approval_policy=plan_mode.current_policy,
             system_prompt=system_prompt,
             append_system_prompt=append_system_prompt,
+            compact_hook_runner=compact_hook_runner(0),
         )
         checkpoint_conversation()
         return None
@@ -492,6 +503,7 @@ def run_agent_loop(
             approval_policy=plan_mode.current_policy,
             system_prompt=system_prompt,
             append_system_prompt=append_system_prompt,
+            compact_hook_runner=compact_hook_runner(iteration),
         )
         checkpoint_conversation()
 
@@ -523,6 +535,7 @@ def run_agent_loop(
                 approval_policy=plan_mode.current_policy,
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
+                compact_hook_runner=compact_hook_runner(iteration),
             ),
         )
         if response is None:
@@ -624,6 +637,7 @@ def run_agent_loop(
                 approval_policy=plan_mode.current_policy,
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
+                compact_hook_runner=compact_hook_runner(iteration),
             )
             checkpoint_conversation()
             continue
@@ -737,6 +751,7 @@ def run_agent_loop(
             approval_policy=plan_mode.current_policy,
             system_prompt=system_prompt,
             append_system_prompt=append_system_prompt,
+            compact_hook_runner=compact_hook_runner(iteration),
         )
         checkpoint_conversation()
 

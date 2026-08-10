@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
+import os
+import time
 
 from .agent_hook_execution import run_project_hook
 from .session_environment import lifecycle_hook_environment
@@ -11,6 +13,7 @@ from .agent_hook_prompt import HookModelRuntime
 from .types import AgentLogger, ApprovalHandler, ApprovalPolicy, Observation
 from .workspace_core import RunWorkspace
 from .workspace_hooks import HookEvent, ProjectHooks, matching_lifecycle_hooks
+from .workspace_hook_types import ProjectHook
 from .workspace_instruction_rules import path_is_in_scope, rule_pattern_matches
 from .workspace_permissions import ProjectPermissions
 
@@ -18,6 +21,8 @@ from .workspace_permissions import ProjectPermissions
 CONTEXT_EVENTS = frozenset({"SessionStart", "SubagentStart", "UserPromptSubmit"})
 BLOCKING_EVENTS = frozenset({"Stop", "SubagentStop", "UserPromptSubmit"})
 ExecuteActionSafely = Callable[[RunWorkspace, object, int, str], Observation]
+SESSION_END_DEFAULT_BUDGET_MS = 1_500
+SESSION_END_MAX_BUDGET_MS = 60_000
 
 
 @dataclass(frozen=True)
@@ -56,7 +61,17 @@ def run_lifecycle_hooks(
     }
     results: list[HookRunResult] = []
     contexts: list[str] = []
+    session_end_deadline = (
+        time.monotonic() + _session_end_budget_ms(hooks) / 1000
+        if event == "SessionEnd"
+        else None
+    )
     for index, hook in enumerate(hooks, start=1):
+        if session_end_deadline is not None:
+            remaining_ms = round((session_end_deadline - time.monotonic()) * 1000)
+            if remaining_ms < 100:
+                break
+            hook = replace(hook, timeout_ms=min(hook.timeout_ms, remaining_ms))
         result = run_project_hook(
             workspace,
             hook,
@@ -229,6 +244,28 @@ def _claude_permission_mode(policy: ApprovalPolicy) -> str:
         "dontAsk": "dontAsk",
         "plan": "plan",
     }[policy]
+
+
+def _session_end_budget_ms(hooks: list[ProjectHook]) -> int:
+    override = os.environ.get("CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS")
+    if override is not None:
+        try:
+            value = int(override)
+        except ValueError:
+            value = SESSION_END_DEFAULT_BUDGET_MS
+        return max(100, min(value, SESSION_END_MAX_BUDGET_MS))
+    configured = max(
+        (
+            hook.timeout_ms
+            for hook in hooks
+            if not hook.source.startswith("plugin:")
+        ),
+        default=SESSION_END_DEFAULT_BUDGET_MS,
+    )
+    return max(
+        SESSION_END_DEFAULT_BUDGET_MS,
+        min(configured, SESSION_END_MAX_BUDGET_MS),
+    )
 
 
 __all__ = ["LifecycleHookResult", "run_instruction_loaded_hooks", "run_lifecycle_hooks"]
