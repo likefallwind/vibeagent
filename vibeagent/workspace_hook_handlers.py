@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import re
 from typing import cast
 from urllib.parse import urlsplit
 
+from .mcp_config import MCP_NAME_PATTERN
 from .workspace_hook_types import HookEvent, ProjectHook
 
 
@@ -28,7 +30,9 @@ def parse_hook_handler(
         return _parse_command_hook(event, matcher, payload, source)
     if handler_type == "http":
         return _parse_http_hook(event, matcher, payload, source)
-    raise ValueError(f"{source} hook type must be command or http.")
+    if handler_type == "mcp_tool":
+        return _parse_mcp_tool_hook(event, matcher, payload, source)
+    raise ValueError(f"{source} hook type must be command, http, or mcp_tool.")
 
 
 def _parse_command_hook(
@@ -131,6 +135,43 @@ def _parse_http_hook(
         url=normalized_url,
         headers=tuple(headers),
         allowed_env_vars=tuple(dict.fromkeys(cast(list[str], allowed_payload))),
+    )
+
+
+def _parse_mcp_tool_hook(
+    event: str, matcher: str, payload: dict[str, object], source: str
+) -> ProjectHook:
+    if "async" in payload or "asyncRewake" in payload:
+        raise ValueError(f"{source} MCP tool hooks do not support async or asyncRewake.")
+    server = payload.get("server")
+    tool = payload.get("tool")
+    if not isinstance(server, str) or not MCP_NAME_PATTERN.fullmatch(server):
+        raise ValueError(
+            f"{source} MCP hook server must use 1-64 letters, digits, dots, underscores, or hyphens."
+        )
+    if not isinstance(tool, str) or not MCP_NAME_PATTERN.fullmatch(tool):
+        raise ValueError(
+            f"{source} MCP hook tool must use 1-64 letters, digits, dots, underscores, or hyphens."
+        )
+    input_payload = payload.get("input", {})
+    if not isinstance(input_payload, dict):
+        raise ValueError(f"{source} MCP hook input must be an object.")
+    try:
+        encoded = json.dumps(input_payload, ensure_ascii=False)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{source} MCP hook input must be JSON serializable: {error}.") from error
+    if len(encoded) > 50_000:
+        raise ValueError(f"{source} MCP hook input exceeds 50000 characters.")
+    return ProjectHook(
+        event=cast(HookEvent, event),
+        matcher=matcher,
+        command="",
+        timeout_ms=_parse_hook_timeout(payload, source),
+        source=source,
+        handler_type="mcp_tool",
+        mcp_server=server,
+        mcp_tool=tool,
+        mcp_input=input_payload,
     )
 
 

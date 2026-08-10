@@ -114,3 +114,4 @@ class McpCallObservation:
     error: str | None
     message: str
     arguments: dict[str, object] = field(default_factory=dict)
+    text_output: str = ""

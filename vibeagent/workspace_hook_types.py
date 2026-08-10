@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 
 HookEvent = Literal[
@@ -42,17 +42,24 @@ class ProjectHook:
     command: str
     timeout_ms: int
     source: str
-    handler_type: Literal["command", "http"] = "command"
+    handler_type: Literal["command", "http", "mcp_tool"] = "command"
     url: str = ""
     headers: tuple[tuple[str, str], ...] = ()
     allowed_env_vars: tuple[str, ...] = ()
+    mcp_server: str = ""
+    mcp_tool: str = ""
+    mcp_input: dict[str, Any] = field(default_factory=dict)
     environment: dict[str, str] = field(default_factory=dict)
     async_: bool = False
     async_rewake: bool = False
 
     @property
     def handler_target(self) -> str:
-        return self.command if self.handler_type == "command" else self.url
+        if self.handler_type == "command":
+            return self.command
+        if self.handler_type == "http":
+            return self.url
+        return f"{self.mcp_server}/{self.mcp_tool}"
 
 
 @dataclass(frozen=True)

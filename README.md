@@ -1639,11 +1639,13 @@ directory transition. `SessionStart` and `CwdChanged` hook processes also
 receive `CLAUDE_ENV_FILE`; changes they write there apply to later Bash
 commands in the session.
 
-Every matching command or HTTP hook requires approval under the current session
-policy. Command handlers still pass command hard-block checks, while HTTP
-handlers validate their destination before connecting. Plan mode records and
-skips both handler types. A failed or denied command pre-tool hook blocks the
-target tool; a failed post-tool command hook preserves the target result but
+Every matching command, HTTP, or MCP tool hook requires approval under the
+current session policy. Command handlers still pass command hard-block checks,
+HTTP handlers validate their destination before connecting, and MCP handlers
+reuse configured-server and advertised-tool validation. Plan mode records and
+skips all three handler types. A failed or denied command pre-tool hook blocks the
+target tool, as does a denied HTTP or MCP handler approval. A failed post-tool
+command hook preserves the target result but
 records an additional tool error that prevents an unqualified successful
 completion. Hook commands receive a
 Claude-compatible JSON object on stdin, `CLAUDE_PROJECT_DIR`, plus `VIBEAGENT_HOOK_EVENT` and
@@ -1688,6 +1690,18 @@ rejected. Non-2xx responses, connection failures, oversized inputs, and
 timeouts are recorded as
 bounded non-blocking hook errors; they cannot block a tool unless a 2xx JSON
 response returns an explicit decision.
+
+MCP handlers use Claude-compatible `type: "mcp_tool"`, `server`, `tool`, and
+optional `input` fields. String input values can reference the hook payload with
+`${path.to.value}` placeholders; an exact placeholder preserves JSON types,
+while embedded placeholders render compact text. Expansion is bounded by depth,
+node count, and 50,000 serialized characters, and missing paths fail without
+calling the server. The handler uses the same configured MCP transport, command
+hard blocks, tool discovery, approval rules, result redaction, and timeout path
+as a normal `mcp_call`. Successful text is processed as ordinary hook stdout,
+including structured `PreToolUse` decisions. Missing servers, unavailable tools,
+protocol failures, and MCP `isError` results are recorded as non-blocking hook
+errors so they do not suppress the triggering action.
 
 Successful `PreToolUse` hooks can return Claude-compatible structured JSON under
 `hookSpecificOutput`. `permissionDecision` accepts `allow`, `ask`, `deny`, or

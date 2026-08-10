@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from .agent_hook_results import HookRunResult, hook_result_from_observation
 from .agent_hook_http import run_project_http_hook
+from .agent_hook_mcp import run_project_mcp_hook
 from .async_hook_runtime import start_async_hook
 from .agent_observation_utils import summarize
 from .agent_permissions import authorize_tool_action
@@ -62,6 +63,20 @@ def run_project_hook(
             logger=logger,
             approval_handler=approval_handler,
             approval_policy=approval_policy,
+            permissions=permissions,
+        )
+    if hook.handler_type == "mcp_tool":
+        return run_project_mcp_hook(
+            workspace,
+            hook,
+            target=target,
+            hook_input=hook_input,
+            iteration=iteration,
+            hook_index=hook_index,
+            logger=logger,
+            approval_handler=approval_handler,
+            approval_policy=approval_policy,
+            execute_action_safely_func=execute_action_safely_func,
             permissions=permissions,
         )
     return _run_project_command_hook(

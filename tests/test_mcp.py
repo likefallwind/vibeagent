@@ -361,6 +361,7 @@ class McpRuntimeTests(unittest.TestCase):
         self.assertEqual(called.arguments, {"message": "hello"})
         self.assertIn('"message": "hello"', called.output)
         self.assertIn('"env": "expanded"', called.output)
+        self.assertEqual(called.text_output, '{"message": "hello"}')
 
     def test_lists_and_reads_resources_over_real_stdio_protocol(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-mcp-") as base:

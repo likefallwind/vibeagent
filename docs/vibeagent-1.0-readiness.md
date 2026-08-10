@@ -138,6 +138,11 @@ The automated suite currently covers these 1.0 surfaces:
   decisions, reject credential-bearing and cross-network-scope URLs, and record
   non-2xx, connection, and timeout failures without blocking the triggering
   action.
+- Claude-compatible MCP tool hooks: approved handlers expand bounded typed
+  `${path}` values from lifecycle input, call an advertised tool on a configured
+  stdio or HTTP MCP server through the normal command and transport safety path,
+  feed successful plain or structured output into Hook decisions, and keep
+  missing servers, protocol failures, and `isError` results non-blocking.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

@@ -200,8 +200,10 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
                     raise ValueError(f"MCP tool {action.name!r} was not advertised by server {action.server!r}.")
                 result = client.call_tool(action.name, action.arguments)
             output = redact_sensitive_text(_mcp_result_text(result))
+            text_output = redact_sensitive_text(_mcp_text_output(result))
             truncated = len(output) > action.max_output_chars
             output = output[: action.max_output_chars]
+            text_output = text_output[: action.max_output_chars]
             is_error = bool(result.get("isError", False))
             return McpCallObservation(
                 kind="mcp_call",
@@ -216,6 +218,7 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
                 error=output if is_error else None,
                 message=f"MCP tool {action.server}/{action.name} {'reported an error' if is_error else 'completed'}.",
                 arguments=_redacted_arguments(action.arguments),
+                text_output=text_output,
             )
         except (OSError, RuntimeError, TimeoutError, ValueError) as error:
             return McpCallObservation(
@@ -287,3 +290,16 @@ def _mcp_result_text(result: dict[str, Any]) -> str:
     if structured is not None:
         parts.append(json.dumps(structured, ensure_ascii=False))
     return "\n".join(parts)
+
+
+def _mcp_text_output(result: dict[str, Any]) -> str:
+    content = result.get("content")
+    if not isinstance(content, list):
+        return ""
+    return "\n".join(
+        item["text"]
+        for item in content
+        if isinstance(item, dict)
+        and item.get("type") == "text"
+        and isinstance(item.get("text"), str)
+    )

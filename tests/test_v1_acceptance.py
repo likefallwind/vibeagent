@@ -222,6 +222,10 @@ EXPECTED_GATES = {
             "test_pre_tool_http_hook_receives_input_and_denies_write",
             "test_non_success_http_status_is_non_blocking",
             "test_lifecycle_http_plain_text_adds_model_context",
+            "test_pre_tool_mcp_hook_denies_write_with_expanded_input",
+            "test_mcp_hook_error_is_non_blocking",
+            "test_unconfigured_mcp_server_is_non_blocking",
+            "test_lifecycle_mcp_plain_text_adds_model_context",
         },
     },
 }
