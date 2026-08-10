@@ -9,6 +9,7 @@ local changes when asked, and resume from recorded session context.
 
 | Gate | Capability | Required runtime evidence |
 | --- | --- | --- |
+| VA1-TOOLS | Restrict model-visible and executable tools | Bare `--tools` remains a provider-free catalog command; `--tools "Read,Edit"` on a one-shot coding task expands compatible aliases, intersects main and subagent profiles, filters initial and deferred tool schemas, rejects hidden calls at runtime, and records the effective ceiling. `--tools ""` disables all tools and `--tools default` restores the default catalog. |
 | VA1-BUDGET | Bound unattended provider spending | `-p --max-budget-usd` shares one provider-neutral cost gate across the main agent, profiles, subagents, goal evaluation, and structured output; terminal budget errors do not retry or execute an over-budget response, and missing usage or rates fail closed. |
 | VA1-RELIABILITY | Continue through primary-model overload | `-p --fallback-model` switches only on typed 503/529 or explicit overload evidence, then keeps the fallback model across the main agent, profiles, subagents, retries, goal evaluation, and structured output while preserving audit events and budget accounting. |
 | VA1-OUTPUT | Return validated machine-readable results | `-p --json-schema` runs the normal coding workflow first, then validates one provider-neutral Draft-07 JSON value without tools, retries invalid output up to three times, and exposes the result in JSON or stream-JSON output. |
@@ -29,6 +30,12 @@ local changes when asked, and resume from recorded session context.
 
 ## Current Evidence
 
+- `tests.test_main_agent_profile.MainAgentProfileTests.test_cli_tool_ceiling_hides_and_blocks_unlisted_main_tools`,
+  `tests.test_delegation.DelegationTests.test_code_subagent_inherits_cli_tool_ceiling`,
+  and `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_tools_restriction_completes_repair_without_extra_tools`
+  prove CLI parsing, alias expansion, profile intersection, schema filtering,
+  runtime rejection, subagent inheritance, audit events, and a complete
+  restricted repair, verification, and commit workflow.
 - `tests.test_model_budget.ModelCostBudgetTests.test_parallel_calls_share_one_strict_gate`
   confirms concurrent model callers serialize through one shared budget and
   cannot all pass a stale pre-call check.

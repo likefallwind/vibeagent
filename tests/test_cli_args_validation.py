@@ -8,6 +8,34 @@ from vibeagent.tool_search_options import tool_search_approval_choices
 
 
 class CliArgsValidationTests(unittest.TestCase):
+    def test_tools_value_restricts_one_shot_catalog_while_bare_flag_stays_local(self) -> None:
+        local = cli_module.parse_args(["--tools"])
+        restricted = cli_module.parse_args(["-p", "--tools", "Read,Edit", "inspect"])
+        disabled = cli_module.parse_args(["-p", "--tools", "", "answer"])
+        default = cli_module.parse_args(["--tools", "default", "inspect"])
+        unknown = cli_module.parse_args(["--tools", "MissingTool", "inspect"])
+        no_task = cli_module.parse_args(["--tools", "Read"])
+        chat = cli_module.parse_args(["--chat", "--tools", "Read", "explain"])
+
+        self.assertIs(local.tools, True)
+        self.assertTrue(cli_module.has_local_flag(local))
+        self.assertFalse(cli_module.has_local_flag(restricted))
+        self.assertIsNone(cli_module.validate_cli_args(restricted))
+        self.assertEqual(
+            cli_module.build_one_shot_kwargs_from_args(restricted)["tool_names"],
+            frozenset({"Read", "read_file", "Edit", "edit_file", "regex_replace"}),
+        )
+        self.assertEqual(
+            cli_module.build_one_shot_kwargs_from_args(disabled)["tool_names"],
+            frozenset(),
+        )
+        self.assertIsNone(
+            cli_module.build_one_shot_kwargs_from_args(default)["tool_names"]
+        )
+        self.assertIn("unknown tool", cli_module.validate_cli_args(unknown) or "")
+        self.assertIn("one-shot coding task", cli_module.validate_cli_args(no_task) or "")
+        self.assertIn("one-shot coding task", cli_module.validate_cli_args(chat) or "")
+
     def test_fallback_model_requires_print_one_shot_code(self) -> None:
         valid = cli_module.parse_args(["-p", "--fallback-model", "backup", "inspect"])
         no_print = cli_module.parse_args(["--fallback-model", "backup", "inspect"])

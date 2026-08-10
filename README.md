@@ -267,6 +267,14 @@ the `modelFallback` / `model_fallback` machine result report the selected model,
 activation, use count, and bounded primary error. When combined with
 `--max-budget-usd`, both models consume the same budget and fallback evidence is
 retained even if the response reaches the cost limit.
+Bare `--tools` is a provider-free local command that prints the tool catalog.
+On a one-shot coding task, `--tools "Read,Bash,Edit"` instead limits both the
+model-visible schemas and executable tools. Claude-compatible aliases expand to
+their VibeAgent implementations, the ceiling intersects selected main and
+subagent profiles, and hidden model calls are rejected at runtime. Use
+`--tools ""` to expose no tools or `--tools default` for the normal catalog.
+This is separate from `--allowed-tools`, which grants matching operations
+without an approval prompt but does not make tools visible or hide them.
 `--agent PROFILE` selects one exact project or plugin agent profile for every
 coding turn in a one-shot or interactive session. The profile prompt, preloaded
 skills, memory namespace, `mode`, `model`, `effort`, `tools`,
@@ -649,6 +657,7 @@ python -m vibeagent --init CLAUDE.md --cwd ../my-project
 python -m vibeagent --model
 python -m vibeagent --config --cwd ../my-project
 python -m vibeagent --tools
+python -m vibeagent -p --tools "Read,Bash,Edit" "Inspect and repair the project"
 python -m vibeagent --tool read_file
 python -m vibeagent --tool-search verification
 python -m vibeagent --tool-search verification --tool-search-category session --tool-search-approval no --tool-search-max 5

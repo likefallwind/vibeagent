@@ -25,7 +25,16 @@ def add_inspection_arguments(
     )
     local.add_argument("--version", action="store_true", help="Show VibeAgent version and exit.")
     local.add_argument("--config", action="store_true", help="Show resolved provider and execution configuration and exit.")
-    local.add_argument("--tools", action="store_true", help="Show model tool names by category and exit.")
+    local.add_argument(
+        "--tools",
+        nargs="?",
+        const=True,
+        metavar="NAMES",
+        help=(
+            "Show model tool names and exit when used without a value, or restrict "
+            "a one-shot coding task to comma-separated tool names."
+        ),
+    )
     local.add_argument("--tool", metavar="NAME", help="Show one model tool's description and input schema and exit.")
     local.add_argument("--tool-search", metavar="QUERY", help="Search model tools by name, description, category, or input fields and exit.")
     parser.add_argument("--tool-search-max", type=positive_int, default=20, metavar="N", help="Maximum matching tools to show with --tool-search.")

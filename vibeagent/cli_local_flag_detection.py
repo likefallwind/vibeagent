@@ -21,7 +21,7 @@ def has_non_model_local_flag(args: argparse.Namespace) -> bool:
 
 
 def _local_arg_selected(name: str, value: object) -> bool:
-    if name == "model":
+    if name in {"model", "tools"}:
         return value is True
     return local_result_arg_selected(value)
 

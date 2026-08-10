@@ -8,6 +8,7 @@ from .agent_conversation import continue_conversation
 from .agent_tool_registry import activate_tools_for_run, initialize_agent_tools
 from .main_agent_profile import (
     MainAgentProfile,
+    apply_tool_ceiling,
     append_main_profile_prompt,
     load_main_agent_profile,
 )
@@ -44,6 +45,7 @@ class AgentRunSetup:
     sandbox_config: SandboxConfig
     main_profile: MainAgentProfile
     append_system_prompt: str | None
+    tool_ceiling_names: frozenset[str] | None
 
 
 def prepare_agent_run(
@@ -63,6 +65,7 @@ def prepare_agent_run(
     system_prompt: str | None,
     append_system_prompt: str | None,
     agent: str | None = None,
+    tool_names: frozenset[str] | None = None,
     additional_directories: tuple[Path, ...] = (),
 ) -> AgentRunSetup:
     current_workspace = _prepare_workspace(
@@ -79,6 +82,7 @@ def prepare_agent_run(
         main_selection.name,
         source=main_selection.source,
     )
+    main_profile = apply_tool_ceiling(main_profile, tool_names)
     current_workspace = main_profile.workspace or current_workspace
     effective_append_system_prompt = append_main_profile_prompt(
         append_system_prompt, main_profile
@@ -132,6 +136,12 @@ def prepare_agent_run(
         allowed_names=main_profile.allowed_tool_names,
     )
     _append_main_profile_event(current_workspace, main_profile)
+    if tool_names is not None:
+        append_session_event(
+            current_workspace.session_dir,
+            "tool_restrictions_loaded",
+            {"tools": sorted(tool_names), "total": len(tool_names)},
+        )
     schedule_path = schedule_store_path(current_workspace)
     if schedule_path.exists() or schedule_path.is_symlink():
         activate_tools_for_run(
@@ -153,6 +163,7 @@ def prepare_agent_run(
         sandbox_config=sandbox_config,
         main_profile=main_profile,
         append_system_prompt=effective_append_system_prompt,
+        tool_ceiling_names=tool_names,
     )
 
 

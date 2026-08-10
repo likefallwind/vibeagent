@@ -82,6 +82,49 @@ def approve_hook(_request) -> ApprovalDecision:
 
 
 class DelegationTests(unittest.TestCase):
+    def test_code_subagent_inherits_cli_tool_ceiling(self) -> None:
+        client = DelegationClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "write-1",
+                        "name": "Write",
+                        "input": {"file_path": "blocked.txt", "content": "blocked\n"},
+                    }
+                ],
+                [{"type": "text", "text": "Restricted inspection complete."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-tools-") as base:
+            root = Path(base)
+            workspace = create_run_workspace(root)
+            action = parse_tool_action(
+                "delegate_task",
+                {"task": "Inspect only", "mode": "code", "max_iterations": 2},
+            )
+
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_policy="allow",
+                tool_ceiling_names=frozenset({"Read", "read_file"}),
+            )
+
+            self.assertFalse(root.joinpath("blocked.txt").exists())
+        self.assertTrue(observation.ok)
+        self.assertEqual(set(client.tool_names[0]), {"Read", "read_file"})
+        self.assertEqual(observation.tool_calls, ["Write"])
+
     def test_subagent_start_hook_adds_context_before_first_model_call(self) -> None:
         command = (
             'python3 -c "import json,sys; d=json.load(sys.stdin); '

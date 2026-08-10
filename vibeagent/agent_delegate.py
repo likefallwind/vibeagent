@@ -24,7 +24,7 @@ from .agent_delegate_tools import (
 )
 from .agent_profile_client import configure_agent_profile_client
 from .agent_runtime_utils import append_session_event
-from .agent_team_runtime import teammate_spawn_error
+from .agent_team_runtime import TEAM_COORDINATION_TOOL_NAMES, teammate_spawn_error
 from .nested_delegate_runtime import NestedDelegateRuntime
 from .subagent_transcripts import (
     SubagentTranscript,
@@ -81,6 +81,7 @@ def execute_delegate_task_action(
     inbound_messages: Callable[[bool], list[str]] | None = None,
     depth: int = 1,
     parent_subagent_id: str | None = None,
+    tool_ceiling_names: frozenset[str] | None = None,
 ) -> DelegateTaskObservation:
     profile = load_delegate_profile_runtime(workspace, action)
     profile_error = profile.error
@@ -103,6 +104,16 @@ def execute_delegate_task_action(
     profile_prompt = profile.prompt
     allowed_tool_names = profile.allowed_tool_names
     disallowed_tool_names = profile.disallowed_tool_names
+    if tool_ceiling_names is not None:
+        allowed_tool_names = (
+            tool_ceiling_names
+            if allowed_tool_names is None
+            else allowed_tool_names & tool_ceiling_names
+        )
+        disallowed_tool_names = (
+            disallowed_tool_names
+            | (TEAM_COORDINATION_TOOL_NAMES - tool_ceiling_names)
+        )
     _record_delegate_start(
         delegate_workspace,
         action,
@@ -270,6 +281,7 @@ def execute_delegate_task_action(
             inbound_messages=child_inbound,
             depth=child_depth,
             parent_subagent_id=parent_id,
+            tool_ceiling_names=tool_ceiling_names,
         ),
     )
     try:

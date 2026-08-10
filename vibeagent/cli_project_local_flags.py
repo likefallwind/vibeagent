@@ -51,7 +51,7 @@ def run_project_local_flag(
             commands["format_config_report_text"],
             lambda: commands["get_config_text"](config_root, provider_env, **config_kwargs),
         )
-    if args.tools:
+    if args.tools is True:
         return local_text_or_report(
             args,
             "tools",

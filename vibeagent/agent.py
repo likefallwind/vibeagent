@@ -90,6 +90,7 @@ def run_agent(
     append_system_prompt: str | None = None,
     peer_runtime: PeerSessionRuntime | None = None,
     agent: str | None = None,
+    tool_names: frozenset[str] | None = None,
     workspace_observer: Callable[[RunWorkspace], None] | None = None,
     additional_directories: tuple[Path, ...] = (),
 ) -> AgentResult:
@@ -109,6 +110,7 @@ def run_agent(
         system_prompt=system_prompt,
         append_system_prompt=append_system_prompt,
         agent=agent,
+        tool_names=tool_names,
         additional_directories=additional_directories,
     )
     if workspace_observer is not None:

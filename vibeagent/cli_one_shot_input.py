@@ -17,6 +17,7 @@ from .cli_project_command_expansion import expand_one_shot_project_command
 from .cli_system_prompt_files import resolve_system_prompt_inputs
 from .cli_additional_directories import resolve_additional_directories
 from .structured_output import parse_structured_output_schema
+from .cli_tool_restrictions import parse_cli_tool_names
 
 
 def resolve_task_text(parts: Sequence[str], input_format: str = "text") -> str:
@@ -101,6 +102,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         ),
         "max_budget_usd": args.max_budget_usd,
         "fallback_model": args.fallback_model,
+        "tool_names": parse_cli_tool_names(args.tools),
         "permission_overrides": build_permission_overrides(args),
         "provider_args": args,
     }

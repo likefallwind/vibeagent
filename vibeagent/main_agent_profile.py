@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .action_tool_aliases import tool_name_candidates
 from .agent_delegate_policy import (
@@ -146,8 +146,23 @@ def append_main_profile_prompt(
     return "\n\n".join(sections) or None
 
 
+def apply_tool_ceiling(
+    profile: MainAgentProfile,
+    tool_names: frozenset[str] | None,
+) -> MainAgentProfile:
+    if tool_names is None:
+        return profile
+    allowed = (
+        tool_names
+        if profile.allowed_tool_names is None
+        else profile.allowed_tool_names & tool_names
+    )
+    return replace(profile, allowed_tool_names=allowed)
+
+
 __all__ = [
     "MainAgentProfile",
+    "apply_tool_ceiling",
     "append_main_profile_prompt",
     "load_main_agent_profile",
 ]

@@ -387,6 +387,7 @@ def run_agent_loop(
                 tool_call_allowed=setup.main_profile.allows_tool_call,
                 excluded_tool_names=setup.main_profile.disallowed_tool_names,
                 allowed_tool_names=setup.main_profile.allowed_tool_names,
+                tool_ceiling_names=setup.tool_ceiling_names,
             )
             tool_results.append(sequential.tool_result)
             observation = sequential.observation

@@ -71,6 +71,7 @@ def execute_sequential_tool_call(
     tool_call_allowed: Callable[[str, object], bool] | None = None,
     excluded_tool_names: frozenset[str] = frozenset(),
     allowed_tool_names: frozenset[str] | None = None,
+    tool_ceiling_names: frozenset[str] | None = None,
 ) -> SequentialToolCallResult:
     tool_id = str(block.get("id") or "")
     tool_name = str(block.get("name") or "")
@@ -92,7 +93,10 @@ def execute_sequential_tool_call(
             observation = ToolErrorObservation(
                 kind="tool_error",
                 tool=tool_name or "unknown",
-                message="Tool call is blocked by the selected main agent profile.",
+                message=(
+                    "Tool call is blocked by the selected main agent profile "
+                    "or CLI tool restriction."
+                ),
             )
         elif isinstance(action, (AskUserAction, DelegateTaskAction, SendMessageAction)):
             wrapped = execute_special_tool_action(
@@ -115,6 +119,7 @@ def execute_sequential_tool_call(
                 hooks=hooks,
                 permissions=permissions,
                 execute_action_safely_func=execute_action_safely_func,
+                tool_ceiling_names=tool_ceiling_names,
             )
             observation = wrapped.observation
             hook_results = wrapped.hook_results

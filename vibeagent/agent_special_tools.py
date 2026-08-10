@@ -55,6 +55,7 @@ def execute_special_tool_action(
     hooks: ProjectHooks,
     permissions: ProjectPermissions,
     execute_action_safely_func: ExecuteActionSafely,
+    tool_ceiling_names: frozenset[str] | None = None,
 ) -> HookWrappedToolResult:
     action = _resolve_profile_isolation(workspace, action)
     return run_hooks_around_tool(
@@ -86,6 +87,7 @@ def execute_special_tool_action(
             user_input_handler=user_input_handler,
             hooks=hooks,
             permissions=permissions,
+            tool_ceiling_names=tool_ceiling_names,
         ),
         permissions,
         default_approval_request=build_approval_request(action),
@@ -126,6 +128,7 @@ def _execute_special_tool(
     user_input_handler: UserInputHandler | None,
     hooks: ProjectHooks,
     permissions: ProjectPermissions,
+    tool_ceiling_names: frozenset[str] | None,
 ) -> Observation:
     if isinstance(action, AskUserAction):
         return execute_user_input_action(
@@ -176,6 +179,7 @@ def _execute_special_tool(
                     inbound_messages=inbound_messages,
                     depth=transcript.depth,
                     parent_subagent_id=transcript.parent_id,
+                    tool_ceiling_names=tool_ceiling_names,
                 ),
                 task_id=action.to,
                 resumed=True,
@@ -256,6 +260,7 @@ def _execute_special_tool(
                 permissions=permissions,
                 cancel_requested=cancel_requested,
                 inbound_messages=inbound_messages,
+                tool_ceiling_names=tool_ceiling_names,
             ),
             task_id=action.teammate_name,
         )
@@ -278,6 +283,7 @@ def _execute_special_tool(
             parent_steps=steps,
             hooks=hooks,
             permissions=permissions,
+            tool_ceiling_names=tool_ceiling_names,
         )
     complete_task_step(workspace, step, delegate_observation, iteration, logger)
     return delegate_observation

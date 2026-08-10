@@ -205,6 +205,52 @@ def _assert_clean_notebook_commit(
 
 
 class V1CliSmokeTests(unittest.TestCase):
+    def test_v1_cli_tools_restriction_completes_repair_without_extra_tools(self) -> None:
+        requested_tools = {
+            "project_overview",
+            "read_file",
+            "run_command",
+            "update_plan",
+            "write_file",
+            "git_stage",
+            "git_commit",
+            "run_suggested_checks",
+            "run_session_verification",
+        }
+        with tempfile.TemporaryDirectory(prefix="vibeagent-v1-tools-smoke-") as base:
+            root = Path(base)
+            init_broken_calculator_repo(root)
+            client = DogfoodClient(v1_dogfood_responses())
+            exit_code, payload = _run_json_cli(
+                client,
+                [
+                    "-p",
+                    "--output-format",
+                    "json",
+                    "--tools",
+                    ",".join(sorted(requested_tools)),
+                    "--approval",
+                    "allow",
+                    "--cwd",
+                    str(root),
+                    "--max-iterations",
+                    "14",
+                    "Fix the calculator test failure and commit the verified fix.",
+                ],
+            )
+            events = _session_events(root, payload["runId"])
+            restriction = next(
+                event for event in events if event["type"] == "tool_restrictions_loaded"
+            )
+            commit_state = _calculator_commit_state(root)
+
+        self.assertEqual(exit_code, 0)
+        _assert_completed_code_result(self, payload, num_turns=11)
+        for tools in client.tools:
+            self.assertTrue({str(tool["name"]) for tool in tools} <= requested_tools)
+        self.assertEqual(set(restriction["tools"]), requested_tools)
+        _assert_clean_calculator_commit(self, commit_state, expected_subject="Fix calculator add")
+
     def test_v1_cli_fallback_model_completes_repair_after_primary_overload(self) -> None:
         fallback = DogfoodClient(v1_dogfood_responses())
 

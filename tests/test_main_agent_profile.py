@@ -63,6 +63,61 @@ class ScriptedClient:
 
 
 class MainAgentProfileTests(unittest.TestCase):
+    def test_cli_tool_ceiling_hides_and_blocks_unlisted_main_tools(self) -> None:
+        client = ScriptedClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "write-1",
+                        "name": "Write",
+                        "input": {"file_path": "blocked.txt", "content": "blocked\n"},
+                    }
+                ],
+                [{"type": "text", "text": "The restricted review is complete."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-tools-") as base:
+            root = Path(base)
+            result = run_agent(
+                "Review only",
+                client,
+                base_dir=root,
+                tool_names=frozenset({"Read", "read_file"}),
+                max_iterations=2,
+                model_retries=0,
+                approval_policy="allow",
+            )
+            events = (root / ".vibeagent/sessions" / result.run_id / "events.jsonl").read_text(
+                encoding="utf-8"
+            )
+
+            self.assertFalse(root.joinpath("blocked.txt").exists())
+        self.assertTrue(result.success)
+        self.assertEqual(set(client.tool_names[0]), {"Read", "read_file"})
+        self.assertEqual(result.observations[0].kind, "tool_error")
+        self.assertIn("CLI tool restriction", result.observations[0].message)
+        self.assertIn('"type": "tool_restrictions_loaded"', events)
+
+    def test_cli_tool_ceiling_intersects_selected_main_profile(self) -> None:
+        client = ScriptedClient([[{"type": "text", "text": "Done."}]])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-profile-tools-") as base:
+            root = Path(base)
+            _write_agent(root, "reviewer", "REVIEW", tools="Read,Edit")
+
+            result = run_agent(
+                "Review",
+                client,
+                base_dir=root,
+                agent="reviewer",
+                tool_names=frozenset({"Read", "read_file"}),
+                max_iterations=1,
+                model_retries=0,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual(set(client.tool_names[0]), {"Read", "read_file"})
+
     def test_profile_prompt_allowlist_and_hidden_alias_are_enforced(self) -> None:
         client = ScriptedClient(
             [

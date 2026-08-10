@@ -6,6 +6,7 @@ from .cli_local_flag_detection import has_local_flag, has_non_model_local_flag
 from .cli_local_option_validation import validate_local_option_dependencies
 from .cli_permission_overrides import has_permission_overrides, permission_override_validation_error
 from .cli_resume_args import validate_resume_arguments
+from .cli_tool_restrictions import parse_cli_tool_names
 from .model_fallback import normalize_fallback_model
 from .session_names import normalize_session_name
 
@@ -29,6 +30,13 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
     if args.fallback_model is not None:
         try:
             normalize_fallback_model(args.fallback_model)
+        except ValueError as error:
+            return str(error)
+    if isinstance(args.tools, str):
+        if not args.task or args.chat:
+            return "--tools NAMES requires a one-shot coding task."
+        try:
+            parse_cli_tool_names(args.tools)
         except ValueError as error:
             return str(error)
     if args.print_mode and (not args.task or has_local_flag(args)):

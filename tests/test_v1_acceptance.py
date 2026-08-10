@@ -42,6 +42,7 @@ DOGFOOD_TESTS = {
     "test_v1_agent_can_apply_claude_multi_edit_and_commit",
 }
 CLI_SMOKE_TESTS = {
+    "test_v1_cli_tools_restriction_completes_repair_without_extra_tools",
     "test_v1_cli_fallback_model_completes_repair_after_primary_overload",
     "test_v1_cli_budgeted_repair_verify_commit_and_report_cost",
     "test_v1_cli_json_schema_repairs_then_returns_validated_output",
@@ -84,6 +85,14 @@ LIVE_DOGFOOD_TESTS = {
 }
 
 EXPECTED_GATES = {
+    "VA1-TOOLS": {
+        "tools": set(),
+        "tests": {
+            "test_cli_tool_ceiling_hides_and_blocks_unlisted_main_tools",
+            "test_code_subagent_inherits_cli_tool_ceiling",
+            "test_v1_cli_tools_restriction_completes_repair_without_extra_tools",
+        },
+    },
     "VA1-RELIABILITY": {
         "tools": set(),
         "tests": {

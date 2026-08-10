@@ -122,7 +122,9 @@ def delegate_tool_definitions(
         definitions.extend(
             tool
             for tool in AGENT_TOOL_DEFINITIONS
-            if str(tool["name"]) in coordination_names and str(tool["name"]) not in existing
+            if str(tool["name"]) in coordination_names
+            and str(tool["name"]) not in existing
+            and str(tool["name"]) not in disallowed_tool_names
         )
     if allowed_tool_names is None:
         return definitions
@@ -157,11 +159,17 @@ def execute_delegate_tool_call(
 ) -> DelegateToolCallExecution:
     try:
         parsed = prepare_action_for_policy(parse_tool_action(tool_name, tool_input), approval_policy)
-        if tool_name not in coordination_tool_names and not _profile_allows_tool_call(
-            tool_name,
-            parsed,
-            allowed_tool_names,
-            disallowed_tool_names,
+        coordination_allowed = (
+            tool_name in coordination_tool_names
+            and _profile_allows_tool_call(
+                tool_name,
+                parsed,
+                None,
+                disallowed_tool_names,
+            )
+        )
+        if not coordination_allowed and not _profile_allows_tool_call(
+            tool_name, parsed, allowed_tool_names, disallowed_tool_names
         ):
             observation = ToolErrorObservation(
                 kind="tool_error",
