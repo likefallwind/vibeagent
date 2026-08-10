@@ -229,6 +229,10 @@ local changes when asked, and resume from recorded session context.
   stream-json -` stdin path, confirming newline-delimited automation input can
   supply the same task, system prompt, and assistant prior context before the
   agent repairs, verifies, reports JSON status, and commits.
+- CLI system-prompt replacement and append inputs accept inline text or bounded
+  UTF-8 files for interactive and one-shot sessions. Replacement forms are
+  mutually exclusive, append forms compose, relative file paths resolve from
+  the invocation directory, and invalid files fail before a provider call.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_use_strict_mcp_config_before_repair_and_commit`
   runs the real CLI JSON path with `--mcp-config explicit.mcp.json
   --strict-mcp-config`, confirming an explicit MCP configuration can expose a

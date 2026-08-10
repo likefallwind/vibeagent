@@ -1,4 +1,5 @@
 import io
+import os
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -33,6 +34,49 @@ class CliInteractiveStateTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(run_agent.call_args.kwargs["agent"], "reviewer")
+
+    def test_main_interactive_prompt_files_are_resolved_before_changing_cwd(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
+            root = Path(base)
+            project = root / "project"
+            project.mkdir()
+            (root / "system.txt").write_text("System from file.", encoding="utf-8")
+            (root / "append.txt").write_text("Append from file.", encoding="utf-8")
+            result = AgentResult(
+                success=True,
+                message="done",
+                run_dir=project,
+                run_id="test-run",
+                iterations=1,
+                observations=[],
+                steps=[],
+            )
+            run_agent = Mock(return_value=result)
+            previous_cwd = Path.cwd()
+            os.chdir(root)
+            try:
+                with (
+                    patch("builtins.input", side_effect=["inspect code", "/exit"]),
+                    patch("vibeagent.cli.create_chat_client", return_value=object()),
+                    patch("vibeagent.cli.run_agent", run_agent),
+                    redirect_stdout(io.StringIO()),
+                ):
+                    exit_code = main(
+                        [
+                            "--cwd",
+                            str(project),
+                            "--system-prompt-file",
+                            "system.txt",
+                            "--append-system-prompt-file",
+                            "append.txt",
+                        ]
+                    )
+            finally:
+                os.chdir(previous_cwd)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.kwargs["system_prompt"], "System from file.")
+        self.assertEqual(run_agent.call_args.kwargs["append_system_prompt"], "Append from file.")
 
     def test_main_updates_approval_policy_and_passes_handler_to_agent(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:

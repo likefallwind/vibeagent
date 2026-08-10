@@ -14,6 +14,7 @@ from .cli_context import (
 from .cli_input_format import StreamJsonTaskInput, resolve_json_task_input, resolve_stream_json_task_input
 from .cli_permission_overrides import build_permission_overrides
 from .cli_project_command_expansion import expand_one_shot_project_command
+from .cli_system_prompt_files import resolve_system_prompt_inputs
 
 
 def resolve_task_text(parts: Sequence[str], input_format: str = "text") -> str:
@@ -33,9 +34,16 @@ def resolve_task_input(parts: Sequence[str], input_format: str = "text") -> Stre
 
 def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, object]:
     task_input = resolve_task_input(args.task, args.input_format)
+    system_prompt, append_system_prompt = resolve_system_prompt_inputs(
+        system_prompt=args.system_prompt,
+        system_prompt_file=args.system_prompt_file,
+        append_system_prompt=args.append_system_prompt,
+        append_system_prompt_file=args.append_system_prompt_file,
+        invocation_root=Path.cwd(),
+    )
     system_prompt, append_system_prompt = merge_stream_system_prompt(
-        args.system_prompt,
-        args.append_system_prompt,
+        system_prompt,
+        append_system_prompt,
         task_input.system_prompt,
     )
     return {

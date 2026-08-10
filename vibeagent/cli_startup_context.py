@@ -10,6 +10,7 @@ from .cli_context import (
     normalize_resume_arg,
 )
 from .commands import get_compact_context, get_resume_context
+from .cli_system_prompt_files import resolve_system_prompt_inputs
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,8 @@ class InteractiveStartupContext:
     message: str | None = None
     error: str | None = None
     agent: str | None = None
+    system_prompt: str | None = None
+    append_system_prompt: str | None = None
 
 
 def resolve_interactive_startup_context(
@@ -29,9 +32,21 @@ def resolve_interactive_startup_context(
     get_compact_context_func=get_compact_context,
 ) -> InteractiveStartupContext:
     selected_agent = getattr(args, "agent", None)
+    system_prompt, append_system_prompt = resolve_system_prompt_inputs(
+        system_prompt=args.system_prompt,
+        system_prompt_file=args.system_prompt_file,
+        append_system_prompt=args.append_system_prompt,
+        append_system_prompt_file=args.append_system_prompt_file,
+        invocation_root=Path.cwd(),
+    )
+    prompt_kwargs = {
+        "agent": selected_agent,
+        "system_prompt": system_prompt,
+        "append_system_prompt": append_system_prompt,
+    }
     session_resume = args.resume if args.resume is not None else args.session_id
     if session_resume is None and args.compact is None:
-        return InteractiveStartupContext(agent=selected_agent)
+        return InteractiveStartupContext(**prompt_kwargs)
     if session_resume is not None:
         resume_kwargs = build_context_limit_kwargs(
             max_failures=args.resume_max_failures,
@@ -44,8 +59,8 @@ def resolve_interactive_startup_context(
         normalized_resume = normalize_resume_arg(session_resume)
         run_id, context, message = get_resume_context_func(normalized_resume, project_root, **resume_kwargs)
         if context is None and not is_resume_clear_arg(normalized_resume):
-            return InteractiveStartupContext(run_id=run_id, message=message, error=message, agent=selected_agent)
-        return InteractiveStartupContext(run_id=run_id, context=context, message=message, agent=selected_agent)
+            return InteractiveStartupContext(run_id=run_id, message=message, error=message, **prompt_kwargs)
+        return InteractiveStartupContext(run_id=run_id, context=context, message=message, **prompt_kwargs)
 
     compact_kwargs = build_context_limit_kwargs(
         max_failures=args.compact_max_failures,
@@ -57,5 +72,5 @@ def resolve_interactive_startup_context(
     )
     run_id, context, message = get_compact_context_func(normalize_resume_arg(args.compact), project_root, **compact_kwargs)
     if context is None:
-        return InteractiveStartupContext(run_id=run_id, message=message, error=message, agent=selected_agent)
-    return InteractiveStartupContext(run_id=run_id, context=context, message=message, agent=selected_agent)
+        return InteractiveStartupContext(run_id=run_id, message=message, error=message, **prompt_kwargs)
+    return InteractiveStartupContext(run_id=run_id, context=context, message=message, **prompt_kwargs)

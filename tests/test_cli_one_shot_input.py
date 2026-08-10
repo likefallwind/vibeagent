@@ -1,5 +1,6 @@
 import io
 import json
+import tempfile
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -355,6 +356,62 @@ class CliOneShotInputTests(unittest.TestCase):
 
         self.assertEqual(kwargs["system_prompt"], "You are a release engineer.")
         self.assertEqual(kwargs["append_system_prompt"], "Prefer focused tests.")
+
+    def test_build_one_shot_kwargs_reads_prompt_files_from_invocation_directory(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-prompt-") as base:
+            root = Path(base)
+            (root / "system.txt").write_text("Replacement from file.", encoding="utf-8")
+            (root / "append.txt").write_text("Append from file.", encoding="utf-8")
+            args = cli_module.parse_args(
+                [
+                    "--cwd",
+                    str(root / "different-project"),
+                    "--system-prompt-file",
+                    "system.txt",
+                    "--append-system-prompt",
+                    "Append inline.",
+                    "--append-system-prompt-file",
+                    "append.txt",
+                    "inspect",
+                ]
+            )
+
+            with patch("vibeagent.cli_one_shot_input.Path.cwd", return_value=root):
+                kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertEqual(kwargs["system_prompt"], "Replacement from file.")
+        self.assertEqual(kwargs["append_system_prompt"], "Append inline.\n\nAppend from file.")
+
+    def test_build_one_shot_kwargs_merges_prompt_file_with_structured_input(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-prompt-") as base:
+            root = Path(base)
+            (root / "system.txt").write_text("Replacement from file.", encoding="utf-8")
+            args = cli_module.parse_args(
+                [
+                    "--system-prompt-file",
+                    "system.txt",
+                    "--append-system-prompt",
+                    "Append inline.",
+                    "--input-format",
+                    "stream-json",
+                    "-",
+                ]
+            )
+            raw = "\n".join(
+                [
+                    json.dumps({"role": "system", "content": "Structured system."}),
+                    json.dumps({"role": "user", "content": "inspect"}),
+                ]
+            )
+
+            with (
+                patch("vibeagent.cli_one_shot_input.Path.cwd", return_value=root),
+                patch("sys.stdin", io.StringIO(raw)),
+            ):
+                kwargs = cli_module.build_one_shot_kwargs_from_args(args)
+
+        self.assertEqual(kwargs["system_prompt"], "Replacement from file.")
+        self.assertEqual(kwargs["append_system_prompt"], "Append inline.\n\nStructured system.")
 
     def test_build_one_shot_kwargs_from_args_includes_mcp_config_paths(self) -> None:
         args = cli_module.parse_args(["--mcp-config", "extra.mcp.json", "inspect"])

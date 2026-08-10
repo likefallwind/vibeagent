@@ -97,10 +97,20 @@ def add_one_shot_arguments(
         action="store_true",
         help="Use only --mcp-config files for this one-shot command, ignoring project .mcp.json.",
     )
-    parser.add_argument("--system-prompt", help="Override the default one-shot system prompt for this command.")
+    parser.add_argument("--system-prompt", help="Override the default system prompt for this session.")
+    parser.add_argument(
+        "--system-prompt-file",
+        metavar="PATH",
+        help="Read the replacement system prompt from a UTF-8 file.",
+    )
     parser.add_argument(
         "--append-system-prompt",
-        help="Append extra instructions to the default or overridden one-shot system prompt.",
+        help="Append extra instructions to the default or overridden system prompt.",
+    )
+    parser.add_argument(
+        "--append-system-prompt-file",
+        metavar="PATH",
+        help="Read additional system prompt instructions from a UTF-8 file.",
     )
     parser.add_argument(
         "--max-iterations",

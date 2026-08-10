@@ -158,6 +158,23 @@ class CliOneShotTests(unittest.TestCase):
         self.assertEqual(run_chat.call_args.kwargs["system_prompt"], "You are terse.")
         self.assertIsNone(run_chat.call_args.kwargs["append_system_prompt"])
 
+    def test_main_reports_prompt_file_errors_as_json_before_provider_creation(self) -> None:
+        stdout = io.StringIO()
+        create_client = Mock()
+
+        with (
+            patch("vibeagent.cli.create_chat_client", create_client),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(["--json", "--system-prompt-file", "missing-prompt.txt", "inspect"])
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 2)
+        self.assertFalse(payload["success"])
+        self.assertEqual(payload["exitCode"], 2)
+        self.assertIn("Cannot read --system-prompt-file", payload["error"])
+        create_client.assert_not_called()
+
     def test_main_runs_one_shot_code_task_from_stdin(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             result = AgentResult(

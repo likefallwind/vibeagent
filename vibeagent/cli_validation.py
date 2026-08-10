@@ -46,8 +46,20 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
         return "--system-prompt cannot be empty."
     if args.append_system_prompt is not None and not args.append_system_prompt.strip():
         return "--append-system-prompt cannot be empty."
-    if (args.system_prompt is not None or args.append_system_prompt is not None) and (not args.task or has_local_flag(args)):
-        return "--system-prompt and --append-system-prompt require a one-shot task."
+    if args.system_prompt_file is not None and not args.system_prompt_file.strip():
+        return "--system-prompt-file path cannot be empty."
+    if args.append_system_prompt_file is not None and not args.append_system_prompt_file.strip():
+        return "--append-system-prompt-file path cannot be empty."
+    if args.system_prompt is not None and args.system_prompt_file is not None:
+        return "--system-prompt cannot be combined with --system-prompt-file."
+    prompt_inputs = (
+        args.system_prompt,
+        args.system_prompt_file,
+        args.append_system_prompt,
+        args.append_system_prompt_file,
+    )
+    if any(value is not None for value in prompt_inputs) and has_local_flag(args):
+        return "System prompt options require an interactive or one-shot session."
     if args.output_format == "stream-json" and (not args.task or has_local_flag(args)):
         return "--output-format stream-json requires a one-shot task."
     override_error = permission_override_validation_error(args)

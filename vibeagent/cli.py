@@ -161,7 +161,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.task:
             try:
                 kwargs = build_one_shot_kwargs_from_args(args)
-            except TaskInputFormatError as error:
+            except (TaskInputFormatError, ValueError) as error:
                 return print_error_result(str(error), args.json, exit_code=2, output_format=args.output_format)
             return run_one_shot(**kwargs)
     if argv is not None:
@@ -232,6 +232,8 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_resume_context=context.context,
         initial_resume_message=context.message,
         initial_agent=context.agent,
+        initial_system_prompt=context.system_prompt,
+        initial_append_system_prompt=context.append_system_prompt,
     )
 if __name__ == "__main__":
     import sys

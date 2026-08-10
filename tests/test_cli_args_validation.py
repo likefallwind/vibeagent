@@ -131,13 +131,34 @@ class CliArgsValidationTests(unittest.TestCase):
 
     def test_cli_rejects_empty_or_local_system_prompt_arguments(self) -> None:
         empty_args = cli_module.parse_args(["--system-prompt", " ", "inspect"])
+        empty_file_args = cli_module.parse_args(["--system-prompt-file", " ", "inspect"])
         local_args = cli_module.parse_args(["--append-system-prompt", "Extra", "--tools"])
+        conflict_args = cli_module.parse_args(
+            ["--system-prompt", "Inline", "--system-prompt-file", "prompt.txt", "inspect"]
+        )
 
         self.assertEqual(cli_module.validate_cli_args(empty_args), "--system-prompt cannot be empty.")
         self.assertEqual(
-            cli_module.validate_cli_args(local_args),
-            "--system-prompt and --append-system-prompt require a one-shot task.",
+            cli_module.validate_cli_args(empty_file_args),
+            "--system-prompt-file path cannot be empty.",
         )
+        self.assertEqual(
+            cli_module.validate_cli_args(local_args),
+            "System prompt options require an interactive or one-shot session.",
+        )
+        self.assertEqual(
+            cli_module.validate_cli_args(conflict_args),
+            "--system-prompt cannot be combined with --system-prompt-file.",
+        )
+
+    def test_cli_accepts_system_prompt_options_for_interactive_startup(self) -> None:
+        text_args = cli_module.parse_args(["--system-prompt", "Be concise."])
+        file_args = cli_module.parse_args(
+            ["--system-prompt-file", "system.txt", "--append-system-prompt-file", "append.txt"]
+        )
+
+        self.assertIsNone(cli_module.validate_cli_args(text_args))
+        self.assertIsNone(cli_module.validate_cli_args(file_args))
 
     def test_cli_rejects_mcp_config_without_one_shot_task(self) -> None:
         args = cli_module.parse_args(["--mcp-config", "extra.mcp.json", "--tools"])

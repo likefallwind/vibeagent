@@ -87,6 +87,8 @@ def run_interactive_loop(
     initial_resume_context: str | None = None,
     initial_resume_message: str | None = None,
     initial_agent: str | None = None,
+    initial_system_prompt: str | None = None,
+    initial_append_system_prompt: str | None = None,
 ) -> int:
     # Entry loop: parse local commands first, otherwise delegate to the agent.
     print(f"VibeAgent {__version__}")
@@ -105,8 +107,8 @@ def run_interactive_loop(
     chat_history: list[ChatMessage] = []
     resume_run_id: str | None = initial_resume_run_id
     resume_context: str | None = initial_resume_context
-    system_prompt: str | None = None
-    append_system_prompt: str | None = None
+    system_prompt = initial_system_prompt
+    append_system_prompt = initial_append_system_prompt
     goal_state: GoalState | None = None
     workflow_manager: DynamicWorkflowManager | None = None
     workflow_client_lock = Lock()

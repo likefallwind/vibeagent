@@ -21,6 +21,10 @@ without opening a GUI; non-TTY input remains unchanged.
 Permission rule text is redacted before it becomes model-visible
 or enters session events, and terminal trust previews are redacted and limited
 to 20 displayed rules while the original rule remains available for matching.
+System prompts support replacement and append text or bounded UTF-8 file
+inputs in both interactive and one-shot modes. Replacement text and file forms
+are mutually exclusive, append sources compose deterministically, relative
+paths use the invocation directory, and symbolic-link inputs are rejected.
 
 That release gate expands to:
 
@@ -58,6 +62,9 @@ The automated suite currently covers these 1.0 surfaces:
 - Real CLI JSON and stream-json entrypoints, stdin input formats, resume,
   compact, permission overrides, `acceptEdits`, disallowed tools, and
   pending-user-input output.
+- Interactive and one-shot system-prompt text/file inputs, including bounded
+  UTF-8 reads, deterministic structured-input merging, and machine-readable
+  validation failures before provider creation.
 - Provider-free interactive `!` shell mode with bounded execution, hard command
   blocks, redacted resumable output, and pre-execution session-path validation.
 - User and project integrations: `~/.claude/settings.json`, trusted project and

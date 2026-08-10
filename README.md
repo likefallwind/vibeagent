@@ -165,6 +165,8 @@ python -m vibeagent --output-format stream-json --cwd ../my-project "run the rel
 printf '{"type":"user","text":"inspect the change"}\n' | python -m vibeagent --input-format stream-json -
 printf '{"prompt":"inspect the change"}\n' | python -m vibeagent --input-format json -
 python -m vibeagent --append-system-prompt "Prefer focused tests before broad suites." "inspect the change"
+python -m vibeagent --system-prompt-file ./prompts/reviewer.txt "inspect the change"
+python -m vibeagent --append-system-prompt "Be concise." --append-system-prompt-file ./prompts/project-rules.txt
 python -m vibeagent --agent reviewer "inspect the change with the reviewer profile"
 python -m vibeagent --allowed-tools "Read" --allowed-tools "Bash(git diff:*)" --disallowed-tools "Bash(git push:*)" "inspect the change"
 python -m vibeagent --mcp-config docs.mcp.json "use the docs MCP server to check the API"
@@ -256,10 +258,15 @@ call. A top-level `session_id` or `sessionId` field resumes that VibeAgent
 session in coding mode when neither `--resume` nor `--compact` is provided.
 When `-c`, `--resume [run-id]`, or `--compact [run-id]` is provided without a
 task, VibeAgent starts the interactive prompt with that context already loaded.
-`--system-prompt` replaces the default one-shot system prompt for a command;
-`--append-system-prompt` keeps the default prompt and adds extra system-level
-constraints. Both options work in one-shot code and chat modes and are never
-saved to project configuration.
+`--system-prompt` or `--system-prompt-file` replaces the default system prompt;
+the two replacement forms are mutually exclusive. `--append-system-prompt`
+and `--append-system-prompt-file` add extra system-level constraints and may be
+combined, with inline text placed before file content. All four options work
+for interactive startup and one-shot code or chat modes and are never saved to
+project configuration. Relative prompt-file paths are resolved from the
+directory where VibeAgent was invoked, before `--cwd` or `--worktree` changes
+the active project. Prompt files must be non-empty bounded UTF-8 regular files
+and cannot use symbolic links.
 With `--json`, one-shot coding results include `schemaVersion`, the runtime
 `version`, `status` (`completed`, `blocked`, or `failed`), matching
 `stopReason`, `exitCode`/`exit_code`, `numTurns`, final text as `message` plus
