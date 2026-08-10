@@ -46,7 +46,7 @@ def run_lifecycle_hooks(
     hook_input = {
         "session_id": workspace.run_id,
         "transcript_path": str(workspace.session_dir / "events.jsonl"),
-        "cwd": str(workspace.root),
+        "cwd": str(event_fields.get("new_cwd", workspace.root)),
         "permission_mode": _claude_permission_mode(approval_policy),
         "hook_event_name": event,
         **event_fields,
@@ -59,6 +59,11 @@ def run_lifecycle_hooks(
             hook,
             target=matcher_value or event,
             hook_input=hook_input,
+            cwd=(
+                str(event_fields["new_cwd"])
+                if event == "CwdChanged" and isinstance(event_fields.get("new_cwd"), str)
+                else None
+            ),
             iteration=iteration,
             hook_index=index,
             command_timeout_ms=command_timeout_ms,

@@ -7,6 +7,7 @@ from .actions import ActionParseError, parse_tool_action
 from .agent_runtime_utils import append_session_event, tool_error_observation
 from .agent_lifecycle_hooks import run_instruction_loaded_hooks
 from .agent_special_tools import execute_special_tool_action
+from .session_working_directory import prepare_action_shell_cwd
 from .agent_tool_execution import (
     CreateAutoCheckpoint,
     ExecuteActionSafely,
@@ -94,6 +95,7 @@ def execute_sequential_tool_call(
             excluded_tool_names,
             allowed_tool_names,
         )
+        action = prepare_action_shell_cwd(workspace, action)
         if tool_call_allowed is not None and not tool_call_allowed(tool_name, action):
             observation = ToolErrorObservation(
                 kind="tool_error",

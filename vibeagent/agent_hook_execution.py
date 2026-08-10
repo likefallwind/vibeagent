@@ -37,6 +37,7 @@ def run_project_hook_command(
     *,
     target: str,
     hook_input: dict[str, object],
+    cwd: str | None = None,
     environment: dict[str, str] | None = None,
     iteration: int,
     hook_index: int,
@@ -89,6 +90,7 @@ def run_project_hook_command(
         command=hook.command,
         timeout_ms=min(hook.timeout_ms, command_timeout_ms),
         max_output_chars=4_000,
+        cwd=cwd,
     )
     authorization = authorize_tool_action(
         workspace,
@@ -163,6 +165,7 @@ def run_project_hook_command(
                 command=wrapped_command,
                 timeout_ms=hook_action.timeout_ms,
                 max_output_chars=4_000,
+                cwd=cwd,
             ),
             hook_action.timeout_ms,
             f"hook:{hook.event}",

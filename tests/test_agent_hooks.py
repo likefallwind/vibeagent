@@ -44,6 +44,18 @@ def _approve(_request) -> ApprovalDecision:
 
 
 class ProjectHookConfigTests(unittest.TestCase):
+    def test_cwd_changed_ignores_configured_matcher(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-hooks-") as base:
+            root = Path(base)
+            _write_hooks(
+                root,
+                {"CwdChanged": [_command_hook("python3 -V", "never-match")]},
+            )
+            config = read_project_hooks(create_run_workspace(root))
+
+        cwd_hook = next(hook for hook in config.hooks if hook.event == "CwdChanged")
+        self.assertEqual(cwd_hook.matcher, ".*")
+
     def test_loads_vibeagent_and_claude_hook_sources_with_matchers(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-hooks-") as base:
             root = Path(base)
@@ -192,6 +204,38 @@ class AgentHookExecutionTests(unittest.TestCase):
         self.assertEqual(len(approvals), 3)
         payload = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual([hook["status"] for hook in payload["hooks"]], ["passed", "passed"])
+
+    def test_cwd_changed_hook_runs_in_new_directory_with_transition_input(self) -> None:
+        hook_command = (
+            "python3 -c \"import json,os,pathlib,sys; "
+            "payload=json.load(sys.stdin); "
+            "pathlib.Path('cwd-hook.json').write_text(json.dumps({"
+            "'cwd': os.getcwd(), 'old': payload['old_cwd'], 'new': payload['new_cwd']}))\""
+        )
+        client = HookClient(
+            [
+                [{"type": "tool_call", "id": "bash-1", "name": "Bash", "input": {"command": "cd src"}}],
+                [{"type": "text", "text": "Changed directory."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-hooks-") as base:
+            root = Path(base)
+            (root / "src").mkdir()
+            _write_hooks(root, {"CwdChanged": [_command_hook(hook_command)]})
+
+            result = run_agent(
+                "Enter src",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_handler=_approve,
+            )
+            payload = json.loads((root / "src" / "cwd-hook.json").read_text(encoding="utf-8"))
+
+        self.assertTrue(result.success)
+        self.assertEqual(payload["cwd"], str((root / "src").resolve()))
+        self.assertEqual(payload["old"], str(root.resolve()))
+        self.assertEqual(payload["new"], str((root / "src").resolve()))
 
     def test_internal_hook_matcher_runs_for_claude_tool_alias(self) -> None:
         hook_command = "python3 -c \"import pathlib; pathlib.Path('hooks.log').write_text('ran', encoding='utf-8')\""

@@ -31,6 +31,11 @@ from .process_output_analysis import (
     process_observation_failed,
 )
 from .process_output_runtime import read_background_process_output_contexts, read_background_process_output_diagnostics
+from .session_working_directory import (
+    finalize_shell_cwd,
+    prepare_shell_cwd,
+    wrap_posix_command_for_cwd_capture,
+)
 from .process_registry import (
     PersistentProcessRecord,
     parse_persistent_process_record,
@@ -108,7 +113,12 @@ def execute_run_command_item(
             max_output_chars=max_output_chars,
         )
     try:
-        command_cwd = resolve_command_cwd(workspace, action.cwd)
+        cwd_context = prepare_shell_cwd(
+            workspace,
+            action.cwd,
+            maintain=bool(getattr(action, "maintain_cwd", False)),
+        )
+        command_cwd = cwd_context.cwd
     except ValueError as error:
         return CommandResult(
             command=action.command,
@@ -121,8 +131,19 @@ def execute_run_command_item(
             cwd=action.cwd or ".",
             max_output_chars=max_output_chars,
         )
-    launch = prepare_command_launch(workspace, action.command, command_cwd)
+    executed_command = wrap_posix_command_for_cwd_capture(
+        action.command,
+        cwd_context.capture_path,
+    )
+    launch = prepare_command_launch(
+        workspace,
+        action.command,
+        command_cwd,
+        executed_command=executed_command,
+    )
     if launch.error is not None:
+        if cwd_context.capture_path is not None:
+            cwd_context.capture_path.unlink(missing_ok=True)
         return CommandResult(
             command=action.command,
             exit_code=None,
@@ -135,17 +156,22 @@ def execute_run_command_item(
             max_output_chars=max_output_chars,
             sandboxed=False,
         )
-    result = run_command(
-        command_cwd,
-        action.command,
-        timeout_ms,
-        workspace.root,
-        max_output_chars=max_output_chars,
-        argv=launch.argv,
-        sandboxed=launch.sandboxed,
-        sandbox_warning=launch.warning,
-        environment=launch.environment,
-    )
+    try:
+        result = run_command(
+            command_cwd,
+            action.command,
+            timeout_ms,
+            workspace.root,
+            max_output_chars=max_output_chars,
+            argv=launch.argv,
+            sandboxed=launch.sandboxed,
+            sandbox_warning=launch.warning,
+            environment=launch.environment,
+        )
+        result = finalize_shell_cwd(workspace, cwd_context, result)
+    finally:
+        if cwd_context.capture_path is not None:
+            cwd_context.capture_path.unlink(missing_ok=True)
     return attach_output_analysis_to_command_result(workspace, action, result)
 
 
@@ -154,6 +180,7 @@ def start_background_command(
     command: str,
     cwd: str | None = None,
     max_output_chars: int = 4_000,
+    maintain_cwd: bool = False,
 ) -> StartCommandObservation:
     blocked = get_blocked_command_reason(command)
     if blocked:
@@ -170,7 +197,12 @@ def start_background_command(
         )
 
     try:
-        command_cwd = resolve_command_cwd(workspace, cwd)
+        command_cwd = prepare_shell_cwd(
+            workspace,
+            cwd,
+            maintain=maintain_cwd,
+            capture=False,
+        ).cwd
     except ValueError as error:
         return StartCommandObservation(
             kind="start_command",

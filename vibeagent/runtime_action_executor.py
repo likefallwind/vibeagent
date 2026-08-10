@@ -234,6 +234,7 @@ def execute_runtime_action(
             action.command,
             action.cwd,
             max_output_chars=action.max_output_chars or 4_000,
+            maintain_cwd=action.maintain_cwd,
         )
 
     if isinstance(action, MonitorAction):

@@ -23,6 +23,9 @@ class CommandResult:
     duration_ms: int = 0
     sandboxed: bool = False
     sandbox_warning: str | None = None
+    previous_cwd: str | None = None
+    final_cwd: str | None = None
+    cwd_reset: bool = False
     output_contexts: list[OutputContextResult] = field(default_factory=list)
     output_context_total_refs: int = 0
     output_contexts_truncated: bool = False

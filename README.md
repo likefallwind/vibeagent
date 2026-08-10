@@ -103,6 +103,17 @@ with `-NoProfile -NonInteractive`, uses the same workspace sandbox and bounded
 output processing as `Bash`, and always follows the normal command approval
 flow. It is hidden from the model when disabled, unavailable, or in plan mode.
 
+### Shell working directory
+
+Main-session `Bash`, native `PowerShell`, and interactive `!` commands preserve
+their final working directory for later shell commands in the same session. The
+directory must remain inside the project or an added working directory; an
+outside, deleted, protected, or invalid path resets to the project root and is
+reported in the command result. Background Bash commands start in the current
+session directory, while subagents intentionally start each command from their
+own project root. Set `CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR=1` to disable
+carry-over. Valid state is restored on session resume and branch continuation.
+
 Auto memory is enabled by default. VibeAgent stores machine-local Markdown notes
 under the main Git worktree's `.vibeagent/memory/` directory, so linked
 worktrees share one memory without committing it. At session start it loads at
@@ -1584,7 +1595,7 @@ hook map directly or under `hooks`:
 }
 ```
 
-Supported lifecycle events are `SessionStart`, `InstructionsLoaded`,
+Supported lifecycle events are `SessionStart`, `CwdChanged`, `InstructionsLoaded`,
 `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
 `SubagentStart`, and `SubagentStop`. Tool-event matchers apply to the model tool
 name, parsed VibeAgent action type, and Claude-compatible aliases.
@@ -1602,6 +1613,12 @@ and, on stop, `stop_hook_active`, `last_assistant_message`, and
 `agent_transcript_path`. Parent lifecycle events remain in the session event log,
 while resumable subagent message history is atomically stored under
 `.vibeagent/sessions/<session-id>/subagents/` with secret redaction.
+
+`CwdChanged` ignores matchers and fires after a main-session shell command
+actually changes the effective directory. Its JSON input includes absolute
+`old_cwd` and `new_cwd` values, its common `cwd` field is the new directory,
+and the hook command runs there. It cannot block or alter the completed
+directory transition.
 
 Every matching command hook requires approval under the current session policy
 and still passes command hard-block checks. Plan mode records and skips command

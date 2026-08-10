@@ -64,6 +64,10 @@ The automated suite currently covers these 1.0 surfaces:
   from outside the checkout, installs the package editable, and verifies both
   `python -m vibeagent --version` and `vibeagent --version`.
 - Core ReAct loop: inspect, edit, run checks, repair, review, commit, finish.
+- Main-session shell cwd persistence: Bash, native PowerShell, and interactive
+  shell commands carry a validated working directory across turns and resume;
+  background Bash starts there, subagents stay isolated, outside paths reset,
+  opt-out is supported, and `CwdChanged` hooks receive the transition.
 - Claude-compatible tool aliases: `Read`, `Edit`, `MultiEdit`, `Write`,
   `NotebookRead`, `NotebookEdit`, `Bash`, `PowerShell`, `BashOutput`, `KillBash`, `Monitor`,
   `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TeamCreate`, `TeamDelete`, `TodoWrite`, `TodoRead`,

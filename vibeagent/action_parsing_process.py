@@ -91,6 +91,7 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
             max_diagnostics=max_diagnostics,
             max_contexts=max_contexts,
             max_bytes_per_context=max_bytes_per_context,
+            maintain_cwd=True,
         )
 
     if action_type == "run_commands":
@@ -121,6 +122,7 @@ def parse_process_action(action_type: object, value: dict[str, Any], raw: str) -
             cwd=cwd,
             max_output_chars=parse_optional_command_output_chars(value.get("max_output_chars"), raw),
             description=parse_optional_description(value.get("description"), raw, "start_command"),
+            maintain_cwd=True,
         )
 
     if action_type == "monitor":

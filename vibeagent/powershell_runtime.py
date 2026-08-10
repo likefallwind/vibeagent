@@ -10,9 +10,13 @@ from .plugin_environment import plugin_command_environment
 from .powershell_safety import get_blocked_powershell_reason
 from .process_command_runtime import run_command
 from .process_output_analysis import attach_output_analysis_to_command_result
+from .session_working_directory import (
+    finalize_shell_cwd,
+    prepare_shell_cwd,
+    wrap_powershell_command_for_cwd_capture,
+)
 from .types import CommandResult, PowerShellAction
 from .workspace_core import RunWorkspace
-from .workspace_resolve import resolve_command_cwd
 
 
 POWERSHELL_ENABLE_ENV = "CLAUDE_CODE_USE_POWERSHELL_TOOL"
@@ -82,7 +86,12 @@ def execute_powershell_action(
             f"PowerShell command blocked: {blocked}",
         )
     try:
-        command_cwd = resolve_command_cwd(workspace, action.cwd)
+        cwd_context = prepare_shell_cwd(
+            workspace,
+            action.cwd,
+            maintain=action.maintain_cwd,
+        )
+        command_cwd = cwd_context.cwd
     except ValueError as error:
         return _failed_result(action, timeout_ms, max_output_chars, str(error))
 
@@ -90,13 +99,17 @@ def execute_powershell_action(
     if not availability.enabled or availability.executable is None:
         return _failed_result(action, timeout_ms, max_output_chars, availability.message)
 
+    executed_command = wrap_powershell_command_for_cwd_capture(
+        action.command,
+        cwd_context.capture_path,
+    )
     native_argv = (
         availability.executable,
         "-NoLogo",
         "-NoProfile",
         "-NonInteractive",
         "-Command",
-        action.command,
+        executed_command,
     )
     launch = prepare_command_launch(
         workspace,
@@ -105,23 +118,30 @@ def execute_powershell_action(
         argv=native_argv,
     )
     if launch.error is not None:
+        if cwd_context.capture_path is not None:
+            cwd_context.capture_path.unlink(missing_ok=True)
         return _failed_result(
             action,
             timeout_ms,
             max_output_chars,
             f"Command sandbox blocked: {launch.error}",
         )
-    result = run_command(
-        command_cwd,
-        action.command,
-        timeout_ms,
-        workspace.root,
-        max_output_chars=max_output_chars,
-        argv=launch.argv,
-        sandboxed=launch.sandboxed,
-        sandbox_warning=launch.warning,
-        environment=launch.environment,
-    )
+    try:
+        result = run_command(
+            command_cwd,
+            action.command,
+            timeout_ms,
+            workspace.root,
+            max_output_chars=max_output_chars,
+            argv=launch.argv,
+            sandboxed=launch.sandboxed,
+            sandbox_warning=launch.warning,
+            environment=launch.environment,
+        )
+        result = finalize_shell_cwd(workspace, cwd_context, result)
+    finally:
+        if cwd_context.capture_path is not None:
+            cwd_context.capture_path.unlink(missing_ok=True)
     return attach_output_analysis_to_command_result(workspace, action, result)
 
 

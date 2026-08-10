@@ -103,6 +103,7 @@ class RunCommandAction:
     max_contexts: int = 20
     max_bytes_per_context: int = 20_000
     description: str | None = None
+    maintain_cwd: bool = False
 
 
 @dataclass(frozen=True)
@@ -119,6 +120,7 @@ class PowerShellAction:
     max_contexts: int = 20
     max_bytes_per_context: int = 20_000
     description: str | None = None
+    maintain_cwd: bool = False
 
 
 @dataclass(frozen=True)
@@ -135,6 +137,7 @@ class StartCommandAction:
     cwd: str | None = None
     max_output_chars: int | None = None
     description: str | None = None
+    maintain_cwd: bool = False
 
 
 @dataclass(frozen=True)

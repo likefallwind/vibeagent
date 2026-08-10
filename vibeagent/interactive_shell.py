@@ -59,6 +59,7 @@ def run_interactive_shell(
             command=selected_command,
             timeout_ms=timeout_ms,
             max_output_chars=max_output_chars,
+            maintain_cwd=True,
         ),
         command_timeout_ms=timeout_ms,
     )

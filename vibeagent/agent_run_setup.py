@@ -30,6 +30,7 @@ from .powershell_runtime import powershell_tool_availability
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .session_tasks import inherit_task_store
+from .session_working_directory import inherit_session_cwd
 from .scheduled_task_store import inherit_schedule_store, schedule_store_path
 from .types import ApprovalPolicy, ChatMessage
 from .workspace_core import RunWorkspace, create_run_workspace, normalize_additional_roots
@@ -129,6 +130,10 @@ def prepare_agent_run(
             ),
         )
     tasks_inherited, task_restore_error = inherit_task_store(current_workspace, task_source_run_id)
+    cwd_inherited, cwd_restore_error = inherit_session_cwd(
+        current_workspace,
+        task_source_run_id,
+    )
     schedules_inherited, schedule_restore_error = inherit_schedule_store(current_workspace, task_source_run_id)
     auto_memory = read_auto_memory(current_workspace)
     effective_task = _main_profile_task(task, main_profile, prior_messages)
@@ -170,6 +175,16 @@ def prepare_agent_run(
         )
     _append_prompt_files_event(current_workspace, prompt_file_context)
     _append_task_restore_event(current_workspace, task_source_run_id, tasks_inherited, task_restore_error)
+    if task_source_run_id is not None:
+        append_session_event(
+            current_workspace.session_dir,
+            "shell_cwd_restored",
+            {
+                "source_run_id": task_source_run_id,
+                "restored": cwd_inherited,
+                "error": cwd_restore_error,
+            },
+        )
     _append_schedule_restore_event(
         current_workspace,
         task_source_run_id,

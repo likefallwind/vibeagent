@@ -7,6 +7,7 @@ from .agent_action_logging import log_action
 from .agent_approval import build_approval_request
 from .agent_approval_preview import attach_approval_preview
 from .agent_hooks import HookRunResult, run_tool_hooks
+from .agent_lifecycle_hooks import run_lifecycle_hooks
 from .agent_observation_utils import observation_failed
 from .agent_permissions import authorize_tool_action
 from .agent_runtime_utils import append_session_event, build_repeated_list_observation, find_repeated_list_observation
@@ -19,6 +20,7 @@ from .types import (
     ExitPlanModeAction,
     Observation,
     PlanModeObservation,
+    RunCommandObservation,
     TaskStep,
 )
 from .workspace_core import RunWorkspace
@@ -237,12 +239,37 @@ def _execute_non_repeated_action(
         execute_action_safely_func,
         permissions,
     )
+    cwd_hooks: tuple[HookRunResult, ...] = ()
+    if (
+        isinstance(observation, RunCommandObservation)
+        and observation.result.previous_cwd is not None
+        and observation.result.final_cwd is not None
+        and observation.result.previous_cwd != observation.result.final_cwd
+    ):
+        cwd_lifecycle = run_lifecycle_hooks(
+            workspace,
+            hooks,
+            "CwdChanged",
+            "",
+            {
+                "old_cwd": observation.result.previous_cwd,
+                "new_cwd": observation.result.final_cwd,
+            },
+            iteration=iteration,
+            command_timeout_ms=command_timeout_ms,
+            logger=logger,
+            approval_handler=approval_handler,
+            approval_policy=approval_policy,
+            execute_action_safely_func=execute_action_safely_func,
+            permissions=permissions,
+        )
+        cwd_hooks = cwd_lifecycle.results
     diagnostics = automatic_lsp_diagnostics(workspace, observation)
     return (
         observation,
         auto_checkpoint,
         checkpoint_attempted,
-        pre_hooks.results + post_hooks.results,
+        pre_hooks.results + post_hooks.results + cwd_hooks,
         tuple(post_hooks.failures) + diagnostics,
     )
 

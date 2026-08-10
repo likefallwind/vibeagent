@@ -100,7 +100,10 @@ def execute_delegate_task_action(
             )
         except ValueError as error:
             profile_error = str(error)
-    delegate_workspace = profile.workspace or workspace
+    delegate_workspace = replace(
+        profile.workspace or workspace,
+        maintain_shell_cwd=False,
+    )
     if profile.mode is not None:
         action = replace(action, mode=profile.mode)
     parent_approval_policy = approval_policy

@@ -142,6 +142,14 @@ def prepare_command_launch(
         workspace.root.as_posix(),
         workspace.root.as_posix(),
     ]
+    mounted_roots = (workspace.root, *workspace.additional_roots)
+    if not any(
+        workspace.session_dir == root or workspace.session_dir.is_relative_to(root)
+        for root in mounted_roots
+    ):
+        sandbox_argv.extend(
+            ("--bind", workspace.session_dir.as_posix(), workspace.session_dir.as_posix())
+        )
     for path in workspace.additional_roots:
         sandbox_argv.extend(("--bind", path.as_posix(), path.as_posix()))
     for path in external_allow_write:

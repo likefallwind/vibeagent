@@ -22,6 +22,7 @@ from .workspace_settings_sources import claude_settings_files, project_config_fi
 
 
 HookEvent = Literal[
+    "CwdChanged",
     "InstructionsLoaded",
     "PostToolUse",
     "PostToolUseFailure",
@@ -34,6 +35,7 @@ HookEvent = Literal[
 ]
 HOOK_EVENTS = frozenset(
     {
+        "CwdChanged",
         "InstructionsLoaded",
         "PostToolUse",
         "PostToolUseFailure",
@@ -46,7 +48,7 @@ HOOK_EVENTS = frozenset(
     }
 )
 SEQUENTIAL_TOOL_HOOK_EVENTS = frozenset(
-    {"InstructionsLoaded", "PostToolUse", "PostToolUseFailure", "PreToolUse"}
+    {"CwdChanged", "InstructionsLoaded", "PostToolUse", "PostToolUseFailure", "PreToolUse"}
 )
 HOOK_CONFIG_PATH = ".vibeagent/hooks.json"
 MAX_HOOK_CONFIG_BYTES = 128_000
@@ -255,7 +257,7 @@ def _parse_hook_events(payload: dict[str, object], source: str) -> list[ProjectH
                 raise ValueError(
                     f"{source} hook event {event_name} entries must be objects."
                 )
-            matcher = group.get("matcher", ".*")
+            matcher = ".*" if event_name == "CwdChanged" else group.get("matcher", ".*")
             if not isinstance(matcher, str) or len(matcher) > MAX_HOOK_MATCHER_CHARS:
                 raise ValueError(
                     f"{source} hook matcher must be a string of at most {MAX_HOOK_MATCHER_CHARS} characters."
