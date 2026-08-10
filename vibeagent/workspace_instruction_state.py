@@ -29,13 +29,13 @@ def claim_unloaded_instruction_documents(
     with _STATE_LOCK:
         state = _read_loaded_state(workspace)
         loaded = state.get(normalized_consumer, [])
-        claimed = [document for document in documents if document.path not in loaded]
+        claimed = [document for document in documents if document.claim_path not in loaded]
         if not claimed:
             return []
         updated = list(loaded)
         for document in claimed:
-            if document.path not in updated:
-                updated.append(document.path)
+            if document.claim_path not in updated:
+                updated.append(document.claim_path)
         if len(updated) > MAX_LOADED_INSTRUCTION_SOURCES:
             updated = updated[-MAX_LOADED_INSTRUCTION_SOURCES:]
         if normalized_consumer not in state and len(state) >= MAX_LOADED_INSTRUCTION_CONSUMERS:

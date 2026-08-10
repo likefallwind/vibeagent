@@ -28,10 +28,11 @@ def read_project_instruction_sources(
 ) -> dict[str, object]:
     _validate_instruction_limits(max_bytes, max_files)
     documents = discover_instruction_documents(workspace)
-    scanned = documents[:max_files]
-    included_paths = {document.path for document in startup_instruction_documents(scanned)}
+    scanned = _select_owner_groups(documents, max_files)
+    startup = startup_instruction_documents(scanned)
+    included_owners = {document.claim_path for document in startup}
     text, text_truncated = _format_instruction_documents(
-        [document for document in scanned if document.path in included_paths],
+        startup,
         max_bytes,
     )
     omitted_files = max(0, len(documents) - len(scanned))
@@ -44,14 +45,20 @@ def read_project_instruction_sources(
         text_truncated = text_truncated or omitted_truncated
     return {
         "ok": not any(document.error for document in scanned),
-        "files": [_source_metadata(document, document.path in included_paths) for document in scanned],
+        "files": [
+            _source_metadata(
+                document,
+                document.claim_path in included_owners and document.error is None,
+            )
+            for document in scanned
+        ],
         "total_files": len(documents),
         "scanned_files": len(scanned),
         "omitted_files": omitted_files,
         "truncated": text_truncated or bool(omitted_files),
         "text": text,
         "message": (
-            f"Loaded {len(included_paths)} startup instruction file(s); discovered {len(documents)} total source(s)."
+            f"Loaded {_owner_count(startup)} startup instruction entrypoint(s); discovered {len(documents)} total source(s)."
             if documents
             else "No project instruction files found."
         ),
@@ -70,23 +77,24 @@ def read_path_instruction_context(
     _validate_instruction_limits(max_bytes, max_files)
     documents = discover_path_instruction_documents(workspace, relative_paths)
     matching = matching_instruction_documents(documents, relative_paths)
-    selected = matching[:max_files]
+    selected = _select_owner_groups(matching, max_files)
+    scanned_files = len(selected)
+    omitted_files = max(0, len(matching) - scanned_files)
     if claim:
         selected = claim_unloaded_instruction_documents(workspace, selected, consumer_id)
     text, text_truncated = _format_instruction_documents(selected, max_bytes)
-    omitted_files = max(0, len(matching) - min(len(matching), max_files))
     return {
-        "ok": True,
+        "ok": not any(document.error for document in selected),
         "paths": list(dict.fromkeys(relative_paths)),
         "consumer": consumer_id,
         "files": [_source_metadata(document, True) for document in selected],
         "total_files": len(matching),
-        "scanned_files": min(len(matching), max_files),
+        "scanned_files": scanned_files,
         "omitted_files": omitted_files,
         "truncated": text_truncated or bool(omitted_files),
         "text": text,
         "message": (
-            f"Loaded {len(selected)} new path-scoped instruction file(s)."
+            f"Loaded {_owner_count(selected)} new path-scoped instruction entrypoint(s)."
             if selected
             else "No new path-scoped instructions loaded."
         ),
@@ -133,6 +141,8 @@ def _source_metadata(document: InstructionDocument, included: bool) -> dict[str,
         "message": message,
         "reason": document.reason,
         "patterns": list(document.patterns),
+        "owner_path": document.owner_path,
+        "parent_path": document.parent_path,
     }
 
 
@@ -147,7 +157,7 @@ def _format_instruction_documents(documents: list[InstructionDocument], max_byte
             ]
         )
         for document in documents
-        if document.error is None and not document.empty
+        if not document.imported and document.error is None and not document.empty
     ]
     combined = "\n\n".join(chunks)
     encoded = combined.encode("utf-8")
@@ -183,6 +193,25 @@ def _validate_instruction_limits(max_bytes: int, max_files: int) -> None:
         raise ValueError("max_files must be at least 1.")
     if max_files > 200:
         raise ValueError("max_files must be at most 200.")
+
+
+def _select_owner_groups(
+    documents: list[InstructionDocument],
+    max_files: int,
+) -> list[InstructionDocument]:
+    selected_owners: list[str] = []
+    for document in documents:
+        if document.imported or document.path in selected_owners:
+            continue
+        selected_owners.append(document.path)
+        if len(selected_owners) >= max_files:
+            break
+    selected = set(selected_owners)
+    return [document for document in documents if document.claim_path in selected]
+
+
+def _owner_count(documents: list[InstructionDocument]) -> int:
+    return len({document.claim_path for document in documents})
 
 
 __all__ = [

@@ -527,6 +527,20 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Prefer unittest for tests.", first_user)
         self.assertIn("Keep summaries concise.", first_user)
 
+    def test_run_agent_expands_claude_import_in_initial_prompt_once(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
+            Path(base, "AGENTS.md").write_text("Use imported conventions.\n", encoding="utf-8")
+            Path(base, "CLAUDE.md").write_text("@AGENTS.md\nKeep summaries concise.\n", encoding="utf-8")
+            client = MockClient([[{"type": "text", "text": "Ready."}]])
+
+            result = run_agent("inspect instructions", base_dir=Path(base), client=client, max_iterations=1)
+
+        first_user = client.messages[0][1].content
+        self.assertTrue(result.success)
+        self.assertIsInstance(first_user, str)
+        self.assertEqual(first_user.count("Use imported conventions."), 1)
+        self.assertIn("[Imported instructions from AGENTS.md]", first_user)
+
     def test_run_agent_loads_nested_instructions_after_reading_matching_file(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agent-") as base:
             root = Path(base)

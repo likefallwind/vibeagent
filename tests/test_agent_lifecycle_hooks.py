@@ -179,6 +179,37 @@ class AgentLifecycleHookTests(unittest.TestCase):
         self.assertTrue(any(value.startswith("session_start:") and value.rstrip().endswith("CLAUDE.md:") for value in stdout))
         self.assertTrue(any(value.startswith("nested_traversal:") and value.rstrip().endswith("pkg/module.py") for value in stdout))
 
+    def test_instructions_loaded_hook_reports_import_parent(self) -> None:
+        command = (
+            'python3 -c "import json,sys; d=json.load(sys.stdin); '
+            "print(d['load_reason'] + ':' + d['file_path'] + ':' + str(d.get('parent_file_path', '')))\""
+        )
+        client = HookClient([[{"type": "text", "text": "Ready."}]])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-hooks-") as base:
+            root = Path(base)
+            root.joinpath("CLAUDE.md").write_text("@shared.md\n", encoding="utf-8")
+            root.joinpath("shared.md").write_text("Shared instruction.\n", encoding="utf-8")
+            write_hooks(root, {"InstructionsLoaded": [command_hook(command, "include")]})
+
+            result = run_agent("load instructions", base_dir=root, client=client, max_iterations=1, approval_handler=approve)
+            rows = [
+                json.loads(line)
+                for line in (root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        stdout = [
+            row["result"]["stdout"].strip()
+            for row in rows
+            if row["type"] == "hook_completed" and row["event"] == "InstructionsLoaded"
+        ]
+        self.assertTrue(result.success)
+        self.assertEqual(len(stdout), 1)
+        self.assertIn("include:", stdout[0])
+        self.assertIn("shared.md:", stdout[0])
+        self.assertTrue(stdout[0].endswith("CLAUDE.md"))
+
     def test_batch_instruction_hooks_report_each_matching_trigger_file(self) -> None:
         command = (
             'python3 -c "import json,sys; d=json.load(sys.stdin); '

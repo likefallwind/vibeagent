@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath
 import re
 
 from .workspace_core import PROJECT_INSTRUCTION_FILE_NAMES, RunWorkspace
+from .workspace_instruction_imports import InstructionImportBudget, resolve_instruction_imports
 from .workspace_search_files import list_files
 
 
@@ -30,10 +31,20 @@ class InstructionDocument:
     patterns: tuple[str, ...] = ()
     reason: str = "session_start"
     error: str | None = None
+    owner_path: str | None = None
+    parent_path: str | None = None
 
     @property
     def empty(self) -> bool:
         return not self.content.strip()
+
+    @property
+    def claim_path(self) -> str:
+        return self.owner_path or self.path
+
+    @property
+    def imported(self) -> bool:
+        return self.owner_path is not None
 
 
 def discover_instruction_documents(workspace: RunWorkspace) -> list[InstructionDocument]:
@@ -48,13 +59,14 @@ def discover_instruction_documents(workspace: RunWorkspace) -> list[InstructionD
         if path.name in PROJECT_INSTRUCTION_FILE_NAMES and path not in ROOT_INSTRUCTION_PATHS:
             _append_unique_path(relative_paths, seen, path)
 
-    documents: list[InstructionDocument] = []
+    groups: list[list[InstructionDocument]] = []
+    import_budget = InstructionImportBudget()
     for relative in relative_paths:
         absolute = workspace.root / relative
         if not absolute.exists() and not absolute.is_symlink():
             continue
-        documents.append(_read_instruction_document(workspace.root, relative))
-    return sorted(documents, key=instruction_document_sort_key)
+        groups.append(_read_instruction_group(workspace.root, relative, import_budget))
+    return _flatten_instruction_groups(_deduplicate_imported_owners(groups))
 
 
 def discover_path_instruction_documents(
@@ -77,12 +89,18 @@ def discover_path_instruction_documents(
                 absolute = workspace.root / candidate
                 if absolute.exists() or absolute.is_symlink():
                     _append_unique_path(candidates, seen, candidate)
-    documents = [_read_instruction_document(workspace.root, path) for path in candidates]
-    return sorted(documents, key=instruction_document_sort_key)
+    import_budget = InstructionImportBudget()
+    groups = [_read_instruction_group(workspace.root, path, import_budget) for path in candidates]
+    return _flatten_instruction_groups(_deduplicate_imported_owners(groups))
 
 
 def startup_instruction_documents(documents: list[InstructionDocument]) -> list[InstructionDocument]:
-    return [document for document in documents if _is_startup_document(document)]
+    startup_owners = {
+        document.path
+        for document in documents
+        if not document.imported and _is_startup_document(document)
+    }
+    return [document for document in documents if document.claim_path in startup_owners]
 
 
 def matching_instruction_documents(
@@ -90,27 +108,29 @@ def matching_instruction_documents(
     relative_paths: list[str],
 ) -> list[InstructionDocument]:
     normalized = [_normalize_target_path(path) for path in relative_paths]
-    matches: list[InstructionDocument] = []
+    matching_owners: set[str] = set()
     for document in documents:
-        if document.error is not None or document.empty or _is_startup_document(document):
+        if document.imported or document.error is not None or document.empty or _is_startup_document(document):
             continue
         if document.patterns:
             if any(rule_pattern_matches(pattern, path) for pattern in document.patterns for path in normalized):
-                matches.append(document)
+                matching_owners.add(document.path)
             continue
         if document.scope != "." and any(path_is_in_scope(path, document.scope) for path in normalized):
-            matches.append(document)
-    return matches
+            matching_owners.add(document.path)
+    return [document for document in documents if document.claim_path in matching_owners]
 
 
-def instruction_document_sort_key(document: InstructionDocument) -> tuple[int, int, str]:
-    path = PurePosixPath(document.path)
+def instruction_document_sort_key(document: InstructionDocument) -> tuple[int, int, str, int, str]:
+    owner_path = document.claim_path
+    path = PurePosixPath(owner_path)
     root_order = {item.as_posix(): index for index, item in enumerate(ROOT_INSTRUCTION_PATHS)}
-    if document.path in root_order:
-        return 0, root_order[document.path], document.path
-    if document.path.startswith(f"{RULES_RELATIVE_ROOT.as_posix()}/"):
-        return 1, len(path.parts), document.path
-    return 2, len(path.parts), document.path
+    imported_order = 1 if document.imported else 0
+    if owner_path in root_order:
+        return 0, root_order[owner_path], owner_path, imported_order, document.path
+    if owner_path.startswith(f"{RULES_RELATIVE_ROOT.as_posix()}/"):
+        return 1, len(path.parts), owner_path, imported_order, document.path
+    return 2, len(path.parts), owner_path, imported_order, document.path
 
 
 def path_is_in_scope(relative_path: str, scope: str) -> bool:
@@ -121,7 +141,11 @@ def rule_pattern_matches(pattern: str, relative_path: str) -> bool:
     return any(re.fullmatch(_glob_regex(expanded), relative_path) is not None for expanded in _expand_braces(pattern))
 
 
-def _read_instruction_document(root: Path, relative: Path) -> InstructionDocument:
+def _read_instruction_group(
+    root: Path,
+    relative: Path,
+    import_budget: InstructionImportBudget,
+) -> list[InstructionDocument]:
     path_text = relative.as_posix()
     scope = _instruction_scope(relative)
     absolute = root / relative
@@ -135,26 +159,106 @@ def _read_instruction_document(root: Path, relative: Path) -> InstructionDocumen
             raise ValueError(f"Instruction file exceeds {MAX_INSTRUCTION_FILE_BYTES} bytes.")
         raw = resolved.read_text(encoding="utf-8")
         patterns, content = parse_rule_frontmatter(raw) if _is_rule_path(relative) else ((), raw)
+        resolution = resolve_instruction_imports(
+            root,
+            resolved,
+            content,
+            max_file_bytes=MAX_INSTRUCTION_FILE_BYTES,
+            budget=import_budget,
+        )
         reason = "path_glob_match" if patterns else "session_start" if _is_root_or_rule(relative) else "nested_traversal"
-        return InstructionDocument(
+        owner = InstructionDocument(
             path=path_text,
             scope=scope,
-            content=content,
+            content=resolution.content,
             bytes=size,
-            chars=len(content),
+            chars=len(resolution.content),
             patterns=patterns,
             reason=reason,
         )
+        imports = [
+            InstructionDocument(
+                path=source.path,
+                scope=scope,
+                content=source.content,
+                bytes=source.bytes,
+                chars=source.chars,
+                patterns=patterns,
+                reason="include",
+                error=source.error,
+                owner_path=path_text,
+                parent_path=source.parent_path,
+            )
+            for source in resolution.sources
+        ]
+        return [owner, *imports]
     except (OSError, UnicodeError, ValueError) as error:
-        return InstructionDocument(
-            path=path_text,
-            scope=scope,
-            content="",
-            bytes=absolute.lstat().st_size if absolute.exists() or absolute.is_symlink() else 0,
-            chars=0,
-            reason="path_glob_match" if _is_rule_path(relative) else "nested_traversal",
-            error=str(error),
-        )
+        return [
+            InstructionDocument(
+                path=path_text,
+                scope=scope,
+                content="",
+                bytes=absolute.lstat().st_size if absolute.exists() or absolute.is_symlink() else 0,
+                chars=0,
+                reason="path_glob_match" if _is_rule_path(relative) else "nested_traversal",
+                error=str(error),
+            )
+        ]
+
+
+def _flatten_instruction_groups(groups: list[list[InstructionDocument]]) -> list[InstructionDocument]:
+    documents = [document for group in groups for document in group]
+    return sorted(documents, key=instruction_document_sort_key)
+
+
+def _deduplicate_imported_owners(
+    groups: list[list[InstructionDocument]],
+) -> list[list[InstructionDocument]]:
+    owners = {group[0].path: group[0] for group in groups if group}
+    incoming: dict[str, set[str]] = {path: set() for path in owners}
+    neighbors: dict[str, set[str]] = {path: set() for path in owners}
+    for group in groups:
+        if not group:
+            continue
+        owner = group[0]
+        for imported in group[1:]:
+            target = owners.get(imported.path)
+            if imported.error is not None or target is None or not _same_activation(owner, target):
+                continue
+            incoming[target.path].add(owner.path)
+            neighbors[owner.path].add(target.path)
+            neighbors[target.path].add(owner.path)
+
+    dropped = {path for path, sources in incoming.items() if sources}
+    visited: set[str] = set()
+    for start in owners:
+        if start in visited:
+            continue
+        component: set[str] = set()
+        pending = [start]
+        while pending:
+            current = pending.pop()
+            if current in component:
+                continue
+            component.add(current)
+            pending.extend(neighbors[current] - component)
+        visited.update(component)
+        if component and component <= dropped:
+            preserved = min(component, key=lambda path: instruction_document_sort_key(owners[path]))
+            dropped.remove(preserved)
+    return [group for group in groups if group and group[0].path not in dropped]
+
+
+def _same_activation(left: InstructionDocument, right: InstructionDocument) -> bool:
+    return (
+        left.scope,
+        left.reason,
+        left.patterns,
+    ) == (
+        right.scope,
+        right.reason,
+        right.patterns,
+    )
 
 
 def parse_rule_frontmatter(content: str) -> tuple[tuple[str, ...], str]:

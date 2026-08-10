@@ -47,6 +47,8 @@ class ProjectInstructionSource:
     message: str
     reason: str = "session_start"
     patterns: list[str] = field(default_factory=list)
+    owner_path: str | None = None
+    parent_path: str | None = None
 
 
 @dataclass(frozen=True)

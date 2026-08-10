@@ -129,6 +129,7 @@ def _format_project_instructions(index: int, observation: object) -> str:
                 f"source: {source.path} scope={source.scope} "
                 f"bytes={source.bytes} chars={source.chars} "
                 f"empty={str(source.empty).lower()} included={str(source.included).lower()} "
+                f"reason={source.reason} owner={source.owner_path or '.'} parent={source.parent_path or '.'} "
                 f"message={source.message}"
             )
         )
@@ -264,7 +265,8 @@ def _format_project_overview(index: int, observation: object) -> str:
                 (
                     f"instruction: {source.path} scope={source.scope or '.'} "
                     f"included={str(source.included).lower()} empty={str(source.empty).lower()} "
-                    f"bytes={source.bytes} chars={source.chars}"
+                    f"bytes={source.bytes} chars={source.chars} reason={source.reason} "
+                    f"owner={source.owner_path or '.'} parent={source.parent_path or '.'}"
                 )
             )
     if observation.todos:

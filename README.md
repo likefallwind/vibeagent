@@ -973,6 +973,14 @@ matching file is read, so directory-specific guidance does not leak into
 unrelated work. Main-agent and subagent contexts track loaded sources
 independently. When either context is compacted, its lazy-load markers are
 cleared so the applicable rules are injected again on the next matching read.
+Instruction files support Claude-compatible `@path/to/file` imports relative to
+the containing file, including recursive imports up to five levels. Imported
+sources inherit the entrypoint's scope, are reported with `reason=include` and
+their parent file, and fire `InstructionsLoaded` hooks. Imports inside fenced or
+inline code are left literal, HTML comments outside code are omitted from the
+injected text, and missing, oversized, cyclic, protected, external, or
+symlink-escaped imports fail closed without exposing their content. Per-file and
+whole-discovery import count and byte limits bound instruction expansion.
 Project commands from root or nested `package.json`, `pyproject.toml`,
 and `Makefile` files are shown as command hints with their `cwd` and executable availability. Long-running commands can be started as background
 processes, inspected through captured stdout/stderr tails across CLI calls, sent exact stdin input while the starting runtime is still attached, checked
@@ -1594,7 +1602,7 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   `related_tests` suggests likely test files for explicit paths or the current git changes without running them; the local `/related-tests` command and `--related-tests` flag expose target/candidate bounds;
   `focused_test_commands` maps those related test files to likely focused commands without running them; the local focused-test commands and flags expose target/candidate/command bounds;
   `project_manifests` reads package and pyproject dependency/script metadata; the local `/manifests` command and `--manifests` flag expose manifest file/item bounds;
-  `project_instructions` reports root and nested `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md`, `CLAUDE.local.md`, and `.claude/rules/**/*.md` sources with scopes and bounded text; startup includes only root and unscoped rules, while matching nested and `paths`-scoped rules are injected once after file reads; the local `/instructions` command and `--instructions` flag expose `--max-files`/`--max-bytes` and `--instructions-max-files`/`--instructions-max-bytes` bounds respectively;
+  `project_instructions` reports root and nested `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md`, `CLAUDE.local.md`, and `.claude/rules/**/*.md` sources with scopes and bounded text; startup includes only root and unscoped rules, while matching nested and `paths`-scoped rules are injected once after file reads; Claude-compatible recursive `@path` imports stay project-contained, inherit entrypoint scope, and expose include/parent metadata; the local `/instructions` command and `--instructions` flag expose `--max-files`/`--max-bytes` and `--instructions-max-files`/`--instructions-max-bytes` bounds respectively;
   `project_skills` discovers bounded metadata from `.claude/skills/*/SKILL.md` and `.agents/skills/*/SKILL.md`, while `skill`/`Skill` loads one exact available skill on demand and preserves optional invocation arguments for the next model step; skill bodies are excluded from the initial project snapshot and duplicate or symlinked skills are refused;
   project agent profiles are discovered from `.claude/agents/*.md` and `.agents/agents/*.md`; only bounded metadata enters the main prompt, while `delegate_task.agent` loads one exact profile body on demand and enforces its mode and optional built-in-tool allowlist at both schema and runtime boundaries. A profile uses frontmatter such as `name: test-writer`, `description: Writes focused tests`, `mode: code`, and `tools: read_file, write_file` or Claude-compatible `tools: Read, Write`, followed by its scoped system instructions;
   `delegate_task`/`Task` can run independent `explore` work in the background, returning a session-scoped task ID immediately; `TaskOutput` polls or waits for the bounded result, `TaskStop` requests cooperative cancellation, background code-mode delegation is rejected, the agent cannot finish successfully until each started task is collected or stopped, and run teardown cancels and releases any remaining session tasks;

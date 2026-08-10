@@ -72,11 +72,17 @@ def format_instructions_report_text(report: dict[str, object]) -> str:
     if sources:
         lines.append("  sources:")
         for source in sources:
+            relationship = ""
+            if source.get("owner_path"):
+                relationship = (
+                    f", owner={source.get('owner_path')}, parent={source.get('parent_path')}"
+                )
             lines.append(
                 "    - "
                 f"{source.get('path')} "
                 f"(scope={source.get('scope')}, bytes={source.get('bytes')}, chars={source.get('chars')}, "
-                f"empty={'yes' if source.get('empty') else 'no'}, included={'yes' if source.get('included') else 'no'})"
+                f"empty={'yes' if source.get('empty') else 'no'}, included={'yes' if source.get('included') else 'no'}, "
+                f"reason={source.get('reason')}{relationship})"
             )
             lines.append(f"      message: {source.get('message')}")
     else:

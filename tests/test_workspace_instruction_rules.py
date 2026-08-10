@@ -19,6 +19,126 @@ from vibeagent.workspace_project_instructions import (
 
 
 class WorkspaceInstructionRuleTests(unittest.TestCase):
+    def test_claude_imports_project_file_inline_without_duplicate_entrypoint(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workspace = create_run_workspace(root, run_id="instruction-import")
+            self._write(root / "AGENTS.md", "Use unittest.\n")
+            self._write(root / "CLAUDE.md", "Shared rules:\n@AGENTS.md\nKeep output concise.\n")
+
+            metadata = read_project_instruction_sources(workspace)
+
+        self.assertTrue(metadata["ok"])
+        self.assertEqual([item["path"] for item in metadata["files"]], ["CLAUDE.md", "AGENTS.md"])
+        imported = metadata["files"][1]
+        self.assertEqual(imported["reason"], "include")
+        self.assertEqual(imported["owner_path"], "CLAUDE.md")
+        self.assertEqual(imported["parent_path"], "CLAUDE.md")
+        self.assertTrue(imported["included"])
+        text = str(metadata["text"])
+        self.assertEqual(text.count("Use unittest."), 1)
+        self.assertNotIn("File: AGENTS.md", text)
+        self.assertIn("[Imported instructions from AGENTS.md]", text)
+
+    def test_recursive_imports_are_relative_strip_comments_and_ignore_code(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workspace = create_run_workspace(root, run_id="instruction-recursive-import")
+            self._write(
+                root / "CLAUDE.md",
+                "<!-- hidden @missing.md -->\n@docs/one.md\n`@inline.md`\n```md\n@fenced.md\n<!-- keep in code -->\n```\n",
+            )
+            self._write(root / "docs" / "one.md", "One.\n@nested/two.md\n")
+            self._write(root / "docs" / "nested" / "two.md", "Two.\n")
+
+            metadata = read_project_instruction_sources(workspace)
+
+        self.assertTrue(metadata["ok"])
+        self.assertEqual(
+            {item["path"] for item in metadata["files"]},
+            {"CLAUDE.md", "docs/one.md", "docs/nested/two.md"},
+        )
+        parents = {item["path"]: item["parent_path"] for item in metadata["files"]}
+        self.assertEqual(parents["docs/one.md"], "CLAUDE.md")
+        self.assertEqual(parents["docs/nested/two.md"], "docs/one.md")
+        text = str(metadata["text"])
+        self.assertIn("One.", text)
+        self.assertIn("Two.", text)
+        self.assertNotIn("hidden", text)
+        self.assertIn("`@inline.md`", text)
+        self.assertIn("@fenced.md", text)
+        self.assertIn("<!-- keep in code -->", text)
+
+    def test_import_cycle_missing_and_external_symlink_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir, tempfile.TemporaryDirectory() as outside_dir:
+            root = Path(temp_dir)
+            workspace = create_run_workspace(root, run_id="instruction-import-errors")
+            outside = Path(outside_dir) / "outside.md"
+            outside.write_text("outside secret\n", encoding="utf-8")
+            (root / "external.md").symlink_to(outside)
+            self._write(root / ".env", "SECRET_TOKEN=hidden\n")
+            self._write(root / "CLAUDE.md", "@a.md\n@missing.md\n@external.md\n@.env\n")
+            self._write(root / "a.md", "@CLAUDE.md\n")
+
+            metadata = read_project_instruction_sources(workspace)
+
+        self.assertFalse(metadata["ok"])
+        self.assertNotIn("outside secret", metadata["text"])
+        self.assertNotIn("SECRET_TOKEN", metadata["text"])
+        errors = [item for item in metadata["files"] if not item["included"]]
+        self.assertEqual({item["path"] for item in errors}, {"CLAUDE.md", "missing.md", "external.md", ".env"})
+        self.assertTrue(any("cycle" in item["message"] for item in errors))
+        self.assertTrue(any("project root" in item["message"] for item in errors))
+        self.assertTrue(any("protected project path" in item["message"] for item in errors))
+        self.assertIn("Instruction import skipped", metadata["text"])
+
+    def test_recursive_import_depth_is_bounded_at_five_hops(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workspace = create_run_workspace(root, run_id="instruction-import-depth")
+            self._write(root / "CLAUDE.md", "@chain/1.md\n")
+            for index in range(1, 7):
+                next_import = f"@{index + 1}.md\n" if index < 6 else ""
+                self._write(root / "chain" / f"{index}.md", f"Level {index}.\n{next_import}")
+
+            metadata = read_project_instruction_sources(workspace)
+
+        self.assertFalse(metadata["ok"])
+        self.assertIn("Level 5.", metadata["text"])
+        self.assertNotIn("Level 6.", metadata["text"])
+        depth_error = next(item for item in metadata["files"] if item["path"] == "chain/6.md")
+        self.assertFalse(depth_error["included"])
+        self.assertIn("at most 5 levels", depth_error["message"])
+
+    def test_instruction_entrypoint_import_count_is_bounded(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workspace = create_run_workspace(root, run_id="instruction-import-count")
+            references = "".join(f"@missing-{index}.md\n" for index in range(75))
+            self._write(root / "CLAUDE.md", references)
+
+            metadata = read_project_instruction_sources(workspace)
+
+        self.assertFalse(metadata["ok"])
+        self.assertLessEqual(len(metadata["files"]), 52)
+        self.assertTrue(any("at most 50 files" in item["message"] for item in metadata["files"]))
+
+    def test_lazy_import_group_is_claimed_once_by_its_entrypoint(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workspace = create_run_workspace(root, run_id="instruction-import-claim")
+            self._write(root / "pkg" / "CLAUDE.md", "@rules.md\nPackage rule.\n")
+            self._write(root / "pkg" / "rules.md", "Imported package rule.\n")
+
+            first = read_path_instruction_context(workspace, ["pkg/module.py"])
+            second = read_path_instruction_context(workspace, ["pkg/other.py"])
+            state = json.loads((workspace.session_dir / "loaded_instructions.json").read_text(encoding="utf-8"))
+
+        self.assertEqual([item["path"] for item in first["files"]], ["pkg/CLAUDE.md", "pkg/rules.md"])
+        self.assertEqual(second["files"], [])
+        self.assertEqual(state["consumers"]["main"], ["pkg/CLAUDE.md"])
+        self.assertIn("Imported package rule.", first["text"])
+
     def test_startup_loads_root_local_claude_directory_and_unconditional_rules(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

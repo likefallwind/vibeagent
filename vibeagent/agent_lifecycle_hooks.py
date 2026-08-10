@@ -123,6 +123,9 @@ def run_instruction_loaded_hooks(
         patterns = source.get("patterns")
         if isinstance(patterns, list) and patterns:
             fields["globs"] = patterns
+        parent_path = source.get("parent_path")
+        if isinstance(parent_path, str):
+            fields["parent_file_path"] = str((workspace.root / parent_path).resolve())
         trigger_path = _matching_trigger_path(source, trigger_paths)
         if isinstance(trigger_path, str):
             fields["trigger_file_path"] = str((workspace.root / trigger_path).resolve())

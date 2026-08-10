@@ -73,7 +73,8 @@ def format_overview_report_text(report: dict[str, object]) -> str:
                     "    - "
                     f"{source.get('path')} "
                     f"(scope={source.get('scope')}, included={'yes' if bool(source.get('included')) else 'no'}, "
-                    f"empty={'yes' if bool(source.get('empty')) else 'no'})"
+                    f"empty={'yes' if bool(source.get('empty')) else 'no'}, reason={source.get('reason')}, "
+                    f"parent={source.get('parent_path') or '.'})"
                 )
     todo_items = todos.get("items") if isinstance(todos.get("items"), list) else []
     if todo_items:

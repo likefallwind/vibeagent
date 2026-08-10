@@ -77,6 +77,19 @@ class DelegationTests(unittest.TestCase):
             agent_delegate_context.build_compacted_delegate_context,
         )
 
+    def test_delegate_messages_expand_project_instruction_imports(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-delegate-") as base:
+            root = Path(base)
+            root.joinpath("CLAUDE.md").write_text("@shared.md\n", encoding="utf-8")
+            root.joinpath("shared.md").write_text("Shared subagent rule.\n", encoding="utf-8")
+            workspace = create_run_workspace(root, run_id="delegate-import")
+            action = parse_tool_action("delegate_task", {"task": "Inspect imports"})
+
+            messages = agent_delegate_context.build_delegate_messages(workspace, action)
+
+        self.assertIn("Shared subagent rule.", messages[1].content)
+        self.assertIn("[Imported instructions from shared.md]", messages[1].content)
+
     def test_delegate_completion_helpers_live_in_completion_module(self) -> None:
         self.assertIs(agent_delegate.clip_delegate_summary, agent_delegate_completion.clip_delegate_summary)
         self.assertIs(agent_delegate.delegate_completion_message, agent_delegate_completion.delegate_completion_message)
