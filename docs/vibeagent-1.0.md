@@ -108,6 +108,10 @@ local changes when asked, and resume from recorded session context.
   user/project/local `env` precedence, explicit project trust, host environment
   priority, secret-safe validation, and propagation to provider configuration,
   commands, hooks, MCP servers, and LSP servers.
+- `tests.test_user_mcp.UserMcpScopeTests` covers bounded non-symlink
+  `~/.claude.json` loading, local/project/user precedence, cross-project stdio
+  execution, `CLAUDE_PROJECT_DIR`, strict-source isolation, environment
+  defaults and required values, and hard-block checks after command expansion.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `LS`, `Glob`, `Grep`, `Read`, `Bash`, `Edit`, and `TodoRead`,

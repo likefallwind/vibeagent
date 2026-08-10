@@ -1547,8 +1547,10 @@ Example chat:
 
 ## MCP servers
 
-Project-scoped stdio and Streamable HTTP MCP servers can be declared in
-`.mcp.json`:
+Stdio and Streamable HTTP MCP servers can be declared for a shared project in
+`.mcp.json`, for every personal project in the top-level `mcpServers` object in
+`~/.claude.json`, or privately for one project under that resolved project path
+in `~/.claude.json`'s `projects` object:
 
 ```json
 {
@@ -1572,9 +1574,13 @@ Project-scoped stdio and Streamable HTTP MCP servers can be declared in
 The `type` field defaults to `stdio` for compatibility. HTTP servers default to
 protocol version `2026-07-28`; set `"protocolVersion": "2025-11-25"` only for a
 legacy Streamable HTTP server that requires initialization and session headers.
-HTTP header values support `${ENV_NAME}` expansion. Redirects are not followed,
-response bodies are bounded, and server listings expose only a query-free
-endpoint and header names, never header values.
+The same-name scope precedence is local, project, user, then plugin. Commands,
+arguments, server environment values, HTTP URLs, and HTTP headers support
+`${ENV_NAME}` and `${ENV_NAME:-default}` expansion; a missing variable without
+a default invalidates the configuration without exposing a value. Stdio
+processes receive `CLAUDE_PROJECT_DIR` for the active project. Redirects are not
+followed, response bodies are bounded, and server listings expose only a
+query-free endpoint and header names, never header values.
 
 `mcp_servers` reads configuration metadata without starting a process or
 opening a connection. `mcp_tools` connects after approval and performs the
@@ -1589,10 +1595,10 @@ Claude-style model tool names such as `mcp__docs__search` are normalized to
 the same `mcp_call` path with the tool input preserved as MCP arguments.
 One-shot runs can add extra MCP configuration files with repeated
 `--mcp-config PATH` arguments. Relative paths are resolved from `--cwd` or the
-current project directory. Server names must be unique across `.mcp.json` and
-all extra files, and each server `cwd` still has to resolve inside the project.
-Use `--strict-mcp-config` to ignore project `.mcp.json` and load only the
-explicit `--mcp-config` files for that one-shot run.
+current project directory. Extra files cannot redefine an implicitly scoped
+server, and each server `cwd` still has to resolve inside the project. Use
+`--strict-mcp-config` to ignore user, local, project, and plugin MCP sources and
+load only the explicit `--mcp-config` files for that one-shot run.
 
 ## Architecture
 
@@ -1668,10 +1674,12 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   and recursive delegation. Code-mode steps and observations feed the parent
   completion audit, and both modes record the child lifecycle before returning
   a structured summary.
-- `vibeagent/mcp_config.py`, `vibeagent/mcp_stdio.py`, and
-  `vibeagent/mcp_action_executor.py`: validate project MCP configuration, run
-  newline-delimited JSON-RPC stdio sessions, and expose approved tool discovery
-  and calls without leaving MCP subprocesses running.
+- `vibeagent/mcp_user_config.py`, `vibeagent/mcp_config_sources.py`,
+  `vibeagent/mcp_config.py`, `vibeagent/mcp_stdio.py`, and
+  `vibeagent/mcp_action_executor.py`: load bounded user/local/project/plugin MCP
+  scopes with deterministic precedence, validate transport and environment
+  expansion, run newline-delimited JSON-RPC stdio sessions, and expose approved
+  tool discovery and calls without leaving MCP subprocesses running.
 - `vibeagent/workspace_settings_sources.py`, `vibeagent/workspace_hooks.py`,
   `vibeagent/agent_hook_execution.py`, `vibeagent/agent_hooks.py`, and
   `vibeagent/agent_lifecycle_runtime.py`: load bounded personal and project hook

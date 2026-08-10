@@ -173,7 +173,7 @@ class McpHttpRuntimeTests(unittest.TestCase):
                         },
                     ),
                 )
-            servers = execute_action(workspace, parse_tool_action("mcp_servers", {}))
+                servers = execute_action(workspace, parse_tool_action("mcp_servers", {}))
 
         self.assertTrue(listed.ok)
         self.assertEqual([tool.name for tool in listed.tools], ["echo"])

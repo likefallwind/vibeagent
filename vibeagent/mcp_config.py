@@ -13,12 +13,9 @@ from .plugin_runtime import (
     PluginComponentFile,
     enabled_plugin_component_files,
     expand_plugin_path_variables,
-    inline_plugin_component,
-    plugin_component_for_path,
     plugin_subprocess_environment,
     resolve_plugin_component_user_config,
 )
-from .plugin_store import enabled_plugin_manifests
 from .plugin_user_config import ResolvedPluginUserConfig
 from .workspace_core import RunWorkspace
 from .workspace_environment import workspace_process_environment
@@ -30,7 +27,9 @@ from .workspace_resolve import resolve_inside_run
 MCP_CONFIG_NAME = ".mcp.json"
 MCP_CONFIG_MAX_BYTES = 100_000
 MCP_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
-ENV_REFERENCE_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+ENV_REFERENCE_PATTERN = re.compile(
+    r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}"
+)
 HTTP_HEADER_NAME_PATTERN = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
 MCP_HTTP_PROTOCOL_VERSIONS = frozenset({MCP_STDIO_PROTOCOL_VERSION, MCP_HTTP_PROTOCOL_VERSION})
 MCP_HTTP_DEFAULT_PROTOCOL_VERSION = MCP_HTTP_PROTOCOL_VERSION
@@ -63,6 +62,7 @@ class McpServerConfig:
     protocol_version: str = MCP_HTTP_DEFAULT_PROTOCOL_VERSION
     plugin_environment: dict[str, str] = field(default_factory=dict)
     process_environment: dict[str, str] = field(default_factory=dict)
+    project_directory: str = ""
 
     @property
     def argv(self) -> list[str]:
@@ -77,37 +77,13 @@ class McpServerConfig:
 
 
 def read_mcp_server_configs(workspace: RunWorkspace) -> list[McpServerConfig]:
-    configs: list[McpServerConfig] = []
-    seen: dict[str, str] = {}
-    for path in mcp_config_paths(workspace):
-        component = plugin_component_for_path(workspace, path, "mcp")
-        for config in _read_mcp_server_configs_from_path(workspace, path, component):
-            if config.name in seen:
-                raise ValueError(
-                    f"MCP server {config.name!r} is defined in both {seen[config.name]} and {config.config_path}."
-                )
-            seen[config.name] = config.config_path
-            configs.append(config)
-    if not workspace.strict_mcp_config:
-        for manifest in enabled_plugin_manifests(workspace.root):
-            if manifest.inline_mcp_servers is None:
-                continue
-            component = inline_plugin_component(manifest, "mcp")
-            label = f"{component.source}:{component.relative_path}#mcpServers"
-            document = {"mcpServers": manifest.inline_mcp_servers}
-            for config in _read_mcp_server_configs_from_document(
-                workspace,
-                document,
-                label,
-                component,
-            ):
-                if config.name in seen:
-                    raise ValueError(
-                        f"MCP server {config.name!r} is defined in both {seen[config.name]} and {config.config_path}."
-                    )
-                seen[config.name] = config.config_path
-                configs.append(config)
-    return sorted(configs, key=lambda config: config.name)
+    from .mcp_config_sources import read_scoped_mcp_server_configs
+
+    return read_scoped_mcp_server_configs(
+        workspace,
+        read_path=_read_mcp_server_configs_from_path,
+        read_document=_read_mcp_server_configs_from_document,
+    )
 
 
 def mcp_config_paths(workspace: RunWorkspace) -> list[Path]:
@@ -219,6 +195,8 @@ def expanded_mcp_environment(config: McpServerConfig) -> dict[str, str]:
     }
     for key, value in config.env.items():
         environment[key] = _expand_environment_references(value, environment)
+    if config.project_directory:
+        environment["CLAUDE_PROJECT_DIR"] = config.project_directory
     return environment
 
 
@@ -303,7 +281,7 @@ def _parse_stdio_server_config(
         raise ValueError(f"MCP server {name!r} cwd is not a directory: {cwd}.")
     if not isinstance(env, dict) or any(not isinstance(key, str) or not isinstance(item, str) for key, item in env.items()):
         raise ValueError(f"MCP server {name!r} env must map string names to string values.")
-    return McpServerConfig(
+    config = McpServerConfig(
         name=name,
         command=command.strip(),
         args=list(args),
@@ -313,7 +291,11 @@ def _parse_stdio_server_config(
         transport="stdio",
         plugin_environment=dict(plugin_environment or {}),
         process_environment=dict(process_environment or {}),
+        project_directory=workspace.root.as_posix(),
     )
+    config.argv
+    expanded_mcp_environment(config)
+    return config
 
 
 def _resolve_mcp_cwd(workspace: RunWorkspace, cwd: str, plugin_root: Path | None) -> Path:
@@ -411,7 +393,7 @@ def _parse_http_server_config(
         raise ValueError(
             f"MCP HTTP server {name!r} protocolVersion must be one of {sorted(MCP_HTTP_PROTOCOL_VERSIONS)}."
         )
-    return McpServerConfig(
+    config = McpServerConfig(
         name=name,
         command="",
         args=[],
@@ -424,14 +406,24 @@ def _parse_http_server_config(
         protocol_version=str(protocol_version),
         plugin_environment=dict(plugin_environment or {}),
         process_environment=dict(process_environment or {}),
+        project_directory="",
     )
+    expanded_mcp_headers(config)
+    return config
 
 
 def _expand_environment_references(value: str, environment: dict[str, str]) -> str:
-    return ENV_REFERENCE_PATTERN.sub(
-        lambda match: environment.get(match.group(1), ""),
-        value,
-    )
+    def replace(match: re.Match[str]) -> str:
+        name, default = match.groups()
+        if name in environment:
+            configured = environment[name]
+            if configured or default is None:
+                return configured
+        if default is not None:
+            return default
+        raise ValueError(f"MCP environment variable {name} is not set.")
+
+    return ENV_REFERENCE_PATTERN.sub(replace, value)
 
 
 def _config_path_label(workspace: RunWorkspace, path: Path) -> str:

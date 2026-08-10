@@ -29,9 +29,16 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
     if isinstance(action, McpServersAction):
         try:
             configs = read_mcp_server_configs(workspace)
-            config_path = ", ".join(_config_path_label(workspace, path) for path in mcp_config_paths(workspace))
+            config_path = ", ".join(
+                dict.fromkeys(config.config_path for config in configs)
+            )
             if not config_path:
-                config_path = "none" if workspace.strict_mcp_config else ".mcp.json"
+                paths = mcp_config_paths(workspace)
+                config_path = ", ".join(
+                    _config_path_label(workspace, path) for path in paths
+                )
+                if not config_path:
+                    config_path = "none" if workspace.strict_mcp_config else ".mcp.json"
             shown = configs[: action.max_servers]
             return McpServersObservation(
                 kind="mcp_servers",
@@ -122,7 +129,8 @@ def execute_mcp_action(workspace: RunWorkspace, action: object) -> Observation |
 def _safe_server_config(workspace: RunWorkspace, name: str) -> McpServerConfig:
     config = get_mcp_server_config(workspace, name)
     if config.transport == "stdio":
-        safety_argv = [Path(config.command).name, *config.args]
+        expanded = config.argv
+        safety_argv = [Path(expanded[0]).name, *expanded[1:]]
         blocked = get_blocked_command_reason(shlex.join(safety_argv))
         if blocked:
             raise ValueError(f"MCP server command is blocked: {blocked}")

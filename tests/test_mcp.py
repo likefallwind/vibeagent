@@ -77,7 +77,7 @@ def _write_mcp_project(root: Path, *, cwd: str = ".") -> None:
                         "command": sys.executable,
                         "args": ["mcp_server.py"],
                         "cwd": cwd,
-                        "env": {"MCP_TEST_VALUE": "${MCP_TEST_SOURCE}"},
+                        "env": {"MCP_TEST_VALUE": "${MCP_TEST_SOURCE:-}"},
                     }
                 }
             }

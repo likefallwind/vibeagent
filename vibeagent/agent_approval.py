@@ -220,14 +220,14 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
         return t.ApprovalRequest(
             action_type="mcp_tools",
             target=action.server,
-            risk="This will start the project-configured MCP server process and request its tool catalog.",
+            risk="This will start the configured MCP server process and request its tool catalog.",
         )
     if isinstance(action, t.McpCallAction):
         arguments = summarize(json.dumps(redact_jsonable_payload(action.arguments), ensure_ascii=False), 500)
         return t.ApprovalRequest(
             action_type="mcp_call",
             target=f"{action.server}/{action.name} arguments={arguments}",
-            risk="This will start project-configured code and send the provided arguments to an MCP tool, which may have external side effects.",
+            risk="This will start configured code and send the provided arguments to an MCP tool, which may have external side effects.",
         )
     return None
 
