@@ -280,6 +280,14 @@ def project_next_action_instruction(base: str, latest: Observation) -> str:
                 "or retry once with a narrower task; do not repeat the same delegation unchanged."
             )
         if getattr(latest, "mode", "explore") == "code":
+            if getattr(latest, "isolation", None) == "worktree" and getattr(
+                latest, "worktree_preserved", False
+            ):
+                return (
+                    f"{base} The delegated changes are isolated at {latest.worktree_path} on branch "
+                    f"{latest.worktree_branch}; the parent checkout is unchanged. Inspect and verify that worktree, "
+                    "then integrate its commit or patch explicitly before claiming the parent task is complete."
+                )
             return (
                 f"{base} Inspect the delegated changes, run any remaining verification, and continue the parent task. "
                 "Do not assume the coding subagent's summary alone proves completion."
@@ -293,6 +301,13 @@ def project_next_action_instruction(base: str, latest: Observation) -> str:
             return f"{base} The background subagent is still running. Continue independent work or call TaskOutput again with block=true."
         result = getattr(latest, "result", None)
         if result is not None and getattr(result, "ok", False):
+            if getattr(result, "isolation", None) == "worktree" and getattr(
+                result, "worktree_preserved", False
+            ):
+                return (
+                    f"{base} The background changes are isolated at {result.worktree_path} on branch "
+                    f"{result.worktree_branch}; inspect, verify, and explicitly integrate them into the parent checkout."
+                )
             return f"{base} Use the background findings as evidence, verify critical details, and continue the parent task."
         return f"{base} The background task did not complete successfully. Continue in the main context or retry once with a narrower task."
     if latest.kind == "task_stop":

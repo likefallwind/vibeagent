@@ -5,10 +5,47 @@ from types import SimpleNamespace
 
 from vibeagent.prompt_observation_mcp import format_mcp_observation
 from vibeagent.prompt_observation_project import format_project_observation
+from vibeagent.prompt_observations import format_observations
 from vibeagent.prompt_observation_project_commands import format_command_metadata
 
 
 class PromptObservationProjectTests(unittest.TestCase):
+    def test_format_isolated_delegate_exposes_integration_location(self) -> None:
+        result = SimpleNamespace(
+            kind="delegate_task",
+            task_id="delegate-2-1",
+            task="Implement parser",
+            message="Completed in an isolated worktree.",
+            ok=True,
+            mode="code",
+            background=False,
+            running=False,
+            iterations=2,
+            agent="writer",
+            isolation="worktree",
+            worktree_path="/repo/.vibeagent/worktrees/subagent-1",
+            worktree_branch="vibeagent/subagent-1",
+            worktree_preserved=True,
+            summary="Implemented parser and tests.",
+        )
+
+        text = format_project_observation(1, result)
+        task_output = format_observations(
+            [
+                SimpleNamespace(
+                    kind="task_output",
+                    task_id="delegate-2-1",
+                    message="completed",
+                    result=result,
+                )
+            ]
+        )
+
+        self.assertIn("worktree=/repo/.vibeagent/worktrees/subagent-1", text or "")
+        self.assertIn("branch=vibeagent/subagent-1", text or "")
+        self.assertIn("summary:\nImplemented parser and tests.", text or "")
+        self.assertIn("preserved=true", task_output)
+
     def test_format_command_metadata_keeps_common_field_order(self) -> None:
         command = SimpleNamespace(
             cwd=".",
@@ -139,7 +176,8 @@ class PromptObservationProjectTests(unittest.TestCase):
                 "4. list_agents: Found 1 session agent. shown=1/1 invalid=0 truncated=false\n"
                 "ok: true\n"
                 "agent: id=delegate-1-1 status=completed mode=explore profile=reviewer "
-                "background=false runs=2 resumable=true task=Inspect tests"
+                "background=false runs=2 resumable=true isolation=none worktree=. branch=. "
+                "worktreePreserved=false task=Inspect tests"
             ),
         )
 

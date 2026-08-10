@@ -27,6 +27,7 @@ class DelegateProfileRuntime:
     max_turns: int | None = None
     skills: tuple[str, ...] = ()
     memory_scope: str | None = None
+    isolation: str | None = None
     workspace: RunWorkspace | None = None
     error: str | None = None
 
@@ -77,6 +78,7 @@ def load_delegate_profile_runtime(
             max_turns=max_turns if isinstance(max_turns, int) else None,
             skills=skills,
             memory_scope=memory_scope if scoped_workspace is not None else None,
+            isolation=str(profile["isolation"]) if profile.get("isolation") is not None else None,
             workspace=scoped_workspace,
         )
     except (OSError, UnicodeError, ValueError) as error:

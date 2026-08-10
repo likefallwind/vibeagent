@@ -10,6 +10,8 @@ from .prompt_observation_utils import truncate
 
 
 def format_project_observation(index: int, observation: object) -> str | None:
+    if observation.kind == "delegate_task":
+        return _format_delegate_task(index, observation)
     if observation.kind in COMMAND_OBSERVATION_KINDS:
         return format_project_command_observation(index, observation)
     if observation.kind == "tool_search":
@@ -33,6 +35,27 @@ def format_project_observation(index: int, observation: object) -> str | None:
     if observation.kind == "project_overview":
         return _format_project_overview(index, observation)
     return format_mcp_observation(index, observation)
+
+
+def _format_delegate_task(index: int, observation: object) -> str:
+    parts = [
+        (
+            f"{index}. delegate_task {observation.task_id or '.'}: {observation.message} "
+            f"ok={str(observation.ok).lower()} mode={observation.mode} "
+            f"background={str(observation.background).lower()} running={str(observation.running).lower()} "
+            f"iterations={observation.iterations}"
+        )
+    ]
+    if observation.agent:
+        parts.append(f"profile: {observation.agent}")
+    if getattr(observation, "isolation", None):
+        parts.append(
+            f"isolation: {observation.isolation} worktree={observation.worktree_path or '.'} "
+            f"branch={observation.worktree_branch or '.'} preserved={str(observation.worktree_preserved).lower()}"
+        )
+    if observation.summary:
+        parts.append(f"summary:\n{truncate(observation.summary)}")
+    return "\n".join(parts)
 
 
 def _format_tool_search(index: int, observation: object) -> str:
@@ -170,11 +193,13 @@ def _format_project_agents(index: int, observation: object) -> str:
         tools = ",".join(agent.tools) if agent.tools is not None else "default"
         denied = ",".join(agent.disallowed_tools) or "none"
         skills = ",".join(agent.skills) or "none"
+        isolation = getattr(agent, "isolation", None) or "none"
         parts.append(
             f"agent: name={agent.name} mode={agent.mode} tools={tools} disallowedTools={denied} "
             f"maxTurns={agent.max_turns or 'default'} skills={skills} memory={agent.memory or 'none'} "
             f"source={agent.source} path={agent.path} "
-            f"available={str(agent.available).lower()} description={agent.description or '.'} message={agent.message}"
+            f"isolation={isolation} available={str(agent.available).lower()} "
+            f"description={agent.description or '.'} message={agent.message}"
         )
     return "\n".join(parts)
 
@@ -192,7 +217,11 @@ def _format_list_agents(index: int, observation: object) -> str:
         parts.append(
             f"agent: id={agent.id} status={agent.status} mode={agent.mode} "
             f"profile={agent.agent or '.'} background={str(agent.background).lower()} "
-            f"runs={agent.runs} resumable={str(agent.resumable).lower()} task={agent.task}"
+            f"runs={agent.runs} resumable={str(agent.resumable).lower()} "
+            f"isolation={getattr(agent, 'isolation', None) or 'none'} "
+            f"worktree={getattr(agent, 'worktree_path', None) or '.'} "
+            f"branch={getattr(agent, 'worktree_branch', None) or '.'} "
+            f"worktreePreserved={str(bool(getattr(agent, 'worktree_preserved', False))).lower()} task={agent.task}"
         )
     return "\n".join(parts)
 

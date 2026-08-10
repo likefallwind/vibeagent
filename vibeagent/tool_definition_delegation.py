@@ -6,7 +6,7 @@ from typing import Any
 DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "delegate_task",
-        "description": "Delegate one bounded task to a subagent. Use explore for research or code for implementation.",
+        "description": "Delegate one bounded task to a subagent. Use explore for research, code for implementation, and isolation=worktree for parallel-safe edits.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -29,6 +29,7 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
                 },
                 "run_in_background": {"type": "boolean"},
+                "isolation": {"type": "string", "enum": ["worktree"]},
             },
             "required": ["task"],
             "additionalProperties": False,
@@ -36,7 +37,7 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "Task",
-        "description": "Claude-compatible alias for delegating one bounded task to a subagent.",
+        "description": "Claude-compatible alias for delegating one bounded task, optionally in an isolated git worktree.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -49,6 +50,7 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "mode": {"type": "string", "enum": ["explore", "code"]},
                 "max_iterations": {"type": "integer", "minimum": 1, "maximum": 8},
                 "run_in_background": {"type": "boolean"},
+                "isolation": {"type": "string", "enum": ["worktree"]},
             },
             "required": ["prompt"],
             "additionalProperties": False,
@@ -56,7 +58,7 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "Agent",
-        "description": "Claude-compatible alias for delegating one bounded task to a subagent.",
+        "description": "Claude-compatible alias for delegating one bounded task, optionally in an isolated git worktree.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -69,6 +71,7 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "mode": {"type": "string", "enum": ["explore", "code"]},
                 "max_iterations": {"type": "integer", "minimum": 1, "maximum": 8},
                 "run_in_background": {"type": "boolean"},
+                "isolation": {"type": "string", "enum": ["worktree"]},
             },
             "required": ["prompt"],
             "additionalProperties": False,

@@ -19,6 +19,7 @@ from .types import (
     AgentLogger,
     ApprovalHandler,
     ApprovalPolicy,
+    ApprovalRequest,
     Observation,
     ToolErrorObservation,
 )
@@ -60,6 +61,7 @@ def run_hooks_around_tool(
     execute_action_safely_func: ExecuteActionSafely,
     execute_tool: ExecuteTool,
     permissions: ProjectPermissions = ProjectPermissions(),
+    default_approval_request: ApprovalRequest | None = None,
 ) -> HookWrappedToolResult:
     authorization = authorize_tool_action(
         workspace,
@@ -70,6 +72,7 @@ def run_hooks_around_tool(
         approval_handler,
         approval_policy,
         logger,
+        default_request=default_approval_request,
     )
     if not authorization.allowed:
         assert authorization.denial is not None

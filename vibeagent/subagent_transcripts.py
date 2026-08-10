@@ -14,7 +14,7 @@ from .workspace_agent_profile_parser import MAX_AGENT_TURNS
 from .workspace_core import RunWorkspace
 
 
-TRANSCRIPT_VERSION = 1
+TRANSCRIPT_VERSION = 2
 MAX_TRANSCRIPT_BYTES = 8_000_000
 MAX_TRANSCRIPT_FILES = 1_000
 SUBAGENT_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
@@ -26,12 +26,22 @@ class SubagentTranscriptError(ValueError):
 
 
 @dataclass(frozen=True)
+class SubagentWorktreeRecord:
+    project_path: str
+    worktree_path: str
+    branch: str
+    base_commit: str
+    preserved: bool = True
+
+
+@dataclass(frozen=True)
 class SubagentTranscript:
     subagent_id: str
     action: DelegateTaskAction
     messages: list[ChatMessage]
     status: Literal["running", "completed", "failed", "cancelled"]
     runs: int
+    worktree: SubagentWorktreeRecord | None = None
 
 
 def create_subagent_transcript(
@@ -39,15 +49,17 @@ def create_subagent_transcript(
     subagent_id: str,
     action: DelegateTaskAction,
     messages: list[ChatMessage],
+    worktree: SubagentWorktreeRecord | None = None,
 ) -> None:
     _validate_subagent_id(subagent_id)
-    _write_transcript(workspace, SubagentTranscript(subagent_id, action, list(messages), "running", 1))
+    _write_transcript(workspace, SubagentTranscript(subagent_id, action, list(messages), "running", 1, worktree))
 
 
 def resume_subagent_transcript(
     workspace: RunWorkspace,
     transcript: SubagentTranscript,
     messages: list[ChatMessage],
+    worktree: SubagentWorktreeRecord | None = None,
 ) -> None:
     with _STORE_LOCK:
         current = read_subagent_transcript(workspace, transcript.subagent_id)
@@ -63,6 +75,7 @@ def resume_subagent_transcript(
                 list(messages),
                 "running",
                 transcript.runs + 1,
+                worktree if worktree is not None else current.worktree,
             ),
         )
 
@@ -76,7 +89,7 @@ def checkpoint_subagent_transcript(
     current = read_subagent_transcript(workspace, subagent_id)
     _write_transcript(
         workspace,
-        SubagentTranscript(subagent_id, action, list(messages), "running", current.runs),
+        SubagentTranscript(subagent_id, action, list(messages), "running", current.runs, current.worktree),
     )
 
 
@@ -89,9 +102,20 @@ def complete_subagent_transcript(
 ) -> None:
     current = read_subagent_transcript(workspace, subagent_id)
     status = "cancelled" if result.cancelled else ("completed" if result.ok else "failed")
+    worktree = (
+        SubagentWorktreeRecord(
+            current.worktree.project_path,
+            current.worktree.worktree_path,
+            current.worktree.branch,
+            current.worktree.base_commit,
+            result.worktree_preserved,
+        )
+        if current.worktree is not None
+        else None
+    )
     _write_transcript(
         workspace,
-        SubagentTranscript(subagent_id, action, list(messages), status, current.runs),
+        SubagentTranscript(subagent_id, action, list(messages), status, current.runs, worktree),
     )
 
 
@@ -152,6 +176,7 @@ def _write_transcript(workspace: RunWorkspace, transcript: SubagentTranscript) -
             "messages": [asdict(message) for message in transcript.messages],
             "status": transcript.status,
             "runs": transcript.runs,
+            "worktree": asdict(transcript.worktree) if transcript.worktree is not None else None,
         }
     )
     encoded = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
@@ -187,7 +212,7 @@ def _validate_store_path(path: Path) -> None:
 
 
 def _parse_transcript(payload: object, expected_id: str) -> SubagentTranscript:
-    if not isinstance(payload, dict) or payload.get("version") != TRANSCRIPT_VERSION:
+    if not isinstance(payload, dict) or payload.get("version") not in {1, TRANSCRIPT_VERSION}:
         raise SubagentTranscriptError("Unsupported or malformed subagent transcript.")
     if payload.get("subagent_id") != expected_id:
         raise SubagentTranscriptError("Subagent transcript ID does not match its filename.")
@@ -201,9 +226,10 @@ def _parse_transcript(payload: object, expected_id: str) -> SubagentTranscript:
         raise SubagentTranscriptError("Malformed subagent transcript content.")
     action = _parse_action(action_value)
     messages = [_parse_message(value) for value in messages_value]
+    worktree = _parse_worktree(payload.get("worktree"))
     if not messages or messages[0].role != "system":
         raise SubagentTranscriptError("Subagent transcript must start with a system message.")
-    return SubagentTranscript(expected_id, action, messages, status, runs)
+    return SubagentTranscript(expected_id, action, messages, status, runs, worktree)
 
 
 def _parse_action(value: dict[str, object]) -> DelegateTaskAction:
@@ -213,6 +239,7 @@ def _parse_action(value: dict[str, object]) -> DelegateTaskAction:
     mode = value.get("mode")
     agent = value.get("agent")
     background = value.get("run_in_background")
+    isolation = value.get("isolation")
     if (
         value.get("type") != "delegate_task"
         or not isinstance(task, str)
@@ -224,9 +251,24 @@ def _parse_action(value: dict[str, object]) -> DelegateTaskAction:
         or mode not in {"explore", "code"}
         or agent is not None and not isinstance(agent, str)
         or not isinstance(background, bool)
+        or isolation not in {None, "worktree"}
     ):
         raise SubagentTranscriptError("Malformed delegated action in transcript.")
-    return DelegateTaskAction("delegate_task", task, context, max_iterations, mode, agent, background)
+    return DelegateTaskAction("delegate_task", task, context, max_iterations, mode, agent, background, isolation)
+
+
+def _parse_worktree(value: object) -> SubagentWorktreeRecord | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise SubagentTranscriptError("Malformed subagent worktree metadata.")
+    fields = [value.get(name) for name in ("project_path", "worktree_path", "branch", "base_commit")]
+    if any(not isinstance(item, str) or not item for item in fields):
+        raise SubagentTranscriptError("Malformed subagent worktree metadata.")
+    preserved = value.get("preserved", True)
+    if not isinstance(preserved, bool):
+        raise SubagentTranscriptError("Malformed subagent worktree metadata.")
+    return SubagentWorktreeRecord(*fields, preserved)  # type: ignore[arg-type]
 
 
 def _parse_message(value: object) -> ChatMessage:

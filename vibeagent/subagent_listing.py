@@ -42,6 +42,10 @@ def list_session_agents(
             background=transcript.action.run_in_background,
             runs=transcript.runs,
             resumable=transcript.status != "running",
+            isolation=transcript.action.isolation,
+            worktree_path=transcript.worktree.project_path if transcript.worktree is not None else None,
+            worktree_branch=transcript.worktree.branch if transcript.worktree is not None else None,
+            worktree_preserved=transcript.worktree.preserved if transcript.worktree is not None else False,
         )
         for transcript in transcripts
     }
@@ -56,6 +60,10 @@ def list_session_agents(
             background=True,
             runs=prior.runs if prior is not None else 1,
             resumable=snapshot.status != "running",
+            isolation=snapshot.action.isolation,
+            worktree_path=prior.worktree_path if prior is not None else None,
+            worktree_branch=prior.worktree_branch if prior is not None else None,
+            worktree_preserved=(prior.worktree_preserved if prior is not None else snapshot.action.isolation == "worktree"),
         )
     ordered = sorted(
         by_id.values(),

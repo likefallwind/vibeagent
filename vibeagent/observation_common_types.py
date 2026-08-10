@@ -44,6 +44,10 @@ class DelegateTaskObservation:
     background: bool = False
     running: bool = False
     cancelled: bool = False
+    isolation: Literal["worktree"] | None = None
+    worktree_path: str | None = None
+    worktree_branch: str | None = None
+    worktree_preserved: bool = False
 
 
 @dataclass(frozen=True)
@@ -56,6 +60,10 @@ class SubagentInstance:
     background: bool
     runs: int
     resumable: bool
+    isolation: Literal["worktree"] | None = None
+    worktree_path: str | None = None
+    worktree_branch: str | None = None
+    worktree_preserved: bool = False
 
 
 @dataclass(frozen=True)

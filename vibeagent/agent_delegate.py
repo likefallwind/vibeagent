@@ -30,6 +30,13 @@ from .subagent_transcripts import (
     create_subagent_transcript,
     resume_subagent_transcript,
 )
+from .subagent_worktrees import (
+    SubagentWorktreeError,
+    SubagentWorktreeOutcome,
+    SubagentWorktreeRuntime,
+    finalize_subagent_worktree,
+    prepare_subagent_worktree,
+)
 from .types import (
     AgentLogger,
     ApprovalHandler,
@@ -76,17 +83,11 @@ def execute_delegate_task_action(
         action = replace(action, mode=profile.mode)
     if profile.max_turns is not None:
         action = replace(action, max_iterations=profile.max_turns)
+    if action.isolation is None and profile.isolation is not None:
+        action = replace(action, isolation="worktree")
     profile_prompt = profile.prompt
     allowed_tool_names = profile.allowed_tool_names
     disallowed_tool_names = profile.disallowed_tool_names
-    observations = parent_observations if action.mode == "code" and parent_observations is not None else []
-    steps = parent_steps if action.mode == "code" and parent_steps is not None else []
-    if resume_transcript is None:
-        messages = build_delegate_messages(delegate_workspace, action, profile_prompt=profile_prompt)
-    else:
-        messages = list(resume_transcript.messages)
-        messages.append(ChatMessage(role="user", content=f"Follow-up from the parent agent:\n{followup_message or ''}"))
-
     _record_delegate_start(
         delegate_workspace,
         action,
@@ -110,23 +111,85 @@ def execute_delegate_task_action(
             logger=logger,
         )
 
-    if resume_transcript is None:
-        create_subagent_transcript(delegate_workspace, subagent_id, action, messages)
-    else:
-        resume_subagent_transcript(delegate_workspace, resume_transcript, messages)
+    worktree_runtime: SubagentWorktreeRuntime | None = None
+    if action.isolation == "worktree":
+        try:
+            worktree_runtime = prepare_subagent_worktree(
+                delegate_workspace,
+                subagent_id,
+                resume_transcript.worktree if resume_transcript is not None else None,
+            )
+            delegate_workspace = worktree_runtime.workspace
+        except SubagentWorktreeError as error:
+            return finish_delegate_task(
+                delegate_workspace,
+                action,
+                subagent_id,
+                ok=False,
+                summary="",
+                iterations=0,
+                tool_calls=[],
+                message=f"Subagent worktree isolation failed: {error}",
+                logger=logger,
+            )
 
-    lifecycle = DelegateLifecycleHooks(
-        workspace=delegate_workspace,
-        action=action,
-        subagent_id=subagent_id,
-        hooks=hooks,
-        command_timeout_ms=command_timeout_ms,
-        logger=logger,
-        approval_handler=approval_handler,
-        approval_policy=approval_policy,
-        permissions=permissions,
-    )
-    lifecycle.start(messages)
+    transcript_started = False
+    try:
+        observations = parent_observations if action.mode == "code" and parent_observations is not None else []
+        steps = parent_steps if action.mode == "code" and parent_steps is not None else []
+        if resume_transcript is None:
+            messages = build_delegate_messages(delegate_workspace, action, profile_prompt=profile_prompt)
+        else:
+            messages = list(resume_transcript.messages)
+            messages.append(ChatMessage(role="user", content=f"Follow-up from the parent agent:\n{followup_message or ''}"))
+
+        if resume_transcript is None:
+            create_subagent_transcript(
+                delegate_workspace,
+                subagent_id,
+                action,
+                messages,
+                worktree_runtime.record if worktree_runtime is not None else None,
+            )
+        else:
+            resume_subagent_transcript(
+                delegate_workspace,
+                resume_transcript,
+                messages,
+                worktree_runtime.record if worktree_runtime is not None else None,
+            )
+        transcript_started = True
+
+        lifecycle = DelegateLifecycleHooks(
+            workspace=delegate_workspace,
+            action=action,
+            subagent_id=subagent_id,
+            hooks=hooks,
+            command_timeout_ms=command_timeout_ms,
+            logger=logger,
+            approval_handler=approval_handler,
+            approval_policy=approval_policy,
+            permissions=permissions,
+        )
+        lifecycle.start(messages)
+    except Exception as error:
+        worktree_outcome = _finalize_delegate_worktree(workspace, subagent_id, worktree_runtime)
+        result = finish_delegate_task(
+            delegate_workspace,
+            action,
+            subagent_id,
+            ok=False,
+            summary="",
+            iterations=0,
+            tool_calls=[],
+            message=f"Subagent setup failed: {type(error).__name__}: {error}",
+            logger=logger,
+        )
+        if worktree_outcome is not None:
+            result = _attach_worktree_outcome(result, worktree_outcome)
+        if transcript_started:
+            complete_subagent_transcript(delegate_workspace, subagent_id, action, messages, result)
+        return result
 
     active_tool_names = (
         code_delegate_initial_tool_names(
@@ -152,39 +215,93 @@ def execute_delegate_task_action(
         if inbound_messages is not None
         else None
     )
-    result = run_delegate_iterations(
-        DelegateLoopContext(
-            workspace=delegate_workspace,
-            action=action,
-            client=client,
-            messages=messages,
-            observations=observations,
-            steps=steps,
-            parent_iteration=parent_iteration,
-            subagent_id=subagent_id,
-            lifecycle=lifecycle,
-            profile_prompt=profile_prompt,
-            allowed_tool_names=allowed_tool_names,
-            disallowed_tool_names=disallowed_tool_names,
-            active_tool_names=active_tool_names,
-            delegate_observation_start=len(observations),
-            max_output_tokens=max_output_tokens,
-            model_retries=model_retries,
-            model_retry_delay_ms=model_retry_delay_ms,
-            model_timeout_ms=model_timeout_ms,
-            command_timeout_ms=command_timeout_ms,
-            logger=logger,
-            approval_handler=approval_handler,
-            approval_policy=approval_policy,
-            hooks=hooks,
-            permissions=permissions,
-            cancel_requested=cancel_requested,
-            transcript_checkpoint=transcript_checkpoint,
-            inbox=inbox,
+    worktree_outcome: SubagentWorktreeOutcome | None = None
+    try:
+        result = run_delegate_iterations(
+            DelegateLoopContext(
+                workspace=delegate_workspace,
+                action=action,
+                client=client,
+                messages=messages,
+                observations=observations,
+                steps=steps,
+                parent_iteration=parent_iteration,
+                subagent_id=subagent_id,
+                lifecycle=lifecycle,
+                profile_prompt=profile_prompt,
+                allowed_tool_names=allowed_tool_names,
+                disallowed_tool_names=disallowed_tool_names,
+                active_tool_names=active_tool_names,
+                delegate_observation_start=len(observations),
+                max_output_tokens=max_output_tokens,
+                model_retries=model_retries,
+                model_retry_delay_ms=model_retry_delay_ms,
+                model_timeout_ms=model_timeout_ms,
+                command_timeout_ms=command_timeout_ms,
+                logger=logger,
+                approval_handler=approval_handler,
+                approval_policy=approval_policy,
+                hooks=hooks,
+                permissions=permissions,
+                cancel_requested=cancel_requested,
+                transcript_checkpoint=transcript_checkpoint,
+                inbox=inbox,
+            )
         )
-    )
+    except Exception as error:
+        result = finish_delegate_task(
+            delegate_workspace,
+            action,
+            subagent_id,
+            ok=False,
+            summary="",
+            iterations=0,
+            tool_calls=[],
+            message=f"Subagent execution failed: {type(error).__name__}: {error}",
+            logger=logger,
+        )
+    finally:
+        worktree_outcome = _finalize_delegate_worktree(workspace, subagent_id, worktree_runtime)
+    if worktree_outcome is not None:
+        result = _attach_worktree_outcome(result, worktree_outcome)
     complete_subagent_transcript(delegate_workspace, subagent_id, action, messages, result)
     return result
+
+
+def _finalize_delegate_worktree(
+    workspace: RunWorkspace,
+    subagent_id: str,
+    runtime: SubagentWorktreeRuntime | None,
+) -> SubagentWorktreeOutcome | None:
+    if runtime is None:
+        return None
+    outcome = finalize_subagent_worktree(workspace, runtime)
+    append_session_event(
+        workspace.session_dir,
+        "subagent_worktree_finalized",
+        {
+            "subagent_id": subagent_id,
+            "path": outcome.path,
+            "branch": outcome.branch,
+            "preserved": outcome.preserved,
+            "message": outcome.message,
+        },
+    )
+    return outcome
+
+
+def _attach_worktree_outcome(
+    result: DelegateTaskObservation,
+    outcome: SubagentWorktreeOutcome,
+) -> DelegateTaskObservation:
+    return replace(
+        result,
+        isolation="worktree",
+        worktree_path=outcome.path,
+        worktree_branch=outcome.branch,
+        worktree_preserved=outcome.preserved,
+        message=f"{result.message} {outcome.message}".strip(),
+    )
 
 
 def _delegate_policy_error(
@@ -222,6 +339,7 @@ def _record_delegate_start(
             "profile_skills": list(profile.skills),
             "profile_disallowed_tools": sorted(profile.disallowed_tool_names),
             "profile_memory_scope": profile.memory_scope,
+            "isolation": action.isolation,
             "approval_policy": approval_policy,
         },
     )

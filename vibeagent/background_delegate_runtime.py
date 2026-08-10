@@ -83,6 +83,7 @@ def start_background_delegate_task(
         task_id=task_id,
         background=True,
         running=True,
+        isolation=action.isolation,
     )
 
 
@@ -118,6 +119,7 @@ def send_background_delegate_message(
         task_id=task_id,
         background=True,
         running=True,
+        isolation=task.action.isolation,
     )
 
 

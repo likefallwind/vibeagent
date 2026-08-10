@@ -95,6 +95,79 @@ class AgentSpecialToolTests(unittest.TestCase):
         self.assertEqual(len(steps), 1)
         self.assertEqual(steps[0].status, "completed")
 
+    def test_isolated_delegate_requires_worktree_approval_before_execution(self) -> None:
+        client = SpecialToolClient([[{"type": "text", "text": "must not run"}]])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-special-") as base:
+            workspace = create_run_workspace(Path(base))
+            wrapped = execute_special_tool_action(
+                workspace,
+                DelegateTaskAction(
+                    type="delegate_task",
+                    task="Implement in isolation",
+                    mode="code",
+                    isolation="worktree",
+                ),
+                client,
+                steps=[],
+                observations=[],
+                iteration=1,
+                tool_name="Agent",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=None,
+                approval_policy="ask",
+                user_input_handler=None,
+                hooks=ProjectHooks(),
+                permissions=ProjectPermissions(),
+                execute_action_safely_func=_unexpected_execute_action_safely,
+            )
+
+        self.assertEqual(wrapped.observation.kind, "approval_denied")
+        self.assertEqual(wrapped.observation.action_type, "delegate_task_worktree")
+        self.assertEqual(client.messages, [])
+
+    def test_profile_required_isolation_is_resolved_before_approval(self) -> None:
+        client = SpecialToolClient([[{"type": "text", "text": "must not run"}]])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-special-") as base:
+            root = Path(base)
+            profile = root / ".claude" / "agents" / "isolated.md"
+            profile.parent.mkdir(parents=True)
+            profile.write_text(
+                "---\nname: isolated\ndescription: isolated writer\nmode: code\n"
+                "isolation: worktree\n---\n\nWrite only in isolation.\n",
+                encoding="utf-8",
+            )
+            workspace = create_run_workspace(root)
+            wrapped = execute_special_tool_action(
+                workspace,
+                DelegateTaskAction(type="delegate_task", task="Implement", agent="isolated"),
+                client,
+                steps=[],
+                observations=[],
+                iteration=1,
+                tool_name="Agent",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=None,
+                approval_policy="ask",
+                user_input_handler=None,
+                hooks=ProjectHooks(),
+                permissions=ProjectPermissions(),
+                execute_action_safely_func=_unexpected_execute_action_safely,
+            )
+
+        self.assertEqual(wrapped.observation.kind, "approval_denied")
+        self.assertEqual(wrapped.observation.action_type, "delegate_task_worktree")
+        self.assertEqual(client.messages, [])
+
 
 def _unexpected_execute_action_safely(
     _workspace: object,

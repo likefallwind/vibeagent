@@ -61,6 +61,12 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             target=action.path or action.name or "generated isolated worktree",
             risk="This will create git metadata and switch subsequent agent tools into an isolated worktree.",
         )
+    if isinstance(action, t.DelegateTaskAction) and action.isolation == "worktree":
+        return t.ApprovalRequest(
+            action_type="delegate_task_worktree",
+            target=summarize(action.task, 120),
+            risk="This will create and lock an isolated git worktree for the delegated task.",
+        )
     if isinstance(action, t.GitFetchAction):
         return t.ApprovalRequest(
             action_type="git_fetch",

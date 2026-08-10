@@ -73,9 +73,10 @@ def format_project_agent_catalog(workspace: RunWorkspace, max_agents: int = 20) 
         skill_text = f", skills={','.join(str(name) for name in skills)}" if skills else ""
         turn_text = f", maxTurns={agent['max_turns']}" if agent.get("max_turns") is not None else ""
         memory_text = f", memory={agent['memory']}" if agent.get("memory") is not None else ""
+        isolation_text = f", isolation={agent['isolation']}" if agent.get("isolation") is not None else ""
         lines.append(
             f"- {agent['name']}: {agent['description']} "
-            f"(mode={agent['mode']}{tool_text}{denied_text}{skill_text}{turn_text}{memory_text}, {agent['path']})"
+            f"(mode={agent['mode']}{tool_text}{denied_text}{skill_text}{turn_text}{memory_text}{isolation_text}, {agent['path']})"
         )
     if metadata["truncated"]:
         lines.append(f"[{int(metadata['total']) - len(metadata['agents'])} additional agent profile(s) omitted]")
@@ -107,6 +108,7 @@ def _discover_project_agents(workspace: RunWorkspace) -> list[dict[str, object]]
                     "max_turns": metadata.get("max_turns"),
                     "skills": metadata.get("skills", []),
                     "memory": metadata.get("memory"),
+                    "isolation": metadata.get("isolation"),
                     "path": relative_path,
                     "source": source,
                     "available": available,

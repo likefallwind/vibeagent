@@ -81,6 +81,9 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
     run_in_background = value.get("run_in_background", False)
     if not isinstance(run_in_background, bool):
         raise ActionParseError("delegate_task action run_in_background must be a boolean.", raw)
+    isolation = value.get("isolation")
+    if isolation not in {None, "worktree"}:
+        raise ActionParseError("delegate_task action isolation must be worktree when provided.", raw)
     return DelegateTaskAction(
         type="delegate_task",
         task=task,
@@ -89,6 +92,7 @@ def parse_delegation_action(action_type: object, value: dict[str, Any], raw: str
         mode=mode,
         agent=agent,
         run_in_background=run_in_background,
+        isolation=isolation,
     )
 
 

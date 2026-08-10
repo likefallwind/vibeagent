@@ -36,6 +36,7 @@ def parse_agent_content(path: Path, content: str) -> tuple[dict[str, object], st
                 "maxTurns",
                 "skills",
                 "memory",
+                "isolation",
             }
         ),
     )
@@ -60,6 +61,7 @@ def parse_agent_content(path: Path, content: str) -> tuple[dict[str, object], st
     max_turns = _parse_max_turns(metadata.get("maxTurns"))
     skills = _parse_skill_names(metadata.get("skills"))
     memory = _parse_memory_scope(metadata.get("memory"))
+    isolation = _parse_isolation(metadata.get("isolation"))
     if not body.strip():
         raise ValueError("Agent profile body must contain a non-empty system prompt.")
     return {
@@ -71,6 +73,7 @@ def parse_agent_content(path: Path, content: str) -> tuple[dict[str, object], st
         "max_turns": max_turns,
         "skills": list(skills),
         "memory": memory,
+        "isolation": isolation,
     }, body.strip()
 
 
@@ -129,6 +132,15 @@ def _parse_memory_scope(value: object) -> str | None:
     if scope not in AGENT_MEMORY_SCOPES:
         raise ValueError("Agent profile memory must be project or local.")
     return scope
+
+
+def _parse_isolation(value: object) -> str | None:
+    if value is None or not str(value).strip():
+        return None
+    isolation = str(value).strip().lower()
+    if isolation != "worktree":
+        raise ValueError("Agent profile isolation must be worktree.")
+    return isolation
 
 
 def _parse_string_list(value: object, field: str) -> list[str] | None:

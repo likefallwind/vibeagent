@@ -38,6 +38,7 @@ class DelegateTaskAction:
     mode: Literal["explore", "code"] = "explore"
     agent: str | None = None
     run_in_background: bool = False
+    isolation: Literal["worktree"] | None = None
 
 
 @dataclass(frozen=True)

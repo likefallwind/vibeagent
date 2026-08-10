@@ -81,6 +81,12 @@ def format_observations(observations: list[Observation]) -> str:
             result = getattr(observation, "result", None)
             summary = getattr(result, "summary", "") if result is not None else ""
             suffix = f"\nsummary:\n{truncate(summary)}" if summary else ""
+            if result is not None and getattr(result, "isolation", None) == "worktree":
+                suffix += (
+                    f"\nisolation: worktree worktree={getattr(result, 'worktree_path', None) or '.'} "
+                    f"branch={getattr(result, 'worktree_branch', None) or '.'} "
+                    f"preserved={str(bool(getattr(result, 'worktree_preserved', False))).lower()}"
+                )
             lines.append(f"{index}. task_output {observation.task_id}: {observation.message}{suffix}")
         elif observation.kind == "tool_error":
             lines.append(f"{index}. tool_error {observation.tool}: {observation.message}")

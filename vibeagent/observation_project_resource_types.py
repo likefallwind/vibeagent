@@ -99,6 +99,7 @@ class ProjectAgentProfile:
     max_turns: int | None = None
     skills: list[str] = field(default_factory=list)
     memory: str | None = None
+    isolation: str | None = None
 
 
 @dataclass(frozen=True)

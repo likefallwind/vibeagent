@@ -29,6 +29,7 @@ def _write_agent(
     max_turns: int | None = None,
     skills: str | None = None,
     memory: str | None = None,
+    isolation: str | None = None,
 ) -> Path:
     path = root / base / f"{name}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -37,9 +38,10 @@ def _write_agent(
     max_turns_line = f"maxTurns: {max_turns}\n" if max_turns is not None else ""
     skills_line = f"skills: {skills}\n" if skills is not None else ""
     memory_line = f"memory: {memory}\n" if memory is not None else ""
+    isolation_line = f"isolation: {isolation}\n" if isolation is not None else ""
     path.write_text(
         f"---\nname: {name}\ndescription: {description}\nmode: {mode}\n"
-        f"{tool_line}{disallowed_line}{max_turns_line}{skills_line}{memory_line}---\n\n{body}\n",
+        f"{tool_line}{disallowed_line}{max_turns_line}{skills_line}{memory_line}{isolation_line}---\n\n{body}\n",
         encoding="utf-8",
     )
     return path
@@ -112,6 +114,7 @@ class ProjectAgentProfileTests(unittest.TestCase):
                 disallowed_tools="Write",
                 max_turns=12,
                 skills="focused-tests",
+                isolation="worktree",
             )
             _write_agent(
                 root,
@@ -131,10 +134,13 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertEqual(agents["controlled"]["disallowed_tools"], ["Write", "write_file"])
         self.assertEqual(agents["controlled"]["max_turns"], 12)
         self.assertEqual(agents["controlled"]["skills"], ["focused-tests"])
+        self.assertEqual(agents["controlled"]["isolation"], "worktree")
         self.assertFalse(agents["missing-skill"]["available"])
         self.assertIn("unavailable skill", str(agents["missing-skill"]["message"]))
         self.assertIn("disallowedTools=Write,write_file", formatted or "")
+        self.assertIn("isolation=worktree", formatted or "")
         self.assertEqual(loaded["max_turns"], 12)
+        self.assertEqual(loaded["isolation"], "worktree")
 
     def test_invalid_profile_execution_controls_are_unavailable(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
@@ -163,6 +169,14 @@ class ProjectAgentProfileTests(unittest.TestCase):
                 "VALID_EMPTY_DENYLIST",
                 disallowed_tools="[]",
             )
+            _write_agent(
+                root,
+                ".claude/agents",
+                "bad-isolation",
+                "Has unsupported isolation",
+                "INVALID_ISOLATION",
+                isolation="container",
+            )
             workspace = create_run_workspace(root, "run-1")
 
             catalog = read_project_agents(workspace)
@@ -173,6 +187,8 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertFalse(agents["unknown-deny"]["available"])
         self.assertIn("disallowedTools references unknown", str(agents["unknown-deny"]["message"]))
         self.assertTrue(agents["empty-deny"]["available"])
+        self.assertFalse(agents["bad-isolation"]["available"])
+        self.assertIn("isolation must be worktree", str(agents["bad-isolation"]["message"]))
 
     def test_profile_memory_metadata_rejects_unsupported_scopes(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
