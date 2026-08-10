@@ -16,7 +16,7 @@ from .plugin_state import (
     validate_plugin_name as _validate_name,
     write_plugin_state as _write_state,
 )
-from .plugin_types import InstalledPlugin, PluginManifest
+from .plugin_types import InstalledPlugin, PluginManifest, PluginUpdateResult
 from .workspace_resolve import resolve_mutation_path
 
 
@@ -32,6 +32,8 @@ def _install_plugin_directory(
     *,
     source_label: str,
     marketplace: str | None = None,
+    resolved_version: str | None = None,
+    expected_plugin: tuple[str, str | None, str | None] | None = None,
 ) -> InstalledPlugin:
     manifest = read_plugin_manifest(source)
     root = _plugins_root(project_root, create=True)
@@ -49,6 +51,7 @@ def _install_plugin_directory(
         existing_plugins = state.get("plugins", {})
         existing_entry = existing_plugins.get(manifest.name) if isinstance(existing_plugins, dict) else None
         try:
+            _verify_expected_plugin(existing_entry, expected_plugin)
             if marketplace is not None:
                 marketplaces = state.get("marketplaces")
                 if not isinstance(marketplaces, dict) or marketplace not in marketplaces:
@@ -82,7 +85,7 @@ def _install_plugin_directory(
             entry = {
                 "name": installed_manifest.name,
                 "description": installed_manifest.description,
-                "version": installed_manifest.version,
+                "version": resolved_version or installed_manifest.version,
                 "enabled": enabled,
                 "source": source_label,
                 "cache_path": destination.relative_to(project_root.resolve()).as_posix(),
@@ -109,6 +112,30 @@ def _install_plugin_directory(
             if backup.exists():
                 remove_plugin_tree(backup)
     return _installed_plugin(entry)
+
+
+def update_installed_plugin(project_root: Path, name: str) -> PluginUpdateResult:
+    current = read_installed_plugin(project_root, name)
+    if current.marketplace is not None:
+        from .marketplace_store import update_marketplace, update_marketplace_plugin
+
+        update_marketplace(project_root, current.marketplace)
+        return update_marketplace_plugin(project_root, name, current=current)
+    source = resolve_mutation_path(project_root, current.source)
+    manifest = read_plugin_manifest(source)
+    if manifest.name != name:
+        raise ValueError(
+            f"Updated plugin name {manifest.name!r} does not match installed name {name!r}."
+        )
+    if manifest.version is not None and manifest.version == current.version:
+        return PluginUpdateResult(current, updated=False, previous_version=current.version)
+    updated = _install_plugin_directory(
+        project_root,
+        source,
+        source_label=current.source,
+        expected_plugin=(current.source, None, current.version),
+    )
+    return PluginUpdateResult(updated, updated=True, previous_version=current.version)
 
 
 def set_plugin_enabled(project_root: Path, name: str, enabled: bool) -> InstalledPlugin:
@@ -181,6 +208,19 @@ def list_installed_plugins(project_root: Path) -> list[InstalledPlugin]:
     return sorted(installed, key=lambda plugin: plugin.name)
 
 
+def read_installed_plugin(project_root: Path, name: str) -> InstalledPlugin:
+    _validate_name(name)
+    with _STORE_LOCK:
+        state = _read_state(project_root)
+        entry = dict(_plugin_entry(state, name))
+        installed = _installed_plugin(entry)
+        path = _safe_cache_path(project_root, installed.cache_path, name)
+    manifest = read_plugin_manifest(path)
+    if manifest.name != name:
+        raise ValueError(f"Cached plugin manifest name mismatch: {name}")
+    return installed
+
+
 def read_installed_plugin_manifest(project_root: Path, name: str) -> PluginManifest:
     _validate_name(name)
     with _STORE_LOCK:
@@ -229,11 +269,30 @@ def _installed_plugin(entry: dict[str, Any]) -> InstalledPlugin:
     )
 
 
+def _verify_expected_plugin(
+    entry: object,
+    expected: tuple[str, str | None, str | None] | None,
+) -> None:
+    if expected is None:
+        return
+    if not isinstance(entry, dict):
+        raise ValueError("Plugin was removed while its update was downloading.")
+    current = (
+        str(entry.get("source") or ""),
+        str(entry["marketplace"]) if entry.get("marketplace") else None,
+        str(entry["version"]) if entry.get("version") is not None else None,
+    )
+    if current != expected:
+        raise ValueError("Plugin source or version changed while its update was downloading.")
+
+
 __all__ = [
     "enabled_plugin_manifests",
     "install_local_plugin",
     "list_installed_plugins",
+    "read_installed_plugin",
     "read_installed_plugin_manifest",
     "set_plugin_enabled",
+    "update_installed_plugin",
     "uninstall_plugin",
 ]

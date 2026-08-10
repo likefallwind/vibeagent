@@ -16,9 +16,15 @@ from .plugin_state import (
     read_plugin_state as _read_state,
     safe_marketplace_cache_path as _safe_marketplace_path,
     validate_plugin_name as _validate_name,
+    write_plugin_state as _write_state,
 )
-from .plugin_store import _install_plugin_directory
-from .plugin_types import InstalledMarketplace, InstalledPlugin, MarketplaceManifest
+from .plugin_store import _install_plugin_directory, read_installed_plugin
+from .plugin_types import (
+    InstalledMarketplace,
+    InstalledPlugin,
+    MarketplaceManifest,
+    PluginUpdateResult,
+)
 
 
 def add_local_marketplace(project_root: Path, source_path: str) -> InstalledMarketplace:
@@ -87,7 +93,62 @@ def install_marketplace_plugin(project_root: Path, qualified_name: str) -> Insta
             source,
             source_label=qualified_name,
             marketplace=marketplace_name,
+            resolved_version=fetched_manifest.version or plugin.version,
         )
+
+
+def update_marketplace_plugin(
+    project_root: Path,
+    name: str,
+    *,
+    current: InstalledPlugin | None = None,
+) -> PluginUpdateResult:
+    current = current or read_installed_plugin(project_root, name)
+    if current.marketplace is None:
+        raise ValueError(f"Plugin {name} was not installed from a marketplace.")
+    manifest = read_installed_marketplace_manifest(project_root, current.marketplace)
+    plugin = next((item for item in manifest.plugins if item.name == name), None)
+    if plugin is None:
+        raise ValueError(
+            f"Plugin {name!r} is no longer in marketplace {current.marketplace!r}."
+        )
+    with acquire_marketplace_plugin(project_root, plugin) as source:
+        fetched_manifest = read_plugin_manifest(source)
+        if fetched_manifest.name != name:
+            raise ValueError(
+                f"Remote plugin manifest name {fetched_manifest.name!r} does not match "
+                f"marketplace entry {name!r}."
+            )
+        resolved_version = fetched_manifest.version or plugin.version
+        if resolved_version is not None and resolved_version == current.version:
+            return PluginUpdateResult(
+                current,
+                updated=False,
+                previous_version=current.version,
+            )
+        updated = _install_plugin_directory(
+            project_root,
+            source,
+            source_label=f"{name}@{current.marketplace}",
+            marketplace=current.marketplace,
+            resolved_version=resolved_version,
+            expected_plugin=(current.source, current.marketplace, current.version),
+        )
+    return PluginUpdateResult(updated, updated=True, previous_version=current.version)
+
+
+def set_marketplace_auto_update(
+    project_root: Path,
+    name: str,
+    enabled: bool,
+) -> InstalledMarketplace:
+    _validate_name(name, label="Marketplace")
+    with _STORE_LOCK:
+        state = _read_state(project_root)
+        entry = marketplace_state_entry(state, name)
+        entry["auto_update"] = enabled
+        _write_state(project_root, state)
+        return _installed_marketplace(entry)
 
 
 def list_installed_marketplaces(project_root: Path) -> list[InstalledMarketplace]:
@@ -117,6 +178,7 @@ def list_installed_marketplaces(project_root: Path) -> list[InstalledMarketplace
                 plugin_count=int(value.get("plugin_count") or 0),
                 source_kind=str(value.get("source_kind") or "local"),
                 source_ref=(str(value["source_ref"]) if value.get("source_ref") else None),
+                auto_update=bool(value.get("auto_update", False)),
                 error=str(error),
             )
         installed.append(item)
@@ -159,6 +221,7 @@ def _installed_marketplace(entry: dict[str, object]) -> InstalledMarketplace:
         plugin_count=int(entry.get("plugin_count") or 0),
         source_kind=str(entry.get("source_kind") or "local"),
         source_ref=(str(entry["source_ref"]) if entry.get("source_ref") else None),
+        auto_update=bool(entry.get("auto_update", False)),
     )
 
 
@@ -189,6 +252,8 @@ __all__ = [
     "parse_qualified_plugin_name",
     "read_installed_marketplace_manifest",
     "remove_marketplace",
+    "set_marketplace_auto_update",
     "update_local_marketplace",
     "update_marketplace",
+    "update_marketplace_plugin",
 ]

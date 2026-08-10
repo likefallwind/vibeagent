@@ -62,20 +62,24 @@ local changes when asked, and resume from recorded session context.
   generation, cancellation, atomic state, session events, deterministic cached
   resume, path validation, command routing, and provider-free status listing.
 - `tests.test_plugins.PluginManifestTests`, `tests.test_plugins.PluginRuntimeTests`,
-  `tests.test_plugin_marketplaces`, and `tests.test_cli_plugins.CliPluginTests`
+  `tests.test_plugin_marketplaces`, `tests.test_plugin_updates`, and
+  `tests.test_cli_plugins.CliPluginTests`
   cover manifest and component
   validation, bounded non-symlink installation, atomic replacement and
   uninstall rollback, enable-state preservation, five-component namespaced
   discovery, plugin path-variable expansion, protected MCP cwd rejection,
   lifecycle commands, reload counts, provider-free management, local marketplace
   validation and snapshot caching, qualified installation, refresh, cascade
-  removal, version-one state compatibility, and state-write rollback.
+  removal, version-one state compatibility, state-write rollback, explicit
+  version-aware plugin updates, batch catalog refresh, per-marketplace automatic
+  update settings, delayed background refresh, idle notifications, and global
+  updater environment controls.
 - `tests.test_main_agent_settings.PluginDefaultSettingsTests` and
   `tests.test_main_agent_settings.MainAgentSettingsTests` cover bounded
   non-symlink plugin settings, root-over-inline precedence, default-agent
   validation, CLI/project/plugin selection precedence, namespaced and unique
   bare plugin profiles, disabled defaults, conflict failure before provider
-  access, and honest reporting of the unsupported subagent panel status line.
+  access, and command-customized interactive subagent status rows.
 - `tests.test_agent_profile_models.AgentProfileModelTests` and the provider
   client suites cover model/effort metadata, invalid values, main and subagent
   client scoping, `inherit`, parent-client isolation, Anthropic

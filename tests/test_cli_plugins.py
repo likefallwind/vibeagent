@@ -10,9 +10,48 @@ from unittest.mock import Mock, patch
 
 from tests.test_plugins import write_demo_marketplace, write_demo_plugin
 from vibeagent.cli_interactive import run_interactive_loop
+from vibeagent.plugin_auto_update import PluginAutoUpdateNotification
 
 
 class CliPluginTests(unittest.TestCase):
+    def test_idle_loop_prints_plugin_auto_update_notifications(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-plugin-update-") as base:
+            root = Path(base)
+            updater = Mock()
+            updater.start.return_value = True
+            updater.collect_notifications.side_effect = [
+                [
+                    PluginAutoUpdateNotification(
+                        marketplace="team-tools",
+                        updated_plugins=("demo-plugin",),
+                    )
+                ]
+            ]
+            stdout = io.StringIO()
+
+            def idle_input(_prompt, callback, *, input_func):  # type: ignore[no-untyped-def]
+                callback()
+                return "/exit"
+
+            old_cwd = Path.cwd()
+            try:
+                os.chdir(root)
+                with (
+                    patch("vibeagent.cli_interactive.prompt_project_permission_trust", return_value=False),
+                    patch("vibeagent.cli_interactive.create_peer_runtime", return_value=None),
+                    patch("vibeagent.cli_interactive.PluginAutoUpdateRuntime", return_value=updater),
+                    patch("vibeagent.cli_interactive.input_with_idle_callback", side_effect=idle_input),
+                    redirect_stdout(stdout),
+                ):
+                    exit_code = run_interactive_loop(command_namespace={})
+            finally:
+                os.chdir(old_cwd)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("updated demo-plugin", stdout.getvalue())
+        self.assertIn("/reload-plugins", stdout.getvalue())
+        updater.close.assert_called_once()
+
     def test_plugin_lifecycle_commands_do_not_initialize_model_client(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-plugin-") as base:
             root = Path(base)

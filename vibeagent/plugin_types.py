@@ -128,7 +128,15 @@ class InstalledMarketplace:
     plugin_count: int
     source_kind: str = "local"
     source_ref: str | None = None
+    auto_update: bool = False
     error: str | None = None
+
+
+@dataclass(frozen=True)
+class PluginUpdateResult:
+    plugin: InstalledPlugin
+    updated: bool
+    previous_version: str | None
 
 
 __all__ = [
@@ -138,6 +146,7 @@ __all__ = [
     "MarketplacePlugin",
     "PluginManifest",
     "PluginSubagentStatusLine",
+    "PluginUpdateResult",
     "PluginUserConfigOption",
     "PluginUserConfigType",
 ]

@@ -1096,6 +1096,9 @@ Install a project directory directly or register a local/remote marketplace:
 /plugin install extensions/team-tools
 /plugin marketplace add extensions/team-marketplace
 /plugin install review-tools@team-marketplace
+/plugin update review-tools
+/plugin marketplace update
+/plugin marketplace auto-update team-marketplace on
 /plugin marketplace add acme/coding-plugins#v1
 /plugin marketplace add https://plugins.example.com/marketplace.json
 /plugin config review-tools
@@ -1162,6 +1165,21 @@ Project-local marketplaces use `.claude-plugin/marketplace.json`,
 cache a non-symlink snapshot without Git/runtime metadata, verify each relative
 plugin source and manifest identity, support add/list/details/update/remove, and
 atomically uninstall marketplace-owned plugins when the catalog is removed.
+`/plugin update <name>` refreshes the source marketplace when needed, skips an
+installed plugin whose explicit resolved version is unchanged, and atomically
+replaces unversioned or newer plugin content while preserving its enabled state.
+The plugin manifest version takes precedence over a marketplace entry version.
+`/plugin marketplace update [name]` refreshes one or all registered catalogs;
+batch refresh continues after individual failures and reports each result.
+`/plugin marketplace auto-update <name> <on|off>` controls the persisted,
+per-marketplace background updater. It is off by default for local and
+third-party marketplaces. Enabled marketplaces refresh after a random delay of
+up to ten minutes after interactive startup, update their installed plugins,
+and print a `/reload-plugins` notification without initializing a model client.
+`DISABLE_AUTOUPDATER=1` disables this work globally, while
+`FORCE_AUTOUPDATE_PLUGINS=1` keeps plugin updates enabled when the global updater
+is disabled. Background failures retain the last valid catalog and plugin cache
+and are reported on the next idle CLI tick.
 Remote marketplaces support GitHub `owner/repository[#ref]`, public HTTPS Git
 repositories, and public HTTPS `marketplace.json` files. Remote catalog entries
 support `github`, `url`, and `git-subdir` Git sources with optional `ref` or
@@ -1179,9 +1197,9 @@ language-server diagnostics back to the model after successful file edits.
 Language-server binaries remain separately installed dependencies. Socket
 transport is rejected explicitly; when no enabled plugin claims a file,
 `LSP` retains the built-in lexical code-intelligence fallback.
-Inline hook/MCP objects, SSH and npm plugin sources,
-user/project installation scopes, and automatic background
-updates are not yet implemented and are reported rather than silently loaded.
+Inline hook/MCP objects, SSH and npm plugin sources, and user/project
+installation scopes are not yet implemented and are reported rather than
+silently loaded.
 On Linux and macOS, interactive and one-shot CLI sessions register a user-only
 Unix socket under `/tmp/vibeagent-<uid>/peers`. `ListAgents` combines current
 session subagents with other live local sessions, and `SendMessage` sends plain

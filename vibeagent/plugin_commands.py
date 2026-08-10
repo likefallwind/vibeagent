@@ -16,6 +16,7 @@ from .plugin_store import (
     read_installed_plugin_manifest,
     set_plugin_enabled,
     uninstall_plugin,
+    update_installed_plugin,
 )
 from .plugin_types import InstalledPlugin, MarketplaceManifest, PluginManifest
 from .plugin_user_config import (
@@ -30,7 +31,8 @@ from .workspace_resolve import resolve_mutation_path
 
 PLUGIN_USAGE = (
     "Usage: /plugin [list|details <name>|install <project-path|name@marketplace>|enable <name>|"
-    "disable <name>|uninstall <name>|validate <project-path>|config <operation>|marketplace <operation>]"
+    "disable <name>|update <name>|uninstall <name>|validate <project-path>|"
+    "config <operation>|marketplace <operation>]"
 )
 
 
@@ -85,6 +87,18 @@ def handle_plugin_command(project_root: Path, argument: str | None) -> PluginCom
         if operation == "disable":
             plugin = set_plugin_enabled(project_root, value, False)
             return PluginCommandResult(f"Disabled plugin {plugin.name}.", changed=True)
+        if operation == "update":
+            result = update_installed_plugin(project_root, value)
+            if not result.updated:
+                return PluginCommandResult(
+                    f"Plugin {result.plugin.name}{_version_suffix(result.plugin.version)} is already current."
+                )
+            previous = _version_suffix(result.previous_version).strip() or "unversioned"
+            current = _version_suffix(result.plugin.version).strip() or "unversioned"
+            return PluginCommandResult(
+                f"Updated plugin {result.plugin.name}: {previous} -> {current}.",
+                changed=True,
+            )
         if operation == "uninstall":
             plugin = uninstall_plugin(project_root, value)
             return PluginCommandResult(f"Uninstalled plugin {plugin.name}.", changed=True)

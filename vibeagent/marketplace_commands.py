@@ -7,6 +7,7 @@ from .marketplace_store import (
     list_installed_marketplaces,
     read_installed_marketplace_manifest,
     remove_marketplace,
+    set_marketplace_auto_update,
     update_marketplace,
 )
 from .plugin_types import InstalledMarketplace, MarketplaceManifest
@@ -14,13 +15,28 @@ from .plugin_types import InstalledMarketplace, MarketplaceManifest
 
 MARKETPLACE_USAGE = (
     "Usage: /plugin marketplace "
-    "[list|add <project-path|owner/repo[#ref]|https-url>|details <name>|update <name>|remove <name>]"
+    "[list|add <project-path|owner/repo[#ref]|https-url>|details <name>|update [name]|"
+    "auto-update <name> <on|off>|remove <name>]"
 )
 
 
 def handle_marketplace_command(project_root: Path, parts: list[str]) -> tuple[str, bool]:
     if not parts or parts in (["list"], ["ls"]):
         return format_marketplace_list(list_installed_marketplaces(project_root)), False
+    if parts == ["update"]:
+        return _update_all_marketplaces(project_root)
+    if len(parts) == 3 and parts[0] == "auto-update":
+        _operation, name, value = parts
+        normalized = value.lower()
+        if normalized not in {"on", "off", "enable", "disable"}:
+            return MARKETPLACE_USAGE, False
+        marketplace = set_marketplace_auto_update(
+            project_root,
+            name,
+            normalized in {"on", "enable"},
+        )
+        status = "enabled" if marketplace.auto_update else "disabled"
+        return f"Automatic updates {status} for marketplace {marketplace.name}.", True
     if len(parts) != 2:
         return MARKETPLACE_USAGE, False
     operation, value = parts
@@ -53,11 +69,30 @@ def format_marketplace_list(marketplaces: list[InstalledMarketplace]) -> str:
         status = "error" if marketplace.error else "ready"
         lines.append(
             f"  {marketplace.name}  {status:<5} plugins={marketplace.plugin_count}  "
+            f"auto-update={'on' if marketplace.auto_update else 'off'}  "
             f"owner={marketplace.owner}  source={marketplace.source}"
         )
         if marketplace.error:
             lines.append(f"    error: {marketplace.error}")
     return "\n".join(lines)
+
+
+def _update_all_marketplaces(project_root: Path) -> tuple[str, bool]:
+    marketplaces = list_installed_marketplaces(project_root)
+    if not marketplaces:
+        return "No marketplaces added.", False
+    updated: list[str] = []
+    errors: list[str] = []
+    for marketplace in marketplaces:
+        try:
+            update_marketplace(project_root, marketplace.name)
+        except (OSError, UnicodeError, ValueError) as error:
+            errors.append(f"{marketplace.name}: {error}")
+        else:
+            updated.append(marketplace.name)
+    lines = [f"Updated {len(updated)} marketplace(s): {', '.join(updated) or 'none'}."]
+    lines.extend(f"  error: {error}" for error in errors)
+    return "\n".join(lines), bool(updated)
 
 
 def format_marketplace_details(manifest: MarketplaceManifest) -> str:

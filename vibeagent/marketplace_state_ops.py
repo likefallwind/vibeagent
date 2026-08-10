@@ -64,6 +64,11 @@ def cache_marketplace_snapshot(
                 or (str(existing.get("added_at") or "") if isinstance(existing, dict) else "")
                 or state_timestamp(),
                 "plugin_count": len(installed_manifest.plugins),
+                "auto_update": (
+                    bool(existing.get("auto_update", False))
+                    if isinstance(existing, dict)
+                    else False
+                ),
             }
             marketplaces[manifest.name] = entry
             _write_state(project_root, state)

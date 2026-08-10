@@ -60,6 +60,10 @@ from .peer_runtime import create_peer_runtime
 from .peer_commands import get_peer_sessions_text
 from .peer_inbox_commands import handle_peer_inbox_command
 from .plugin_commands import handle_plugin_command, reload_plugins_text
+from .plugin_auto_update import (
+    PluginAutoUpdateRuntime,
+    format_plugin_auto_update_notification,
+)
 from .dynamic_workflow_agent import background_workflow_approval_handler, execute_workflow_agent_request
 from .dynamic_workflow_commands import handle_workflows_command
 from .dynamic_workflow_runtime import DynamicWorkflowManager
@@ -92,6 +96,8 @@ def run_interactive_loop(
     approval_policy: ApprovalPolicy = "ask"
     approval_handler = build_approval_handler(approval_policy)
     peer_runtime = create_peer_runtime(Path.cwd(), approval_policy)
+    plugin_auto_updates = PluginAutoUpdateRuntime(Path.cwd())
+    plugin_auto_updates.start()
     chat_history: list[ChatMessage] = []
     resume_run_id: str | None = initial_resume_run_id
     resume_context: str | None = initial_resume_context
@@ -186,6 +192,8 @@ def run_interactive_loop(
 
     def run_due_tasks_while_idle() -> None:
         try:
+            for notification in plugin_auto_updates.collect_notifications():
+                print(f"\n{format_plugin_auto_update_notification(notification)}")
             if peer_runtime is not None:
                 peer_task = peer_messages_as_task(peer_runtime)
                 if peer_task is not None:
@@ -269,6 +277,7 @@ def run_interactive_loop(
                 workflow_manager.close()
             if peer_runtime is not None:
                 peer_runtime.close()
+            plugin_auto_updates.close()
             return 0
 
         if not task:
@@ -289,6 +298,7 @@ def run_interactive_loop(
                 workflow_manager.close()
             if peer_runtime is not None:
                 peer_runtime.close()
+            plugin_auto_updates.close()
             return 0
         if command and (
             project_text := run_interactive_project_command(command, command_namespace, approval_policy, Path.cwd())
@@ -382,6 +392,7 @@ def run_interactive_loop(
                 from .lsp_runtime import close_project_lsp
 
                 close_project_lsp(Path.cwd())
+                plugin_auto_updates.start()
             print(plugin_result.text)
             continue
         if command and command.type == "reload_plugins":
