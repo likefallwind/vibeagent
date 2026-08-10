@@ -3,8 +3,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 
-from .agent_action_targets import build_action_target
-from .agent_hook_execution import run_project_hook
 from .agent_hook_results import (
     HookBatchResult,
     HookRunResult,
@@ -14,6 +12,7 @@ from .agent_hook_results import (
     hook_result_from_observation as _hook_result_from_observation,
 )
 from .agent_hook_prompt import HookModelRuntime
+from .agent_permission_request_runtime import run_permission_request_hooks
 from .agent_permissions import authorize_tool_action
 from .agent_pre_tool_hook_output import (
     PreToolHookOutputError,
@@ -22,6 +21,7 @@ from .agent_pre_tool_hook_output import (
 )
 from .agent_observation_utils import observation_failed
 from .agent_runtime_utils import to_jsonable
+from .agent_tool_hook_runtime import run_tool_hook_handler
 from .types import (
     AgentLogger,
     ApprovalHandler,
@@ -33,7 +33,6 @@ from .types import (
 from .workspace_core import RunWorkspace
 from .workspace_hooks import (
     HookEvent,
-    ProjectHook,
     ProjectHooks,
     matching_project_hooks,
 )
@@ -52,6 +51,7 @@ __all__ = [
     "_hook_failure_observation",
     "_hook_result_from_observation",
     "run_hooks_around_tool",
+    "run_permission_request_hooks",
     "run_tool_hooks",
 ]
 
@@ -123,12 +123,32 @@ def run_hooks_around_tool(
         ),
         hook_permission_decision=pre_hooks.permission_decision,
         hook_permission_reason=pre_hooks.permission_reason,
+        permission_request_handler=lambda: run_permission_request_hooks(
+            workspace,
+            config,
+            tool_name,
+            effective_action,
+            (
+                pre_hooks.effective_input
+                if pre_hooks.effective_input is not None
+                else _action_input(effective_action)
+            ),
+            iteration,
+            command_timeout_ms,
+            logger,
+            approval_handler,
+            approval_policy,
+            execute_action_safely_func,
+            permissions,
+            hook_model_runtime,
+        ),
     )
+    authorization_hook_results = pre_hooks.results + authorization.hook_results
     if not authorization.allowed:
         assert authorization.denial is not None
         return HookWrappedToolResult(
             observation=authorization.denial,
-            hook_results=pre_hooks.results,
+            hook_results=authorization_hook_results,
         )
 
     observation = execute_tool(effective_action)
@@ -154,7 +174,7 @@ def run_hooks_around_tool(
     )
     return HookWrappedToolResult(
         observation=observation,
-        hook_results=pre_hooks.results + post_hooks.results,
+        hook_results=authorization_hook_results + post_hooks.results,
         additional_observations=post_hooks.failures,
         halt_turn_message=post_hooks.halt_turn_message,
     )
@@ -201,7 +221,7 @@ def run_tool_hooks(
     permission_reason: str | None = None
     halt_turn_message: str | None = None
     for index, hook in enumerate(hooks, start=1):
-        result = _run_one_hook(
+        result = run_tool_hook_handler(
             workspace,
             hook,
             tool_name,
@@ -288,60 +308,6 @@ def run_tool_hooks(
         permission_decision=permission_decision,
         permission_reason=permission_reason,
         halt_turn_message=halt_turn_message,
-    )
-
-
-def _run_one_hook(
-    workspace: RunWorkspace,
-    hook: ProjectHook,
-    tool_name: str,
-    action: object,
-    tool_input: dict[str, object],
-    tool_use_id: str | None,
-    iteration: int,
-    hook_index: int,
-    command_timeout_ms: int,
-    logger: AgentLogger | None,
-    approval_handler: ApprovalHandler | None,
-    approval_policy: ApprovalPolicy,
-    execute_action_safely_func: ExecuteActionSafely,
-    permissions: ProjectPermissions,
-    hook_model_runtime: HookModelRuntime | None,
-) -> HookRunResult:
-    return run_project_hook(
-        workspace,
-        hook,
-        target=tool_name,
-        hook_input={
-            "session_id": workspace.run_id,
-            "transcript_path": str(workspace.session_dir / "events.jsonl"),
-            "cwd": str(workspace.root),
-            "permission_mode": {
-                "allow": "bypassPermissions",
-                "ask": "default",
-                "deny": "dontAsk",
-                "dontAsk": "dontAsk",
-                "plan": "plan",
-            }[approval_policy],
-            "hook_event_name": hook.event,
-            "tool_name": tool_name,
-            "tool_input": tool_input,
-            "tool_use_id": tool_use_id,
-        },
-        environment={
-            **hook.environment,
-            "VIBEAGENT_TOOL_NAME": tool_name,
-            "VIBEAGENT_TOOL_TARGET": build_action_target(action),
-        },
-        iteration=iteration,
-        hook_index=hook_index,
-        command_timeout_ms=command_timeout_ms,
-        logger=logger,
-        approval_handler=approval_handler,
-        approval_policy=approval_policy,
-        execute_action_safely_func=execute_action_safely_func,
-        permissions=permissions,
-        hook_model_runtime=hook_model_runtime,
     )
 
 

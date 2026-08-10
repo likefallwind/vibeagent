@@ -1613,9 +1613,10 @@ hook map directly or under `hooks`:
 ```
 
 Supported lifecycle events are `SessionStart`, `CwdChanged`, `InstructionsLoaded`,
-`UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
-`SubagentStart`, and `SubagentStop`. Tool-event matchers apply to the model tool
-name, parsed VibeAgent action type, and Claude-compatible aliases.
+`UserPromptSubmit`, `PreToolUse`, `PermissionRequest`, `PostToolUse`,
+`PostToolUseFailure`, `Stop`, `SubagentStart`, and `SubagentStop`. Tool-event
+matchers apply to the model tool name, parsed VibeAgent action type, and
+Claude-compatible aliases.
 `SessionStart` matches `startup` or `resume`; `InstructionsLoaded` matches
 `session_start`, `nested_traversal`, or
 `path_glob_match`; subagent lifecycle matchers use the selected project profile
@@ -1672,6 +1673,20 @@ to the active agent instead of ending that turn. Prompt handlers default to a
 and overload fallback state, and malformed responses, timeouts, or provider
 failures are recorded as non-blocking Hook errors.
 
+`PermissionRequest` runs only in ask mode when VibeAgent is about to request
+approval for the target tool. Command, HTTP, and MCP tool handlers can return
+Claude-compatible `hookSpecificOutput.decision.behavior` set to `allow` or
+`deny`; a deny decision requires `message`, and command exit code 2 also denies.
+Prompt and agent handlers map `{ok: true}` to allow and `{ok: false, reason}` to
+deny. Multiple decisions resolve as `deny > allow`. An allow decision can
+replace ordinary user approval, but cannot override project `deny` or `ask`
+rules, repeated-approval actions, noninteractive policies, command hard blocks,
+or sandbox safety. Handler failures and malformed output are non-blocking and
+fall back to the normal user approval. The input omits `tool_use_id`, matching
+Claude's permission event. `updatedInput`, `updatedPermissions`, and `interrupt`
+are rejected as unsupported rather than silently ignored, so those responses
+also fall back to user approval.
+
 Command hooks may set `"async": true` to start after approval without waiting
 for completion. `"asyncRewake": true` implies async execution and, when the
 hook exits with code 2, starts an agent turn while an interactive session is
@@ -1720,10 +1735,10 @@ errors so they do not suppress the triggering action.
 
 Prompt handlers use Claude-compatible `type: "prompt"`, `prompt`, optional
 `model`, `timeout`, and `continueOnBlock` fields on `PreToolUse`, `PostToolUse`,
-`PostToolUseFailure`, `UserPromptSubmit`, `Stop`, and `SubagentStop`. The full
-bounded Hook input replaces `$ARGUMENTS`, or is appended when the placeholder
-is absent; `\$` preserves a literal dollar sign. The evaluator runs without
-tools through the existing provider-neutral client, shared cost budget,
+`PostToolUseFailure`, `PermissionRequest`, `UserPromptSubmit`, `Stop`, and
+`SubagentStop`. The full bounded Hook input replaces `$ARGUMENTS`, or is
+appended when the placeholder is absent; `\$` preserves a literal dollar sign.
+The evaluator runs without tools through the existing provider-neutral client, shared cost budget,
 fallback state, and retry path. An explicit model uses the same scoped model
 override contract as agent profiles; without one VibeAgent inherits the active
 model. Responses must be exactly one JSON object containing boolean `ok`, with

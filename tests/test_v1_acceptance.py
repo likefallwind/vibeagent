@@ -242,6 +242,9 @@ EXPECTED_GATES = {
             "test_stop_agent_hook_continues_then_allows",
             "test_invalid_response_and_model_failure_are_non_blocking",
             "test_agent_model_override_and_timeout_are_scoped",
+            "test_structured_allow_and_deny_replace_target_approval",
+            "test_project_deny_and_ask_rules_keep_priority",
+            "test_shared_special_tool_wrapper_applies_permission_request_denial",
         },
     },
 }

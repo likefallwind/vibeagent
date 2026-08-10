@@ -154,6 +154,11 @@ The automated suite currently covers these 1.0 surfaces:
   60-second default timeout, no mutation, command, delegation, or user-input
   tools, Hook-specific audit events, shared provider budget/fallback state, and
   the same block, feedback, and non-blocking failure semantics as prompt hooks.
+- Claude-compatible `PermissionRequest` hooks: command, HTTP, MCP tool, prompt,
+  and experimental agent handlers run only at a real ask-mode approval boundary;
+  deny wins over allow, project deny/ask rules retain priority, and malformed,
+  failed, or currently unsupported input/permission-update decisions fall back
+  to ordinary user approval with bounded audit evidence.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

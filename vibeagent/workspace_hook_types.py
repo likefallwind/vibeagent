@@ -10,6 +10,7 @@ HookEvent = Literal[
     "PostToolUse",
     "PostToolUseFailure",
     "PreToolUse",
+    "PermissionRequest",
     "SessionStart",
     "Stop",
     "SubagentStart",
@@ -23,6 +24,7 @@ HOOK_EVENTS = frozenset(
         "PostToolUse",
         "PostToolUseFailure",
         "PreToolUse",
+        "PermissionRequest",
         "SessionStart",
         "Stop",
         "SubagentStart",
@@ -31,13 +33,21 @@ HOOK_EVENTS = frozenset(
     }
 )
 SEQUENTIAL_TOOL_HOOK_EVENTS = frozenset(
-    {"CwdChanged", "InstructionsLoaded", "PostToolUse", "PostToolUseFailure", "PreToolUse"}
+    {
+        "CwdChanged",
+        "InstructionsLoaded",
+        "PermissionRequest",
+        "PostToolUse",
+        "PostToolUseFailure",
+        "PreToolUse",
+    }
 )
 PROMPT_HOOK_EVENTS = frozenset(
     {
         "PostToolUse",
         "PostToolUseFailure",
         "PreToolUse",
+        "PermissionRequest",
         "Stop",
         "SubagentStop",
         "UserPromptSubmit",

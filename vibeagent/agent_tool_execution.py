@@ -6,12 +6,23 @@ from dataclasses import dataclass, replace
 from .agent_action_logging import log_action
 from .agent_approval import build_approval_request
 from .agent_approval_preview import attach_approval_preview
-from .agent_hooks import ApplyUpdatedInput, HookBatchResult, HookRunResult, run_tool_hooks
+from .agent_hooks import (
+    ApplyUpdatedInput,
+    HookBatchResult,
+    HookRunResult,
+    run_permission_request_hooks,
+    run_tool_hooks,
+)
 from .agent_hook_prompt import HookModelRuntime
 from .agent_lifecycle_hooks import run_lifecycle_hooks
 from .agent_observation_utils import observation_failed
 from .agent_permissions import authorize_tool_action
-from .agent_runtime_utils import append_session_event, build_repeated_list_observation, find_repeated_list_observation
+from .agent_runtime_utils import (
+    append_session_event,
+    build_repeated_list_observation,
+    find_repeated_list_observation,
+    to_jsonable,
+)
 from .agent_steps import complete_task_step, start_task_step
 from .lsp_runtime import automatic_lsp_diagnostics
 from .types import (
@@ -124,7 +135,23 @@ def execute_parsed_tool_action(
             step=step,
             hook_permission_decision=pre_hooks.permission_decision,
             hook_permission_reason=pre_hooks.permission_reason,
+            permission_request_handler=lambda: run_permission_request_hooks(
+                workspace,
+                hooks,
+                tool_name,
+                action,
+                _permission_request_tool_input(action, pre_hooks.effective_input),
+                iteration,
+                command_timeout_ms,
+                logger,
+                approval_handler,
+                approval_policy,
+                execute_action_safely_func,
+                permissions,
+                hook_model_runtime,
+            ),
         )
+        hook_results += authorization.hook_results
         if not authorization.allowed:
             assert authorization.denial is not None
             observation = authorization.denial
@@ -222,7 +249,23 @@ def _execute_non_repeated_action(
         step=step,
         hook_permission_decision=pre_hooks.permission_decision,
         hook_permission_reason=pre_hooks.permission_reason,
+        permission_request_handler=lambda: run_permission_request_hooks(
+            workspace,
+            hooks,
+            tool_name,
+            action,
+            _permission_request_tool_input(action, pre_hooks.effective_input),
+            iteration,
+            command_timeout_ms,
+            logger,
+            approval_handler,
+            approval_policy,
+            execute_action_safely_func,
+            permissions,
+            hook_model_runtime,
+        ),
     )
+    authorization_hook_results = pre_hooks.results + authorization.hook_results
     if not authorization.allowed:
         assert authorization.denial is not None
         if (
@@ -242,7 +285,7 @@ def _execute_non_repeated_action(
                 ),
                 None,
                 auto_checkpoint_attempted,
-                pre_hooks.results,
+                authorization_hook_results,
                 (),
                 pre_hooks.halt_turn_message,
             )
@@ -250,7 +293,7 @@ def _execute_non_repeated_action(
             authorization.denial,
             None,
             auto_checkpoint_attempted,
-            pre_hooks.results,
+            authorization_hook_results,
             (),
             pre_hooks.halt_turn_message,
         )
@@ -325,10 +368,20 @@ def _execute_non_repeated_action(
         observation,
         auto_checkpoint,
         checkpoint_attempted,
-        pre_hooks.results + post_hooks.results + cwd_hooks,
+        authorization_hook_results + post_hooks.results + cwd_hooks,
         tuple(post_hooks.failures) + diagnostics,
         post_hooks.halt_turn_message,
     )
+
+
+def _permission_request_tool_input(
+    action: object,
+    effective_input: dict[str, object] | None,
+) -> dict[str, object]:
+    if effective_input is not None:
+        return effective_input
+    payload = to_jsonable(action)
+    return payload if isinstance(payload, dict) else {}
 
 
 def _maybe_create_auto_checkpoint(
