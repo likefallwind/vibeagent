@@ -82,7 +82,15 @@ def reload_plugins_text(project_root: Path) -> str:
     plugins = list_installed_plugins(project_root)
     enabled = [plugin for plugin in plugins if plugin.enabled and plugin.error is None]
     errors = [plugin for plugin in plugins if plugin.error is not None]
-    totals = {"skills": 0, "commands": 0, "agents": 0, "hooks": 0, "MCP servers": 0, "LSP servers": 0}
+    totals = {
+        "skills": 0,
+        "commands": 0,
+        "agents": 0,
+        "hooks": 0,
+        "MCP servers": 0,
+        "LSP servers": 0,
+        "executables": 0,
+    }
     for plugin in enabled:
         manifest = read_installed_plugin_manifest(project_root, plugin.name)
         totals["skills"] += len(manifest.skill_files)
@@ -91,6 +99,7 @@ def reload_plugins_text(project_root: Path) -> str:
         totals["hooks"] += len(manifest.hook_files)
         totals["MCP servers"] += len(manifest.mcp_files)
         totals["LSP servers"] += _lsp_server_count(manifest)
+        totals["executables"] += len(manifest.bin_files)
     counts = ", ".join(f"{name}={count}" for name, count in totals.items())
     return f"Reloaded {len(enabled)} enabled plugin(s): {counts}; errors={len(errors)}."
 
@@ -122,6 +131,7 @@ def format_plugin_details(manifest: PluginManifest) -> str:
         f"  hooks: {len(manifest.hook_files)}",
         f"  MCP configs: {len(manifest.mcp_files)}",
         f"  LSP configs: {len(manifest.lsp_files) + (1 if manifest.inline_lsp_servers is not None else 0)}",
+        f"  executables: {len(manifest.bin_files)}",
     ]
     lines.extend(f"  warning: {warning}" for warning in manifest.warnings)
     return "\n".join(lines)

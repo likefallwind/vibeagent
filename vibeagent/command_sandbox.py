@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .command_safety import get_blocked_command_reason
+from .plugin_environment import plugin_command_environment
 from .types import RunCommandAction, RunCommandsAction, StartCommandAction
 from .workspace_core import RunWorkspace
 from .workspace_permissions import wildcard_matches
@@ -16,6 +17,7 @@ class CommandLaunch:
     argv: tuple[str, ...]
     sandboxed: bool
     config: SandboxConfig
+    environment: dict[str, str] | None = None
     warning: str | None = None
     error: str | None = None
 
@@ -59,33 +61,61 @@ def prepare_command_launch(
     config = read_workspace_sandbox(workspace)
     command_to_execute = executed_command if executed_command is not None else command
     shell_argv = ("/bin/sh", "-c", command_to_execute)
+    try:
+        environment = plugin_command_environment(workspace)
+    except (OSError, ValueError) as error:
+        return CommandLaunch(
+            shell_argv,
+            False,
+            config,
+            error=f"Plugin executable environment error: {error}",
+        )
     if config.error is not None:
-        return CommandLaunch(shell_argv, False, config, error=f"Sandbox configuration error: {config.error}")
+        return CommandLaunch(
+            shell_argv,
+            False,
+            config,
+            environment,
+            error=f"Sandbox configuration error: {config.error}",
+        )
     if not config.enabled:
-        return CommandLaunch(shell_argv, False, config)
+        return CommandLaunch(shell_argv, False, config, environment)
     if any(wildcard_matches(pattern, command, path_mode=False) for pattern in config.excluded_commands):
         return CommandLaunch(
             shell_argv,
             False,
             config,
+            environment,
             warning="Command excluded from the project sandbox by trusted configuration.",
         )
     if not config.available or config.bwrap_path is None:
         message = "Bubblewrap sandbox is enabled but unavailable on this system."
         if config.fail_if_unavailable:
-            return CommandLaunch(shell_argv, False, config, error=message)
-        return CommandLaunch(shell_argv, False, config, warning=f"Sandbox warning: {message} Running unsandboxed.")
+            return CommandLaunch(shell_argv, False, config, environment, error=message)
+        return CommandLaunch(
+            shell_argv,
+            False,
+            config,
+            environment,
+            warning=f"Sandbox warning: {message} Running unsandboxed.",
+        )
     network_warning: str | None = None
     if config.network_disabled and not config.network_available:
         message = "Bubblewrap network isolation is unavailable on this system."
         if config.fail_if_unavailable:
-            return CommandLaunch(shell_argv, False, config, error=message)
+            return CommandLaunch(shell_argv, False, config, environment, error=message)
         network_warning = f"Sandbox warning: {message} Filesystem isolation remains active with host networking."
     external_allow_write = tuple(path for path in config.allow_write if not path.is_relative_to(workspace.root))
     missing_mounts = [path for path in (*external_allow_write, *config.deny_write, *config.deny_read) if not path.exists()]
     if missing_mounts:
         paths = ", ".join(path.as_posix() for path in missing_mounts)
-        return CommandLaunch(shell_argv, False, config, error=f"Sandbox path does not exist: {paths}")
+        return CommandLaunch(
+            shell_argv,
+            False,
+            config,
+            environment,
+            error=f"Sandbox path does not exist: {paths}",
+        )
 
     argv = [
         config.bwrap_path,
@@ -120,4 +150,4 @@ def prepare_command_launch(
     if config.network_disabled and config.network_available:
         argv.append("--unshare-net")
     argv.extend(("--setenv", "VIBEAGENT_SANDBOX", "1", "--chdir", cwd.as_posix(), "/bin/sh", "-c", command_to_execute))
-    return CommandLaunch(tuple(argv), True, config, warning=network_warning)
+    return CommandLaunch(tuple(argv), True, config, environment, warning=network_warning)

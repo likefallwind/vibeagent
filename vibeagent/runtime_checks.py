@@ -6,6 +6,7 @@ import urllib.request
 
 from .command_safety import get_blocked_command_reason
 from .network_url_safety import UrlSafetyError, open_scoped_url
+from .plugin_environment import plugin_command_search_path
 from .runtime_http_builders import (
     build_http_check_observation,
     build_http_fetch_observation,
@@ -33,8 +34,13 @@ def build_command_preflight(workspace: RunWorkspace, command: str, cwd: str | No
         cwd_message = str(error)
 
     block_reason = get_blocked_command_reason(command)
-    missing_tool = missing_command_tool(command)
-    ok = cwd_ok and block_reason is None and missing_tool is None
+    try:
+        missing_tool = missing_command_tool(command, plugin_command_search_path(workspace))
+        plugin_error = None
+    except (OSError, ValueError) as error:
+        missing_tool = None
+        plugin_error = str(error)
+    ok = cwd_ok and block_reason is None and missing_tool is None and plugin_error is None
     if ok:
         message = "Command preflight passed."
     else:
@@ -45,6 +51,8 @@ def build_command_preflight(workspace: RunWorkspace, command: str, cwd: str | No
             issues.append(f"Command blocked: {block_reason}")
         if missing_tool:
             issues.append(f"Missing executable on PATH: {missing_tool}")
+        if plugin_error:
+            issues.append(f"Plugin executable environment error: {plugin_error}")
         message = "Command preflight failed: " + "; ".join(issues) + "."
     return {
         "ok": ok,
@@ -52,7 +60,7 @@ def build_command_preflight(workspace: RunWorkspace, command: str, cwd: str | No
         "cwd_ok": cwd_ok,
         "blocked": block_reason is not None,
         "block_reason": block_reason,
-        "executable_available": missing_tool is None,
+        "executable_available": missing_tool is None and plugin_error is None,
         "missing_tool": missing_tool,
         "message": message,
     }

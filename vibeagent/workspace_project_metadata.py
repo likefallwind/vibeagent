@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import shutil
@@ -182,7 +183,7 @@ def read_makefile_targets(path: Path, max_targets: int = 40) -> list[str]:
     return targets
 
 
-def missing_command_tool(command: str) -> str | None:
+def missing_command_tool(command: str, search_path: str | None = None) -> str | None:
     try:
         parts = shlex.split(command)
     except ValueError:
@@ -197,7 +198,12 @@ def missing_command_tool(command: str) -> str | None:
         return None
     if executable in SHELL_BUILTINS:
         return None
-    if shutil.which(executable):
+    resolved = (
+        shutil.which(executable)
+        if search_path is None or search_path == os.environ.get("PATH", "")
+        else shutil.which(executable, path=search_path)
+    )
+    if resolved:
         return None
     return executable
 

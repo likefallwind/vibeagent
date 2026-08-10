@@ -64,13 +64,14 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
     mcp = _config_files(root, payload, "mcpServers", ".mcp.json")
     inline_lsp = payload.get("lspServers") if isinstance(payload.get("lspServers"), dict) else None
     lsp = () if inline_lsp is not None else _config_files(root, payload, "lspServers", ".lsp.json")
+    executables = _executable_files(root)
     warnings: list[str] = []
     if (root / "monitors" / "monitors.json").exists() or "monitors" in payload:
         warnings.append("Plugin monitors are not supported yet.")
     if (root / "settings.json").exists() or "settings" in payload:
         warnings.append("Plugin default settings are not supported yet.")
 
-    all_components = (*skills, *commands, *agents, *hooks, *mcp, *lsp)
+    all_components = (*skills, *commands, *agents, *hooks, *mcp, *lsp, *executables)
     component_count = len(all_components) + (1 if inline_lsp is not None else 0)
     if component_count > MAX_PLUGIN_COMPONENTS:
         raise ValueError(f"Plugin exposes more than {MAX_PLUGIN_COMPONENTS} components.")
@@ -89,6 +90,7 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
         hook_files=tuple(hooks),
         mcp_files=tuple(mcp),
         lsp_files=tuple(lsp),
+        bin_files=tuple(executables),
         inline_lsp_servers=dict(inline_lsp) if inline_lsp is not None else None,
         warnings=tuple(warnings),
     )
@@ -183,6 +185,23 @@ def _walk_component_files(root: Path, directory: Path, pattern: str) -> list[Pat
 
 def _dedupe_sorted(paths: list[Path]) -> list[Path]:
     return sorted(set(paths), key=lambda path: path.as_posix())
+
+
+def _executable_files(root: Path) -> tuple[Path, ...]:
+    directory = root / "bin"
+    if not directory.exists():
+        return ()
+    if has_symlink_component(root, directory) or not directory.is_dir():
+        raise ValueError("Plugin bin path must be a regular non-symlink directory.")
+    files: list[Path] = []
+    for path in sorted(directory.iterdir(), key=lambda item: item.name):
+        if path.is_symlink() or path.is_dir():
+            continue
+        if not path.is_file():
+            raise ValueError(f"Plugin bin entry must be a regular file: {path.name}")
+        if path.stat().st_mode & 0o111:
+            files.append(path)
+    return tuple(files)
 
 
 def _relative(root: Path, path: Path) -> str:

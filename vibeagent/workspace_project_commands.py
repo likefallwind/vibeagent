@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .workspace_core import RunWorkspace
+from .plugin_environment import plugin_command_search_path
 from .workspace_project_metadata import (
     missing_command_tool,
     read_makefile_targets,
@@ -35,7 +36,13 @@ def read_project_command_hints(workspace: RunWorkspace, max_bytes: int = 8_000, 
                 current_lines.append("pyproject.toml console scripts:")
             elif source == "makefile_target":
                 current_lines.append("Makefile targets:")
-        current_lines.append(format_command_hint(str(command["command"]), str(command["detail"]) or None))
+        current_lines.append(
+            format_command_hint(
+                str(command["command"]),
+                str(command["detail"]) or None,
+                str(command["missing_tool"]) if command["missing_tool"] else None,
+            )
+        )
     if current_lines:
         chunks.append("\n".join(current_lines))
 
@@ -69,6 +76,7 @@ def read_project_commands(workspace: RunWorkspace, max_commands: int = 100, max_
         if Path(file).name in {"package.json", "pyproject.toml", "Makefile"}
     ]
     commands: list[dict[str, object]] = []
+    search_path = plugin_command_search_path(workspace)
     total = 0
     for relative_path in command_files[:max_files]:
         path = workspace.root / relative_path
@@ -97,7 +105,7 @@ def read_project_commands(workspace: RunWorkspace, max_commands: int = 100, max_
         for source, command, detail in file_commands:
             if len(commands) >= max_commands:
                 continue
-            missing_tool = missing_command_tool(command)
+            missing_tool = missing_command_tool(command, search_path)
             commands.append(
                 {
                     "file": relative_path,
@@ -123,8 +131,11 @@ def read_project_commands(workspace: RunWorkspace, max_commands: int = 100, max_
     }
 
 
-def format_command_hint(command: str, detail: str | None = None) -> str:
-    missing_tool = missing_command_tool(command)
+def format_command_hint(
+    command: str,
+    detail: str | None = None,
+    missing_tool: str | None = None,
+) -> str:
     availability = f"available={str(missing_tool is None).lower()} missingTool={missing_tool or '.'}"
     suffix = f": {detail}" if detail else ""
     return f"- {command} [{availability}]{suffix}"

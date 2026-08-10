@@ -134,6 +134,7 @@ def execute_run_command_item(
         argv=launch.argv,
         sandboxed=launch.sandboxed,
         sandbox_warning=launch.warning,
+        environment=launch.environment,
     )
     return attach_output_analysis_to_command_result(workspace, action, result)
 
@@ -210,6 +211,7 @@ def start_background_command(
             stderr=stderr_handle,
             text=True,
             start_new_session=os.name != "nt",
+            env=launch.environment,
         )
     except OSError as error:
         stdout_handle.close()

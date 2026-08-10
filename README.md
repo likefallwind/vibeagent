@@ -1076,7 +1076,7 @@ failure, evaluator error, or interruption in the same process.
 VibeAgent supports project-local plugins that package skills, commands, agents,
 command hooks, MCP servers, and language servers behind one manifest and lifecycle. A plugin uses
 the Claude-compatible root layout: optional `.claude-plugin/plugin.json`,
-`skills/`, `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, and `.lsp.json`.
+`skills/`, `commands/`, `agents/`, `bin/`, `hooks/hooks.json`, `.mcp.json`, and `.lsp.json`.
 Install a project directory directly or register a local/remote marketplace:
 
 ```text
@@ -1100,7 +1100,12 @@ and LSP servers use `plugin-name.server`. `${CLAUDE_PLUGIN_ROOT}` and
 `${CLAUDE_PROJECT_DIR}` are expanded in skill and agent text, command templates,
 hooks, MCP configuration, and LSP configuration. Plugin hooks and MCP calls retain normal approval,
 permission, and sandbox boundaries. Manifest component paths must be `./`
-relative. Project-local marketplaces use `.claude-plugin/marketplace.json`,
+relative. Executable files directly under each enabled plugin's `bin/` are
+prepended to the scoped `PATH` used by finite commands, background commands,
+hooks, command preflights, and Bubblewrap launches. The host process environment
+is not modified; disabling a plugin removes its path on the next command, and
+same-name executable conflicts resolve deterministically by plugin name.
+Project-local marketplaces use `.claude-plugin/marketplace.json`,
 cache a non-symlink snapshot without Git/runtime metadata, verify each relative
 plugin source and manifest identity, support add/list/details/update/remove, and
 atomically uninstall marketplace-owned plugins when the catalog is removed.
@@ -1558,6 +1563,9 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   trusted expansion paths, diagnose Bubblewrap/network namespace support, and
   build one filesystem/network-isolated launcher for finite and background
   shell commands, including strict per-command auto-approval qualification.
+- `vibeagent/plugin_environment.py`: builds a per-command environment from
+  executable `bin/` components in enabled plugins without mutating the host
+  process `PATH`.
 - `vibeagent/chat.py`: builds plain daily conversation prompts and keeps the
   model out of the coding-agent JSON action protocol.
 - `vibeagent/providers.py`: selects the configured model provider. MiniMax is

@@ -18,6 +18,7 @@ class PluginManifest:
     hook_files: tuple[Path, ...]
     mcp_files: tuple[Path, ...]
     lsp_files: tuple[Path, ...]
+    bin_files: tuple[Path, ...]
     inline_lsp_servers: dict[str, object] | None = None
     warnings: tuple[str, ...] = ()
 
@@ -32,6 +33,7 @@ class PluginManifest:
                 self.hook_files,
                 self.mcp_files,
                 self.lsp_files,
+                self.bin_files,
             )
         ) + (1 if self.inline_lsp_servers is not None else 0)
 

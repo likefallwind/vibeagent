@@ -20,6 +20,7 @@ def run_command(
     argv: tuple[str, ...] | None = None,
     sandboxed: bool = False,
     sandbox_warning: str | None = None,
+    environment: dict[str, str] | None = None,
 ) -> CommandResult:
     # Run shell command in controlled cwd, capture stdout/stderr, and enforce execution timeout.
     timed_out = False
@@ -33,6 +34,7 @@ def run_command(
         stderr=subprocess.PIPE,
         text=True,
         start_new_session=os.name != "nt",
+        env=environment,
     )
 
     try:
