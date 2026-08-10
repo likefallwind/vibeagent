@@ -229,6 +229,20 @@ class WorkspaceTests(unittest.TestCase):
                 create_run_workspace(root, "test-run")
             self.assertEqual(list(external.iterdir()), [])
 
+    def test_create_run_workspace_rejects_symlink_events_file(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
+            root = Path(base)
+            run_dir = root / ".vibeagent" / "sessions" / "test-run"
+            run_dir.mkdir(parents=True)
+            outside = root / "outside-events.jsonl"
+            outside.write_text("outside\n", encoding="utf-8")
+            (run_dir / "events.jsonl").symlink_to(outside)
+
+            with self.assertRaisesRegex(ValueError, "Session events path is not a regular file"):
+                create_run_workspace(root, "test-run")
+
+            self.assertEqual(outside.read_text(encoding="utf-8"), "outside\n")
+
     def test_resolve_inside_run_rejects_absolute_paths(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-workspace-") as base:
             workspace = create_run_workspace(base, "test-run")

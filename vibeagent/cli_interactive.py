@@ -51,6 +51,7 @@ from .goal_state import (
     reset_restored_goal,
     write_goal,
 )
+from .interactive_shell import SHELL_MODE_USAGE, parse_shell_mode_input, run_interactive_shell
 from .providers import create_chat_client as default_create_chat_client
 from .types import ApprovalPolicy, ChatMessage
 from .scheduled_task_store import collect_due_scheduled_tasks, scheduled_tasks_enabled
@@ -282,6 +283,32 @@ def run_interactive_loop(
             return 0
 
         if not task:
+            continue
+
+        shell_command = parse_shell_mode_input(task)
+        if shell_command is not None:
+            if not shell_command:
+                print(SHELL_MODE_USAGE)
+                continue
+            try:
+                execution_config = resolve_execution_config(Path.cwd())
+                shell_result = run_interactive_shell(
+                    Path.cwd(),
+                    shell_command,
+                    run_id=resume_run_id,
+                    timeout_ms=execution_config.command_timeout_ms,
+                )
+                print(shell_result.text)
+                resume_run_id = shell_result.run_id
+                selected, next_context, _ = get_resume_context_func(shell_result.run_id)
+                if selected is not None:
+                    resume_run_id = selected
+                if next_context:
+                    resume_context = next_context
+            except KeyboardInterrupt:
+                print("\nInterrupted.")
+            except Exception as error:
+                print(f"Shell error: {format_error(error)}")
             continue
 
         command = parse_local_command(task)

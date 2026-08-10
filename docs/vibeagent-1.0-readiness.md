@@ -47,6 +47,8 @@ The automated suite currently covers these 1.0 surfaces:
 - Real CLI JSON and stream-json entrypoints, stdin input formats, resume,
   compact, permission overrides, `acceptEdits`, disallowed tools, and
   pending-user-input output.
+- Provider-free interactive `!` shell mode with bounded execution, hard command
+  blocks, redacted resumable output, and pre-execution session-path validation.
 - User and project integrations: `~/.claude/settings.json`, trusted project and
   local settings environments, user/local MCP scopes in `~/.claude.json`,
   `.mcp.json`, provider-free scoped MCP management, strict MCP config,

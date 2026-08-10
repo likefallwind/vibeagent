@@ -11,7 +11,7 @@ local changes when asked, and resume from recorded session context.
 | --- | --- | --- |
 | VA1-READ | Inspect repository state before editing | `project_overview`, `repo_map`, `read_file`, `read_file_context`, `search`, and `project_instructions` can gather bounded project context without approval. |
 | VA1-EDIT | Make workspace-scoped code changes safely | `check_write_file`, `write_file`, `check_edit_file`, `edit_file`, `multi_edit_file`, and related file tools reject protected paths and require approval for mutation. |
-| VA1-RUN | Run checks and surface failures | `command_check`, `check_run_commands`, `run_command`, `run_commands`, `focused_test_commands`, and `run_suggested_checks` can preflight and execute bounded project commands. |
+| VA1-RUN | Run checks and surface failures | `command_check`, `check_run_commands`, `run_command`, `run_commands`, `focused_test_commands`, and `run_suggested_checks` can preflight and execute bounded project commands; interactive `!` shell mode reuses the same bounded executor and carries redacted output into resume context. |
 | VA1-REPAIR | Iterate after failing checks | The agent loop can observe failed command output, edit again, rerun checks, and keep task steps accurate. |
 | VA1-REVIEW | Block premature completion after changes | `final_review`, completion blockers, and suggested verification checks prevent finishing until changed-file review and relevant checks are complete. |
 | VA1-COMMIT | Commit verified local work when requested | `check_git_stage`, `git_stage`, `check_git_commit`, and `git_commit` can stage explicit paths and create a local commit after approval. |
@@ -117,6 +117,11 @@ local changes when asked, and resume from recorded session context.
   list/get/add/add-json/remove flows, local/project/user writes, replacement,
   unrelated user-state and mode preservation, safe metadata output,
   pre-mutation validation, symlink refusal, and interactive dispatch.
+- `tests.test_interactive_shell.InteractiveShellTests` and
+  `tests.test_cli_shell_mode.CliShellModeTests` cover provider-free `!` command
+  execution, hard command blocks, resumable command evidence, persisted-output
+  redaction, same-session continuation, and session-directory/event-file
+  symlink refusal before command execution.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `LS`, `Glob`, `Grep`, `Read`, `Bash`, `Edit`, and `TodoRead`,

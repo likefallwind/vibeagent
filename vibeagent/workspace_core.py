@@ -75,6 +75,7 @@ def create_run_workspace(
     ):
         if path.is_symlink() or not path.is_dir():
             raise ValueError(f"{label} is not a regular directory: {path.relative_to(project_root).as_posix()}")
+    validate_session_events_path(session_dir)
     from .project_trust import is_project_permissions_trusted
 
     return RunWorkspace(
@@ -111,6 +112,13 @@ def make_run_id() -> str:
     timestamp = datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
     safe_timestamp = timestamp.replace(":", "-").replace(".", "-")
     return f"{safe_timestamp}-{uuid4().hex[:8]}"
+
+
+def validate_session_events_path(session_dir: Path) -> Path:
+    events_path = session_dir / "events.jsonl"
+    if events_path.is_symlink() or (events_path.exists() and not events_path.is_file()):
+        raise ValueError(f"Session events path is not a regular file: {events_path}")
+    return events_path
 
 
 def _absolute_path(root: Path, path: Path) -> Path:

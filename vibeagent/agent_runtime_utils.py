@@ -15,7 +15,7 @@ from .redaction import redact_jsonable_payload
 from .session_event_sanitization import sanitize_session_event_payload
 from .session_event_observers import notify_session_event_observers
 from .types import ApprovalPolicy, ChatMessage, ContentBlock, ListFilesObservation, Observation, PlanItem, ToolErrorObservation
-from .workspace_core import RunWorkspace
+from .workspace_core import RunWorkspace, validate_session_events_path
 from .workspace_instruction_state import reset_loaded_instruction_documents
 
 
@@ -234,11 +234,16 @@ def summarize_command(result: object) -> str:
 
 
 def append_session_event(session_dir: Path, event_type: str, payload: dict[str, Any]) -> None:
+    if session_dir.is_symlink():
+        raise ValueError(f"Session path is not a regular directory: {session_dir}")
     session_dir.mkdir(parents=True, exist_ok=True)
+    if session_dir.is_symlink() or not session_dir.is_dir():
+        raise ValueError(f"Session path is not a regular directory: {session_dir}")
     event = redact_jsonable_payload(sanitize_session_event_payload(event_type, to_jsonable(payload)))
     event = {"type": event_type, **event}
     with _SESSION_EVENT_WRITE_LOCK:
-        with (session_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
+        events_path = validate_session_events_path(session_dir)
+        with events_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(event, ensure_ascii=False) + "\n")
     notify_session_event_observers(session_dir, event)
 

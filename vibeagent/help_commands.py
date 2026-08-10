@@ -32,6 +32,7 @@ def get_help_text() -> str:
             "  /todos [--max-items N] [--max-files N] -- [path] Show TODO, FIXME, HACK, XXX, and BUG markers.",
             "  /command [--cwd PATH] -- <cmd> Preview whether a shell command can run.",
             "  /run [opts] -- <cmd> Run one finite shell command with optional output diagnostics.",
+            "  ! <cmd> Run one bounded shell command directly and keep its output in session context.",
             "  /check-run-commands [--cwd PATH] -- <cmd> ;; <cmd> Preview a short ordered command sequence.",
             "  /run-commands [opts] -- <cmd> ;; <cmd> Run a short ordered command sequence with optional output diagnostics.",
             "  /check-run-seq and /run-seq are aliases for the run-commands forms.",
