@@ -134,8 +134,8 @@ def reload_plugins_text(project_root: Path) -> str:
         totals["skills"] += len(manifest.skill_files)
         totals["commands"] += len(manifest.command_files)
         totals["agents"] += len(manifest.agent_files)
-        totals["hooks"] += len(manifest.hook_files)
-        totals["MCP servers"] += len(manifest.mcp_files)
+        totals["hooks"] += len(manifest.hook_files) + (manifest.inline_hooks is not None)
+        totals["MCP servers"] += len(manifest.mcp_files) + (manifest.inline_mcp_servers is not None)
         totals["LSP servers"] += _lsp_server_count(manifest)
         totals["executables"] += len(manifest.bin_files)
         totals["monitors"] += monitor_count_for_manifest(manifest)
@@ -168,8 +168,8 @@ def format_plugin_details(manifest: PluginManifest) -> str:
         f"  skills: {len(manifest.skill_files)}",
         f"  commands: {len(manifest.command_files)}",
         f"  agents: {len(manifest.agent_files)}",
-        f"  hooks: {len(manifest.hook_files)}",
-        f"  MCP configs: {len(manifest.mcp_files)}",
+        f"  hooks: {len(manifest.hook_files) + (manifest.inline_hooks is not None)}",
+        f"  MCP configs: {len(manifest.mcp_files) + (manifest.inline_mcp_servers is not None)}",
         f"  LSP configs: {len(manifest.lsp_files) + (1 if manifest.inline_lsp_servers is not None else 0)}",
         f"  executables: {len(manifest.bin_files)}",
         f"  monitors: {monitor_count_for_manifest(manifest)}",

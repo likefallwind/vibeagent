@@ -1118,7 +1118,9 @@ and LSP servers use `plugin-name.server`. `${CLAUDE_PLUGIN_ROOT}` and
 `${CLAUDE_PROJECT_DIR}` are expanded in skill and agent text, command templates,
 hooks, MCP configuration, and LSP configuration. Plugin hooks and MCP calls retain normal approval,
 permission, and sandbox boundaries. Manifest component paths must be `./`
-relative. Executable files directly under each enabled plugin's `bin/` are
+relative; `hooks` and `mcpServers` may instead contain Claude-compatible inline
+objects, which use the same namespacing, variable expansion, user configuration,
+and safety checks as JSON-file configurations. Executable files directly under each enabled plugin's `bin/` are
 prepended to the scoped `PATH` used by finite commands, background commands,
 hooks, command preflights, and Bubblewrap launches. The host process environment
 is not modified; disabling a plugin removes its path on the next command, and
@@ -1197,9 +1199,8 @@ language-server diagnostics back to the model after successful file edits.
 Language-server binaries remain separately installed dependencies. Socket
 transport is rejected explicitly; when no enabled plugin claims a file,
 `LSP` retains the built-in lexical code-intelligence fallback.
-Inline hook/MCP objects, SSH and npm plugin sources, and user/project
-installation scopes are not yet implemented and are reported rather than
-silently loaded.
+SSH and npm plugin sources and user/project installation scopes are not yet
+implemented and are reported rather than silently loaded.
 On Linux and macOS, interactive and one-shot CLI sessions register a user-only
 Unix socket under `/tmp/vibeagent-<uid>/peers`. `ListAgents` combines current
 session subagents with other live local sessions, and `SendMessage` sends plain

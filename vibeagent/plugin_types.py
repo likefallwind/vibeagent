@@ -45,6 +45,8 @@ class PluginManifest:
     bin_files: tuple[Path, ...]
     monitor_files: tuple[Path, ...]
     user_config: tuple[PluginUserConfigOption, ...] = ()
+    inline_hooks: dict[str, object] | None = None
+    inline_mcp_servers: dict[str, object] | None = None
     inline_lsp_servers: dict[str, object] | None = None
     inline_monitors: tuple[object, ...] | None = None
     default_agent: str | None = None
@@ -70,7 +72,14 @@ class PluginManifest:
                 self.bin_files,
                 self.monitor_files,
             )
-        ) + (1 if self.inline_lsp_servers is not None else 0) + len(
+        ) + sum(
+            value is not None
+            for value in (
+                self.inline_hooks,
+                self.inline_mcp_servers,
+                self.inline_lsp_servers,
+            )
+        ) + len(
             self.inline_monitors or ()
         ) + (
             1

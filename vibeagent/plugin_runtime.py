@@ -6,6 +6,7 @@ from typing import Literal
 
 from .plugin_manifest import read_plugin_manifest
 from .plugin_store import enabled_plugin_manifests
+from .plugin_types import PluginManifest
 from .plugin_user_config import (
     PluginSensitiveExpansion,
     ResolvedPluginUserConfig,
@@ -32,6 +33,20 @@ class PluginComponentFile:
     @property
     def relative_path(self) -> str:
         return self.path.relative_to(self.plugin_root).as_posix()
+
+
+def inline_plugin_component(
+    manifest: PluginManifest,
+    kind: PluginComponentKind,
+) -> PluginComponentFile:
+    if manifest.manifest_path is None:
+        raise ValueError(f"Inline plugin {kind} configuration requires plugin.json.")
+    return PluginComponentFile(
+        plugin=manifest.name,
+        kind=kind,
+        path=manifest.manifest_path,
+        plugin_root=manifest.root,
+    )
 
 
 def enabled_plugin_component_files(
@@ -122,6 +137,7 @@ __all__ = [
     "PluginComponentFile",
     "enabled_plugin_component_files",
     "expand_plugin_path_variables",
+    "inline_plugin_component",
     "plugin_subprocess_environment",
     "resolve_plugin_component_user_config",
     "plugin_component_for_path",

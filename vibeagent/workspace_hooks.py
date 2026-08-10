@@ -8,11 +8,14 @@ from typing import Literal, cast
 
 from .action_tool_aliases import tool_name_candidates
 from .plugin_runtime import (
+    PluginComponentFile,
     enabled_plugin_component_files,
     expand_plugin_path_variables,
+    inline_plugin_component,
     plugin_subprocess_environment,
     resolve_plugin_component_user_config,
 )
+from .plugin_store import enabled_plugin_manifests
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import has_symlink_component, read_regular_file_bytes
 
@@ -108,34 +111,59 @@ def read_project_hooks(workspace: RunWorkspace) -> ProjectHooks:
             source = f"{component.source}:{component.relative_path}"
             sources.append(source)
             payload = _read_hook_config(workspace.root, component.path)
-            hook_payload = payload.get("hooks", payload)
-            if not isinstance(hook_payload, dict):
-                raise ValueError(f"{source} hooks must be an object.")
-            plugin_hooks = _parse_hook_events(hook_payload, source)
-            user_config = resolve_plugin_component_user_config(workspace, component)
-            hooks.extend(
-                replace(
-                    hook,
-                    command=expand_plugin_path_variables(
-                        hook.command,
-                        component,
-                        workspace,
-                        sensitive="environment",
-                        user_config=user_config,
-                    ),
-                    environment=plugin_subprocess_environment(
-                        workspace,
-                        component,
-                        user_config=user_config,
-                    ),
-                )
-                for hook in plugin_hooks
+            _append_plugin_hooks(hooks, workspace, component, payload, source)
+            if len(hooks) > MAX_HOOKS:
+                raise ValueError(f"Project and plugin hooks exceed {MAX_HOOKS} command hooks.")
+        for manifest in enabled_plugin_manifests(workspace.root):
+            if manifest.inline_hooks is None:
+                continue
+            component = inline_plugin_component(manifest, "hook")
+            source = f"{component.source}:{component.relative_path}#hooks"
+            sources.append(source)
+            _append_plugin_hooks(
+                hooks,
+                workspace,
+                component,
+                manifest.inline_hooks,
+                source,
             )
             if len(hooks) > MAX_HOOKS:
                 raise ValueError(f"Project and plugin hooks exceed {MAX_HOOKS} command hooks.")
     except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
         return ProjectHooks(hooks=(), sources=tuple(sources), error=str(error))
     return ProjectHooks(hooks=tuple(hooks), sources=tuple(sources))
+
+
+def _append_plugin_hooks(
+    hooks: list[ProjectHook],
+    workspace: RunWorkspace,
+    component: PluginComponentFile,
+    payload: dict[str, object],
+    source: str,
+) -> None:
+    hook_payload = payload.get("hooks", payload)
+    if not isinstance(hook_payload, dict):
+        raise ValueError(f"{source} hooks must be an object.")
+    plugin_hooks = _parse_hook_events(hook_payload, source)
+    user_config = resolve_plugin_component_user_config(workspace, component)
+    hooks.extend(
+        replace(
+            hook,
+            command=expand_plugin_path_variables(
+                hook.command,
+                component,
+                workspace,
+                sensitive="environment",
+                user_config=user_config,
+            ),
+            environment=plugin_subprocess_environment(
+                workspace,
+                component,
+                user_config=user_config,
+            ),
+        )
+        for hook in plugin_hooks
+    )
 
 
 def matching_project_hooks(

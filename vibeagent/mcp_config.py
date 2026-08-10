@@ -13,10 +13,12 @@ from .plugin_runtime import (
     PluginComponentFile,
     enabled_plugin_component_files,
     expand_plugin_path_variables,
+    inline_plugin_component,
     plugin_component_for_path,
     plugin_subprocess_environment,
     resolve_plugin_component_user_config,
 )
+from .plugin_store import enabled_plugin_manifests
 from .plugin_user_config import ResolvedPluginUserConfig
 from .workspace_core import RunWorkspace
 from .workspace_metadata_files import has_symlink_component
@@ -81,6 +83,25 @@ def read_mcp_server_configs(workspace: RunWorkspace) -> list[McpServerConfig]:
                 )
             seen[config.name] = config.config_path
             configs.append(config)
+    if not workspace.strict_mcp_config:
+        for manifest in enabled_plugin_manifests(workspace.root):
+            if manifest.inline_mcp_servers is None:
+                continue
+            component = inline_plugin_component(manifest, "mcp")
+            label = f"{component.source}:{component.relative_path}#mcpServers"
+            document = {"mcpServers": manifest.inline_mcp_servers}
+            for config in _read_mcp_server_configs_from_document(
+                workspace,
+                document,
+                label,
+                component,
+            ):
+                if config.name in seen:
+                    raise ValueError(
+                        f"MCP server {config.name!r} is defined in both {seen[config.name]} and {config.config_path}."
+                    )
+                seen[config.name] = config.config_path
+                configs.append(config)
     return sorted(configs, key=lambda config: config.name)
 
 
@@ -125,6 +146,20 @@ def _read_mcp_server_configs_from_path(
         document = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ValueError(f"Could not parse {label}: {error}") from error
+    return _read_mcp_server_configs_from_document(
+        workspace,
+        document,
+        label,
+        plugin_component,
+    )
+
+
+def _read_mcp_server_configs_from_document(
+    workspace: RunWorkspace,
+    document: object,
+    label: str,
+    plugin_component: PluginComponentFile | None = None,
+) -> list[McpServerConfig]:
     if not isinstance(document, dict) or not isinstance(document.get("mcpServers", {}), dict):
         raise ValueError(f"{label} must contain an mcpServers object.")
 

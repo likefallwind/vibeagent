@@ -62,8 +62,10 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
         skills = (root / "SKILL.md",)
     commands = _component_files(root, payload, "commands", "commands", kind="markdown")
     agents = _component_files(root, payload, "agents", "agents", kind="markdown")
-    hooks = _config_files(root, payload, "hooks", "hooks/hooks.json")
-    mcp = _config_files(root, payload, "mcpServers", ".mcp.json")
+    inline_hooks = _inline_config(payload, "hooks")
+    hooks = () if inline_hooks is not None else _config_files(root, payload, "hooks", "hooks/hooks.json")
+    inline_mcp = _inline_config(payload, "mcpServers")
+    mcp = () if inline_mcp is not None else _config_files(root, payload, "mcpServers", ".mcp.json")
     inline_lsp = payload.get("lspServers") if isinstance(payload.get("lspServers"), dict) else None
     lsp = () if inline_lsp is not None else _config_files(root, payload, "lspServers", ".lsp.json")
     executables = _executable_files(root)
@@ -75,6 +77,8 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
     all_components = (*skills, *commands, *agents, *hooks, *mcp, *lsp, *executables, *monitor_files)
     component_count = (
         len(all_components)
+        + (1 if inline_hooks is not None else 0)
+        + (1 if inline_mcp is not None else 0)
         + (1 if inline_lsp is not None else 0)
         + len(inline_monitors or ())
         + (1 if default_settings.enabled else 0)
@@ -100,6 +104,8 @@ def read_plugin_manifest(plugin_root: Path) -> PluginManifest:
         bin_files=tuple(executables),
         monitor_files=tuple(monitor_files),
         user_config=user_config,
+        inline_hooks=inline_hooks,
+        inline_mcp_servers=inline_mcp,
         inline_lsp_servers=dict(inline_lsp) if inline_lsp is not None else None,
         inline_monitors=inline_monitors,
         default_agent=default_settings.agent,
@@ -144,8 +150,6 @@ def _component_files(
 
 
 def _config_files(root: Path, payload: dict[str, Any], key: str, default: str) -> tuple[Path, ...]:
-    if key in payload and isinstance(payload[key], dict):
-        raise ValueError(f"Inline plugin {key} objects are not supported; use a ./ relative JSON path.")
     values = _manifest_paths(payload, key, default)
     files: list[Path] = []
     for value in values:
@@ -156,6 +160,11 @@ def _config_files(root: Path, payload: dict[str, Any], key: str, default: str) -
             raise ValueError(f"Plugin {key} path must be a JSON file: {value}")
         files.append(target)
     return tuple(_dedupe_sorted(files))
+
+
+def _inline_config(payload: dict[str, Any], key: str) -> dict[str, object] | None:
+    value = payload.get(key)
+    return dict(value) if isinstance(value, dict) else None
 
 
 def _manifest_paths(payload: dict[str, Any], key: str, default: str) -> list[str]:
