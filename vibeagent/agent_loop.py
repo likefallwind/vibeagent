@@ -168,7 +168,12 @@ def run_agent_loop(
         response, model_error_message = runtime.complete_with_retries(
             client,
             messages,
-            tools=agent_tool_definitions(active_tool_names, approval_policy),
+            tools=agent_tool_definitions(
+                active_tool_names,
+                approval_policy,
+                excluded_names=setup.main_profile.disallowed_tool_names,
+                allowed_names=setup.main_profile.allowed_tool_names,
+            ),
             max_output_tokens=max_output_tokens,
             model_retries=model_retries,
             model_retry_delay_ms=model_retry_delay_ms,
@@ -233,6 +238,8 @@ def run_agent_loop(
             iteration,
             source="model_call",
             approval_policy=approval_policy,
+            excluded_names=setup.main_profile.disallowed_tool_names,
+            allowed_names=setup.main_profile.allowed_tool_names,
         )
         observation_start = len(observations)
         parallel_batch_result = (
@@ -248,6 +255,7 @@ def run_agent_loop(
                 logger,
                 execute=runtime.execute_action,
                 approval_policy=approval_policy,
+                tool_call_allowed=setup.main_profile.allows_tool_call,
             )
         )
         tool_results: list[ContentBlock] = []
@@ -261,6 +269,8 @@ def run_agent_loop(
                 observations[observation_start:],
                 iteration,
                 approval_policy,
+                excluded_names=setup.main_profile.disallowed_tool_names,
+                allowed_names=setup.main_profile.allowed_tool_names,
             )
             plugin_monitors.observe_many(
                 observations[observation_start:], iteration=iteration
@@ -307,6 +317,9 @@ def run_agent_loop(
                 execute_action_safely_func=runtime.execute_action_safely,
                 should_auto_checkpoint_before_action_func=runtime.should_auto_checkpoint_before_action,
                 create_auto_checkpoint_before_action_func=runtime.create_auto_checkpoint_before_action,
+                tool_call_allowed=setup.main_profile.allows_tool_call,
+                excluded_tool_names=setup.main_profile.disallowed_tool_names,
+                allowed_tool_names=setup.main_profile.allowed_tool_names,
             )
             tool_results.append(sequential.tool_result)
             observation = sequential.observation

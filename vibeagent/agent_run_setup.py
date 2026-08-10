@@ -5,6 +5,11 @@ from pathlib import Path
 
 from .agent_runtime_utils import append_session_event, compact_session_context
 from .agent_tool_registry import activate_tools_for_run, initialize_agent_tools
+from .main_agent_profile import (
+    MainAgentProfile,
+    append_main_profile_prompt,
+    load_main_agent_profile,
+)
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .session_tasks import inherit_task_store
@@ -30,6 +35,8 @@ class AgentRunSetup:
     project_hooks: ProjectHooks
     project_permissions: ProjectPermissions
     sandbox_config: SandboxConfig
+    main_profile: MainAgentProfile
+    append_system_prompt: str | None
 
 
 def prepare_agent_run(
@@ -47,6 +54,7 @@ def prepare_agent_run(
     strict_mcp_config: bool,
     system_prompt: str | None,
     append_system_prompt: str | None,
+    agent: str | None = None,
 ) -> AgentRunSetup:
     current_workspace = _prepare_workspace(
         base_dir,
@@ -54,6 +62,11 @@ def prepare_agent_run(
         mcp_config_paths,
         strict_mcp_config,
         trust_project_permissions,
+    )
+    main_profile = load_main_agent_profile(current_workspace, agent)
+    current_workspace = main_profile.workspace or current_workspace
+    effective_append_system_prompt = append_main_profile_prompt(
+        append_system_prompt, main_profile
     )
     project_permissions = _prepare_project_permissions(
         current_workspace,
@@ -69,7 +82,7 @@ def prepare_agent_run(
         approval_policy=approval_policy,
         permission_summary=format_permissions_for_prompt(project_permissions),
         system_prompt=system_prompt,
-        append_system_prompt=append_system_prompt,
+        append_system_prompt=effective_append_system_prompt,
         auto_memory=auto_memory,
     )
     _append_task_event(current_workspace, task, approval_policy, prior_context, task_metadata)
@@ -86,7 +99,13 @@ def prepare_agent_run(
     _append_permissions_event(current_workspace, project_permissions)
     sandbox_config = read_workspace_sandbox(current_workspace)
     _append_sandbox_event(current_workspace, sandbox_config)
-    active_tool_names = initialize_agent_tools(current_workspace, approval_policy)
+    active_tool_names = initialize_agent_tools(
+        current_workspace,
+        approval_policy,
+        excluded_names=main_profile.disallowed_tool_names,
+        allowed_names=main_profile.allowed_tool_names,
+    )
+    _append_main_profile_event(current_workspace, main_profile)
     schedule_path = schedule_store_path(current_workspace)
     if schedule_path.exists() or schedule_path.is_symlink():
         activate_tools_for_run(
@@ -96,6 +115,8 @@ def prepare_agent_run(
             0,
             source="scheduled_task_store",
             approval_policy=approval_policy,
+            excluded_names=main_profile.disallowed_tool_names,
+            allowed_names=main_profile.allowed_tool_names,
         )
     return AgentRunSetup(
         workspace=current_workspace,
@@ -104,6 +125,8 @@ def prepare_agent_run(
         project_hooks=project_hooks,
         project_permissions=project_permissions,
         sandbox_config=sandbox_config,
+        main_profile=main_profile,
+        append_system_prompt=effective_append_system_prompt,
     )
 
 
@@ -254,5 +277,29 @@ def _append_sandbox_event(workspace: RunWorkspace, sandbox_config: SandboxConfig
             "auto_allow_bash_if_sandboxed": sandbox_config.auto_allow_bash_if_sandboxed,
             "sources": list(sandbox_config.sources),
             "error": sandbox_config.error,
+        },
+    )
+
+
+def _append_main_profile_event(
+    workspace: RunWorkspace, profile: MainAgentProfile
+) -> None:
+    if not profile.enabled:
+        return
+    append_session_event(
+        workspace.session_dir,
+        "main_agent_profile_loaded",
+        {
+            "name": profile.name,
+            "mode": profile.mode,
+            "max_turns": profile.max_turns,
+            "skills": list(profile.skills),
+            "memory_scope": profile.memory_scope,
+            "allowed_tools": (
+                sorted(profile.allowed_tool_names)
+                if profile.allowed_tool_names is not None
+                else None
+            ),
+            "disallowed_tools": sorted(profile.disallowed_tool_names),
         },
     )

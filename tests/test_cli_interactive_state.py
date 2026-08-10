@@ -11,6 +11,29 @@ from vibeagent.types import ApprovalRequest
 
 
 class CliInteractiveStateTests(unittest.TestCase):
+    def test_main_interactive_agent_profile_is_forwarded_to_code_turns(self) -> None:
+        result = AgentResult(
+            success=True,
+            message="done",
+            run_dir=Path(tempfile.gettempdir()),
+            run_id="test-run",
+            iterations=1,
+            observations=[],
+            steps=[],
+        )
+        run_agent = Mock(return_value=result)
+
+        with (
+            patch("builtins.input", side_effect=["inspect code", "/exit"]),
+            patch("vibeagent.cli.create_chat_client", return_value=object()),
+            patch("vibeagent.cli.run_agent", run_agent),
+            redirect_stdout(io.StringIO()),
+        ):
+            exit_code = main(["--agent", "reviewer"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.kwargs["agent"], "reviewer")
+
     def test_main_updates_approval_policy_and_passes_handler_to_agent(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             result = AgentResult(

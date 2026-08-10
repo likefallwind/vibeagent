@@ -29,6 +29,8 @@ class ToolObservationContext:
     iteration: int
     approval_policy: ApprovalPolicy
     logger: AgentLogger | None
+    excluded_tool_names: frozenset[str] = frozenset()
+    allowed_tool_names: frozenset[str] | None = None
     instruction_hook_runner: (
         Callable[[dict[str, object]], tuple[object, ...]] | None
     ) = None
@@ -268,6 +270,8 @@ def record_tool_observation(
         [observation],
         context.iteration,
         context.approval_policy,
+        excluded_names=context.excluded_tool_names,
+        allowed_names=context.allowed_tool_names,
     )
 
     instruction_context = instruction_context_for_observation(workspace, observation)

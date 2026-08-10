@@ -46,6 +46,7 @@ def execute_parallel_tool_call_batch(
     logger: AgentLogger | None,
     execute: Callable[[RunWorkspace, object, int], Observation] = execute_action,
     approval_policy: ApprovalPolicy = "ask",
+    tool_call_allowed: Callable[[str, object], bool] | None = None,
 ) -> ParallelToolCallBatchResult | None:
     if len(tool_calls) < 2:
         return None
@@ -60,6 +61,8 @@ def execute_parallel_tool_call_batch(
         except ActionParseError:
             break
         if not is_parallel_safe_action(action):
+            break
+        if tool_call_allowed is not None and not tool_call_allowed(tool_name, action):
             break
         parsed.append((tool_id, tool_name, tool_input, action))
     if len(parsed) < 2:

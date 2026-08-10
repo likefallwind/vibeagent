@@ -80,6 +80,7 @@ def run_agent(
     system_prompt: str | None = None,
     append_system_prompt: str | None = None,
     peer_runtime: PeerSessionRuntime | None = None,
+    agent: str | None = None,
 ) -> AgentResult:
     setup = prepare_agent_run(
         task,
@@ -95,6 +96,7 @@ def run_agent(
         strict_mcp_config=strict_mcp_config,
         system_prompt=system_prompt,
         append_system_prompt=append_system_prompt,
+        agent=agent,
     )
     if peer_runtime is not None:
         peer_runtime.update_workspace(setup.workspace, approval_policy)
@@ -104,7 +106,11 @@ def run_agent(
             task,
             client,
             setup,
-            max_iterations=max_iterations,
+            max_iterations=(
+                min(max_iterations, setup.main_profile.max_turns)
+                if setup.main_profile.max_turns is not None
+                else max_iterations
+            ),
             command_timeout_ms=command_timeout_ms,
             max_output_tokens=max_output_tokens,
             model_retries=model_retries,
@@ -116,7 +122,7 @@ def run_agent(
             prior_context=prior_context,
             approval_policy=approval_policy,
             system_prompt=system_prompt,
-            append_system_prompt=append_system_prompt,
+            append_system_prompt=setup.append_system_prompt,
             runtime=AgentLoopRuntime(
                 complete_with_retries=complete_with_retries,
                 execute_action=execute_action,

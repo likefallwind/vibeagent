@@ -77,6 +77,7 @@ def run_interactive_loop(
     initial_resume_run_id: str | None = None,
     initial_resume_context: str | None = None,
     initial_resume_message: str | None = None,
+    initial_agent: str | None = None,
 ) -> int:
     # Entry loop: parse local commands first, otherwise delegate to the agent.
     print("VibeAgent v0.1")
@@ -125,6 +126,7 @@ def run_interactive_loop(
             task_metadata=task_metadata,
             task_source_run_id=resume_run_id,
             peer_runtime=peer_runtime,
+            agent=initial_agent,
         )
         print_agent_result(result)
         selected, next_context, _ = get_resume_context_func(result.run_id)

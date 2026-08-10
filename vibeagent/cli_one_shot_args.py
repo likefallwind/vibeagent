@@ -18,6 +18,11 @@ def add_one_shot_arguments(
         help="Approval policy for one-shot coding tasks; plan exposes read-only tools only.",
     )
     parser.add_argument(
+        "--agent",
+        metavar="PROFILE",
+        help="Run coding turns with an exact project or plugin main agent profile.",
+    )
+    parser.add_argument(
         "--trust-project-permissions",
         action="store_true",
         help="Allow project permission allow rules to skip side-effect prompts for this one-shot run.",

@@ -231,6 +231,7 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_resume_run_id=context.run_id,
         initial_resume_context=context.context,
         initial_resume_message=context.message,
+        initial_agent=context.agent,
     )
 if __name__ == "__main__":
     import sys

@@ -42,6 +42,7 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "task": task_input.task,
         "request_mode": "chat" if args.chat else "code",
         "approval_policy": args.approval,
+        "agent": args.agent,
         "trust_project_permissions": args.trust_project_permissions,
         "resume_arg": resolve_input_resume_arg(
             explicit_resume_arg=args.resume,

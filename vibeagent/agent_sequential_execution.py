@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Callable
 
 from .actions import ActionParseError, parse_tool_action
 from .agent_runtime_utils import append_session_event, tool_error_observation
@@ -26,6 +27,7 @@ from .types import (
     PlanItem,
     SendMessageAction,
     TaskStep,
+    ToolErrorObservation,
     UserInputHandler,
 )
 from .workspace_core import RunWorkspace
@@ -66,6 +68,9 @@ def execute_sequential_tool_call(
     execute_action_safely_func: ExecuteActionSafely,
     should_auto_checkpoint_before_action_func: ShouldAutoCheckpoint,
     create_auto_checkpoint_before_action_func: CreateAutoCheckpoint,
+    tool_call_allowed: Callable[[str, object], bool] | None = None,
+    excluded_tool_names: frozenset[str] = frozenset(),
+    allowed_tool_names: frozenset[str] | None = None,
 ) -> SequentialToolCallResult:
     tool_id = str(block.get("id") or "")
     tool_name = str(block.get("name") or "")
@@ -83,7 +88,13 @@ def execute_sequential_tool_call(
         action = prepare_action_for_policy(
             parse_tool_action(tool_name, tool_input), approval_policy
         )
-        if isinstance(action, (AskUserAction, DelegateTaskAction, SendMessageAction)):
+        if tool_call_allowed is not None and not tool_call_allowed(tool_name, action):
+            observation = ToolErrorObservation(
+                kind="tool_error",
+                tool=tool_name or "unknown",
+                message="Tool call is blocked by the selected main agent profile.",
+            )
+        elif isinstance(action, (AskUserAction, DelegateTaskAction, SendMessageAction)):
             wrapped = execute_special_tool_action(
                 workspace,
                 action,
@@ -156,6 +167,8 @@ def execute_sequential_tool_call(
             iteration=iteration,
             approval_policy=approval_policy,
             logger=logger,
+            excluded_tool_names=excluded_tool_names,
+            allowed_tool_names=allowed_tool_names,
             instruction_hook_runner=lambda context: run_instruction_loaded_hooks(
                 workspace,
                 hooks,

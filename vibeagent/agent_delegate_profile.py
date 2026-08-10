@@ -35,6 +35,8 @@ class DelegateProfileRuntime:
 def load_delegate_profile_runtime(
     workspace: RunWorkspace,
     action: DelegateTaskAction,
+    *,
+    include_memory_content: bool = True,
 ) -> DelegateProfileRuntime:
     if not action.agent:
         return DelegateProfileRuntime()
@@ -61,7 +63,12 @@ def load_delegate_profile_runtime(
                     if profile["mode"] == "code"
                     else DELEGATE_READ_ONLY_MEMORY_TOOL_NAMES
                 )
-                prompt = _memory_prompt(prompt, memory_scope, snapshot.content, snapshot.truncated)
+                prompt = _memory_prompt(
+                    prompt,
+                    memory_scope,
+                    snapshot.content if include_memory_content else "",
+                    snapshot.truncated if include_memory_content else False,
+                )
         profile_tools = profile.get("tools")
         allowed = (
             frozenset(str(name) for name in profile_tools) | {"finish"} | memory_tools

@@ -28,21 +28,32 @@ def clear_dynamic_tool_definitions() -> None:
 class ToolVisibilityPolicy:
     approval_policy: ApprovalPolicy = "ask"
     excluded_names: frozenset[str] = frozenset()
+    allowed_names: frozenset[str] | None = None
 
     def allows(self, name: str) -> bool:
-        return name not in self.excluded_names and (
-            self.approval_policy != "plan" or not tool_name_requires_approval(name)
+        return (
+            name not in self.excluded_names
+            and (self.allowed_names is None or name in self.allowed_names)
+            and (
+                self.approval_policy != "plan"
+                or not tool_name_requires_approval(name)
+            )
         )
 
 
 def _visibility_policy(
     approval_policy: ApprovalPolicy,
     excluded_names: frozenset[str],
+    allowed_names: frozenset[str] | None = None,
 ) -> ToolVisibilityPolicy:
     effective_exclusions = excluded_names
     if not scheduled_tasks_enabled():
         effective_exclusions = effective_exclusions | CRON_TOOL_NAMES
-    return ToolVisibilityPolicy(approval_policy=approval_policy, excluded_names=effective_exclusions)
+    return ToolVisibilityPolicy(
+        approval_policy=approval_policy,
+        excluded_names=effective_exclusions,
+        allowed_names=allowed_names,
+    )
 
 
 def initial_agent_tool_names() -> set[str]:
@@ -53,8 +64,9 @@ def tool_available_for_policy(
     name: str,
     approval_policy: ApprovalPolicy,
     excluded_names: frozenset[str] = frozenset(),
+    allowed_names: frozenset[str] | None = None,
 ) -> bool:
-    return _visibility_policy(approval_policy, excluded_names).allows(name)
+    return _visibility_policy(approval_policy, excluded_names, allowed_names).allows(name)
 
 
 def prepare_action_for_policy(action: object, approval_policy: ApprovalPolicy) -> object:
@@ -67,9 +79,10 @@ def initialize_agent_tools(
     workspace: RunWorkspace,
     approval_policy: ApprovalPolicy = "ask",
     excluded_names: frozenset[str] = frozenset(),
+    allowed_names: frozenset[str] | None = None,
 ) -> set[str]:
     clear_dynamic_tool_definitions()
-    policy = _visibility_policy(approval_policy, excluded_names)
+    policy = _visibility_policy(approval_policy, excluded_names, allowed_names)
     active_names = {
         name for name in initial_agent_tool_names()
         if policy.allows(name)
@@ -91,8 +104,9 @@ def agent_tool_definitions(
     active_names: set[str],
     approval_policy: ApprovalPolicy = "ask",
     excluded_names: frozenset[str] = frozenset(),
+    allowed_names: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    policy = _visibility_policy(approval_policy, excluded_names)
+    policy = _visibility_policy(approval_policy, excluded_names, allowed_names)
     definitions = [
         tool
         for tool in AGENT_TOOL_DEFINITIONS
@@ -112,8 +126,9 @@ def activate_agent_tool_names(
     requested_names: Iterable[str],
     approval_policy: ApprovalPolicy = "ask",
     excluded_names: frozenset[str] = frozenset(),
+    allowed_names: frozenset[str] | None = None,
 ) -> list[str]:
-    policy = _visibility_policy(approval_policy, excluded_names)
+    policy = _visibility_policy(approval_policy, excluded_names, allowed_names)
     newly_active: list[str] = []
     for name in requested_names:
         if (
@@ -194,8 +209,11 @@ def activate_tools_for_run(
     source: str,
     approval_policy: ApprovalPolicy = "ask",
     excluded_names: frozenset[str] = frozenset(),
+    allowed_names: frozenset[str] | None = None,
 ) -> list[str]:
-    activated = activate_agent_tool_names(active_names, requested_names, approval_policy, excluded_names)
+    activated = activate_agent_tool_names(
+        active_names, requested_names, approval_policy, excluded_names, allowed_names
+    )
     if activated:
         append_session_event(
             workspace.session_dir,
@@ -218,6 +236,7 @@ def activate_tools_from_observations(
     iteration: int,
     approval_policy: ApprovalPolicy = "ask",
     excluded_names: frozenset[str] = frozenset(),
+    allowed_names: frozenset[str] | None = None,
 ) -> list[str]:
     activated: list[str] = []
     requested_names: list[str] = []
@@ -233,6 +252,7 @@ def activate_tools_from_observations(
             source="tool_search",
             approval_policy=approval_policy,
             excluded_names=excluded_names,
+            allowed_names=allowed_names,
         )
     )
 
@@ -248,6 +268,7 @@ def activate_tools_from_observations(
             source="mcp_tools",
             approval_policy=approval_policy,
             excluded_names=excluded_names,
+            allowed_names=allowed_names,
         )
     )
 
@@ -263,6 +284,7 @@ def activate_tools_from_observations(
             source="background_task",
             approval_policy=approval_policy,
             excluded_names=excluded_names,
+            allowed_names=allowed_names,
         )
     )
     requested_names = []
@@ -277,6 +299,7 @@ def activate_tools_from_observations(
             source="worktree",
             approval_policy=approval_policy,
             excluded_names=excluded_names,
+            allowed_names=allowed_names,
         )
     )
     return sorted(activated)
