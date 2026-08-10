@@ -115,9 +115,15 @@ def _drop_fields(value: dict[str, Any], fields: set[str]) -> dict[str, Any]:
 def _normalize_exit_plan_mode_input(value: dict[str, Any]) -> dict[str, Any]:
     plan = value.get("plan")
     if isinstance(plan, list):
-        return {"plan": plan}
+        normalized = {"plan": plan}
+        if "allowedPrompts" in value:
+            normalized["allowed_prompts"] = value["allowedPrompts"]
+        return normalized
     if isinstance(plan, str) and plan.strip():
-        return {"plan": [{"step": plan.strip(), "status": "completed"}]}
+        normalized = {"plan": [{"step": plan.strip(), "status": "completed"}]}
+        if "allowedPrompts" in value:
+            normalized["allowed_prompts"] = value["allowedPrompts"]
+        return normalized
     return dict(value)
 
 

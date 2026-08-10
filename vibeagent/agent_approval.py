@@ -25,6 +25,16 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
     file_request = build_file_approval_request(action)
     if file_request is not None:
         return file_request
+    if isinstance(action, t.ExitPlanModeAction):
+        steps = "; ".join(item.step for item in action.plan)
+        return t.ApprovalRequest(
+            action_type="exit_plan_mode",
+            target=summarize(steps, 240),
+            risk=(
+                "This approves the proposed plan, leaves read-only Plan mode, "
+                "and allows the agent to continue under the previous permission mode."
+            ),
+        )
     if isinstance(action, t.MemoryWriteAction):
         return t.ApprovalRequest(
             action_type="memory_write",

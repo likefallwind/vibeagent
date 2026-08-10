@@ -159,7 +159,7 @@ from .action_session_types import (
 from .action_task_types import TaskCreateAction, TaskGetAction, TaskListAction, TaskUpdateAction
 from .action_team_types import TeamCreateAction, TeamDeleteAction
 from .action_cron_types import CronCreateAction, CronDeleteAction, CronListAction
-from .action_workflow_types import AskUserAction, DelegateTaskAction, FinishAction, ListAgentsAction, SendMessageAction, TaskOutputAction, TaskStopAction, UpdatePlanAction
+from .action_workflow_types import AskUserAction, DelegateTaskAction, EnterPlanModeAction, ExitPlanModeAction, FinishAction, ListAgentsAction, SendMessageAction, TaskOutputAction, TaskStopAction, UpdatePlanAction
 
 
 # Small union of all supported model action types.
@@ -313,6 +313,8 @@ AgentAction: TypeAlias = (
     | TeamCreateAction
     | TeamDeleteAction
     | UpdatePlanAction
+    | EnterPlanModeAction
+    | ExitPlanModeAction
     | AskUserAction
     | DelegateTaskAction
     | ListAgentsAction

@@ -8650,7 +8650,8 @@ class AgentTests(unittest.TestCase):
 
         aliases = {
             "AskUserQuestion": "ask_user",
-            "ExitPlanMode": "update_plan",
+            "EnterPlanMode": "enter_plan_mode",
+            "ExitPlanMode": "exit_plan_mode",
             "TodoRead": "session_plan",
             "TodoWrite": "update_plan",
             "TaskOutput": "task_output",

@@ -252,6 +252,8 @@ from .action_workflow_types import (
     AskUserOption,
     AskUserQuestion,
     DelegateTaskAction,
+    EnterPlanModeAction,
+    ExitPlanModeAction,
     FinishAction,
     ListAgentsAction,
     PlanItem,

@@ -227,11 +227,17 @@ def build_approval_handler(policy: ApprovalPolicy) -> ApprovalHandler:
             message=f"Denied because dontAsk mode does not prompt for {request.action_type}.",
         )
     if policy == "plan":
-        return lambda request: ApprovalDecision(
-            approved=False,
-            message=f"Denied because Plan mode is read-only: {request.action_type}.",
-        )
+        return SessionApprovalHandler(_prompt_plan_exit_approval)
     return SessionApprovalHandler(prompt_approval)
+
+
+def _prompt_plan_exit_approval(request: ApprovalRequest) -> ApprovalDecision:
+    if request.action_type == "exit_plan_mode":
+        return prompt_approval(request)
+    return ApprovalDecision(
+        approved=False,
+        message=f"Denied because Plan mode is read-only: {request.action_type}.",
+    )
 
 
 def format_error(error: Exception) -> str:

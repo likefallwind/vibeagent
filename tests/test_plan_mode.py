@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -92,7 +93,7 @@ class PlanModeTests(unittest.TestCase):
             self.assertFalse((root / "note.txt").exists())
 
         exposed_names = {str(tool["name"]) for tool in client.tools[0]}
-        self.assertTrue(exposed_names.isdisjoint(APPROVAL_REQUIRED_TOOL_NAMES))
+        self.assertEqual(exposed_names & APPROVAL_REQUIRED_TOOL_NAMES, {"ExitPlanMode"})
         self.assertEqual(approvals, [])
         self.assertEqual(result.observations[0].kind, "approval_denied")
         self.assertIn("Plan mode is read-only", result.observations[0].message)
@@ -119,7 +120,13 @@ class PlanModeTests(unittest.TestCase):
         self.assertFalse(search.approval_required)
         self.assertTrue(all(not match["approvalRequired"] for match in search.matches))
 
-    def test_plan_mode_allows_exit_plan_mode_alias_without_mutation(self) -> None:
+    def test_plan_mode_exit_requires_approval_and_restores_previous_policy(self) -> None:
+        approvals: list[str] = []
+
+        def approve(request):
+            approvals.append(request.action_type)
+            return ApprovalDecision(approved=True, message="approved")
+
         client = RecordingClient(
             [
                 [
@@ -130,7 +137,15 @@ class PlanModeTests(unittest.TestCase):
                         "input": {"plan": "Change calc.py, then run python -m unittest discover -s tests."},
                     }
                 ],
-                [{"type": "text", "text": "Plan recorded without changing the workspace."}],
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "write-1",
+                        "name": "write_file",
+                        "input": {"path": "note.txt", "content": "changed"},
+                    }
+                ],
+                [{"type": "text", "text": "Plan approved and implemented."}],
             ]
         )
         with tempfile.TemporaryDirectory(prefix="vibeagent-plan-") as base:
@@ -139,22 +154,72 @@ class PlanModeTests(unittest.TestCase):
                 "Plan a file change",
                 base_dir=root,
                 client=client,
-                max_iterations=2,
+                max_iterations=3,
                 approval_policy="plan",
+                approval_handler=approve,
             )
 
-            self.assertEqual(list(root.iterdir()), [root / ".vibeagent"])
+            self.assertEqual((root / "note.txt").read_text(encoding="utf-8"), "changed")
 
         exposed_names = {str(tool["name"]) for tools in client.tools for tool in tools}
         observation_kinds = [observation.kind for observation in result.observations]
 
         self.assertTrue(result.success)
-        self.assertTrue(result.completion_ready)
         self.assertIn("ExitPlanMode", exposed_names)
-        self.assertEqual(observation_kinds, ["update_plan"])
+        self.assertEqual(observation_kinds[:2], ["exit_plan_mode", "write_file"])
+        self.assertEqual(approvals, ["exit_plan_mode", "write_file"])
         self.assertEqual(len(result.plan), 1)
         self.assertEqual(result.plan[0].status, "completed")
         self.assertIn("Change calc.py", result.plan[0].step)
+
+    def test_enter_plan_mode_changes_the_next_turn_to_read_only(self) -> None:
+        approvals: list[str] = []
+
+        def approve(request):
+            approvals.append(request.action_type)
+            return ApprovalDecision(approved=True, message="approved")
+
+        client = RecordingClient(
+            [
+                [{"type": "tool_call", "id": "enter-1", "name": "EnterPlanMode", "input": {}}],
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "write-1",
+                        "name": "write_file",
+                        "input": {"path": "blocked.txt", "content": "no"},
+                    }
+                ],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-plan-") as base:
+            root = Path(base)
+            result = run_agent(
+                "Inspect before editing",
+                base_dir=root,
+                client=client,
+                max_iterations=2,
+                approval_policy="ask",
+                approval_handler=approve,
+            )
+            self.assertFalse((root / "blocked.txt").exists())
+            events = [
+                json.loads(line)
+                for line in (
+                    root / ".vibeagent" / "sessions" / result.run_id / "events.jsonl"
+                ).read_text(encoding="utf-8").splitlines()
+            ]
+
+        first_names = {str(tool["name"]) for tool in client.tools[0]}
+        second_names = {str(tool["name"]) for tool in client.tools[1]}
+        self.assertIn("EnterPlanMode", first_names)
+        self.assertNotIn("ExitPlanMode", first_names)
+        self.assertNotIn("EnterPlanMode", second_names)
+        self.assertIn("ExitPlanMode", second_names)
+        self.assertEqual([item.kind for item in result.observations], ["enter_plan_mode", "approval_denied"])
+        self.assertEqual(approvals, [])
+        transition = next(event for event in events if event["type"] == "permission_mode_changed")
+        self.assertEqual((transition["previous"], transition["current"]), ("ask", "plan"))
 
     def test_permissions_report_describes_plan_mode(self) -> None:
         report = get_permissions_report("plan")

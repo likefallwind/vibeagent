@@ -1697,7 +1697,7 @@ Rules use `Tool` or `Tool(specifier)` syntax and are evaluated by effect in
 `deny`, `ask`, then `allow` order. Common Claude Code names including `Bash`,
 `BashOutput`, `KillBash`, `Read`, `Write`, `Edit`, `MultiEdit`,
 `NotebookRead`, `NotebookEdit`, `LS`, `Glob`, `Grep`, `ToolSearch`, `Skill`, `WebFetch`, `WebSearch`, `ListMcpResourcesTool`, `ReadMcpResourceTool`, `Task`,
-`TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TeamCreate`, `TeamDelete`, `CronCreate`, `CronList`, `CronDelete`, `Agent`, `LSP`, `EnterWorktree`, `ExitWorktree`, `AskUserQuestion`, `ExitPlanMode`, `TodoWrite`, and `TodoRead` map to
+`TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TeamCreate`, `TeamDelete`, `CronCreate`, `CronList`, `CronDelete`, `Agent`, `LSP`, `EnterWorktree`, `ExitWorktree`, `AskUserQuestion`, `EnterPlanMode`, `ExitPlanMode`, `TodoWrite`, and `TodoRead` map to
 the corresponding VibeAgent tools; native snake-case tool names are also
 accepted. Model tool calls accept the same names with Claude-style field names
 normalized before execution.
@@ -2232,7 +2232,9 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   `/approval dontAsk` runs trusted pre-approved actions but rejects other
   approval-requiring actions without prompting. `/approval plan` exposes
   read-only agent tools and produces an implementation plan without mutating
-  the workspace.
+  the workspace. During an agent run, `EnterPlanMode` switches the following
+  turns to the same read-only catalog. `ExitPlanMode` presents the plan for
+  approval and restores the permission mode that was active before planning.
 - Ctrl-C during a running local command, one-shot task, or interactive task
   prints `Interrupted.` instead of a traceback; one-shot and local-command
   invocations exit with status 130, while the interactive prompt returns to the

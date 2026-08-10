@@ -303,11 +303,27 @@ TASK_CONTROL_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
-        "name": "ExitPlanMode",
-        "description": "Claude-compatible alias for replacing the current task plan from plan-mode output.",
+        "name": "EnterPlanMode",
+        "description": "Switch the current agent run into read-only plan mode.",
         "input_schema": {
             "type": "object",
-            "properties": {"plan": EXIT_PLAN_MODE_PLAN_SCHEMA},
+            "properties": {},
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "ExitPlanMode",
+        "description": "Present the completed plan for approval and leave plan mode when approved.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "plan": EXIT_PLAN_MODE_PLAN_SCHEMA,
+                "allowedPrompts": {
+                    "type": "array",
+                    "items": {"type": "object", "additionalProperties": {"type": "string"}},
+                    "maxItems": 20,
+                },
+            },
             "required": ["plan"],
             "additionalProperties": False,
         },

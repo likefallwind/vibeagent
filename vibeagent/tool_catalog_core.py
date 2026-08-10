@@ -6,6 +6,7 @@ from .tool_definitions import AGENT_TOOL_DEFINITIONS
 
 
 APPROVAL_REQUIRED_TOOL_NAMES = {
+    "ExitPlanMode",
     "append_file",
     "checkpoint_delete",
     "checkpoint_prune",
@@ -113,6 +114,7 @@ def tool_category(name: str) -> str:
     if name in {
         "AskUserQuestion",
         "ask_user",
+        "EnterPlanMode",
         "ExitPlanMode",
         "todo_read",
         "TodoRead",

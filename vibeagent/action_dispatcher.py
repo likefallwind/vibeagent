@@ -24,8 +24,11 @@ from .types import (
     AskUserAction,
     DelegateTaskAction,
     DelegateTaskObservation,
+    EnterPlanModeAction,
+    ExitPlanModeAction,
     FinishObservation,
     Observation,
+    PlanModeObservation,
     SendMessageAction,
     ToolErrorObservation,
     UpdatePlanAction,
@@ -115,6 +118,25 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
             kind="update_plan",
             plan=action.plan,
             message=summarize_plan_update(action),
+        )
+
+    if isinstance(action, EnterPlanModeAction):
+        return PlanModeObservation(
+            kind="enter_plan_mode",
+            message=(
+                "Plan mode is now active. Inspect and plan with read-only tools, "
+                "then call ExitPlanMode."
+            ),
+        )
+
+    if isinstance(action, ExitPlanModeAction):
+        return PlanModeObservation(
+            kind="exit_plan_mode",
+            plan=action.plan,
+            message=(
+                "Plan approved. Plan mode exited; code execution may continue "
+                "under the restored permission mode."
+            ),
         )
 
     if isinstance(action, AskUserAction):

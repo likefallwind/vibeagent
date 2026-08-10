@@ -64,6 +64,7 @@ class ProcessControlToolDefinitionTests(unittest.TestCase):
                 "todo_read",
                 "TodoRead",
                 "TodoWrite",
+                "EnterPlanMode",
                 "ExitPlanMode",
                 "finish",
             ],

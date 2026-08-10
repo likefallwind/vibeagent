@@ -22,6 +22,18 @@ class UpdatePlanAction:
 
 
 @dataclass(frozen=True)
+class EnterPlanModeAction:
+    type: Literal["enter_plan_mode"]
+
+
+@dataclass(frozen=True)
+class ExitPlanModeAction:
+    type: Literal["exit_plan_mode"]
+    plan: list[PlanItem]
+    allowed_prompts: list[dict[str, str]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class AskUserOption:
     label: str
     description: str

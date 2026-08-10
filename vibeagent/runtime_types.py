@@ -85,6 +85,7 @@ class TaskStep:
 @dataclass(frozen=True)
 class ApprovalRequest:
     action_type: Literal[
+        "exit_plan_mode",
         "write_file",
         "write_files",
         "edit_file",

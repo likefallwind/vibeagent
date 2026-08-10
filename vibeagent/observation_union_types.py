@@ -37,6 +37,7 @@ from .observation_common_types import (
     DelegateTaskObservation,
     FinishObservation,
     ListAgentsObservation,
+    PlanModeObservation,
     PeerMessageObservation,
     TaskOutputObservation,
     TaskStopObservation,
@@ -363,6 +364,7 @@ Observation: TypeAlias = (
     | CronListObservation
     | CronDeleteObservation
     | UpdatePlanObservation
+    | PlanModeObservation
     | UserInputObservation
     | DelegateTaskObservation
     | ListAgentsObservation

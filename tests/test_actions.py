@@ -2631,10 +2631,10 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(agent_action.type, "delegate_task")
         self.assertEqual(agent_action.task, "Map the repo")
         self.assertEqual(agent_action.context, "Read-only scan")
-        self.assertEqual(exit_plan_action.type, "update_plan")
+        self.assertEqual(exit_plan_action.type, "exit_plan_mode")
         self.assertEqual(exit_plan_action.plan[0].step, "Implement the selected fix")
         self.assertEqual(exit_plan_action.plan[0].status, "completed")
-        self.assertEqual(structured_exit_plan_action.type, "update_plan")
+        self.assertEqual(structured_exit_plan_action.type, "exit_plan_mode")
         self.assertEqual([item.step for item in structured_exit_plan_action.plan], ["Inspect failing test", "Patch parser"])
         self.assertEqual(structured_exit_plan_action.plan[1].status, "in_progress")
         self.assertEqual(structured_exit_plan_action.plan[1].active_form, "Patching parser")
@@ -2726,6 +2726,7 @@ class ActionTests(unittest.TestCase):
             "Bash",
             "BashOutput",
             "Edit",
+            "EnterPlanMode",
             "ExitPlanMode",
             "Glob",
             "Grep",

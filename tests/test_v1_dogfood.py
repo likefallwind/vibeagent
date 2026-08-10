@@ -2512,17 +2512,22 @@ def plan_mode_dogfood_responses() -> list[list[ContentBlock]]:
         [
             {
                 "type": "tool_call",
-                "id": "exit-plan-1",
-                "name": "ExitPlanMode",
+                "id": "update-plan-1",
+                "name": "update_plan",
                 "input": {
-                    "plan": (
-                        "Change calc.py so add returns left + right, then verify with "
-                        "python -B -m unittest discover -s tests. Keep the change scoped to calc.py."
-                    )
+                    "plan": [
+                        {
+                            "step": (
+                                "Change calc.py so add returns left + right, then verify with "
+                                "python -B -m unittest discover -s tests. Keep the change scoped to calc.py."
+                            ),
+                            "status": "completed",
+                        }
+                    ]
                 },
             }
         ],
-        [{"type": "text", "text": "Plan recorded with ExitPlanMode; no files, commands, or commits were changed."}],
+        [{"type": "text", "text": "Plan recorded; no files, commands, or commits were changed."}],
     ]
 
 
@@ -3511,7 +3516,7 @@ class V1DogfoodTests(unittest.TestCase):
         self.assertEqual([item.status for item in result.plan], ["completed"])
         self.assertIn("return left - right", calc_text)
         self.assertEqual(git_status, "")
-        self.assertIn("ExitPlanMode", result.message)
+        self.assertIn("Plan recorded", result.message)
 
     def test_v1_agent_can_apply_claude_multi_edit_and_commit(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-v1-multiedit-dogfood-") as base:

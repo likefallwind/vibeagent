@@ -72,7 +72,7 @@ class AgentToolRegistryTests(unittest.TestCase):
 
         self.assertEqual(validate_core_agent_tools(), [])
         self.assertEqual(len(initial_names), len(set(initial_names)))
-        self.assertEqual(set(initial_names), set(CORE_AGENT_TOOL_NAMES))
+        self.assertEqual(set(initial_names), set(CORE_AGENT_TOOL_NAMES) - {"ExitPlanMode"})
         self.assertLess(len(initial), len(AGENT_TOOL_DEFINITIONS) // 4)
         self.assertLess(initial_chars, full_chars // 4)
 
@@ -128,7 +128,7 @@ class AgentToolRegistryTests(unittest.TestCase):
         self.assertNotIn("web_fetch", names)
         self.assertNotIn("WebFetch", names)
         self.assertNotIn("Write", names)
-        self.assertTrue(names.isdisjoint(APPROVAL_REQUIRED_TOOL_NAMES))
+        self.assertEqual(names & APPROVAL_REQUIRED_TOOL_NAMES, {"ExitPlanMode"})
         self.assertEqual(
             activate_agent_tool_names(
                 active,
@@ -164,7 +164,7 @@ class AgentToolRegistryTests(unittest.TestCase):
             "TaskGet",
             "TaskList",
             "TaskUpdate",
-            "ExitPlanMode",
+            "EnterPlanMode",
             "AskUserQuestion",
             "Task",
             "ToolSearch",

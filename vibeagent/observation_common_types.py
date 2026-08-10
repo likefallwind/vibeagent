@@ -21,6 +21,13 @@ class UpdatePlanObservation:
 
 
 @dataclass(frozen=True)
+class PlanModeObservation:
+    kind: Literal["enter_plan_mode", "exit_plan_mode"]
+    plan: list[PlanItem] = field(default_factory=list)
+    message: str = ""
+
+
+@dataclass(frozen=True)
 class UserInputObservation:
     kind: Literal["ask_user"]
     question: str

@@ -121,6 +121,20 @@ class CliApprovalHelpersTests(unittest.TestCase):
         self.assertFalse(plan_denied.approved)
         self.assertIn("Plan mode is read-only", plan_denied.message)
 
+    def test_plan_handler_prompts_for_exit_plan_mode(self) -> None:
+        request = ApprovalRequest(
+            action_type="exit_plan_mode",
+            target="Inspect, patch, and test.",
+            risk="This approves the plan and leaves Plan mode.",
+        )
+
+        with patch("builtins.input", return_value="y"), patch(
+            "sys.stdout", new_callable=io.StringIO
+        ):
+            decision = build_approval_handler("plan")(request)
+
+        self.assertTrue(decision.approved)
+
 
 if __name__ == "__main__":
     unittest.main()

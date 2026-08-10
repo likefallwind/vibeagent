@@ -11,6 +11,7 @@ CORE_SESSION_TOOL_NAMES = frozenset(
         "TaskList",
         "TaskUpdate",
         "memory_read",
+        "EnterPlanMode",
         "ExitPlanMode",
     }
 )

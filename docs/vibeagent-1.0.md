@@ -26,7 +26,7 @@ local changes when asked, and resume from recorded session context.
 | VA1-MONITOR | React to background command or WebSocket events | `Monitor` uses Bash-equivalent approval for commands and a fresh explicit approval for each public WebSocket connection. Command stdout lines and individual WebSocket text, binary-placeholder, close-code, and exit events are delivered once as untrusted input during active turns or through idle interactive wakeups. WebSocket URLs reject credentials, private/link-local/metadata DNS results, malformed or duplicate subprotocols, and messages above 1 MiB. Both sources enforce bounded timeouts, support session-lifetime persistent mode, and stop through `TaskStop` or CLI session exit. |
 | VA1-WORKFLOW | Orchestrate resumable multi-agent fan-out | `/workflows run` executes a permission-restricted JavaScript workflow with `agent()` and bounded `pipeline()`, persists source and completed calls, and supports list, show, stop, and cache-backed resume. |
 | VA1-PLUGIN | Load and distribute reusable extension bundles without bypassing safety | `/plugin` validates, installs, lists, details, enables, disables, and atomically uninstalls project-local plugins; local and public-HTTPS GitHub/Git/JSON marketplaces add, list, inspect, refresh, remove, and install relative or remote `plugin@marketplace` sources; enabled namespaced skills, commands, agents, hooks, and MCP servers flow through their existing parsers, approvals, network checks, and path guards. |
-| VA1-PLAN | Produce a concrete read-only implementation plan | Plan mode exposes only read-only tools such as `project_overview`, `read_file`, and `tool_search`, denies hidden write attempts, and leaves the workspace unchanged. |
+| VA1-PLAN | Produce and approve a concrete read-only implementation plan | `EnterPlanMode` switches a running agent to a read-only catalog; Plan mode denies hidden write attempts, and `ExitPlanMode` presents the plan for approval before restoring the previous permission mode. |
 | VA1-SAFETY | Enforce workspace and command safety | Workspace path guards, protected files, approval policy, project permissions, hooks, sandbox support, and hard command blocks prevent unsafe side effects. Claude-compatible `dontAsk` keeps read-only tools available, executes only trusted explicit allow rules, disables approval prompts and sandbox auto-approval for other side effects, and records machine-readable denial decisions without request events. |
 
 ## Current Evidence
@@ -282,9 +282,9 @@ local changes when asked, and resume from recorded session context.
   and returns its summary for the parent to audit.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_plan_mode_inspects_without_mutating`
   runs a read-only planning pass that inspects the project, reads the target
-  files, records the implementation plan through the Claude-compatible
-  `ExitPlanMode` alias, and verifies no edits, commands, or commits were
-  attempted.
+  files, records the implementation plan, and verifies no edits, commands, or
+  commits were attempted. `tests.test_plan_mode` separately verifies dynamic
+  `EnterPlanMode`, approval-gated `ExitPlanMode`, and restored write approval.
 - `tests.test_v1_cli_smoke.V1CliSmokeTests.test_v1_cli_json_can_repair_verify_commit_and_report_ready`
   runs the deterministic repair dogfood through the real CLI `main()` one-shot
   JSON path, confirming argument parsing, provider creation, completion-ready

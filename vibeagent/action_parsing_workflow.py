@@ -7,6 +7,8 @@ from .types import (
     AskUserAction,
     AskUserOption,
     AskUserQuestion,
+    EnterPlanModeAction,
+    ExitPlanModeAction,
     FinishAction,
     PlanItem,
     UpdatePlanAction,
@@ -18,6 +20,8 @@ WORKFLOW_ACTION_TYPES = {
     "todo_write",
     "update_plan",
     "finish",
+    "enter_plan_mode",
+    "exit_plan_mode",
 }
 
 
@@ -69,6 +73,35 @@ def parse_workflow_action(action_type: object, value: dict[str, Any], raw: str) 
             type="update_plan",
             explanation=explanation,
             plan=plan,
+        )
+
+    if action_type == "enter_plan_mode":
+        if set(value) != {"type"}:
+            raise ActionParseError("enter_plan_mode action does not accept input fields.", raw)
+        return EnterPlanModeAction(type="enter_plan_mode")
+
+    if action_type == "exit_plan_mode":
+        allowed_prompts = value.get("allowed_prompts", [])
+        if (
+            not isinstance(allowed_prompts, list)
+            or len(allowed_prompts) > 20
+            or any(
+                not isinstance(item, dict)
+                or any(
+                    not isinstance(key, str) or not isinstance(item_value, str)
+                    for key, item_value in item.items()
+                )
+                for item in allowed_prompts
+            )
+        ):
+            raise ActionParseError(
+                "exit_plan_mode allowed_prompts must contain at most 20 string maps.",
+                raw,
+            )
+        return ExitPlanModeAction(
+            type="exit_plan_mode",
+            plan=parse_plan_items(value.get("plan"), raw),
+            allowed_prompts=[dict(item) for item in allowed_prompts],
         )
 
     if action_type == "finish":

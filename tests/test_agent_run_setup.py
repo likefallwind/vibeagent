@@ -37,7 +37,7 @@ class AgentRunSetupTests(unittest.TestCase):
             ]
 
         self.assertEqual(setup.workspace.root, root.resolve())
-        self.assertTrue(CORE_AGENT_TOOL_NAMES.issubset(setup.active_tool_names))
+        self.assertTrue((CORE_AGENT_TOOL_NAMES - {"ExitPlanMode"}).issubset(setup.active_tool_names))
         self.assertEqual([message.role for message in setup.messages[:2]], ["system", "user"])
         self.assertTrue(setup.project_permissions.enabled)
         self.assertEqual(setup.project_permissions.allow_rules_trusted, False)

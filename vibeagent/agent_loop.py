@@ -18,6 +18,7 @@ from .agent_multimodal import strip_consumed_tool_images
 from .agent_monitor_notifications import inject_monitor_notifications
 from .agent_parallel_execution import execute_parallel_tool_call_batch
 from .agent_peer_notifications import inject_peer_notifications
+from .agent_plan_mode import PlanModeRuntime
 from .agent_plugin_monitors import AgentPluginMonitorController
 from .peer_runtime import PeerSessionRuntime
 from .plugin_monitor_runtime import PluginMonitorRuntime
@@ -105,6 +106,7 @@ def run_agent_loop(
         else None
     )
     auto_checkpoint_attempted = False
+    plan_mode = PlanModeRuntime.create(approval_policy)
 
     def checkpoint_conversation() -> None:
         checkpoint_session_conversation(current_workspace, messages, task)
@@ -176,7 +178,7 @@ def run_agent_loop(
         command_timeout_ms=command_timeout_ms,
         logger=logger,
         approval_handler=approval_handler,
-        approval_policy=approval_policy,
+        approval_policy=plan_mode.current_policy,
         execute_action_safely=runtime.execute_action_safely,
     )
     startup_block = lifecycle.start(
@@ -190,7 +192,7 @@ def run_agent_loop(
         current_workspace,
         project_permissions,
         approval_handler,
-        approval_policy,
+        plan_mode.current_policy,
         logger,
     )
     plugin_monitors.start()
@@ -238,7 +240,7 @@ def run_agent_loop(
             plan=plan,
             original_prior_context=prior_context,
             iteration=iteration,
-            approval_policy=approval_policy,
+            approval_policy=plan_mode.current_policy,
             system_prompt=system_prompt,
             append_system_prompt=append_system_prompt,
         )
@@ -249,7 +251,7 @@ def run_agent_loop(
             messages,
             tools=agent_tool_definitions(
                 active_tool_names,
-                approval_policy,
+                plan_mode.current_policy,
                 excluded_names=setup.main_profile.disallowed_tool_names,
                 allowed_names=setup.main_profile.allowed_tool_names,
             ),
@@ -269,7 +271,7 @@ def run_agent_loop(
                 plan=plan,
                 original_prior_context=prior_context,
                 iteration=iteration,
-                approval_policy=approval_policy,
+                approval_policy=plan_mode.current_policy,
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
             ),
@@ -312,7 +314,7 @@ def run_agent_loop(
             [str(block.get("name") or "") for block in tool_calls],
             iteration,
             source="model_call",
-            approval_policy=approval_policy,
+            approval_policy=plan_mode.current_policy,
             excluded_names=setup.main_profile.disallowed_tool_names,
             allowed_names=setup.main_profile.allowed_tool_names,
         )
@@ -329,7 +331,7 @@ def run_agent_loop(
                 command_timeout_ms,
                 logger,
                 execute=runtime.execute_action,
-                approval_policy=approval_policy,
+                approval_policy=plan_mode.current_policy,
                 tool_call_allowed=setup.main_profile.allows_tool_call,
                 excluded_tool_names=setup.main_profile.disallowed_tool_names,
                 allowed_tool_names=setup.main_profile.allowed_tool_names,
@@ -345,7 +347,7 @@ def run_agent_loop(
                 active_tool_names,
                 observations[observation_start:],
                 iteration,
-                approval_policy,
+                plan_mode.current_policy,
                 excluded_names=setup.main_profile.disallowed_tool_names,
                 allowed_names=setup.main_profile.allowed_tool_names,
             )
@@ -362,7 +364,7 @@ def run_agent_loop(
                 plan=plan,
                 original_prior_context=prior_context,
                 iteration=iteration,
-                approval_policy=approval_policy,
+                approval_policy=plan_mode.current_policy,
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
             )
@@ -387,7 +389,7 @@ def run_agent_loop(
                 command_timeout_ms=command_timeout_ms,
                 logger=logger,
                 approval_handler=approval_handler,
-                approval_policy=approval_policy,
+                approval_policy=plan_mode.current_policy,
                 user_input_handler=user_input_handler,
                 hooks=project_hooks,
                 permissions=project_permissions,
@@ -410,6 +412,23 @@ def run_agent_loop(
                 observation,
                 iteration=iteration,
             )
+            if plan_mode.apply(current_workspace, observation, iteration=iteration):
+                lifecycle.approval_policy = plan_mode.current_policy
+                active_tool_names.add(
+                    "ExitPlanMode"
+                    if plan_mode.current_policy == "plan"
+                    else "EnterPlanMode"
+                )
+                if peer_runtime is not None:
+                    peer_runtime.update_approval_policy(plan_mode.current_policy)
+                plugin_monitors = AgentPluginMonitorController.create(
+                    plugin_monitor_runtime,
+                    current_workspace,
+                    project_permissions,
+                    approval_handler,
+                    plan_mode.current_policy,
+                    logger,
+                )
 
             if observation.kind == "finish":
                 blocked_completion_feedback = (
@@ -453,7 +472,7 @@ def run_agent_loop(
             plan=plan,
             original_prior_context=prior_context,
             iteration=iteration,
-            approval_policy=approval_policy,
+            approval_policy=plan_mode.current_policy,
             system_prompt=system_prompt,
             append_system_prompt=append_system_prompt,
         )

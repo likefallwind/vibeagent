@@ -33,11 +33,17 @@ class ToolVisibilityPolicy:
     allowed_names: frozenset[str] | None = None
 
     def allows(self, name: str) -> bool:
+        plan_transition_visible = (
+            name == "ExitPlanMode" if self.approval_policy == "plan" else name == "EnterPlanMode"
+        )
+        if name in {"EnterPlanMode", "ExitPlanMode"} and not plan_transition_visible:
+            return False
         return (
             not tool_name_is_restricted(self.excluded_names, name)
             and (self.allowed_names is None or name in self.allowed_names)
             and (
                 self.approval_policy != "plan"
+                or name == "ExitPlanMode"
                 or not tool_name_requires_approval(name)
             )
         )

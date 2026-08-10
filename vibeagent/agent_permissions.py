@@ -135,7 +135,7 @@ def authorize_tool_action(
         )
         if logger:
             logger("approval required", summarize_approval_request(request))
-    if approval_policy == "plan":
+    if approval_policy == "plan" and request.action_type != "exit_plan_mode":
         decision = ApprovalDecision(
             approved=False,
             message=f"Denied because Plan mode is read-only: {request.action_type}.",

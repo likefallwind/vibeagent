@@ -51,6 +51,7 @@ from .observation_common_types import (
     DelegateTaskObservation,
     FinishObservation,
     ListAgentsObservation,
+    PlanModeObservation,
     PeerMessageObservation,
     PeerSession,
     SubagentInstance,

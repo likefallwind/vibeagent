@@ -997,10 +997,10 @@ class V1CliSmokeTests(unittest.TestCase):
         self.assertIn("Plan mode is active", initial_prompt)
         self.assertIn('"name": "project_overview"', events_text)
         self.assertIn('"name": "read_file"', events_text)
-        self.assertIn('"name": "ExitPlanMode"', events_text)
+        self.assertIn('"name": "update_plan"', events_text)
         self.assertTrue({"write_file", "edit_file", "run_command", "git_commit"}.isdisjoint(exposed_names))
         self.assertIn("ExitPlanMode", exposed_names)
-        self.assertIn("ExitPlanMode", str(payload["message"]))
+        self.assertIn("Plan recorded", str(payload["message"]))
         git_status, head_subject, calc_text = commit_state
         self.assertEqual(git_status, "")
         self.assertEqual(head_subject, "initial broken calculator")
