@@ -14,6 +14,7 @@ from .agent_delegate_context import (
 )
 from .agent_delegate_hooks import DelegateLifecycleHooks
 from .agent_delegate_loop import DelegateLoopContext, run_delegate_iterations
+from .agent_delegate_profile import DelegateProfileRuntime, load_delegate_profile_runtime
 from .agent_delegate_tools import (
     DELEGATE_TOOL_DEFINITIONS,
     code_delegate_initial_tool_names,
@@ -31,7 +32,6 @@ from .types import (
     Observation,
     TaskStep,
 )
-from .workspace_agents import read_project_agent
 from .workspace_core import RunWorkspace
 from .workspace_hooks import ProjectHooks
 from .workspace_permissions import ProjectPermissions
@@ -58,17 +58,28 @@ def execute_delegate_task_action(
     permissions: ProjectPermissions = ProjectPermissions(),
     cancel_requested: Callable[[], bool] | None = None,
 ) -> DelegateTaskObservation:
-    profile, profile_error = _load_delegate_profile(workspace, action)
-    if profile is not None:
-        action = replace(action, mode=str(profile["mode"]))
-    profile_prompt = str(profile["prompt"]) if profile is not None else None
-    allowed_tool_names = _profile_tool_names(profile)
+    profile = load_delegate_profile_runtime(workspace, action)
+    if profile.mode is not None:
+        action = replace(action, mode=profile.mode)
+    if profile.max_turns is not None:
+        action = replace(action, max_iterations=profile.max_turns)
+    profile_prompt = profile.prompt
+    allowed_tool_names = profile.allowed_tool_names
+    disallowed_tool_names = profile.disallowed_tool_names
     observations = parent_observations if action.mode == "code" and parent_observations is not None else []
     steps = parent_steps if action.mode == "code" and parent_steps is not None else []
     messages = build_delegate_messages(workspace, action, profile_prompt=profile_prompt)
 
-    _record_delegate_start(workspace, action, parent_iteration, subagent_id, approval_policy, logger)
-    policy_error = _delegate_policy_error(action, approval_policy, profile_error)
+    _record_delegate_start(
+        workspace,
+        action,
+        parent_iteration,
+        subagent_id,
+        approval_policy,
+        profile,
+        logger,
+    )
+    policy_error = _delegate_policy_error(action, approval_policy, profile.error)
     if policy_error is not None:
         return finish_delegate_task(
             workspace,
@@ -96,7 +107,11 @@ def execute_delegate_task_action(
     lifecycle.start(messages)
 
     active_tool_names = (
-        code_delegate_initial_tool_names(approval_policy, allowed_tool_names)
+        code_delegate_initial_tool_names(
+            approval_policy,
+            allowed_tool_names,
+            disallowed_tool_names,
+        )
         if action.mode == "code"
         else set()
     )
@@ -113,6 +128,7 @@ def execute_delegate_task_action(
             lifecycle=lifecycle,
             profile_prompt=profile_prompt,
             allowed_tool_names=allowed_tool_names,
+            disallowed_tool_names=disallowed_tool_names,
             active_tool_names=active_tool_names,
             delegate_observation_start=len(observations),
             max_output_tokens=max_output_tokens,
@@ -128,25 +144,6 @@ def execute_delegate_task_action(
             cancel_requested=cancel_requested,
         )
     )
-
-
-def _load_delegate_profile(
-    workspace: RunWorkspace,
-    action: DelegateTaskAction,
-) -> tuple[dict[str, object] | None, str | None]:
-    if not action.agent:
-        return None, None
-    try:
-        return read_project_agent(workspace, action.agent), None
-    except ValueError as error:
-        return None, str(error)
-
-
-def _profile_tool_names(profile: dict[str, object] | None) -> frozenset[str] | None:
-    profile_tools = profile.get("tools") if profile is not None else None
-    if not isinstance(profile_tools, list):
-        return None
-    return frozenset(str(name) for name in profile_tools) | {"finish"}
 
 
 def _delegate_policy_error(
@@ -169,6 +166,7 @@ def _record_delegate_start(
     parent_iteration: int,
     subagent_id: str,
     approval_policy: ApprovalPolicy,
+    profile: DelegateProfileRuntime,
     logger: AgentLogger | None,
 ) -> None:
     append_session_event(
@@ -182,6 +180,8 @@ def _record_delegate_start(
             "max_iterations": action.max_iterations,
             "mode": action.mode,
             "agent": action.agent,
+            "profile_skills": list(profile.skills),
+            "profile_disallowed_tools": sorted(profile.disallowed_tool_names),
             "approval_policy": approval_policy,
         },
     )

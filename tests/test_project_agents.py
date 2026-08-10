@@ -25,12 +25,29 @@ def _write_agent(
     *,
     mode: str = "explore",
     tools: str | None = None,
+    disallowed_tools: str | None = None,
+    max_turns: int | None = None,
+    skills: str | None = None,
 ) -> Path:
     path = root / base / f"{name}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     tool_line = f"tools: {tools}\n" if tools is not None else ""
+    disallowed_line = f"disallowedTools: {disallowed_tools}\n" if disallowed_tools is not None else ""
+    max_turns_line = f"maxTurns: {max_turns}\n" if max_turns is not None else ""
+    skills_line = f"skills: {skills}\n" if skills is not None else ""
     path.write_text(
-        f"---\nname: {name}\ndescription: {description}\nmode: {mode}\n{tool_line}---\n\n{body}\n",
+        f"---\nname: {name}\ndescription: {description}\nmode: {mode}\n"
+        f"{tool_line}{disallowed_line}{max_turns_line}{skills_line}---\n\n{body}\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _write_skill(root: Path, name: str, body: str) -> Path:
+    path = root / ".claude/skills" / name / "SKILL.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f"---\nname: {name}\ndescription: {name} instructions\n---\n\n{body}\n",
         encoding="utf-8",
     )
     return path
@@ -77,6 +94,83 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertIn("test-writer: Writes focused tests", formatted or "")
         self.assertNotIn("PRIVATE_AGENT_PROMPT", str(initial_messages[1].content))
         self.assertEqual(loaded["prompt"], "PRIVATE_AGENT_PROMPT")
+
+    def test_catalog_reports_execution_controls_and_rejects_missing_skills(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            _write_skill(root, "focused-tests", "Run only the focused tests.")
+            _write_agent(
+                root,
+                ".claude/agents",
+                "controlled",
+                "Uses bounded controls",
+                "CONTROLLED_PROMPT",
+                mode="code",
+                tools="[Read, Write]",
+                disallowed_tools="Write",
+                max_turns=12,
+                skills="focused-tests",
+            )
+            _write_agent(
+                root,
+                ".claude/agents",
+                "missing-skill",
+                "References a missing skill",
+                "MISSING_SKILL_PROMPT",
+                skills="does-not-exist",
+            )
+            workspace = create_run_workspace(root, "run-1")
+
+            catalog = read_project_agents(workspace)
+            formatted = format_project_agent_catalog(workspace)
+            loaded = read_project_agent(workspace, "controlled")
+
+        agents = {str(agent["name"]): agent for agent in catalog["agents"]}
+        self.assertEqual(agents["controlled"]["disallowed_tools"], ["Write", "write_file"])
+        self.assertEqual(agents["controlled"]["max_turns"], 12)
+        self.assertEqual(agents["controlled"]["skills"], ["focused-tests"])
+        self.assertFalse(agents["missing-skill"]["available"])
+        self.assertIn("unavailable skill", str(agents["missing-skill"]["message"]))
+        self.assertIn("disallowedTools=Write,write_file", formatted or "")
+        self.assertEqual(loaded["max_turns"], 12)
+
+    def test_invalid_profile_execution_controls_are_unavailable(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            _write_agent(
+                root,
+                ".claude/agents",
+                "too-many-turns",
+                "Has an invalid turn bound",
+                "INVALID_TURNS",
+                max_turns=51,
+            )
+            _write_agent(
+                root,
+                ".claude/agents",
+                "unknown-deny",
+                "Has an unknown denied tool",
+                "INVALID_DENYLIST",
+                disallowed_tools="not_a_real_tool",
+            )
+            _write_agent(
+                root,
+                ".claude/agents",
+                "empty-deny",
+                "Has an empty denylist",
+                "VALID_EMPTY_DENYLIST",
+                disallowed_tools="[]",
+            )
+            workspace = create_run_workspace(root, "run-1")
+
+            catalog = read_project_agents(workspace)
+
+        agents = {str(agent["name"]): agent for agent in catalog["agents"]}
+        self.assertFalse(agents["too-many-turns"]["available"])
+        self.assertIn("between 1 and 50", str(agents["too-many-turns"]["message"]))
+        self.assertFalse(agents["unknown-deny"]["available"])
+        self.assertIn("disallowedTools references unknown", str(agents["unknown-deny"]["message"]))
+        self.assertTrue(agents["empty-deny"]["available"])
 
     def test_project_agents_tool_lists_metadata_without_prompt_body(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
@@ -191,6 +285,160 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertEqual(observation.agent, "focused-writer")
         self.assertEqual(set(client.tool_names[0]), {"Write", "finish", "write_file"})
         self.assertIn("PROFILE_SPECIAL_INSTRUCTION", str(client.messages[0][0].content))
+
+    def test_profile_preloads_skills_only_for_selected_subagent_and_applies_max_turns(self) -> None:
+        client = ProfileClient(
+            [
+                [{"type": "tool_call", "id": "read-1", "name": "Read", "input": {"file_path": "README.md"}}],
+                [{"type": "text", "text": "Used the preloaded skill."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            root.joinpath("README.md").write_text("# Demo\n", encoding="utf-8")
+            _write_skill(root, "focused-read", "PRIVATE_SKILL_INSTRUCTION")
+            _write_agent(
+                root,
+                ".claude/agents",
+                "skill-reader",
+                "Reads with a project skill",
+                "PROFILE_PROMPT",
+                tools="Read",
+                max_turns=2,
+                skills="focused-read",
+            )
+            workspace = create_run_workspace(root, "run-1")
+            initial_messages = build_messages("Read the project", workspace)
+            action = parse_tool_action(
+                "delegate_task",
+                {"task": "Read README", "agent": "skill-reader", "max_iterations": 1},
+            )
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+            events = [
+                json.loads(line)
+                for line in (root / ".vibeagent/sessions/run-1/events.jsonl").read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertTrue(observation.ok)
+        self.assertEqual(observation.iterations, 2)
+        self.assertNotIn("PRIVATE_SKILL_INSTRUCTION", str(initial_messages))
+        self.assertIn("PROFILE_PROMPT", str(client.messages[0][0].content))
+        self.assertIn("PRIVATE_SKILL_INSTRUCTION", str(client.messages[0][0].content))
+        started = next(event for event in events if event["type"] == "subagent_started")
+        self.assertEqual(started["max_iterations"], 2)
+        self.assertEqual(started["profile_skills"], ["focused-read"])
+
+    def test_profile_denylist_filters_schema_and_blocks_hidden_alias_call(self) -> None:
+        approvals: list[str] = []
+        client = ProfileClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "write-1",
+                        "name": "Write",
+                        "input": {"file_path": "blocked.py", "content": "blocked = False\n"},
+                    }
+                ],
+                [{"type": "text", "text": "The denied tool stayed blocked."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            _write_agent(
+                root,
+                ".agents/agents",
+                "reader-only",
+                "Allows reads but denies writes",
+                "Do not write files.",
+                mode="code",
+                tools="[Read, Write]",
+                disallowed_tools="Write",
+            )
+            workspace = create_run_workspace(root, "run-1")
+            action = parse_tool_action("delegate_task", {"task": "Stay read-only", "agent": "reader-only"})
+            execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=lambda request: (
+                    approvals.append(request.action_type)
+                    or ApprovalDecision(approved=True, message="approved")
+                ),
+            )
+
+            self.assertFalse(root.joinpath("blocked.py").exists())
+
+        self.assertEqual(set(client.tool_names[0]), {"Read", "finish", "read_file"})
+        result = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertEqual(result["kind"], "tool_error")
+        self.assertIn("blocked by the selected project agent profile", result["message"])
+        self.assertEqual(approvals, [])
+
+    def test_profile_denylist_blocks_tool_search_activation(self) -> None:
+        client = ProfileClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "search-1",
+                        "name": "tool_search",
+                        "input": {"query": "python_dependencies", "max_matches": 5},
+                    }
+                ],
+                [{"type": "text", "text": "The denied discovered tool was not activated."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            _write_agent(
+                root,
+                ".claude/agents",
+                "bounded-searcher",
+                "Searches tools with a denylist",
+                "Search for tools without activating denied entries.",
+                mode="code",
+                disallowed_tools="python_dependencies",
+            )
+            workspace = create_run_workspace(root, "run-1")
+            action = parse_tool_action("delegate_task", {"task": "Search tools", "agent": "bounded-searcher"})
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+
+        self.assertTrue(observation.ok)
+        self.assertIn("tool_search", client.tool_names[0])
+        self.assertNotIn("python_dependencies", client.tool_names[1])
 
     def test_code_profile_edit_alias_allows_replace_all_regex_path(self) -> None:
         client = ProfileClient(
@@ -731,7 +979,7 @@ class ProjectAgentProfileTests(unittest.TestCase):
 
         result = json.loads(client.messages[1][-1].content[0]["content"])
         self.assertEqual(result["kind"], "tool_error")
-        self.assertIn("allowlist", result["message"])
+        self.assertIn("selected project agent profile", result["message"])
         self.assertEqual(approvals, [])
 
     def test_code_subagent_cannot_update_parent_plan_through_todo_alias(self) -> None:

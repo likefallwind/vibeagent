@@ -43,6 +43,7 @@ class DelegateLoopContext:
     lifecycle: DelegateLifecycleHooks
     profile_prompt: str | None
     allowed_tool_names: frozenset[str] | None
+    disallowed_tool_names: frozenset[str]
     active_tool_names: set[str]
     delegate_observation_start: int
     max_output_tokens: int
@@ -74,6 +75,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                 context.active_tool_names,
                 context.approval_policy,
                 context.allowed_tool_names,
+                context.disallowed_tool_names,
             ),
             max_output_tokens=context.max_output_tokens,
             model_retries=context.model_retries,
@@ -159,6 +161,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                 approval_policy=context.approval_policy,
                 auto_checkpoint_attempted=auto_checkpoint_attempted,
                 allowed_tool_names=context.allowed_tool_names,
+                disallowed_tool_names=context.disallowed_tool_names,
                 hooks=context.hooks,
                 permissions=context.permissions,
             )

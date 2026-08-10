@@ -63,10 +63,11 @@ class DelegateToolCallExecution:
 def code_delegate_initial_tool_names(
     approval_policy: ApprovalPolicy,
     allowed_tool_names: frozenset[str] | None = None,
+    disallowed_tool_names: frozenset[str] = frozenset(),
 ) -> set[str]:
     policy = ToolVisibilityPolicy(
         approval_policy=approval_policy,
-        excluded_names=CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
+        excluded_names=CODE_DELEGATE_EXCLUDED_TOOL_NAMES | disallowed_tool_names,
     )
     source_names = allowed_tool_names if allowed_tool_names is not None else initial_agent_tool_names()
     return {name for name in source_names if not name.startswith("mcp__") and policy.allows(name)}
@@ -77,17 +78,19 @@ def delegate_tool_definitions(
     active_tool_names: set[str],
     approval_policy: ApprovalPolicy,
     allowed_tool_names: frozenset[str] | None = None,
+    disallowed_tool_names: frozenset[str] = frozenset(),
 ) -> list[dict[str, object]]:
     if mode == "explore":
         return [
             tool
             for tool in DELEGATE_TOOL_DEFINITIONS
-            if allowed_tool_names is None or str(tool["name"]) in allowed_tool_names
+            if str(tool["name"]) not in disallowed_tool_names
+            and (allowed_tool_names is None or str(tool["name"]) in allowed_tool_names)
         ]
     definitions = agent_tool_definitions(
         active_tool_names,
         approval_policy,
-        CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
+        CODE_DELEGATE_EXCLUDED_TOOL_NAMES | disallowed_tool_names,
     )
     if allowed_tool_names is None:
         return definitions
@@ -110,25 +113,35 @@ def execute_delegate_tool_call(
     approval_policy: ApprovalPolicy,
     auto_checkpoint_attempted: bool,
     allowed_tool_names: frozenset[str] | None = None,
+    disallowed_tool_names: frozenset[str] = frozenset(),
     hooks: ProjectHooks = ProjectHooks(),
     permissions: ProjectPermissions = ProjectPermissions(),
 ) -> DelegateToolCallExecution:
     try:
         parsed = prepare_action_for_policy(parse_tool_action(tool_name, tool_input), approval_policy)
-        if not _profile_allows_tool_call(tool_name, parsed, allowed_tool_names):
+        if not _profile_allows_tool_call(
+            tool_name,
+            parsed,
+            allowed_tool_names,
+            disallowed_tool_names,
+        ):
             observation = ToolErrorObservation(
                 kind="tool_error",
                 tool=tool_name or "unknown",
-                message="Subagent tool is outside the selected project agent profile allowlist.",
+                message="Subagent tool is blocked by the selected project agent profile.",
             )
             observations.append(observation)
             return DelegateToolCallExecution(observation, None, auto_checkpoint_attempted)
         if mode == "code":
             activate_agent_tool_names(
                 active_tool_names,
-                _allowed_requested_names([str(getattr(parsed, "type", tool_name))], allowed_tool_names),
+                _allowed_requested_names(
+                    [str(getattr(parsed, "type", tool_name))],
+                    allowed_tool_names,
+                    disallowed_tool_names,
+                ),
                 approval_policy,
-                CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
+                CODE_DELEGATE_EXCLUDED_TOOL_NAMES | disallowed_tool_names,
             )
         if isinstance(parsed, FinishAction):
             return DelegateToolCallExecution(None, parsed, auto_checkpoint_attempted)
@@ -165,9 +178,13 @@ def execute_delegate_tool_call(
     if mode == "code":
         activate_agent_tool_names(
             active_tool_names,
-            _allowed_requested_names(_activation_names_for_observation(observation), allowed_tool_names),
+            _allowed_requested_names(
+                _activation_names_for_observation(observation),
+                allowed_tool_names,
+                disallowed_tool_names,
+            ),
             approval_policy,
-            CODE_DELEGATE_EXCLUDED_TOOL_NAMES,
+            CODE_DELEGATE_EXCLUDED_TOOL_NAMES | disallowed_tool_names,
         )
     return DelegateToolCallExecution(observation, None, checkpoint_attempted, hook_results)
 
@@ -176,20 +193,29 @@ def _profile_allows_tool_call(
     tool_name: str,
     parsed: object,
     allowed_tool_names: frozenset[str] | None,
+    disallowed_tool_names: frozenset[str],
 ) -> bool:
+    action_type = getattr(parsed, "type", None)
+    if tool_name in disallowed_tool_names or (
+        isinstance(action_type, str) and action_type in disallowed_tool_names
+    ):
+        return False
     if allowed_tool_names is None:
         return True
-    action_type = getattr(parsed, "type", None)
     return tool_name in allowed_tool_names or (isinstance(action_type, str) and action_type in allowed_tool_names)
 
 
 def _allowed_requested_names(
     requested_names: list[str],
     allowed_tool_names: frozenset[str] | None,
+    disallowed_tool_names: frozenset[str] = frozenset(),
 ) -> list[str]:
-    if allowed_tool_names is None:
-        return requested_names
-    return [name for name in requested_names if name in allowed_tool_names]
+    return [
+        name
+        for name in requested_names
+        if name not in disallowed_tool_names
+        and (allowed_tool_names is None or name in allowed_tool_names)
+    ]
 
 
 def _activation_names_for_observation(observation: Observation) -> list[str]:
