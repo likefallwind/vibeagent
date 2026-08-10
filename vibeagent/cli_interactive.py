@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .agent import run_agent as default_run_agent
+from .agent_runtime_utils import append_session_event
 from .chat import run_chat as default_run_chat
 from .cli_checkpoint_local_flags import run_interactive_checkpoint_command
 from .cli_code_intel_local_flags import run_interactive_code_intel_command
@@ -28,6 +29,7 @@ from .cli_project_command_expansion import (
 )
 from .cli_project_local_flags import run_interactive_project_command, run_interactive_project_state_command
 from .cli_interactive_read_commands import run_interactive_read_command
+from .cli_idle_input import input_with_idle_callback
 from .cli_review_local_flags import run_interactive_review_command
 from .cli_runtime_local_flags import run_interactive_runtime_command
 from .cli_session_local_flags import run_interactive_resume_command, run_interactive_session_command
@@ -37,6 +39,8 @@ from .commands import get_resume_context as default_get_resume_context, parse_lo
 from .config import resolve_execution_config
 from .providers import create_chat_client as default_create_chat_client
 from .types import ApprovalPolicy, ChatMessage
+from .scheduled_task_store import collect_due_scheduled_tasks, scheduled_tasks_enabled
+from .workspace_core import create_local_workspace
 
 
 def run_interactive_loop(
@@ -66,9 +70,75 @@ def run_interactive_loop(
     resume_context: str | None = initial_resume_context
     system_prompt: str | None = None
     append_system_prompt: str | None = None
+
+    def run_code_task(task: str, task_metadata: dict[str, object] | None = None) -> None:
+        nonlocal client, resume_run_id, resume_context
+        execution_config = resolve_execution_config(Path.cwd())
+        client = client or create_chat_client_func(build_provider_env(None, Path.cwd()))
+        result = run_agent_func(
+            task,
+            client=client,
+            max_iterations=execution_config.max_iterations,
+            command_timeout_ms=execution_config.command_timeout_ms,
+            max_output_tokens=execution_config.max_output_tokens,
+            model_retries=execution_config.model_retries,
+            model_retry_delay_ms=execution_config.model_retry_delay_ms,
+            model_timeout_ms=execution_config.model_timeout_ms,
+            approval_handler=approval_handler,
+            approval_policy=approval_policy,
+            trust_project_permissions=project_permissions_trusted,
+            user_input_handler=prompt_user_input,
+            prior_context=resume_context,
+            system_prompt=system_prompt,
+            append_system_prompt=append_system_prompt,
+            task_metadata=task_metadata,
+            task_source_run_id=resume_run_id,
+        )
+        print_agent_result(result)
+        selected, next_context, _ = get_resume_context_func(result.run_id)
+        if next_context:
+            resume_run_id = selected
+            resume_context = next_context
+
+    def run_due_tasks_while_idle() -> None:
+        if resume_run_id is None or not scheduled_tasks_enabled():
+            return
+        try:
+            workspace = create_local_workspace(Path.cwd(), resume_run_id)
+            due = collect_due_scheduled_tasks(workspace)
+            if due:
+                append_session_event(
+                    workspace.session_dir,
+                    "scheduled_tasks_delivered",
+                    {
+                        "iteration": 0,
+                        "count": len(due),
+                        "task_ids": [scheduled.id for scheduled in due],
+                        "idle": True,
+                    },
+                )
+            for scheduled in due:
+                print(f"\nScheduled task {scheduled.id}: {scheduled.prompt}")
+                run_code_task(
+                    scheduled.prompt,
+                    {
+                        "source": "scheduled_task",
+                        "scheduledTaskId": scheduled.id,
+                        "scheduledFor": scheduled.scheduled_for,
+                    },
+                )
+        except KeyboardInterrupt:
+            raise
+        except Exception as error:
+            print(f"\nScheduled task error: {format_error(error)}")
+
     while True:
         try:
-            task = input("\nvibeagent> ").strip()
+            task = input_with_idle_callback(
+                "\nvibeagent> ",
+                run_due_tasks_while_idle,
+                input_func=input,
+            ).strip()
         except (EOFError, KeyboardInterrupt):
             print()
             return 0
@@ -216,34 +286,12 @@ def run_interactive_loop(
                 print(f"\n{response}")
                 continue
 
-            result = run_agent_func(
+            run_code_task(
                 task,
-                client=client,
-                max_iterations=execution_config.max_iterations,
-                command_timeout_ms=execution_config.command_timeout_ms,
-                max_output_tokens=execution_config.max_output_tokens,
-                model_retries=execution_config.model_retries,
-                model_retry_delay_ms=execution_config.model_retry_delay_ms,
-                model_timeout_ms=execution_config.model_timeout_ms,
-                approval_handler=approval_handler,
-                approval_policy=approval_policy,
-                trust_project_permissions=project_permissions_trusted,
-                user_input_handler=prompt_user_input,
-                prior_context=resume_context,
-                system_prompt=system_prompt,
-                append_system_prompt=append_system_prompt,
-                task_metadata=(
-                    project_command_task_metadata(custom_command)
-                    if custom_command is not None
-                    else None
-                ),
-                task_source_run_id=resume_run_id,
+                project_command_task_metadata(custom_command)
+                if custom_command is not None
+                else None,
             )
-            print_agent_result(result)
-            selected, next_context, _ = get_resume_context_func(result.run_id)
-            if next_context:
-                resume_run_id = selected
-                resume_context = next_context
         except KeyboardInterrupt:
             print("\nInterrupted.")
         except Exception as error:

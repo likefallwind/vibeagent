@@ -6,6 +6,7 @@ CORE_SESSION_TOOL_NAMES = frozenset(
         "ask_user",
         "AskUserQuestion",
         "finish",
+        "CronCreate",
         "TaskCreate",
         "TaskGet",
         "TaskList",

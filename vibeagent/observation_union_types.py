@@ -184,6 +184,7 @@ from .observation_session_types import (
     SessionVerificationObservation,
 )
 from .observation_task_types import TaskCreateObservation, TaskGetObservation, TaskListObservation, TaskUpdateObservation
+from .observation_cron_types import CronCreateObservation, CronDeleteObservation, CronListObservation
 
 
 # Unified envelope returned from one agent step.
@@ -341,6 +342,9 @@ Observation: TypeAlias = (
     | TaskGetObservation
     | TaskListObservation
     | TaskUpdateObservation
+    | CronCreateObservation
+    | CronListObservation
+    | CronDeleteObservation
     | UpdatePlanObservation
     | UserInputObservation
     | DelegateTaskObservation

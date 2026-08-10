@@ -42,7 +42,8 @@ The automated suite currently covers these 1.0 surfaces:
 - Claude-compatible tool aliases: `Read`, `Edit`, `MultiEdit`, `Write`,
   `NotebookRead`, `NotebookEdit`, `Bash`, `BashOutput`, `KillBash`,
   `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TodoWrite`, `TodoRead`,
-  `WebFetch`, `Task`, `TaskOutput`, `TaskStop`, `Agent`, and `ExitPlanMode`.
+  `CronCreate`, `CronList`, `CronDelete`, `WebFetch`, `Task`, `TaskOutput`,
+  `TaskStop`, `Agent`, and `ExitPlanMode`.
 - Real CLI JSON and stream-json entrypoints, stdin input formats, resume,
   compact, permission overrides, `acceptEdits`, disallowed tools, and
   pending-user-input output.
@@ -53,6 +54,9 @@ The automated suite currently covers these 1.0 surfaces:
 - Experimental agent teams: approved named teammates, independent background
   contexts, stable session identities, shared task ownership and dependencies,
   peer and lead mailboxes, automatic lead delivery, and teardown cancellation.
+- Session scheduling: standard local-time cron expressions, deterministic
+  jitter, one-shot and recurring delivery, idle CLI wakeups, seven-day expiry,
+  no-catch-up behavior, atomic persistence, and filtered resume restoration.
 - Scoped instructions: nested instruction files and path rules load independently
   in main and subagent contexts and become eligible for reload after compaction.
 - Safety boundaries: workspace path guards, approval policy, hard command

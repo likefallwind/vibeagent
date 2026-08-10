@@ -3,6 +3,7 @@ from __future__ import annotations
 from .action_parsing import summarize_plan_update
 from .background_delegate_runtime import execute_background_task_action
 from .checkpoint_action_executor import execute_checkpoint_action
+from .cron_action_executor import execute_cron_action
 from .code_intel_action_executor import execute_code_intel_action
 from .file_action_executor import execute_file_action
 from .final_review_action_executor import execute_final_review_action
@@ -82,6 +83,10 @@ def execute_action(workspace: RunWorkspace, action: AgentAction, command_timeout
     task_observation = execute_task_action(workspace, action)
     if task_observation is not None:
         return task_observation
+
+    cron_observation = execute_cron_action(workspace, action)
+    if cron_observation is not None:
+        return cron_observation
 
     list_agents_observation = execute_list_agents_action(workspace, action)
     if list_agents_observation is not None:

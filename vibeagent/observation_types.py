@@ -249,6 +249,12 @@ from .observation_task_types import (
     TaskListObservation,
     TaskUpdateObservation,
 )
+from .observation_cron_types import (
+    CronCreateObservation,
+    CronDeleteObservation,
+    CronListObservation,
+    ScheduledTaskDetails,
+)
 from .observation_git_types import (
     CheckGitCommitObservation,
     CheckGitFetchObservation,

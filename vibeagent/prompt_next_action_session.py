@@ -266,6 +266,9 @@ def _session_handoff_next_action_instruction(base: str, latest: Observation) -> 
 
 
 SESSION_NEXT_ACTION_KINDS = {
+    "cron_create",
+    "cron_list",
+    "cron_delete",
     "session_summary",
     "session_transcript",
     "session_search",
@@ -280,6 +283,18 @@ SESSION_NEXT_ACTION_KINDS = {
 
 
 def session_next_action_instruction(base: str, latest: Observation) -> str:
+    if latest.kind == "cron_create":
+        if not getattr(latest, "ok", False):
+            return f"{base} Scheduling failed. Correct the cron expression or reported store error before retrying."
+        return f"{base} The prompt is scheduled. Continue the current request, use CronList to inspect it, or answer directly."
+    if latest.kind == "cron_list":
+        if not getattr(latest, "ok", False):
+            return f"{base} The schedule list could not be read. Resolve the reported store error before continuing."
+        return f"{base} Use the listed IDs and next-run times to keep or cancel tasks, then continue or answer directly."
+    if latest.kind == "cron_delete":
+        if not getattr(latest, "ok", False):
+            return f"{base} The scheduled task was not deleted. Check its ID with CronList before retrying."
+        return f"{base} The scheduled task was cancelled. Continue any remaining requested work or answer directly."
     if latest.kind == "session_summary":
         return session_summary_next_action_instruction(base, latest)
     if latest.kind == "session_transcript":

@@ -4,10 +4,11 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from .agent_runtime_utils import append_session_event, compact_session_context
-from .agent_tool_registry import initialize_agent_tools
+from .agent_tool_registry import activate_tools_for_run, initialize_agent_tools
 from .prompts import build_messages
 from .redaction import redact_jsonable_payload
 from .session_tasks import inherit_task_store
+from .scheduled_task_store import inherit_schedule_store, schedule_store_path
 from .types import ApprovalPolicy, ChatMessage
 from .workspace_core import RunWorkspace, create_run_workspace
 from .workspace_hooks import ProjectHooks, read_project_hooks
@@ -59,6 +60,7 @@ def prepare_agent_run(
         permission_overrides,
     )
     tasks_inherited, task_restore_error = inherit_task_store(current_workspace, task_source_run_id)
+    schedules_inherited, schedule_restore_error = inherit_schedule_store(current_workspace, task_source_run_id)
     auto_memory = read_auto_memory(current_workspace)
     messages = build_messages(
         task,
@@ -72,6 +74,12 @@ def prepare_agent_run(
     )
     _append_task_event(current_workspace, task, approval_policy, prior_context, task_metadata)
     _append_task_restore_event(current_workspace, task_source_run_id, tasks_inherited, task_restore_error)
+    _append_schedule_restore_event(
+        current_workspace,
+        task_source_run_id,
+        schedules_inherited,
+        schedule_restore_error,
+    )
     _append_memory_event(current_workspace, auto_memory)
     project_hooks = read_project_hooks(current_workspace)
     _append_hooks_event(current_workspace, project_hooks)
@@ -79,6 +87,16 @@ def prepare_agent_run(
     sandbox_config = read_workspace_sandbox(current_workspace)
     _append_sandbox_event(current_workspace, sandbox_config)
     active_tool_names = initialize_agent_tools(current_workspace, approval_policy)
+    schedule_path = schedule_store_path(current_workspace)
+    if schedule_path.exists() or schedule_path.is_symlink():
+        activate_tools_for_run(
+            current_workspace,
+            active_tool_names,
+            ["CronList", "CronDelete"],
+            0,
+            source="scheduled_task_store",
+            approval_policy=approval_policy,
+        )
     return AgentRunSetup(
         workspace=current_workspace,
         messages=messages,
@@ -167,6 +185,25 @@ def _append_memory_event(workspace: RunWorkspace, memory: AutoMemorySnapshot) ->
             "bytes": len(memory.content.encode("utf-8")),
             "truncated": memory.truncated,
             "error": memory.error,
+        },
+    )
+
+
+def _append_schedule_restore_event(
+    workspace: RunWorkspace,
+    source_run_id: str | None,
+    inherited: int,
+    error: str | None,
+) -> None:
+    if source_run_id is None:
+        return
+    append_session_event(
+        workspace.session_dir,
+        "scheduled_tasks_restored",
+        {
+            "source_run_id": source_run_id,
+            "inherited": inherited,
+            "error": error,
         },
     )
 

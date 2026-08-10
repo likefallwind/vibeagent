@@ -151,6 +151,7 @@ from .action_session_types import (
     SessionVerificationAction,
 )
 from .action_task_types import TaskCreateAction, TaskGetAction, TaskListAction, TaskUpdateAction
+from .action_cron_types import CronCreateAction, CronDeleteAction, CronListAction
 from .action_workflow_types import AskUserAction, DelegateTaskAction, FinishAction, ListAgentsAction, SendMessageAction, TaskOutputAction, TaskStopAction, UpdatePlanAction
 
 
@@ -293,6 +294,9 @@ AgentAction: TypeAlias = (
     | CheckCheckpointPruneAction
     | CheckpointPruneAction
     | FileEditAgentAction
+    | CronCreateAction
+    | CronListAction
+    | CronDeleteAction
     | TaskCreateAction
     | TaskGetAction
     | TaskListAction

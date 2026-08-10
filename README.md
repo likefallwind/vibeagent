@@ -1006,8 +1006,22 @@ and acyclic `blocks`/`blockedBy` dependencies. The graph is atomically stored in
 interactive turns and `--resume` runs, and projected into the run result,
 session summaries, and completion checks. `todo_write`/`TodoWrite`,
 `todo_read`/`TodoRead`, and `update_plan` remain deferred compatibility tools
-for the legacy whole-checklist contract. If a
-successful run finishes while the latest plan still
+for the legacy whole-checklist contract.
+VibeAgent also supports Claude-compatible session scheduling through
+`CronCreate`, `CronList`, and `CronDelete`. A scheduled prompt uses a standard
+five-field local-time cron expression and can be one-shot or recurring. The
+scheduler supports lists, ranges, and steps, Vixie cron day-of-month/day-of-week
+OR semantics, deterministic jitter, 8-character IDs, and at most 50 tasks per
+session. It checks between agent iterations and once per second while the
+interactive CLI is idle, never interrupts an active model response, and runs a
+missed recurring task once rather than replaying every missed interval.
+Recurring schedules expire after seven days with one final fire; one-shot tasks
+delete themselves after delivery. Unexpired schedules are atomically stored in
+`.vibeagent/sessions/<session-id>/scheduled_tasks.json` and inherited on resume.
+Scheduled prompts are task direction only and cannot grant tool approval.
+Set `VIBEAGENT_DISABLE_CRON=1` or `CLAUDE_CODE_DISABLE_CRON=1` to hide the cron
+tools and stop delivery.
+If a successful run finishes while the latest plan still
 has `pending` or `in_progress` items, the final result and session summary
 include a completion warning and completion blocker. If no plan exists after
 multi-step coding work, such as multiple project changes or a project change
@@ -1230,7 +1244,7 @@ Rules use `Tool` or `Tool(specifier)` syntax and are evaluated by effect in
 `deny`, `ask`, then `allow` order. Common Claude Code names including `Bash`,
 `BashOutput`, `KillBash`, `Read`, `Write`, `Edit`, `MultiEdit`,
 `NotebookRead`, `NotebookEdit`, `LS`, `Glob`, `Grep`, `ToolSearch`, `Skill`, `WebFetch`, `WebSearch`, `Task`,
-`TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `Agent`, `LSP`, `EnterWorktree`, `ExitWorktree`, `AskUserQuestion`, `ExitPlanMode`, `TodoWrite`, and `TodoRead` map to
+`TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `CronCreate`, `CronList`, `CronDelete`, `Agent`, `LSP`, `EnterWorktree`, `ExitWorktree`, `AskUserQuestion`, `ExitPlanMode`, `TodoWrite`, and `TodoRead` map to
 the corresponding VibeAgent tools; native snake-case tool names are also
 accepted. Model tool calls accept the same names with Claude-style field names
 normalized before execution.
@@ -1447,10 +1461,14 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   `list_tree`, `repo_map`, line-range `read_file`, line-centered `read_file_context`, batch line-centered `read_file_contexts`, output-derived `output_contexts`, diagnostic `output_diagnostics`, Python-focused `python_traceback`, tail-focused `tail_file`, batch `read_files`, batch line-range `read_file_ranges`, `file_info`, `image_info`, `view_image`, `python_symbols`, `code_outline`, `lsp_query` (Claude-compatible `LSP` alias), `python_check`, `config_check`, `check_json_set`, `json_set`, `check_json_remove`, `json_remove`, `check_json_patch`, `json_patch`, `python_dependencies`, `code_dependencies`, `code_references`, `code_reference_contexts`, `code_definitions`, `code_rename_preview`, `code_rename`, `python_definitions`, `python_calls`, `python_call_graph`, `python_references`, `python_reference_contexts`, `python_rename_preview`, `python_rename`, path-fragment `find_files`, path-pattern `glob`, scoped/regex/context `search`, `tool_search`, Claude-compatible `EnterWorktree`/`ExitWorktree`, `git_info`, `git_status`, `git_conflicts`, `git_changes`, `git_branches`, `git_stashes`, `check_git_fetch`, `git_fetch`, `check_git_pull`, `git_pull`, `check_git_push`, `git_push`, `check_git_restore`, `git_restore`, `check_git_stash`, `git_stash`, `check_git_stash_apply`, `git_stash_apply`, `check_git_stash_drop`, `git_stash_drop`, `check_git_switch`, `git_switch`, `check_git_stage`, `git_stage`, `check_git_unstage`, `git_unstage`, `check_git_commit`, `git_commit`, `review_changes`, `final_review`, `suggest_checks`, `check_suggested_checks`, `run_suggested_checks`, `project_commands`, `related_tests`, `focused_test_commands`, `project_manifests`, `project_instructions`, `project_skills`, `skill`, `project_todos`, `project_overview`, `command_check`, `check_run_commands`, `run_commands`, `port_check`, `http_check`, `http_fetch`, `environment_info`, `git_diff`, `git_diff_hunks`, `git_diff_contexts`, `git_log`, `git_show`, `git_blame`, `session_summary`, `session_plan`, `session_transcript`, `session_search`, `session_commands`, `session_output_contexts`, `session_output_diagnostics`, `session_files`, `session_failures`, `session_verification`, `run_session_verification`, `session_audit`, `session_handoff`, `check_edit_file`, `edit_file`,
   `web_fetch`, `web_search`, `checkpoint_create`, `checkpoint_list`, `checkpoint_show`, `checkpoint_diff`, `checkpoint_status`, `check_checkpoint_restore`, `checkpoint_restore`, `check_checkpoint_delete`, `checkpoint_delete`, `check_checkpoint_prune`, `checkpoint_prune`, `check_multi_edit_file`, `multi_edit_file`, `check_replace_python_definition`, `replace_python_definition`, `check_replace_lines`, `check_insert_lines`, `check_append_file`, `check_regex_replace`, `regex_replace`, `replace_lines`, `insert_lines`, `append_file`, `check_patch`, `check_patches`, `patch_file`, `patch_files`, `check_write_file`, `write_file`, `check_write_files`, `write_files`, `check_delete_file`, `delete_file`, `check_delete_files`, `delete_files`, `check_move_file`, `move_file`, `check_move_files`, `move_files`, `check_copy_file`, `copy_file`, `check_copy_files`, `copy_files`, `check_move_dir`, `move_dir`, `check_move_dirs`, `move_dirs`, `check_copy_dir`, `copy_dir`, `check_copy_dirs`, `copy_dirs`, `check_create_dir`, `create_dir`, `check_create_dirs`, `create_dirs`, `check_delete_empty_dir`, `delete_empty_dir`, `check_delete_empty_dirs`, `delete_empty_dirs`, `check_set_executable`, `set_executable`,
   `run_command`, `check_start_command`, `start_command`, `list_processes`, `read_process`, `process_output_contexts`, `process_output_diagnostics`, `wait_process`, `check_write_process`, `write_process`,
-  `check_stop_all_processes`, `check_stop_process`, `stop_all_processes`, `stop_process`, `delegate_task`, Claude-compatible `ListAgents`, `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `TaskOutput`, and `TaskStop`, `ask_user`, `update_plan`, `todo_write`, `todo_read`, and `finish`.
+  `check_stop_all_processes`, `check_stop_process`, `stop_all_processes`, `stop_process`, `delegate_task`, Claude-compatible `ListAgents`, `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate`, `CronCreate`, `CronList`, `CronDelete`, `TaskOutput`, and `TaskStop`, `ask_user`, `update_plan`, `todo_write`, `todo_read`, and `finish`.
 - `vibeagent/session_tasks.py`, `vibeagent/session_task_store.py`, and
   `vibeagent/session_task_graph.py`: manage the session-scoped structured task
   graph, atomic persistence, resume inheritance, and dependency invariants.
+- `vibeagent/cron_expression.py`, `vibeagent/scheduled_task_store.py`, and
+  `vibeagent/scheduled_task_persistence.py`: validate cron expressions, apply
+  local-time scheduling and deterministic jitter, atomically persist schedules,
+  collect due prompts without catch-up storms, and restore unexpired tasks.
 - `vibeagent/workspace_memory.py`: manages bounded auto-memory loading and
   approved atomic Markdown writes for the main agent and isolated named-agent
   stores with path, symlink-component, size, and credential-redaction guards.

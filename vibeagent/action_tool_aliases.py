@@ -306,6 +306,7 @@ def _normalize_claude_mcp_tool_action(name: str, tool_input: dict[str, Any]) -> 
 
 _NAME_INPUT_NORMALIZERS: dict[str, ToolInputNormalizer] = {
     "Bash": _normalize_bash_input,
+    "CronDelete": _normalize_task_id_input,
     "ExitPlanMode": _normalize_exit_plan_mode_input,
     "NotebookRead": _normalize_claude_notebook_read_input,
     "LSP": _normalize_lsp_input,

@@ -34,6 +34,13 @@ local changes when asked, and resume from recorded session context.
   `TaskCreate`, `TaskGet`, `TaskList`, and `TaskUpdate`, including stable IDs,
   status updates, owners, acyclic dependencies, deletion cleanup, completion
   plan integration, session summaries, and task-graph inheritance on resume.
+- `tests.test_scheduled_tasks.ScheduledTaskTests`,
+  `tests.test_cron_expression.CronExpressionTests`, and
+  `tests.test_cli_scheduled_tasks.CliScheduledTaskTests` cover Claude-compatible
+  `CronCreate`, `CronList`, and `CronDelete`, local-time five-field parsing,
+  deterministic jitter, one-shot and recurring delivery, seven-day expiry,
+  resume filtering, symlink refusal, the disable flag, agent-turn delivery, and
+  once-per-second interactive idle wakeups.
 - `tests.test_v1_dogfood.V1DogfoodTests.test_v1_agent_can_complete_repair_with_claude_code_tool_aliases`
   runs the repair workflow through Claude-compatible tool names and fields:
   `TodoWrite`, `LS`, `Glob`, `Grep`, `Read`, `Bash`, `Edit`, and `TodoRead`,

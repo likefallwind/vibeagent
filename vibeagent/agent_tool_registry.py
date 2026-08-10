@@ -7,6 +7,7 @@ from typing import Any
 from .action_tool_aliases import CLAUDE_MCP_TOOL_NAME_PATTERN
 from .agent_core_tools import CORE_AGENT_TOOL_NAMES
 from .agent_runtime_utils import append_session_event
+from .scheduled_task_store import CRON_TOOL_NAMES, scheduled_tasks_enabled
 from .tool_catalog_core import tool_name_requires_approval
 from .tool_definitions import AGENT_TOOL_DEFINITIONS
 from .types import ApprovalPolicy, Observation, ToolSearchAction
@@ -38,7 +39,10 @@ def _visibility_policy(
     approval_policy: ApprovalPolicy,
     excluded_names: frozenset[str],
 ) -> ToolVisibilityPolicy:
-    return ToolVisibilityPolicy(approval_policy=approval_policy, excluded_names=excluded_names)
+    effective_exclusions = excluded_names
+    if not scheduled_tasks_enabled():
+        effective_exclusions = effective_exclusions | CRON_TOOL_NAMES
+    return ToolVisibilityPolicy(approval_policy=approval_policy, excluded_names=effective_exclusions)
 
 
 def initial_agent_tool_names() -> set[str]:
@@ -175,6 +179,12 @@ def worktree_activation_names(observation: object) -> list[str]:
     return []
 
 
+def scheduled_task_activation_names(observation: object) -> list[str]:
+    if getattr(observation, "kind", None) == "cron_create" and getattr(observation, "ok", False):
+        return ["CronList", "CronDelete"]
+    return []
+
+
 def activate_tools_for_run(
     workspace: RunWorkspace,
     active_names: set[str],
@@ -213,6 +223,7 @@ def activate_tools_from_observations(
     requested_names: list[str] = []
     for observation in observations:
         requested_names.extend(tool_search_activation_names(observation))
+        requested_names.extend(scheduled_task_activation_names(observation))
     activated.extend(
         activate_tools_for_run(
             workspace,

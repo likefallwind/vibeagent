@@ -262,6 +262,10 @@ def minimal_schema_value(schema: dict[str, Any], property_name: str = "") -> Any
         return "/value"
     if property_name == "command":
         return "python3 --version"
+    if property_name == "cron":
+        return "* * * * *"
+    if property_name == "taskId":
+        return "00000000"
     if schema_type == "string":
         return "x"
     if schema_type == "integer":

@@ -10,6 +10,9 @@ CLAUDE_TOOL_ACTION_ALIASES: dict[str, str] = {
     "Agent": "delegate_task",
     "Bash": "run_command",
     "BashOutput": "read_process",
+    "CronCreate": "cron_create",
+    "CronDelete": "cron_delete",
+    "CronList": "cron_list",
     "Edit": "edit_file",
     "EnterWorktree": "enter_worktree",
     "ExitPlanMode": "update_plan",
@@ -126,6 +129,9 @@ CLAUDE_TOOL_ALIASES = {
     "AskUserQuestion": frozenset({"ask_user"}),
     "Bash": BASH_TOOL_NAMES,
     "BashOutput": frozenset({"process_output_contexts", "process_output_diagnostics", "read_process"}),
+    "CronCreate": frozenset({"cron_create"}),
+    "CronDelete": frozenset({"cron_delete"}),
+    "CronList": frozenset({"cron_list"}),
     "Edit": FILE_EDIT_TOOL_NAMES,
     "EnterWorktree": frozenset({"enter_worktree"}),
     "ExitPlanMode": frozenset({"update_plan"}),
@@ -167,6 +173,9 @@ CLAUDE_TOOL_ALIASES = {
     "Write": FILE_EDIT_TOOL_NAMES,
 }
 PROFILE_TOOL_ALIAS_EXPANSIONS = {
+    "CronCreate": frozenset({"CronCreate", "cron_create"}),
+    "CronDelete": frozenset({"CronDelete", "cron_delete"}),
+    "CronList": frozenset({"CronList", "cron_list"}),
     "Bash": frozenset(
         {
             "Bash",
