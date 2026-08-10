@@ -170,7 +170,8 @@ def _format_project_agents(index: int, observation: object) -> str:
         skills = ",".join(agent.skills) or "none"
         parts.append(
             f"agent: name={agent.name} mode={agent.mode} tools={tools} disallowedTools={denied} "
-            f"maxTurns={agent.max_turns or 'default'} skills={skills} source={agent.source} path={agent.path} "
+            f"maxTurns={agent.max_turns or 'default'} skills={skills} memory={agent.memory or 'none'} "
+            f"source={agent.source} path={agent.path} "
             f"available={str(agent.available).lower()} description={agent.description or '.'} message={agent.message}"
         )
     return "\n".join(parts)

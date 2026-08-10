@@ -59,6 +59,7 @@ def execute_delegate_task_action(
     cancel_requested: Callable[[], bool] | None = None,
 ) -> DelegateTaskObservation:
     profile = load_delegate_profile_runtime(workspace, action)
+    delegate_workspace = profile.workspace or workspace
     if profile.mode is not None:
         action = replace(action, mode=profile.mode)
     if profile.max_turns is not None:
@@ -68,10 +69,10 @@ def execute_delegate_task_action(
     disallowed_tool_names = profile.disallowed_tool_names
     observations = parent_observations if action.mode == "code" and parent_observations is not None else []
     steps = parent_steps if action.mode == "code" and parent_steps is not None else []
-    messages = build_delegate_messages(workspace, action, profile_prompt=profile_prompt)
+    messages = build_delegate_messages(delegate_workspace, action, profile_prompt=profile_prompt)
 
     _record_delegate_start(
-        workspace,
+        delegate_workspace,
         action,
         parent_iteration,
         subagent_id,
@@ -82,7 +83,7 @@ def execute_delegate_task_action(
     policy_error = _delegate_policy_error(action, approval_policy, profile.error)
     if policy_error is not None:
         return finish_delegate_task(
-            workspace,
+            delegate_workspace,
             action,
             subagent_id,
             ok=False,
@@ -94,7 +95,7 @@ def execute_delegate_task_action(
         )
 
     lifecycle = DelegateLifecycleHooks(
-        workspace=workspace,
+        workspace=delegate_workspace,
         action=action,
         subagent_id=subagent_id,
         hooks=hooks,
@@ -111,13 +112,14 @@ def execute_delegate_task_action(
             approval_policy,
             allowed_tool_names,
             disallowed_tool_names,
+            profile.enabled_tool_names,
         )
         if action.mode == "code"
         else set()
     )
     return run_delegate_iterations(
         DelegateLoopContext(
-            workspace=workspace,
+            workspace=delegate_workspace,
             action=action,
             client=client,
             messages=messages,
@@ -182,6 +184,7 @@ def _record_delegate_start(
             "agent": action.agent,
             "profile_skills": list(profile.skills),
             "profile_disallowed_tools": sorted(profile.disallowed_tool_names),
+            "profile_memory_scope": profile.memory_scope,
             "approval_policy": approval_policy,
         },
     )

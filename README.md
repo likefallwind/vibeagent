@@ -1451,8 +1451,11 @@ commands such as `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`
   `vibeagent/session_task_graph.py`: manage the session-scoped structured task
   graph, atomic persistence, resume inheritance, and dependency invariants.
 - `vibeagent/workspace_memory.py`: manages bounded auto-memory loading and
-  approved atomic Markdown writes in a repository-shared, machine-local runtime
-  directory with path, symlink, size, and credential-redaction guards.
+  approved atomic Markdown writes for the main agent and isolated named-agent
+  stores with path, symlink-component, size, and credential-redaction guards.
+- `vibeagent/workspace_agents.py` and
+  `vibeagent/workspace_agent_profile_parser.py`: discover project agent files
+  separately from pure frontmatter parsing and execution-control validation.
 - `vibeagent/workspace_instruction_state.py` and
   `vibeagent/agent_instruction_context.py`: atomically track path-scoped
   instruction sources per main-agent or subagent consumer, migrate legacy
@@ -1615,7 +1618,7 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   `project_manifests` reads package and pyproject dependency/script metadata; the local `/manifests` command and `--manifests` flag expose manifest file/item bounds;
   `project_instructions` reports root and nested `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md`, `CLAUDE.local.md`, and `.claude/rules/**/*.md` sources with scopes and bounded text; startup includes only root and unscoped rules, while matching nested and `paths`-scoped rules are injected once after file reads; Claude-compatible recursive `@path` imports stay project-contained, inherit entrypoint scope, and expose include/parent metadata; the local `/instructions` command and `--instructions` flag expose `--max-files`/`--max-bytes` and `--instructions-max-files`/`--instructions-max-bytes` bounds respectively;
   `project_skills` discovers bounded metadata from `.claude/skills/*/SKILL.md` and `.agents/skills/*/SKILL.md`, while `skill`/`Skill` loads one exact available skill on demand and preserves optional invocation arguments for the next model step; skill bodies are excluded from the initial project snapshot and duplicate or symlinked skills are refused;
-  project agent profiles are discovered from `.claude/agents/*.md` and `.agents/agents/*.md`; only bounded metadata enters the main prompt, while `delegate_task.agent` loads one exact profile body on demand. Profiles enforce `mode`, `tools`, and `disallowedTools` at schema, activation, and runtime boundaries, can override the delegated loop with `maxTurns` (1-50), and can preload up to 10 named project `skills` into that subagent only (20 KB each, 100 KB total). Tool fields accept native names or Claude-compatible aliases such as `Read` and `Write`; unavailable skills make the profile unavailable before any model request;
+  project agent profiles are discovered from `.claude/agents/*.md` and `.agents/agents/*.md`; only bounded metadata enters the main prompt, while `delegate_task.agent` loads one exact profile body on demand. Profiles enforce `mode`, `tools`, and `disallowedTools` at schema, activation, and runtime boundaries, can override the delegated loop with `maxTurns` (1-50), and can preload up to 10 named project `skills` into that subagent only (20 KB each, 100 KB total). `memory: project` persists approved agent-specific notes under `.claude/agent-memory/<name>/`, while `memory: local` uses `.claude/agent-memory-local/<name>/`; startup loads at most 200 lines or 25 KB, stateless subagents cannot access the parent memory store, and `user` scope is rejected because it falls outside the project workspace. Tool fields accept native names or Claude-compatible aliases such as `Read` and `Write`; unavailable skills make the profile unavailable before any model request;
   `delegate_task`/`Task` can run independent `explore` work in the background, returning a session-scoped task ID immediately; `TaskOutput` polls or waits for the bounded result, `TaskStop` requests cooperative cancellation, background code-mode delegation is rejected, the agent cannot finish successfully until each started task is collected or stopped, and run teardown cancels and releases any remaining session tasks;
   `project_todos` scans project text files for TODO, FIXME, HACK, XXX, and BUG markers;
   `command_check` does the same preflight for one proposed finite command and also reports cwd and block-rule failures;

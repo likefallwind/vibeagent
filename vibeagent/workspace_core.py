@@ -18,6 +18,8 @@ class RunWorkspace:
     mcp_config_paths: tuple[Path, ...] = ()
     strict_mcp_config: bool = False
     root_history: tuple[Path, ...] = ()
+    memory_scope: str | None = None
+    memory_namespace: str | None = None
 
 
 @dataclass(frozen=True)

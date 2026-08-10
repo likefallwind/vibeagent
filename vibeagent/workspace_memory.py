@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import difflib
 import os
 from pathlib import Path
@@ -21,6 +21,8 @@ MEMORY_FILE_MAX_BYTES = 256_000
 MEMORY_WRITE_MAX_BYTES = 64_000
 MEMORY_FILE_LIMIT = 100
 _MEMORY_FILE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.md$")
+_MEMORY_NAMESPACE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+AGENT_MEMORY_SCOPES = frozenset({"project", "local"})
 _DISABLE_VALUES = {"1", "true", "yes", "on"}
 _MEMORY_LOCK = RLock()
 
@@ -62,7 +64,24 @@ class MemoryWritePreview:
 
 def project_memory_root(workspace: RunWorkspace) -> Path:
     project_root = _shared_project_root(workspace.root)
+    if workspace.memory_namespace is not None:
+        namespace = _validate_memory_namespace(workspace.memory_namespace)
+        if workspace.memory_scope == "project":
+            return project_root / ".claude" / "agent-memory" / namespace
+        if workspace.memory_scope == "local":
+            return project_root / ".claude" / "agent-memory-local" / namespace
+        raise MemoryStoreError(f"Unsupported agent memory scope: {workspace.memory_scope}.")
     return project_root / ".vibeagent" / "memory"
+
+
+def with_agent_memory(workspace: RunWorkspace, name: str, scope: str) -> RunWorkspace:
+    if scope not in AGENT_MEMORY_SCOPES:
+        raise MemoryStoreError(f"Agent memory scope must be one of: {', '.join(sorted(AGENT_MEMORY_SCOPES))}.")
+    return replace(
+        workspace,
+        memory_scope=scope,
+        memory_namespace=_validate_memory_namespace(name),
+    )
 
 
 def auto_memory_enabled(workspace: RunWorkspace, env: dict[str, str] | None = None) -> bool:
@@ -81,7 +100,7 @@ def read_auto_memory(workspace: RunWorkspace, env: dict[str, str] | None = None)
     if not auto_memory_enabled(workspace, env):
         return AutoMemorySnapshot(enabled=False, root=root)
     try:
-        content, truncated = _read_memory_text(root, MEMORY_ENTRYPOINT, startup=True)
+        content, truncated = _read_memory_text(workspace, MEMORY_ENTRYPOINT, startup=True)
     except (OSError, MemoryStoreError) as error:
         return AutoMemorySnapshot(enabled=True, root=root, error=str(error))
     return AutoMemorySnapshot(enabled=True, root=root, content=content, truncated=truncated)
@@ -89,7 +108,7 @@ def read_auto_memory(workspace: RunWorkspace, env: dict[str, str] | None = None)
 
 def list_memory_files(workspace: RunWorkspace) -> list[MemoryFile]:
     root = project_memory_root(workspace)
-    _validate_memory_root(root, create=False)
+    _validate_memory_root(workspace, root, create=False)
     if not root.exists():
         return []
     files: list[MemoryFile] = []
@@ -105,7 +124,7 @@ def list_memory_files(workspace: RunWorkspace) -> list[MemoryFile]:
 
 
 def read_memory_file(workspace: RunWorkspace, path: str = MEMORY_ENTRYPOINT) -> tuple[str, bool]:
-    return _read_memory_text(project_memory_root(workspace), path, startup=False)
+    return _read_memory_text(workspace, path, startup=False)
 
 
 def write_memory_file(
@@ -125,12 +144,12 @@ def write_memory_file(
     redacted = redacted_content != content
     root = project_memory_root(workspace)
     with _MEMORY_LOCK:
-        _validate_memory_root(root, create=True)
+        _validate_memory_root(workspace, root, create=True)
         target = root / name
         _validate_memory_target(target)
         existing = ""
         if mode == "append" and target.exists():
-            existing, _ = _read_memory_text(root, name, startup=False)
+            existing, _ = _read_memory_text(workspace, name, startup=False)
         updated = existing + redacted_content
         updated_bytes = len(updated.encode("utf-8"))
         if updated_bytes > MEMORY_FILE_MAX_BYTES:
@@ -160,7 +179,7 @@ def preview_memory_write(
     if len(content.encode("utf-8")) > MEMORY_WRITE_MAX_BYTES:
         raise MemoryStoreError(f"Memory write content exceeds {MEMORY_WRITE_MAX_BYTES} bytes.")
     root = project_memory_root(workspace)
-    current, _ = _read_memory_text(root, name, startup=False)
+    current, _ = _read_memory_text(workspace, name, startup=False)
     redacted_content = redact_sensitive_text(content)
     proposed = current + redacted_content if mode == "append" else redacted_content
     proposed_bytes = len(proposed.encode("utf-8"))
@@ -183,9 +202,10 @@ def preview_memory_write(
     )
 
 
-def _read_memory_text(root: Path, path: str, *, startup: bool) -> tuple[str, bool]:
+def _read_memory_text(workspace: RunWorkspace, path: str, *, startup: bool) -> tuple[str, bool]:
     name = _validate_memory_name(path)
-    _validate_memory_root(root, create=False)
+    root = project_memory_root(workspace)
+    _validate_memory_root(workspace, root, create=False)
     target = root / name
     _validate_memory_target(target)
     if not target.exists():
@@ -228,17 +248,33 @@ def _validate_memory_name(path: str) -> str:
     return path
 
 
-def _validate_memory_root(root: Path, *, create: bool) -> None:
-    runtime = root.parent
-    for label, path in (("Runtime path", runtime), ("Memory root", root)):
+def _validate_memory_namespace(name: str) -> str:
+    if not isinstance(name, str) or not _MEMORY_NAMESPACE_PATTERN.fullmatch(name):
+        raise MemoryStoreError("Agent memory namespace is invalid.")
+    return name
+
+
+def _validate_memory_root(workspace: RunWorkspace, root: Path, *, create: bool) -> None:
+    boundary = _shared_project_root(workspace.root)
+    try:
+        relative = root.relative_to(boundary)
+    except ValueError as error:
+        raise MemoryStoreError("Memory root must stay inside the current project.") from error
+    current = boundary
+    paths: list[Path] = []
+    for part in relative.parts:
+        current = current / part
+        paths.append(current)
+    for path in paths:
         if path.is_symlink():
-            raise MemoryStoreError(f"{label} must not be a symlink: {path}")
+            raise MemoryStoreError(f"Memory path component must not be a symlink: {path}")
         if path.exists() and not path.is_dir():
-            raise MemoryStoreError(f"{label} must be a directory: {path}")
+            raise MemoryStoreError(f"Memory path component must be a directory: {path}")
     if create:
         root.mkdir(parents=True, exist_ok=True)
-        if runtime.is_symlink() or root.is_symlink() or not root.is_dir():
-            raise MemoryStoreError(f"Memory root must be a regular directory: {root}")
+        for path in paths:
+            if path.is_symlink() or not path.is_dir():
+                raise MemoryStoreError(f"Memory path component must be a regular directory: {path}")
 
 
 def _validate_memory_target(path: Path) -> None:
@@ -254,6 +290,7 @@ __all__ = [
     "MemoryStoreError",
     "MemoryWriteResult",
     "MemoryWritePreview",
+    "AGENT_MEMORY_SCOPES",
     "auto_memory_enabled",
     "list_memory_files",
     "project_memory_root",
@@ -261,4 +298,5 @@ __all__ = [
     "read_auto_memory",
     "read_memory_file",
     "write_memory_file",
+    "with_agent_memory",
 ]

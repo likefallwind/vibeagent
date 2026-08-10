@@ -28,6 +28,7 @@ def _write_agent(
     disallowed_tools: str | None = None,
     max_turns: int | None = None,
     skills: str | None = None,
+    memory: str | None = None,
 ) -> Path:
     path = root / base / f"{name}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -35,9 +36,10 @@ def _write_agent(
     disallowed_line = f"disallowedTools: {disallowed_tools}\n" if disallowed_tools is not None else ""
     max_turns_line = f"maxTurns: {max_turns}\n" if max_turns is not None else ""
     skills_line = f"skills: {skills}\n" if skills is not None else ""
+    memory_line = f"memory: {memory}\n" if memory is not None else ""
     path.write_text(
         f"---\nname: {name}\ndescription: {description}\nmode: {mode}\n"
-        f"{tool_line}{disallowed_line}{max_turns_line}{skills_line}---\n\n{body}\n",
+        f"{tool_line}{disallowed_line}{max_turns_line}{skills_line}{memory_line}---\n\n{body}\n",
         encoding="utf-8",
     )
     return path
@@ -171,6 +173,48 @@ class ProjectAgentProfileTests(unittest.TestCase):
         self.assertFalse(agents["unknown-deny"]["available"])
         self.assertIn("disallowedTools references unknown", str(agents["unknown-deny"]["message"]))
         self.assertTrue(agents["empty-deny"]["available"])
+
+    def test_profile_memory_metadata_rejects_unsupported_scopes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            _write_agent(
+                root,
+                ".claude/agents",
+                "project-memory",
+                "Uses project memory",
+                "PROJECT_MEMORY_PROMPT",
+                mode="code",
+                memory="project",
+            )
+            _write_agent(
+                root,
+                ".claude/agents",
+                "user-memory",
+                "Requests external memory",
+                "USER_MEMORY_PROMPT",
+                memory="user",
+            )
+            _write_agent(
+                root,
+                ".claude/agents",
+                "invalid-memory",
+                "Requests invalid memory",
+                "INVALID_MEMORY_PROMPT",
+                memory="shared",
+            )
+            workspace = create_run_workspace(root, "run-1")
+
+            catalog = read_project_agents(workspace)
+            formatted = format_project_agent_catalog(workspace)
+
+        agents = {str(agent["name"]): agent for agent in catalog["agents"]}
+        self.assertEqual(agents["project-memory"]["memory"], "project")
+        self.assertTrue(agents["project-memory"]["available"])
+        self.assertFalse(agents["user-memory"]["available"])
+        self.assertIn("outside the project workspace", str(agents["user-memory"]["message"]))
+        self.assertFalse(agents["invalid-memory"]["available"])
+        self.assertIn("must be project or local", str(agents["invalid-memory"]["message"]))
+        self.assertIn("memory=project", formatted or "")
 
     def test_project_agents_tool_lists_metadata_without_prompt_body(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
@@ -330,7 +374,6 @@ class ProjectAgentProfileTests(unittest.TestCase):
                 json.loads(line)
                 for line in (root / ".vibeagent/sessions/run-1/events.jsonl").read_text(encoding="utf-8").splitlines()
             ]
-
         self.assertTrue(observation.ok)
         self.assertEqual(observation.iterations, 2)
         self.assertNotIn("PRIVATE_SKILL_INSTRUCTION", str(initial_messages))
@@ -339,6 +382,210 @@ class ProjectAgentProfileTests(unittest.TestCase):
         started = next(event for event in events if event["type"] == "subagent_started")
         self.assertEqual(started["max_iterations"], 2)
         self.assertEqual(started["profile_skills"], ["focused-read"])
+
+    def test_profile_memory_is_injected_and_written_in_agent_scope_after_approval(self) -> None:
+        approvals: list[str] = []
+        content = "Prefer focused unittest commands.\n"
+        client = ProfileClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "check-memory-1",
+                        "name": "check_memory_write",
+                        "input": {"path": "MEMORY.md", "content": content},
+                    }
+                ],
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "write-memory-1",
+                        "name": "memory_write",
+                        "input": {"path": "MEMORY.md", "content": content},
+                    }
+                ],
+                [{"type": "text", "text": "Updated reviewer memory."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            memory_path = root / ".claude/agent-memory/reviewer/MEMORY.md"
+            memory_path.parent.mkdir(parents=True)
+            memory_path.write_text("Prior reviewer convention.\n", encoding="utf-8")
+            _write_agent(
+                root,
+                ".claude/agents",
+                "reviewer",
+                "Reviews with persistent project knowledge",
+                "REVIEWER_PROMPT",
+                mode="code",
+                tools="Read",
+                memory="project",
+            )
+            workspace = create_run_workspace(root, "run-1")
+            initial_messages = build_messages("Review changes", workspace)
+            action = parse_tool_action(
+                "delegate_task",
+                {"task": "Review changes", "agent": "reviewer", "max_iterations": 3},
+            )
+            observation = execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=lambda request: (
+                    approvals.append(request.action_type)
+                    or ApprovalDecision(approved=True, message="approved")
+                ),
+            )
+            events = [
+                json.loads(line)
+                for line in (root / ".vibeagent/sessions/run-1/events.jsonl").read_text(encoding="utf-8").splitlines()
+            ]
+            stored_memory = memory_path.read_text(encoding="utf-8")
+            parent_memory_exists = root.joinpath(".vibeagent/memory/MEMORY.md").exists()
+
+        self.assertTrue(observation.ok)
+        self.assertNotIn("Prior reviewer convention.", str(initial_messages))
+        self.assertIn("Persistent agent memory is enabled", str(client.messages[0][0].content))
+        self.assertIn("Prior reviewer convention.", str(client.messages[0][0].content))
+        self.assertIn("check_memory_write", client.tool_names[0])
+        self.assertIn("memory_write", client.tool_names[0])
+        self.assertEqual(stored_memory, content)
+        self.assertFalse(parent_memory_exists)
+        self.assertEqual(approvals, ["memory_write"])
+        started = next(event for event in events if event["type"] == "subagent_started")
+        self.assertEqual(started["profile_memory_scope"], "project")
+
+    def test_subagent_without_memory_cannot_escape_into_parent_memory(self) -> None:
+        approvals: list[str] = []
+        client = ProfileClient(
+            [
+                [
+                    {
+                        "type": "tool_call",
+                        "id": "memory-1",
+                        "name": "memory_write",
+                        "input": {"path": "MEMORY.md", "content": "must not persist\n"},
+                    }
+                ],
+                [{"type": "text", "text": "The hidden memory call was blocked."}],
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            _write_agent(
+                root,
+                ".agents/agents",
+                "stateless",
+                "Has no persistent memory",
+                "Do not retain state.",
+                mode="code",
+            )
+            workspace = create_run_workspace(root, "run-1")
+            action = parse_tool_action("delegate_task", {"task": "Stay stateless", "agent": "stateless"})
+            execute_delegate_task_action(
+                workspace,
+                action,
+                client,
+                parent_iteration=1,
+                subagent_id="delegate-1-1",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+                approval_handler=lambda request: (
+                    approvals.append(request.action_type)
+                    or ApprovalDecision(approved=True, message="approved")
+                ),
+            )
+            parent_memory_exists = root.joinpath(".vibeagent/memory/MEMORY.md").exists()
+
+        result = json.loads(client.messages[1][-1].content[0]["content"])
+        self.assertEqual(result["kind"], "tool_error")
+        self.assertIn("blocked by the selected project agent profile", result["message"])
+        self.assertFalse(parent_memory_exists)
+        self.assertEqual(approvals, [])
+
+    def test_disabled_or_unsafe_profile_memory_fails_closed(self) -> None:
+        disabled_client = ProfileClient([[{"type": "text", "text": "Memory stayed disabled."}]])
+        unsafe_client = ProfileClient([])
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agents-") as base:
+            root = Path(base)
+            _write_agent(
+                root,
+                ".claude/agents",
+                "disabled-memory",
+                "Has disabled project memory",
+                "DISABLED_MEMORY_PROMPT",
+                mode="code",
+                memory="project",
+            )
+            _write_agent(
+                root,
+                ".claude/agents",
+                "unsafe-memory",
+                "Has an unsafe memory path",
+                "UNSAFE_MEMORY_PROMPT",
+                mode="code",
+                memory="project",
+            )
+            outside = root / "outside-memory"
+            outside.mkdir()
+            unsafe_root = root / ".claude/agent-memory/unsafe-memory"
+            unsafe_root.parent.mkdir(parents=True)
+            unsafe_root.symlink_to(outside, target_is_directory=True)
+            workspace = create_run_workspace(root, "run-1")
+
+            with patch.dict("os.environ", {"VIBEAGENT_DISABLE_AUTO_MEMORY": "1"}):
+                disabled = execute_delegate_task_action(
+                    workspace,
+                    parse_tool_action(
+                        "delegate_task",
+                        {"task": "Run without memory", "agent": "disabled-memory"},
+                    ),
+                    disabled_client,
+                    parent_iteration=1,
+                    subagent_id="delegate-1-1",
+                    max_output_tokens=2048,
+                    model_retries=0,
+                    model_retry_delay_ms=0,
+                    model_timeout_ms=10_000,
+                    command_timeout_ms=10_000,
+                    logger=None,
+                )
+            unsafe = execute_delegate_task_action(
+                workspace,
+                parse_tool_action(
+                    "delegate_task",
+                    {"task": "Load unsafe memory", "agent": "unsafe-memory"},
+                ),
+                unsafe_client,
+                parent_iteration=1,
+                subagent_id="delegate-1-2",
+                max_output_tokens=2048,
+                model_retries=0,
+                model_retry_delay_ms=0,
+                model_timeout_ms=10_000,
+                command_timeout_ms=10_000,
+                logger=None,
+            )
+
+        self.assertTrue(disabled.ok)
+        self.assertNotIn("memory_write", disabled_client.tool_names[0])
+        self.assertNotIn("Persistent agent memory is enabled", str(disabled_client.messages[0][0].content))
+        self.assertFalse(unsafe.ok)
+        self.assertIn("must not be a symlink", unsafe.message)
+        self.assertEqual(unsafe_client.messages, [])
 
     def test_profile_denylist_filters_schema_and_blocks_hidden_alias_call(self) -> None:
         approvals: list[str] = []

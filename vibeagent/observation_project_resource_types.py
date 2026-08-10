@@ -98,6 +98,7 @@ class ProjectAgentProfile:
     disallowed_tools: list[str] = field(default_factory=list)
     max_turns: int | None = None
     skills: list[str] = field(default_factory=list)
+    memory: str | None = None
 
 
 @dataclass(frozen=True)

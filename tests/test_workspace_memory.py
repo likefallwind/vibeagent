@@ -22,6 +22,7 @@ from vibeagent.workspace_memory import (
     project_memory_root,
     read_auto_memory,
     read_memory_file,
+    with_agent_memory,
     write_memory_file,
 )
 
@@ -127,6 +128,39 @@ class WorkspaceMemoryTests(unittest.TestCase):
 
             self.assertEqual(project_memory_root(main_workspace), project_memory_root(linked_workspace))
             self.assertEqual(read_memory_file(main_workspace)[0], "shared\n")
+
+    def test_agent_memory_scopes_are_isolated_and_reject_symlink_components(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workspace = create_run_workspace(root, run_id="agent-memory")
+            project_agent = with_agent_memory(workspace, "reviewer", "project")
+            local_agent = with_agent_memory(workspace, "reviewer", "local")
+            other_agent = with_agent_memory(workspace, "debugger", "project")
+
+            write_memory_file(project_agent, "MEMORY.md", "project reviewer\n")
+            write_memory_file(local_agent, "MEMORY.md", "local reviewer\n")
+            write_memory_file(other_agent, "MEMORY.md", "project debugger\n")
+
+            self.assertEqual(
+                project_memory_root(project_agent),
+                root / ".claude/agent-memory/reviewer",
+            )
+            self.assertEqual(
+                project_memory_root(local_agent),
+                root / ".claude/agent-memory-local/reviewer",
+            )
+            self.assertEqual(read_memory_file(project_agent)[0], "project reviewer\n")
+            self.assertEqual(read_memory_file(local_agent)[0], "local reviewer\n")
+            self.assertEqual(read_memory_file(other_agent)[0], "project debugger\n")
+            self.assertEqual(read_memory_file(workspace)[0], "")
+
+            unsafe = root / ".claude/agent-memory/unsafe"
+            outside = root / "outside-memory"
+            outside.mkdir()
+            unsafe.symlink_to(outside, target_is_directory=True)
+            unsafe_workspace = with_agent_memory(workspace, "unsafe", "project")
+            with self.assertRaises(MemoryStoreError):
+                write_memory_file(unsafe_workspace, "MEMORY.md", "blocked\n")
 
     def test_memory_tools_parse_execute_and_require_write_approval(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

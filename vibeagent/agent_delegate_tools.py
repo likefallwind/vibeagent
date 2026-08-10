@@ -64,12 +64,17 @@ def code_delegate_initial_tool_names(
     approval_policy: ApprovalPolicy,
     allowed_tool_names: frozenset[str] | None = None,
     disallowed_tool_names: frozenset[str] = frozenset(),
+    enabled_tool_names: frozenset[str] = frozenset(),
 ) -> set[str]:
     policy = ToolVisibilityPolicy(
         approval_policy=approval_policy,
         excluded_names=CODE_DELEGATE_EXCLUDED_TOOL_NAMES | disallowed_tool_names,
     )
-    source_names = allowed_tool_names if allowed_tool_names is not None else initial_agent_tool_names()
+    source_names = (
+        allowed_tool_names
+        if allowed_tool_names is not None
+        else initial_agent_tool_names() | set(enabled_tool_names)
+    )
     return {name for name in source_names if not name.startswith("mcp__") and policy.allows(name)}
 
 
