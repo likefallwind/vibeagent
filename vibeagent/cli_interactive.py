@@ -14,6 +14,7 @@ from .async_hook_runtime import (
     close_session_async_hooks,
     collect_async_hook_notifications,
 )
+from .btw import run_btw as default_run_btw
 from .chat import run_chat as default_run_chat
 from .directory_added_hooks import (
     collect_directory_added_turn_context,
@@ -115,6 +116,7 @@ def run_interactive_loop(
     command_namespace: dict[str, Any],
     create_chat_client_func: Callable[..., object] = default_create_chat_client,
     run_chat_func: Callable[..., str] = default_run_chat,
+    run_btw_func: Callable[..., str] = default_run_btw,
     run_agent_func: Callable[..., object] = default_run_agent,
     get_resume_context_func: Callable[..., tuple[str | None, str | None, str]] = default_get_resume_context,
     initial_resume_run_id: str | None = None,
@@ -890,6 +892,30 @@ def run_interactive_loop(
             print(branch.text)
             if restored_conversation.warning:
                 print(restored_conversation.warning)
+            continue
+        if command and command.type == "btw":
+            if not command.argument:
+                print("Usage: /btw <question>")
+                continue
+            try:
+                execution_config = resolve_execution_config(Path.cwd())
+                client = client or create_chat_client_func(build_provider_env(None, Path.cwd()))
+                response = run_btw_func(
+                    command.argument,
+                    client=client,
+                    history=conversation_messages if mode == "code" else chat_history,
+                    max_output_tokens=execution_config.max_output_tokens,
+                    model_retries=execution_config.model_retries,
+                    model_retry_delay_ms=execution_config.model_retry_delay_ms,
+                    model_timeout_ms=execution_config.model_timeout_ms,
+                    system_prompt=system_prompt,
+                    append_system_prompt=append_system_prompt,
+                )
+                print(f"\n{response}")
+            except KeyboardInterrupt:
+                print("\nInterrupted.")
+            except Exception as error:
+                print(f"\nBTW error: {format_error(error)}")
             continue
         request_mode = "code" if custom_command is not None else mode
         if command and command.type == "chat":

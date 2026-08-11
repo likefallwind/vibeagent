@@ -34,6 +34,7 @@ CoreCommandType: TypeAlias = Literal[
     "todos",
     "command",
     "chat",
+    "btw",
     "code",
     "goal",
     "workflows",

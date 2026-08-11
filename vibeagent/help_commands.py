@@ -9,6 +9,7 @@ def get_help_text() -> str:
             "  @path[#Lx-Ly]  Attach a bounded file or exact text line range; press Tab for path completion.",
             "  /help   Show this help.",
             "  /model  Show model provider configuration.",
+            "  /btw <question>  Ask one ephemeral, tool-free question using the current conversation.",
             "  /config Show resolved provider and execution configuration.",
             "  /custom-commands  List personal and project prompt commands.",
             "  /plugin [list|details|install|enable|disable|uninstall|validate|config|marketplace]  Manage project-local plugins.",

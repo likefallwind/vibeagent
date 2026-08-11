@@ -54,6 +54,8 @@ def parse_core_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("branch", trimmed[7:].strip() or None)
     if trimmed == "/chat" or trimmed.startswith("/chat "):
         return make_local_command("chat", trimmed[5:].strip() or None)
+    if trimmed == "/btw" or trimmed.startswith("/btw "):
+        return make_local_command("btw", trimmed[4:].strip() or None)
     if trimmed == "/code" or trimmed.startswith("/code "):
         return make_local_command("code", trimmed[5:].strip() or None)
     return None

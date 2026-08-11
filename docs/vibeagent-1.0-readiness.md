@@ -102,6 +102,10 @@ The automated suite currently covers these 1.0 surfaces:
   safe model/tool boundaries, fresh system/project context on every prompt,
   explicit resume and branch restoration, corrupt-state handoff fallback, and
   compact/clear/rewind boundaries that do not replay detailed history.
+- Ephemeral `/btw` side questions: the current coding or chat conversation is
+  rendered into a bounded read-only transcript with binary payloads omitted;
+  the provider receives no tools, and neither the question nor answer mutates
+  in-memory conversation history or persisted session state.
 - Interactive `/branch [name]` and resumed `--fork-session`, including immutable
   source events, independent first-turn workspaces, state inheritance, named
   resume, branch discovery, bounded lineage fallback, and malformed/cyclic
