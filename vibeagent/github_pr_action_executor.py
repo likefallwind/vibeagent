@@ -1,17 +1,59 @@
 from __future__ import annotations
 
+from .github_pr_context_runtime import read_github_pr_context
 from .github_pr_runtime import create_github_pr, preview_github_pr_create
 from .types import (
     CheckGitHubPrCreateAction,
     CheckGitHubPrCreateObservation,
+    GitHubPrCheck,
+    GitHubPrComment,
+    GitHubPrContextAction,
+    GitHubPrContextObservation,
     GitHubPrCreateAction,
     GitHubPrCreateObservation,
+    GitHubPrFile,
+    GitHubPrReview,
     Observation,
 )
 from .workspace import RunWorkspace
 
 
 def execute_github_pr_action(workspace: RunWorkspace, action: object) -> Observation | None:
+    if isinstance(action, GitHubPrContextAction):
+        result = read_github_pr_context(workspace, pr=action.pr, remote=action.remote)
+        return GitHubPrContextObservation(
+            kind="github_pr_context",
+            ok=bool(result["ok"]),
+            repository=str(result["repository"]),
+            number=int(result["number"]),
+            url=str(result["url"]),
+            title=str(result["title"]),
+            body=str(result["body"]),
+            author=str(result["author"]),
+            state=str(result["state"]),
+            is_draft=bool(result["is_draft"]),
+            head=str(result["head"]),
+            base=str(result["base"]),
+            additions=int(result["additions"]),
+            deletions=int(result["deletions"]),
+            changed_files=int(result["changed_files"]),
+            mergeable=str(result["mergeable"]),
+            merge_state=str(result["merge_state"]),
+            review_decision=str(result["review_decision"]),
+            comments=[GitHubPrComment(**item) for item in result["comments"]],
+            comments_total=int(result["comments_total"]),
+            comments_truncated=bool(result["comments_truncated"]),
+            reviews=[GitHubPrReview(**item) for item in result["reviews"]],
+            reviews_total=int(result["reviews_total"]),
+            reviews_truncated=bool(result["reviews_truncated"]),
+            checks=[GitHubPrCheck(**item) for item in result["checks"]],
+            checks_total=int(result["checks_total"]),
+            checks_truncated=bool(result["checks_truncated"]),
+            files=[GitHubPrFile(**item) for item in result["files"]],
+            files_total=int(result["files_total"]),
+            files_truncated=bool(result["files_truncated"]),
+            message=str(result["message"]),
+        )
     if not isinstance(action, (CheckGitHubPrCreateAction, GitHubPrCreateAction)):
         return None
     options = {"title": action.title, "body": action.body, "base": action.base, "remote": action.remote, "draft": action.draft}

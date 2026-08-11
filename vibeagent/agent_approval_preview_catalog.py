@@ -76,4 +76,5 @@ APPROVAL_WITHOUT_PREVIEW_ACTION_TYPES = {
     "powershell",
     "web_fetch",
     "web_search",
+    "github_pr_context",
 }

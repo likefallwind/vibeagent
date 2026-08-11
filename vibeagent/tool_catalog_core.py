@@ -30,6 +30,7 @@ APPROVAL_REQUIRED_TOOL_NAMES = {
     "git_pull",
     "git_push",
     "github_pr_create",
+    "github_pr_context",
     "git_restore",
     "git_stage",
     "git_stash",
@@ -157,7 +158,7 @@ def tool_category(name: str) -> str:
         return "edit"
     if name.startswith("checkpoint_") or name.startswith("check_checkpoint_"):
         return "checkpoint"
-    if name.startswith("git_") or name.startswith("check_git_") or name in {"github_pr_create", "check_github_pr_create"}:
+    if name.startswith("git_") or name.startswith("check_git_") or name in {"github_pr_create", "check_github_pr_create", "github_pr_context"}:
         return "git"
     if name in {"EnterWorktree", "ExitWorktree"}:
         return "git"

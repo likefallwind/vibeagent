@@ -3,15 +3,38 @@ from __future__ import annotations
 from typing import Any
 
 from .action_parsing_helpers import ActionParseError
-from .types import CheckGitHubPrCreateAction, GitHubPrCreateAction
+from .types import CheckGitHubPrCreateAction, GitHubPrContextAction, GitHubPrCreateAction
 
 
-GITHUB_ACTION_TYPES = {"check_github_pr_create", "github_pr_create"}
+GITHUB_ACTION_TYPES = {"check_github_pr_create", "github_pr_create", "github_pr_context"}
 
 
 def parse_github_action(action_type: object, value: dict[str, Any], raw: str) -> object | None:
     if action_type not in GITHUB_ACTION_TYPES:
         return None
+    if action_type == "github_pr_context":
+        pr = value.get("pr")
+        remote = value.get("remote")
+        for field_name, field in (("pr", pr), ("remote", remote)):
+            if field is not None and (not isinstance(field, str) or not field.strip()):
+                raise ActionParseError(f"github_pr_context {field_name} must be a non-empty string when provided.", raw)
+        if isinstance(pr, str) and (
+            len(pr.strip()) > 500
+            or pr.strip().startswith("-")
+            or any(ord(char) < 32 for char in pr)
+        ):
+            raise ActionParseError("github_pr_context pr is too long, starts with '-', or contains control characters.", raw)
+        if isinstance(remote, str) and (
+            len(remote.strip()) > 255
+            or remote.strip().startswith("-")
+            or any(ord(char) < 32 for char in remote)
+        ):
+            raise ActionParseError("github_pr_context remote is invalid.", raw)
+        return GitHubPrContextAction(
+            type="github_pr_context",
+            pr=pr.strip() if isinstance(pr, str) else None,
+            remote=remote.strip() if isinstance(remote, str) else None,
+        )
     title = value.get("title")
     body = value.get("body", "")
     base = value.get("base")
@@ -26,6 +49,14 @@ def parse_github_action(action_type: object, value: dict[str, Any], raw: str) ->
     for field_name, field in (("base", base), ("remote", remote)):
         if field is not None and (not isinstance(field, str) or not field.strip()):
             raise ActionParseError(f"{action_type} {field_name} must be a non-empty string when provided.", raw)
+        if isinstance(field, str) and (
+            len(field.strip()) > 255
+            or field.strip().startswith("-")
+            or any(ord(char) < 32 for char in field)
+        ):
+            raise ActionParseError(f"{action_type} {field_name} is invalid.", raw)
+    if any(ord(char) < 32 and char not in "\n\r\t" for char in title + body):
+        raise ActionParseError(f"{action_type} title and body cannot contain control characters.", raw)
     if not isinstance(draft, bool):
         raise ActionParseError(f"{action_type} draft must be a boolean.", raw)
     options = dict(title=title.strip(), body=body, base=base.strip() if isinstance(base, str) else None, remote=remote.strip() if isinstance(remote, str) else None, draft=draft)

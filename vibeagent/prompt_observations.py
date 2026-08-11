@@ -8,6 +8,7 @@ from .prompt_observation_output import (
 from .prompt_observation_checkpoint import format_checkpoint_observation
 from .prompt_observation_edit import format_edit_observation
 from .prompt_observation_git import format_git_observation
+from .prompt_observation_github import format_github_observation
 from .prompt_observation_project import format_project_observation
 from .prompt_observation_read import format_read_observation
 from .prompt_observation_review import format_review_observation
@@ -27,6 +28,8 @@ def format_observations(observations: list[Observation]) -> str:
         runtime_line = format_runtime_observation(index, observation)
         if runtime_line is not None:
             lines.append(runtime_line)
+        elif (github_line := format_github_observation(index, observation)) is not None:
+            lines.append(github_line)
         elif (git_line := format_git_observation(index, observation)) is not None:
             lines.append(git_line)
         elif (review_line := format_review_observation(index, observation)) is not None:

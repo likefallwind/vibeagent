@@ -22,3 +22,10 @@ class GitHubPrCreateAction:
     base: str | None = None
     remote: str | None = None
     draft: bool = False
+
+
+@dataclass(frozen=True)
+class GitHubPrContextAction:
+    type: Literal["github_pr_context"]
+    pr: str | None = None
+    remote: str | None = None

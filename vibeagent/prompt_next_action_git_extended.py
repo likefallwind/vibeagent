@@ -15,6 +15,7 @@ EXTENDED_GIT_NEXT_ACTION_KINDS = {
     "git_push",
     "check_github_pr_create",
     "github_pr_create",
+    "github_pr_context",
     "check_git_restore",
     "git_restore",
     "git_stashes",
@@ -293,6 +294,15 @@ def extended_git_next_action_instruction(base: str, latest: Observation) -> str:
         if getattr(latest, "ok", False):
             return f"{base} The pull request was created. Report its URL and the verified head/base branches."
         return f"{base} Pull request creation failed. Inspect the gh message, fix the cause, and revalidate before retrying."
+    if latest.kind == "github_pr_context":
+        if not getattr(latest, "ok", False):
+            return f"{base} Pull request context could not be read. Resolve the gh authentication, repository, or selector error before retrying."
+        failed_checks = [check for check in getattr(latest, "checks", []) if getattr(check, "bucket", "") == "fail"]
+        if failed_checks:
+            return f"{base} The pull request has failing checks. Inspect the relevant local code and test output, implement a verified fix, then commit and push if requested."
+        if getattr(latest, "review_decision", "") == "CHANGES_REQUESTED" or getattr(latest, "comments", []):
+            return f"{base} Review feedback is available. Verify each actionable comment against the local code, implement justified fixes, test them, then commit and push if requested."
+        return f"{base} Pull request context is available. Review the changed files and CI/review state, then continue the requested PR workflow."
     if latest.kind == "check_git_restore":
         return _check_git_restore_next_action_instruction(base, latest)
     if latest.kind == "git_restore":

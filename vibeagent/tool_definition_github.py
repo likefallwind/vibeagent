@@ -13,6 +13,24 @@ _PR_PROPERTIES: dict[str, Any] = {
 
 GITHUB_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
+        "name": "github_pr_context",
+        "description": "Read a GitHub pull request's metadata, comments, latest reviews, inline review comments, changed files, and CI status through gh. Contacts GitHub and requires approval.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "pr": {
+                    "type": "string",
+                    "description": "Optional positive PR number, GitHub pull request URL, or branch. Defaults to the current branch PR.",
+                },
+                "remote": {
+                    "type": "string",
+                    "description": "Optional local GitHub remote used to select the repository.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "check_github_pr_create",
         "description": "Locally validate a GitHub pull request without contacting GitHub. Requires a fully pushed branch and cached base ref.",
         "input_schema": {"type": "object", "properties": _PR_PROPERTIES, "required": ["title"], "additionalProperties": False},
