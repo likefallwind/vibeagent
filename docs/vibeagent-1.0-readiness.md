@@ -272,8 +272,9 @@ The automated suite currently covers these 1.0 surfaces:
   advertised-URI or matching-template enforcement, method-not-found fallback
   for older concrete-only servers, bounded redacted text, hidden binary blobs,
   Claude-compatible aliases, and explicit approvals.
-- Real CLI JSON and stream-json entrypoints, stdin input formats, resume,
-  compact, permission overrides, `acceptEdits`, non-interactive `dontAsk`
+- Real CLI JSON and stream-json entrypoints, stdin input formats, normalized
+  user-message replay with matching run/session identity and non-user/raw-field
+  filtering, resume, compact, permission overrides, `acceptEdits`, non-interactive `dontAsk`
   with trusted pre-approval and default denial, bounded invocation-scoped
   `--agents` definitions inherited by delegated runtimes, safe structured agent
   YAML, profile permission modes, scoped command hooks and stdio/HTTP MCP,

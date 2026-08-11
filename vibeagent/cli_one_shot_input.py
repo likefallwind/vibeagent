@@ -113,6 +113,8 @@ def build_one_shot_kwargs_from_args(args: argparse.Namespace) -> dict[str, objec
         "max_budget_usd": args.max_budget_usd,
         "fallback_model": args.fallback_model,
         "include_partial_messages": args.include_partial_messages,
+        "replay_user_messages": args.replay_user_messages,
+        "input_user_messages": task_input.user_messages,
         "effort": effort.level,
         "effort_locked": effort.locked,
         "autocompact_tokens": resolve_autocompact_tokens(args.autocompact),

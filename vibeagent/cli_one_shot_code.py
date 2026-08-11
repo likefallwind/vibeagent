@@ -70,6 +70,8 @@ def run_one_shot_code(
     max_budget_usd: Decimal | None = None,
     fallback_model: str | None = None,
     include_partial_messages: bool = False,
+    replay_user_messages: bool = False,
+    input_user_messages: tuple[str, ...] = (),
     effort: str | None = None,
     effort_locked: bool = False,
     autocompact_tokens: int | None = None,
@@ -184,6 +186,11 @@ def run_one_shot_code(
         force_workspace=fork_session or session_name is not None or ephemeral_workspace is not None,
         workspace=resumed_workspace,
     )
+    if replay_user_messages:
+        if stream is None or stream_scope.workspace is None:
+            raise ValueError("User message replay requires a persistent stream-json coding session.")
+        for message in input_user_messages or (task,):
+            stream.user_message(stream_scope.workspace.session_dir, message)
     peer_runtime = create_peer_runtime(project_root, approval_policy)
     run_kwargs = build_one_shot_agent_kwargs(
         client=client,

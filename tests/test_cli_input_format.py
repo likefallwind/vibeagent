@@ -44,6 +44,10 @@ class CliInputFormatTests(unittest.TestCase):
         self.assertEqual(parsed.system_prompt, "You are terse.")
         self.assertEqual(parsed.assistant_context, "Previous answer.")
         self.assertIsNone(parsed.session_id)
+        self.assertEqual(
+            parsed.user_messages,
+            ("fix the failing test\nthen summarize", "run focused checks"),
+        )
 
     def test_stream_json_ignores_assistant_and_system_direct_records(self) -> None:
         raw = "\n".join(
@@ -59,6 +63,22 @@ class CliInputFormatTests(unittest.TestCase):
         self.assertEqual(parsed.task, "continue the change")
         self.assertEqual(parsed.system_prompt, "old instruction")
         self.assertEqual(parsed.assistant_context, "old reply")
+        self.assertEqual(parsed.user_messages, ("continue the change",))
+
+    def test_stream_json_replay_messages_filter_wrapped_non_user_records(self) -> None:
+        raw = "\n".join(
+            [
+                json.dumps({"message": {"role": "system", "content": "do not replay"}}),
+                json.dumps({"message": {"role": "assistant", "content": "do not replay"}}),
+                json.dumps({"message": {"role": "user", "content": "replay this"}}),
+                json.dumps({"type": "event", "message": "do not replay"}),
+            ]
+        )
+
+        parsed = resolve_stream_json_task_input(raw)
+
+        self.assertEqual(parsed.task, "replay this")
+        self.assertEqual(parsed.user_messages, ("replay this",))
 
     def test_stream_json_extracts_session_id_from_records(self) -> None:
         raw = "\n".join(

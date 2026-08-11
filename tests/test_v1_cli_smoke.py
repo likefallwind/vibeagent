@@ -78,6 +78,15 @@ def _run_stream_json_cli(client: DogfoodClient, args: list[str]) -> tuple[int, l
     return exit_code, [json.loads(line) for line in output.splitlines()]
 
 
+def _run_stream_json_cli_with_stdin(
+    client: DogfoodClient,
+    args: list[str],
+    stdin_text: str,
+) -> tuple[int, list[dict[str, object]]]:
+    exit_code, output = _run_cli_with_stdin(client, args, stdin_text)
+    return exit_code, [json.loads(line) for line in output.splitlines()]
+
+
 def _git_status(root: Path) -> str:
     return subprocess.run(
         ["git", "status", "--short"],
@@ -1018,13 +1027,15 @@ class V1CliSmokeTests(unittest.TestCase):
                     json.dumps({"type": "user", "text": "Fix the calculator test failure and commit the verified fix."}),
                 ]
             )
-            exit_code, payload = _run_json_cli_with_stdin(
+            exit_code, records = _run_stream_json_cli_with_stdin(
                 client,
                 [
+                    "--print",
                     "--output-format",
-                    "json",
+                    "stream-json",
                     "--input-format",
                     "stream-json",
+                    "--replay-user-messages",
                     "--approval",
                     "allow",
                     "--cwd",
@@ -1035,10 +1046,19 @@ class V1CliSmokeTests(unittest.TestCase):
                 ],
                 stdin_payload,
             )
+            payload = records[-1]
             initial_prompt = _initial_prompt(client)
             commit_state = _calculator_commit_state(root)
 
         self.assertEqual(exit_code, 0)
+        self.assertEqual(records[0]["type"], "user")
+        self.assertEqual(
+            records[0]["message"],
+            {"role": "user", "content": "Fix the calculator test failure and commit the verified fix."},
+        )
+        self.assertEqual(records[-1]["type"], "result")
+        self.assertEqual(records[0]["runId"], records[-1]["runId"])
+        self.assertEqual(records[0]["sessionId"], records[-1]["sessionId"])
         _assert_completed_code_result(self, payload, num_turns=11)
         self.assertIn("Prefer focused checks before broad suites.", initial_prompt)
         self.assertIn("Structured input assistant messages:", initial_prompt)

@@ -75,6 +75,77 @@ class CliOutputFormatTests(unittest.TestCase):
             with self.subTest(args=args), redirect_stdout(io.StringIO()):
                 self.assertEqual(main(args), 2)
 
+    def test_replay_user_messages_requires_print_stream_input_and_output(self) -> None:
+        cases = (
+            ["--input-format", "stream-json", "--output-format", "stream-json", "--replay-user-messages", "-"],
+            ["-p", "--input-format", "stream-json", "--replay-user-messages", "-"],
+            ["-p", "--output-format", "stream-json", "--replay-user-messages", "inspect"],
+            ["-p", "--input-format", "json", "--output-format", "stream-json", "--replay-user-messages", "-"],
+            ["-p", "--chat", "--input-format", "stream-json", "--output-format", "stream-json", "--replay-user-messages", "-"],
+        )
+        for args in cases:
+            with self.subTest(args=args), redirect_stdout(io.StringIO()):
+                self.assertEqual(main(args), 2)
+
+    def test_replays_only_normalized_stream_json_user_messages_before_agent_events(self) -> None:
+        stdin = io.StringIO(
+            "\n".join(
+                [
+                    json.dumps({"role": "system", "content": "Prefer focused tests."}),
+                    json.dumps({"role": "user", "content": "inspect the parser", "ignored": "not echoed"}),
+                    json.dumps({"role": "assistant", "content": "Earlier answer."}),
+                    json.dumps({
+                        "messages": [
+                            {"role": "user", "content": [
+                                {"type": "text", "text": "run focused checks"},
+                                {"type": "image", "source": "ignored"},
+                            ]},
+                        ]
+                    }),
+                    json.dumps({"type": "event", "message": "ignored event"}),
+                ]
+            )
+            + "\n"
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-stream-replay-") as base:
+            stdout = io.StringIO()
+            with (
+                patch("sys.stdin", stdin),
+                patch("vibeagent.cli.create_chat_client", return_value=TextClient()),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "-p",
+                        "--input-format", "stream-json",
+                        "--output-format", "stream-json",
+                        "--replay-user-messages",
+                        "--cwd", base,
+                        "-",
+                    ]
+                )
+
+        records = [json.loads(line) for line in stdout.getvalue().splitlines()]
+        replayed = [record for record in records if record["type"] == "user"]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual([record["sequence"] for record in records], list(range(1, len(records) + 1)))
+        self.assertEqual(records[0:2], replayed)
+        self.assertEqual(
+            [record["message"] for record in replayed],
+            [
+                {"role": "user", "content": "inspect the parser"},
+                {"role": "user", "content": "run focused checks"},
+            ],
+        )
+        self.assertTrue(all("ignored" not in record for record in replayed))
+        self.assertNotIn("not echoed", stdout.getvalue())
+        self.assertNotIn("ignored event", stdout.getvalue())
+        self.assertEqual(records[2]["type"], "event")
+        self.assertEqual(records[-1]["type"], "result")
+        self.assertTrue(all(record["runId"] == records[-1]["runId"] for record in replayed))
+        self.assertTrue(all(record["sessionId"] == records[-1]["sessionId"] for record in replayed))
+        self.assertTrue(all(record["session_id"] == records[-1]["session_id"] for record in replayed))
+
     def test_json_schema_cli_returns_validated_structured_output(self) -> None:
         client = SequenceClient(
             [[{"type": "text", "text": '{"summary":"inspected","files":2}'}]]

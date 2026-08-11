@@ -78,6 +78,8 @@ def run_one_shot(
     max_budget_usd: Decimal | None = None,
     fallback_model: str | None = None,
     include_partial_messages: bool = False,
+    replay_user_messages: bool = False,
+    input_user_messages: tuple[str, ...] = (),
     effort: str | None = None,
     effort_locked: bool = False,
     autocompact_tokens: int | None = None,
@@ -111,6 +113,8 @@ def run_one_shot(
     try:
         if not task.strip():
             return emit_error("No task provided.")
+        if replay_user_messages and (stream is None or request_mode != "code"):
+            return emit_error("User message replay requires stream-json coding output.", exit_code=2)
         project_root = resolve_project_root(base_dir) or Path.cwd()
         try:
             project_setup = resolve_one_shot_project_setup(
@@ -186,6 +190,8 @@ def run_one_shot(
                 max_budget_usd=max_budget_usd,
                 fallback_model=fallback_model,
                 include_partial_messages=include_partial_messages,
+                replay_user_messages=replay_user_messages,
+                input_user_messages=input_user_messages,
                 effort=effort,
                 effort_locked=effort_locked,
                 autocompact_tokens=autocompact_tokens,

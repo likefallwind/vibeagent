@@ -86,6 +86,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Emit incremental model SSE events with stream-json output in print mode.",
     )
     parser.add_argument(
+        "--replay-user-messages",
+        action="store_true",
+        help="Replay normalized stream-json user input records on stdout before agent events.",
+    )
+    parser.add_argument(
         "--maintenance",
         action="store_true",
         help="Run Setup hooks with the maintenance matcher before a print-mode task.",

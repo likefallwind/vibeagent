@@ -40,6 +40,17 @@ class JsonEventStream:
     def result(self, payload: dict[str, object]) -> None:
         self.emit({"type": "result", **payload})
 
+    def user_message(self, session_dir: Path, text: str) -> None:
+        self.emit(
+            {
+                "type": "user",
+                "runId": session_dir.name,
+                "sessionId": session_dir.name,
+                "session_id": session_dir.name,
+                "message": {"role": "user", "content": text},
+            }
+        )
+
     def model_stream_event(
         self,
         session_dir: Path,

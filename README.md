@@ -395,6 +395,7 @@ python -m vibeagent remote-control --cwd ../my-project --remote-control-host 192
 python -m vibeagent --cwd ../my-project --add-dir ../shared-lib "update both codebases"
 python -m vibeagent --cwd ../my-project --add-dir ../shared-lib --add-dir ../schemas
 printf '{"type":"user","text":"inspect the change"}\n' | python -m vibeagent --input-format stream-json -
+printf '{"type":"user","text":"inspect the change"}\n' | python -m vibeagent -p --input-format stream-json --output-format stream-json --replay-user-messages -
 printf '{"prompt":"inspect the change"}\n' | python -m vibeagent --input-format json -
 python -m vibeagent --append-system-prompt "Prefer focused tests before broad suites." "inspect the change"
 python -m vibeagent --system-prompt-file ./prompts/reviewer.txt "inspect the change"
@@ -682,7 +683,12 @@ one-shot system prompt for that run, and assistant-role text is treated as
 caller-supplied prior conversation context in coding mode. A top-level
 `schemaVersion` is accepted when it is compatible with the current machine
 output schema, and future schema versions are rejected before any provider
-call. A top-level `session_id` or `sessionId` field resumes that VibeAgent
+call. In coding mode with print mode, matching stream-JSON input and output,
+and task `-`, `--replay-user-messages` emits each normalized non-empty user
+message before agent events. System, assistant, event, and result records are
+not replayed; arbitrary input fields are discarded instead of echoed. Replay
+records carry the same run/session identifiers as later events and the final
+result. A top-level `session_id` or `sessionId` field resumes that VibeAgent
 session in coding mode when neither `--resume` nor `--compact` is provided.
 When `-c`, `--resume [run-id]`, or `--compact [run-id]` is provided without a
 task, VibeAgent starts the interactive prompt with that context already loaded.
@@ -765,7 +771,8 @@ sandbox auto-approval applies. Use `--approval allow` or
 `--dangerously-skip-permissions` only in an appropriately isolated automation
 environment. `stream-json` requires a one-shot task and is not accepted for the
 interactive prompt or standalone local command flags. Partial messages require
-print mode and stream-JSON output.
+print mode and stream-JSON output. User-message replay additionally requires
+stream-JSON stdin, task `-`, and coding mode.
 `--allowed-tools`/`--allowedTools` and `--disallowed-tools`/`--disallowedTools`
 add Claude-style permission rules for one coding task without editing project
 settings. Allowed CLI rules are trusted for that run and can skip side-effect

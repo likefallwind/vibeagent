@@ -60,6 +60,7 @@ class CliOneShotInputTests(unittest.TestCase):
         self.assertEqual(task_input.system_prompt, "Prefer focused checks.")
         self.assertEqual(task_input.assistant_context, "Saw tests/test_app.py.")
         self.assertEqual(task_input.session_id, "run-1")
+        self.assertEqual(task_input.user_messages, ("continue repair",))
 
     def test_resolve_task_input_reads_json_stdin(self) -> None:
         raw = json.dumps(

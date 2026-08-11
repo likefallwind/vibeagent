@@ -17,6 +17,7 @@ class StreamJsonTaskInput:
     system_prompt: str | None = None
     assistant_context: str | None = None
     session_id: str | None = None
+    user_messages: tuple[str, ...] = ()
 
 
 SESSION_ID_KEYS = ("session_id", "sessionId", "run_id", "runId")
@@ -58,11 +59,13 @@ def _resolve_task_input_records(records: Iterable[object]) -> StreamJsonTaskInpu
     system_chunks: list[str] = []
     assistant_chunks: list[str] = []
     chunks: list[str] = []
+    user_messages: list[str] = []
     session_id: str | None = None
     for record in records:
         _validate_schema_version(record)
         session_id = session_id or _session_id_from_record(record)
         chunks.extend(_text_chunks_from_record(record))
+        user_messages.extend(_user_messages_from_record(record))
         role_chunks = _role_text_chunks_from_record(record)
         user_chunks.extend(role_chunks.user)
         system_chunks.extend(role_chunks.system)
@@ -73,6 +76,7 @@ def _resolve_task_input_records(records: Iterable[object]) -> StreamJsonTaskInpu
         system_prompt=_optional_join_text_chunks(system_chunks),
         assistant_context=_optional_join_text_chunks(assistant_chunks),
         session_id=session_id,
+        user_messages=tuple(user_messages),
     )
 
 
@@ -120,6 +124,9 @@ def _role_text_chunks_from_message(message: object) -> _RoleTextChunks:
     if _is_non_task_machine_record(message):
         return _RoleTextChunks()
     role = _record_role(message)
+    nested = message.get("message")
+    if role is None and isinstance(nested, dict) and _record_role(nested) is not None:
+        return _role_text_chunks_from_message(nested)
     text = _message_text_chunks(message)
     if role == "system":
         return _RoleTextChunks(system=text)
@@ -128,6 +135,31 @@ def _role_text_chunks_from_message(message: object) -> _RoleTextChunks:
     if role == "user" or (role is None and text):
         return _RoleTextChunks(user=text)
     return _RoleTextChunks()
+
+
+def _user_messages_from_record(record: object) -> tuple[str, ...]:
+    if not isinstance(record, dict):
+        return ()
+    messages = _message_sequence_from_record(record)
+    if messages is not None:
+        replay: list[str] = []
+        for message in messages:
+            replay.extend(_user_messages_from_message(message))
+        return tuple(replay)
+    return _user_messages_from_message(record)
+
+
+def _user_messages_from_message(message: object) -> tuple[str, ...]:
+    if not isinstance(message, dict) or _is_non_task_machine_record(message):
+        return ()
+    role = _record_role(message)
+    nested = message.get("message")
+    if role is None and isinstance(nested, dict) and _record_role(nested) is not None:
+        return _user_messages_from_message(nested)
+    if role not in {None, "user"}:
+        return ()
+    text = _join_text_chunks(_message_text_chunks(message))
+    return (text,) if text else ()
 
 
 def _text_chunks_from_record(record: object) -> Iterable[str]:
