@@ -64,6 +64,7 @@ class SubagentPanel:
     def authorize_custom(self, handler: ApprovalHandler | None, policy: ApprovalPolicy) -> None:
         self.permission_mode = {
             "allow": "bypassPermissions",
+            "auto": "auto",
             "dontAsk": "dontAsk",
             "plan": "plan",
         }.get(policy, "default")

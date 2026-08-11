@@ -207,12 +207,13 @@ def handle_approval_command(argument: str | None, current: ApprovalPolicy) -> tu
     policies: dict[str, ApprovalPolicy] = {
         "ask": "ask",
         "allow": "allow",
+        "auto": "auto",
         "deny": "deny",
         "dontask": "dontAsk",
         "plan": "plan",
     }
     if requested not in policies:
-        return current, "Usage: /approval [ask|allow|deny|dontAsk|plan]"
+        return current, "Usage: /approval [ask|allow|auto|deny|dontAsk|plan]"
     policy = policies[requested]
     return policy, f"Approval policy: {policy}"
 

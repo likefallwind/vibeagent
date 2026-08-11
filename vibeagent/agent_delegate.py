@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 
+from .auto_mode import AutoModeRuntime
 from .agent_delegate_completion import clip_delegate_summary, delegate_completion_message, finish_delegate_task
 from .agent_delegate_context import (
     CODE_DELEGATE_SYSTEM_PROMPT,
@@ -237,6 +238,11 @@ def execute_delegate_task_action(
             model_retry_delay_ms=model_retry_delay_ms,
             logger=logger,
         )
+        auto_mode_runtime = AutoModeRuntime(
+            model=hook_model_runtime,
+            messages_provider=lambda: messages,
+            interactive=approval_handler is not None,
+        )
         lifecycle = DelegateLifecycleHooks(
             workspace=delegate_workspace,
             action=action,
@@ -357,6 +363,7 @@ def execute_delegate_task_action(
                 cancel_requested=cancel_requested,
                 nested_runtime=nested_runtime,
                 hook_model_runtime=hook_model_runtime,
+                auto_mode_runtime=auto_mode_runtime,
                 transcript_checkpoint=transcript_checkpoint,
                 inbox=inbox,
             )

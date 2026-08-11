@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
+from .auto_mode import AUTO_APPROVED_WORKSPACE_ACTIONS, AutoModeRuntime
 from .agent_action_targets import build_action_target
 from .agent_approval import (
     request_approval,
@@ -67,6 +69,12 @@ def authorize_tool_action(
     permission_request_handler: PermissionRequestHandler | None = None,
     apply_permission_updated_input: ApplyPermissionUpdatedInput | None = None,
     build_updated_approval_request: BuildUpdatedApprovalRequest | None = None,
+    auto_mode_runtime: AutoModeRuntime | None = None,
+    tool_input: dict[str, object] | None = None,
+    permission_denied_handler: Callable[
+        [str], tuple[tuple[HookRunResult, ...], bool]
+    ]
+    | None = None,
 ) -> ToolAuthorization:
     if permissions.error is not None:
         message = f"Permission configuration is invalid: {redact_sensitive_text(permissions.error)}"
@@ -136,6 +144,7 @@ def authorize_tool_action(
                 approved=True,
                 message=f"Approved by permission rule {visible_rule}.",
             )
+            _record_auto_allow(approval_policy, auto_mode_runtime)
             return ToolAuthorization(True, rule_match=rule_match, decision=decision)
 
     if hook_permission_decision in {"deny", "defer"}:
@@ -156,6 +165,7 @@ def authorize_tool_action(
             approved=True,
             message=hook_permission_reason or "Approved by PreToolUse hook.",
         )
+        _record_auto_allow(approval_policy, auto_mode_runtime)
         return ToolAuthorization(True, rule_match=rule_match, decision=decision)
 
     request = default_request
@@ -193,6 +203,7 @@ def authorize_tool_action(
         )
         if logger:
             logger("sandbox auto-approved", summarize_approval_decision(request, decision))
+        _record_auto_allow(approval_policy, auto_mode_runtime)
         return ToolAuthorization(True, rule_match=rule_match, decision=decision)
     permission_hook_results: tuple[HookRunResult, ...] = ()
     permission_application: PermissionUpdateApplication | None = None
@@ -237,6 +248,7 @@ def authorize_tool_action(
                 interrupt=resolution.interrupt,
             )
     if request is None:
+        _record_auto_allow(approval_policy, auto_mode_runtime)
         return ToolAuthorization(
             True,
             rule_match=rule_match,
@@ -244,6 +256,93 @@ def authorize_tool_action(
             effective_action=action,
             effective_input=effective_input,
             permission_application=permission_application,
+        )
+
+    auto_interrupt = False
+    if approval_policy == "auto":
+        if (
+            rule_match is not None and rule_match.effect == "ask"
+        ) or hook_permission_decision == "ask":
+            decision = request_approval(approval_handler, request)
+        elif request.action_type in AUTO_APPROVED_WORKSPACE_ACTIONS:
+            decision = ApprovalDecision(
+                approved=True,
+                message="Approved by auto mode for a workspace-scoped file change.",
+            )
+            if auto_mode_runtime is not None:
+                auto_mode_runtime.record_allowed()
+        elif auto_mode_runtime is None:
+            decision = ApprovalDecision(
+                approved=False,
+                message="Denied because the auto mode classifier is unavailable.",
+            )
+        else:
+            auto_result = auto_mode_runtime.authorize(
+                workspace,
+                tool_name=tool_name,
+                tool_input=tool_input or {},
+                request=request,
+                iteration=iteration,
+            )
+            decision = auto_result.decision
+            auto_interrupt = auto_result.interrupt
+            if not decision.approved and permission_denied_handler is not None:
+                denied_hook_results, retry = permission_denied_handler(decision.message)
+                permission_hook_results += denied_hook_results
+                if retry:
+                    decision = ApprovalDecision(
+                        approved=False,
+                        message=(
+                            f"{decision.message} PermissionDenied hook allows the model "
+                            "to retry with a different tool call."
+                        ),
+                    )
+            if auto_result.fallback_to_prompt:
+                append_session_event(
+                    workspace.session_dir,
+                    "auto_mode_fallback",
+                    {"iteration": iteration, "tool": tool_name, "mode": "ask"},
+                )
+                decision = request_approval(approval_handler, request)
+        append_session_event(
+            workspace.session_dir,
+            "approval_decision",
+            {
+                "iteration": iteration,
+                "step": step,
+                "decision": decision,
+                "permission_rule": _rule_payload(rule_match),
+                "source": "auto",
+            },
+        )
+        if logger:
+            status = "auto approved" if decision.approved else "auto denied"
+            logger(status, summarize_approval_decision(request, decision))
+        if decision.approved:
+            return ToolAuthorization(
+                True,
+                rule_match=rule_match,
+                decision=decision,
+                hook_results=permission_hook_results,
+                effective_action=action,
+                effective_input=effective_input,
+                permission_application=permission_application,
+            )
+        return ToolAuthorization(
+            False,
+            ApprovalDeniedObservation(
+                kind="approval_denied",
+                action_type=request.action_type,
+                target=request.target,
+                message=decision.message or "Action was denied by auto mode.",
+            ),
+            rule_match=rule_match,
+            decision=decision,
+            hook_results=permission_hook_results,
+            effective_action=action,
+            effective_input=effective_input,
+            permission_application=permission_application,
+            interrupt=auto_interrupt,
         )
 
     if approval_policy != "dontAsk":
@@ -330,3 +429,11 @@ def _rule_payload(rule_match: PermissionRuleMatch | None) -> dict[str, str] | No
         "rule": rule_match.rule.raw,
         "source": rule_match.rule.source,
     }
+
+
+def _record_auto_allow(
+    approval_policy: ApprovalPolicy,
+    runtime: AutoModeRuntime | None,
+) -> None:
+    if approval_policy == "auto" and runtime is not None:
+        runtime.record_allowed()

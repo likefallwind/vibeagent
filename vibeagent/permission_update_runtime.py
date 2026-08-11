@@ -330,7 +330,9 @@ def _apply_mode_to_runtime(
         return "ask"
     if mode == "bypassPermissions":
         return "allow"
-    if mode in {"auto", "dontAsk"}:
+    if mode == "auto":
+        return "auto"
+    if mode == "dontAsk":
         return "dontAsk"
     if mode == "plan":
         return "plan"

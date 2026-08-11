@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 
+from .auto_mode import AutoModeRuntime
 from .agent_hook_results import (
     HookBatchResult,
     HookRunResult,
@@ -12,6 +13,7 @@ from .agent_hook_results import (
     hook_result_from_observation as _hook_result_from_observation,
 )
 from .agent_hook_prompt import HookModelRuntime
+from .agent_permission_denied_hooks import run_permission_denied_hooks
 from .agent_permission_request_runtime import run_permission_request_hooks
 from .agent_permissions import authorize_tool_action
 from .agent_pre_tool_hook_output import (
@@ -76,6 +78,7 @@ def run_hooks_around_tool(
     defer_tool_calls: bool = False,
     tool_use_id: str | None = None,
     hook_model_runtime: HookModelRuntime | None = None,
+    auto_mode_runtime: AutoModeRuntime | None = None,
 ) -> HookWrappedToolResult:
     pre_hooks = run_tool_hooks(
         workspace,
@@ -144,6 +147,29 @@ def run_hooks_around_tool(
         ),
         apply_permission_updated_input=apply_updated_input,
         build_updated_approval_request=build_default_approval_request,
+        auto_mode_runtime=auto_mode_runtime,
+        tool_input=(
+            pre_hooks.effective_input
+            if pre_hooks.effective_input is not None
+            else tool_input
+        ),
+        permission_denied_handler=lambda reason: _permission_denied_outcome(
+            workspace,
+            config,
+            tool_name,
+            effective_action,
+            pre_hooks.effective_input or tool_input or {},
+            tool_use_id,
+            reason,
+            iteration,
+            command_timeout_ms,
+            logger,
+            approval_handler,
+            approval_policy,
+            execute_action_safely_func,
+            permissions,
+            hook_model_runtime,
+        ),
     )
     authorization_hook_results = pre_hooks.results + authorization.hook_results
     effective_action = authorization.effective_action or effective_action
@@ -332,3 +358,40 @@ def run_tool_hooks(
 def _action_input(action: object) -> dict[str, object]:
     payload = to_jsonable(action)
     return payload if isinstance(payload, dict) else {}
+
+
+def _permission_denied_outcome(
+    workspace: RunWorkspace,
+    config: ProjectHooks,
+    tool_name: str,
+    action: object,
+    tool_input: dict[str, object],
+    tool_use_id: str | None,
+    reason: str,
+    iteration: int,
+    command_timeout_ms: int,
+    logger: AgentLogger | None,
+    approval_handler: ApprovalHandler | None,
+    approval_policy: ApprovalPolicy,
+    execute_action_safely_func: ExecuteActionSafely,
+    permissions: ProjectPermissions,
+    hook_model_runtime: HookModelRuntime | None,
+) -> tuple[tuple[HookRunResult, ...], bool]:
+    outcome = run_permission_denied_hooks(
+        workspace,
+        config,
+        tool_name,
+        action,
+        tool_input,
+        tool_use_id,
+        reason,
+        iteration,
+        command_timeout_ms,
+        logger,
+        approval_handler,
+        approval_policy,
+        execute_action_safely_func,
+        permissions,
+        hook_model_runtime,
+    )
+    return outcome.results, outcome.retry

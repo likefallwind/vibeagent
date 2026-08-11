@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
+from .auto_mode import AutoModeRuntime
 from .agent_action_logging import log_action
 from .agent_approval import build_approval_request
 from .agent_approval_preview import attach_approval_preview
@@ -16,6 +17,7 @@ from .agent_hooks import (
 from .agent_hook_prompt import HookModelRuntime
 from .agent_lifecycle_hooks import run_lifecycle_hooks
 from .agent_observation_utils import observation_failed
+from .agent_permission_denied_hooks import run_permission_denied_hooks
 from .agent_permissions import authorize_tool_action
 from .permission_update_runtime import PermissionUpdateApplication
 from .agent_runtime_utils import (
@@ -83,6 +85,7 @@ def execute_parsed_tool_action(
     defer_tool_calls: bool = False,
     tool_use_id: str | None = None,
     hook_model_runtime: HookModelRuntime | None = None,
+    auto_mode_runtime: AutoModeRuntime | None = None,
 ) -> ToolActionExecutionResult:
     pre_hooks = run_tool_hooks(
         workspace,
@@ -160,6 +163,25 @@ def execute_parsed_tool_action(
             build_updated_approval_request=lambda candidate: _approval_request_for_action(
                 candidate, observations
             ),
+            auto_mode_runtime=auto_mode_runtime,
+            tool_input=tool_input,
+            permission_denied_handler=lambda reason: _permission_denied_outcome(
+                workspace,
+                hooks,
+                tool_name,
+                action,
+                tool_input or {},
+                tool_use_id,
+                reason,
+                iteration,
+                command_timeout_ms,
+                logger,
+                approval_handler,
+                approval_policy,
+                execute_action_safely_func,
+                permissions,
+                hook_model_runtime,
+            ),
         )
         hook_results += authorization.hook_results
         permission_application = authorization.permission_application
@@ -196,9 +218,11 @@ def execute_parsed_tool_action(
             hooks,
             permissions,
             pre_hooks,
+            tool_input,
             apply_updated_input,
             tool_use_id,
             hook_model_runtime,
+            auto_mode_runtime,
         )
 
     complete_task_step(workspace, step, observation, iteration, logger)
@@ -239,9 +263,11 @@ def _execute_non_repeated_action(
     hooks: ProjectHooks,
     permissions: ProjectPermissions,
     pre_hooks: HookBatchResult,
+    tool_input: dict[str, object] | None,
     apply_updated_input: ApplyUpdatedInput | None,
     tool_use_id: str | None,
     hook_model_runtime: HookModelRuntime | None,
+    auto_mode_runtime: AutoModeRuntime | None,
 ) -> tuple[
     Observation,
     Observation | None,
@@ -283,6 +309,25 @@ def _execute_non_repeated_action(
         apply_permission_updated_input=apply_updated_input,
         build_updated_approval_request=lambda candidate: _approval_request_for_action(
             candidate, observations
+        ),
+        auto_mode_runtime=auto_mode_runtime,
+        tool_input=pre_hooks.effective_input or tool_input,
+        permission_denied_handler=lambda reason: _permission_denied_outcome(
+            workspace,
+            hooks,
+            tool_name,
+            action,
+            pre_hooks.effective_input or tool_input or {},
+            tool_use_id,
+            reason,
+            iteration,
+            command_timeout_ms,
+            logger,
+            approval_handler,
+            approval_policy,
+            execute_action_safely_func,
+            permissions,
+            hook_model_runtime,
         ),
     )
     authorization_hook_results = pre_hooks.results + authorization.hook_results
@@ -459,6 +504,43 @@ def _permission_request_tool_input(
         return effective_input
     payload = to_jsonable(action)
     return payload if isinstance(payload, dict) else {}
+
+
+def _permission_denied_outcome(
+    workspace: RunWorkspace,
+    hooks: ProjectHooks,
+    tool_name: str,
+    action: object,
+    tool_input: dict[str, object],
+    tool_use_id: str | None,
+    reason: str,
+    iteration: int,
+    command_timeout_ms: int,
+    logger: AgentLogger | None,
+    approval_handler: ApprovalHandler | None,
+    approval_policy: ApprovalPolicy,
+    execute_action_safely_func: ExecuteActionSafely,
+    permissions: ProjectPermissions,
+    hook_model_runtime: HookModelRuntime | None,
+) -> tuple[tuple[HookRunResult, ...], bool]:
+    outcome = run_permission_denied_hooks(
+        workspace,
+        hooks,
+        tool_name,
+        action,
+        tool_input,
+        tool_use_id,
+        reason,
+        iteration,
+        command_timeout_ms,
+        logger,
+        approval_handler,
+        approval_policy,
+        execute_action_safely_func,
+        permissions,
+        hook_model_runtime,
+    )
+    return outcome.results, outcome.retry
 
 
 def _maybe_create_auto_checkpoint(

@@ -31,6 +31,7 @@ def run_tool_hook_handler(
     execute_action_safely_func: ExecuteActionSafely,
     permissions: ProjectPermissions,
     hook_model_runtime: HookModelRuntime | None,
+    extra_input: dict[str, object] | None = None,
 ) -> HookRunResult:
     hook_input: dict[str, object] = {
         "session_id": workspace.run_id,
@@ -39,6 +40,7 @@ def run_tool_hook_handler(
         "permission_mode": {
             "allow": "bypassPermissions",
             "ask": "default",
+            "auto": "auto",
             "deny": "dontAsk",
             "dontAsk": "dontAsk",
             "plan": "plan",
@@ -46,6 +48,7 @@ def run_tool_hook_handler(
         "hook_event_name": hook.event,
         "tool_name": tool_name,
         "tool_input": tool_input,
+        **(extra_input or {}),
     }
     if tool_use_id is not None:
         hook_input["tool_use_id"] = tool_use_id

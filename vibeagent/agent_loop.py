@@ -5,6 +5,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 from uuid import uuid4
 
+from .auto_mode import AutoModeRuntime
 from .agent_async_hook_notifications import inject_async_hook_notifications
 from .agent_hook_prompt import HookModelRuntime
 from .agent_background_notifications import inject_background_delegate_notifications
@@ -143,6 +144,11 @@ def run_agent_loop(
         model_retries=model_retries,
         model_retry_delay_ms=model_retry_delay_ms,
         logger=logger,
+    )
+    auto_mode_runtime = AutoModeRuntime(
+        model=hook_model_runtime,
+        messages_provider=lambda: messages,
+        interactive=approval_handler is not None and not defer_tool_calls,
     )
 
     def tool_call_allowed(name: str, action: object) -> bool:
@@ -493,6 +499,7 @@ def run_agent_loop(
                 tool_ceiling_names=setup.tool_ceiling_names,
                 defer_tool_calls=defer_tool_calls,
                 hook_model_runtime=hook_model_runtime,
+                auto_mode_runtime=auto_mode_runtime,
             )
 
         def on_resume(pending: dict[str, object], completed_results: int) -> None:
@@ -797,6 +804,7 @@ def run_agent_loop(
                 tool_ceiling_names=setup.tool_ceiling_names,
                 defer_tool_calls=defer_tool_calls,
                 hook_model_runtime=hook_model_runtime,
+                auto_mode_runtime=auto_mode_runtime,
             )
             if sequential.deferred_tool_use is not None:
                 deferred_state = DeferredToolState(

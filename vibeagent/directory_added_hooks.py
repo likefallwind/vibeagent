@@ -208,6 +208,7 @@ def _permission_mode(policy: ApprovalPolicy, permissions: ProjectPermissions) ->
     return {
         "allow": "bypassPermissions",
         "ask": "default",
+        "auto": "auto",
         "deny": "dontAsk",
         "dontAsk": "dontAsk",
         "plan": "plan",

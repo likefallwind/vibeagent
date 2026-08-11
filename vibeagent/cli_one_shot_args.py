@@ -14,8 +14,8 @@ def add_one_shot_arguments(
 ) -> None:
     parser.add_argument(
         "--approval",
-        choices=("ask", "allow", "deny", "dontAsk", "plan"),
-        help="Approval policy for one-shot coding tasks; dontAsk never prompts and plan exposes read-only tools only.",
+        choices=("ask", "allow", "auto", "deny", "dontAsk", "plan"),
+        help="Approval policy for one-shot coding tasks; auto classifies side effects, dontAsk never prompts, and plan exposes read-only tools only.",
     )
     parser.add_argument(
         "--agent",

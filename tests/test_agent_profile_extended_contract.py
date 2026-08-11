@@ -422,7 +422,7 @@ PRIVATE_PROFILE_PROMPT
         self.assertIn("requires trusted project configuration", observation.message)
         self.assertEqual(client.messages, [])
 
-    def test_dont_ask_and_auto_profiles_conservatively_deny_unapproved_edits(self) -> None:
+    def test_dont_ask_denies_while_auto_allows_scoped_edits(self) -> None:
         for permission_mode in ("dontAsk", "auto"):
             client = ProfileClient(
                 [
@@ -462,8 +462,12 @@ PRIVATE_PROFILE_PROMPT
                 content = root.joinpath("value.py").read_text(encoding="utf-8")
 
             self.assertTrue(observation.ok)
-            self.assertEqual(content, "VALUE = 1\n")
-            self.assertIn("approval_denied", str(client.messages[1][-1].content))
+            if permission_mode == "auto":
+                self.assertEqual(content, "VALUE = 2\n")
+                self.assertNotIn("approval_denied", str(client.messages[1][-1].content))
+            else:
+                self.assertEqual(content, "VALUE = 1\n")
+                self.assertIn("approval_denied", str(client.messages[1][-1].content))
 
     def test_bypass_profile_uses_trusted_rules_without_disabling_hard_blocks(self) -> None:
         client = ProfileClient(

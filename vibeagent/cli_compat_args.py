@@ -10,7 +10,7 @@ PERMISSION_MODE_ALIASES = {
     "acceptEdits": "ask",
     "bypassPermissions": "allow",
 }
-PERMISSION_MODE_CHOICES = ("ask", "allow", "deny", "dontAsk", "plan", *PERMISSION_MODE_ALIASES)
+PERMISSION_MODE_CHOICES = ("ask", "allow", "auto", "deny", "dontAsk", "plan", *PERMISSION_MODE_ALIASES)
 
 
 def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, positive_decimal) -> None:

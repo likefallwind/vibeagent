@@ -357,9 +357,10 @@ supports `default`/`manual`, `acceptEdits`, `auto`, `dontAsk`,
 plan constraints take precedence. Project profiles cannot use
 `acceptEdits` or `bypassPermissions` until project configuration is trusted,
 and VibeAgent hard command/path blocks remain active even under
-`bypassPermissions`. Profile `auto` currently uses conservative non-interactive
-permission rules and denies operations that would need a prompt; it does not
-claim Claude's proprietary classifier behavior. Profile MCP uses VibeAgent's
+`bypassPermissions`. Profile `auto` uses VibeAgent's provider-neutral conservative
+classifier: workspace-scoped file changes are approved directly, explicit permission
+rules and `PreToolUse` decisions retain priority, and other side effects are evaluated
+without exposing tool results to the classifier. Profile MCP uses VibeAgent's
 validated stdio/HTTP transports, and profile hooks use its bounded command-hook
 schema. Under `--strict-mcp-config`, file profiles may reference only explicitly
 loaded MCP servers; their inline definitions are ignored. Claude-compatible
@@ -1122,7 +1123,7 @@ and the latest plan, `/changes [--max-files N]` to inspect a structured changed-
 `/diff [--staged] [--max-chars N] [path]` to inspect the current patch,
 `/diff-hunks [--staged] [--max-hunks N] [--max-lines N] [path]` to inspect structured git diff hunks,
 `/diff-contexts [--staged] [--context-lines N] [--max-hunks N] [--max-bytes N] [path]` to inspect source context around git diff hunks,
-`/approval [ask|allow|deny|dontAsk|plan]` to control
+`/approval [ask|allow|auto|deny|dontAsk|plan]` to control
 the session approval policy, `/system-prompt [text|off]` and
 `/append-system-prompt [text|off]` to set or clear session-only system-prompt
 instructions for chat and coding turns, `/add-dir [path|remove path|clear]` to
@@ -1625,7 +1626,7 @@ hook configuration is included in the report and makes `--hooks` exit nonzero.
 Supported lifecycle events are `Setup`, `SessionStart`, `SessionEnd`, `PreCompact`,
 `PostCompact`, `CwdChanged`, `FileChanged`, `ConfigChange`, `InstructionsLoaded`, `MessageDisplay`, `Notification`, `UserPromptExpansion`,
 `UserPromptSubmit`,
-`PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
+`PreToolUse`, `PermissionRequest`, `PermissionDenied`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
 `StopFailure`,
 `SubagentStart`, `SubagentStop`, `TeammateIdle`, `PostToolBatch`, `TaskCreated`, `TaskCompleted`,
 `DirectoryAdded`, `Elicitation`, `ElicitationResult`, `WorktreeCreate`, and `WorktreeRemove`. Tool-event
@@ -1821,6 +1822,15 @@ the active turn. Handler failures and malformed or rejected updates are
 non-blocking and fall back to normal user approval. The input omits
 `tool_use_id`, matching Claude's permission event.
 
+`PermissionDenied` runs only when the auto classifier denies a tool call. Its
+input includes `tool_name`, `tool_input`, `tool_use_id`, and the classifier
+`reason`. Command, HTTP, and MCP tool handlers may return
+`hookSpecificOutput: {"hookEventName": "PermissionDenied", "retry": true}` to
+tell the model that a materially different call may be attempted; this never
+reverses the denied call. Three consecutive or twenty total classifier denials
+fall back to an approval prompt in interactive sessions and halt non-interactive
+execution. Allowed actions reset the consecutive counter.
+
 Command hooks may set `"async": true` to start after approval without waiting
 for completion. `"asyncRewake": true` implies async execution and, when the
 hook exits with code 2, starts an agent turn while an interactive session is
@@ -1869,7 +1879,7 @@ errors so they do not suppress the triggering action.
 
 Prompt handlers use Claude-compatible `type: "prompt"`, `prompt`, optional
 `model`, `timeout`, and `continueOnBlock` fields on `PreToolUse`, `PostToolUse`,
-`PostToolUseFailure`, `PermissionRequest`, `UserPromptSubmit`, `Stop`, and
+`PostToolUseFailure`, `PermissionRequest`, `PermissionDenied`, `UserPromptSubmit`, `Stop`, and
 `SubagentStop`. The full bounded Hook input replaces `$ARGUMENTS`, or is
 appended when the placeholder is absent; `\$` preserves a literal dollar sign.
 The evaluator runs without tools through the existing provider-neutral client, shared cost budget,

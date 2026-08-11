@@ -265,6 +265,7 @@ def _claude_permission_mode(policy: ApprovalPolicy) -> str:
     return {
         "allow": "bypassPermissions",
         "ask": "default",
+        "auto": "auto",
         "deny": "dontAsk",
         "dontAsk": "dontAsk",
         "plan": "plan",

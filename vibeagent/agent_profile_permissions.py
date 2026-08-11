@@ -51,7 +51,9 @@ def apply_agent_permission_mode(
         return "ask", merge_project_permissions(permissions, overrides)
     if permission_mode == "plan":
         return "plan", permissions
-    if permission_mode in {"auto", "dontAsk"}:
+    if permission_mode == "auto":
+        return "auto", permissions
+    if permission_mode == "dontAsk":
         return "dontAsk", permissions
     raise ValueError(f"Unsupported agent permission mode: {permission_mode}.")
 

@@ -239,7 +239,7 @@ def run_interactive_loop(
         print_agent_result(result)
         result_approval_policy = getattr(result, "approval_policy", None)
         if (
-            result_approval_policy in {"ask", "allow", "deny", "dontAsk", "plan"}
+            result_approval_policy in {"ask", "allow", "auto", "deny", "dontAsk", "plan"}
             and result_approval_policy != approval_policy
         ):
             approval_policy = result_approval_policy

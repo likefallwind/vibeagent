@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from .auto_mode import AutoModeRuntime
 from .agent_action_logging import log_action
 from .agent_approval import build_approval_request
 from .background_delegate_runtime import send_background_delegate_message, start_background_delegate_task
@@ -67,6 +68,7 @@ def execute_special_tool_action(
     defer_tool_calls: bool = False,
     tool_use_id: str | None = None,
     hook_model_runtime: HookModelRuntime | None = None,
+    auto_mode_runtime: AutoModeRuntime | None = None,
 ) -> HookWrappedToolResult:
     return run_hooks_around_tool(
         workspace,
@@ -111,6 +113,7 @@ def execute_special_tool_action(
         defer_tool_calls=defer_tool_calls,
         tool_use_id=tool_use_id,
         hook_model_runtime=hook_model_runtime,
+        auto_mode_runtime=auto_mode_runtime,
     )
 
 

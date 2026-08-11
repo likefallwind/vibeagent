@@ -133,6 +133,12 @@ def build_messages(
             "dontAsk permission mode is active. Approval prompts are disabled. Read-only actions and actions "
             "covered by trusted allow rules can execute; other actions that require approval are denied."
         )
+    elif approval_policy == "auto":
+        chunks.append(
+            "Auto permission mode is active. Workspace-scoped file changes are allowed automatically. "
+            "Other side effects are evaluated by an independent conservative classifier; denied calls "
+            "must be replaced with a safer alternative and must not be repeated unchanged."
+        )
     if prior_context:
         chunks.append(
             "\n".join(

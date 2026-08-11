@@ -83,7 +83,7 @@ def _run(workspace, hook, fields, context):
         "transcript_path": str(workspace.session_dir / "events.jsonl"),
         "cwd": str(workspace.root),
         "permission_mode": {
-            "allow": "bypassPermissions", "ask": "default", "deny": "dontAsk",
+            "allow": "bypassPermissions", "ask": "default", "auto": "auto", "deny": "dontAsk",
             "dontAsk": "dontAsk", "plan": "plan",
         }[context.approval_policy],
         "hook_event_name": hook.event,

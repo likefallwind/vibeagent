@@ -97,10 +97,11 @@ class CliApprovalHelpersTests(unittest.TestCase):
         self.assertEqual(handle_approval_command("allow", "ask"), ("allow", "Approval policy: allow"))
         self.assertEqual(handle_approval_command("deny", "allow"), ("deny", "Approval policy: deny"))
         self.assertEqual(handle_approval_command("dontAsk", "deny"), ("dontAsk", "Approval policy: dontAsk"))
+        self.assertEqual(handle_approval_command("auto", "ask"), ("auto", "Approval policy: auto"))
         self.assertEqual(handle_approval_command("plan", "dontAsk"), ("plan", "Approval policy: plan"))
         self.assertEqual(
             handle_approval_command("bad", "deny"),
-            ("deny", "Usage: /approval [ask|allow|deny|dontAsk|plan]"),
+            ("deny", "Usage: /approval [ask|allow|auto|deny|dontAsk|plan]"),
         )
 
     def test_build_approval_handler_uses_policy_without_prompting(self) -> None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from .auto_mode import AutoModeRuntime
 from .actions import ActionParseError, parse_tool_action
 from .action_tool_aliases import tool_name_is_restricted
 from .agent_execution_support import (
@@ -163,6 +164,7 @@ def execute_delegate_tool_call(
     coordination_tool_names: frozenset[str] = frozenset(),
     tool_id: str | None = None,
     hook_model_runtime: HookModelRuntime | None = None,
+    auto_mode_runtime: AutoModeRuntime | None = None,
     teammate_name: str | None = None,
 ) -> DelegateToolCallExecution:
     halt_turn_message: str | None = None
@@ -281,6 +283,7 @@ def execute_delegate_tool_call(
             apply_updated_input=prepare_tool_input,
             tool_use_id=tool_id,
             hook_model_runtime=hook_model_runtime,
+            auto_mode_runtime=auto_mode_runtime,
         )
     except ActionParseError as error:
         observation = tool_error_observation(tool_name, error)
@@ -374,6 +377,7 @@ def execute_delegate_action(
     apply_updated_input: Callable[[dict[str, object]], object] | None = None,
     tool_use_id: str | None = None,
     hook_model_runtime: HookModelRuntime | None = None,
+    auto_mode_runtime: AutoModeRuntime | None = None,
 ) -> tuple[Observation, bool, tuple[HookRunResult, ...], str | None]:
     action_type = getattr(parsed, "type", None)
     if mode == "explore":
@@ -411,6 +415,7 @@ def execute_delegate_action(
             apply_updated_input=apply_updated_input,
             tool_use_id=tool_use_id,
             hook_model_runtime=hook_model_runtime,
+            auto_mode_runtime=auto_mode_runtime,
         )
     if tool_name in CODE_DELEGATE_EXCLUDED_TOOL_NAMES or action_type in CODE_DELEGATE_EXCLUDED_TOOL_NAMES:
         return (
@@ -442,6 +447,7 @@ def execute_delegate_action(
         apply_updated_input=apply_updated_input,
         tool_use_id=tool_use_id,
         hook_model_runtime=hook_model_runtime,
+        auto_mode_runtime=auto_mode_runtime,
     )
 
 
@@ -464,6 +470,7 @@ def _execute_delegate_with_tool_layer(
     apply_updated_input: Callable[[dict[str, object]], object] | None = None,
     tool_use_id: str | None = None,
     hook_model_runtime: HookModelRuntime | None = None,
+    auto_mode_runtime: AutoModeRuntime | None = None,
 ) -> tuple[Observation, bool, tuple[HookRunResult, ...], str | None]:
     execution = execute_parsed_tool_action(
         workspace,
@@ -487,6 +494,7 @@ def _execute_delegate_with_tool_layer(
         False,
         tool_use_id,
         hook_model_runtime,
+        auto_mode_runtime,
     )
     if execution.auto_checkpoint is not None:
         observations.append(execution.auto_checkpoint)

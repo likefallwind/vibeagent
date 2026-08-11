@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from .auto_mode import AutoModeRuntime
 from .agent_delegate_completion import clip_delegate_summary, delegate_completion_message, finish_delegate_task
 from .agent_delegate_context import compact_delegate_message_history, recover_delegate_context_limit
 from .agent_delegate_events import record_delegate_model_response, record_delegate_tool_call
@@ -64,6 +65,7 @@ class DelegateLoopContext:
     cancel_requested: Callable[[], bool] | None
     nested_runtime: NestedDelegateRuntime
     hook_model_runtime: HookModelRuntime | None = None
+    auto_mode_runtime: AutoModeRuntime | None = None
     transcript_checkpoint: Callable[[list[ChatMessage]], None] | None = None
     inbox: DelegateInbox | None = None
 
@@ -235,6 +237,7 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                     context.nested_runtime.coordination_tool_names
                 ),
                 hook_model_runtime=context.hook_model_runtime,
+                auto_mode_runtime=context.auto_mode_runtime,
                 teammate_name=context.nested_runtime.team_member_name,
             )
             auto_checkpoint_attempted = execution.auto_checkpoint_attempted

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from collections.abc import Callable
 
+from .auto_mode import AutoModeRuntime
 from .actions import ActionParseError, parse_tool_action
 from .agent_runtime_utils import append_session_event, tool_error_observation
 from .agent_hook_updated_input import apply_hook_supplied_answers
@@ -82,6 +83,7 @@ def execute_sequential_tool_call(
     tool_ceiling_names: frozenset[str] | None = None,
     defer_tool_calls: bool = False,
     hook_model_runtime: HookModelRuntime | None = None,
+    auto_mode_runtime: AutoModeRuntime | None = None,
 ) -> SequentialToolCallResult:
     tool_id = str(block.get("id") or "")
     tool_name = str(block.get("name") or "")
@@ -159,6 +161,7 @@ def execute_sequential_tool_call(
                 defer_tool_calls=defer_tool_calls,
                 tool_use_id=tool_id,
                 hook_model_runtime=hook_model_runtime,
+                auto_mode_runtime=auto_mode_runtime,
             )
             observation = wrapped.observation
             hook_results = wrapped.hook_results
@@ -203,6 +206,7 @@ def execute_sequential_tool_call(
                     defer_tool_calls,
                     tool_id,
                     hook_model_runtime,
+                    auto_mode_runtime,
                 )
             observation = execution.observation
             hook_results = execution.hook_results
