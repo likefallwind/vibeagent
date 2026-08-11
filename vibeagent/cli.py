@@ -42,9 +42,11 @@ from .cli_agent_view import run_agent_view_from_cli
 from .cli_background_agent_attach import attach_background_agent_from_cli
 from .cli_background_agent_launch import launch_background_agent_from_cli
 from .cli_background_agent_followup import (
+    background_agent_worker_config,
     prepare_background_agent_followup,
     record_background_agent_session_root,
 )
+from .background_agent_approval import background_agent_approval_handler
 from .cli_code_intel_local_flags import run_code_intel_local_flag, run_python_local_flag
 from .cli_command_local_flags import run_command_local_flag
 from .cli_edit_local_flags import run_edit_local_flag
@@ -216,6 +218,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                     session_dir=source_root / ".vibeagent" / "sessions" / "cli-worktree",
                 )
                 startup_policy = args.approval or "ask"
+                startup_approval_handler = (
+                    background_agent_approval_handler(
+                        background_agent_worker_config(args),
+                        startup_policy,
+                    )
+                    or build_approval_handler(startup_policy)
+                )
                 worktree = create_cli_worktree(
                     source_root,
                     args.worktree or None,
@@ -223,7 +232,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         read_project_hooks(startup_workspace),
                         ProjectPermissions(),
                         startup_policy,
-                        build_approval_handler(startup_policy),
+                        startup_approval_handler,
                         30_000,
                     ),
                 )

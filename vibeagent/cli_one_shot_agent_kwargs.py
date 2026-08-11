@@ -11,10 +11,9 @@ from .workspace_permissions import ProjectPermissions
 from .peer_runtime import PeerSessionRuntime
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .model_streaming import AgentModelStreamHandler
-from .background_agent_approval import BackgroundApprovalPrompt
+from .background_agent_approval import background_agent_approval_handler
 from .background_agent_config import BackgroundAgentConfig
 from .background_agent_input import BackgroundUserInputPrompt
-from .session_approval import SessionApprovalHandler
 
 
 def build_one_shot_agent_kwargs(
@@ -45,10 +44,9 @@ def build_one_shot_agent_kwargs(
     model_stream_handler: AgentModelStreamHandler | None = None,
     background_agent_config: BackgroundAgentConfig | None = None,
 ) -> dict[str, object]:
-    background_approval = (
-        SessionApprovalHandler(BackgroundApprovalPrompt(background_agent_config))
-        if background_agent_config is not None and approval_policy == "ask"
-        else None
+    background_approval = background_agent_approval_handler(
+        background_agent_config,
+        approval_policy,
     )
     kwargs: dict[str, object] = {
         "client": client,

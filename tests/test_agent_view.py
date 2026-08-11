@@ -283,6 +283,31 @@ class AgentViewTests(unittest.TestCase):
             ["--background", "--", "--model should remain task text"],
         )
 
+    def test_project_backend_dispatch_isolates_git_project_in_generated_worktree(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-agent-view-") as base:
+            root = Path(base).resolve()
+            backend = ProjectAgentViewBackend(root, root)
+            launched = _view(root, "aaaaaaaaaaaa", status="running", task="task")
+            with (
+                patch(
+                    "vibeagent.agent_view_backend._supports_isolated_dispatch",
+                    return_value=True,
+                ),
+                patch(
+                    "vibeagent.agent_view_backend.launch_background_agent",
+                    return_value=launched,
+                ) as launch,
+            ):
+                result = backend.dispatch("implement parser")
+
+        self.assertEqual(result, launched)
+        self.assertEqual(
+            launch.call_args.args[2],
+            ["--background", "--worktree", "--", "implement parser"],
+        )
+
     def test_agents_command_routes_to_dashboard_without_becoming_a_task(self) -> None:
         args = parse_args(["agents", "--cwd", "."])
         self.assertTrue(args.agent_view)

@@ -5,6 +5,8 @@ import json
 import os
 from pathlib import Path
 import stat
+import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -16,9 +18,68 @@ from vibeagent import background_agent_process as process_runtime
 from vibeagent import background_agent_store as store
 from vibeagent.background_agent_worker import run_worker
 from vibeagent.background_agent_inbox import pending_background_agent_message_count
+from vibeagent.background_agent_config import read_background_agent_config
+from vibeagent.background_agent_approval import decide_background_approval
+from vibeagent.agent_view_backend import ProjectAgentViewBackend
 
 
 class BackgroundAgentRuntimeTests(unittest.TestCase):
+    def test_agent_view_worktree_hook_waits_for_dashboard_approval(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-background-agent-") as base:
+            root = Path(base).resolve()
+            self._init_git_repo(root)
+            custom = root / "custom-worktrees"
+            hook_command = (
+                f'{sys.executable} -c "import json,sys,pathlib; '
+                "d=json.load(sys.stdin); "
+                f"p=pathlib.Path({str(custom)!r})/d['name']; "
+                'p.mkdir(parents=True); print(p)"'
+            )
+            hooks_path = root / ".vibeagent" / "hooks.json"
+            hooks_path.parent.mkdir(parents=True)
+            hooks_path.write_text(
+                json.dumps(
+                    {
+                        "WorktreeCreate": [
+                            {"hooks": [{"type": "command", "command": hook_command}]}
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with patch.dict(
+                os.environ,
+                {"MINIMAX_API_KEY": "", "MINIMAX_API": "", "minimax_api": ""},
+            ):
+                view = ProjectAgentViewBackend(root, root).dispatch("inspect app")
+                waiting = self._wait_for_status(root, view, "needs-input")
+                decide_background_approval(root, view.record.id, approved=True)
+                self._wait_for_exit(root, view)
+            config = read_background_agent_config(root, view.record.id)
+
+            self.assertEqual(waiting.status, "needs-input")
+            self.assertEqual(config.session_root.parent, custom)
+
+    def test_agent_view_dispatch_creates_and_records_isolated_git_worktree(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-background-agent-") as base:
+            root = Path(base).resolve()
+            self._init_git_repo(root)
+            with patch.dict(
+                os.environ,
+                {"MINIMAX_API_KEY": "", "MINIMAX_API": "", "minimax_api": ""},
+            ):
+                view = ProjectAgentViewBackend(root, root).dispatch("inspect app")
+                self._wait_for_exit(root, view)
+            config = read_background_agent_config(root, view.record.id)
+
+            self.assertNotEqual(config.session_root, root)
+            self.assertEqual(
+                config.session_root.parent,
+                root / ".vibeagent" / "worktrees",
+            )
+            self.assertTrue((config.session_root / "app.py").is_file())
+            self.assertIn("--worktree", config.base_argv)
+
     def test_detached_worker_survives_launcher_and_records_cli_failure(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-background-agent-") as base:
             root = Path(base).resolve()
@@ -77,6 +138,32 @@ class BackgroundAgentRuntimeTests(unittest.TestCase):
         if store.read_background_agent_exit_code(view.record.exit_code_path) is None:
             runtime.stop_background_agent(root, view.record.id)
             self.fail("Detached worker did not record an exit status")
+
+    def _wait_for_status(self, root: Path, view, status: str):
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            current = runtime.get_background_agent(root, view.record.id)
+            if current is not None and current.status == status:
+                return current
+            time.sleep(0.02)
+        runtime.stop_background_agent(root, view.record.id)
+        self.fail(f"Detached worker did not reach status {status}")
+
+    def _init_git_repo(self, root: Path) -> None:
+        subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=root,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            cwd=root,
+            check=True,
+        )
+        (root / "app.py").write_text("value = 1\n", encoding="utf-8")
+        subprocess.run(["git", "add", "app.py"], cwd=root, check=True)
+        subprocess.run(["git", "commit", "-qm", "initial"], cwd=root, check=True)
 
     def test_launch_persists_private_record_and_consumable_payload(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-background-agent-") as base:

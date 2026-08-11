@@ -18,7 +18,8 @@ from .background_agent_store import (
     write_private_json_atomic,
 )
 from .background_agent_types import BACKGROUND_AGENT_ID_PATTERN
-from .types import ApprovalDecision, ApprovalRequest
+from .session_approval import SessionApprovalHandler
+from .types import ApprovalDecision, ApprovalHandler, ApprovalPolicy, ApprovalRequest
 
 
 APPROVAL_VERSION = 1
@@ -74,6 +75,15 @@ class BackgroundApprovalPrompt:
                 if current is not None and current.request_id == request_id:
                     request_path.unlink(missing_ok=True)
                 response_path.unlink(missing_ok=True)
+
+
+def background_agent_approval_handler(
+    config: BackgroundAgentConfig | None,
+    approval_policy: ApprovalPolicy,
+) -> ApprovalHandler | None:
+    if config is None or approval_policy != "ask":
+        return None
+    return SessionApprovalHandler(BackgroundApprovalPrompt(config))
 
 
 def read_background_approval(project_root: Path, agent_id: str) -> BackgroundApproval | None:
@@ -219,6 +229,7 @@ def _require_agent_id(agent_id: str) -> None:
 __all__ = [
     "BackgroundApproval",
     "BackgroundApprovalPrompt",
+    "background_agent_approval_handler",
     "decide_background_approval",
     "read_background_approval",
     "remove_background_approval",

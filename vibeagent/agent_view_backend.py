@@ -24,6 +24,7 @@ from .background_agent_runtime import (
     stop_background_agent,
 )
 from .background_agent_types import BackgroundAgentView
+from .workspace_git_utils import run_readonly_git
 
 
 class AgentViewBackend(Protocol):
@@ -104,10 +105,14 @@ class ProjectAgentViewBackend:
         return f"{verb} {approval.action_type} for {agent_id}."
 
     def dispatch(self, task: str) -> BackgroundAgentView:
+        argv = ["--background"]
+        if _supports_isolated_dispatch(self.project_root):
+            argv.append("--worktree")
+        argv.extend(["--", task])
         return launch_background_agent(
             self.project_root,
             self.invocation_root,
-            ["--background", "--", task],
+            argv,
             task_summary=task,
             session_name=None,
         )
@@ -139,6 +144,11 @@ class ProjectAgentViewBackend:
         if not removed:
             raise ValueError(message)
         return message
+
+
+def _supports_isolated_dispatch(project_root: Path) -> bool:
+    result = run_readonly_git(project_root, ["rev-parse", "--is-inside-work-tree"])
+    return result.ok and result.stdout.strip() == "true"
 
 
 __all__ = ["AgentViewBackend", "ProjectAgentViewBackend"]

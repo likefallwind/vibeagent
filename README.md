@@ -270,7 +270,11 @@ output, Enter attaches, and single-key actions dispatch, reply, stop, respawn,
 approve or deny a pending side effect, answer a blocking `AskUserQuestion`, or
 confirm removal. Waiting interactions show bounded action risk or described
 question options under `Needs attention`; exact request IDs prevent stale
-answers from releasing a later request. The dashboard uses an alternate screen and restores the
+answers from releasing a later request. Dashboard dispatches from a Git project
+automatically start in a generated `.vibeagent/worktrees/` worktree so parallel
+agents do not write the same checkout; non-Git projects retain their original
+directory, and shell `--bg` sessions isolate only when explicitly passed
+`--worktree`. The dashboard uses an alternate screen and restores the
 original terminal on normal exit, interruption, prompts, and attach. It is
 project-scoped; machine-global aggregation across unrelated repositories is not
 part of the 1.0 dashboard.
