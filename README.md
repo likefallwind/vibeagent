@@ -954,7 +954,13 @@ Use `/help` to list local commands, `/model` to inspect the active interactive
 provider and model, `/model <model-name>` to switch the current interactive
 process after successfully constructing a replacement client, and `/model default`
 to restore the configured model without changing project settings or conversation
-history. Use `/config` to inspect resolved provider,
+history. `/effort` reports the current session reasoning level;
+`/effort low|medium|high|xhigh|max` applies an Anthropic effort override, and
+`/effort auto` returns to the provider/model default. Effort changes are
+atomic, survive later `/model` switches, reach coding, chat, BTW, recap,
+workflow, and subagent calls through the shared client, and fail without
+replacing the client when the provider does not support effort. Use `/config`
+to inspect resolved provider,
 execution, project config, and cost-rate settings, `/status` to inspect local mode, approval,
 and resume state, `/btw <question>` to ask one tool-free side question using the
 current mode's bounded conversation without adding the question or answer to
@@ -2172,7 +2178,7 @@ Core modules:
 
 - `vibeagent/cli.py`: interactive command-line entry point. It handles local
 commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-search`, `/permissions`, `/sandbox`, `/checks`, `/check-suggested-checks`, `/run-suggested-checks`, `/commands`, `/related-tests`, `/focused-tests`, `/check-focused-tests`, `/run-focused-tests`, `/manifests`, `/instructions`, `/todos`, `/command`, `/run`, `/check-run-seq`, `/run-seq`, `/check-start`, `/start`, `/port`, `/http`, `/http-fetch`, `/overview`, `/repo-map`, `/search`, `/search-contexts`, `/find-files`, `/glob`, `/tree`, `/symbols`, `/file-info`, `/image-info`, `/read`, `/around`, `/around-many`, `/output-contexts`, `/output-diagnostics`, `/python-traceback`, `/tail`, `/read-files`, `/read-ranges`, `/python-check`, `/python-deps`, `/python-defs`, `/python-refs`, `/python-ref-contexts`, `/python-calls`, `/python-call-graph`, `/python-rename-preview`, `/python-rename`, `/check-replace-python-def`, `/replace-python-def`, `/config-check`, `/check-json-set`, `/json-set`, `/check-json-remove`, `/json-remove`, `/check-json-patch`, `/json-patch`, `/check-replace-lines`, `/replace-lines`, `/check-insert-lines`, `/insert-lines`, `/check-append`, `/append`, `/check-write`, `/write`, `/check-write-files`, `/write-files`, `/check-edit`, `/edit`, `/check-multi-edit`, `/multi-edit`, `/check-delete`, `/delete`, `/check-delete-files`, `/delete-files`, `/check-move`, `/move`, `/check-move-files`, `/move-files`, `/check-copy`, `/copy`, `/check-copy-files`, `/copy-files`, `/check-move-dir`, `/move-dir`, `/check-move-dirs`, `/move-dirs`, `/check-copy-dir`, `/copy-dir`, `/check-copy-dirs`, `/copy-dirs`, `/check-mkdir`, `/mkdir`, `/check-mkdirs`, `/mkdirs`, `/check-rmdir`, `/rmdir`, `/check-rmdirs`, `/check-executable`, `/set-executable`, `/check-patch`, `/patch`, `/check-patches`, `/patches`, `/check-regex-replace`, `/regex-replace`, `/code-deps`, `/code-refs`, `/code-ref-contexts`, `/code-defs`, `/code-rename-preview`, `/code-rename`, `/git-status`, `/conflicts`, `/git-info`, `/branches`, `/log`, `/show`, `/blame`, `/stashes`, `/check-fetch`, `/fetch`, `/check-pull`, `/pull`, `/check-push`, `/push`, `/check-stash`, `/stash`, `/check-stash-apply`, `/stash-apply`, `/check-stash-drop`, `/stash-drop`, `/check-stage`, `/stage`, `/check-unstage`, `/unstage`, `/check-commit`, `/commit`, `/check-restore`, `/restore`, `/check-switch`, `/switch`, `/env`, `/processes`, `/process`, `/process-output-contexts`, `/process-output-diagnostics`, `/wait-process`, `/check-write-process`, `/write-process`, `/check-stop-process`, `/stop-process`, `/check-stop-processes`, `/check-stop-all-processes`, `/stop-processes`, `/stop-all-processes`, `/status`, `/context`, `/init`, `/doctor`, `/review`, `/handoff`, `/changes`, `/diff`, `/diff-hunks`, `/diff-contexts`, `/clear`, `/usage`, `/cost`, `/approval`, `/plan`, `/transcript`, `/rename`, `/export`, `/session-search`, `/session-commands`, `/session-output-contexts`, `/session-output-diagnostics`, `/session-files`, `/session-failures`, `/session-verification`, `/run-session-verification`, `/session-audit`, `/session-handoff`, `/checkpoint`, `/checkpoints`, `/checkpoint-show`, `/checkpoint-diff`, `/checkpoint-status`, `/check-checkpoint-restore`, `/checkpoint-restore`, `/check-checkpoint-delete`, `/checkpoint-delete`, `/check-checkpoint-prune`, `/checkpoint-prune`, `/resume`,
-  `/compact`, `/branch`, `/add-dir`, `/goal`, `/btw`, `/recap`, `/chat`, `/code`, and
+  `/compact`, `/branch`, `/add-dir`, `/goal`, `/effort`, `/btw`, `/recap`, `/chat`, `/code`, and
   `/exit`, then delegates input to the selected mode.
   `/custom-commands` lists prompt templates from personal
   `~/.claude/commands/**/*.md` and project `.claude/commands/**/*.md` or
@@ -2194,9 +2200,10 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
 - `vibeagent/session_recap.py`: owns bounded manual and idle conversation
   summaries, per-mode turn and cooldown state, and isolated automatic provider
   calls that never mutate or persist the main conversation.
-- `vibeagent/cli_interactive_model.py` and
+- `vibeagent/cli_interactive_model.py`,
+  `vibeagent/cli_interactive_effort.py`, and
   `vibeagent/cli_interactive_provider_commands.py`: validate session-only model
-  overrides, map them to provider-specific configuration, and keep model/BTW/recap
+  and effort overrides, map them to provider capabilities, and keep model/effort/BTW/recap
   provider command execution out of the main interactive loop.
 - `vibeagent/agent.py`: orchestrates the ReAct loop. It creates a run
   session, builds model prompts, executes optional tool calls, records events,

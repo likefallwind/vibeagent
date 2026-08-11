@@ -10,6 +10,7 @@ def get_status_report(
     chat_turns: int = 0,
     system_prompt_set: bool = False,
     append_system_prompt_set: bool = False,
+    effort: str = "auto",
 ) -> dict[str, object]:
     return {
         "version": __version__,
@@ -17,6 +18,7 @@ def get_status_report(
         "approval": approval_policy,
         "resume": resume_run_id or "",
         "chatTurns": chat_turns,
+        "effort": effort,
         "systemPrompt": "custom" if system_prompt_set else "default",
         "appendSystemPrompt": "set" if append_system_prompt_set else "none",
         "message": "Runtime status resolved.",
@@ -33,6 +35,7 @@ def format_status_report_text(report: dict[str, object]) -> str:
             f"  approval: {report.get('approval') or ''}",
             f"  resume: {resume}",
             f"  chatTurns: {int(report.get('chatTurns', 0) or 0)}",
+            f"  effort: {report.get('effort') or 'auto'}",
             f"  systemPrompt: {report.get('systemPrompt') or 'default'}",
             f"  appendSystemPrompt: {report.get('appendSystemPrompt') or 'none'}",
         ]
@@ -46,6 +49,7 @@ def get_status_text(
     chat_turns: int = 0,
     system_prompt_set: bool = False,
     append_system_prompt_set: bool = False,
+    effort: str = "auto",
 ) -> str:
     return format_status_report_text(
         get_status_report(
@@ -53,6 +57,7 @@ def get_status_text(
             approval_policy,
             resume_run_id,
             chat_turns,
+            effort=effort,
             system_prompt_set=system_prompt_set,
             append_system_prompt_set=append_system_prompt_set,
         )

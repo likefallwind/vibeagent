@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from threading import Lock
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from . import __version__
 from .agent import run_agent as default_run_agent
@@ -57,6 +57,7 @@ from .cli_system_prompt_state import update_system_prompt_state
 from .cli_additional_directory_state import update_additional_directory_state
 from .cli_interactive_branch import prepare_interactive_branch_switch
 from .cli_interactive_model import interactive_provider_env
+from .cli_interactive_effort import configure_interactive_effort
 from .cli_interactive_provider_commands import run_interactive_provider_command
 from .cli_interactive_rewind import run_interactive_rewind_command
 from .cli_interactive_session_management import interactive_session_prompt, run_interactive_session_management
@@ -77,7 +78,7 @@ from .goal_state import (
 )
 from .interactive_shell import SHELL_MODE_USAGE, parse_shell_mode_input, run_interactive_shell
 from .providers import create_chat_client as default_create_chat_client
-from .types import ApprovalPolicy, ChatMessage
+from .types import ApprovalPolicy, ChatClient, ChatMessage
 from .dynamic_agent_profiles import DynamicAgentProfile
 from .scheduled_task_store import collect_due_scheduled_tasks, scheduled_tasks_enabled
 from .session_usage import summarize_run_usage
@@ -148,6 +149,7 @@ def run_interactive_loop(
 
     client = None
     model_override: str | None = None
+    effort_override: str | None = None
     mode = "code"
     approval_policy: ApprovalPolicy = "ask"
     approval_handler = build_approval_handler(approval_policy)
@@ -181,6 +183,12 @@ def run_interactive_loop(
         restored_goal = read_session_goal(Path.cwd(), initial_resume_run_id)
         goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
 
+    def create_interactive_client(provider_env: dict[str, str | None]) -> ChatClient:
+        return configure_interactive_effort(
+            cast(ChatClient, create_chat_client_func(provider_env)),
+            effort_override,
+        )
+
     def run_code_task(task: str, task_metadata: dict[str, object] | None = None) -> tuple[object, str | None]:
         nonlocal client, resume_run_id, resume_context, pending_workspace, pending_branch_source_run_id
         nonlocal conversation_messages, approval_policy, approval_handler
@@ -196,7 +204,7 @@ def run_interactive_loop(
         )
         for error in directory_hook_errors:
             print(f"DirectoryAdded hook warning: {error}")
-        client = client or create_chat_client_func(interactive_provider_env(Path.cwd(), model_override))
+        client = client or create_interactive_client(interactive_provider_env(Path.cwd(), model_override))
         panel = SubagentPanel(Path.cwd())
         panel.authorize_custom(approval_handler, approval_policy)
         initial_panel_error = panel.config_error
@@ -322,7 +330,7 @@ def run_interactive_loop(
             recap_states[selected_mode],
             history=history,
             provider_env=interactive_provider_env(Path.cwd(), model_override),
-            create_chat_client=create_chat_client_func,
+            create_chat_client=create_interactive_client,
             run_recap=run_recap_func,
             execution_config=resolve_execution_config(Path.cwd()),
             system_prompt=system_prompt,
@@ -464,7 +472,7 @@ def run_interactive_loop(
         def execute_agent(request, cancel_requested):
             nonlocal client
             with workflow_client_lock:
-                client = client or create_chat_client_func(interactive_provider_env(Path.cwd(), model_override))
+                client = client or create_interactive_client(interactive_provider_env(Path.cwd(), model_override))
             return execute_workflow_agent_request(
                 workspace,
                 request,
@@ -607,12 +615,13 @@ def run_interactive_loop(
                 peer_runtime.close()
             plugin_auto_updates.close()
             return 0
-        if command and command.type in {"model", "btw", "recap"}:
+        if command and command.type in {"model", "effort", "btw", "recap"}:
             update = run_interactive_provider_command(
                 command.type,
                 command.argument,
                 project_root=Path.cwd(),
                 current_override=model_override,
+                current_effort=effort_override,
                 current_client=client,
                 create_chat_client=create_chat_client_func,
                 run_btw=run_btw_func,
@@ -621,12 +630,15 @@ def run_interactive_loop(
                 system_prompt=system_prompt,
                 append_system_prompt=append_system_prompt,
             )
-            if update.model_changed:
+            if update.model_changed or update.effort_changed:
                 with workflow_client_lock:
                     client = update.client
-                model_override = update.model_override
             else:
                 client = update.client
+            if update.model_changed:
+                model_override = update.model_override
+            if update.effort_changed:
+                effort_override = update.effort_override
             if command.type == "recap" and update.provider_succeeded:
                 recap_states[mode].record_attempt()
                 recap_states[mode].record_success()
@@ -673,6 +685,7 @@ def run_interactive_loop(
                 resume_run_id=resume_run_id,
                 resume_context=resume_context,
                 chat_turns=len(chat_history) // 2,
+                effort=effort_override or "auto",
                 system_prompt_set=bool(system_prompt),
                 append_system_prompt_set=bool(append_system_prompt),
             )
@@ -982,7 +995,7 @@ def run_interactive_loop(
         try:
             # Reuse client across turns so auth/model config is loaded once.
             execution_config = resolve_execution_config(Path.cwd())
-            client = client or create_chat_client_func(interactive_provider_env(Path.cwd(), model_override))
+            client = client or create_interactive_client(interactive_provider_env(Path.cwd(), model_override))
             if request_mode == "chat":
                 response = run_chat_func(
                     task,

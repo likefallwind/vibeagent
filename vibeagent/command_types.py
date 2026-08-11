@@ -8,6 +8,7 @@ CoreCommandType: TypeAlias = Literal[
     "exit",
     "help",
     "model",
+    "effort",
     "config",
     "custom_commands",
     "plugin",

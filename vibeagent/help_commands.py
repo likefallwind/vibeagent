@@ -9,6 +9,7 @@ def get_help_text() -> str:
             "  @path[#Lx-Ly]  Attach a bounded file or exact text line range; press Tab for path completion.",
             "  /help   Show this help.",
             "  /model [model-name|default]  Show or switch the interactive session model.",
+            "  /effort [auto|low|medium|high|xhigh|max]  Show or switch session reasoning effort.",
             "  /btw <question>  Ask one ephemeral, tool-free question using the current conversation.",
             "  /recap  Generate one concise, tool-free recap of the current conversation.",
             "  /config Show resolved provider and execution configuration.",

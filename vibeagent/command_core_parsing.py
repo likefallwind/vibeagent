@@ -10,6 +10,8 @@ def parse_core_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("help", None)
     if trimmed == "/model" or trimmed.startswith("/model "):
         return make_local_command("model", trimmed[6:].strip() or None)
+    if trimmed == "/effort" or trimmed.startswith("/effort "):
+        return make_local_command("effort", trimmed[7:].strip() or None)
     if trimmed == "/config":
         return make_local_command("config", None)
     if trimmed == "/custom-commands":

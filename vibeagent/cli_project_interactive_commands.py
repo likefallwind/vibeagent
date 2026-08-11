@@ -183,6 +183,7 @@ def run_interactive_project_state_command(
     resume_run_id: str | None,
     resume_context: str | None,
     chat_turns: int,
+    effort: str = "auto",
     system_prompt_set: bool = False,
     append_system_prompt_set: bool = False,
 ) -> str | None:
@@ -192,6 +193,7 @@ def run_interactive_project_state_command(
             approval_policy,
             resume_run_id,
             chat_turns=chat_turns,
+            effort=effort,
             system_prompt_set=system_prompt_set,
             append_system_prompt_set=append_system_prompt_set,
         )

@@ -12,7 +12,14 @@ from vibeagent.workspace_core import create_run_workspace
 
 
 class RecapClient:
-    pass
+    def __init__(self, effort: str | None = None) -> None:
+        self.effort = effort
+
+    def complete(self, *_args: object, **_kwargs: object) -> str:
+        return "done"
+
+    def with_agent_profile(self, *, model: str | None, effort: str | None) -> "RecapClient":
+        return RecapClient(self.effort if effort is None else effort)
 
 
 class InteractiveRecapTests(unittest.TestCase):
@@ -95,7 +102,7 @@ class InteractiveRecapTests(unittest.TestCase):
                     ],
                 )
 
-            prompts = iter(["one", "two", "three", "/exit"])
+            prompts = iter(["/effort high", "one", "two", "three", "/exit"])
 
             def idle_input(_prompt: str, callback, **_kwargs: object) -> str:
                 callback()
@@ -123,7 +130,8 @@ class InteractiveRecapTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(len(clients), 2)
-        self.assertIs(recap_clients[0], clients[1])
+        self.assertEqual(recap_clients[0].effort, "high")  # type: ignore[union-attr]
+        self.assertIsNot(recap_clients[0], clients[1])
         self.assertIsNot(recap_clients[0], clients[0])
         self.assertIn("Session recap: three turns completed", stdout.getvalue())
 

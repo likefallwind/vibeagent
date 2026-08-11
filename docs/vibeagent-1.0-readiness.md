@@ -103,6 +103,11 @@ The automated suite currently covers these 1.0 surfaces:
   provider and replaces the shared client only after successful construction,
   and `/model default` restores configuration while coding/chat history remains
   intact and project settings remain unchanged.
+- Interactive effort selection: `/effort` reports `auto` or the current
+  session override, supported Anthropic clients accept `low`, `medium`, `high`,
+  `xhigh`, and `max`, `/effort auto` rebuilds the provider/model default client,
+  and later model switches preserve the override. Invalid or unsupported
+  changes atomically keep the prior client and effort state.
 - Durable main-session conversation continuity: private atomic checkpoints at
   safe model/tool boundaries, fresh system/project context on every prompt,
   explicit resume and branch restoration, corrupt-state handoff fallback, and

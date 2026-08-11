@@ -542,6 +542,8 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(parse_local_command("/help"), LocalCommand(type="help"))
         self.assertEqual(parse_local_command("  /model  "), LocalCommand(type="model"))
         self.assertEqual(parse_local_command("/model claude-opus-5"), LocalCommand(type="model", argument="claude-opus-5"))
+        self.assertEqual(parse_local_command("/effort"), LocalCommand(type="effort"))
+        self.assertEqual(parse_local_command("/effort high"), LocalCommand(type="effort", argument="high"))
         self.assertEqual(parse_local_command("/config"), LocalCommand(type="config"))
         self.assertEqual(parse_local_command("/custom-commands"), LocalCommand(type="custom_commands"))
         self.assertEqual(parse_local_command("/agents"), LocalCommand(type="agents"))
@@ -8402,6 +8404,7 @@ class CommandTests(unittest.TestCase):
             chat_turns=2,
             system_prompt_set=True,
             append_system_prompt_set=True,
+            effort="high",
         )
 
         self.assertIn("Status:", text)
@@ -8410,6 +8413,7 @@ class CommandTests(unittest.TestCase):
         self.assertIn("approval: allow", text)
         self.assertIn("resume: run-1", text)
         self.assertIn("chatTurns: 2", text)
+        self.assertIn("effort: high", text)
         self.assertIn("systemPrompt: custom", text)
         self.assertIn("appendSystemPrompt: set", text)
 
@@ -8422,6 +8426,7 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(report["approval"], "allow")
         self.assertEqual(report["resume"], "run-1")
         self.assertEqual(report["chatTurns"], 2)
+        self.assertEqual(report["effort"], "auto")
         self.assertEqual(report["systemPrompt"], "custom")
         self.assertEqual(report["appendSystemPrompt"], "none")
         rendered = format_status_report_text(report)
