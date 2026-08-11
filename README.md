@@ -198,6 +198,27 @@ non-symlink workspace path. VibeAgent does not install a browser automatically,
 reuse a logged-in browser profile, expose JavaScript evaluation, or provide
 cookie, credential, upload, proxy, or network-interception operations.
 
+For native VS Code terminal and editor context integration, build and install
+the dependency-free extension:
+
+```sh
+python3 scripts/build_vscode_extension.py
+code --install-extension dist/vibeagent-vscode-1.0.0.vsix
+```
+
+The extension contributes commands to open one interactive VibeAgent terminal
+per workspace, run a one-shot task against the active selection, insert an
+`@path#Lx-Ly` reference, send up to 20 bounded diagnostics, and open the active
+file against Git `HEAD` in VS Code's native diff viewer. VibeAgent still runs in
+a real terminal, so approval prompts retain their normal TTY behavior. The
+extension launches an executable plus argument array without shell command
+interpolation; those settings are machine-scoped so repository configuration
+cannot replace the executable. Diagnostics are marked untrusted, stripped of
+control characters and active `@file` syntax, and bounded before they enter a
+task. Building the VSIX is deterministic and includes only an explicit source
+allowlist. The extension never opens VS Code or a file manager by itself; its
+commands run only after an explicit editor action.
+
 Before cutting a release, verify an editable install from outside the source
 tree:
 
@@ -2552,6 +2573,10 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   navigation, accessibility snapshots, bounded interactions and reads,
   console/error inspection, atomic workspace screenshots, and cleanup through
   an isolated `agent-browser` session without accepting arbitrary CLI options.
+- `extensions/vscode/` and `scripts/build_vscode_extension.py`: provide a
+  dependency-free VS Code extension for terminal launch, selected-file
+  references, bounded diagnostic handoff, and native Git diff review, plus a
+  deterministic allowlisted VSIX build.
 - `vibeagent/session_tasks.py`, `vibeagent/session_task_store.py`, and
   `vibeagent/session_task_graph.py`: manage the session-scoped structured task
   graph, atomic persistence, resume inheritance, and dependency invariants.

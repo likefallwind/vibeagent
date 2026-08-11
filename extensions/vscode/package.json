@@ -1,0 +1,86 @@
+{
+  "name": "vibeagent-vscode",
+  "displayName": "VibeAgent",
+  "description": "Run VibeAgent from VS Code with selection, diagnostics, and native diff integration.",
+  "version": "1.0.0",
+  "publisher": "vibeagent",
+  "engines": {
+    "vscode": "^1.98.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "agent",
+    "coding",
+    "ai"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onCommand:vibeagent.open",
+    "onCommand:vibeagent.askSelection",
+    "onCommand:vibeagent.insertReference",
+    "onCommand:vibeagent.sendDiagnostics",
+    "onCommand:vibeagent.reviewCurrentFile"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "vibeagent.open",
+        "title": "VibeAgent: Open Interactive Session"
+      },
+      {
+        "command": "vibeagent.askSelection",
+        "title": "VibeAgent: Ask About Selection"
+      },
+      {
+        "command": "vibeagent.insertReference",
+        "title": "VibeAgent: Insert File Reference"
+      },
+      {
+        "command": "vibeagent.sendDiagnostics",
+        "title": "VibeAgent: Send Current Diagnostics"
+      },
+      {
+        "command": "vibeagent.reviewCurrentFile",
+        "title": "VibeAgent: Review Current File Changes"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "vibeagent.insertReference",
+        "key": "alt+k",
+        "mac": "cmd+alt+k",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "VibeAgent",
+      "properties": {
+        "vibeagent.executable": {
+          "type": "string",
+          "default": "python",
+          "scope": "machine",
+          "description": "Executable used to launch VibeAgent."
+        },
+        "vibeagent.arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "-m",
+            "vibeagent"
+          ],
+          "scope": "machine",
+          "description": "Arguments placed before VibeAgent session options."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "node --check extension.js && node --check src/core.js"
+  }
+}

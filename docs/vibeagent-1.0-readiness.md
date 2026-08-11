@@ -98,6 +98,17 @@ paths. Deterministic tests mock only the external process boundary, while a
 real local Chromium smoke opens a fixture page, snapshots it, fills and clicks
 controls, reads the changed DOM and clean console/error state, writes a
 screenshot whose pixels are inspected, and closes the browser.
+The dependency-free VS Code extension adds an editor-native path without
+replacing VibeAgent's terminal approval boundary. Commands launch an interactive
+session, pass the active file or exact selected lines as a quoted `@path`
+reference, hand off at most 20 sanitized diagnostics as explicitly untrusted
+evidence, and compare the active file with Git `HEAD` in VS Code's diff viewer.
+Machine-scoped executable configuration prevents a repository from replacing
+the launch command, argument arrays avoid shell interpolation, and workspace
+path validation prevents outside-file references. The deterministic VSIX build
+contains only declared runtime files. An isolated VS Code Server install under
+`/tmp` accepts the package and lists `vibeagent.vibeagent-vscode@1.0.0`; no real
+user extension directory or GUI is touched by that verification.
 
 That release gate expands to:
 
@@ -127,6 +138,10 @@ The automated suite currently covers these 1.0 surfaces:
   from outside the checkout, installs the package editable, and verifies both
   `python -m vibeagent --version` and `vibeagent --version`.
 - Core ReAct loop: inspect, edit, run checks, repair, review, commit, finish.
+- VS Code integration: machine-scoped exact process launch, interactive TTY
+  approvals, active-file and half-open selection references, quoted paths,
+  bounded sanitized diagnostics, native Git diff routing, deterministic VSIX
+  packaging, and isolated VS Code Server installation.
 - Built-in `/code-review` expansion in interactive and print modes: bounded
   effort/target parsing, verified multi-agent review, read-only default behavior,
   explicit `--fix`, and fail-closed unsupported cloud/comment options before

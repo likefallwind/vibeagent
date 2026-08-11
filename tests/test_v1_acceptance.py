@@ -203,6 +203,14 @@ EXPECTED_GATES = {
             "test_screenshot_is_atomically_written_inside_workspace",
         },
     },
+    "VA1-IDE": {
+        "tools": set(),
+        "tests": {
+            "test_manifest_exposes_the_bounded_ide_commands",
+            "test_javascript_sources_parse_and_core_contract_passes",
+            "test_vsix_build_is_deterministic_and_contains_only_declared_sources",
+        },
+    },
     "VA1-GOAL": {
         "tools": set(),
         "tests": {"test_one_shot_goal_continues_until_evaluator_accepts"},
@@ -342,7 +350,11 @@ class V1AcceptanceTests(unittest.TestCase):
 
         self.assertEqual(
             package["scripts"]["test:v1:full"],
-            "npm run test:v1 && python3 -m unittest discover -s tests -t . -q",
+            "npm run test:v1 && npm run test:ide && python3 -m unittest discover -s tests -t . -q",
+        )
+        self.assertEqual(
+            package["scripts"]["test:ide"],
+            "node --test extensions/vscode/test/*.test.js",
         )
         self.assertEqual(
             package["scripts"]["test:v1:release"],
