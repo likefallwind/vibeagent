@@ -18,6 +18,11 @@ def add_background_agent_local_arguments(
         help="Open the interactive full-screen background agent dashboard.",
     )
     local.add_argument(
+        "--remote-control",
+        action="store_true",
+        help="Serve an authenticated browser control plane for project background agents.",
+    )
+    local.add_argument(
         "--background-agent-log",
         metavar="ID",
         help="Show bounded stdout and stderr for one background coding agent and exit.",
@@ -52,6 +57,29 @@ def add_background_agent_local_arguments(
 
 def add_background_agent_option_arguments(parser: argparse.ArgumentParser, *, positive_int) -> None:
     parser.add_argument(
+        "--remote-control-host",
+        default="127.0.0.1",
+        metavar="HOST",
+        help="IPv4 address for Remote Control (non-loopback addresses require TLS).",
+    )
+    parser.add_argument(
+        "--remote-control-port",
+        type=int,
+        default=0,
+        metavar="PORT",
+        help="Port for Remote Control; 0 selects an available port.",
+    )
+    parser.add_argument(
+        "--remote-control-cert",
+        metavar="PATH",
+        help="TLS certificate chain for non-loopback Remote Control.",
+    )
+    parser.add_argument(
+        "--remote-control-key",
+        metavar="PATH",
+        help="TLS private key for non-loopback Remote Control.",
+    )
+    parser.add_argument(
         "--_background-agent-followup",
         help=argparse.SUPPRESS,
     )
@@ -72,6 +100,8 @@ def normalize_background_agent_command_arguments(argv: Sequence[str]) -> list[st
     values = list(argv)
     if values and values[0] == "agents":
         return ["--agent-view", *values[1:]]
+    if values and values[0] == "remote-control":
+        return ["--remote-control", *values[1:]]
     if len(values) >= 2 and values[0] == "attach":
         return ["--attach-background-agent", values[1], *values[2:]]
     return values

@@ -179,6 +179,14 @@ EXPECTED_GATES = {
             "test_controller_dispatches_and_returns_selected_attach",
         },
     },
+    "VA1-REMOTE": {
+        "tools": set(),
+        "tests": {
+            "test_assets_are_public_but_api_requires_exact_bearer_token",
+            "test_mutations_route_through_agent_view_backend",
+            "test_rejects_invalid_routes_payloads_and_non_tls_network_bind",
+        },
+    },
     "VA1-GOAL": {
         "tools": set(),
         "tests": {"test_one_shot_goal_continues_until_evaluator_accepts"},

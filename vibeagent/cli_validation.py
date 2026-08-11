@@ -12,6 +12,11 @@ from .session_names import normalize_session_name
 
 
 def validate_cli_args(args: argparse.Namespace) -> str | None:
+    remote_control = getattr(args, "remote_control", False)
+    remote_host = getattr(args, "remote_control_host", "127.0.0.1")
+    remote_port = getattr(args, "remote_control_port", 0)
+    remote_cert = getattr(args, "remote_control_cert", None)
+    remote_key = getattr(args, "remote_control_key", None)
     compat_error = getattr(args, "compat_error", None)
     if compat_error is not None:
         return compat_error
@@ -28,6 +33,20 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
             return "agents/--agent-view cannot be combined with a task."
         if args.json or args.output_format != "text":
             return "agents/--agent-view requires interactive text output."
+    if remote_control:
+        if args.task:
+            return "remote-control/--remote-control cannot be combined with a task."
+        if args.json or args.output_format != "text":
+            return "remote-control/--remote-control requires text output."
+    elif any(
+        value is not None
+        for value in (remote_cert, remote_key)
+    ) or remote_host != "127.0.0.1" or remote_port != 0:
+        return "Remote Control host, port, and TLS options require --remote-control."
+    if not 0 <= remote_port <= 65_535:
+        return "--remote-control-port must be between 0 and 65535."
+    if (remote_cert is None) != (remote_key is None):
+        return "--remote-control-cert and --remote-control-key must be provided together."
     if args.attach_background_agent is not None:
         if args.task:
             return "--attach-background-agent cannot be combined with a task."

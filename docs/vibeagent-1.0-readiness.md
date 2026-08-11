@@ -73,6 +73,18 @@ times, closes stdin, retains the selected approval policy, and requires
 credentials from the environment instead of persisted `--api-key` arguments.
 This release does not claim machine-global aggregation across unrelated project
 registries.
+Self-hosted `remote-control` starts a project-scoped browser control plane for
+the same detached supervisors. A generated 256-bit token authorizes bounded
+state/log reads plus dispatch, reply, approval, structured-answer, stop,
+respawn, and removal operations through the existing transition locks and
+validators. Static assets carry no token, API responses are no-store and
+frame-denied under a restrictive CSP, and non-loopback IPv4 binds require an
+explicit regular-file TLS certificate/key pair. Real loopback HTTP tests cover
+authentication and every route, Node parses the delivered JavaScript, and
+headless-browser checks cover connected desktop and mobile layouts without
+horizontal overflow. This self-hosted surface does not claim claude.ai/mobile
+account integration, active foreground conversation sync, or cross-project
+aggregation.
 
 That release gate expands to:
 

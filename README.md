@@ -227,6 +227,8 @@ python -m vibeagent attach <agent-id> --cwd ../my-project
 python -m vibeagent --send-background-agent <agent-id> "continue with the focused tests" --cwd ../my-project
 python -m vibeagent --respawn-background-agent <agent-id> --cwd ../my-project
 python -m vibeagent --remove-background-agent <agent-id> --cwd ../my-project
+python -m vibeagent remote-control --cwd ../my-project
+python -m vibeagent remote-control --cwd ../my-project --remote-control-host 192.0.2.10 --remote-control-cert ./cert.pem --remote-control-key ./key.pem
 python -m vibeagent --cwd ../my-project --add-dir ../shared-lib "update both codebases"
 python -m vibeagent --cwd ../my-project --add-dir ../shared-lib --add-dir ../schemas
 printf '{"type":"user","text":"inspect the change"}\n' | python -m vibeagent --input-format stream-json -
@@ -282,6 +284,19 @@ directory, and shell `--bg` sessions isolate only when explicitly passed
 original terminal on normal exit, interruption, prompts, and attach. It is
 project-scoped; machine-global aggregation across unrelated repositories is not
 part of the 1.0 dashboard.
+
+`remote-control` (also `--remote-control`) serves a responsive browser control
+plane for the same project-local background agents. It can dispatch tasks,
+refresh status and bounded logs, queue follow-ups, approve or deny side effects,
+answer structured questions, and stop, respawn, or remove workers. Each launch
+generates a 256-bit bearer token and prints it only in the URL fragment, while
+the API rejects unauthenticated requests, disables caching and framing, and
+applies a restrictive content security policy. The default listener is
+`127.0.0.1` on an available port. A non-loopback IPv4 listener is rejected
+unless `--remote-control-cert` and `--remote-control-key` provide TLS, so tokens
+are not sent over plaintext LAN traffic. This is a self-hosted Remote Control
+server for detached VibeAgent sessions; it does not connect to claude.ai, sync
+an active foreground conversation, or aggregate unrelated project registries.
 
 Background stdin remains closed. Ask-mode permission requests and model
 questions pause through private owner-only request/response files until they are
@@ -1617,9 +1632,10 @@ an explicit value, matching permission-mode classes deliver and mismatched
 classes hold for `/peer-inbox`. Socket and registration paths reject symlinks,
 Linux verifies the sender PID with `SO_PEERCRED`, duplicate messages are
 throttled, and delivered/held queues are bounded. Set
-`VIBEAGENT_DISABLE_CROSS_SESSION=1` to disable registration. This transport is
-same-machine only and does not implement Claude Remote Control or cross-machine
-replies.
+`VIBEAGENT_DISABLE_CROSS_SESSION=1` to disable registration. This peer-to-peer
+transport remains same-machine only and does not provide cross-machine
+`SendMessage` replies. The separate authenticated `remote-control` server can
+control project-local detached sessions from a browser.
 If a successful run finishes while the latest plan still
 has `pending` or `in_progress` items, the final result and session summary
 include a completion warning and completion blocker. If no plan exists after
@@ -2364,6 +2380,10 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   `vibeagent/background_agent_input.py`: persist exact private blocking
   interactions so a detached worker can safely resume its original tool call
   after Agent View supplies a permission decision or validated user answer.
+- `vibeagent/remote_control_server.py`, `vibeagent/remote_control_assets.py`, and
+  `vibeagent/cli_remote_control.py`: expose the same project-local background
+  supervisor through a token-authenticated, no-cache browser API and responsive
+  control surface; non-loopback listeners require caller-supplied TLS.
 - `vibeagent/background_agent_runtime.py` and
   `vibeagent/background_agent_worker.py`: launch or respawn a detached copy of
   the normal one-shot CLI, consume private payloads, continue the same session
