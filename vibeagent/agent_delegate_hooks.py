@@ -16,9 +16,11 @@ from .types import (
 from .workspace_core import RunWorkspace
 from .workspace_hooks import HookEvent, ProjectHooks
 from .workspace_permissions import ProjectPermissions
+from .team_state import TeamStateError, read_team_state
 
 
 MAX_SUBAGENT_STOP_CONTINUATIONS = 8
+MAX_TEAMMATE_IDLE_CONTINUATIONS = 8
 
 
 @dataclass
@@ -34,6 +36,7 @@ class DelegateLifecycleHooks:
     permissions: ProjectPermissions
     hook_model_runtime: HookModelRuntime | None = None
     stop_continuations: int = 0
+    idle_continuations: int = 0
 
     @property
     def agent_type(self) -> str:
@@ -72,6 +75,29 @@ class DelegateLifecycleHooks:
             return None
         self.stop_continuations += 1
         return "SubagentStop hook feedback:\n" + result.blocking_message
+
+    def teammate_idle_feedback(self, iteration: int) -> tuple[str | None, str | None]:
+        teammate_name = self.action.teammate_name
+        if teammate_name is None or self.idle_continuations >= MAX_TEAMMATE_IDLE_CONTINUATIONS:
+            return None, None
+        try:
+            team = read_team_state(self.workspace)
+        except (OSError, TeamStateError):
+            team = None
+        result = self._run(
+            "TeammateIdle",
+            {
+                "teammate_name": teammate_name,
+                "team_name": team.name if team is not None else "session-team",
+            },
+            iteration=iteration,
+        )
+        if result.blocking_message is None:
+            return None, None
+        if result.halt_turn_message is not None:
+            return None, result.halt_turn_message
+        self.idle_continuations += 1
+        return "TeammateIdle hook feedback:\n" + result.blocking_message, None
 
     def _run(
         self,
@@ -112,4 +138,8 @@ def _append_context(messages: list[ChatMessage], contexts: tuple[str, ...]) -> N
     messages.append(ChatMessage(role="user", content=addition))
 
 
-__all__ = ["DelegateLifecycleHooks", "MAX_SUBAGENT_STOP_CONTINUATIONS"]
+__all__ = [
+    "DelegateLifecycleHooks",
+    "MAX_SUBAGENT_STOP_CONTINUATIONS",
+    "MAX_TEAMMATE_IDLE_CONTINUATIONS",
+]

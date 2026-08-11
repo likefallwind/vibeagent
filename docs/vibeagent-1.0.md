@@ -477,6 +477,9 @@ local changes when asked, and resume from recorded session context.
 - `tests.test_post_tool_batch_hooks.PostToolBatchHookTests` covers matcher-free
   parallel batches, provider-neutral result ID mapping, exact serialized
   responses, context injection, pre-request blocking, and subagent delivery.
+- `tests.test_agent_teams.AgentTeamTests` covers matcher-free `TeammateIdle`
+  configuration, text and `finish` continuation, exact team identity input,
+  bounded provider-protocol-safe feedback, and explicit teammate stopping.
 - `tests.test_worktree_lifecycle_hooks.WorktreeLifecycleHookTests` covers
   custom CLI/subagent worktree creation, non-Git cleanup, returned-path
   validation, and failure before delegated model execution.

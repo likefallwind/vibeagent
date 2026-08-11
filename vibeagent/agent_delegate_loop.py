@@ -161,6 +161,35 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                 continue
             if context.inbox is not None and context.inbox.append_to(context.messages, final=True):
                 continue
+            idle_feedback, idle_halt = context.lifecycle.teammate_idle_feedback(
+                child_iteration
+            )
+            if idle_halt is not None:
+                return finish_delegate_task(
+                    context.workspace,
+                    context.action,
+                    context.subagent_id,
+                    ok=False,
+                    summary="",
+                    iterations=child_iteration,
+                    tool_calls=tool_calls_used,
+                    message=idle_halt,
+                    logger=context.logger,
+                )
+            if idle_feedback is not None:
+                context.messages.append(ChatMessage(role="user", content=idle_feedback))
+                context.messages[:] = compact_delegate_message_history(
+                    context.workspace,
+                    context.action,
+                    context.messages,
+                    context.observations[context.delegate_observation_start :],
+                    parent_iteration=context.parent_iteration,
+                    child_iteration=child_iteration,
+                    subagent_id=context.subagent_id,
+                    profile_prompt=context.profile_prompt,
+                )
+                _checkpoint(context)
+                continue
             return _finish_text_response(context, child_iteration, tool_calls_used, assistant_content)
 
         tool_results: list[ContentBlock] = []
@@ -249,6 +278,40 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                             observation=feedback_observation,
                         )
                     )
+                    break
+                idle_feedback, idle_halt = context.lifecycle.teammate_idle_feedback(
+                    child_iteration
+                )
+                if idle_feedback is not None or idle_halt is not None:
+                    feedback_observation = ToolErrorObservation(
+                        kind="tool_error",
+                        tool=tool_name,
+                        message=idle_feedback or idle_halt or "Teammate idle blocked.",
+                    )
+                    tool_results.append(
+                        record_subagent_tool_observation(
+                            context.workspace,
+                            subagent_id=context.subagent_id,
+                            parent_iteration=context.parent_iteration,
+                            iteration=child_iteration,
+                            tool_id=tool_id,
+                            tool_name=tool_name,
+                            observation=feedback_observation,
+                        )
+                    )
+                    if idle_halt is not None:
+                        context.messages.append(ChatMessage(role="user", content=tool_results))
+                        return finish_delegate_task(
+                            context.workspace,
+                            context.action,
+                            context.subagent_id,
+                            ok=False,
+                            summary="",
+                            iterations=child_iteration,
+                            tool_calls=tool_calls_used,
+                            message=idle_halt,
+                            logger=context.logger,
+                        )
                     break
                 return _finish_tool_response(
                     context,

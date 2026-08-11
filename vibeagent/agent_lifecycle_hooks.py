@@ -24,7 +24,7 @@ CONTEXT_EVENTS = frozenset(
 BLOCKING_EVENTS = frozenset(
     {
         "PostToolBatch", "Stop", "SubagentStop", "TaskCompleted",
-        "TaskCreated", "UserPromptSubmit",
+        "TaskCreated", "TeammateIdle", "UserPromptSubmit",
     }
 )
 ExecuteActionSafely = Callable[[RunWorkspace, object, int, str], Observation]

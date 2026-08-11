@@ -177,6 +177,10 @@ The automated suite currently covers these 1.0 surfaces:
   parallel, sequential, deferred-resume, and delegated batches with the exact
   provider-facing tool results; it can inject next-turn context or stop before
   the next model request without forcing tools to execute sequentially.
+- Claude-compatible teammate idle hooks: matcher-free `TeammateIdle` runs at
+  text and `finish` completion boundaries with stable teammate/team identity;
+  exit code 2 feeds bounded continuation work back to the teammate, while
+  `continue: false` stops it without violating provider tool-result ordering.
 - Claude-compatible worktree lifecycle hooks: command and HTTP
   `WorktreeCreate` handlers replace the default Git backend for CLI and
   subagent isolation and return a validated directory; `WorktreeRemove`

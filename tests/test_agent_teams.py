@@ -1,3 +1,4 @@
+import json
 import tempfile
 import threading
 import unittest
@@ -31,7 +32,7 @@ from vibeagent.types import (
     TaskOutputAction,
 )
 from vibeagent.workspace import create_run_workspace
-from vibeagent.workspace_hooks import ProjectHooks
+from vibeagent.workspace_hooks import ProjectHook, ProjectHooks, read_project_hooks
 from vibeagent.workspace_permissions import ProjectPermissions
 
 
@@ -40,8 +41,10 @@ class TeamClient:
         self.responses = responses
         self.calls = 0
         self.tool_names = []
+        self.messages = []
 
     def complete(self, messages, tools=None, max_tokens=4096, temperature=0.2, timeout_ms=120_000):
+        self.messages.append(list(messages))
         self.tool_names.append([str(tool["name"]) for tool in tools or []])
         content = self.responses[self.calls]
         self.calls += 1
@@ -49,6 +52,35 @@ class TeamClient:
 
 
 class AgentTeamTests(unittest.TestCase):
+    def _teammate_idle_hook(self, command: str) -> ProjectHooks:
+        return ProjectHooks(
+            hooks=(
+                ProjectHook(
+                    event="TeammateIdle",
+                    matcher=".*",
+                    command=command,
+                    timeout_ms=10_000,
+                    source="test",
+                ),
+            )
+        )
+
+    def test_teammate_idle_config_ignores_matcher_without_forcing_sequential_tools(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-team-idle-") as base:
+            root = Path(base)
+            config_path = root / ".vibeagent" / "hooks.json"
+            config_path.parent.mkdir(parents=True)
+            config_path.write_text(
+                json.dumps(
+                    {"TeammateIdle": [{"matcher": "never", "hooks": [{"type": "command", "command": "python3 -V"}]}]}
+                ),
+                encoding="utf-8",
+            )
+            config = read_project_hooks(create_run_workspace(root))
+
+        self.assertEqual(config.hooks[0].matcher, ".*")
+        self.assertFalse(config.requires_sequential_tools)
+
     def test_agent_alias_parses_named_teammate_and_requires_spawn_approval(self) -> None:
         action = parse_tool_action(
             "Agent",
@@ -275,6 +307,96 @@ class AgentTeamTests(unittest.TestCase):
         self.assertEqual(listed.agents[0].teammate_name, "reviewer")
         for name in ("SendMessage", "TaskCreate", "TaskGet", "TaskList", "TaskUpdate"):
             self.assertIn(name, client.tool_names[0])
+
+    def test_teammate_idle_exit_two_returns_feedback_and_continues(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-team-idle-") as base:
+            root = Path(base)
+            marker = root / "idle.checked"
+            command = (
+                'python3 -c "import json,sys,pathlib; d=json.load(sys.stdin); '
+                "assert d['teammate_name']=='reviewer'; assert d['team_name']=='session-team'; "
+                f"p=pathlib.Path({str(marker)!r}); first=not p.exists(); p.touch(); "
+                "print('Run one more check.', file=sys.stderr) if first else None; "
+                "raise SystemExit(2 if first else 0)\""
+            )
+            workspace = create_run_workspace(root)
+            client = TeamClient(
+                [
+                    [{"type": "text", "text": "Initial review complete."}],
+                    [{"type": "text", "text": "Additional check complete."}],
+                ]
+            )
+            action = parse_tool_action(
+                "Agent",
+                {"prompt": "Review", "name": "reviewer", "max_iterations": 2},
+            )
+            with patch.dict("os.environ", {"VIBEAGENT_EXPERIMENTAL_AGENT_TEAMS": "1"}, clear=True):
+                result = execute_delegate_task_action(
+                    workspace, action, client, parent_iteration=1,
+                    subagent_id="reviewer", max_output_tokens=1024,
+                    model_retries=0, model_retry_delay_ms=0,
+                    model_timeout_ms=10_000, command_timeout_ms=10_000,
+                    logger=None, approval_handler=lambda _request: ApprovalDecision(True, "approved"),
+                    hooks=self._teammate_idle_hook(command),
+                )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(client.calls, 2)
+        self.assertIn("TeammateIdle hook feedback", str(client.messages[1]))
+
+    def test_teammate_idle_blocks_finish_tool_then_allows_completion(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-team-idle-") as base:
+            root = Path(base)
+            marker = root / "finish.checked"
+            command = (
+                'python3 -c "import json,sys,pathlib; json.load(sys.stdin); '
+                f"p=pathlib.Path({str(marker)!r}); first=not p.exists(); p.touch(); "
+                "print('Verify before idle.', file=sys.stderr) if first else None; "
+                "raise SystemExit(2 if first else 0)\""
+            )
+            workspace = create_run_workspace(root)
+            client = TeamClient(
+                [
+                    [{"type": "tool_call", "id": "finish-1", "name": "finish", "input": {"message": "First report"}}],
+                    [{"type": "text", "text": "Verified report."}],
+                ]
+            )
+            action = parse_tool_action("Agent", {"prompt": "Review", "name": "reviewer", "max_iterations": 2})
+            with patch.dict("os.environ", {"VIBEAGENT_EXPERIMENTAL_AGENT_TEAMS": "1"}, clear=True):
+                result = execute_delegate_task_action(
+                    workspace, action, client, parent_iteration=1,
+                    subagent_id="reviewer", max_output_tokens=1024,
+                    model_retries=0, model_retry_delay_ms=0,
+                    model_timeout_ms=10_000, command_timeout_ms=10_000,
+                    logger=None, approval_handler=lambda _request: ApprovalDecision(True, "approved"),
+                    hooks=self._teammate_idle_hook(command),
+                )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(client.calls, 2)
+
+    def test_teammate_idle_continue_false_stops_teammate(self) -> None:
+        command = (
+            "python3 -c \"import json; print(json.dumps("
+            "{'continue':False,'stopReason':'Stop teammate now.'}))\""
+        )
+        with tempfile.TemporaryDirectory(prefix="vibeagent-team-idle-") as base:
+            workspace = create_run_workspace(Path(base))
+            client = TeamClient([[{"type": "text", "text": "Review complete."}]])
+            action = parse_tool_action("Agent", {"prompt": "Review", "name": "reviewer"})
+            with patch.dict("os.environ", {"VIBEAGENT_EXPERIMENTAL_AGENT_TEAMS": "1"}, clear=True):
+                result = execute_delegate_task_action(
+                    workspace, action, client, parent_iteration=1,
+                    subagent_id="reviewer", max_output_tokens=1024,
+                    model_retries=0, model_retry_delay_ms=0,
+                    model_timeout_ms=10_000, command_timeout_ms=10_000,
+                    logger=None, approval_handler=lambda _request: ApprovalDecision(True, "approved"),
+                    hooks=self._teammate_idle_hook(command),
+                )
+
+        self.assertFalse(result.ok)
+        self.assertEqual(client.calls, 1)
+        self.assertIn("Stop teammate now.", result.message)
 
     def test_profile_allowlist_does_not_remove_team_coordination_tools(self) -> None:
         allowed = frozenset({"Read"})

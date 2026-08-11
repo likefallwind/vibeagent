@@ -21,6 +21,7 @@ HookEvent = Literal[
     "SubagentStop",
     "TaskCompleted",
     "TaskCreated",
+    "TeammateIdle",
     "UserPromptSubmit",
     "WorktreeCreate",
     "WorktreeRemove",
@@ -43,6 +44,7 @@ HOOK_EVENTS = frozenset(
         "SubagentStop",
         "TaskCompleted",
         "TaskCreated",
+        "TeammateIdle",
         "UserPromptSubmit",
         "WorktreeCreate",
         "WorktreeRemove",
@@ -73,6 +75,7 @@ PROMPT_HOOK_EVENTS = frozenset(
         "SubagentStop",
         "TaskCompleted",
         "TaskCreated",
+        "TeammateIdle",
         "UserPromptSubmit",
     }
 )
