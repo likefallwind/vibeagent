@@ -108,6 +108,15 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             target=f"{action.title} -> {action.base or 'default branch'}",
             risk="This will contact GitHub and create a pull request from the current pushed branch.",
         )
+    if isinstance(action, t.GitHubIssueContextAction):
+        target = action.issue
+        if action.remote:
+            target = f"{target} via {action.remote}"
+        return t.ApprovalRequest(
+            action_type="github_issue_context",
+            target=target,
+            risk="This will contact GitHub and read the selected issue from a repository configured as a local Git remote.",
+        )
     if isinstance(action, t.GitHubPrContextAction):
         target = action.pr or "current branch pull request"
         if action.remote:

@@ -39,7 +39,15 @@ from .action_code_intel_types import (
     ReplacePythonDefinitionAction,
 )
 from .action_file_edit_union_types import FileEditAgentAction
-from .action_github_types import CheckGitHubPrCommentAction, CheckGitHubPrCreateAction, GitHubPrCiLogsAction, GitHubPrCommentAction, GitHubPrContextAction, GitHubPrCreateAction
+from .action_github_types import (
+    CheckGitHubPrCommentAction,
+    CheckGitHubPrCreateAction,
+    GitHubIssueContextAction,
+    GitHubPrCiLogsAction,
+    GitHubPrCommentAction,
+    GitHubPrContextAction,
+    GitHubPrCreateAction,
+)
 from .action_git_types import (
     CheckGitCommitAction,
     CheckGitFetchAction,
@@ -237,6 +245,7 @@ AgentAction: TypeAlias = (
     | GitPullAction
     | CheckGitPushAction
     | GitPushAction
+    | GitHubIssueContextAction
     | CheckGitHubPrCreateAction
     | GitHubPrCreateAction
     | GitHubPrContextAction

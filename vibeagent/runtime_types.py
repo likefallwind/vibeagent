@@ -120,6 +120,7 @@ class ApprovalRequest:
         "git_fetch",
         "git_pull",
         "git_push",
+        "github_issue_context",
         "github_pr_create",
         "github_pr_context",
         "github_pr_ci_logs",

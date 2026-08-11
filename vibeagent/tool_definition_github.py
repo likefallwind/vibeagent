@@ -13,6 +13,25 @@ _PR_PROPERTIES: dict[str, Any] = {
 
 GITHUB_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
+        "name": "github_issue_context",
+        "description": "Read one GitHub issue's bounded metadata, body, labels, assignees, milestone, and comments through gh. The issue must belong to a local GitHub remote. Contacts GitHub and requires approval.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "issue": {
+                    "type": "string",
+                    "description": "Positive issue number or full GitHub issue URL.",
+                },
+                "remote": {
+                    "type": "string",
+                    "description": "Optional local GitHub remote used to select the repository.",
+                },
+            },
+            "required": ["issue"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "check_github_pr_comment",
         "description": "Locally validate a GitHub pull request discussion comment or inline review-comment reply without contacting GitHub.",
         "input_schema": {

@@ -268,6 +268,8 @@ def minimal_schema_value(schema: dict[str, Any], property_name: str = "") -> Any
         return "* * * * *"
     if property_name == "taskId":
         return "00000000"
+    if property_name == "issue":
+        return "1"
     if schema_type == "string":
         return "x"
     if schema_type == "integer":

@@ -310,6 +310,8 @@ from .observation_git_types import (
 from .observation_github_types import (
     CheckGitHubPrCreateObservation,
     CheckGitHubPrCommentObservation,
+    GitHubIssueComment,
+    GitHubIssueContextObservation,
     GitHubPrCheck,
     GitHubPrCiLogsObservation,
     GitHubPrCiRun,

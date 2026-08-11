@@ -5,6 +5,13 @@ from typing import Literal
 
 
 @dataclass(frozen=True)
+class GitHubIssueContextAction:
+    type: Literal["github_issue_context"]
+    issue: str
+    remote: str | None = None
+
+
+@dataclass(frozen=True)
 class CheckGitHubPrCreateAction:
     type: Literal["check_github_pr_create"]
     title: str

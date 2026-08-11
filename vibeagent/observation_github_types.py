@@ -5,6 +5,41 @@ from typing import Literal
 
 
 @dataclass(frozen=True)
+class GitHubIssueComment:
+    author: str
+    body: str
+    created_at: str
+    url: str
+
+
+@dataclass(frozen=True)
+class GitHubIssueContextObservation:
+    kind: Literal["github_issue_context"]
+    ok: bool
+    repository: str
+    number: int
+    url: str
+    title: str
+    body: str
+    author: str
+    state: str
+    state_reason: str
+    created_at: str
+    updated_at: str
+    milestone: str
+    labels: list[str]
+    labels_total: int
+    labels_truncated: bool
+    assignees: list[str]
+    assignees_total: int
+    assignees_truncated: bool
+    comments: list[GitHubIssueComment]
+    comments_total: int
+    comments_truncated: bool
+    message: str
+
+
+@dataclass(frozen=True)
 class GitHubPrComment:
     kind: Literal["comment", "inline"]
     author: str
