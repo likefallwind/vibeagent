@@ -83,6 +83,7 @@ from .goal_state import (
     write_goal,
 )
 from .interactive_shell import SHELL_MODE_USAGE, parse_shell_mode_input, run_interactive_shell
+from .interactive_background import create_interactive_background_request
 from .providers import create_chat_client as default_create_chat_client
 from .types import ApprovalPolicy, ChatClient, ChatMessage
 from .dynamic_agent_profiles import DynamicAgentProfile
@@ -145,6 +146,9 @@ def run_interactive_loop(
     initial_pending_workspace: RunWorkspace | None = None,
     initial_branch_source_run_id: str | None = None,
     initial_conversation_messages: tuple[ChatMessage, ...] = (),
+    initial_attached_background_agent_id: str | None = None,
+    initial_model: str | None = None,
+    initial_approval: ApprovalPolicy = "ask",
 ) -> int:
     # Entry loop: parse local commands first, otherwise delegate to the agent.
     print(f"VibeAgent {__version__}")
@@ -154,11 +158,11 @@ def run_interactive_loop(
     project_permissions_trusted = prompt_project_permission_trust(Path.cwd())
 
     client = None
-    model_override: str | None = None
+    model_override: str | None = initial_model
     effort_override: str | None = initial_effort
     effort_locked = initial_effort_locked
     mode = "code"
-    approval_policy: ApprovalPolicy = "ask"
+    approval_policy: ApprovalPolicy = initial_approval
     approval_handler = build_approval_handler(approval_policy)
     project_runtime = InteractiveProjectRuntime(
         Path.cwd(),
@@ -618,6 +622,30 @@ def run_interactive_loop(
             run_active_session_hook("session_end", "prompt_input_exit")
             project_runtime.close(additional_directories)
             return 0
+        if command and command.type == "background":
+            if mode != "code":
+                print("/bg is available in coding mode only.")
+                continue
+            if resume_run_id is None:
+                print("/bg requires an active coding session. Run a coding task first.")
+                continue
+            run_active_session_hook("session_end", "background")
+            project_runtime.close(additional_directories)
+            raise create_interactive_background_request(
+                Path.cwd(),
+                resume_run_id,
+                command.argument,
+                approval_policy=approval_policy,
+                model=model_override,
+                agent=initial_agent,
+                dynamic_agent_profiles=initial_dynamic_agent_profiles,
+                effort=effort_override,
+                autocompact_tokens=initial_autocompact_tokens,
+                system_prompt=system_prompt,
+                append_system_prompt=append_system_prompt,
+                additional_directories=additional_directories,
+                attached_agent_id=initial_attached_background_agent_id,
+            )
         if command and command.type in {"model", "effort", "btw", "recap"}:
             update = run_interactive_provider_command(
                 command.type,

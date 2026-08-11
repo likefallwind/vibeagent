@@ -12,6 +12,7 @@ HELP_SNIPPETS = [
     "/resume [run-id|off] [--max-failures N] [--max-files N] [--max-commands N] [--max-checks N]",
     "previous session handoff",
     "/compact [run-id] [--max-failures N] [--max-files N] [--max-commands N] [--max-checks N]",
+    "/bg [prompt]",
     "/branch [name]",
     "/plan [run-id]",
     "/transcript [run-id]",

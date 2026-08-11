@@ -60,8 +60,12 @@ handoff boundary, and restores the same transcript and effective worktree in the
 full interactive CLI with normal approval prompts. Lease states are visible as
 `attaching` or `attached`; terminal exit releases the lease, stale foreground
 processes are recovered by PID start-time validation, and conflicting lifecycle
-commands are rejected. An atomic FIFO inbox and transition lock prevent send/exit
-races, the effective worktree root and API-key-free launch options survive later
+commands are rejected. Interactive `/bg [prompt]` and `/background [prompt]`
+close the foreground runtime and resume the same coding session autonomously;
+an Agent View attachment releases its lease before reusing the existing agent
+ID. Model, effort, approval, prompt, dynamic-agent, and additional-directory
+state carry into newly detached sessions. An atomic FIFO inbox and transition
+lock prevent send/exit races, the effective worktree root and API-key-free launch options survive later
 turns, and a private random worker token rejects nested CLI processes that only
 inherit the supervisor environment. The worker consumes an owner-only launch
 payload before running, records a durable exit status, validates PID start

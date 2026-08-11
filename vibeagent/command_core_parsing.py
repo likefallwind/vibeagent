@@ -54,6 +54,12 @@ def parse_core_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("resume", trimmed[8:].strip() or None)
     if trimmed == "/compact" or trimmed.startswith("/compact "):
         return make_local_command("compact", trimmed[9:].strip() or None)
+    if trimmed in {"/bg", "/background"}:
+        return make_local_command("background", None)
+    if trimmed.startswith("/bg "):
+        return make_local_command("background", trimmed[4:].strip() or None)
+    if trimmed.startswith("/background "):
+        return make_local_command("background", trimmed[12:].strip() or None)
     if trimmed == "/branch" or trimmed.startswith("/branch "):
         return make_local_command("branch", trimmed[7:].strip() or None)
     if trimmed == "/chat" or trimmed.startswith("/chat "):

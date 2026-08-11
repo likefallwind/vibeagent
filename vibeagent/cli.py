@@ -56,6 +56,11 @@ from .cli_patch_local_flags import run_patch_local_flag
 from .cli_session_local_flags import run_session_local_flag
 from .cli_startup_context import InteractiveStartupContext, resolve_interactive_startup_context
 from .cli_interactive import run_interactive_loop as _run_interactive_loop
+from .interactive_background import (
+    InteractiveBackgroundRequest,
+    format_interactive_background_started,
+    launch_interactive_background_request,
+)
 from .cli_main_args import normalize_task_bound_diff_args
 from .cli_runner import (
     build_one_shot_kwargs_from_args,
@@ -294,15 +299,30 @@ def run_interactive(base_dir: str | None = None, startup_context: InteractiveSta
         context = InteractiveStartupContext(effort=effort.level, effort_locked=effort.locked)
     else:
         context = startup_context
+    invocation_root = Path.cwd()
     if project_root is None:
-        return run_interactive_loop(context)
+        return _run_interactive_with_background_handoff(context, invocation_root)
 
     previous_cwd = Path.cwd()
     os.chdir(project_root)
     try:
-        return run_interactive_loop(context)
+        return _run_interactive_with_background_handoff(context, invocation_root)
     finally:
         os.chdir(previous_cwd)
+
+
+def _run_interactive_with_background_handoff(
+    context: InteractiveStartupContext,
+    invocation_root: Path,
+) -> int:
+    try:
+        return run_interactive_loop(context)
+    except InteractiveBackgroundRequest as request:
+        if request.attached_agent_id is not None:
+            raise
+        view = launch_interactive_background_request(request, invocation_root=invocation_root)
+        print(format_interactive_background_started(view))
+        return 0
 
 
 def run_interactive_with_args(args: argparse.Namespace) -> int:
@@ -351,6 +371,9 @@ def run_interactive_loop(startup_context: InteractiveStartupContext | None = Non
         initial_pending_workspace=context.pending_workspace,
         initial_branch_source_run_id=context.branch_source_run_id,
         initial_conversation_messages=context.conversation,
+        initial_attached_background_agent_id=context.attached_background_agent_id,
+        initial_model=context.model,
+        initial_approval=context.approval,
     )
 if __name__ == "__main__":
     import sys

@@ -11,6 +11,7 @@ from .cli_context import (
     normalize_resume_arg,
 )
 from .cli_additional_directories import resolve_additional_directories
+from .cli_config import model_override_from_args
 from .cli_system_prompt_files import resolve_system_prompt_inputs
 from .commands import get_compact_context, get_resume_context
 from .context_compaction import resolve_autocompact_tokens
@@ -23,7 +24,7 @@ from .session_additional_directories import (
 from .session_branching import create_session_branch
 from .session_names import name_session, normalize_session_name
 from .session_conversation import load_session_conversation
-from .types import ChatMessage
+from .types import ApprovalPolicy, ChatMessage
 from .workspace_core import RunWorkspace, create_local_workspace, create_run_workspace
 
 
@@ -44,6 +45,9 @@ class InteractiveStartupContext:
     effort: str | None = None
     effort_locked: bool = False
     autocompact_tokens: int | None = None
+    attached_background_agent_id: str | None = None
+    model: str | None = None
+    approval: ApprovalPolicy = "ask"
 
 
 def resolve_interactive_startup_context(
@@ -73,6 +77,9 @@ def resolve_interactive_startup_context(
         "effort": effort.level,
         "effort_locked": effort.locked,
         "autocompact_tokens": resolve_autocompact_tokens(getattr(args, "autocompact", None)),
+        "attached_background_agent_id": getattr(args, "_attached_background_agent_id", None),
+        "model": model_override_from_args(args),
+        "approval": getattr(args, "approval", "ask"),
     }
     session_resume = args.resume if args.resume is not None else args.session_id
     if session_resume is None and args.compact is None:

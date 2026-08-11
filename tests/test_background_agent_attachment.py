@@ -34,6 +34,7 @@ from vibeagent.background_agent_worker import run_worker
 from vibeagent.cli import main
 from vibeagent.cli_args import parse_args
 from vibeagent.cli_background_agent_attach import attach_background_agent_from_cli
+from vibeagent.interactive_background import create_interactive_background_request
 
 
 class BackgroundAgentAttachmentTests(unittest.TestCase):
@@ -237,6 +238,78 @@ class BackgroundAgentAttachmentTests(unittest.TestCase):
             self.assertFalse(attached_args.print_mode)
             self.assertIsNone(attached_args.attach_background_agent)
             self.assertEqual(observed_cwds, [invocation])
+
+    def test_cli_bg_detaches_before_reusing_attached_agent(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-background-attach-") as base:
+            root = Path(base).resolve()
+            invocation = root / "invocation"
+            invocation.mkdir()
+            config = BackgroundAgentConfig(
+                agent_id="0123456789ab",
+                project_root=root,
+                session_root=root,
+                resume_reference="run-123",
+                base_argv=("--print", "initial"),
+                worker_token="0" * 32,
+            )
+            events: list[str] = []
+
+            @contextmanager
+            def fake_attach(*_args, **_kwargs):
+                events.append("attached")
+                try:
+                    yield BackgroundAgentAttachContext(config, invocation)
+                finally:
+                    events.append("detached")
+
+            def run_attached(attached_args):
+                self.assertEqual(
+                    attached_args._attached_background_agent_id,
+                    config.agent_id,
+                )
+                raise create_interactive_background_request(
+                    root,
+                    "run-123",
+                    "finish tests",
+                    approval_policy="ask",
+                    model=None,
+                    agent=None,
+                    dynamic_agent_profiles=(),
+                    effort=None,
+                    autocompact_tokens=None,
+                    system_prompt=None,
+                    append_system_prompt=None,
+                    additional_directories=(),
+                    attached_agent_id=config.agent_id,
+                )
+
+            def send(_root, agent_id, prompt):
+                events.append("sent")
+                self.assertEqual(agent_id, config.agent_id)
+                self.assertEqual(prompt, "finish tests")
+                return Mock(), "respawned"
+
+            args = parse_args(
+                ["--attach-background-agent", config.agent_id, "--cwd", root.as_posix()]
+            )
+            with (
+                patch(
+                    "vibeagent.cli_background_agent_attach.attach_background_agent",
+                    side_effect=fake_attach,
+                ),
+                patch(
+                    "vibeagent.cli_background_agent_attach.send_background_agent_message",
+                    side_effect=send,
+                ),
+                patch("sys.stdout", new=io.StringIO()),
+            ):
+                exit_code = attach_background_agent_from_cli(
+                    args,
+                    run_interactive_func=run_attached,
+                )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(events, ["attached", "detached", "sent"])
 
     def test_main_routes_attach_before_normal_interactive_startup(self) -> None:
         with patch("vibeagent.cli.attach_background_agent_from_cli", return_value=0) as attach:

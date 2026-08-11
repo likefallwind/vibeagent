@@ -8,6 +8,8 @@ from typing import Callable
 from .background_agent_attach import attach_background_agent
 from .cli_args import parse_args
 from .cli_config import resolve_project_root
+from .background_agent_runtime import send_background_agent_message
+from .interactive_background import InteractiveBackgroundRequest
 
 
 def attach_background_agent_from_cli(
@@ -23,6 +25,7 @@ def attach_background_agent_from_cli(
             "to finish its active turn..."
         )
 
+    background_request: InteractiveBackgroundRequest | None = None
     with attach_background_agent(
         project_root,
         args.attach_background_agent,
@@ -44,6 +47,7 @@ def attach_background_agent_from_cli(
         attached_args.name = None
         attached_args.worktree = None
         attached_args.no_auto_compact = False
+        attached_args._attached_background_agent_id = config.agent_id
         print(
             f"Attached to background agent {config.agent_id} "
             f"in {config.session_root}."
@@ -51,9 +55,23 @@ def attach_background_agent_from_cli(
         previous_cwd = Path.cwd()
         os.chdir(attachment.invocation_root)
         try:
-            return run_interactive_func(attached_args)
+            try:
+                return run_interactive_func(attached_args)
+            except InteractiveBackgroundRequest as request:
+                background_request = request
         finally:
             os.chdir(previous_cwd)
+    if background_request is None:
+        raise RuntimeError("Background attachment ended without an exit result.")
+    _, disposition = send_background_agent_message(
+        project_root,
+        background_request.attached_agent_id or args.attach_background_agent,
+        background_request.prompt,
+    )
+    print(
+        f"Background agent {args.attach_background_agent} detached and {disposition}."
+    )
+    return 0
 
 
 __all__ = ["attach_background_agent_from_cli"]
