@@ -121,6 +121,7 @@ test('registers IDE commands and routes editor context through native VS Code su
   extension.activate(context);
   assert.deepEqual(new Set(callbacks.keys()), new Set([
     'vibeagent.open',
+    'vibeagent.openAgentPanel',
     'vibeagent.askSelection',
     'vibeagent.insertReference',
     'vibeagent.sendDiagnostics',

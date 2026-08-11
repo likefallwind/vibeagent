@@ -5,6 +5,9 @@ terminal, preserving terminal permission prompts while adding editor context.
 
 ## Commands
 
+- `VibeAgent: Open Agent Panel` opens a workspace dashboard for dispatching and
+  supervising background agents, viewing bounded logs, sending follow-ups,
+  answering questions, and approving exact pending requests.
 - `VibeAgent: Open Interactive Session` starts or reveals one interactive
   terminal for the active workspace.
 - `VibeAgent: Ask About Selection` starts an approved one-shot coding task with
@@ -26,6 +29,11 @@ path, selected line range, dirty flag, and up to 20 sanitized diagnostics. It
 does not transmit selected source text or unsaved editor buffers. VibeAgent
 revalidates this metadata on each turn and removes the two bridge variables from
 project child-process environments.
+
+The Agent Panel starts an authenticated Remote Control service bound to
+`127.0.0.1`. Its random bearer token remains in the extension host and is never
+sent to the Webview. Approval and question actions include the exact request ID
+shown by the panel, so a stale click cannot answer a newer request.
 
 Build `dist/vibeagent-vscode-1.0.0.vsix` from the repository root, then install
 it through **Extensions: Install from VSIX...**:

@@ -206,8 +206,10 @@ python3 scripts/build_vscode_extension.py
 code --install-extension dist/vibeagent-vscode-1.0.0.vsix
 ```
 
-The extension contributes commands to open one interactive VibeAgent terminal
-per workspace, run a one-shot task against the active selection, insert an
+The extension contributes an Agent Panel that dispatches and supervises
+project-local background agents, displays bounded logs, sends follow-ups,
+answers questions, and resolves approvals. It also opens one interactive
+VibeAgent terminal per workspace, runs a one-shot task against the active selection, inserts an
 `@path#Lx-Ly` reference, send up to 20 bounded diagnostics, and open the active
 file against Git `HEAD` in VS Code's native diff viewer. VibeAgent still runs in
 a real terminal, so approval prompts retain their normal TTY behavior. The
@@ -218,6 +220,14 @@ control characters and active `@file` syntax, and bounded before they enter a
 task. Building the VSIX is deterministic and includes only an explicit source
 allowlist. The extension never opens VS Code or a file manager by itself; its
 commands run only after an explicit editor action.
+
+The Agent Panel launches the existing Remote Control service on `127.0.0.1`
+without shell interpolation. Its generated bearer token remains in the trusted
+extension host and is never sent to the Webview. Webview messages use an action
+allowlist and validated IDs; approval and question responses carry the exact
+request ID that was rendered, so stale UI actions cannot resolve a newer
+interaction. Closing the panel terminates the control service without stopping
+the independently supervised background agents.
 
 Terminals launched by the extension also receive a private live-context bridge.
 As the active editor, selection, dirty state, or diagnostics change, the
@@ -2585,9 +2595,10 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   console/error inspection, atomic workspace screenshots, and cleanup through
   an isolated `agent-browser` session without accepting arbitrary CLI options.
 - `extensions/vscode/` and `scripts/build_vscode_extension.py`: provide a
-  dependency-free VS Code extension for terminal launch, selected-file
-  references, bounded diagnostic handoff, and native Git diff review, plus a
-  deterministic allowlisted VSIX build.
+  dependency-free VS Code extension for background-agent supervision, exact-ID
+  approvals, terminal launch, selected-file references, bounded diagnostic
+  handoff, and native Git diff review, plus a deterministic allowlisted VSIX
+  build.
 - `vibeagent/ide_context.py`: authenticates, bounds, sanitizes, and formats the
   private VS Code live-context protocol without exposing bridge credentials to
   child project processes.

@@ -91,7 +91,20 @@ class BackgroundAgentInputTests(unittest.TestCase):
                     background_agent_view(self._record(root, config.agent_id)).status,
                     "needs-input",
                 )
-            answer_background_user_input(root, config.agent_id, "2")
+            with self.assertRaisesRegex(ValueError, "stale"):
+                answer_background_user_input(
+                    root,
+                    config.agent_id,
+                    "2",
+                    request_id="f" * 32,
+                )
+            self.assertTrue(thread.is_alive())
+            answer_background_user_input(
+                root,
+                config.agent_id,
+                "2",
+                request_id=interaction.request_id,
+            )
             thread.join(timeout=3)
 
             self.assertFalse(thread.is_alive())

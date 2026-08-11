@@ -109,6 +109,12 @@ path validation prevents outside-file references. The deterministic VSIX build
 contains only declared runtime files. An isolated VS Code Server install under
 `/tmp` accepts the package and lists `vibeagent.vibeagent-vscode@1.0.0`; no real
 user extension directory or GUI is touched by that verification.
+The extension also provides an Agent Panel over a temporary loopback Remote
+Control process. The extension host retains its bearer token while the
+CSP-restricted Webview receives only bounded state and logs. A validated message
+allowlist supports dispatch, follow-up, exact-ID approval and question answers,
+and lifecycle actions. Closing the panel terminates the control process, with a
+bounded force-kill fallback, without terminating supervised agents.
 Interactive terminals additionally receive a private live-context bridge. The
 extension atomically writes active-file metadata, the exact selected line range,
 dirty state, and bounded sanitized diagnostics to an owner-only temporary file
@@ -149,7 +155,8 @@ The automated suite currently covers these 1.0 surfaces:
 - VS Code integration: machine-scoped exact process launch, interactive TTY
   approvals, active-file and half-open selection references, quoted paths,
   bounded sanitized diagnostics, native Git diff routing, deterministic VSIX
-  packaging, and isolated VS Code Server installation.
+  packaging, token-isolated Agent Panel control, exact-ID interactions, bounded
+  process cleanup, and isolated VS Code Server installation.
 - IDE live context: atomic authenticated JavaScript payloads, Python protocol
   validation, sensitive and symlink rejection, untrusted diagnostic redaction,
   no source-buffer transfer, and bridge-secret stripping for child processes.

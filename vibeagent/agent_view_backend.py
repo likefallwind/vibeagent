@@ -38,13 +38,19 @@ class AgentViewBackend(Protocol):
 
     def user_input(self, agent_id: str) -> BackgroundUserInput | None: ...
 
-    def answer_user_input(self, agent_id: str, answer: str) -> str: ...
+    def answer_user_input(
+        self,
+        agent_id: str,
+        answer: str,
+        request_id: str | None = None,
+    ) -> str: ...
 
     def decide_approval(
         self,
         agent_id: str,
         approved: bool,
         scope: Literal["once", "session"],
+        request_id: str | None = None,
     ) -> str: ...
 
     def dispatch(self, task: str) -> BackgroundAgentView: ...
@@ -85,8 +91,18 @@ class ProjectAgentViewBackend:
     def user_input(self, agent_id: str) -> BackgroundUserInput | None:
         return read_background_user_input(self.project_root, agent_id)
 
-    def answer_user_input(self, agent_id: str, answer: str) -> str:
-        interaction = answer_background_user_input(self.project_root, agent_id, answer)
+    def answer_user_input(
+        self,
+        agent_id: str,
+        answer: str,
+        request_id: str | None = None,
+    ) -> str:
+        interaction = answer_background_user_input(
+            self.project_root,
+            agent_id,
+            answer,
+            request_id=request_id,
+        )
         return f"Answered {interaction.request.header or 'question'} for {agent_id}."
 
     def decide_approval(
@@ -94,12 +110,14 @@ class ProjectAgentViewBackend:
         agent_id: str,
         approved: bool,
         scope: Literal["once", "session"],
+        request_id: str | None = None,
     ) -> str:
         approval = decide_background_approval(
             self.project_root,
             agent_id,
             approved=approved,
             scope=scope,
+            request_id=request_id,
         )
         verb = "Approved" if approved else "Denied"
         return f"{verb} {approval.action_type} for {agent_id}."

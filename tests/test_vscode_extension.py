@@ -21,6 +21,7 @@ class VsCodeExtensionTests(unittest.TestCase):
             commands,
             {
                 "vibeagent.open",
+                "vibeagent.openAgentPanel",
                 "vibeagent.askSelection",
                 "vibeagent.insertReference",
                 "vibeagent.sendDiagnostics",
@@ -34,7 +35,14 @@ class VsCodeExtensionTests(unittest.TestCase):
         self.assertEqual(properties["vibeagent.arguments"]["scope"], "machine")
 
     def test_javascript_sources_parse_and_core_contract_passes(self) -> None:
-        for relative in ("extension.js", "src/core.js", "src/context.js"):
+        for relative in (
+            "extension.js",
+            "src/core.js",
+            "src/context.js",
+            "src/remote.js",
+            "src/agentPanel.js",
+            "src/agentPanelView.js",
+        ):
             result = subprocess.run(
                 ["node", "--check", relative],
                 cwd=EXTENSION_ROOT,
@@ -44,7 +52,14 @@ class VsCodeExtensionTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
         result = subprocess.run(
-            ["node", "--test", "test/core.test.js", "test/extension.test.js"],
+            [
+                "node",
+                "--test",
+                "test/agentPanel.test.js",
+                "test/core.test.js",
+                "test/extension.test.js",
+                "test/remote.test.js",
+            ],
             cwd=EXTENSION_ROOT,
             capture_output=True,
             text=True,
@@ -77,6 +92,9 @@ class VsCodeExtensionTests(unittest.TestCase):
                         "extension/README.md",
                         "extension/src/core.js",
                         "extension/src/context.js",
+                        "extension/src/remote.js",
+                        "extension/src/agentPanel.js",
+                        "extension/src/agentPanelView.js",
                     },
                 )
                 manifest = archive.read("extension.vsixmanifest").decode("utf-8")

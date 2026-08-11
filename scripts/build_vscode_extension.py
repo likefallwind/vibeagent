@@ -14,6 +14,9 @@ SOURCE_FILES = (
     "README.md",
     "src/core.js",
     "src/context.js",
+    "src/remote.js",
+    "src/agentPanel.js",
+    "src/agentPanelView.js",
 )
 ZIP_TIMESTAMP = (2024, 1, 1, 0, 0, 0)
 

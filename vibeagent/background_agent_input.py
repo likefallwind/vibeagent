@@ -85,12 +85,16 @@ def answer_background_user_input(
     project_root: Path,
     agent_id: str,
     raw_answer: str,
+    *,
+    request_id: str | None = None,
 ) -> BackgroundUserInput:
     root = project_root.resolve()
     with background_agent_transition_lock(root, agent_id):
         interaction = read_background_user_input(root, agent_id)
         if interaction is None:
             raise ValueError(f"Background agent is not waiting for user input: {agent_id}")
+        if request_id is not None and interaction.request_id != request_id:
+            raise ValueError(f"Background user input request is stale: {agent_id}")
         answer = parse_user_input_text(raw_answer, interaction.request)
         normalized, error = normalize_user_input_answer(interaction.request, answer)
         if normalized is None:

@@ -153,10 +153,20 @@ def _handler_factory(
             scope = payload.get("scope", "once")
             if not isinstance(approved, bool) or scope not in {"once", "session"}:
                 raise ValueError("Approval requires boolean approved and scope once or session.")
-            return backend.decide_approval(agent_id, approved, scope)  # type: ignore[arg-type]
+            request_id = _required_request_id(payload)
+            return backend.decide_approval(  # type: ignore[arg-type]
+                agent_id,
+                approved,
+                scope,
+                request_id,
+            )
 
         def _answer(self, agent_id: str, payload: dict[str, object]) -> str:
-            return backend.answer_user_input(agent_id, _required_text(payload, "answer"))
+            return backend.answer_user_input(
+                agent_id,
+                _required_text(payload, "answer"),
+                _required_request_id(payload),
+            )
 
         def _stop(self, agent_id: str, _payload: dict[str, object]) -> str:
             return backend.stop(agent_id)
@@ -314,6 +324,17 @@ def _required_text(payload: dict[str, object], field: str) -> str:
             f"Remote Control field {field} must contain 1 to {MAX_REMOTE_CONTROL_TEXT_CHARS} characters."
         )
     return normalized
+
+
+def _required_request_id(payload: dict[str, object]) -> str:
+    value = payload.get("requestId")
+    if (
+        not isinstance(value, str)
+        or len(value) != 32
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise ValueError("Remote Control field requestId must be 32 lowercase hexadecimal characters.")
+    return value
 
 
 def _normalize_host(value: str) -> str:

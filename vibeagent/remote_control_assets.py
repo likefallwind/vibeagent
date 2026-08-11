@@ -247,7 +247,11 @@ function attentionForm(agent) {
     for (const [label, approved, scope] of [['Approve once', true, 'once'], ['Approve session', true, 'session'], ['Deny', false, 'once']]) {
       const button = text('button', approved ? '' : 'danger', label);
       button.type = 'button';
-      button.addEventListener('click', () => mutate(`/api/agents/${agent.id}/approval`, { approved, scope }));
+      button.addEventListener('click', () => mutate(`/api/agents/${agent.id}/approval`, {
+        approved,
+        scope,
+        requestId: agent.approval.requestId,
+      }));
       actions.append(button);
     }
     box.append(actions);
@@ -268,7 +272,13 @@ function attentionForm(agent) {
     const button = text('button', '', 'Answer');
     button.type = 'submit';
     form.append(input, button);
-    form.addEventListener('submit', (event) => { event.preventDefault(); mutate(`/api/agents/${agent.id}/answer`, { answer: input.value }); });
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      mutate(`/api/agents/${agent.id}/answer`, {
+        answer: input.value,
+        requestId: agent.question.requestId,
+      });
+    });
     box.append(form);
   }
 }

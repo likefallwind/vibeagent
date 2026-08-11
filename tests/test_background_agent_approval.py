@@ -53,7 +53,21 @@ class BackgroundAgentApprovalTests(unittest.TestCase):
             self.assertEqual(approval.target, "result.txt")
             request_path = root / ".vibeagent/background-agents/approvals/aaaaaaaaaaaa.request.json"
             self.assertEqual(stat.S_IMODE(request_path.stat().st_mode), 0o600)
-            decide_background_approval(root, config.agent_id, approved=True, scope="once")
+            with self.assertRaisesRegex(ValueError, "stale"):
+                decide_background_approval(
+                    root,
+                    config.agent_id,
+                    approved=True,
+                    request_id="f" * 32,
+                )
+            self.assertTrue(thread.is_alive())
+            decide_background_approval(
+                root,
+                config.agent_id,
+                approved=True,
+                scope="once",
+                request_id=approval.request_id,
+            )
             thread.join(timeout=2)
 
             self.assertFalse(thread.is_alive())

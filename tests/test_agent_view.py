@@ -129,13 +129,24 @@ class FakeBackend:
             )
         return None
 
-    def answer_user_input(self, agent_id: str, answer: str) -> str:
-        self.calls.append(("answer", agent_id, answer))
+    def answer_user_input(
+        self,
+        agent_id: str,
+        answer: str,
+        request_id: str | None = None,
+    ) -> str:
+        self.calls.append(("answer", agent_id, answer, request_id or ""))
         self.question_waiting = False
         return "answered"
 
-    def decide_approval(self, agent_id: str, approved: bool, scope: str) -> str:
-        self.calls.append(("approval", agent_id, str(approved), scope))
+    def decide_approval(
+        self,
+        agent_id: str,
+        approved: bool,
+        scope: str,
+        request_id: str | None = None,
+    ) -> str:
+        self.calls.append(("approval", agent_id, str(approved), scope, request_id or ""))
         return "approved" if approved else "denied"
 
     def dispatch(self, task: str) -> BackgroundAgentView:
@@ -249,7 +260,10 @@ class AgentViewTests(unittest.TestCase):
             outcome = run_agent_view(root, backend=backend, terminal=terminal)
 
         self.assertIsNone(outcome.attach_id)
-        self.assertIn(("approval", waiting.record.id, "True", "once"), backend.calls)
+        self.assertIn(
+            ("approval", waiting.record.id, "True", "once", "1" * 32),
+            backend.calls,
+        )
         self.assertTrue(any("Resolve the pending input" in "\n".join(frame) for frame in terminal.frames))
 
     def test_controller_answers_pending_user_question(self) -> None:
@@ -263,7 +277,7 @@ class AgentViewTests(unittest.TestCase):
             outcome = run_agent_view(root, backend=backend, terminal=terminal)
 
         self.assertIsNone(outcome.attach_id)
-        self.assertIn(("answer", waiting.record.id, "2"), backend.calls)
+        self.assertIn(("answer", waiting.record.id, "2", "2" * 32), backend.calls)
         self.assertTrue(any("Which database?" in "\n".join(frame) for frame in terminal.frames))
 
     def test_project_backend_dispatch_separates_task_from_cli_options(self) -> None:

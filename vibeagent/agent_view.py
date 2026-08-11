@@ -134,6 +134,7 @@ def run_agent_view(
                             selected_id,
                             key in {"y", "A"},
                             "session" if key == "A" else "once",
+                            approval.request_id if approval is not None else None,
                         )
                 elif key == "r":
                     if selected_id is None:
@@ -143,7 +144,11 @@ def run_agent_view(
                     else:
                         answer = _prompt_nonempty(active_terminal, "Answer: ")
                         if answer is not None:
-                            message = active_backend.answer_user_input(selected_id, answer)
+                            message = active_backend.answer_user_input(
+                                selected_id,
+                                answer,
+                                user_input.request_id,
+                            )
                 elif key == "s":
                     message = _selected_action(active_backend.stop, selected_id)
                 elif key == "R":

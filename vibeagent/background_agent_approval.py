@@ -100,12 +100,15 @@ def decide_background_approval(
     *,
     approved: bool,
     scope: Literal["once", "session"] = "once",
+    request_id: str | None = None,
 ) -> BackgroundApproval:
     root = project_root.resolve()
     with background_agent_transition_lock(root, agent_id):
         approval = read_background_approval(root, agent_id)
         if approval is None:
             raise ValueError(f"Background agent is not waiting for approval: {agent_id}")
+        if request_id is not None and approval.request_id != request_id:
+            raise ValueError(f"Background approval request is stale: {agent_id}")
         try:
             write_private_json(
                 background_approval_response_path(root, agent_id),

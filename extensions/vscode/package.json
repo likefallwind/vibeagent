@@ -1,7 +1,7 @@
 {
   "name": "vibeagent-vscode",
   "displayName": "VibeAgent",
-  "description": "Run VibeAgent from VS Code with selection, diagnostics, and native diff integration.",
+  "description": "Run and supervise VibeAgent from VS Code with agents, approvals, editor context, and native diffs.",
   "version": "1.0.0",
   "publisher": "vibeagent",
   "engines": {
@@ -19,6 +19,7 @@
   "main": "./extension.js",
   "activationEvents": [
     "onCommand:vibeagent.open",
+    "onCommand:vibeagent.openAgentPanel",
     "onCommand:vibeagent.askSelection",
     "onCommand:vibeagent.insertReference",
     "onCommand:vibeagent.sendDiagnostics",
@@ -29,6 +30,10 @@
       {
         "command": "vibeagent.open",
         "title": "VibeAgent: Open Interactive Session"
+      },
+      {
+        "command": "vibeagent.openAgentPanel",
+        "title": "VibeAgent: Open Agent Panel"
       },
       {
         "command": "vibeagent.askSelection",
@@ -81,6 +86,6 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "check": "node --check extension.js && node --check src/core.js && node --check src/context.js"
+    "check": "node --check extension.js && node --check src/core.js && node --check src/context.js && node --check src/remote.js && node --check src/agentPanel.js && node --check src/agentPanelView.js"
   }
 }

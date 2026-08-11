@@ -58,12 +58,12 @@ class FakeBackend:
     def user_input(self, agent_id):
         return self.question_value
 
-    def answer_user_input(self, agent_id, answer):
-        self.calls.append(("answer", agent_id, answer))
+    def answer_user_input(self, agent_id, answer, request_id=None):
+        self.calls.append(("answer", agent_id, answer, request_id))
         return "answered"
 
-    def decide_approval(self, agent_id, approved, scope):
-        self.calls.append(("approval", agent_id, approved, scope))
+    def decide_approval(self, agent_id, approved, scope, request_id=None):
+        self.calls.append(("approval", agent_id, approved, scope, request_id))
         return "decided"
 
     def dispatch(self, task):
@@ -198,8 +198,8 @@ class RemoteControlServerTests(unittest.TestCase):
         cases = [
             ("/api/agents", {"task": "new task"}, ("dispatch", "new task"), 201),
             (f"/api/agents/{AGENT_ID}/messages", {"message": "continue"}, ("reply", AGENT_ID, "continue"), 200),
-            (f"/api/agents/{AGENT_ID}/approval", {"approved": True, "scope": "session"}, ("approval", AGENT_ID, True, "session"), 200),
-            (f"/api/agents/{AGENT_ID}/answer", {"answer": "1"}, ("answer", AGENT_ID, "1"), 200),
+            (f"/api/agents/{AGENT_ID}/approval", {"approved": True, "scope": "session", "requestId": "a" * 32}, ("approval", AGENT_ID, True, "session", "a" * 32), 200),
+            (f"/api/agents/{AGENT_ID}/answer", {"answer": "1", "requestId": "b" * 32}, ("answer", AGENT_ID, "1", "b" * 32), 200),
             (f"/api/agents/{AGENT_ID}/stop", {}, ("stop", AGENT_ID), 200),
             (f"/api/agents/{AGENT_ID}/respawn", {}, ("respawn", AGENT_ID), 200),
             (f"/api/agents/{AGENT_ID}/remove", {}, ("remove", AGENT_ID), 200),
@@ -217,6 +217,27 @@ class RemoteControlServerTests(unittest.TestCase):
             {"approved": "yes"},
         )
         self.assertEqual(status, 400)
+
+        for payload in (
+            {"approved": True},
+            {"approved": True, "requestId": "A" * 32},
+        ):
+            with self.subTest(payload=payload):
+                status, _, body = self.request(
+                    "POST",
+                    f"/api/agents/{AGENT_ID}/approval",
+                    payload,
+                )
+                self.assertEqual(status, 400)
+                self.assertIn(b"requestId", body)
+
+        status, _, body = self.request(
+            "POST",
+            f"/api/agents/{AGENT_ID}/answer",
+            {"answer": "1"},
+        )
+        self.assertEqual(status, 400)
+        self.assertIn(b"requestId", body)
 
         status, _, _ = self.request("POST", "/api/agents/not-an-id/stop", {})
         self.assertEqual(status, 404)

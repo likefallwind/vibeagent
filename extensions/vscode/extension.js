@@ -12,6 +12,7 @@ const {
   workspaceRelativePath,
 } = require('./src/core');
 const { IdeContextBridge } = require('./src/context');
+const { AgentPanelManager } = require('./src/agentPanel');
 
 class GitHeadContentProvider {
   constructor() {
@@ -46,8 +47,10 @@ function activate(context) {
   const interactiveTerminals = new Map();
   const contextBridges = new Map();
   const diffProvider = new GitHeadContentProvider();
+  const agentPanels = new AgentPanelManager(vscode);
   context.subscriptions.push(
     diffProvider,
+    agentPanels,
     vscode.workspace.registerTextDocumentContentProvider('vibeagent-git', diffProvider),
     vscode.window.onDidCloseTerminal((terminal) => {
       for (const [root, candidate] of interactiveTerminals) {
@@ -71,6 +74,13 @@ function activate(context) {
       interactiveTerminals.set(root, terminal);
     }
     terminal.show(false);
+  });
+
+  register('vibeagent.openAgentPanel', async () => {
+    const root = activeWorkspaceRoot();
+    const bridge = contextBridge(root);
+    refreshEditorContext(vscode.window.activeTextEditor);
+    await agentPanels.open(root, launchConfig(), bridge.environment());
   });
 
   register('vibeagent.insertReference', async () => {
@@ -133,11 +143,7 @@ function activate(context) {
   });
 
   function createTerminal(name, root, task) {
-    const configuration = vscode.workspace.getConfiguration('vibeagent');
-    const launch = normalizeLaunchConfig(
-      configuration.get('executable', 'python'),
-      configuration.get('arguments', ['-m', 'vibeagent']),
-    );
+    const launch = launchConfig();
     const bridge = contextBridge(root);
     refreshEditorContext(vscode.window.activeTextEditor);
     return vscode.window.createTerminal({
@@ -145,6 +151,14 @@ function activate(context) {
       ...buildLaunchSpec(launch, root, task),
       env: bridge.environment(),
     });
+  }
+
+  function launchConfig() {
+    const configuration = vscode.workspace.getConfiguration('vibeagent');
+    return normalizeLaunchConfig(
+      configuration.get('executable', 'python'),
+      configuration.get('arguments', ['-m', 'vibeagent']),
+    );
   }
 
   function contextBridge(root) {
