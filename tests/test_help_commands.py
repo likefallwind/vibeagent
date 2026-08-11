@@ -67,6 +67,7 @@ HELP_SNIPPETS = [
     "/port <port> [host] [timeout-ms] [--host HOST]",
     "/http <url> [contains] [--timeout-ms N]",
     "/http-fetch <url> [--timeout-ms N]",
+    "/verify [goal]",
     "/overview [--max-files N]",
     "/repo-map [path] [--max-depth N]",
     "/search [--path PATH]",

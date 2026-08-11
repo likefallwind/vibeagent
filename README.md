@@ -2552,6 +2552,13 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   Findings use `CRITICAL`, `HIGH`, `MEDIUM`, or `LOW` severity. The command
   fails when the Git/origin/default-ref preflight is unavailable, never fetches
   implicitly, and does not edit or apply fixes.
+  `/verify [goal]` turns the requested behavior or current changes into
+  observable acceptance criteria, builds the project, runs the real CLI or
+  service entry point, and records command, process, port, HTTP, and log
+  evidence. UI criteria require a browser-capable project skill or MCP tool;
+  HTTP success alone is reported separately and never presented as visual or
+  interaction proof. The workflow stops only processes it started and reports
+  each criterion as `PASS`, `FAIL`, or `UNVERIFIED`.
 - `final_review` is a read-only handoff bundle for non-trivial code changes:
   blocking issues, warnings, running background processes, changed files, and
   suggested verification commands plus focused test commands inferred from
