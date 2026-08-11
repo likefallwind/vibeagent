@@ -40,6 +40,7 @@ class VsCodeExtensionTests(unittest.TestCase):
             "src/core.js",
             "src/context.js",
             "src/remote.js",
+            "src/agentChanges.js",
             "src/agentPanel.js",
             "src/agentPanelView.js",
         ):
@@ -56,6 +57,7 @@ class VsCodeExtensionTests(unittest.TestCase):
                 "node",
                 "--test",
                 "test/agentPanel.test.js",
+                "test/agentChanges.test.js",
                 "test/core.test.js",
                 "test/extension.test.js",
                 "test/remote.test.js",
@@ -93,6 +95,7 @@ class VsCodeExtensionTests(unittest.TestCase):
                         "extension/src/core.js",
                         "extension/src/context.js",
                         "extension/src/remote.js",
+                        "extension/src/agentChanges.js",
                         "extension/src/agentPanel.js",
                         "extension/src/agentPanelView.js",
                     },

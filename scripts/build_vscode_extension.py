@@ -15,6 +15,7 @@ SOURCE_FILES = (
     "src/core.js",
     "src/context.js",
     "src/remote.js",
+    "src/agentChanges.js",
     "src/agentPanel.js",
     "src/agentPanelView.js",
 )

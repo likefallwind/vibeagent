@@ -3,7 +3,7 @@
 const childProcess = require('node:child_process');
 const http = require('node:http');
 
-const MAX_RESPONSE_BYTES = 1024 * 1024;
+const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const MAX_STARTUP_OUTPUT_CHARS = 16_000;
 const STARTUP_TIMEOUT_MS = 10_000;
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -59,7 +59,7 @@ function requestJson(baseUrl, token, method, apiPath, payload, requestImpl = htt
       response.on('data', (chunk) => {
         size += chunk.length;
         if (size > MAX_RESPONSE_BYTES) {
-          request.destroy(new Error('Remote Control response exceeded 1 MiB.'));
+          request.destroy(new Error('Remote Control response exceeded 8 MiB.'));
           return;
         }
         chunks.push(chunk);

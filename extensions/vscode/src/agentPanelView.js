@@ -45,6 +45,14 @@ function getAgentPanelHtml(nonce) {
     .attention { border-left: 3px solid var(--vscode-editorWarning-foreground); padding-left: 10px; }
     .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
     .actions button { padding: 0 10px; }
+    .change-summary { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+    .change-summary .meta { flex: 1; }
+    .change-list { display: grid; border-top: 1px solid var(--vscode-panel-border); }
+    .change { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 34px; border: 0; border-bottom: 1px solid var(--vscode-panel-border); color: var(--vscode-foreground); background: transparent; text-align: left; }
+    .change:hover { background: var(--vscode-list-hoverBackground); }
+    .change code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .change-state { color: var(--vscode-descriptionForeground); font-size: 11px; }
+    .change-command { color: var(--vscode-textLink-foreground); }
     pre { min-height: 120px; max-height: 38vh; overflow: auto; margin: 0; padding: 9px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-textCodeBlock-background); white-space: pre-wrap; word-break: break-word; }
     .stderr { color: var(--vscode-errorForeground); }
     [hidden] { display: none !important; }
@@ -66,6 +74,7 @@ function getAgentPanelHtml(nonce) {
           <div><span id="identity" class="meta"></span><span id="status" class="status"></span></div>
           <p id="task-detail"></p>
           <div id="attention" class="attention" hidden></div>
+          <section><h2>Changes</h2><div class="change-summary"><span id="change-meta" class="meta">Loading...</span><button id="open-worktree" class="secondary" hidden>Open worktree</button></div><div id="changes" class="change-list"></div></section>
           <section><h2>Follow-up</h2><form id="message" class="row"><input id="message-text" maxlength="8000" required placeholder="Message this agent"><button type="submit">Send</button></form></section>
           <section><h2>Process</h2><div class="actions"><button id="stop" class="secondary">Stop</button><button id="respawn" class="secondary">Respawn</button><button id="remove" class="danger">Remove</button></div></section>
           <section><h2>Output</h2><pre id="stdout"></pre><pre id="stderr" class="stderr" hidden></pre></section>
@@ -77,6 +86,7 @@ function getAgentPanelHtml(nonce) {
     const vscode = acquireVsCodeApi();
     let state = { projectRoot: '', agents: [] };
     let selectedId = null;
+    const changesByAgent = new Map();
     const byId = (id) => document.getElementById(id);
     const send = (type, extra = {}) => vscode.postMessage({ type, ...extra });
     const element = (tag, className, value) => { const item = document.createElement(tag); item.className = className; item.textContent = value; return item; };
@@ -99,6 +109,7 @@ function getAgentPanelHtml(nonce) {
       byId('status').textContent = agent.pending ? agent.status + ' +' + agent.pending : agent.status;
       byId('task-detail').textContent = agent.task || 'No task summary';
       renderAttention(agent);
+      renderChanges(agent);
     }
     function actionButton(label, handler, className = '') { const button = element('button', className, label); button.type = 'button'; button.addEventListener('click', handler); return button; }
     function renderAttention(agent) {
@@ -121,15 +132,40 @@ function getAgentPanelHtml(nonce) {
         form.addEventListener('submit', (event) => { event.preventDefault(); send('answer', { agentId: agent.id, requestId: agent.question.requestId, answer: input.value }); }); box.append(form);
       }
     }
+    function renderChanges(agent) {
+      const entry = changesByAgent.get(agent.id);
+      const list = byId('changes'); list.replaceChildren();
+      byId('open-worktree').hidden = true;
+      if (!entry) { byId('change-meta').textContent = 'Loading...'; return; }
+      if (entry.error) { byId('change-meta').textContent = entry.error; return; }
+      const changes = entry.changes;
+      const count = changes.files.length;
+      byId('change-meta').textContent = (changes.branch || 'detached HEAD') + ' | ' + count + ' file' + (count === 1 ? '' : 's') + (changes.omittedFiles ? ' | +' + changes.omittedFiles + ' omitted' : '');
+      byId('open-worktree').hidden = !changes.isolated;
+      for (const file of changes.files) {
+        const states = [];
+        if (file.committed) states.push('commit');
+        if (file.staged) states.push('staged');
+        if (file.unstaged) states.push('working');
+        if (file.untracked) states.push('new');
+        if (file.deleted) states.push('deleted');
+        const row = element('button', 'change', ''); row.type = 'button'; row.title = 'Open native diff';
+        row.append(element('span', 'change-state', states.join(', ') || 'changed'), element('code', '', file.path), element('span', 'change-command', 'Review'));
+        row.addEventListener('click', () => send('reviewFile', { agentId: agent.id, path: file.path }));
+        list.append(row);
+      }
+    }
     byId('refresh').addEventListener('click', () => send('refresh'));
     byId('dispatch').addEventListener('submit', (event) => { event.preventDefault(); send('dispatch', { task: byId('task').value }); byId('task').value = ''; });
     byId('message').addEventListener('submit', (event) => { event.preventDefault(); const agent = selected(); if (agent) send('message', { agentId: agent.id, message: byId('message-text').value }); byId('message-text').value = ''; });
     for (const type of ['stop', 'respawn']) byId(type).addEventListener('click', () => { const agent = selected(); if (agent) send(type, { agentId: agent.id }); });
     byId('remove').addEventListener('click', () => { const agent = selected(); if (agent && confirm('Remove this agent and its logs?')) send('remove', { agentId: agent.id }); });
+    byId('open-worktree').addEventListener('click', () => { const agent = selected(); if (agent) send('openWorktree', { agentId: agent.id }); });
     window.addEventListener('message', (event) => {
       const message = event.data || {};
       if (message.type === 'state') { state = message.state; byId('notice').textContent = state.agents.length + ' agent' + (state.agents.length === 1 ? '' : 's'); render(); }
       if (message.type === 'logs' && message.agentId === selectedId) { byId('stdout').textContent = message.stdout || ''; byId('stderr').textContent = message.stderr || ''; byId('stderr').hidden = !message.stderr; }
+      if (message.type === 'changes') { const agent = selected(); changesByAgent.set(message.agentId, { changes: message.changes, error: message.error }); if (agent && message.agentId === selectedId) renderChanges(agent); }
       if (message.type === 'notice') byId('notice').textContent = message.message;
       if (message.type === 'error') byId('notice').textContent = 'Error: ' + message.message;
     });

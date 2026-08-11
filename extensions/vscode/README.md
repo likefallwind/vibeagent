@@ -7,7 +7,9 @@ terminal, preserving terminal permission prompts while adding editor context.
 
 - `VibeAgent: Open Agent Panel` opens a workspace dashboard for dispatching and
   supervising background agents, viewing bounded logs, sending follow-ups,
-  answering questions, and approving exact pending requests.
+  answering questions, approving exact pending requests, and reviewing bounded
+  worktree changes in VS Code's native diff viewer. An explicit action opens an
+  isolated worktree in a new VS Code window.
 - `VibeAgent: Open Interactive Session` starts or reveals one interactive
   terminal for the active workspace.
 - `VibeAgent: Ask About Selection` starts an approved one-shot coding task with
@@ -34,6 +36,12 @@ The Agent Panel starts an authenticated Remote Control service bound to
 `127.0.0.1`. Its random bearer token remains in the extension host and is never
 sent to the Webview. Approval and question actions include the exact request ID
 shown by the panel, so a stale click cannot answer a newer request.
+
+Change metadata is limited to 200 project-relative files. The extension host
+keeps the validated absolute worktree path private, fetches at most 1 MiB of
+UTF-8 text per diff side through the authenticated API, and stores both sides
+only in bounded in-memory virtual documents. The Webview receives neither file
+contents nor absolute worktree paths.
 
 Build `dist/vibeagent-vscode-1.0.0.vsix` from the repository root, then install
 it through **Extensions: Install from VSIX...**:

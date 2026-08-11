@@ -8,6 +8,11 @@ from .background_agent_approval import (
     decide_background_approval,
     read_background_approval,
 )
+from .background_agent_changes import (
+    BackgroundAgentChanges,
+    read_background_agent_change_content,
+    read_background_agent_changes,
+)
 from .background_agent_inbox import pending_background_agent_message_count
 from .background_agent_input import (
     BackgroundUserInput,
@@ -33,6 +38,10 @@ class AgentViewBackend(Protocol):
     def pending(self, agent_id: str) -> int: ...
 
     def logs(self, agent_id: str) -> tuple[str, str]: ...
+
+    def changes(self, agent_id: str) -> BackgroundAgentChanges: ...
+
+    def change_content(self, agent_id: str, path: str, side: str) -> str: ...
 
     def approval(self, agent_id: str) -> BackgroundApproval | None: ...
 
@@ -84,6 +93,17 @@ class ProjectAgentViewBackend:
         if view is None:
             raise ValueError(f"Background agent not found: {agent_id}")
         return stdout, stderr
+
+    def changes(self, agent_id: str) -> BackgroundAgentChanges:
+        return read_background_agent_changes(self.project_root, agent_id)
+
+    def change_content(self, agent_id: str, path: str, side: str) -> str:
+        return read_background_agent_change_content(
+            self.project_root,
+            agent_id,
+            path,
+            side=side,
+        )
 
     def approval(self, agent_id: str) -> BackgroundApproval | None:
         return read_background_approval(self.project_root, agent_id)

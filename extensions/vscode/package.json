@@ -86,6 +86,6 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "check": "node --check extension.js && node --check src/core.js && node --check src/context.js && node --check src/remote.js && node --check src/agentPanel.js && node --check src/agentPanelView.js"
+    "check": "node --check extension.js && node --check src/core.js && node --check src/context.js && node --check src/remote.js && node --check src/agentChanges.js && node --check src/agentPanel.js && node --check src/agentPanelView.js"
   }
 }

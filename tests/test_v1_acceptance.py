@@ -213,6 +213,8 @@ EXPECTED_GATES = {
             "test_context_rejects_token_workspace_permissions_and_sensitive_paths",
             "test_private_ide_credentials_are_not_inherited_by_project_commands",
             "test_node_bridge_payload_is_accepted_by_python_runtime",
+            "test_reads_committed_staged_unstaged_and_untracked_worktree_changes",
+            "test_rejects_unlinked_session_and_unlisted_or_binary_content",
         },
     },
     "VA1-GOAL": {

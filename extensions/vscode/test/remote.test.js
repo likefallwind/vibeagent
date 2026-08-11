@@ -63,6 +63,7 @@ test('starts Remote Control without a shell and keeps credentials in the client'
 
 test('sends bounded authenticated JSON API requests', async () => {
   let observed;
+  let responsePayload = '{"message":"ok"}';
   function fakeRequest(url, options, callback) {
     const request = new EventEmitter();
     const chunks = [];
@@ -74,7 +75,7 @@ test('sends bounded authenticated JSON API requests', async () => {
       const response = new EventEmitter();
       response.statusCode = 200;
       callback(response);
-      response.emit('data', Buffer.from('{"message":"ok"}'));
+      response.emit('data', Buffer.from(responsePayload));
       response.emit('end');
     };
     return request;
@@ -94,6 +95,22 @@ test('sends bounded authenticated JSON API requests', async () => {
   assert.equal(observed.options.headers.Authorization, `Bearer ${'s'.repeat(43)}`);
   assert.equal(observed.options.agent, false);
   assert.equal(observed.body, '{"task":"test"}');
+
+  responsePayload = JSON.stringify({
+    path: 'large.txt',
+    side: 'current',
+    content: '\n'.repeat(1024 * 1024),
+  });
+  const large = await requestJson(
+    'http://127.0.0.1:4123/',
+    's'.repeat(43),
+    'GET',
+    '/api/agents/0123456789ab/change?path=large.txt&side=current',
+    undefined,
+    fakeRequest,
+  );
+  assert.equal(large.content.length, 1024 * 1024);
+
   await assert.rejects(
     requestJson('http://127.0.0.1:4123/', 's'.repeat(43), 'GET', 'http://example.com/api/state', undefined, fakeRequest),
     /path is invalid/,

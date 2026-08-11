@@ -11,7 +11,7 @@ test('registers IDE commands and routes editor context through native VS Code su
   const terminals = [];
   const executed = [];
   const errors = [];
-  let contentProvider;
+  const contentProviders = new Map();
   const root = path.resolve('/workspace/project');
   const file = path.join(root, 'src', 'app.py');
   const documentUri = { scheme: 'file', fsPath: file };
@@ -97,7 +97,7 @@ test('registers IDE commands and routes editor context through native VS Code su
       getWorkspaceFolder() { return { uri: { fsPath: root } }; },
       getConfiguration() { return { get: (_name, fallback) => fallback }; },
       registerTextDocumentContentProvider(_scheme, provider) {
-        contentProvider = provider;
+        contentProviders.set(_scheme, provider);
         return { dispose() {} };
       },
     },
@@ -150,7 +150,10 @@ test('registers IDE commands and routes editor context through native VS Code su
 
   await callbacks.get('vibeagent.reviewCurrentFile')();
   assert.equal(executed.at(-1)[0], 'vscode.diff');
-  assert.equal(await contentProvider.provideTextDocumentContent(executed.at(-1)[1]), 'old content\n');
+  assert.equal(
+    await contentProviders.get('vibeagent-git').provideTextDocumentContent(executed.at(-1)[1]),
+    'old content\n',
+  );
   assert.deepEqual(errors, []);
   for (const disposable of context.subscriptions.reverse()) {
     if (disposable && typeof disposable.dispose === 'function') disposable.dispose();

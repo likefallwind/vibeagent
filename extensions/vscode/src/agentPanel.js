@@ -1,18 +1,22 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const path = require('node:path');
 const { RemoteControlProcess } = require('./remote');
 const { getAgentPanelHtml } = require('./agentPanelView');
 
 const AGENT_ID = /^[0-9a-f]{12}$/;
 const REQUEST_ID = /^[0-9a-f]{32}$/;
 const MAX_TEXT_CHARS = 8_000;
-const AGENT_ACTIONS = new Set(['messages', 'approval', 'answer', 'stop', 'respawn', 'remove', 'logs']);
+const AGENT_ACTIONS = new Set([
+  'messages', 'approval', 'answer', 'stop', 'respawn', 'remove', 'logs', 'changes', 'change',
+]);
 
 class AgentPanelManager {
   constructor(vscode, options = {}) {
     this.vscode = vscode;
     this.processFactory = options.processFactory || (() => new RemoteControlProcess());
+    this.changeProvider = options.changeProvider || null;
     this.refreshIntervalMs = options.refreshIntervalMs || 1_000;
     this.sessions = new Map();
   }
@@ -44,6 +48,7 @@ class AgentPanelManager {
       refreshing: false,
       timer: null,
       subscriptions: [],
+      changes: new Map(),
     };
     this.sessions.set(workspaceRoot, session);
     session.subscriptions.push(
@@ -66,7 +71,13 @@ class AgentPanelManager {
           return;
         case 'select':
           session.selectedId = requireAgentId(message.agentId);
-          await this._refreshLogs(session);
+          await this._refreshAgentDetails(session);
+          return;
+        case 'reviewFile':
+          await this._reviewFile(session, message.agentId, message.path);
+          return;
+        case 'openWorktree':
+          await this._openWorktree(session, message.agentId);
           return;
         case 'dispatch':
           await session.client.post('/api/agents', { task: requireText(message.task, 'Task') });
@@ -142,7 +153,7 @@ class AgentPanelManager {
       }
       if (!session.selectedId && state.agents.length) session.selectedId = state.agents[0].id;
       this._post(session, { type: 'state', state });
-      await this._refreshLogs(session);
+      await this._refreshAgentDetails(session);
     } catch (error) {
       this._postError(session, error);
       if (isConnectionFailure(error)) {
@@ -156,6 +167,11 @@ class AgentPanelManager {
     }
   }
 
+  async _refreshAgentDetails(session) {
+    await this._refreshLogs(session);
+    await this._refreshChanges(session);
+  }
+
   async _refreshLogs(session) {
     if (!session.client || !session.selectedId || session.disposed) return;
     const agentId = requireAgentId(session.selectedId);
@@ -164,6 +180,60 @@ class AgentPanelManager {
       throw new Error('Remote Control returned invalid agent logs.');
     }
     this._post(session, { type: 'logs', agentId, stdout: logs.stdout, stderr: logs.stderr });
+  }
+
+  async _refreshChanges(session) {
+    if (!session.client || !session.selectedId || session.disposed) return;
+    const agentId = requireAgentId(session.selectedId);
+    try {
+      const changes = await session.client.get(agentPath(agentId, 'changes'));
+      if (!validChanges(changes, agentId)) {
+        throw new Error('Remote Control returned invalid agent changes.');
+      }
+      session.changes.set(agentId, changes);
+      const { sessionRoot: _privateRoot, ...publicChanges } = changes;
+      this._post(session, { type: 'changes', agentId, changes: publicChanges, error: null });
+    } catch (error) {
+      session.changes.delete(agentId);
+      const message = error instanceof Error ? error.message : String(error);
+      this._post(session, { type: 'changes', agentId, changes: null, error: message.slice(0, 1_000) });
+    }
+  }
+
+  async _reviewFile(session, rawAgentId, rawPath) {
+    if (!this.changeProvider) throw new Error('VibeAgent change document provider is unavailable.');
+    const agentId = requireAgentId(rawAgentId);
+    const changes = session.changes.get(agentId);
+    const filePath = requireChangedPath(changes, rawPath);
+    const [base, current] = await Promise.all([
+      session.client.get(changeContentPath(agentId, filePath, 'base')),
+      session.client.get(changeContentPath(agentId, filePath, 'current')),
+    ]);
+    if (!validContent(base, filePath, 'base') || !validContent(current, filePath, 'current')) {
+      throw new Error('Remote Control returned invalid change content.');
+    }
+    const original = this.changeProvider.track(filePath, 'base', base.content);
+    const modified = this.changeProvider.track(filePath, 'current', current.content);
+    await this.vscode.commands.executeCommand(
+      'vscode.diff',
+      original,
+      modified,
+      `${filePath} (Agent base to current)`,
+    );
+  }
+
+  async _openWorktree(session, rawAgentId) {
+    const agentId = requireAgentId(rawAgentId);
+    const changes = session.changes.get(agentId);
+    const root = changes && changes.sessionRoot;
+    if (!changes || !changes.isolated || typeof root !== 'string' || !path.isAbsolute(root) || root.includes('\0')) {
+      throw new Error('This agent does not have an isolated worktree to open.');
+    }
+    await this.vscode.commands.executeCommand(
+      'vscode.openFolder',
+      this.vscode.Uri.file(root),
+      { forceNewWindow: true },
+    );
   }
 
   _post(session, payload) {
@@ -195,6 +265,11 @@ class AgentPanelManager {
 function agentPath(agentId, suffix) {
   if (!AGENT_ACTIONS.has(suffix)) throw new Error('Background agent action is invalid.');
   return `/api/agents/${requireAgentId(agentId)}/${suffix}`;
+}
+
+function changeContentPath(agentId, filePath, side) {
+  const query = new URLSearchParams({ path: filePath, side });
+  return `${agentPath(agentId, 'change')}?${query.toString()}`;
 }
 
 function requireAgentId(value) {
@@ -234,6 +309,54 @@ function validState(value) {
   );
 }
 
+function validChanges(value, agentId) {
+  return Boolean(
+    value
+    && typeof value === 'object'
+    && value.agentId === agentId
+    && typeof value.sessionRoot === 'string'
+    && path.isAbsolute(value.sessionRoot)
+    && typeof value.isolated === 'boolean'
+    && (value.branch === null || typeof value.branch === 'string')
+    && typeof value.baseCommit === 'string'
+    && typeof value.headCommit === 'string'
+    && Number.isInteger(value.omittedFiles)
+    && value.omittedFiles >= 0
+    && Array.isArray(value.files)
+    && value.files.length <= 200
+    && value.files.every((item) => (
+      item
+      && typeof item === 'object'
+      && typeof item.path === 'string'
+      && item.path.length > 0
+      && item.path.length <= 1_000
+      && !path.isAbsolute(item.path)
+      && !item.path.split(/[\\/]/).includes('..')
+      && ['committed', 'staged', 'unstaged', 'untracked', 'deleted'].every(
+        (field) => typeof item[field] === 'boolean',
+      )
+    )),
+  );
+}
+
+function requireChangedPath(changes, value) {
+  if (!changes || typeof value !== 'string' || !changes.files.some((item) => item.path === value)) {
+    throw new Error('Changed file is invalid or stale.');
+  }
+  return value;
+}
+
+function validContent(value, filePath, side) {
+  return Boolean(
+    value
+    && typeof value === 'object'
+    && value.path === filePath
+    && value.side === side
+    && typeof value.content === 'string'
+    && Buffer.byteLength(value.content, 'utf8') <= 1_048_576,
+  );
+}
+
 function isConnectionFailure(error) {
   return Boolean(
     error
@@ -247,5 +370,6 @@ module.exports = {
   agentPath,
   requireRequestId,
   requireText,
+  validChanges,
   validState,
 };

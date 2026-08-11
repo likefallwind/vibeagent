@@ -113,7 +113,10 @@ The extension also provides an Agent Panel over a temporary loopback Remote
 Control process. The extension host retains its bearer token while the
 CSP-restricted Webview receives only bounded state and logs. A validated message
 allowlist supports dispatch, follow-up, exact-ID approval and question answers,
-and lifecycle actions. Closing the panel terminates the control process, with a
+worktree change inspection, native base-to-current diffs, explicit isolated
+worktree opening, and lifecycle actions. Change inspection verifies shared Git
+identity and project scope, filters sensitive/generated paths, and keeps bounded
+file content and absolute roots out of the Webview. Closing the panel terminates the control process, with a
 bounded force-kill fallback, without terminating supervised agents.
 Interactive terminals additionally receive a private live-context bridge. The
 extension atomically writes active-file metadata, the exact selected line range,
@@ -156,7 +159,8 @@ The automated suite currently covers these 1.0 surfaces:
   approvals, active-file and half-open selection references, quoted paths,
   bounded sanitized diagnostics, native Git diff routing, deterministic VSIX
   packaging, token-isolated Agent Panel control, exact-ID interactions, bounded
-  process cleanup, and isolated VS Code Server installation.
+  worktree review and virtual documents, process cleanup, and isolated VS Code
+  Server installation.
 - IDE live context: atomic authenticated JavaScript payloads, Python protocol
   validation, sensitive and symlink rejection, untrusted diagnostic redaction,
   no source-buffer transfer, and bridge-secret stripping for child processes.

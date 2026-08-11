@@ -10,10 +10,11 @@ from pathlib import Path
 from secrets import token_urlsafe
 import ssl
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from .agent_view_backend import AgentViewBackend, ProjectAgentViewBackend
 from .background_agent_approval import BackgroundApproval
+from .background_agent_changes import BackgroundAgentChanges
 from .background_agent_input import BackgroundUserInput
 from .background_agent_types import BACKGROUND_AGENT_ID_PATTERN, BackgroundAgentView
 from .remote_control_assets import (
@@ -86,7 +87,8 @@ def _handler_factory(
         sys_version = ""
 
         def do_GET(self) -> None:
-            path = urlsplit(self.path).path
+            request = urlsplit(self.path)
+            path = request.path
             if path == "/":
                 self._asset("text/html; charset=utf-8", REMOTE_CONTROL_HTML)
                 return
@@ -106,6 +108,21 @@ def _handler_factory(
                 if parts is not None:
                     stdout, stderr = backend.logs(parts)
                     self._json(HTTPStatus.OK, {"stdout": stdout, "stderr": stderr})
+                    return
+                agent_id = _agent_route(path, suffix="changes")
+                if agent_id is not None:
+                    self._json(HTTPStatus.OK, _changes_payload(backend.changes(agent_id)))
+                    return
+                agent_id = _agent_route(path, suffix="change")
+                if agent_id is not None:
+                    query = parse_qs(request.query, keep_blank_values=True)
+                    changed_path = _single_query_value(query, "path")
+                    side = _single_query_value(query, "side")
+                    content = backend.change_content(agent_id, changed_path, side)
+                    self._json(
+                        HTTPStatus.OK,
+                        {"path": changed_path, "side": side, "content": content},
+                    )
                     return
                 self._json(HTTPStatus.NOT_FOUND, {"error": "Remote Control route not found."})
             except ValueError as error:
@@ -302,6 +319,29 @@ def _question_payload(value: BackgroundUserInput | None) -> dict[str, object] | 
     }
 
 
+def _changes_payload(value: BackgroundAgentChanges) -> dict[str, object]:
+    return {
+        "agentId": value.agent_id,
+        "sessionRoot": value.session_root.as_posix(),
+        "isolated": value.isolated,
+        "branch": value.branch,
+        "baseCommit": value.base_commit,
+        "headCommit": value.head_commit,
+        "omittedFiles": value.omitted_files,
+        "files": [
+            {
+                "path": item.path,
+                "committed": item.committed,
+                "staged": item.staged,
+                "unstaged": item.unstaged,
+                "untracked": item.untracked,
+                "deleted": item.deleted,
+            }
+            for item in value.files
+        ],
+    }
+
+
 def _agent_route(path: str, *, suffix: str) -> str | None:
     parts = path.strip("/").split("/")
     if (
@@ -335,6 +375,15 @@ def _required_request_id(payload: dict[str, object]) -> str:
     ):
         raise ValueError("Remote Control field requestId must be 32 lowercase hexadecimal characters.")
     return value
+
+
+def _single_query_value(query: dict[str, list[str]], field: str) -> str:
+    values = query.get(field)
+    if not isinstance(values, list) or len(values) != 1 or not values[0]:
+        raise ValueError(f"Remote Control query field {field} must be provided exactly once.")
+    if len(values[0]) > MAX_REMOTE_CONTROL_TEXT_CHARS:
+        raise ValueError(f"Remote Control query field {field} is too long.")
+    return values[0]
 
 
 def _normalize_host(value: str) -> str:

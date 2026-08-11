@@ -208,7 +208,10 @@ code --install-extension dist/vibeagent-vscode-1.0.0.vsix
 
 The extension contributes an Agent Panel that dispatches and supervises
 project-local background agents, displays bounded logs, sends follow-ups,
-answers questions, and resolves approvals. It also opens one interactive
+answers questions, resolves approvals, and lists committed or working-tree
+changes. Each visible text file opens as an in-memory base-to-current native
+VS Code diff; an explicit button opens an isolated agent worktree in a new
+VS Code window for further inspection. It also opens one interactive
 VibeAgent terminal per workspace, runs a one-shot task against the active selection, inserts an
 `@path#Lx-Ly` reference, send up to 20 bounded diagnostics, and open the active
 file against Git `HEAD` in VS Code's native diff viewer. VibeAgent still runs in
@@ -228,6 +231,12 @@ allowlist and validated IDs; approval and question responses carry the exact
 request ID that was rendered, so stale UI actions cannot resolve a newer
 interaction. Closing the panel terminates the control service without stopping
 the independently supervised background agents.
+
+Change review accepts only a private recorded session root that belongs to the
+same Git common directory and matching project subdirectory. It exposes at most
+200 project-relative files, omits sensitive and generated paths, and rejects
+symlinks, binary/non-UTF-8 content, stale paths, and files over 1 MiB. Absolute
+worktree paths remain in the extension host and are not sent to the Webview.
 
 Terminals launched by the extension also receive a private live-context bridge.
 As the active editor, selection, dirty state, or diagnostics change, the
@@ -2596,9 +2605,12 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   an isolated `agent-browser` session without accepting arbitrary CLI options.
 - `extensions/vscode/` and `scripts/build_vscode_extension.py`: provide a
   dependency-free VS Code extension for background-agent supervision, exact-ID
-  approvals, terminal launch, selected-file references, bounded diagnostic
-  handoff, and native Git diff review, plus a deterministic allowlisted VSIX
-  build.
+  approvals, worktree change review, terminal launch, selected-file references,
+  bounded diagnostic handoff, and native Git diff review, plus a deterministic
+  allowlisted VSIX build.
+- `vibeagent/background_agent_changes.py`: validates recorded Git worktrees and
+  provides bounded, sensitive-path-aware base/current text for Agent Panel
+  change review without mutating either checkout.
 - `vibeagent/ide_context.py`: authenticates, bounds, sanitizes, and formats the
   private VS Code live-context protocol without exposing bridge credentials to
   child project processes.

@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from vibeagent.background_agent_types import BackgroundAgentRecord, BackgroundAgentView
 from vibeagent.background_agent_approval import BackgroundApproval
+from vibeagent.background_agent_changes import BackgroundAgentChangedFile, BackgroundAgentChanges
 from vibeagent.background_agent_input import BackgroundUserInput
 from vibeagent.cli import main
 from vibeagent.cli_args import parse_args
@@ -51,6 +52,32 @@ class FakeBackend:
     def logs(self, agent_id):
         self.calls.append(("logs", agent_id))
         return "stdout\n", "stderr\n"
+
+    def changes(self, agent_id):
+        self.calls.append(("changes", agent_id))
+        return BackgroundAgentChanges(
+            agent_id=agent_id,
+            session_root=self.views[0].record.project_root / ".vibeagent/worktrees/review",
+            isolated=True,
+            branch="vibeagent/review",
+            base_commit="a" * 40,
+            head_commit="b" * 40,
+            files=(
+                BackgroundAgentChangedFile(
+                    path="src/app.py",
+                    committed=True,
+                    staged=False,
+                    unstaged=False,
+                    untracked=False,
+                    deleted=False,
+                ),
+            ),
+            omitted_files=0,
+        )
+
+    def change_content(self, agent_id, path, side):
+        self.calls.append(("change-content", agent_id, path, side))
+        return "old\n" if side == "base" else "new\n"
 
     def approval(self, agent_id):
         return self.approval_value
@@ -158,6 +185,36 @@ class RemoteControlServerTests(unittest.TestCase):
         status, _, body = self.request("GET", f"/api/agents/{AGENT_ID}/logs")
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body), {"stdout": "stdout\n", "stderr": "stderr\n"})
+
+    def test_change_routes_expose_bounded_review_data(self) -> None:
+        status, _, body = self.request("GET", f"/api/agents/{AGENT_ID}/changes")
+        payload = json.loads(body)
+
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["isolated"])
+        self.assertEqual(payload["branch"], "vibeagent/review")
+        self.assertEqual(payload["files"][0]["path"], "src/app.py")
+        self.assertEqual(self.backend.calls[-1], ("changes", AGENT_ID))
+
+        status, _, body = self.request(
+            "GET",
+            f"/api/agents/{AGENT_ID}/change?path=src%2Fapp.py&side=base",
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["content"], "old\n")
+        self.assertEqual(
+            self.backend.calls[-1],
+            ("change-content", AGENT_ID, "src/app.py", "base"),
+        )
+
+        for query in ("side=base", "path=src%2Fapp.py", "path=a&path=b&side=current"):
+            with self.subTest(query=query):
+                status, _, body = self.request(
+                    "GET",
+                    f"/api/agents/{AGENT_ID}/change?{query}",
+                )
+                self.assertEqual(status, 400)
+                self.assertIn(b"query field", body)
 
     def test_state_serializes_approval_and_structured_question_contracts(self) -> None:
         self.backend.approval_value = BackgroundApproval(

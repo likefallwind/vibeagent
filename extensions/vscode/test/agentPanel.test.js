@@ -23,16 +23,38 @@ test('panel routes only validated actions and preserves exact request IDs', asyn
   let disposePanel;
   const posted = [];
   const apiCalls = [];
+  const getCalls = [];
+  const executed = [];
   const client = {
-    async get(path) {
-      if (path === '/api/state') return {
+    async get(apiPath) {
+      getCalls.push(apiPath);
+      if (apiPath === '/api/state') return {
         projectRoot: '/workspace/project',
         agents: [{
           id: '0123456789ab', status: 'needs-input', startedAt: 'now', task: 'test',
           sessionName: 'background-test', pending: 0, approval: null, question: null,
         }],
       };
-      return { stdout: 'running', stderr: '' };
+      if (apiPath.endsWith('/logs')) return { stdout: 'running', stderr: '' };
+      if (apiPath.endsWith('/changes')) return {
+        agentId: '0123456789ab',
+        sessionRoot: '/workspace/project/.vibeagent/worktrees/review',
+        isolated: true,
+        branch: 'vibeagent/review',
+        baseCommit: 'a'.repeat(40),
+        headCommit: 'b'.repeat(40),
+        omittedFiles: 0,
+        files: [{
+          path: 'src/app.py', committed: true, staged: false, unstaged: false,
+          untracked: false, deleted: false,
+        }],
+      };
+      const url = new URL(apiPath, 'http://127.0.0.1');
+      return {
+        path: url.searchParams.get('path'),
+        side: url.searchParams.get('side'),
+        content: url.searchParams.get('side') === 'base' ? 'old\n' : 'new\n',
+      };
     },
     async post(path, payload) { apiCalls.push([path, payload]); return { message: 'ok' }; },
   };
@@ -50,13 +72,26 @@ test('panel routes only validated actions and preserves exact request IDs', asyn
   const vscode = {
     ViewColumn: { Beside: 2 },
     window: { createWebviewPanel() { return panel; } },
+    commands: { async executeCommand(...args) { executed.push(args); } },
+    Uri: { file(value) { return { fsPath: value }; } },
+  };
+  const tracked = [];
+  const changeProvider = {
+    track(filePath, side, content) {
+      const uri = { filePath, side, content };
+      tracked.push(uri);
+      return uri;
+    },
   };
   const manager = new AgentPanelManager(vscode, {
     processFactory: () => process,
+    changeProvider,
     refreshIntervalMs: 60_000,
   });
   t.after(() => manager.dispose());
   await manager.open('/workspace/project', { executable: 'python', args: [] });
+  const changesMessage = posted.find((message) => message.type === 'changes');
+  assert.equal(Object.hasOwn(changesMessage.changes, 'sessionRoot'), false);
 
   await receiveMessage({
     type: 'approval', agentId: '0123456789ab', requestId: 'a'.repeat(32), approved: true, scope: 'once',
@@ -69,6 +104,22 @@ test('panel routes only validated actions and preserves exact request IDs', asyn
   await receiveMessage({ type: 'stop', agentId: '../unsafe' });
   assert.equal(apiCalls.length, 1);
   assert.match(posted.findLast((message) => message.type === 'error').message, /agent ID is invalid/);
+
+  await receiveMessage({ type: 'reviewFile', agentId: '0123456789ab', path: 'src/app.py' });
+  assert.equal(tracked[0].content, 'old\n');
+  assert.equal(tracked[1].content, 'new\n');
+  assert.equal(executed.at(-1)[0], 'vscode.diff');
+  assert.match(getCalls.at(-2), /path=src%2Fapp.py&side=base/);
+
+  await receiveMessage({ type: 'openWorktree', agentId: '0123456789ab' });
+  assert.deepEqual(executed.at(-1), [
+    'vscode.openFolder',
+    { fsPath: '/workspace/project/.vibeagent/worktrees/review' },
+    { forceNewWindow: true },
+  ]);
+
+  await receiveMessage({ type: 'reviewFile', agentId: '0123456789ab', path: '../secret' });
+  assert.match(posted.findLast((message) => message.type === 'error').message, /invalid or stale/);
   manager.dispose();
   assert.equal(process.disposed, true);
 });

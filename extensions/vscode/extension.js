@@ -13,6 +13,7 @@ const {
 } = require('./src/core');
 const { IdeContextBridge } = require('./src/context');
 const { AgentPanelManager } = require('./src/agentPanel');
+const { AgentChangeContentProvider } = require('./src/agentChanges');
 
 class GitHeadContentProvider {
   constructor() {
@@ -47,11 +48,14 @@ function activate(context) {
   const interactiveTerminals = new Map();
   const contextBridges = new Map();
   const diffProvider = new GitHeadContentProvider();
-  const agentPanels = new AgentPanelManager(vscode);
+  const agentChangeProvider = new AgentChangeContentProvider(vscode);
+  const agentPanels = new AgentPanelManager(vscode, { changeProvider: agentChangeProvider });
   context.subscriptions.push(
     diffProvider,
+    agentChangeProvider,
     agentPanels,
     vscode.workspace.registerTextDocumentContentProvider('vibeagent-git', diffProvider),
+    vscode.workspace.registerTextDocumentContentProvider('vibeagent-change', agentChangeProvider),
     vscode.window.onDidCloseTerminal((terminal) => {
       for (const [root, candidate] of interactiveTerminals) {
         if (candidate === terminal) interactiveTerminals.delete(root);
