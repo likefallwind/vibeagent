@@ -5,6 +5,7 @@ from typing import Any
 
 from .session_file_reports import session_file_entries as _session_file_entries
 from .session_id import is_valid_session_id as _is_valid_session_id
+from .session_task_commands import get_session_tasks_report as _get_session_tasks_report
 from .session_store import read_session_events as _read_session_events
 from .session_summary_builder import summarize_session_from_events as _summarize_session_from_events
 from .session_summary_reports import (
@@ -26,6 +27,8 @@ INSPECT_MAX_FILES = 100
 INSPECT_MAX_FILE_TOOLS = 20
 INSPECT_MAX_FILE_LINES = 20
 INSPECT_MAX_CHECKS = 50
+INSPECT_MAX_TASKS = 50
+INSPECT_MAX_TASK_TEXT = 500
 INSPECT_MAX_CHECK_TEXT = 500
 INSPECT_MAX_PLAN_ITEMS = 20
 INSPECT_MAX_PLAN_TEXT = 2_000
@@ -57,6 +60,18 @@ def get_session_inspect_report(
                 max_text=INSPECT_MAX_CHECK_TEXT,
             )
         )
+        task_graph = _get_session_tasks_report(
+            root,
+            run_id,
+            max_tasks=INSPECT_MAX_TASKS,
+            max_text=INSPECT_MAX_TASK_TEXT,
+        )
+        if not bool(task_graph.get("ok")):
+            return _error_report(
+                root,
+                run_id,
+                str(task_graph.get("message") or "Session task graph is unavailable."),
+            )
     except (OSError, ValueError) as error:
         return _error_report(root, run_id, str(error))
 
@@ -68,6 +83,7 @@ def get_session_inspect_report(
         "status": _session_summary_status(summary),
         "overview": _overview(summary),
         "plan": _plan(summary),
+        "tasks": task_graph,
         "transcript": transcript,
         "files": _files(run_id, events),
         "verification": verification,
@@ -80,6 +96,7 @@ def format_session_inspect_report_text(report: dict[str, object]) -> str:
         return str(report.get("message") or "Session inspector report is unavailable.")
     overview = _mapping(report.get("overview"))
     plan = _mapping(report.get("plan"))
+    tasks = _mapping(_mapping(report.get("tasks")).get("tasks"))
     verification = _mapping(report.get("verification"))
     files = _mapping(_mapping(report.get("files")).get("files"))
     events = _mapping(_mapping(report.get("transcript")).get("events"))
@@ -90,6 +107,7 @@ def format_session_inspect_report_text(report: dict[str, object]) -> str:
         f"  task: {overview.get('task') or ''}",
         f"  final: {overview.get('finalMessage') or ''}",
         f"  plan: {plan.get('shown', 0)}/{plan.get('total', 0)}",
+        f"  tasks: {tasks.get('shown', 0)}/{tasks.get('total', 0)}",
         (
             "  verification: "
             f"ready={'yes' if bool(verification.get('ready')) else 'no'}, "
@@ -242,6 +260,7 @@ def _error_report(root: Path, run_id: str, message: str) -> dict[str, object]:
         "status": "missing" if message.startswith("Session not found:") else "invalid",
         "overview": None,
         "plan": None,
+        "tasks": None,
         "transcript": None,
         "files": None,
         "verification": None,

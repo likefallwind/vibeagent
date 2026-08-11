@@ -209,6 +209,7 @@ LOCAL_RESULT_ARG_NAMES = frozenset(
         "last",
         "session",
         "session_inspect",
+        "session_tasks",
         "plan",
         "transcript",
         "session_search",

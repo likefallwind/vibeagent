@@ -54,6 +54,15 @@ def run_session_summary_local_flag(
                 commands["get_session_inspect_report"](root, run_id)
             ),
         )
+    if args.session_tasks is not None:
+        run_id = normalize_optional_run_id(args.session_tasks)
+        return local_text_or_report(
+            args,
+            "sessionTasks",
+            lambda: commands["get_session_tasks_report"](root, run_id),
+            commands["format_session_tasks_report_text"],
+            lambda: commands["get_session_tasks_text"](root, run_id),
+        )
     if args.plan is not None:
         run_id = normalize_optional_run_id(args.plan)
         return local_text_or_report(

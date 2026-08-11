@@ -113,7 +113,7 @@ function verificationConfirmationDetail(inspected, selection) {
 }
 
 function renderSessionInspector(report) {
-  const { overview, plan, verification, files, transcript } = report;
+  const { overview, plan, tasks, verification, files, transcript } = report;
   const lines = [
     '# VibeAgent Session Inspector',
     '',
@@ -148,10 +148,36 @@ function renderSessionInspector(report) {
     }
     if (plan.truncated) lines.push(`- ${plan.total - plan.shown} older plan item(s) omitted`);
   }
+  appendTasks(lines, tasks);
   appendVerification(lines, verification);
   appendFiles(lines, files);
   appendTimeline(lines, transcript);
   return `${lines.join('\n')}\n`;
+}
+
+function appendTasks(lines, tasks) {
+  const counts = tasks.counts;
+  lines.push(
+    '',
+    `## Persistent Tasks (${tasks.shown}/${tasks.total})`,
+    '',
+    `Pending: ${counts.pending}; in progress: ${counts.inProgress}; completed: ${counts.completed}; blocked: ${counts.blocked}`,
+    '',
+  );
+  if (!tasks.items.length) {
+    lines.push('_No persistent tasks._');
+    return;
+  }
+  for (const item of tasks.items) {
+    const checked = item.status === 'completed' ? 'x' : ' ';
+    const blocked = item.blocked ? ' (blocked)' : '';
+    lines.push(`- [${checked}] ${inlineCode(`#${item.id}`)} ${escapeMarkdown(item.status)}${blocked}: ${escapeMarkdown(item.subject)}`);
+    if (item.owner) lines.push(`  Owner: ${inlineCode(item.owner)}`);
+    if (item.blockedBy.length) lines.push(`  Blocked by: ${item.blockedBy.map((id) => inlineCode(`#${id}`)).join(', ')}`);
+    if (item.blocks.length) lines.push(`  Blocks: ${item.blocks.map((id) => inlineCode(`#${id}`)).join(', ')}`);
+    lines.push(...indentedText(item.description));
+  }
+  if (tasks.truncated) lines.push(`${tasks.omitted} task(s) omitted.`);
 }
 
 function appendVerification(lines, verification) {

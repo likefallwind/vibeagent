@@ -4,6 +4,8 @@ const { LocalJsonClient } = require('./localCli');
 const { requireSessionId } = require('./sessionCatalog');
 
 const MAX_INSPECT_PLAN_ITEMS = 20;
+const MAX_INSPECT_TASKS = 50;
+const MAX_SESSION_TASKS = 100;
 const MAX_INSPECT_FILES = 100;
 const MAX_INSPECT_EVENTS = 80;
 const MAX_INSPECT_CHECKS = 50;
@@ -43,6 +45,7 @@ function parseSessionInspector(payload, expectedSession) {
       status,
       overview: null,
       plan: null,
+      tasks: null,
       transcript: null,
       files: null,
       verification: null,
@@ -57,6 +60,7 @@ function parseSessionInspector(payload, expectedSession) {
     status,
     overview: parseOverview(report.overview, status),
     plan: parsePlan(report.plan),
+    tasks: parseTasks(report.tasks, session),
     transcript: parseTranscript(report.transcript, session),
     files: parseFiles(report.files, session),
     verification: parseVerification(report.verification, session),
@@ -122,6 +126,50 @@ function parsePlan(value) {
   return { status: requireStatus(plan.status, 'plan status'), ...counts, items };
 }
 
+function parseTasks(value, expectedSession) {
+  const report = requireValueObject(value, 'session task graph');
+  requireReportIdentity(report, expectedSession, 'session task graph');
+  const status = requireAllowedStatus(report.status, new Set(['ready', 'empty']), 'session task graph status');
+  const counts = requireValueObject(report.counts, 'session task counts');
+  const parsedCounts = parseCounts(counts, ['pending', 'inProgress', 'completed', 'blocked'], 'session task');
+  const collection = requireValueObject(report.tasks, 'session task collection');
+  const items = requireBoundedArray(collection.items, MAX_INSPECT_TASKS, 'session task items')
+    .map((item) => {
+      const entry = requireValueObject(item, 'session task item');
+      const id = requireInline(entry.id, 64, 'session task ID');
+      if (!/^\d+$/.test(id)) throw new Error('VibeAgent returned an invalid session task ID.');
+      if (!PLAN_ITEM_STATUSES.has(entry.status)) throw new Error('VibeAgent returned an invalid session task status.');
+      return {
+        id,
+        subject: requireInline(entry.subject, 500, 'session task subject'),
+        description: requireInline(entry.description, 500, 'session task description'),
+        status: entry.status,
+        activeForm: optionalInline(entry.activeForm, 500, 'session task active form'),
+        owner: optionalInline(entry.owner, 200, 'session task owner'),
+        blocks: parseTaskIds(entry.blocks, 'session task blocks'),
+        blockedBy: parseTaskIds(entry.blockedBy, 'session task blockers'),
+        blocked: requireBoolean(entry.blocked, 'session task blocked flag'),
+      };
+    });
+  if (new Set(items.map((item) => item.id)).size !== items.length) {
+    throw new Error('VibeAgent returned duplicate session task IDs.');
+  }
+  const taskCounts = parseCollectionCounts(collection, items.length, 'session tasks');
+  if (taskCounts.total > MAX_SESSION_TASKS) throw new Error('VibeAgent returned too many session tasks.');
+  if (parsedCounts.pending + parsedCounts.inProgress + parsedCounts.completed !== taskCounts.total) {
+    throw new Error('VibeAgent returned inconsistent session task status counts.');
+  }
+  if (parsedCounts.blocked > taskCounts.total || (status === 'empty') !== (taskCounts.total === 0)) {
+    throw new Error('VibeAgent returned inconsistent session task summary.');
+  }
+  return { status, counts: parsedCounts, ...taskCounts, items };
+}
+
+function parseTaskIds(value, label) {
+  const items = parseInlineArray(value, MAX_SESSION_TASKS, 64, label);
+  if (items.some((item) => !/^\d+$/.test(item))) throw new Error(`VibeAgent returned invalid ${label}.`);
+  return items;
+}
 function parseTranscript(value, expectedSession) {
   const report = requireValueObject(value, 'session transcript');
   requireReportIdentity(report, expectedSession, 'session transcript');
@@ -314,6 +362,7 @@ module.exports = {
   MAX_INSPECT_EVENTS,
   MAX_INSPECT_FILES,
   MAX_INSPECT_PLAN_ITEMS,
+  MAX_INSPECT_TASKS,
   SessionInspectorClient,
   parseSessionInspector,
 };

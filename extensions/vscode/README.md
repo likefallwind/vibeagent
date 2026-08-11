@@ -61,10 +61,15 @@ fall back to the primary workspace session.
 Session inspection uses one provider-free, credential-isolated
 `--json --session-inspect RUN_ID` request. The client validates identity,
 status, counts, truncation flags, and every bounded field before opening the
-document. At most 20 plan items, 50 checks per verification group, 100 files,
+document. At most 20 plan items, 50 persistent tasks, 50 checks per verification group, 100 files,
 and 80 timeline events are accepted. Workspace, session, and display-name
 metadata stay outside editable Markdown, so document edits cannot redirect the
 resume command.
+The same report contains up to 50 persistent `TaskCreate` graph entries. The
+extension validates numeric IDs, unique shown tasks, status totals, owners,
+dependency lists, blocked flags, and the 100-task store ceiling before rendering
+the dedicated `Persistent Tasks` section. A corrupt graph rejects the whole
+inspector instead of appearing empty.
 
 Verification execution refreshes the inspector before displaying a modal
 confirmation. Only an explicit `Run Checks` response opens a terminal with

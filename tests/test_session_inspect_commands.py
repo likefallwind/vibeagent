@@ -27,11 +27,14 @@ class SessionInspectCommandTests(unittest.TestCase):
         self.assertEqual(report["status"], "completed")
         self.assertEqual(report["overview"]["task"], "Repair parser")  # type: ignore[index]
         self.assertEqual(report["plan"]["items"][0]["step"], "Inspect parser")  # type: ignore[index]
+        self.assertEqual(report["tasks"]["counts"]["pending"], 1)  # type: ignore[index]
+        self.assertEqual(report["tasks"]["tasks"]["items"][0]["subject"], "Inspect parser")  # type: ignore[index]
         self.assertEqual(report["files"]["files"]["items"][0]["path"], "app.py")  # type: ignore[index]
         self.assertEqual(report["transcript"]["events"]["total"], 5)  # type: ignore[index]
         self.assertTrue(report["verification"]["ready"])  # type: ignore[index]
         self.assertIn("session: run-1", text)
         self.assertIn("files: 1/1", text)
+        self.assertIn("tasks: 1/1", text)
         self.assertIn("timeline: 5/5", text)
 
     def test_report_bounds_long_plan_file_and_timeline_history(self) -> None:
@@ -75,12 +78,16 @@ class SessionInspectCommandTests(unittest.TestCase):
             )
             rows.append({"type": "result", "success": True, "status": "completed", "iterations": 131})
             self._write_rows(root, "run-long", rows)
+            self._write_task_store(root, "run-long", 100)
 
             report = get_session_inspect_report(root, "run-long")
 
         self.assertEqual(report["plan"]["total"], 20)  # type: ignore[index]
         self.assertEqual(report["plan"]["shown"], 20)  # type: ignore[index]
         self.assertFalse(report["plan"]["truncated"])  # type: ignore[index]
+        self.assertEqual(report["tasks"]["tasks"]["total"], 100)  # type: ignore[index]
+        self.assertEqual(report["tasks"]["tasks"]["shown"], 50)  # type: ignore[index]
+        self.assertTrue(report["tasks"]["tasks"]["truncated"])  # type: ignore[index]
         self.assertEqual(report["files"]["files"]["total"], 106)  # type: ignore[index]
         self.assertEqual(report["files"]["files"]["shown"], 100)  # type: ignore[index]
         repeated = report["files"]["files"]["items"][0]  # type: ignore[index]
@@ -109,6 +116,12 @@ class SessionInspectCommandTests(unittest.TestCase):
             root = Path(base)
             invalid = get_session_inspect_report(root, "../escape")
             missing = get_session_inspect_report(root, "missing")
+            self._write_session(root, "corrupt-tasks")
+            (root / ".vibeagent" / "sessions" / "corrupt-tasks" / "tasks.json").write_text(
+                "{bad",
+                encoding="utf-8",
+            )
+            corrupt_tasks = get_session_inspect_report(root, "corrupt-tasks")
             stdout = io.StringIO()
             with redirect_stdout(stdout):
                 exit_code = main(["--json", "--cwd", base, "--session-inspect", "missing"])
@@ -117,6 +130,8 @@ class SessionInspectCommandTests(unittest.TestCase):
         self.assertFalse(invalid["ok"])
         self.assertIn("Invalid session id", invalid["message"])
         self.assertFalse(missing["ok"])
+        self.assertFalse(corrupt_tasks["ok"])
+        self.assertIn("Invalid session task store", corrupt_tasks["message"])
         self.assertEqual(exit_code, 1)
         self.assertFalse(payload["success"])
 
@@ -165,6 +180,29 @@ class SessionInspectCommandTests(unittest.TestCase):
             },
         ]
         SessionInspectCommandTests._write_rows(root, run_id, rows)
+        SessionInspectCommandTests._write_task_store(root, run_id, 1)
+
+    @staticmethod
+    def _write_task_store(root: Path, run_id: str, count: int) -> None:
+        tasks = [
+            {
+                "id": str(index),
+                "subject": "Inspect parser" if index == 1 else f"Task {index}",
+                "description": "Read parser behavior" if index == 1 else f"Task {index} description",
+                "status": "pending",
+                "activeForm": "Inspecting parser" if index == 1 else None,
+                "owner": "main" if index == 1 else None,
+                "metadata": {"ticket": index},
+                "blocks": [],
+                "blockedBy": [],
+            }
+            for index in range(1, count + 1)
+        ]
+        directory = root / ".vibeagent" / "sessions" / run_id
+        directory.joinpath("tasks.json").write_text(
+            json.dumps({"version": 1, "nextId": count + 1, "tasks": tasks}),
+            encoding="utf-8",
+        )
 
     @staticmethod
     def _write_rows(root: Path, run_id: str, rows: list[dict[str, object]]) -> None:

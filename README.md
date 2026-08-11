@@ -242,13 +242,17 @@ the active managed VibeAgent terminal and otherwise fall back to the primary
 workspace session.
 
 Session inspection uses one provider-free `--json --session-inspect RUN_ID`
-call to load a bounded overview, plan, verification report, file list, and
+call to load a bounded overview, plan, persistent task graph, verification report, file list, and
 timeline. The extension validates the returned identity, counts, statuses, and
 truncation flags before opening native Markdown for read-only review. Reports
-show at most 20 plan items, 50 checks per verification group, 100 files, and 80
+show at most 20 plan items, 50 persistent tasks, 50 checks per verification group, 100 files, and 80
 timeline events. Workspace, session, and display-name metadata remain in
 trusted extension memory, so editing the document cannot change the exact ID
 used by `Resume Inspected Session`.
+The aggregate also includes at most 50 entries from the persistent session task
+graph. Invalid IDs, inconsistent status totals or dependencies, corrupt JSON,
+and symlinked task stores fail the whole inspector rather than being rendered as
+an empty graph.
 
 `Run Inspected Verification` refreshes the same trusted session immediately
 before execution, shows the current failed and pending checks in a modal
@@ -931,9 +935,12 @@ results, and the new branch session ID when conversation history is rewound.
 object with verified, pending, and failed check groups, truncation state, and
 machine-readable command/cwd entries for each shown check.
 `--json --session-inspect` includes a structured `sessionInspect` object with a
-bounded overview, plan, verification groups, referenced files, and safe
+bounded overview, plan, persistent tasks, verification groups, referenced files, and safe
 timeline. Its fixed limits are suitable for one local IDE request without a
 provider call.
+`--json --session-tasks` includes a structured `sessionTasks` object with
+bounded persistent tasks, status and blocked counts, owners, and dependency
+edges. Metadata is omitted and stored task text is redacted before output.
 `--json --run-session-verification` includes a structured
 `runSessionVerification` object with selected failed/pending commands, command
 results, stop-on-failure state, and aggregate duration.
@@ -1190,6 +1197,7 @@ python -m vibeagent --stop-all-processes --cwd ../my-project
 python -m vibeagent --sessions --cwd ../my-project
 python -m vibeagent --session <run-id> --cwd ../my-project
 python -m vibeagent --session-inspect <run-id> --cwd ../my-project
+python -m vibeagent --session-tasks <run-id> --cwd ../my-project
 python -m vibeagent --plan <run-id> --cwd ../my-project
 python -m vibeagent --transcript <run-id> --session-transcript-event-max 80 --session-max-text 500 --cwd ../my-project
 python -m vibeagent --session-search "AssertionError" --session-search-run <run-id> --session-search-match-max 20 --session-search-case-sensitive --session-max-text 500 --cwd ../my-project
@@ -1554,6 +1562,11 @@ interactive turns and `--resume` runs, and projected into the run result,
 session summaries, and completion checks. `todo_write`/`TodoWrite`,
 `todo_read`/`TodoRead`, and `update_plan` remain deferred compatibility tools
 for the legacy whole-checklist contract.
+The provider-free `--session-tasks [RUN_ID]` command reads this graph without
+creating a model client. Its `sessionTasks` JSON omits metadata, redacts and
+bounds task text, preserves owners and dependency edges, reports status and
+blocked counts, and fails nonzero for missing, corrupt, oversized, cyclic, or
+symlinked stores.
 VibeAgent also supports Claude-compatible session scheduling through
 `CronCreate`, `CronList`, and `CronDelete`. A scheduled prompt uses a standard
 five-field local-time cron expression and can be one-shot or recurring. The
@@ -2672,7 +2685,7 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   an isolated `agent-browser` session without accepting arbitrary CLI options.
 - `extensions/vscode/` and `scripts/build_vscode_extension.py`: provide a
   dependency-free VS Code extension for background-agent supervision, exact-ID
-  approvals, worktree change review, bounded history lookup, exact-ID resume,
+  approvals, worktree change review, bounded history lookup, exact-ID resume, persistent task graph inspection,
   parallel terminal management, selected-file references, bounded diagnostic
   handoff, and native Git diff review, plus a deterministic allowlisted VSIX build.
 - `vibeagent/background_agent_changes.py`: validates recorded Git worktrees and
@@ -2684,9 +2697,9 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
 - `vibeagent/ide_context.py`: authenticates, bounds, sanitizes, and formats the
   private VS Code live-context protocol without exposing bridge credentials to
   child project processes.
-- `vibeagent/session_tasks.py`, `vibeagent/session_task_store.py`, and
+- `vibeagent/session_tasks.py`, `vibeagent/session_task_store.py`, `vibeagent/session_task_commands.py`, and
   `vibeagent/session_task_graph.py`: manage the session-scoped structured task
-  graph, atomic persistence, resume inheritance, and dependency invariants.
+  graph, atomic persistence, resume inheritance, dependency invariants, and bounded provider-free inspection.
 - `vibeagent/cron_expression.py`, `vibeagent/scheduled_task_store.py`, and
   `vibeagent/scheduled_task_persistence.py`: validate cron expressions, apply
   local-time scheduling and deterministic jitter, atomically persist schedules,

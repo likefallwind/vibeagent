@@ -38,6 +38,30 @@ function inspectorReport(overrides = {}) {
       status: 'completed', total: 1, shown: 1, truncated: false,
       items: [{ status: 'completed', step: 'Inspect parser', activeForm: null }],
     },
+    tasks: {
+      projectRoot: '/workspace/project',
+      session: SESSION,
+      exists: true,
+      ok: true,
+      status: 'ready',
+      counts: { pending: 1, inProgress: 0, completed: 1, blocked: 1 },
+      tasks: {
+        total: 2, shown: 2, omitted: 0, truncated: false,
+        items: [
+          {
+            id: '1', subject: 'Inspect parser', description: 'Read parser behavior',
+            status: 'completed', activeForm: null, owner: 'main', blocks: ['2'],
+            blockedBy: [], blocked: false,
+          },
+          {
+            id: '2', subject: 'Implement parser', description: 'Apply parser fix',
+            status: 'pending', activeForm: 'Implementing parser', owner: null, blocks: [],
+            blockedBy: ['1'], blocked: true,
+          },
+        ],
+      },
+      message: 'Found 2 persistent session task(s).',
+    },
     transcript: {
       session: SESSION, exists: true, ok: true, status: 'ready',
       events: {
@@ -88,6 +112,31 @@ test('loads one bounded inspector report with the exact provider-free CLI argume
   assert.deepEqual(calls, [['--session-inspect', SESSION]]);
   assert.equal(report.overview.task, 'Repair parser');
   assert.equal(report.files.items[0].path, 'app.py');
+  assert.equal(report.tasks.items[1].blocked, true);
+  assert.throws(
+    () => parseSessionInspector(envelope(inspectorReport({
+      tasks: {
+        ...inspectorReport().tasks,
+        counts: { ...inspectorReport().tasks.counts, pending: 2 },
+      },
+    })), SESSION),
+    /inconsistent session task status counts/,
+  );
+  assert.throws(
+    () => parseSessionInspector(envelope(inspectorReport({
+      tasks: {
+        ...inspectorReport().tasks,
+        tasks: {
+          ...inspectorReport().tasks.tasks,
+          items: [
+            { ...inspectorReport().tasks.tasks.items[0], id: '../escape' },
+            inspectorReport().tasks.tasks.items[1],
+          ],
+        },
+      },
+    })), SESSION),
+    /session task ID/,
+  );
   assert.throws(
     () => parseSessionInspector(envelope(inspectorReport({ session: '../escape' })), SESSION),
     /session ID/,
@@ -122,6 +171,7 @@ test('preserves a bounded missing-session error from the local CLI', async () =>
     status: 'missing',
     overview: null,
     plan: null,
+    tasks: null,
     transcript: null,
     files: null,
     verification: null,
@@ -189,6 +239,8 @@ test('opens an inspector document, resumes its exact session, and invalidates cl
 
   assert.match(openCall[1].content, /# VibeAgent Session Inspector/);
   assert.match(openCall[1].content, /## Verification/);
+  assert.match(openCall[1].content, /## Persistent Tasks \(2\/2\)/);
+  assert.match(openCall[1].content, /`#2` pending \(blocked\): Implement parser/);
   assert.match(openCall[1].content, /`app\.py`/);
   assert.equal(manager.resumeActive(config), 'terminal');
   assert.deepEqual(resumed[0], {

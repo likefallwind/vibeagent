@@ -38,6 +38,7 @@ def add_session_local_arguments(
     local.add_argument("--last", action="store_true", help="Show the newest session summary and exit.")
     local.add_argument("--session", metavar="RUN_ID", help="Show one compact session summary and exit.")
     local.add_argument("--session-inspect", metavar="RUN_ID", help="Show one bounded session inspector bundle and exit.")
+    local.add_argument("--session-tasks", nargs="?", const="", metavar="RUN_ID", help="Show the persistent task graph for the newest or selected session and exit.")
     local.add_argument("--plan", nargs="?", const="", metavar="RUN_ID", help="Show the newest or selected session task plan and exit.")
     local.add_argument("--transcript", nargs="?", const="", metavar="RUN_ID", help="Show a safe timeline of the newest or selected session and exit.")
     local.add_argument("--session-search", metavar="QUERY", help="Search the newest or selected safe session timeline and exit.")

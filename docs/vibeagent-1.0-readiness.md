@@ -116,11 +116,15 @@ duplicate checks, and path/control rejection protect Quick Pick and `--resume`;
 already open IDs are focused instead of duplicated, and editor references route
 to the active managed terminal before the primary workspace session.
 Session Inspector adds a one-request, provider-free review surface over stored
-session evidence. It validates a bounded overview, up to 20 plan items, 50
+session evidence. It validates a bounded overview, up to 20 plan items, 50 persistent tasks, 50
 checks per verification group, 100 referenced files, and 80 timeline events
 before rendering native Markdown. Trusted workspace, session, and display-name
 metadata remain outside the document, and `Resume Inspected Session` uses the
 exact stored ID regardless of document edits.
+The inspector also includes up to 50 entries from the persistent `TaskCreate`
+graph. Numeric IDs, unique shown tasks, status totals, owners, dependencies,
+blocked flags, and the 100-task store ceiling are validated before rendering;
+corrupt or symlinked task stores fail closed instead of appearing empty.
 The adjacent verification action refreshes the same session before showing a
 modal confirmation, then launches at most 10 de-duplicated failed and pending
 checks in a visible one-shot terminal with bounded source-context and diagnostic
@@ -187,6 +191,10 @@ The automated suite currently covers these 1.0 surfaces:
 - Session inspector: real CLI aggregation from one event snapshot, fixed report
   bounds, invalid or missing-session failure, deeply validated JavaScript
   parsing, native Markdown review, close invalidation, and exact-ID resume.
+- Persistent session task graph: provider-free `sessionTasks` JSON, metadata
+  omission, text redaction and bounds, owner/dependency preservation, missing,
+  corrupt, cyclic, and symlink failure, inspector aggregation, deep JavaScript
+  validation, and native Markdown rendering.
 - IDE verification rerun: fresh exact-session inspection, bounded modal command
   preview, cancel-without-execution, and visible untracked terminal launch with
   exact argument-array flags and source-linked output analysis.
