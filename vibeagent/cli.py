@@ -37,6 +37,8 @@ from .cli_output import (
     prompt_approval,
 )
 from .cli_checkpoint_local_flags import run_checkpoint_local_flag
+from .cli_background_agent_local_flags import run_background_agent_local_flag
+from .cli_background_agent_launch import launch_background_agent_from_cli
 from .cli_code_intel_local_flags import run_code_intel_local_flag, run_python_local_flag
 from .cli_command_local_flags import run_command_local_flag
 from .cli_edit_local_flags import run_edit_local_flag
@@ -150,6 +152,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         if validation_error is not None:
             return print_error_result(validation_error, args.json, exit_code=2, output_format=args.output_format)
         normalize_task_bound_diff_args(args)
+        if args.background:
+            try:
+                return launch_background_agent_from_cli(list(argv), args)
+            except (OSError, ValueError) as error:
+                return print_error_result(
+                    format_error(error),
+                    args.json,
+                    exit_code=2,
+                    output_format=args.output_format,
+                )
         if args.worktree is not None:
             try:
                 source_root = resolve_project_root(args.cwd) or Path.cwd()

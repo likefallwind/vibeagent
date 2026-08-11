@@ -38,6 +38,15 @@ compact restores the latest valid set while ignoring unavailable stored paths.
 Interactive `/cd PATH` switches the main project in place: the old project's
 background runtime is closed, target configuration is reloaded, and the
 conversation continues in a new target-local session branch.
+Top-level `--background` / `--bg` launches a persistent one-shot coding session
+in a detached process group and returns its project-local ID. Provider-free CLI
+flags and interactive slash commands list sessions, read bounded logs, stop a
+running agent, and remove its private supervisor files without deleting the
+resumable transcript. The worker consumes an owner-only launch payload before
+running, records a durable exit status, validates PID start times, closes stdin,
+retains the selected approval policy, and requires credentials from the
+environment instead of persisted `--api-key` arguments. This release does not
+claim interactive attachment to detached agents.
 
 That release gate expands to:
 

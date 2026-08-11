@@ -172,6 +172,10 @@ LOCAL_RESULT_ARG_NAMES = frozenset(
         "stop_all_processes",
         "env",
         "processes",
+        "background_agents",
+        "background_agent_log",
+        "stop_background_agent",
+        "remove_background_agent",
         "status",
         "context",
         "init",
@@ -244,6 +248,8 @@ def local_result_exit_code(args: argparse.Namespace, text: str) -> int:
         return 1
     if text.startswith("Tool not found:"):
         return 1
+    if text.startswith("Background agent not found:"):
+        return 1
     if has_local_diagnostic_error(text):
         return 1
     if (args.session is not None or args.last) and has_bad_session_summary_status(text):
@@ -275,6 +281,11 @@ def local_result_exit_code(args: argparse.Namespace, text: str) -> int:
     if args.diff is not None and has_top_level_error(text):
         return 1
     if args.hooks and has_top_level_error(text):
+        return 1
+    if args.background_agent_log is not None and any(
+        has_top_level_field(text, "status", status)
+        for status in ("failed", "lost")
+    ):
         return 1
     if args.port_check is not None and has_top_level_field(text, "reachable", "no"):
         return 1

@@ -3,6 +3,10 @@ from __future__ import annotations
 import argparse
 
 from .cli_checkpoint_args import add_checkpoint_local_arguments
+from .cli_background_agent_args import (
+    add_background_agent_local_arguments,
+    add_background_agent_option_arguments,
+)
 from .cli_code_intel_args import add_code_intel_local_arguments, add_code_intel_option_arguments
 from .cli_compat_args import add_compat_arguments
 from .context_compaction import parse_autocompact_tokens
@@ -53,6 +57,7 @@ def add_cli_arguments(parser: argparse.ArgumentParser) -> None:
     add_edit_local_arguments(local)
     add_git_local_arguments(local)
     add_process_local_arguments(local)
+    add_background_agent_local_arguments(local)
     add_status_local_arguments(local)
     add_workflow_local_arguments(local)
     add_workflow_option_arguments(parser, positive_int=positive_int)
@@ -94,6 +99,7 @@ def add_cli_arguments(parser: argparse.ArgumentParser) -> None:
         nonnegative_int=nonnegative_int,
         timeout_ms=timeout_ms,
     )
+    add_background_agent_option_arguments(parser, positive_int=positive_int)
     add_edit_option_arguments(
         parser,
         nonnegative_int=nonnegative_int,

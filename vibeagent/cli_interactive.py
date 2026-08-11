@@ -28,6 +28,7 @@ from .directory_added_hooks import (
     schedule_directory_added_hooks,
 )
 from .cli_checkpoint_local_flags import run_interactive_checkpoint_command
+from .cli_background_agent_local_flags import run_interactive_background_agent_command
 from .cli_completion import interactive_prompt_completion
 from .cli_code_intel_local_flags import run_interactive_code_intel_command
 from .cli_command_local_flags import run_interactive_command_execution
@@ -651,6 +652,11 @@ def run_interactive_loop(
             project_text := run_interactive_project_command(command, command_namespace, approval_policy, Path.cwd())
         ) is not None:
             print(project_text)
+            continue
+        if command and (
+            background_agent_text := run_interactive_background_agent_command(command)
+        ) is not None:
+            print(background_agent_text)
             continue
         if command and (command_text := run_interactive_command_execution(command, command_namespace)) is not None:
             print(command_text)

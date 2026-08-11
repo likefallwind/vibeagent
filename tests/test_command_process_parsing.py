@@ -8,6 +8,10 @@ class CommandProcessParsingTests(unittest.TestCase):
     def test_process_parser_recognizes_process_commands(self) -> None:
         cases = {
             "/env": LocalCommand(type="env"),
+            "/background-agents": LocalCommand(type="background_agents"),
+            "/background-agent-log abc123": LocalCommand(type="background_agent_log", argument="abc123"),
+            "/stop-background-agent abc123": LocalCommand(type="stop_background_agent", argument="abc123"),
+            "/remove-background-agent abc123": LocalCommand(type="remove_background_agent", argument="abc123"),
             "/processes": LocalCommand(type="processes"),
             "/process bg-1": LocalCommand(type="process", argument="bg-1"),
             "/process bg-1 2000": LocalCommand(type="process", argument="bg-1 2000"),

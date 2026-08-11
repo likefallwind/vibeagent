@@ -15,6 +15,12 @@ PERMISSION_MODE_CHOICES = ("ask", "allow", "auto", "deny", "dontAsk", "plan", *P
 
 def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, positive_decimal) -> None:
     parser.add_argument(
+        "--background",
+        "--bg",
+        action="store_true",
+        help="Start a one-shot coding agent in the background and return its management id.",
+    )
+    parser.add_argument(
         "-p",
         "--print",
         dest="print_mode",

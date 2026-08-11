@@ -15,6 +15,16 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
     compat_error = getattr(args, "compat_error", None)
     if compat_error is not None:
         return compat_error
+    if args.background and (not args.task or has_local_flag(args) or args.chat):
+        return "--background requires a one-shot coding task."
+    if args.background and args.task == ["-"]:
+        return "--background cannot read task input from stdin."
+    if args.background and args.no_session_persistence:
+        return "--background requires session persistence."
+    if args.background and args.api_key is not None:
+        return "--background does not persist --api-key; configure the provider key in the environment."
+    if args.background_agent_log_max_chars > 100_000:
+        return "--background-agent-log-max-chars cannot exceed 100000."
     if args.json_schema is not None and (
         not args.print_mode or not args.task or has_local_flag(args) or args.chat
     ):

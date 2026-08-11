@@ -8,6 +8,23 @@ from vibeagent.tool_search_options import tool_search_approval_choices
 
 
 class CliArgsValidationTests(unittest.TestCase):
+    def test_background_requires_persistent_non_stdin_one_shot_code(self) -> None:
+        valid = cli_module.parse_args(["--bg", "inspect"])
+        no_task = cli_module.parse_args(["--background"])
+        chat = cli_module.parse_args(["--background", "--chat", "hello"])
+        local = cli_module.parse_args(["--background", "--status"])
+        stdin = cli_module.parse_args(["--background", "-"])
+        ephemeral = cli_module.parse_args(["--background", "-p", "--no-session-persistence", "inspect"])
+        secret = cli_module.parse_args(["--background", "--api-key", "secret", "inspect"])
+
+        self.assertIsNone(cli_module.validate_cli_args(valid))
+        self.assertEqual(cli_module.validate_cli_args(no_task), "--background requires a one-shot coding task.")
+        self.assertEqual(cli_module.validate_cli_args(chat), "--background requires a one-shot coding task.")
+        self.assertEqual(cli_module.validate_cli_args(local), "--background requires a one-shot coding task.")
+        self.assertEqual(cli_module.validate_cli_args(stdin), "--background cannot read task input from stdin.")
+        self.assertEqual(cli_module.validate_cli_args(ephemeral), "--background requires session persistence.")
+        self.assertIn("environment", cli_module.validate_cli_args(secret) or "")
+
     def test_no_session_persistence_requires_print_and_rejects_persistent_identity(self) -> None:
         valid = cli_module.parse_args(["-p", "--no-session-persistence", "inspect"])
         no_print = cli_module.parse_args(["--no-session-persistence", "inspect"])

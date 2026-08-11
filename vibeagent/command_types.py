@@ -199,6 +199,10 @@ GitCommandType: TypeAlias = Literal[
 
 ProcessCommandType: TypeAlias = Literal[
     "env",
+    "background_agents",
+    "background_agent_log",
+    "stop_background_agent",
+    "remove_background_agent",
     "processes",
     "process",
     "process_output_contexts",

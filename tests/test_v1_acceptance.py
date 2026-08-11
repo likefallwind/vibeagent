@@ -166,6 +166,13 @@ EXPECTED_GATES = {
             "test_persisted_conversation_continues_after_result_memory_is_discarded",
         },
     },
+    "VA1-BACKGROUND": {
+        "tools": set(),
+        "tests": {
+            "test_detached_worker_survives_launcher_and_records_cli_failure",
+            "test_main_routes_background_task_before_one_shot_execution",
+        },
+    },
     "VA1-GOAL": {
         "tools": set(),
         "tests": {"test_one_shot_goal_continues_until_evaluator_accepts"},

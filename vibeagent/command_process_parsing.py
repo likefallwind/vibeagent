@@ -6,6 +6,14 @@ from .command_types import LocalCommand, make_local_command
 def parse_process_local_command(trimmed: str) -> LocalCommand | None:
     if trimmed == "/env":
         return make_local_command("env", None)
+    if trimmed == "/background-agents":
+        return make_local_command("background_agents", None)
+    if trimmed == "/background-agent-log" or trimmed.startswith("/background-agent-log "):
+        return make_local_command("background_agent_log", trimmed[21:].strip() or None)
+    if trimmed == "/stop-background-agent" or trimmed.startswith("/stop-background-agent "):
+        return make_local_command("stop_background_agent", trimmed[22:].strip() or None)
+    if trimmed == "/remove-background-agent" or trimmed.startswith("/remove-background-agent "):
+        return make_local_command("remove_background_agent", trimmed[24:].strip() or None)
     if trimmed == "/processes":
         return make_local_command("processes", None)
     if trimmed == "/process" or trimmed.startswith("/process "):
