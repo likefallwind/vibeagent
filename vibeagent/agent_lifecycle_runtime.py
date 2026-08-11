@@ -98,6 +98,29 @@ class AgentLifecycleRuntime:
         self.stop_continuations += 1
         return "Stop hook feedback:\n" + result.blocking_message
 
+    def notify(
+        self,
+        workspace: RunWorkspace,
+        notification_type: str,
+        message: str,
+        *,
+        title: str | None = None,
+        iteration: int = 0,
+    ) -> LifecycleHookResult:
+        fields: dict[str, object] = {
+            "message": message,
+            "notification_type": notification_type,
+        }
+        if title:
+            fields["title"] = title
+        return self._run(
+            workspace,
+            "Notification",
+            notification_type,
+            fields,
+            iteration=iteration,
+        )
+
     def stop_failure(
         self,
         workspace: RunWorkspace,

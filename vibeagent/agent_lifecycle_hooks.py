@@ -42,6 +42,7 @@ SESSION_END_MAX_BUDGET_MS = 60_000
 class LifecycleHookResult:
     results: tuple[HookRunResult, ...] = ()
     contexts: tuple[str, ...] = ()
+    system_messages: tuple[str, ...] = ()
     blocking_message: str | None = None
     halt_turn_message: str | None = None
 
@@ -75,6 +76,7 @@ def run_lifecycle_hooks(
     }
     results: list[HookRunResult] = []
     contexts: list[str] = []
+    system_messages: list[str] = []
     session_end_deadline = (
         time.monotonic() + _session_end_budget_ms(hooks) / 1000
         if event == "SessionEnd"
@@ -111,16 +113,23 @@ def run_lifecycle_hooks(
         output = _parse_hook_output(result)
         if event in CONTEXT_EVENTS and output.context:
             contexts.append(output.context)
+        if output.system_message:
+            system_messages.append(output.system_message)
         if event in BLOCKING_EVENTS:
             blocking_message = _blocking_message(result, output)
             if blocking_message is not None:
                 return LifecycleHookResult(
                     results=tuple(results),
                     contexts=tuple(contexts),
+                    system_messages=tuple(system_messages),
                     blocking_message=blocking_message,
                     halt_turn_message=output.stop_reason,
                 )
-    return LifecycleHookResult(results=tuple(results), contexts=tuple(contexts))
+    return LifecycleHookResult(
+        results=tuple(results),
+        contexts=tuple(contexts),
+        system_messages=tuple(system_messages),
+    )
 
 
 def run_instruction_loaded_hooks(
@@ -209,6 +218,7 @@ def _matching_trigger_path(source: dict[str, object], paths: list[str]) -> str |
 @dataclass(frozen=True)
 class _ParsedHookOutput:
     context: str | None = None
+    system_message: str | None = None
     decision: str | None = None
     reason: str | None = None
     plain_text: bool = False
@@ -234,8 +244,14 @@ def _parse_hook_output(result: HookRunResult) -> _ParsedHookOutput:
     reason = payload.get("reason")
     stop_reason = payload.get("stopReason")
     continue_value = payload.get("continue")
+    system_message = payload.get("systemMessage")
     return _ParsedHookOutput(
         context=context if isinstance(context, str) and context.strip() else None,
+        system_message=(
+            system_message
+            if isinstance(system_message, str) and system_message.strip()
+            else None
+        ),
         decision=payload.get("decision")
         if isinstance(payload.get("decision"), str)
         else None,

@@ -43,6 +43,7 @@ from .cli_project_command_expansion import (
 from .cli_project_local_flags import run_interactive_project_command, run_interactive_project_state_command
 from .cli_interactive_read_commands import run_interactive_read_command
 from .cli_idle_input import input_with_idle_callback
+from .cli_idle_notification import IdleNotificationTimer
 from .cli_review_local_flags import run_interactive_review_command
 from .cli_runtime_local_flags import run_interactive_runtime_command
 from .cli_session_local_flags import run_interactive_resume_command, run_interactive_session_command
@@ -100,7 +101,10 @@ from .session_additional_directories import (
     restore_session_additional_directories,
 )
 from .session_conversation import load_session_conversation
-from .session_lifecycle_hooks import run_interactive_session_hook
+from .session_lifecycle_hooks import (
+    run_interactive_notification_hooks,
+    run_interactive_session_hook,
+)
 from .workspace_core import RunWorkspace
 
 
@@ -152,6 +156,7 @@ def run_interactive_loop(
     goal_state: GoalState | None = None
     workflow_manager: DynamicWorkflowManager | None = None
     workflow_client_lock = Lock()
+    idle_notification = IdleNotificationTimer()
     if initial_resume_run_id is not None:
         restored_goal = read_session_goal(Path.cwd(), initial_resume_run_id)
         goal_state = reset_restored_goal(restored_goal) if restored_goal is not None else None
@@ -285,6 +290,23 @@ def run_interactive_loop(
 
     def run_due_tasks_while_idle() -> None:
         try:
+            if idle_notification.due() and resume_run_id is not None:
+                notification = run_interactive_notification_hooks(
+                    Path.cwd(),
+                    resume_run_id,
+                    pending_workspace,
+                    additional_directories,
+                    "idle_prompt",
+                    "VibeAgent is waiting for your input.",
+                    title="VibeAgent is waiting",
+                    command_timeout_ms=resolve_execution_config(
+                        Path.cwd()
+                    ).command_timeout_ms,
+                    approval_handler=approval_handler,
+                    approval_policy=approval_policy,
+                )
+                for message in notification.system_messages:
+                    print(f"\n{message}")
             for notification in plugin_auto_updates.collect_notifications():
                 print(f"\n{format_plugin_auto_update_notification(notification)}")
             if peer_runtime is not None:
@@ -440,6 +462,7 @@ def run_interactive_loop(
 
     while True:
         try:
+            idle_notification = IdleNotificationTimer()
             with interactive_prompt_completion(Path.cwd(), additional_directories):
                 task = input_with_idle_callback(
                     interactive_session_prompt(Path.cwd(), resume_run_id, pending_workspace),

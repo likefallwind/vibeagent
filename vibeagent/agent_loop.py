@@ -18,6 +18,10 @@ from .agent_lifecycle_runtime import AgentLifecycleRuntime
 from .agent_model_turn import handle_no_tool_call_response, record_model_turn
 from .agent_multimodal import strip_consumed_tool_images
 from .agent_monitor_notifications import inject_monitor_notifications
+from .agent_notification_hooks import (
+    permission_notification_message,
+    wrap_approval_handler_with_notification,
+)
 from .agent_parallel_execution import execute_parallel_tool_call_batch
 from .agent_peer_notifications import inject_peer_notifications
 from .agent_post_tool_batch_hooks import append_batch_context, run_post_tool_batch_hooks
@@ -25,6 +29,7 @@ from .agent_plan_mode import PlanModeRuntime, approval_handler_after_plan
 from .agent_plugin_monitors import AgentPluginMonitorController
 from .peer_runtime import PeerSessionRuntime
 from .prompt_expansion import prompt_expansion_from_task_metadata
+from .redaction import redact_sensitive_text
 from .plugin_monitor_runtime import PluginMonitorRuntime
 from .agent_scheduled_notifications import inject_scheduled_task_notifications
 from .agent_result import AgentResult
@@ -254,6 +259,36 @@ def run_agent_loop(
         hook_model_runtime=hook_model_runtime,
     )
 
+    def approval_handler_with_notifications(iteration: int):
+        if plan_mode.current_policy != "ask":
+            return current_approval_handler
+
+        def notify(request):
+            return lifecycle.notify(
+                current_workspace,
+                "permission_prompt",
+                permission_notification_message(request),
+                title="Permission needed",
+                iteration=iteration,
+            )
+
+        def notification_error(error: Exception) -> None:
+            append_session_event(
+                current_workspace.session_dir,
+                "notification_hook_error",
+                {
+                    "iteration": iteration,
+                    "message": redact_sensitive_text(str(error))[:2_000],
+                },
+            )
+
+        return wrap_approval_handler_with_notification(
+            current_approval_handler,
+            notify,
+            hook_system_messages,
+            on_error=notification_error,
+        )
+
     def run_post_batch(
         calls: list[ContentBlock], results: list[ContentBlock], batch_iteration: int
     ):
@@ -414,7 +449,7 @@ def run_agent_loop(
                 model_timeout_ms=model_timeout_ms,
                 command_timeout_ms=command_timeout_ms,
                 logger=logger,
-                approval_handler=current_approval_handler,
+                approval_handler=approval_handler_with_notifications(0),
                 approval_policy=plan_mode.current_policy,
                 user_input_handler=user_input_handler,
                 hooks=project_hooks,
@@ -706,7 +741,7 @@ def run_agent_loop(
                 model_timeout_ms=model_timeout_ms,
                 command_timeout_ms=command_timeout_ms,
                 logger=logger,
-                approval_handler=current_approval_handler,
+                approval_handler=approval_handler_with_notifications(iteration),
                 approval_policy=plan_mode.current_policy,
                 user_input_handler=user_input_handler,
                 hooks=project_hooks,

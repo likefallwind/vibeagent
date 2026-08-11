@@ -258,6 +258,13 @@ class PlanSessionApprovalHandler:
             )
         return self._session(request)
 
+    def needs_prompt(self, request: ApprovalRequest) -> bool:
+        if self.mode == "allow":
+            return False
+        if self.mode == "plan":
+            return request.action_type == "exit_plan_mode"
+        return self._session.needs_prompt(request)
+
 
 def prompt_plan_approval(request: ApprovalRequest) -> ApprovalDecision:
     print(f"Plan: {request.target}")

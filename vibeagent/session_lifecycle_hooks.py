@@ -6,6 +6,7 @@ from typing import Literal
 
 from .agent_execution_support import execute_action_safely
 from .agent_hook_results import HookRunResult
+from .agent_lifecycle_hooks import LifecycleHookResult
 from .agent_lifecycle_runtime import AgentLifecycleRuntime
 from .types import AgentLogger, ApprovalHandler, ApprovalPolicy
 from .workspace_core import RunWorkspace, create_local_workspace
@@ -82,17 +83,14 @@ def run_interactive_session_hook(
     approval_handler: ApprovalHandler | None,
     approval_policy: ApprovalPolicy,
 ) -> None:
-    if run_id is None:
-        return
-    workspace = (
-        replace(pending_workspace, additional_roots=additional_roots)
-        if pending_workspace is not None and pending_workspace.run_id == run_id
-        else create_local_workspace(
-            project_root,
-            run_id,
-            additional_roots=additional_roots,
-        )
+    workspace = _interactive_workspace(
+        project_root,
+        run_id,
+        pending_workspace,
+        additional_roots,
     )
+    if workspace is None:
+        return
     if event == "session_end":
         run_session_end_hooks(
             workspace,
@@ -110,6 +108,59 @@ def run_interactive_session_hook(
         command_timeout_ms=command_timeout_ms,
         approval_handler=approval_handler,
         approval_policy=approval_policy,
+    )
+
+
+def run_interactive_notification_hooks(
+    project_root: Path,
+    run_id: str | None,
+    pending_workspace: RunWorkspace | None,
+    additional_roots: tuple[Path, ...],
+    notification_type: str,
+    message: str,
+    *,
+    title: str | None,
+    command_timeout_ms: int,
+    approval_handler: ApprovalHandler | None,
+    approval_policy: ApprovalPolicy,
+) -> LifecycleHookResult:
+    workspace = _interactive_workspace(
+        project_root,
+        run_id,
+        pending_workspace,
+        additional_roots,
+    )
+    if workspace is None:
+        return LifecycleHookResult()
+    runtime = _runtime(
+        workspace,
+        command_timeout_ms=command_timeout_ms,
+        approval_handler=approval_handler,
+        approval_policy=approval_policy,
+        logger=None,
+    )
+    return runtime.notify(
+        workspace,
+        notification_type,
+        message,
+        title=title,
+    )
+
+
+def _interactive_workspace(
+    project_root: Path,
+    run_id: str | None,
+    pending_workspace: RunWorkspace | None,
+    additional_roots: tuple[Path, ...],
+) -> RunWorkspace | None:
+    if run_id is None:
+        return None
+    if pending_workspace is not None and pending_workspace.run_id == run_id:
+        return replace(pending_workspace, additional_roots=additional_roots)
+    return create_local_workspace(
+        project_root,
+        run_id,
+        additional_roots=additional_roots,
     )
 
 
@@ -139,6 +190,7 @@ def _runtime(
 __all__ = [
     "SESSION_END_REASONS",
     "run_compact_hooks",
+    "run_interactive_notification_hooks",
     "run_interactive_session_hook",
     "run_session_end_hooks",
 ]

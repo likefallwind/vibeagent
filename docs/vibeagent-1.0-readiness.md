@@ -201,6 +201,12 @@ The automated suite currently covers these 1.0 surfaces:
   and expansion metadata to all five handler types, injects
   `additionalContext` beside the expanded prompt, and can reject the command
   before the first main-model request.
+- Claude-compatible notification hooks: matcher-aware `Notification` emits
+  `permission_prompt` before ask-mode approval handling and one `idle_prompt`
+  after 60 seconds of established interactive-session input wait. Command,
+  HTTP, and MCP tool handlers receive the documented message, title, and type;
+  decisions and failures are non-blocking, while `systemMessage` remains
+  user-only.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

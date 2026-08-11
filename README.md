@@ -1613,7 +1613,7 @@ hook map directly or under `hooks`:
 ```
 
 Supported lifecycle events are `SessionStart`, `SessionEnd`, `PreCompact`,
-`PostCompact`, `CwdChanged`, `InstructionsLoaded`, `UserPromptExpansion`,
+`PostCompact`, `CwdChanged`, `InstructionsLoaded`, `Notification`, `UserPromptExpansion`,
 `UserPromptSubmit`,
 `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
 `StopFailure`,
@@ -1643,6 +1643,16 @@ the command name, while hook input includes `expansion_type`, `command_name`,
 `decision: block` or exit code 2 rejects the expansion without calling the main
 model; `additionalContext` is appended alongside the expanded prompt. Command,
 HTTP, MCP tool, prompt, and experimental agent handlers are supported.
+
+`Notification` hooks currently fire for `permission_prompt` immediately before
+an ask-mode approval handler and for `idle_prompt` once an established
+interactive session has waited 60 seconds for input. Input includes `message`,
+an optional `title`, and `notification_type`; matchers filter on the notification
+type. Notification decisions and exit codes never modify the underlying action.
+Command, HTTP, and MCP tool handlers are supported, and structured
+`systemMessage` output remains user-facing instead of entering model context.
+VibeAgent does not open a file manager, browser, or other GUI unless a configured
+and approved notification hook explicitly runs such a command.
 
 `TaskCreated` and `TaskCompleted` ignore matchers and run for main-agent,
 subagent, and teammate task transitions. Their input includes `task_id`,

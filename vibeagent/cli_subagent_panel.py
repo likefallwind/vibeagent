@@ -106,6 +106,10 @@ class SubagentPanel:
             finally:
                 self.refresh(force=True)
 
+        needs_prompt = getattr(handler, "needs_prompt", None)
+        if callable(needs_prompt):
+            setattr(wrapped, "needs_prompt", needs_prompt)
+
         return wrapped
 
     def wrap_user_input_handler(self, handler: UserInputHandler | None) -> UserInputHandler | None:

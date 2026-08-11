@@ -37,6 +37,10 @@ class SessionApprovalHandler:
             self._approved[key] = decision
         return decision
 
+    def needs_prompt(self, request: ApprovalRequest) -> bool:
+        key = approval_cache_key(request)
+        return key is None or key not in self._approved
+
     @property
     def remembered_count(self) -> int:
         return len(self._approved)

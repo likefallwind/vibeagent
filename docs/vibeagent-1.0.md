@@ -493,6 +493,10 @@ local changes when asked, and resume from recorded session context.
   lifecycle events with their parent instruction file, plus matcher-aware
   `UserPromptExpansion` field delivery, context injection, and blocking before
   the first main-model request.
+- `tests.test_notification_hooks` covers supported handler configuration,
+  permission and 60-second idle dispatch, exact lifecycle input, once-only idle
+  delivery, user-only `systemMessage`, and non-blocking JSON or exit-code-2
+  decisions.
 - `tests.test_project_permissions`, `tests.test_workspace`, and
   `tests.test_command_sandbox` cover the main workspace and safety boundaries.
 - `tests.test_user_runtime_settings.UserRuntimeSettingsTests` covers
