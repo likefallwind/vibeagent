@@ -35,7 +35,7 @@ CONTEXT_EVENTS = frozenset(
 )
 BLOCKING_EVENTS = frozenset(
     {
-        "ConfigChange", "PostToolBatch", "Stop", "SubagentStop", "TaskCompleted",
+        "ConfigChange", "Elicitation", "ElicitationResult", "PostToolBatch", "Stop", "SubagentStop", "TaskCompleted",
         "TaskCreated", "TeammateIdle", "UserPromptExpansion", "UserPromptSubmit",
     }
 )
@@ -51,6 +51,8 @@ class LifecycleHookResult:
     system_messages: tuple[str, ...] = ()
     watch_paths: tuple[str, ...] | None = None
     display_content: str | None = None
+    elicitation_action: str | None = None
+    elicitation_content: dict[str, object] | None = None
     blocking_message: str | None = None
     halt_turn_message: str | None = None
 
@@ -87,6 +89,8 @@ def run_lifecycle_hooks(
     system_messages: list[str] = []
     watch_paths: tuple[str, ...] | None = None
     display_content: str | None = None
+    elicitation_action: str | None = None
+    elicitation_content: dict[str, object] | None = None
     session_end_deadline = (
         time.monotonic() + _session_end_budget_ms(hooks) / 1000
         if event == "SessionEnd"
@@ -127,6 +131,9 @@ def run_lifecycle_hooks(
             system_messages.append(output.system_message)
         if event == "MessageDisplay" and output.display_content is not None:
             display_content = output.display_content
+        if event in {"Elicitation", "ElicitationResult"} and output.elicitation_action is not None:
+            elicitation_action = output.elicitation_action
+            elicitation_content = output.elicitation_content
         if event in {"SessionStart", "CwdChanged", "FileChanged"} and output.watch_paths is not None:
             try:
                 stored_paths = write_dynamic_watch_paths(workspace, output.watch_paths)
@@ -150,6 +157,8 @@ def run_lifecycle_hooks(
                     system_messages=tuple(system_messages),
                     watch_paths=watch_paths,
                     display_content=display_content,
+                    elicitation_action=elicitation_action,
+                    elicitation_content=elicitation_content,
                     blocking_message=blocking_message,
                     halt_turn_message=output.stop_reason,
                 )
@@ -159,6 +168,8 @@ def run_lifecycle_hooks(
         system_messages=tuple(system_messages),
         watch_paths=watch_paths,
         display_content=display_content,
+        elicitation_action=elicitation_action,
+        elicitation_content=elicitation_content,
     )
 
 

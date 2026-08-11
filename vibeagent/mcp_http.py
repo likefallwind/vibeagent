@@ -16,6 +16,7 @@ from .mcp_protocol import (
     McpProtocolError,
     McpToolsClient,
 )
+from .mcp_elicitation_context import current_mcp_elicitation_handler
 
 
 MCP_MODERN_PROTOCOL_VERSION = MCP_HTTP_PROTOCOL_VERSION
@@ -36,6 +37,7 @@ class McpHttpClient(McpToolsClient):
         self.session_id: str | None = None
         self.tool_headers: dict[str, list[tuple[tuple[str, ...], str, str]]] = {}
         self.opener = build_opener(_NoRedirectHandler())
+        self.elicitation_handler = current_mcp_elicitation_handler()
 
     def __enter__(self) -> "McpHttpClient":
         try:
@@ -44,7 +46,7 @@ class McpHttpClient(McpToolsClient):
                     "initialize",
                     {
                         "protocolVersion": MCP_LEGACY_PROTOCOL_VERSION,
-                        "capabilities": {},
+                        "capabilities": self._client_capabilities(),
                         "clientInfo": {"name": "vibeagent", "version": __version__},
                     },
                     legacy_initialize=True,
@@ -128,7 +130,7 @@ class McpHttpClient(McpToolsClient):
                 {
                     "io.modelcontextprotocol/protocolVersion": self.config.protocol_version,
                     "io.modelcontextprotocol/clientInfo": {"name": "vibeagent", "version": __version__},
-                    "io.modelcontextprotocol/clientCapabilities": {},
+                    "io.modelcontextprotocol/clientCapabilities": self._client_capabilities(),
                 }
             )
             body_params["_meta"] = metadata
@@ -177,7 +179,11 @@ class McpHttpClient(McpToolsClient):
                     messages = [_parse_json_message(payload)]
                 elif content_type == "text/event-stream":
                     payload = b""
-                    messages = _read_sse_messages(response, message.get("id"))
+                    messages = _read_sse_messages(
+                        response,
+                        message.get("id"),
+                        self._handle_server_request,
+                    )
                 else:
                     raise McpProtocolError(f"MCP HTTP response has unsupported Content-Type: {content_type}.")
         except HTTPError as error:
@@ -195,6 +201,30 @@ class McpHttpClient(McpToolsClient):
                 raise McpProtocolError(f"MCP notification expected HTTP 202, got {status}.")
             return [], response_headers
         return messages, response_headers
+
+    def _client_capabilities(self) -> dict[str, object]:
+        if self.elicitation_handler is None:
+            return {}
+        return {"elicitation": {"form": {}, "url": {}}}
+
+    def _handle_server_request(self, message: dict[str, Any]) -> None:
+        if "id" not in message:
+            return
+        if message.get("method") == "elicitation/create" and self.elicitation_handler is not None:
+            params = message.get("params")
+            if isinstance(params, dict):
+                try:
+                    result = self.elicitation_handler(self.config.name, params)
+                except Exception:
+                    response = _rpc_error(message["id"], -32603, "Elicitation handler failed")
+                else:
+                    response = {"jsonrpc": "2.0", "id": message["id"], "result": result}
+            else:
+                response = _rpc_error(message["id"], -32602, "Invalid elicitation params")
+        else:
+            response = _rpc_error(message["id"], -32601, "Client method not supported")
+        headers = self._base_headers(include_protocol=True, include_session=True)
+        self._post(response, headers, notification=True)
 
     def _base_headers(self, *, include_protocol: bool = True, include_session: bool = True) -> dict[str, str]:
         headers = {
@@ -229,7 +259,11 @@ def _parse_json_message(payload: bytes) -> dict[str, Any]:
     return message
 
 
-def _read_sse_messages(stream: Any, request_id: object) -> list[dict[str, Any]]:
+def _read_sse_messages(
+    stream: Any,
+    request_id: object,
+    server_request_handler: Any = None,
+) -> list[dict[str, Any]]:
     messages: list[dict[str, Any]] = []
     data_lines: list[str] = []
     total = 0
@@ -252,6 +286,8 @@ def _read_sse_messages(stream: Any, request_id: object) -> list[dict[str, Any]]:
                 message = _parse_json_message("\n".join(data_lines).encode("utf-8"))
                 messages.append(message)
                 data_lines = []
+                if "method" in message and server_request_handler is not None:
+                    server_request_handler(message)
                 if message.get("id") == request_id and "method" not in message:
                     return messages
             if at_eof:
@@ -261,6 +297,14 @@ def _read_sse_messages(stream: Any, request_id: object) -> list[dict[str, Any]]:
     if not messages:
         raise McpProtocolError("MCP SSE response did not contain JSON-RPC data.")
     return messages
+
+
+def _rpc_error(request_id: object, code: int, message: str) -> dict[str, Any]:
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "error": {"code": code, "message": message},
+    }
 
 
 def _http_error_detail(payload: bytes) -> str:

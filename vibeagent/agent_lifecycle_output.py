@@ -17,6 +17,8 @@ class ParsedLifecycleHookOutput:
     plain_text: bool = False
     stop_reason: str | None = None
     continue_: bool | None = None
+    elicitation_action: str | None = None
+    elicitation_content: dict[str, object] | None = None
 
 
 def parse_lifecycle_hook_output(result: HookRunResult) -> ParsedLifecycleHookOutput:
@@ -38,6 +40,7 @@ def parse_lifecycle_hook_output(result: HookRunResult) -> ParsedLifecycleHookOut
     stop_reason = payload.get("stopReason")
     continue_value = payload.get("continue")
     system_message = payload.get("systemMessage")
+    elicitation_action, elicitation_content = _elicitation_output(result, specific_payload)
     return ParsedLifecycleHookOutput(
         context=context if isinstance(context, str) and context.strip() else None,
         system_message=(
@@ -57,7 +60,26 @@ def parse_lifecycle_hook_output(result: HookRunResult) -> ParsedLifecycleHookOut
             stop_reason if isinstance(stop_reason, str) and stop_reason.strip() else None
         ),
         continue_=continue_value if isinstance(continue_value, bool) else None,
+        elicitation_action=elicitation_action,
+        elicitation_content=elicitation_content,
     )
+
+
+def _elicitation_output(
+    result: HookRunResult,
+    specific_payload: dict[str, object],
+) -> tuple[str | None, dict[str, object] | None]:
+    if result.event not in {"Elicitation", "ElicitationResult"}:
+        return None, None
+    if specific_payload.get("hookEventName") != result.event:
+        return None, None
+    action = specific_payload.get("action")
+    if action not in {"accept", "decline", "cancel"}:
+        return None, None
+    content = specific_payload.get("content")
+    if action == "accept" and not isinstance(content, dict):
+        return None, None
+    return str(action), dict(content) if isinstance(content, dict) else None
 
 
 def lifecycle_blocking_message(

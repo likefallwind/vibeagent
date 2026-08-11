@@ -16,6 +16,7 @@ from .mcp_protocol import (
     McpProtocolError,
     McpToolsClient,
 )
+from .mcp_elicitation_context import current_mcp_elicitation_handler
 from .workspace_core import RunWorkspace
 
 
@@ -31,6 +32,7 @@ class McpStdioClient(McpToolsClient):
         self.stderr_file = tempfile.TemporaryFile()
         self.buffer = bytearray()
         self.next_id = 1
+        self.elicitation_handler = current_mcp_elicitation_handler()
 
     def __enter__(self) -> "McpStdioClient":
         try:
@@ -46,7 +48,7 @@ class McpStdioClient(McpToolsClient):
                 "initialize",
                 {
                     "protocolVersion": MCP_PROTOCOL_VERSION,
-                    "capabilities": {},
+                    "capabilities": self._client_capabilities(),
                     "clientInfo": {"name": "vibeagent", "version": __version__},
                 },
             )
@@ -96,14 +98,7 @@ class McpStdioClient(McpToolsClient):
         while True:
             message = self._read_message(deadline)
             if "method" in message:
-                if "id" in message:
-                    self._send(
-                        {
-                            "jsonrpc": "2.0",
-                            "id": message["id"],
-                            "error": {"code": -32601, "message": "Client method not supported"},
-                        }
-                    )
+                self._handle_server_message(message)
                 continue
             if message.get("id") != request_id:
                 continue
@@ -118,6 +113,37 @@ class McpStdioClient(McpToolsClient):
             if not isinstance(result, dict):
                 raise McpProtocolError(f"MCP {method} response result must be an object.")
             return result
+
+    def _client_capabilities(self) -> dict[str, object]:
+        if self.elicitation_handler is None:
+            return {}
+        return {"elicitation": {"form": {}, "url": {}}}
+
+    def _handle_server_message(self, message: dict[str, Any]) -> None:
+        if "id" not in message:
+            return
+        if message.get("method") == "elicitation/create" and self.elicitation_handler is not None:
+            params = message.get("params")
+            if not isinstance(params, dict):
+                self._send_rpc_error(message["id"], -32602, "Invalid elicitation params")
+                return
+            try:
+                result = self.elicitation_handler(self.config.name, params)
+            except Exception:
+                self._send_rpc_error(message["id"], -32603, "Elicitation handler failed")
+                return
+            self._send({"jsonrpc": "2.0", "id": message["id"], "result": result})
+            return
+        self._send_rpc_error(message["id"], -32601, "Client method not supported")
+
+    def _send_rpc_error(self, request_id: object, code: int, message: str) -> None:
+        self._send(
+            {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {"code": code, "message": message},
+            }
+        )
 
     def notify(self, method: str, params: dict[str, Any]) -> None:
         self._send({"jsonrpc": "2.0", "method": method, "params": params})

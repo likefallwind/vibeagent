@@ -7,6 +7,8 @@ from .actions import ActionParseError, parse_tool_action
 from .agent_runtime_utils import append_session_event, tool_error_observation
 from .agent_hook_updated_input import apply_hook_supplied_answers
 from .agent_hook_prompt import HookModelRuntime
+from .mcp_elicitation import McpElicitationRuntime
+from .mcp_elicitation_context import mcp_elicitation_handler
 from .permission_update_runtime import PermissionUpdateApplication
 from .agent_lifecycle_hooks import run_instruction_loaded_hooks
 from .agent_special_tools import execute_special_tool_action
@@ -165,29 +167,43 @@ def execute_sequential_tool_call(
             halt_turn_message = wrapped.halt_turn_message
             permission_application = wrapped.permission_application
         else:
-            execution = execute_parsed_tool_action(
-                workspace,
-                action,
-                observations,
-                steps,
-                iteration,
-                command_timeout_ms,
-                logger,
-                approval_handler,
-                tool_name,
-                checkpoint_attempted,
-                execute_action_safely_func,
-                should_auto_checkpoint_before_action_func,
-                create_auto_checkpoint_before_action_func,
-                approval_policy,
-                hooks,
-                permissions,
-                raw_tool_input,
-                prepare_hook_input,
-                defer_tool_calls,
-                tool_id,
-                hook_model_runtime,
+            elicitation = McpElicitationRuntime(
+                workspace=workspace,
+                hooks=hooks,
+                permissions=permissions,
+                command_timeout_ms=command_timeout_ms,
+                logger=logger,
+                approval_handler=approval_handler,
+                approval_policy=approval_policy,
+                user_input_handler=user_input_handler,
+                execute_action_safely=execute_action_safely_func,
+                hook_model_runtime=hook_model_runtime,
+                iteration=iteration,
             )
+            with mcp_elicitation_handler(elicitation.handler()):
+                execution = execute_parsed_tool_action(
+                    workspace,
+                    action,
+                    observations,
+                    steps,
+                    iteration,
+                    command_timeout_ms,
+                    logger,
+                    approval_handler,
+                    tool_name,
+                    checkpoint_attempted,
+                    execute_action_safely_func,
+                    should_auto_checkpoint_before_action_func,
+                    create_auto_checkpoint_before_action_func,
+                    approval_policy,
+                    hooks,
+                    permissions,
+                    raw_tool_input,
+                    prepare_hook_input,
+                    defer_tool_calls,
+                    tool_id,
+                    hook_model_runtime,
+                )
             observation = execution.observation
             hook_results = execution.hook_results
             additional_observations = execution.additional_observations
