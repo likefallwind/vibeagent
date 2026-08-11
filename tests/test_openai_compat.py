@@ -1,4 +1,5 @@
 import unittest
+import json
 from unittest.mock import patch
 
 from vibeagent import openai_compat, openai_compat_messages
@@ -19,8 +20,32 @@ class FakeHttpResponse:
     def read(self) -> bytes:
         return self.payload
 
+    def __iter__(self):
+        return iter(self.payload.splitlines(keepends=True))
+
 
 class OpenAICompatibleTests(unittest.TestCase):
+    def test_complete_stream_accumulates_openai_chunks(self) -> None:
+        chunks = (
+            {"id": "c1", "model": "test", "choices": [{"delta": {"content": "hel"}, "finish_reason": None}]},
+            {"id": "c1", "model": "test", "choices": [{"delta": {"content": "lo"}, "finish_reason": "stop"}]},
+            {"id": "c1", "model": "test", "choices": [], "usage": {"prompt_tokens": 4, "completion_tokens": 2, "total_tokens": 6}},
+        )
+        payload = b"".join(b"data: " + json.dumps(chunk).encode() + b"\n\n" for chunk in chunks) + b"data: [DONE]\n\n"
+        events = []
+        with patch("vibeagent.openai_compat.urlopen", return_value=FakeHttpResponse(payload)) as urlopen:
+            result = OpenAICompatibleClient(api_key="key").complete_stream(
+                [ChatMessage(role="user", content="Hi")],
+                on_event=events.append,
+            )
+
+        body = json.loads(urlopen.call_args.args[0].data)
+        self.assertTrue(body["stream"])
+        self.assertEqual(body["stream_options"], {"include_usage": True})
+        self.assertEqual(result.content, [{"type": "text", "text": "hello"}])
+        self.assertEqual(result.usage.total_tokens, 6)
+        self.assertEqual(events[-1]["type"], "message_stop")
+
     def test_agent_profile_can_override_model_but_rejects_claude_effort(self) -> None:
         client = OpenAICompatibleClient(api_key="key", model="parent-model")
         profiled = client.with_agent_profile(model="review-model", effort=None)

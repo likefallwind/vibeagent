@@ -21,6 +21,7 @@ from .agent_approval_preview import (
 )
 from .agent_loop import AgentLoopRuntime, run_agent_loop
 from .agent_model import complete_with_retries
+from .model_streaming import AgentModelStreamHandler
 from .agent_observation_utils import observation_failed
 from .agent_profile_client import configure_agent_profile_client
 from .agent_parallel_safety import PARALLEL_SAFE_TOOL_NAMES, is_parallel_safe_action
@@ -102,6 +103,7 @@ def run_agent(
     close_async_hooks_on_finish: bool = False,
     setup_trigger: str | None = None,
     autocompact_tokens: int | None = None,
+    model_stream_handler: AgentModelStreamHandler | None = None,
 ) -> AgentResult:
     setup = prepare_agent_run(
         task,
@@ -172,6 +174,7 @@ def run_agent(
             deferred_tool_state=deferred_tool_state,
             defer_tool_calls=defer_tool_calls,
             setup_trigger=setup_trigger,
+            model_stream_handler=model_stream_handler,
         )
     finally:
         if close_async_hooks_on_finish:

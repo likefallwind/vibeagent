@@ -8,6 +8,7 @@ from .model_fallback_state import (
     ModelFallbackState,
     bounded_model_error,
 )
+from .model_streaming import ProviderStreamHandler, complete_streaming
 from .types import AssistantResponse, ChatClient, ChatMessage, ToolSpec
 
 
@@ -47,6 +48,44 @@ class FallbackChatClient:
         temperature: float = 0.2,
         timeout_ms: int = 120_000,
     ) -> AssistantResponse:
+        return self._complete_request(
+            messages,
+            tools=tools,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            timeout_ms=timeout_ms,
+            on_event=None,
+        )
+
+    def complete_stream(
+        self,
+        messages: list[ChatMessage],
+        tools: list[ToolSpec] | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.2,
+        timeout_ms: int = 120_000,
+        *,
+        on_event: ProviderStreamHandler,
+    ) -> AssistantResponse:
+        return self._complete_request(
+            messages,
+            tools=tools,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            timeout_ms=timeout_ms,
+            on_event=on_event,
+        )
+
+    def _complete_request(
+        self,
+        messages: list[ChatMessage],
+        *,
+        tools: list[ToolSpec] | None,
+        max_tokens: int,
+        temperature: float,
+        timeout_ms: int,
+        on_event: ProviderStreamHandler | None,
+    ) -> AssistantResponse:
         active_index = self.state.current_index()
         if active_index is not None:
             return self._complete_fallback(
@@ -58,14 +97,17 @@ class FallbackChatClient:
                 activated_now=False,
                 reason="sticky",
                 start_index=active_index,
+                on_event=on_event,
             )
         try:
-            return self.primary.complete(
+            return _complete_client(
+                self.primary,
                 messages,
                 tools=tools,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 timeout_ms=timeout_ms,
+                on_event=on_event,
             )
         except Exception as error:
             if not is_model_overload_error(error):
@@ -80,6 +122,7 @@ class FallbackChatClient:
                 activated_now=activated_now,
                 reason="primary_overloaded",
                 start_index=start_index,
+                on_event=on_event,
             )
 
     def with_agent_profile(self, *, model: str | None, effort: str | None) -> FallbackChatClient:
@@ -101,18 +144,21 @@ class FallbackChatClient:
         activated_now: bool,
         reason: str,
         start_index: int,
+        on_event: ProviderStreamHandler | None,
     ) -> AssistantResponse:
         index = start_index
         transitions: list[dict[str, object]] = []
         while True:
             use = self.state.record_use(index)
             try:
-                response = self.fallbacks[index].complete(
+                response = _complete_client(
+                    self.fallbacks[index],
                     messages,
                     tools=tools,
                     max_tokens=max_tokens,
                     temperature=temperature,
                     timeout_ms=timeout_ms,
+                    on_event=on_event,
                 )
             except Exception as error:
                 fallback_overloaded = _is_fallback_overload_error(error)
@@ -264,6 +310,35 @@ def _configure_client(client: ChatClient, *, model: str | None, effort: str | No
     if configured is None or not callable(getattr(configured, "complete", None)):
         raise ValueError("The chat client returned an invalid fallback model client.")
     return configured
+
+
+def _complete_client(
+    client: ChatClient,
+    messages: list[ChatMessage],
+    *,
+    tools: list[ToolSpec] | None,
+    max_tokens: int,
+    temperature: float,
+    timeout_ms: int,
+    on_event: ProviderStreamHandler | None,
+) -> AssistantResponse:
+    if on_event is not None:
+        return complete_streaming(
+            client,
+            messages,
+            tools=tools,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            timeout_ms=timeout_ms,
+            on_event=on_event,
+        )
+    return client.complete(
+        messages,
+        tools=tools,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        timeout_ms=timeout_ms,
+    )
 
 
 __all__ = [

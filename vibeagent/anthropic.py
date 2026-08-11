@@ -5,7 +5,9 @@ from typing import Any
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from .anthropic_streaming import accumulate_anthropic_stream
 from .minimax import build_request_body, extract_content, extract_usage, summarize
+from .model_streaming import ProviderStreamHandler
 from .types import AssistantResponse, ChatClient, ChatMessage
 
 
@@ -106,4 +108,56 @@ class AnthropicClient(ChatClient):
         content = extract_content(data)
         if not content:
             raise AnthropicResponseError(f"Anthropic response did not include structured content: {summarize(text)}")
+        return AssistantResponse(content=content, raw=data, usage=extract_usage(data))
+
+    def complete_stream(
+        self,
+        messages: list[ChatMessage],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.2,
+        timeout_ms: int = 120_000,
+        *,
+        on_event: ProviderStreamHandler,
+    ) -> AssistantResponse:
+        body = build_request_body(
+            self.model,
+            messages,
+            tools=tools,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        if self.model.startswith(("claude-sonnet-5", "claude-opus-5", "claude-fable-5")):
+            body.pop("temperature", None)
+        if self.effort is not None:
+            body["output_config"] = {"effort": self.effort}
+        body["stream"] = True
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+            "anthropic-version": ANTHROPIC_API_VERSION,
+        }
+        if self.use_auth_token:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        else:
+            headers["x-api-key"] = self.api_key
+        request = Request(
+            f"{self.base_url}/v1/messages",
+            data=json.dumps(body).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=timeout_ms / 1000) as response:
+                data = accumulate_anthropic_stream(
+                    response,
+                    on_event=on_event,
+                    response_error=AnthropicResponseError,
+                )
+        except HTTPError as error:
+            text = error.read().decode("utf-8", errors="replace")
+            raise AnthropicHttpError(error.code, text) from error
+        content = extract_content(data)
+        if not content:
+            raise AnthropicResponseError("Anthropic streaming response did not include structured content.")
         return AssistantResponse(content=content, raw=data, usage=extract_usage(data))

@@ -7,8 +7,8 @@ from vibeagent.types import ChatMessage
 
 
 class _FakeResponse:
-    def __init__(self, payload: dict) -> None:
-        self.payload = json.dumps(payload).encode()
+    def __init__(self, payload: dict | bytes) -> None:
+        self.payload = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
 
     def __enter__(self):
         return self
@@ -19,8 +19,36 @@ class _FakeResponse:
     def read(self):
         return self.payload
 
+    def __iter__(self):
+        return iter(self.payload.splitlines(keepends=True))
+
 
 class AnthropicClientTests(unittest.TestCase):
+    def test_complete_stream_accumulates_events_and_usage(self) -> None:
+        payload = b"".join(
+            b"data: " + json.dumps(event).encode() + b"\n\n"
+            for event in (
+                {"type": "message_start", "message": {"usage": {"input_tokens": 3}}},
+                {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}},
+                {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "hello"}},
+                {"type": "content_block_stop", "index": 0},
+                {"type": "message_delta", "delta": {"stop_reason": "end_turn"}, "usage": {"output_tokens": 2}},
+                {"type": "message_stop"},
+            )
+        )
+        events = []
+        with patch("vibeagent.anthropic.urlopen", return_value=_FakeResponse(payload)) as urlopen:
+            result = AnthropicClient(api_key="key").complete_stream(
+                [ChatMessage(role="user", content="Hi")],
+                on_event=events.append,
+            )
+
+        body = json.loads(urlopen.call_args.args[0].data)
+        self.assertTrue(body["stream"])
+        self.assertEqual(result.content, [{"type": "text", "text": "hello"}])
+        self.assertEqual(result.usage.total_tokens, 5)
+        self.assertEqual(events[-1]["type"], "message_stop")
+
     def test_complete_uses_messages_api_headers_tools_and_usage(self) -> None:
         response = _FakeResponse(
             {

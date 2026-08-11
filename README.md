@@ -206,6 +206,7 @@ python -m vibeagent -p --no-session-persistence --output-format json --cwd ../my
 python -m vibeagent -p --output-format json --fallback-model backup-model --cwd ../my-project "run the release checks"
 python -m vibeagent -p --output-format json --json-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"]}' --cwd ../my-project "run the release checks"
 python -m vibeagent --output-format stream-json --cwd ../my-project "run the release checks"
+python -m vibeagent -p --output-format stream-json --include-partial-messages --cwd ../my-project "run the release checks"
 python -m vibeagent --cwd ../my-project --add-dir ../shared-lib "update both codebases"
 python -m vibeagent --cwd ../my-project --add-dir ../shared-lib --add-dir ../schemas
 printf '{"type":"user","text":"inspect the change"}\n' | python -m vibeagent --input-format stream-json -
@@ -486,8 +487,16 @@ monotonically increasing `sequence`, `runId`, matching `sessionId` and
 `session_id`, and the redacted event payload,
 followed by exactly one `type: "result"` record containing the normal code or
 chat result, including `schemaVersion` and `version`, with final text available
-as both `message` and `result`. Every
-`permissions_loaded` event includes the loaded rule count, sources, and trusted
+as both `message` and `result`.
+Explicit `-p --include-partial-messages` additionally emits each provider SSE
+event as a `type: "stream_event"` record before the final result. Coding records
+include the session identifiers, model iteration, and retry attempt; chat
+records include iteration 1 and the retry attempt. Anthropic-compatible streams
+are forwarded directly, while OpenAI-compatible chunks are normalized to the
+same message/content-block event shape. Truncated and oversized streams fail
+instead of returning partial output. Providers or custom clients without
+incremental streaming support fail explicitly when this option is selected.
+Every `permissions_loaded` event includes the loaded rule count, sources, and trusted
 allow sources so CI logs can audit per-run overrides such as `acceptEdits`.
 Every line is flushed immediately for CI and process supervisors. Stream mode
 never opens
@@ -496,7 +505,8 @@ side-effecting tools are denied unless a trusted permission rule or complete
 sandbox auto-approval applies. Use `--approval allow` or
 `--dangerously-skip-permissions` only in an appropriately isolated automation
 environment. `stream-json` requires a one-shot task and is not accepted for the
-interactive prompt or standalone local command flags.
+interactive prompt or standalone local command flags. Partial messages require
+print mode and stream-JSON output.
 `--allowed-tools`/`--allowedTools` and `--disallowed-tools`/`--disallowedTools`
 add Claude-style permission rules for one coding task without editing project
 settings. Allowed CLI rules are trusted for that run and can skip side-effect

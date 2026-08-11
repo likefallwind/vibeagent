@@ -7,6 +7,40 @@ from vibeagent.config import ExecutionConfig
 
 
 class CliOneShotChatTests(unittest.TestCase):
+    def test_partial_messages_pass_chat_stream_handler(self) -> None:
+        observed = []
+        emitted = []
+
+        class Stream:
+            def chat_stream_event(self, attempt, event):
+                observed.append((attempt, event))
+
+            def result(self, value):
+                emitted.append(value)
+
+        def run_chat(_task, **kwargs):
+            kwargs["model_stream_handler"](2, {"type": "message_stop"})
+            return "hello"
+
+        exit_code = run_one_shot_chat(
+            "hello",
+            provider_env={},
+            execution_config=ExecutionConfig(),
+            system_prompt=None,
+            append_system_prompt=None,
+            machine_output=True,
+            output_json=False,
+            elapsed_ms=0,
+            stream=Stream(),
+            include_partial_messages=True,
+            create_chat_client_func=lambda _env: "client",
+            run_chat_func=run_chat,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(observed, [(2, {"type": "message_stop"})])
+        self.assertEqual(emitted[0]["message"], "hello")
+
     def test_effort_is_validated_before_chat_request(self) -> None:
         chat_called = False
 

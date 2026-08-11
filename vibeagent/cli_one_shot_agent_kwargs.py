@@ -10,6 +10,7 @@ from .workspace_core import RunWorkspace
 from .workspace_permissions import ProjectPermissions
 from .peer_runtime import PeerSessionRuntime
 from .dynamic_agent_profiles import DynamicAgentProfile
+from .model_streaming import AgentModelStreamHandler
 
 
 def build_one_shot_agent_kwargs(
@@ -37,6 +38,7 @@ def build_one_shot_agent_kwargs(
     task_metadata: dict[str, object] | None,
     workspace: RunWorkspace | None = None,
     peer_runtime: PeerSessionRuntime | None = None,
+    model_stream_handler: AgentModelStreamHandler | None = None,
 ) -> dict[str, object]:
     kwargs: dict[str, object] = {
         "client": client,
@@ -73,4 +75,6 @@ def build_one_shot_agent_kwargs(
         kwargs["workspace"] = workspace
     if peer_runtime is not None:
         kwargs["peer_runtime"] = peer_runtime
+    if model_stream_handler is not None:
+        kwargs["model_stream_handler"] = model_stream_handler
     return kwargs

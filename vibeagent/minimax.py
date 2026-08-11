@@ -7,7 +7,9 @@ from typing import Any, Mapping
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from .anthropic_streaming import accumulate_anthropic_stream
 from .config import get_first_api_key, normalize_api_key, resolve_provider_config
+from .model_streaming import ProviderStreamHandler
 from .provider_tool_calls import parse_function_tool_call
 from .types import AssistantResponse, ChatMessage, ChatClient, ContentBlock, ModelUsage
 
@@ -107,6 +109,49 @@ class MiniMaxClient(ChatClient):
         if not content:
             raise MiniMaxResponseError(f"MiniMax response did not include structured content: {summarize(text)}")
 
+        return AssistantResponse(content=content, raw=data, usage=extract_usage(data))
+
+    def complete_stream(
+        self,
+        messages: list[ChatMessage],
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.2,
+        timeout_ms: int = 120_000,
+        *,
+        on_event: ProviderStreamHandler,
+    ) -> AssistantResponse:
+        body_data = build_request_body(
+            self.model,
+            messages,
+            tools=tools,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        body_data["stream"] = True
+        request = Request(
+            f"{self.base_url}/v1/messages",
+            data=json.dumps(body_data).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+                "Accept": "text/event-stream",
+            },
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=timeout_ms / 1000) as response:
+                data = accumulate_anthropic_stream(
+                    response,
+                    on_event=on_event,
+                    response_error=MiniMaxResponseError,
+                )
+        except HTTPError as error:
+            text = error.read().decode("utf-8", errors="replace")
+            raise MiniMaxHttpError(error.code, text) from error
+        content = extract_content(data)
+        if not content:
+            raise MiniMaxResponseError("MiniMax streaming response did not include structured content.")
         return AssistantResponse(content=content, raw=data, usage=extract_usage(data))
 
 

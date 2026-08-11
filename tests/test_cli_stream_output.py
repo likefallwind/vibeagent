@@ -24,6 +24,23 @@ class TextClient:
         return AssistantResponse(content=[{"type": "text", "text": "Inspected the project."}], raw={})
 
 
+class StreamingTextClient(TextClient):
+    def complete_stream(
+        self,
+        messages,
+        tools=None,
+        max_tokens=4096,
+        temperature=0.2,
+        timeout_ms=120_000,
+        *,
+        on_event,
+    ):
+        on_event({"type": "message_start", "message": {"role": "assistant"}})
+        on_event({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Inspected"}})
+        on_event({"type": "message_stop"})
+        return self.complete(messages, tools, max_tokens, temperature, timeout_ms)
+
+
 class SequenceClient:
     def __init__(self, responses: list[list[dict[str, object]]]) -> None:
         self.responses = responses
@@ -48,6 +65,16 @@ def _result(root: Path, run_id: str = "stream-run") -> AgentResult:
 
 
 class CliOutputFormatTests(unittest.TestCase):
+    def test_partial_messages_require_print_stream_json(self) -> None:
+        cases = (
+            ["--include-partial-messages", "inspect"],
+            ["-p", "--include-partial-messages", "inspect"],
+            ["--output-format", "stream-json", "--include-partial-messages", "inspect"],
+        )
+        for args in cases:
+            with self.subTest(args=args), redirect_stdout(io.StringIO()):
+                self.assertEqual(main(args), 2)
+
     def test_json_schema_cli_returns_validated_structured_output(self) -> None:
         client = SequenceClient(
             [[{"type": "text", "text": '{"summary":"inspected","files":2}'}]]
@@ -272,6 +299,38 @@ class CliOutputFormatTests(unittest.TestCase):
 
 
 class CliStreamJsonTests(unittest.TestCase):
+    def test_partial_messages_stream_provider_events_before_result(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-stream-partial-") as base:
+            stdout = io.StringIO()
+            with (
+                patch("vibeagent.cli.create_chat_client", return_value=StreamingTextClient()),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "-p",
+                        "--output-format",
+                        "stream-json",
+                        "--include-partial-messages",
+                        "--cwd",
+                        base,
+                        "inspect",
+                    ]
+                )
+
+        records = [json.loads(line) for line in stdout.getvalue().splitlines()]
+        partials = [record for record in records if record["type"] == "stream_event"]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual([record["event"]["type"] for record in partials], [
+            "message_start",
+            "content_block_delta",
+            "message_stop",
+        ])
+        self.assertTrue(all(record["iteration"] == 1 for record in partials))
+        self.assertTrue(all(record["attempt"] == 1 for record in partials))
+        self.assertTrue(all(record["runId"] == records[-1]["runId"] for record in partials))
+        self.assertEqual(records[-1]["type"], "result")
+
     def test_stream_json_emits_structured_output_events_and_result(self) -> None:
         client = SequenceClient(
             [[{"type": "text", "text": '{"summary":"inspected"}'}]]

@@ -13,6 +13,7 @@ from .model_fallback import (
     fallback_model_error_event_details,
 )
 from .model_failure import ModelFailureMessage, model_failure_message
+from .model_streaming import AgentModelStreamHandler, complete_streaming
 from .types import AgentLogger, ChatClient, ChatMessage
 
 
@@ -44,6 +45,7 @@ def complete_with_retries(
     error_event_type: str = "model_error",
     error_event_extra: dict[str, Any] | None = None,
     recover_context: ContextRecovery | None = None,
+    model_stream_handler: AgentModelStreamHandler | None = None,
 ) -> tuple[Any | None, ModelFailureMessage | None]:
     attempt_budget = max(0, model_retries) + 1
     remaining_retries = max(0, model_retries)
@@ -54,7 +56,28 @@ def complete_with_retries(
     while attempt < attempt_budget:
         attempt += 1
         try:
-            response = client.complete(messages, tools=tools, max_tokens=max_output_tokens, timeout_ms=model_timeout_ms)
+            if model_stream_handler is None:
+                response = client.complete(
+                    messages,
+                    tools=tools,
+                    max_tokens=max_output_tokens,
+                    timeout_ms=model_timeout_ms,
+                )
+            else:
+                response = complete_streaming(
+                    client,
+                    messages,
+                    tools=tools,
+                    max_tokens=max_output_tokens,
+                    temperature=0.2,
+                    timeout_ms=model_timeout_ms,
+                    on_event=lambda event: model_stream_handler(
+                        session_dir,
+                        iteration,
+                        attempt,
+                        event,
+                    ),
+                )
             fallback_event = extract_model_fallback_event(response)
             if fallback_event is not None:
                 append_session_event(

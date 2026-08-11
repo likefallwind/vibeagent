@@ -68,6 +68,7 @@ def run_one_shot_code(
     structured_output_schema: dict[str, object] | None = None,
     max_budget_usd: Decimal | None = None,
     fallback_model: str | None = None,
+    include_partial_messages: bool = False,
     effort: str | None = None,
     effort_locked: bool = False,
     autocompact_tokens: int | None = None,
@@ -206,6 +207,11 @@ def run_one_shot_code(
         setup_trigger=setup_trigger,
         workspace=stream_scope.workspace,
         peer_runtime=peer_runtime,
+        model_stream_handler=(
+            stream.model_stream_event
+            if include_partial_messages and stream is not None
+            else None
+        ),
     )
     continuing_source_session = (
         ephemeral_workspace is None

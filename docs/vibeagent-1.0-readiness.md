@@ -96,7 +96,9 @@ The automated suite currently covers these 1.0 surfaces:
   `--tools` visibility and execution ceilings inherited by subagents, global
   deny alias-family removal across schemas, tool search, MCP wildcards, and
   every subagent path while scoped deny rules retain action-level matching,
-  shared provider-cost budgets, ordered sticky overload-model fallback chains, and
+  shared provider-cost budgets, ordered sticky overload-model fallback chains,
+  opt-in incremental provider SSE output with bounded parsing, retry metadata,
+  Anthropic/MiniMax and OpenAI-compatible accumulation, wrapper preservation, and
   pending-user-input output.
 - Interactive model selection: `/model` reports the active configured or
   session-overridden model, `/model <name>` maps an override to the current

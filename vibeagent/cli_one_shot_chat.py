@@ -21,6 +21,7 @@ def run_one_shot_chat(
     stream: JsonEventStream | None,
     effort: str | None = None,
     effort_locked: bool = False,
+    include_partial_messages: bool = False,
     create_chat_client_func: Callable[[dict[str, str | None]], object],
     run_chat_func: Callable[..., str],
 ) -> int:
@@ -28,6 +29,11 @@ def run_one_shot_chat(
         create_chat_client_func(provider_env),  # type: ignore[arg-type]
         ModelEffortSetting(effort, locked=effort_locked),
     )
+    run_kwargs: dict[str, object] = {}
+    if include_partial_messages:
+        if stream is None:
+            raise ValueError("Partial messages require stream-json output.")
+        run_kwargs["model_stream_handler"] = stream.chat_stream_event
     response = run_chat_func(
         task,
         client=client,
@@ -38,6 +44,7 @@ def run_one_shot_chat(
         model_timeout_ms=execution_config.model_timeout_ms,
         system_prompt=system_prompt,
         append_system_prompt=append_system_prompt,
+        **run_kwargs,
     )
     payload = build_one_shot_chat_payload(
         response,

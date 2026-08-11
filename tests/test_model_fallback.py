@@ -46,6 +46,19 @@ class SequenceClient:
             raise result
         return result
 
+    def complete_stream(
+        self,
+        messages,
+        tools=None,
+        max_tokens=4096,
+        temperature=0.2,
+        timeout_ms=120_000,
+        *,
+        on_event,
+    ):
+        on_event({"type": "message_start", "message": {"model": self.model}})
+        return self.complete(messages, tools, max_tokens, temperature, timeout_ms)
+
     def with_agent_profile(self, *, model: str | None, effort: str | None):
         self.profile_calls.append((model, effort))
         return self.registry[model or self.model]
@@ -56,6 +69,22 @@ def _response(text: str) -> AssistantResponse:
 
 
 class ModelFallbackTests(unittest.TestCase):
+    def test_streaming_overload_uses_fallback_and_preserves_events(self) -> None:
+        fallback = SequenceClient("backup", [_response("streamed")])
+        primary = SequenceClient(
+            "primary",
+            [ProviderError("overloaded", status=529)],
+            {"backup": fallback},
+        )
+        client, _state = create_fallback_chat_client(primary, "backup")
+        events = []
+
+        response = client.complete_stream([], on_event=events.append)
+
+        self.assertEqual(response.content[0]["text"], "streamed")
+        self.assertEqual([event["message"]["model"] for event in events], ["primary", "backup"])
+        self.assertEqual(response.raw["_vibeagent_model_fallback"]["fallback_model"], "backup")
+
     def test_all_builtin_providers_create_scoped_fallback_clients(self) -> None:
         clients = [
             AnthropicClient("key", model="primary"),

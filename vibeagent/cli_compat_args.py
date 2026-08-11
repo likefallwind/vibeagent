@@ -75,6 +75,11 @@ def add_compat_arguments(parser: argparse.ArgumentParser, *, positive_int, posit
         help="Use these comma-separated models in order after overloads in print-mode coding tasks.",
     )
     parser.add_argument(
+        "--include-partial-messages",
+        action="store_true",
+        help="Emit incremental model SSE events with stream-json output in print mode.",
+    )
+    parser.add_argument(
         "--maintenance",
         action="store_true",
         help="Run Setup hooks with the maintenance matcher before a print-mode task.",

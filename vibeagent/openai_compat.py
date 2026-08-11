@@ -16,6 +16,8 @@ from .openai_compat_messages import (
     tool_call_to_openai,
     tool_to_openai,
 )
+from .model_streaming import ProviderStreamHandler
+from .openai_streaming import accumulate_openai_chat_stream
 from .provider_tool_calls import parse_function_tool_call, parse_responses_function_call
 from .types import AssistantResponse, ChatMessage, ChatClient, ContentBlock, ModelUsage, ToolSpec
 
@@ -112,6 +114,52 @@ class OpenAICompatibleClient(ChatClient):
         if not content:
             raise OpenAICompatibleResponseError(
                 f"OpenAI-compatible response did not include structured content: {summarize(text)}"
+            )
+        return AssistantResponse(content=content, raw=data, usage=extract_usage(data))
+
+    def complete_stream(
+        self,
+        messages: list[ChatMessage],
+        tools: list[ToolSpec] | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.2,
+        timeout_ms: int = 120_000,
+        *,
+        on_event: ProviderStreamHandler,
+    ) -> AssistantResponse:
+        body_data = build_request_body(
+            self.model,
+            messages,
+            tools=tools,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        body_data["stream"] = True
+        body_data["stream_options"] = {"include_usage": True}
+        request = Request(
+            f"{self.base_url}/chat/completions",
+            data=json.dumps(body_data).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+                "Accept": "text/event-stream",
+            },
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=timeout_ms / 1000) as response:
+                data = accumulate_openai_chat_stream(
+                    response,
+                    on_event=on_event,
+                    response_error=OpenAICompatibleResponseError,
+                )
+        except HTTPError as error:
+            text = error.read().decode("utf-8", errors="replace")
+            raise OpenAICompatibleHttpError(error.code, text) from error
+        content = extract_content(data)
+        if not content:
+            raise OpenAICompatibleResponseError(
+                "OpenAI-compatible streaming response did not include structured content."
             )
         return AssistantResponse(content=content, raw=data, usage=extract_usage(data))
 

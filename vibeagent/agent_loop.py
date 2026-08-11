@@ -68,6 +68,7 @@ from .workspace_core import RunWorkspace
 from .deferred_tool_state import DeferredToolState
 from .file_changed_hooks import FileChangedHookRuntime
 from .config_change_hooks import ConfigChangeHookRuntime
+from .model_streaming import AgentModelStreamHandler
 
 
 @dataclass(frozen=True)
@@ -107,6 +108,7 @@ def run_agent_loop(
     deferred_tool_state: DeferredToolState | None = None,
     defer_tool_calls: bool = False,
     setup_trigger: str | None = None,
+    model_stream_handler: AgentModelStreamHandler | None = None,
 ) -> AgentResult:
     observations: list[Observation] = []
     steps: list[TaskStep] = []
@@ -645,6 +647,7 @@ def run_agent_loop(
                 append_system_prompt=append_system_prompt,
                 compact_hook_runner=compact_hook_runner(iteration),
             ),
+            model_stream_handler=model_stream_handler,
         )
         if response is None:
             failure_message = model_error_message or "Model request failed."

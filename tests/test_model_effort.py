@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import unittest
 
+from vibeagent.types import AssistantResponse
+
 from vibeagent.model_effort import (
     EnvironmentEffortChatClient,
     ModelEffortSetting,
@@ -16,13 +18,29 @@ class ProfileClient:
         self.effort = effort
 
     def complete(self, *args, **kwargs):
-        return None
+        return AssistantResponse(content=[{"type": "text", "text": "done"}], raw={})
+
+    def complete_stream(self, *args, on_event, **kwargs):
+        on_event({"type": "message_stop"})
+        return self.complete(*args, **kwargs)
 
     def with_agent_profile(self, *, model: str | None, effort: str | None) -> ProfileClient:
         return ProfileClient(model or self.model, self.effort if effort is None else effort)
 
 
 class ModelEffortTests(unittest.TestCase):
+    def test_locked_effort_wrapper_preserves_streaming(self) -> None:
+        configured = configure_model_effort(
+            ProfileClient(),
+            ModelEffortSetting("high", locked=True),
+        )
+        events = []
+
+        response = configured.complete_stream([], on_event=events.append)
+
+        self.assertEqual(response.content[0]["text"], "done")
+        self.assertEqual(events, [{"type": "message_stop"}])
+
     def test_environment_takes_precedence_and_locks_setting(self) -> None:
         setting = resolve_model_effort_setting(
             "low",

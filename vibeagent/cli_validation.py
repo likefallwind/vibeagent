@@ -32,6 +32,10 @@ def validate_cli_args(args: argparse.Namespace) -> str | None:
             normalize_fallback_models(args.fallback_model)
         except ValueError as error:
             return str(error)
+    if args.include_partial_messages and (
+        not args.print_mode or args.output_format != "stream-json" or not args.task or has_local_flag(args)
+    ):
+        return "--include-partial-messages requires --print with --output-format stream-json."
     if args.maintenance and (
         not args.print_mode or not args.task or has_local_flag(args) or args.chat
     ):

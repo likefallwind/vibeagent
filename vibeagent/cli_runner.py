@@ -76,6 +76,7 @@ def run_one_shot(
     structured_output_schema: dict[str, object] | None = None,
     max_budget_usd: Decimal | None = None,
     fallback_model: str | None = None,
+    include_partial_messages: bool = False,
     effort: str | None = None,
     effort_locked: bool = False,
     autocompact_tokens: int | None = None,
@@ -147,6 +148,7 @@ def run_one_shot(
                 stream=stream,
                 effort=effort,
                 effort_locked=effort_locked,
+                include_partial_messages=include_partial_messages,
                 create_chat_client_func=create_chat_client_func,
                 run_chat_func=run_chat_func,
             )
@@ -181,6 +183,7 @@ def run_one_shot(
                 structured_output_schema=structured_output_schema,
                 max_budget_usd=max_budget_usd,
                 fallback_model=fallback_model,
+                include_partial_messages=include_partial_messages,
                 effort=effort,
                 effort_locked=effort_locked,
                 autocompact_tokens=autocompact_tokens,

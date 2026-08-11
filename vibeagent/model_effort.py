@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from .agent_profile_client import configure_agent_profile_client
+from .model_streaming import ProviderStreamHandler, complete_streaming
 from .types import AssistantResponse, ChatClient, ChatMessage, ToolSpec
 
 
@@ -79,6 +80,26 @@ class EnvironmentEffortChatClient:
             max_tokens=max_tokens,
             temperature=temperature,
             timeout_ms=timeout_ms,
+        )
+
+    def complete_stream(
+        self,
+        messages: list[ChatMessage],
+        tools: list[ToolSpec] | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.2,
+        timeout_ms: int = 120_000,
+        *,
+        on_event: ProviderStreamHandler,
+    ) -> AssistantResponse:
+        return complete_streaming(
+            self.client,
+            messages,
+            tools=tools,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            timeout_ms=timeout_ms,
+            on_event=on_event,
         )
 
     def with_agent_profile(

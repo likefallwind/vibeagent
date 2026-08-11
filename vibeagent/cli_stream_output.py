@@ -40,6 +40,35 @@ class JsonEventStream:
     def result(self, payload: dict[str, object]) -> None:
         self.emit({"type": "result", **payload})
 
+    def model_stream_event(
+        self,
+        session_dir: Path,
+        iteration: int,
+        attempt: int,
+        event: dict[str, Any],
+    ) -> None:
+        self.emit(
+            {
+                "type": "stream_event",
+                "runId": session_dir.name,
+                "sessionId": session_dir.name,
+                "session_id": session_dir.name,
+                "iteration": iteration,
+                "attempt": attempt,
+                "event": event,
+            }
+        )
+
+    def chat_stream_event(self, attempt: int, event: dict[str, Any]) -> None:
+        self.emit(
+            {
+                "type": "stream_event",
+                "iteration": 1,
+                "attempt": attempt,
+                "event": event,
+            }
+        )
+
     def emit(self, payload: dict[str, object]) -> None:
         with self._lock:
             self.sequence += 1

@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 
 from .minimax import content_blocks_to_text
+from .model_streaming import ChatModelStreamHandler, complete_streaming
 from .prompt_system import build_effective_system_prompt
 from .types import ChatClient, ChatMessage
 
@@ -27,6 +28,7 @@ def run_chat(
     model_timeout_ms: int = 120_000,
     system_prompt: str | None = None,
     append_system_prompt: str | None = None,
+    model_stream_handler: ChatModelStreamHandler | None = None,
 ) -> str:
     # Chat mode is a plain assistant turn with bounded prior conversation context.
     messages = build_chat_messages(
@@ -42,6 +44,7 @@ def run_chat(
         model_retries=model_retries,
         model_retry_delay_ms=model_retry_delay_ms,
         model_timeout_ms=model_timeout_ms,
+        model_stream_handler=model_stream_handler,
     )
     if isinstance(response, str):
         text = response
@@ -58,11 +61,26 @@ def complete_chat_with_retries(
     model_retries: int,
     model_retry_delay_ms: int,
     model_timeout_ms: int,
+    model_stream_handler: ChatModelStreamHandler | None = None,
 ) -> object:
     attempts = max(0, model_retries) + 1
     for attempt in range(1, attempts + 1):
         try:
-            return client.complete(messages, max_tokens=max_output_tokens, timeout_ms=model_timeout_ms)
+            if model_stream_handler is None:
+                return client.complete(
+                    messages,
+                    max_tokens=max_output_tokens,
+                    timeout_ms=model_timeout_ms,
+                )
+            return complete_streaming(
+                client,
+                messages,
+                tools=None,
+                max_tokens=max_output_tokens,
+                temperature=0.2,
+                timeout_ms=model_timeout_ms,
+                on_event=lambda event: model_stream_handler(attempt, event),
+            )
         except Exception:
             if attempt >= attempts:
                 raise

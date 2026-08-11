@@ -31,6 +31,19 @@ class UsageClient:
         self.calls += 1
         return AssistantResponse(content=[{"type": "text", "text": "done"}], raw={}, usage=usage)
 
+    def complete_stream(
+        self,
+        messages,
+        tools=None,
+        max_tokens=4096,
+        temperature=0.2,
+        timeout_ms=120_000,
+        *,
+        on_event,
+    ):
+        on_event({"type": "message_stop"})
+        return self.complete(messages, tools, max_tokens, temperature, timeout_ms)
+
 
 def _rates(**overrides: Decimal | None) -> CostRates:
     values = {
@@ -44,6 +57,17 @@ def _rates(**overrides: Decimal | None) -> CostRates:
 
 
 class ModelCostBudgetTests(unittest.TestCase):
+    def test_streaming_response_is_accounted_once(self) -> None:
+        inner = UsageClient([ModelUsage(input_tokens=10, output_tokens=5, total_tokens=15)])
+        budget = ModelCostBudget(Decimal("1"), _rates())
+        events = []
+
+        response = BudgetedChatClient(inner, budget).complete_stream([], on_event=events.append)
+
+        self.assertEqual(response.content[0]["text"], "done")
+        self.assertEqual(events, [{"type": "message_stop"}])
+        self.assertEqual(budget.usage.total_tokens, 15)
+
     def test_report_preserves_sub_microdollar_limit(self) -> None:
         budget = ModelCostBudget(Decimal("0.0000001"), _rates())
 

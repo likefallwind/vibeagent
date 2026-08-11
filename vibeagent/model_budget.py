@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from threading import Lock
@@ -7,6 +8,7 @@ from typing import Any, Mapping
 
 from .config import CostRates, resolve_cost_rates
 from .model_fallback import extract_model_fallback_event
+from .model_streaming import ProviderStreamHandler, complete_streaming
 from .session_costs import decimal_usd_string, estimate_token_costs
 from .types import AssistantResponse, ChatClient, ChatMessage, ModelUsage, ToolSpec
 
@@ -112,6 +114,40 @@ class ModelCostBudget:
         temperature: float,
         timeout_ms: int,
     ) -> AssistantResponse:
+        return self._call_response(
+            lambda: client.complete(
+                messages,
+                tools=tools,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                timeout_ms=timeout_ms,
+            )
+        )
+
+    def call_stream(
+        self,
+        client: ChatClient,
+        messages: list[ChatMessage],
+        *,
+        tools: list[ToolSpec] | None,
+        max_tokens: int,
+        temperature: float,
+        timeout_ms: int,
+        on_event: ProviderStreamHandler,
+    ) -> AssistantResponse:
+        return self._call_response(
+            lambda: complete_streaming(
+                client,
+                messages,
+                tools=tools,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                timeout_ms=timeout_ms,
+                on_event=on_event,
+            )
+        )
+
+    def _call_response(self, request: Callable[[], AssistantResponse]) -> AssistantResponse:
         # Strict budgets serialize provider calls so parallel subagents cannot all
         # pass a stale pre-call budget check.
         with self._lock:
@@ -123,13 +159,7 @@ class ModelCostBudget:
                     estimated_cost_usd=self.estimated_cost_usd(),
                 )
                 raise self._failure
-            response = client.complete(
-                messages,
-                tools=tools,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                timeout_ms=timeout_ms,
-            )
+            response = request()
             usage = response.usage
             fallback_event = extract_model_fallback_event(response)
             if usage is None or not _usage_has_tokens(usage):
@@ -203,6 +233,26 @@ class BudgetedChatClient:
             max_tokens=max_tokens,
             temperature=temperature,
             timeout_ms=timeout_ms,
+        )
+
+    def complete_stream(
+        self,
+        messages: list[ChatMessage],
+        tools: list[ToolSpec] | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.2,
+        timeout_ms: int = 120_000,
+        *,
+        on_event: ProviderStreamHandler,
+    ) -> AssistantResponse:
+        return self.budget.call_stream(
+            self.client,
+            messages,
+            tools=tools,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            timeout_ms=timeout_ms,
+            on_event=on_event,
         )
 
     def with_agent_profile(self, *, model: str | None, effort: str | None) -> BudgetedChatClient:
