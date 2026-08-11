@@ -24,6 +24,12 @@ DELEGATION_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "maxLength": 200,
                     "description": "Optional git base ref to compare with the working tree or HEAD.",
                 },
+                "target": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000,
+                    "description": "Optional local review target such as a file path, branch, ref range, or short scope note. Mutually exclusive with base_ref.",
+                },
             },
             "additionalProperties": False,
         },

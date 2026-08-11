@@ -186,6 +186,7 @@ def get_help_text() -> str:
             "  /init [AGENTS.md|CLAUDE.md]  Create a starter project instruction file.",
             "  /doctor Show local configuration and workspace diagnostics.",
             "  /review [--max-files N] [--max-checks N] Review current git changes, syntax checks, suggested commands, and focused tests.",
+            "  /code-review [low|medium|high|xhigh|max] [--fix] [target] Run verified multi-agent code review; edits only with --fix.",
             "  /handoff [--max-files N] [--max-checks N] [--max-status-chars N] [--max-plan-chars N] Show a final handoff bundle with review status, focused tests, and latest plan.",
             "  /changes [--max-files N] Show a structured changed-file summary.",
             "  /diff [--staged] [--max-chars N] [path]  Show the current git diff.",

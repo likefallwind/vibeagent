@@ -14,6 +14,8 @@ def parse_review_local_command(trimmed: str) -> LocalCommand | None:
         return make_local_command("doctor", None)
     if trimmed == "/review" or trimmed.startswith("/review "):
         return make_local_command("review", trimmed[8:].strip() or None)
+    if trimmed == "/code-review" or trimmed.startswith("/code-review "):
+        return make_local_command("code_review", trimmed[12:].strip() or None)
     if trimmed == "/handoff" or trimmed.startswith("/handoff "):
         return make_local_command("handoff", trimmed[9:].strip() or None)
     if trimmed == "/changes" or trimmed.startswith("/changes "):

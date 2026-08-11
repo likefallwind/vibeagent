@@ -2522,6 +2522,11 @@ those blocks to MiniMax Anthropic-compatible messages or OpenAI-compatible
   verifier checks candidates against the code, removes false positives and
   duplicates, and ranks the surviving findings. One failed reviewer is reported
   without discarding the other reports.
+  Interactive and print-mode `/code-review [low|medium|high|xhigh|max]
+  [--fix] [target]` expose the workflow directly. Targets can select a local
+  file, branch, ref range, or short review scope; review is read-only unless
+  `--fix` is explicit. Unsupported cloud `ultra` and GitHub `--comment` modes
+  fail before any model request or external write.
 - `final_review` is a read-only handoff bundle for non-trivial code changes:
   blocking issues, warnings, running background processes, changed files, and
   suggested verification commands plus focused test commands inferred from

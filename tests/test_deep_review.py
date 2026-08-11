@@ -28,6 +28,8 @@ class DeepReviewTests(unittest.TestCase):
         self.assertEqual(default.max_iterations, 4)
         self.assertEqual(configured.perspectives, ["security", "tests"])
         self.assertEqual(configured.base_ref, "origin/main")
+        targeted = parse_tool_action("deep_review", {"target": "src/auth.py"})
+        self.assertEqual(targeted.target, "src/auth.py")
 
     def test_rejects_invalid_deep_review_inputs(self) -> None:
         invalid_inputs = [
@@ -37,6 +39,8 @@ class DeepReviewTests(unittest.TestCase):
             {"max_iterations": 0},
             {"base_ref": "--all"},
             {"base_ref": "main branch"},
+            {"base_ref": "main", "target": "src"},
+            {"target": "x" * 1001},
         ]
         for value in invalid_inputs:
             with self.subTest(value=value), self.assertRaises(ActionParseError):

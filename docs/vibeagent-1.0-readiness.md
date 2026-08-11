@@ -64,6 +64,10 @@ The automated suite currently covers these 1.0 surfaces:
   from outside the checkout, installs the package editable, and verifies both
   `python -m vibeagent --version` and `vibeagent --version`.
 - Core ReAct loop: inspect, edit, run checks, repair, review, commit, finish.
+- Built-in `/code-review` expansion in interactive and print modes: bounded
+  effort/target parsing, verified multi-agent review, read-only default behavior,
+  explicit `--fix`, and fail-closed unsupported cloud/comment options before
+  any model request or external write.
 - Main-session shell cwd persistence: Bash, native PowerShell, and interactive
   shell commands carry a validated working directory across turns and resume;
   background Bash starts there, subagents stay isolated, outside paths reset,

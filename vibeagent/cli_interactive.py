@@ -15,6 +15,7 @@ from .async_hook_runtime import (
     collect_async_hook_notifications,
 )
 from .btw import run_btw as default_run_btw
+from .builtin_model_workflows import resolve_builtin_model_workflow
 from .chat import run_chat as default_run_chat
 from .session_recap import (
     SessionRecapState,
@@ -1003,7 +1004,14 @@ def run_interactive_loop(
             if restored_conversation.warning:
                 print(restored_conversation.warning)
             continue
-        request_mode = "code" if custom_command is not None else mode
+        try:
+            builtin_workflow = resolve_builtin_model_workflow(command)
+        except ValueError as error:
+            print(str(error))
+            continue
+        if builtin_workflow is not None:
+            task = builtin_workflow.task
+        request_mode = "code" if custom_command is not None or builtin_workflow is not None else mode
         if command and command.type == "chat":
             if not command.argument:
                 mode = "chat"
@@ -1057,9 +1065,11 @@ def run_interactive_loop(
             else:
                 run_code_task(
                     task,
-                    project_command_task_metadata(custom_command)
-                    if custom_command is not None
-                    else None,
+                    (
+                        project_command_task_metadata(custom_command)
+                        if custom_command is not None
+                        else builtin_workflow.metadata if builtin_workflow is not None else None
+                    ),
                 )
         except KeyboardInterrupt:
             print("\nInterrupted.")

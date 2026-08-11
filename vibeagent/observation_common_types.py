@@ -83,6 +83,7 @@ class DeepReviewObservation:
     verification_ok: bool
     summary: str
     base_ref: str | None
+    target: str | None
     instructions_path: str | None
     message: str
 

@@ -49,6 +49,7 @@ class AgentSpecialToolTests(unittest.TestCase):
             verification_ok=True,
             summary="No findings.",
             base_ref=None,
+            target=None,
             instructions_path=None,
             message="Deep review completed: 1/1 reviewer(s) succeeded.",
         )

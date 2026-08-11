@@ -14,6 +14,10 @@ class CommandReviewParsingTests(unittest.TestCase):
             "/doctor": LocalCommand(type="doctor"),
             "/review": LocalCommand(type="review"),
             "/review --max-files 1 --max-checks 2": LocalCommand(type="review", argument="--max-files 1 --max-checks 2"),
+            "/code-review": LocalCommand(type="code_review"),
+            "/code-review high --fix main...feature": LocalCommand(
+                type="code_review", argument="high --fix main...feature"
+            ),
             "/handoff": LocalCommand(type="handoff"),
             "/handoff --max-files 1 --max-checks 2": LocalCommand(type="handoff", argument="--max-files 1 --max-checks 2"),
             "/changes": LocalCommand(type="changes"),

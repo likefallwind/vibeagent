@@ -80,6 +80,7 @@ class DeepReviewAction:
     )
     max_iterations: int = 4
     base_ref: str | None = None
+    target: str | None = None
 
 
 @dataclass(frozen=True)

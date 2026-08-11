@@ -141,11 +141,21 @@ def _parse_deep_review_action(value: dict[str, Any], raw: str) -> DeepReviewActi
             raise ActionParseError("deep_review action base_ref must be one token of at most 200 characters.", raw)
         if base_ref.startswith("-"):
             raise ActionParseError("deep_review action base_ref must not start with '-'.", raw)
+    target = value.get("target")
+    if target is not None:
+        if not isinstance(target, str) or not target.strip():
+            raise ActionParseError("deep_review action target must be a non-empty string when provided.", raw)
+        target = target.strip()
+        if len(target) > 1_000 or "\x00" in target:
+            raise ActionParseError("deep_review action target must contain at most 1000 characters and no NUL.", raw)
+    if base_ref is not None and target is not None:
+        raise ActionParseError("deep_review action accepts either base_ref or target, not both.", raw)
     return DeepReviewAction(
         type="deep_review",
         perspectives=list(perspectives),
         max_iterations=max_iterations,
         base_ref=base_ref,
+        target=target,
     )
 
 

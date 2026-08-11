@@ -53,6 +53,7 @@ def execute_deep_review_action(
             verification_ok=False,
             summary="",
             base_ref=action.base_ref,
+            target=action.target,
             instructions_path=instructions.path,
             message=instructions.error,
         )
@@ -141,6 +142,7 @@ def execute_deep_review_action(
         verification_ok=verification.ok,
         summary=verification.summary,
         base_ref=action.base_ref,
+        target=action.target,
         instructions_path=instructions.path,
         message=(
             f"Deep review completed: {successful}/{len(results)} reviewer(s) succeeded; "
