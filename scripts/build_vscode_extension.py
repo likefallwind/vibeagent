@@ -22,6 +22,7 @@ SOURCE_FILES = (
     "src/sessionCatalog.js",
     "src/sessionInspectorClient.js",
     "src/sessionInspector.js",
+    "src/sessionInspectorView.js",
     "src/sessionPlan.js",
     "src/sessionRewindClient.js",
     "src/sessionRewind.js",

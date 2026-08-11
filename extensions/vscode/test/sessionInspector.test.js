@@ -3,9 +3,11 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
+  MAX_INSPECTOR_DOCUMENT_CHARS,
   SessionInspectorManager,
   actionableTaskQuickPickItems,
   buildTaskContinuationPrompt,
+  renderSessionInspector,
 } = require('../src/sessionInspector');
 const { SessionInspectorClient, parseSessionInspector } = require('../src/sessionInspectorClient');
 
@@ -418,6 +420,9 @@ test('bounds task continuation selection and prompt helpers', () => {
     { id: '2', subject: 'Blocked', description: '', status: 'pending', owner: null, blocked: true },
   ]);
   assert.deepEqual(items, []);
+  const oversized = parseSessionInspector(envelope(inspectorReport()), SESSION);
+  oversized.overview.task = 'x'.repeat(MAX_INSPECTOR_DOCUMENT_CHARS);
+  assert.throws(() => renderSessionInspector(oversized), /exceeds 250000 rendered characters/);
   assert.throws(
     () => buildTaskContinuationPrompt(SESSION, {
       id: '3', subject: 'Large task', description: 'x'.repeat(4_000),
@@ -425,4 +430,163 @@ test('bounds task continuation selection and prompt helpers', () => {
     }),
     /exceeds 4000 characters/,
   );
+});
+
+test('refreshes the exact inspector in place and protects local document edits', async () => {
+  let report = inspectorReport();
+  let documentText = '';
+  let replaceLocalEdits = false;
+  let edits = 0;
+  const reads = [];
+  const warnings = [];
+  const information = [];
+  const document = {
+    uri: { toString: () => 'untitled:session-inspector-refresh' },
+    getText() { return documentText; },
+    positionAt(offset) { return { offset }; },
+  };
+  const editor = {
+    document,
+    async edit(callback, options) {
+      let replacement = null;
+      callback({
+        replace(range, value) {
+          assert.deepEqual(range.start, { offset: 0 });
+          assert.deepEqual(range.end, { offset: documentText.length });
+          replacement = value;
+        },
+      });
+      assert.deepEqual(options, { undoStopBefore: true, undoStopAfter: true });
+      documentText = replacement;
+      edits += 1;
+      return true;
+    },
+  };
+  const vscode = {
+    Range: class Range {
+      constructor(start, end) { this.start = start; this.end = end; }
+    },
+    window: {
+      activeTextEditor: null,
+      async showQuickPick(items) { return items[0]; },
+      async showTextDocument(value) {
+        assert.equal(value, document);
+        this.activeTextEditor = editor;
+        return editor;
+      },
+      async showWarningMessage(message, options, action) {
+        warnings.push({ message, options, action });
+        return replaceLocalEdits ? action : null;
+      },
+      showInformationMessage(message) { information.push(message); },
+    },
+    workspace: {
+      async openTextDocument(options) {
+        documentText = options.content;
+        return document;
+      },
+    },
+  };
+  const manager = new SessionInspectorManager(vscode, {
+    catalog: {
+      async list() {
+        return [{
+          session: SESSION, status: 'completed', events: 5, malformed: 0,
+          lastEventTime: '2026-08-11T00:00:00Z', name: 'Parser repair', task: 'Repair parser',
+          completed: true, failed: false, blocked: false,
+        }];
+      },
+    },
+    client: {
+      async get(_config, root, session) {
+        reads.push({ root, session });
+        return parseSessionInspector(envelope(report), SESSION);
+      },
+    },
+    terminals: {},
+  });
+  const config = { executable: 'python', args: ['-m', 'vibeagent'] };
+
+  await manager.open(config, '/workspace/project');
+  report = inspectorReport();
+  report.overview.tokens = { input: 200, output: 40, total: 240 };
+  assert.equal(await manager.refreshActive(config), document);
+  assert.match(documentText, /Tokens: 200 input, 40 output, 240 total/);
+  assert.equal(edits, 1);
+  assert.equal(warnings.length, 0);
+
+  documentText += '\nlocal inspector note\n';
+  report.overview.tokens = { input: 300, output: 60, total: 360 };
+  assert.equal(await manager.refreshActive(config), null);
+  assert.match(documentText, /local inspector note/);
+  assert.equal(edits, 1);
+  assert.equal(warnings[0].options.modal, true);
+  assert.match(warnings[0].options.detail, /Session: run-inspect-1/);
+
+  replaceLocalEdits = true;
+  assert.equal(await manager.refreshActive(config), document);
+  assert.match(documentText, /Tokens: 300 input, 60 output, 360 total/);
+  assert.doesNotMatch(documentText, /local inspector note/);
+  assert.equal(edits, 2);
+
+  assert.equal(await manager.refreshActive(config), document);
+  assert.equal(edits, 2);
+  assert.deepEqual(information, ['VibeAgent session inspector is already up to date.']);
+  assert.deepEqual(reads, Array.from({ length: 5 }, () => ({
+    root: '/workspace/project', session: SESSION,
+  })));
+});
+
+test('refuses refresh when the active inspector changes while confirmation is open', async () => {
+  let documentText = '';
+  const report = inspectorReport();
+  const document = {
+    uri: { toString: () => 'untitled:session-inspector-refresh-race' },
+    getText() { return documentText; },
+    positionAt(offset) { return { offset }; },
+  };
+  let editCalled = false;
+  const editor = {
+    document,
+    async edit() { editCalled = true; return true; },
+  };
+  const vscode = {
+    Range: class Range {
+      constructor(start, end) { this.start = start; this.end = end; }
+    },
+    window: {
+      activeTextEditor: null,
+      async showQuickPick(items) { return items[0]; },
+      async showTextDocument() { this.activeTextEditor = editor; return editor; },
+      async showWarningMessage(_message, _options, action) {
+        documentText += '\nchanged while waiting\n';
+        return action;
+      },
+      showInformationMessage() {},
+    },
+    workspace: {
+      async openTextDocument(options) { documentText = options.content; return document; },
+    },
+  };
+  const manager = new SessionInspectorManager(vscode, {
+    catalog: {
+      async list() {
+        return [{
+          session: SESSION, status: 'completed', events: 5, malformed: 0,
+          lastEventTime: '2026-08-11T00:00:00Z', name: 'Parser repair', task: 'Repair parser',
+          completed: true, failed: false, blocked: false,
+        }];
+      },
+    },
+    client: { async get() { return parseSessionInspector(envelope(report), SESSION); } },
+    terminals: {},
+  });
+  const config = { executable: 'python', args: ['-m', 'vibeagent'] };
+
+  await manager.open(config, '/workspace/project');
+  documentText += '\nlocal edit\n';
+  report.overview.tokens = { input: 200, output: 40, total: 240 };
+  await assert.rejects(manager.refreshActive(config), /changed during refresh/);
+  assert.equal(editCalled, false);
+  assert.match(documentText, /changed while waiting/);
 });

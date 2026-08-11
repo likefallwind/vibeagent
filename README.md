@@ -249,6 +249,12 @@ show at most 20 plan items, 50 persistent tasks, 50 checks per verification grou
 timeline events. Workspace, session, and display-name metadata remain in
 trusted extension memory, so editing the document cannot change the exact ID
 used by `Resume Inspected Session`.
+
+`Refresh Inspected Session` re-reads that exact out-of-band session ID and
+updates the active Markdown document in place. An unchanged generated snapshot
+refreshes without confirmation; local document edits require an explicit modal
+replacement, cancellation preserves them, and a document or text change while
+the modal is open aborts the update instead of overwriting newer input.
 The aggregate also includes at most 50 entries from the persistent session task
 graph. Invalid IDs, inconsistent status totals or dependencies, corrupt JSON,
 and symlinked task stores fail the whole inspector rather than being rendered as

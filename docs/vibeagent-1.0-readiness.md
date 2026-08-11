@@ -121,6 +121,11 @@ checks per verification group, 100 referenced files, and 80 timeline events
 before rendering native Markdown. Trusted workspace, session, and display-name
 metadata remain outside the document, and `Resume Inspected Session` uses the
 exact stored ID regardless of document edits.
+The adjacent refresh action re-reads that exact out-of-band session and updates
+the active inspector in place under the same 250,000-character rendering cap.
+Unchanged generated snapshots need no prompt, while local document edits require
+a modal replacement confirmation; cancellation or a document/text race leaves
+the newer content untouched.
 The inspector also includes up to 50 entries from the persistent `TaskCreate`
 graph. Numeric IDs, unique shown tasks, status totals, owners, dependencies,
 blocked flags, and the 100-task store ceiling are validated before rendering;

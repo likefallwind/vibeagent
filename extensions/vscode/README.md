@@ -23,6 +23,8 @@ terminal, preserving terminal permission prompts while adding editor context.
   overview, plan, verification, file, and timeline report as native Markdown.
 - `VibeAgent: Resume Inspected Session` resumes the exact session associated
   with the active inspector document.
+- `VibeAgent: Refresh Inspected Session` reloads the exact session associated
+  with the active inspector and updates that Markdown document in place.
 - `VibeAgent: Continue Inspected Task` refreshes the exact inspected task graph,
   lets you choose an unblocked pending or in-progress task, and continues it in
   a visible one-shot terminal for the stored session.
@@ -68,6 +70,13 @@ document. At most 20 plan items, 50 persistent tasks, 50 checks per verification
 and 80 timeline events are accepted. Workspace, session, and display-name
 metadata stay outside editable Markdown, so document edits cannot redirect the
 resume command.
+
+Inspector refresh uses the exact session metadata retained by the extension,
+never edited Markdown identity. It replaces an unchanged generated snapshot in
+place. Local document edits require a modal `Replace Inspector` confirmation;
+cancellation is inert, and any active-document or text change while awaiting
+confirmation aborts the replacement. Refresh output passes through the same
+250,000-character rendering ceiling.
 The same report contains up to 50 persistent `TaskCreate` graph entries. The
 extension validates numeric IDs, unique shown tasks, status totals, owners,
 dependency lists, blocked flags, and the 100-task store ceiling before rendering

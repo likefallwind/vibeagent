@@ -2,8 +2,8 @@
 
 const { sessionQuickPickItems } = require('./sessionCatalog');
 const { SessionInspectorClient } = require('./sessionInspectorClient');
+const { MAX_INSPECTOR_DOCUMENT_CHARS, renderSessionInspector } = require('./sessionInspectorView');
 
-const MAX_INSPECTOR_DOCUMENT_CHARS = 250_000;
 const MAX_TASK_CONTINUATION_PROMPT_CHARS = 4_000;
 const MAX_VERIFICATION_RUNS = 10;
 
@@ -34,14 +34,12 @@ class SessionInspectorManager {
     if (!session) throw new Error('The selected VibeAgent session is no longer available.');
     const report = await this.client.get(config, root, session.session);
     const content = renderSessionInspector(report);
-    if (content.length > MAX_INSPECTOR_DOCUMENT_CHARS) {
-      throw new Error(`VibeAgent session inspector exceeds ${MAX_INSPECTOR_DOCUMENT_CHARS} rendered characters.`);
-    }
     const document = await this.vscode.workspace.openTextDocument({ language: 'markdown', content });
     this.documents.set(document.uri.toString(), {
       root,
       session: report.session,
       name: session.name || session.task || report.overview.task || report.session,
+      content,
     });
     await this.vscode.window.showTextDocument(document, { preview: false });
     return document;
@@ -50,6 +48,49 @@ class SessionInspectorManager {
   resumeActive(config) {
     const inspected = this._activeInspection('resuming it');
     return this.terminals.resume(config, inspected.root, inspected.session, inspected.name);
+  }
+
+  async refreshActive(config) {
+    const inspected = this._activeInspection('refreshing it');
+    const report = await this.client.get(config, inspected.root, inspected.session);
+    const content = renderSessionInspector(report);
+    const editor = this.vscode.window.activeTextEditor;
+    const document = editor && editor.document;
+    if (!document || this.documents.get(document.uri.toString()) !== inspected) {
+      throw new Error('The active VibeAgent session inspector changed during refresh.');
+    }
+    const originalText = document.getText();
+    if (originalText === content) {
+      inspected.content = content;
+      this.vscode.window.showInformationMessage('VibeAgent session inspector is already up to date.');
+      return document;
+    }
+    if (originalText !== inspected.content) {
+      const confirmed = await this.vscode.window.showWarningMessage(
+        'Replace locally edited session inspector?',
+        { modal: true, detail: refreshConfirmationDetail(inspected) },
+        'Replace Inspector',
+      );
+      if (confirmed !== 'Replace Inspector') return null;
+    }
+    if (
+      this.vscode.window.activeTextEditor !== editor
+      || this.documents.get(document.uri.toString()) !== inspected
+      || document.getText() !== originalText
+    ) {
+      throw new Error('The active VibeAgent session inspector changed during refresh.');
+    }
+    const range = new this.vscode.Range(document.positionAt(0), document.positionAt(originalText.length));
+    const applied = await editor.edit(
+      (builder) => builder.replace(range, content),
+      { undoStopBefore: true, undoStopAfter: true },
+    );
+    if (!applied) throw new Error('VS Code could not refresh the VibeAgent session inspector.');
+    if (document.getText() !== content) {
+      throw new Error('The active VibeAgent session inspector changed during refresh.');
+    }
+    inspected.content = content;
+    return document;
   }
 
   async continueTaskActive(config) {
@@ -185,125 +226,12 @@ function verificationConfirmationDetail(inspected, selection) {
   return lines.join('\n');
 }
 
-function renderSessionInspector(report) {
-  const { overview, plan, tasks, verification, files, transcript } = report;
-  const lines = [
-    '# VibeAgent Session Inspector',
-    '',
-    `Session: ${inlineCode(report.session)}`,
-    `Status: ${escapeMarkdown(report.status)}`,
-    `Events: ${overview.events.total} total, ${overview.events.malformed} malformed`,
-    `Iterations: ${overview.events.iterations}`,
-    `Tool calls: ${overview.toolCalls}`,
-    `Approvals: ${overview.approvals.approved} approved, ${overview.approvals.denied} denied, ${overview.approvals.requested} requested`,
-    `Tokens: ${overview.tokens.input} input, ${overview.tokens.output} output, ${overview.tokens.total} total`,
-    '',
-    '## Task',
-    '',
-    ...indentedText(overview.task || '(no recorded task)'),
-    '',
-    '## Completion',
-    '',
-    `Ready: ${booleanLabel(overview.completion.ready)}`,
-    `Blockers: ${overview.completion.blockers}`,
-    `Warnings: ${overview.completion.warnings}`,
-    `Blocked attempts: ${overview.completion.blockedAttempts}`,
-    `Final review: ${booleanLabel(overview.finalReview.ready)} (${overview.finalReview.blockingIssues} blocking, ${overview.finalReview.warnings} warnings)`,
-  ];
-  if (overview.finalMessage) lines.push('', '### Final Message', '', ...indentedText(overview.finalMessage));
-  lines.push('', '## Plan', '');
-  if (!plan.items.length) {
-    lines.push('_No recorded plan items._');
-  } else {
-    for (const item of plan.items) {
-      const checked = item.status === 'completed' ? 'x' : ' ';
-      lines.push(`- [${checked}] ${escapeMarkdown(item.status)}: ${escapeMarkdown(item.step)}`);
-    }
-    if (plan.truncated) lines.push(`- ${plan.total - plan.shown} older plan item(s) omitted`);
-  }
-  appendTasks(lines, tasks);
-  appendVerification(lines, verification);
-  appendFiles(lines, files);
-  appendTimeline(lines, transcript);
-  return `${lines.join('\n')}\n`;
-}
-
-function appendTasks(lines, tasks) {
-  const counts = tasks.counts;
-  lines.push(
-    '',
-    `## Persistent Tasks (${tasks.shown}/${tasks.total})`,
-    '',
-    `Pending: ${counts.pending}; in progress: ${counts.inProgress}; completed: ${counts.completed}; blocked: ${counts.blocked}`,
-    '',
-  );
-  if (!tasks.items.length) {
-    lines.push('_No persistent tasks._');
-    return;
-  }
-  for (const item of tasks.items) {
-    const checked = item.status === 'completed' ? 'x' : ' ';
-    const blocked = item.blocked ? ' (blocked)' : '';
-    lines.push(`- [${checked}] ${inlineCode(`#${item.id}`)} ${escapeMarkdown(item.status)}${blocked}: ${escapeMarkdown(item.subject)}`);
-    if (item.owner) lines.push(`  Owner: ${inlineCode(item.owner)}`);
-    if (item.blockedBy.length) lines.push(`  Blocked by: ${item.blockedBy.map((id) => inlineCode(`#${id}`)).join(', ')}`);
-    if (item.blocks.length) lines.push(`  Blocks: ${item.blocks.map((id) => inlineCode(`#${id}`)).join(', ')}`);
-    lines.push(...indentedText(item.description));
-  }
-  if (tasks.truncated) lines.push(`${tasks.omitted} task(s) omitted.`);
-}
-
-function appendVerification(lines, verification) {
-  lines.push('', '## Verification', '', `Ready: ${verification.ready ? 'yes' : 'no'}`);
-  for (const [label, group] of [
-    ['Verified', verification.verified],
-    ['Pending', verification.pending],
-    ['Failed', verification.failed],
-  ]) {
-    lines.push('', `### ${label} (${group.total})`, '');
-    if (!group.items.length) lines.push('_None._');
-    else group.items.forEach((item) => lines.push(...indentedText(item)));
-    if (group.truncated) lines.push(`${group.total - group.shown} check(s) omitted.`);
-  }
-}
-
-function appendFiles(lines, files) {
-  lines.push('', `## Files (${files.total})`, '');
-  if (!files.items.length) {
-    lines.push('_No recorded file references._');
-    return;
-  }
-  for (const item of files.items) {
-    const uses = item.uses.length ? item.uses.join(', ') : 'unknown use';
-    lines.push(`- ${inlineCode(item.path)}: ${escapeMarkdown(uses)} (${item.count} reference(s))`);
-  }
-  if (files.truncated) lines.push(`- ${files.omitted} file(s) omitted`);
-}
-
-function appendTimeline(lines, transcript) {
-  lines.push('', `## Timeline (${transcript.shown}/${transcript.total})`, '');
-  if (transcript.omitted) lines.push(`${transcript.omitted} older event(s) omitted.`, '');
-  if (!transcript.items.length) {
-    lines.push('_No recorded events._');
-    return;
-  }
-  transcript.items.forEach((item) => lines.push(...indentedText(item.summary)));
-}
-
-function indentedText(value) {
-  return String(value).replace(/\r\n?/g, '\n').split('\n').map((line) => `    ${line || ' '}`);
-}
-
-function inlineCode(value) {
-  return `\`${String(value).replace(/`/g, "'")}\``;
-}
-
-function escapeMarkdown(value) {
-  return String(value).replace(/([\\`*_{}\[\]()<>#+.!|])/g, '\\$1');
-}
-
-function booleanLabel(value) {
-  return value === true ? 'yes' : value === false ? 'no' : 'unknown';
+function refreshConfirmationDetail(inspected) {
+  return [
+    `Session: ${inspected.session}`,
+    'The active inspector contains local edits. Replacing it will discard those document-only edits.',
+    'Session identity remains stored by the extension and is never read from the Markdown text.',
+  ].join('\n');
 }
 
 module.exports = {
