@@ -9,6 +9,7 @@ HookEvent = Literal[
     "InstructionsLoaded",
     "PostToolUse",
     "PostToolUseFailure",
+    "PostToolBatch",
     "PreToolUse",
     "PermissionRequest",
     "PostCompact",
@@ -30,6 +31,7 @@ HOOK_EVENTS = frozenset(
         "InstructionsLoaded",
         "PostToolUse",
         "PostToolUseFailure",
+        "PostToolBatch",
         "PreToolUse",
         "PermissionRequest",
         "PostCompact",
@@ -58,14 +60,13 @@ SEQUENTIAL_TOOL_HOOK_EVENTS = frozenset(
         "PreToolUse",
         "TaskCompleted",
         "TaskCreated",
-        "WorktreeCreate",
-        "WorktreeRemove",
     }
 )
 PROMPT_HOOK_EVENTS = frozenset(
     {
         "PostToolUse",
         "PostToolUseFailure",
+        "PostToolBatch",
         "PreToolUse",
         "PermissionRequest",
         "Stop",

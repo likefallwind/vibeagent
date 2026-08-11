@@ -20,6 +20,7 @@ from .agent_multimodal import strip_consumed_tool_images
 from .agent_monitor_notifications import inject_monitor_notifications
 from .agent_parallel_execution import execute_parallel_tool_call_batch
 from .agent_peer_notifications import inject_peer_notifications
+from .agent_post_tool_batch_hooks import append_batch_context, run_post_tool_batch_hooks
 from .agent_plan_mode import PlanModeRuntime, approval_handler_after_plan
 from .agent_plugin_monitors import AgentPluginMonitorController
 from .peer_runtime import PeerSessionRuntime
@@ -252,6 +253,26 @@ def run_agent_loop(
         hook_model_runtime=hook_model_runtime,
     )
 
+    def run_post_batch(
+        calls: list[ContentBlock], results: list[ContentBlock], batch_iteration: int
+    ):
+        batch = run_post_tool_batch_hooks(
+            current_workspace,
+            calls,
+            results,
+            iteration=batch_iteration,
+            command_timeout_ms=command_timeout_ms,
+            logger=logger,
+            approval_handler=current_approval_handler,
+            approval_policy=plan_mode.current_policy,
+            execute_action_safely_func=runtime.execute_action_safely,
+            hooks=project_hooks,
+            permissions=project_permissions,
+            hook_model_runtime=hook_model_runtime,
+        )
+        append_batch_context(results, batch)
+        return batch
+
     def compact_hook_runner(iteration: int):
         return lambda phase, trigger, summary: lifecycle.compact(
             current_workspace,
@@ -431,11 +452,20 @@ def run_agent_loop(
         )
         if outcome.result is not None:
             return outcome.result
+        resumed_results = list(outcome.tool_results)
+        resumed_batch = run_post_batch(list(state.tool_calls), resumed_results, 0)
+        if resumed_batch.blocking_message is not None:
+            messages.append(ChatMessage(role="user", content=resumed_results))
+            return finish_with_conversation(
+                current_workspace, False, resumed_batch.blocking_message, 0,
+                observations, steps, plan, command_timeout_ms, logger,
+                stop_reason="hook_blocked",
+            )
         messages = append_tool_results_and_compact(
             task=task,
             workspace=current_workspace,
             messages=messages,
-            tool_results=list(outcome.tool_results),
+            tool_results=resumed_results,
             observations=observations,
             plan=plan,
             original_prior_context=prior_context,
@@ -625,6 +655,14 @@ def run_agent_loop(
                 observations[observation_start:], iteration=iteration
             )
         if handled_tool_calls == len(tool_calls):
+            batch = run_post_batch(tool_calls, tool_results, iteration)
+            if batch.blocking_message is not None:
+                messages.append(ChatMessage(role="user", content=tool_results))
+                return finish_with_conversation(
+                    current_workspace, False, batch.blocking_message, iteration,
+                    observations, steps, plan, command_timeout_ms, logger,
+                    stop_reason="hook_blocked",
+                )
             messages = append_tool_results_and_compact(
                 task=task,
                 workspace=current_workspace,
@@ -731,6 +769,14 @@ def run_agent_loop(
                     logger("finished", observation.message)
                 return finish_run(True, observation.message, iteration)
 
+        batch = run_post_batch(tool_calls[: len(tool_results)], tool_results, iteration)
+        if batch.blocking_message is not None:
+            messages.append(ChatMessage(role="user", content=tool_results))
+            return finish_with_conversation(
+                current_workspace, False, batch.blocking_message, iteration,
+                observations, steps, plan, command_timeout_ms, logger,
+                stop_reason="hook_blocked",
+            )
         if blocked_completion_feedback is not None:
             messages.append(ChatMessage(role="user", content=tool_results))
             messages.append(

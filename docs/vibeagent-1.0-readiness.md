@@ -173,6 +173,10 @@ The automated suite currently covers these 1.0 surfaces:
   can block main-agent, subagent, and teammate task transitions before the
   atomic task store changes. Exit-code-2 feedback continues the model while
   `continue: false` halts the active turn.
+- Claude-compatible post-batch hooks: `PostToolBatch` runs once after resolved
+  parallel, sequential, deferred-resume, and delegated batches with the exact
+  provider-facing tool results; it can inject next-turn context or stop before
+  the next model request without forcing tools to execute sequentially.
 - Claude-compatible worktree lifecycle hooks: command and HTTP
   `WorktreeCreate` handlers replace the default Git backend for CLI and
   subagent isolation and return a validated directory; `WorktreeRemove`

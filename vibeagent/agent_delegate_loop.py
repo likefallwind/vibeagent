@@ -13,6 +13,7 @@ from .agent_execution_support import execute_action_safely
 from .agent_hook_prompt import HookModelRuntime
 from .agent_lifecycle_hooks import run_instruction_loaded_hooks
 from .agent_model import complete_with_retries
+from .agent_post_tool_batch_hooks import append_batch_context, run_post_tool_batch_hooks
 from .agent_runtime_utils import content_blocks_to_text, normalize_assistant_content
 from .agent_tool_results import record_subagent_tool_observation
 from .nested_delegate_runtime import NestedDelegateRuntime
@@ -298,6 +299,36 @@ def run_delegate_iterations(context: DelegateLoopContext) -> DelegateTaskObserva
                     logger=context.logger,
                 )
 
+        batch = run_post_tool_batch_hooks(
+            context.workspace,
+            tool_calls[: len(tool_results)],
+            tool_results,
+            iteration=child_iteration,
+            command_timeout_ms=context.command_timeout_ms,
+            logger=context.logger,
+            approval_handler=context.approval_handler,
+            approval_policy=context.approval_policy,
+            execute_action_safely_func=execute_action_safely,
+            hooks=context.hooks,
+            permissions=context.permissions,
+            hook_model_runtime=context.hook_model_runtime,
+        )
+        append_batch_context(tool_results, batch)
+        if batch.blocking_message is not None:
+            context.messages.append(ChatMessage(role="user", content=tool_results))
+            if context.inbox is not None:
+                context.inbox.close()
+            return finish_delegate_task(
+                context.workspace,
+                context.action,
+                context.subagent_id,
+                ok=False,
+                summary="",
+                iterations=child_iteration,
+                tool_calls=tool_calls_used,
+                message=batch.blocking_message,
+                logger=context.logger,
+            )
         context.messages.append(ChatMessage(role="user", content=tool_results))
         context.messages[:] = compact_delegate_message_history(
             context.workspace,

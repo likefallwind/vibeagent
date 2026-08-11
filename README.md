@@ -1615,7 +1615,7 @@ hook map directly or under `hooks`:
 Supported lifecycle events are `SessionStart`, `SessionEnd`, `PreCompact`,
 `PostCompact`, `CwdChanged`, `InstructionsLoaded`, `UserPromptSubmit`,
 `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
-`SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`,
+`SubagentStart`, `SubagentStop`, `PostToolBatch`, `TaskCreated`, `TaskCompleted`,
 `WorktreeCreate`, and `WorktreeRemove`. Tool-event
 matchers apply to the model tool name, parsed VibeAgent action type, and
 Claude-compatible aliases.
@@ -1641,6 +1641,15 @@ subagent, and teammate task transitions. Their input includes `task_id`,
 atomic task store. JSON `{"continue": false, "stopReason": "..."}` also blocks
 the transition and halts the active turn. Failed or malformed handlers remain
 non-blocking.
+
+`PostToolBatch` ignores matchers and fires once after every resolved main-agent
+or subagent tool batch, including parallel and resumed deferred batches. Its
+`tool_calls` input contains each tool name, original input, provider tool ID,
+and the exact serialized `tool_result` content sent back to the model. Returned
+`additionalContext` is appended once before the next model request;
+`decision: block` or `continue: false` records the completed results and stops
+the agent loop before another request. A batch-only Hook does not disable
+parallel tool execution.
 
 `WorktreeCreate` and `WorktreeRemove` ignore matchers and support command or
 HTTP handlers. A configured create handler replaces the default Git worktree

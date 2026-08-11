@@ -206,6 +206,7 @@ def _parse_hook_events(payload: dict[str, object], source: str) -> list[ProjectH
                 if event_name in {
                     "CwdChanged", "TaskCreated", "TaskCompleted",
                     "WorktreeCreate", "WorktreeRemove",
+                    "PostToolBatch",
                 }
                 else group.get("matcher", ".*")
             )
