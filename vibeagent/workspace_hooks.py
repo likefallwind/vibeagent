@@ -209,7 +209,7 @@ def _parse_hook_events(payload: dict[str, object], source: str) -> list[ProjectH
                     "PostToolBatch",
                     "TeammateIdle",
                 }
-                else group.get("matcher", ".*")
+                else group.get("matcher", "" if event_name == "FileChanged" else ".*")
             )
             if not isinstance(matcher, str) or len(matcher) > MAX_HOOK_MATCHER_CHARS:
                 raise ValueError(

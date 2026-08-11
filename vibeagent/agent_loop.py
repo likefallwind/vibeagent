@@ -63,6 +63,7 @@ from .types import (
 )
 from .workspace_core import RunWorkspace
 from .deferred_tool_state import DeferredToolState
+from .file_changed_hooks import FileChangedHookRuntime
 
 
 @dataclass(frozen=True)
@@ -327,6 +328,11 @@ def run_agent_loop(
     )
     if startup_block is not None:
         return finish_run(False, startup_block, 0)
+    file_changed_runtime = FileChangedHookRuntime(
+        current_workspace,
+        project_hooks,
+        lifecycle,
+    )
     checkpoint_conversation()
     plugin_monitors = AgentPluginMonitorController.create(
         plugin_monitor_runtime,
@@ -340,6 +346,13 @@ def run_agent_loop(
 
     def stop_feedback_if_needed(message: str, iteration: int) -> str | None:
         return lifecycle.stop_feedback_if_needed(current_workspace, message, iteration)
+
+    def poll_file_changes(iteration: int) -> None:
+        changed = file_changed_runtime.poll(
+            workspace=current_workspace,
+            iteration=iteration,
+        )
+        hook_system_messages.extend(changed.system_messages)
 
     def apply_sequential_runtime_state(
         sequential: SequentialToolCallResult,
@@ -528,6 +541,8 @@ def run_agent_loop(
         if logger:
             logger("thinking", f"iteration {iteration}/{max_iterations}")
 
+        poll_file_changes(iteration)
+
         inject_background_delegate_notifications(
             current_workspace,
             messages,
@@ -614,6 +629,7 @@ def run_agent_loop(
             return finish_run(False, failure_message, iteration)
         strip_consumed_tool_images(messages)
         model_turn = record_model_turn(current_workspace, messages, response, iteration)
+        poll_file_changes(iteration)
         assistant_content = model_turn.assistant_content
         tool_calls = model_turn.tool_calls
         if not tool_calls:

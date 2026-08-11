@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
+from .process_background_lookup import background_process_for_root, background_processes_for_root
 from .process_lifecycle import close_background_handles, signal_name, terminate_process
 from .process_registry import (
     persistent_process_running,
@@ -33,7 +34,7 @@ def _background_processes() -> dict[str, Any]:
 
 def list_background_processes(root: Path) -> ListProcessesObservation:
     processes_by_id: dict[str, ProcessInfo] = {}
-    for process_id, background in sorted(_background_processes().items()):
+    for process_id, background in sorted(background_processes_for_root(root).items()):
         exit_code = background.process.poll()
         running = exit_code is None
         if not running:
@@ -85,7 +86,7 @@ def check_stop_all_background_processes(root: Path) -> CheckStopAllProcessesObse
 
 
 def check_stop_background_process(root: Path, process_id: str) -> CheckStopProcessObservation:
-    background = _background_processes().get(process_id)
+    background = background_process_for_root(root, process_id)
     if background is None:
         record = read_persistent_process_record(root, process_id)
         if record is not None:
@@ -139,7 +140,8 @@ def stop_all_background_processes(root: Path) -> StopAllProcessesObservation:
     stopped: list[StoppedProcessInfo] = []
     stopped_ids: set[str] = set()
     background_processes = _background_processes()
-    for process_id, background in sorted(list(background_processes.items())):
+    scoped_processes = background_processes_for_root(root)
+    for process_id, background in sorted(scoped_processes.items()):
         if background.process.poll() is None:
             terminate_process(background.process)
         exit_code = background.process.poll()
@@ -190,7 +192,7 @@ def stop_all_background_processes(root: Path) -> StopAllProcessesObservation:
 
 def stop_background_process(root: Path, process_id: str) -> StopProcessObservation:
     background_processes = _background_processes()
-    background = background_processes.get(process_id)
+    background = background_process_for_root(root, process_id)
     if background is None:
         record = read_persistent_process_record(root, process_id)
         if record is not None:

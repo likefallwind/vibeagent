@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import subprocess
 
-from .process_background_lookup import background_processes
+from .process_background_lookup import background_process_for_root
 from .process_lifecycle import close_background_handles, signal_name
 from .process_registry import read_persistent_process_record
 from .process_wait_runtime import read_text_tail, wait_background_process_output, wait_persistent_process
@@ -19,7 +19,7 @@ def wait_background_process(
     regex: bool = False,
     max_output_chars: int | None = None,
 ) -> WaitProcessObservation:
-    background = background_processes().get(process_id)
+    background = background_process_for_root(root, process_id)
     if background is None:
         record = read_persistent_process_record(root, process_id)
         if record is not None:

@@ -68,7 +68,7 @@ def lifecycle_hook_environment(
     workspace: RunWorkspace,
     event: str,
 ) -> dict[str, str]:
-    if event not in {"SessionStart", "CwdChanged"}:
+    if event not in {"SessionStart", "CwdChanged", "FileChanged"}:
         return {}
     return {CLAUDE_ENV_FILE: str(ensure_session_environment_file(workspace))}
 

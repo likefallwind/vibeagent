@@ -69,6 +69,7 @@ from .workspace_resolve import resolve_command_cwd
 @dataclass
 class BackgroundProcess:
     id: str
+    root: Path
     command: str
     cwd: str
     process: subprocess.Popen[str]
@@ -298,6 +299,7 @@ def start_background_command(
 
     BACKGROUND_PROCESSES[process_id] = BackgroundProcess(
         id=process_id,
+        root=workspace.root.resolve(),
         command=command,
         cwd=relative_cwd(command_cwd, workspace.root),
         process=process,

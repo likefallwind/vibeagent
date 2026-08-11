@@ -1613,7 +1613,7 @@ hook map directly or under `hooks`:
 ```
 
 Supported lifecycle events are `SessionStart`, `SessionEnd`, `PreCompact`,
-`PostCompact`, `CwdChanged`, `InstructionsLoaded`, `Notification`, `UserPromptExpansion`,
+`PostCompact`, `CwdChanged`, `FileChanged`, `InstructionsLoaded`, `Notification`, `UserPromptExpansion`,
 `UserPromptSubmit`,
 `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
 `StopFailure`,
@@ -1653,6 +1653,18 @@ Command, HTTP, and MCP tool handlers are supported, and structured
 `systemMessage` output remains user-facing instead of entering model context.
 VibeAgent does not open a file manager, browser, or other GUI unless a configured
 and approved notification hook explicitly runs such a command.
+
+`FileChanged` hooks watch literal filenames from matcher segments separated by
+`|` in the persisted session cwd. They receive an absolute `file_path` and an
+`event` of `add`, `change`, or `unlink`; decisions and failures cannot undo the
+disk change. Agent runs poll immediately before and after model requests, and an
+established interactive session also polls once per idle-input callback.
+`watchPaths` returned by `SessionStart`, `CwdChanged`, or `FileChanged` replaces
+the session's dynamic watch list; these paths must be absolute, workspace-bound,
+free of symbolic-link components, outside `.git` and `.vibeagent`, and are
+limited to 100 entries. Static matcher paths remain watched. Command, HTTP, and
+MCP tool handlers are supported, `systemMessage` stays user-only, and
+`CLAUDE_ENV_FILE` updates affect subsequent Bash commands.
 
 `TaskCreated` and `TaskCompleted` ignore matchers and run for main-agent,
 subagent, and teammate task transitions. Their input includes `task_id`,

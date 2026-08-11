@@ -10,6 +10,9 @@ from .agent_hook_execution import run_project_hook
 from .session_environment import lifecycle_hook_environment
 from .agent_hook_results import HookRunResult
 from .agent_hook_prompt import HookModelRuntime
+from .agent_runtime_utils import append_session_event
+from .redaction import redact_sensitive_text
+from .session_file_watch_state import write_dynamic_watch_paths
 from .types import AgentLogger, ApprovalHandler, ApprovalPolicy, Observation
 from .workspace_core import RunWorkspace
 from .workspace_hooks import HookEvent, ProjectHooks, matching_lifecycle_hooks
@@ -43,6 +46,7 @@ class LifecycleHookResult:
     results: tuple[HookRunResult, ...] = ()
     contexts: tuple[str, ...] = ()
     system_messages: tuple[str, ...] = ()
+    watch_paths: tuple[str, ...] | None = None
     blocking_message: str | None = None
     halt_turn_message: str | None = None
 
@@ -77,6 +81,7 @@ def run_lifecycle_hooks(
     results: list[HookRunResult] = []
     contexts: list[str] = []
     system_messages: list[str] = []
+    watch_paths: tuple[str, ...] | None = None
     session_end_deadline = (
         time.monotonic() + _session_end_budget_ms(hooks) / 1000
         if event == "SessionEnd"
@@ -115,6 +120,20 @@ def run_lifecycle_hooks(
             contexts.append(output.context)
         if output.system_message:
             system_messages.append(output.system_message)
+        if event in {"SessionStart", "CwdChanged", "FileChanged"} and output.watch_paths is not None:
+            try:
+                stored_paths = write_dynamic_watch_paths(workspace, output.watch_paths)
+            except (OSError, ValueError) as error:
+                append_session_event(
+                    workspace.session_dir,
+                    "file_watch_update_rejected",
+                    {
+                        "event": event,
+                        "message": redact_sensitive_text(str(error))[:2_000],
+                    },
+                )
+            else:
+                watch_paths = tuple(str(path) for path in stored_paths)
         if event in BLOCKING_EVENTS:
             blocking_message = _blocking_message(result, output)
             if blocking_message is not None:
@@ -122,6 +141,7 @@ def run_lifecycle_hooks(
                     results=tuple(results),
                     contexts=tuple(contexts),
                     system_messages=tuple(system_messages),
+                    watch_paths=watch_paths,
                     blocking_message=blocking_message,
                     halt_turn_message=output.stop_reason,
                 )
@@ -129,6 +149,7 @@ def run_lifecycle_hooks(
         results=tuple(results),
         contexts=tuple(contexts),
         system_messages=tuple(system_messages),
+        watch_paths=watch_paths,
     )
 
 
@@ -219,6 +240,7 @@ def _matching_trigger_path(source: dict[str, object], paths: list[str]) -> str |
 class _ParsedHookOutput:
     context: str | None = None
     system_message: str | None = None
+    watch_paths: tuple[str, ...] | None = None
     decision: str | None = None
     reason: str | None = None
     plain_text: bool = False
@@ -245,6 +267,7 @@ def _parse_hook_output(result: HookRunResult) -> _ParsedHookOutput:
     stop_reason = payload.get("stopReason")
     continue_value = payload.get("continue")
     system_message = payload.get("systemMessage")
+    watch_paths = _watch_paths_output(payload, specific_payload)
     return _ParsedHookOutput(
         context=context if isinstance(context, str) and context.strip() else None,
         system_message=(
@@ -252,6 +275,7 @@ def _parse_hook_output(result: HookRunResult) -> _ParsedHookOutput:
             if isinstance(system_message, str) and system_message.strip()
             else None
         ),
+        watch_paths=watch_paths,
         decision=payload.get("decision")
         if isinstance(payload.get("decision"), str)
         else None,
@@ -261,6 +285,23 @@ def _parse_hook_output(result: HookRunResult) -> _ParsedHookOutput:
         ),
         continue_=continue_value if isinstance(continue_value, bool) else None,
     )
+
+
+def _watch_paths_output(
+    payload: dict[str, object],
+    specific_payload: dict[str, object],
+) -> tuple[str, ...] | None:
+    missing = object()
+    value = specific_payload.get("watchPaths", payload.get("watchPaths", missing))
+    if value is missing:
+        return None
+    if (
+        not isinstance(value, list)
+        or len(value) > 100
+        or any(not isinstance(path, str) for path in value)
+    ):
+        return None
+    return tuple(value)
 
 
 def _blocking_message(result: HookRunResult, output: _ParsedHookOutput) -> str | None:

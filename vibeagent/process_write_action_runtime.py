@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .process_background_lookup import background_processes
+from .process_background_lookup import background_process_for_root
 from .process_io_helpers import write_process_content_sha256
 from .process_lifecycle import close_background_handles
 from .process_registry import persistent_process_running, read_persistent_process_record
@@ -17,7 +17,7 @@ from .types import CheckWriteProcessObservation, WriteProcessObservation
 
 def check_write_background_process(root: Path, process_id: str, content: str) -> CheckWriteProcessObservation:
     content_sha256 = write_process_content_sha256(content)
-    background = background_processes().get(process_id)
+    background = background_process_for_root(root, process_id)
     if background is None:
         record = read_persistent_process_record(root, process_id)
         if record is not None:
@@ -62,7 +62,7 @@ def check_write_background_process(root: Path, process_id: str, content: str) ->
 
 def write_background_process(root: Path, process_id: str, content: str) -> WriteProcessObservation:
     content_sha256 = write_process_content_sha256(content)
-    background = background_processes().get(process_id)
+    background = background_process_for_root(root, process_id)
     if background is None:
         record = read_persistent_process_record(root, process_id)
         if record is not None:

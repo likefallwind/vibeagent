@@ -497,6 +497,11 @@ local changes when asked, and resume from recorded session context.
   permission and 60-second idle dispatch, exact lifecycle input, once-only idle
   delivery, user-only `systemMessage`, and non-blocking JSON or exit-code-2
   decisions.
+- `tests.test_file_changed_hooks` covers literal matcher discovery, empty
+  dynamic-only matchers, workspace and symlink boundaries, atomic watchPaths
+  replacement, session-cwd relocation, add/change/unlink detection, active
+  agent and interactive-idle polling, user-only output, non-blocking decisions,
+  and persistent `CLAUDE_ENV_FILE` updates.
 - `tests.test_project_permissions`, `tests.test_workspace`, and
   `tests.test_command_sandbox` cover the main workspace and safety boundaries.
 - `tests.test_user_runtime_settings.UserRuntimeSettingsTests` covers

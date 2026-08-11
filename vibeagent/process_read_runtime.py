@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .process_background_lookup import background_processes
+from .process_background_lookup import background_process_for_root
 from .process_io_helpers import filter_output_lines as _filter_output_lines
 from .process_lifecycle import close_background_handles, signal_name
 from .process_registry import (
@@ -21,7 +21,7 @@ def read_background_process(
     max_output_chars: int | None = None,
     output_filter: str | None = None,
 ) -> ReadProcessObservation:
-    background = background_processes().get(process_id)
+    background = background_process_for_root(root, process_id)
     if background is None:
         record = read_persistent_process_record(root, process_id)
         if record is not None:

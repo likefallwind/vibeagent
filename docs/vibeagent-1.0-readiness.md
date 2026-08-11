@@ -207,6 +207,12 @@ The automated suite currently covers these 1.0 surfaces:
   HTTP, and MCP tool handlers receive the documented message, title, and type;
   decisions and failures are non-blocking, while `systemMessage` remains
   user-only.
+- Claude-compatible watched-file hooks: `FileChanged` treats `|`-separated
+  matcher segments as literal filenames in the session cwd, detects bounded
+  `add`, `change`, and `unlink` events at active-agent and interactive-idle
+  boundaries, exposes `CLAUDE_ENV_FILE`, and keeps decisions non-blocking.
+  SessionStart, CwdChanged, and FileChanged `watchPaths` atomically replace a
+  workspace-scoped, symlink-free dynamic list while static matcher paths remain.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

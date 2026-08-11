@@ -121,6 +121,22 @@ class AgentLifecycleRuntime:
             iteration=iteration,
         )
 
+    def file_changed(
+        self,
+        workspace: RunWorkspace,
+        path: str,
+        event: str,
+        *,
+        iteration: int = 0,
+    ) -> LifecycleHookResult:
+        return self._run(
+            workspace,
+            "FileChanged",
+            path.rsplit("/", 1)[-1].rsplit("\\", 1)[-1],
+            {"file_path": path, "event": event},
+            iteration=iteration,
+        )
+
     def stop_failure(
         self,
         workspace: RunWorkspace,

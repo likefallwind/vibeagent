@@ -8,6 +8,7 @@ from .agent_execution_support import execute_action_safely
 from .agent_hook_results import HookRunResult
 from .agent_lifecycle_hooks import LifecycleHookResult
 from .agent_lifecycle_runtime import AgentLifecycleRuntime
+from .file_changed_hooks import FileChangedHookRuntime
 from .types import AgentLogger, ApprovalHandler, ApprovalPolicy
 from .workspace_core import RunWorkspace, create_local_workspace
 from .workspace_hooks import read_project_hooks
@@ -147,6 +148,34 @@ def run_interactive_notification_hooks(
     )
 
 
+def create_interactive_file_changed_runtime(
+    project_root: Path,
+    run_id: str | None,
+    pending_workspace: RunWorkspace | None,
+    additional_roots: tuple[Path, ...],
+    *,
+    command_timeout_ms: int,
+    approval_handler: ApprovalHandler | None,
+    approval_policy: ApprovalPolicy,
+) -> FileChangedHookRuntime | None:
+    workspace = _interactive_workspace(
+        project_root,
+        run_id,
+        pending_workspace,
+        additional_roots,
+    )
+    if workspace is None:
+        return None
+    runtime = _runtime(
+        workspace,
+        command_timeout_ms=command_timeout_ms,
+        approval_handler=approval_handler,
+        approval_policy=approval_policy,
+        logger=None,
+    )
+    return FileChangedHookRuntime(workspace, runtime.hooks, runtime)
+
+
 def _interactive_workspace(
     project_root: Path,
     run_id: str | None,
@@ -189,6 +218,7 @@ def _runtime(
 
 __all__ = [
     "SESSION_END_REASONS",
+    "create_interactive_file_changed_runtime",
     "run_compact_hooks",
     "run_interactive_notification_hooks",
     "run_interactive_session_hook",
