@@ -122,6 +122,7 @@ class ApprovalRequest:
         "git_push",
         "github_pr_create",
         "github_pr_context",
+        "github_pr_ci_logs",
         "git_restore",
         "git_stash",
         "git_stash_apply",

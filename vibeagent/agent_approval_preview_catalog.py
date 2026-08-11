@@ -77,4 +77,5 @@ APPROVAL_WITHOUT_PREVIEW_ACTION_TYPES = {
     "web_fetch",
     "web_search",
     "github_pr_context",
+    "github_pr_ci_logs",
 }

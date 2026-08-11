@@ -1,16 +1,21 @@
 from __future__ import annotations
 
 from .github_pr_context_runtime import read_github_pr_context
+from .github_pr_ci_runtime import read_github_pr_ci_logs
 from .github_pr_runtime import create_github_pr, preview_github_pr_create
 from .types import (
     CheckGitHubPrCreateAction,
     CheckGitHubPrCreateObservation,
     GitHubPrCheck,
+    GitHubPrCiLogsAction,
+    GitHubPrCiLogsObservation,
+    GitHubPrCiRun,
     GitHubPrComment,
     GitHubPrContextAction,
     GitHubPrContextObservation,
     GitHubPrCreateAction,
     GitHubPrCreateObservation,
+    GitHubPrFailedCheck,
     GitHubPrFile,
     GitHubPrReview,
     Observation,
@@ -19,6 +24,27 @@ from .workspace import RunWorkspace
 
 
 def execute_github_pr_action(workspace: RunWorkspace, action: object) -> Observation | None:
+    if isinstance(action, GitHubPrCiLogsAction):
+        result = read_github_pr_ci_logs(
+            workspace,
+            pr=action.pr,
+            remote=action.remote,
+            max_runs=action.max_runs,
+            max_output_chars=action.max_output_chars,
+        )
+        return GitHubPrCiLogsObservation(
+            kind="github_pr_ci_logs",
+            ok=bool(result["ok"]),
+            repository=str(result["repository"]),
+            selector=str(result["selector"]),
+            failed_checks=[GitHubPrFailedCheck(**item) for item in result["failed_checks"]],
+            failed_total=int(result["failed_total"]),
+            failed_truncated=bool(result["failed_truncated"]),
+            runs=[GitHubPrCiRun(**item) for item in result["runs"]],
+            runs_total=int(result["runs_total"]),
+            runs_truncated=bool(result["runs_truncated"]),
+            message=str(result["message"]),
+        )
     if isinstance(action, GitHubPrContextAction):
         result = read_github_pr_context(workspace, pr=action.pr, remote=action.remote)
         return GitHubPrContextObservation(

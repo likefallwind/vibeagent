@@ -310,10 +310,13 @@ from .observation_git_types import (
 from .observation_github_types import (
     CheckGitHubPrCreateObservation,
     GitHubPrCheck,
+    GitHubPrCiLogsObservation,
+    GitHubPrCiRun,
     GitHubPrComment,
     GitHubPrContextObservation,
     GitHubPrCreateObservation,
     GitHubPrFile,
+    GitHubPrFailedCheck,
     GitHubPrReview,
 )
 from .observation_notebook_types import (

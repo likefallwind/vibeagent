@@ -68,7 +68,7 @@ def read_github_pr_context(
     if selector:
         command.append(selector)
     command.extend(["--repo", repository, "--json", _VIEW_FIELDS])
-    payload, error = _run_gh_json(command, workspace.root)
+    payload, error = run_gh_json(command, workspace.root)
     if error:
         return _failure(error, repository=repository)
     if not isinstance(payload, dict):
@@ -82,7 +82,7 @@ def read_github_pr_context(
         "api",
         f"repos/{repository}/pulls/{number}/comments?per_page={MAX_COMMENTS}",
     ]
-    inline_payload, error = _run_gh_json(inline_command, workspace.root)
+    inline_payload, error = run_gh_json(inline_command, workspace.root)
     if error:
         return _failure(error, repository=repository)
     if not isinstance(inline_payload, list):
@@ -183,7 +183,24 @@ def normalize_pr_selector(workspace: RunWorkspace, pr: str | None) -> tuple[str,
     return selector, None
 
 
-def _run_gh_json(command: list[str], cwd: Path) -> tuple[Any, str | None]:
+def run_gh_json(
+    command: list[str],
+    cwd: Path,
+    *,
+    accepted_returncodes: frozenset[int] = frozenset({0}),
+) -> tuple[Any, str | None]:
+    raw_stdout, raw_stderr, returncode, error = run_gh_output(command, cwd)
+    if error:
+        return None, error
+    if returncode not in accepted_returncodes:
+        return None, redact_git_text(raw_stderr or raw_stdout or "GitHub CLI request failed.")[:4_000]
+    try:
+        return json.loads(raw_stdout), None
+    except json.JSONDecodeError as error:
+        return None, f"GitHub CLI returned invalid JSON: {error}"
+
+
+def run_gh_output(command: list[str], cwd: Path) -> tuple[str, str, int, str | None]:
     with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
         try:
             completed = subprocess.run(
@@ -196,19 +213,14 @@ def _run_gh_json(command: list[str], cwd: Path) -> tuple[Any, str | None]:
                 check=False,
             )
         except (OSError, subprocess.TimeoutExpired) as error:
-            return None, f"GitHub CLI failed: {redact_git_text(str(error))}"
+            return "", "", -1, f"GitHub CLI failed: {redact_git_text(str(error))}"
         if stdout.tell() > MAX_GH_RESPONSE_BYTES or stderr.tell() > MAX_GH_RESPONSE_BYTES:
-            return None, f"GitHub CLI response exceeded the {MAX_GH_RESPONSE_BYTES}-byte safety limit."
+            return "", "", completed.returncode, f"GitHub CLI response exceeded the {MAX_GH_RESPONSE_BYTES}-byte safety limit."
         stdout.seek(0)
         stderr.seek(0)
         raw_stdout = stdout.read().decode("utf-8", errors="replace")
         raw_stderr = stderr.read().decode("utf-8", errors="replace")
-    if completed.returncode != 0:
-        return None, redact_git_text(raw_stderr or raw_stdout or "GitHub CLI request failed.")[:4_000]
-    try:
-        return json.loads(raw_stdout), None
-    except json.JSONDecodeError as error:
-        return None, f"GitHub CLI returned invalid JSON: {error}"
+    return raw_stdout, raw_stderr, completed.returncode, None
 
 
 def _failure(message: str, *, repository: str = "") -> dict[str, Any]:

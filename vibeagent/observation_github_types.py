@@ -41,6 +41,25 @@ class GitHubPrFile:
 
 
 @dataclass(frozen=True)
+class GitHubPrFailedCheck:
+    name: str
+    state: str
+    workflow: str
+    link: str
+    run_id: str
+
+
+@dataclass(frozen=True)
+class GitHubPrCiRun:
+    run_id: str
+    url: str
+    check_names: list[str]
+    logs: str
+    logs_truncated: bool
+    error: str
+
+
+@dataclass(frozen=True)
 class CheckGitHubPrCreateObservation:
     kind: Literal["check_github_pr_create"]
     ok: bool
@@ -105,4 +124,19 @@ class GitHubPrContextObservation:
     files: list[GitHubPrFile]
     files_total: int
     files_truncated: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class GitHubPrCiLogsObservation:
+    kind: Literal["github_pr_ci_logs"]
+    ok: bool
+    repository: str
+    selector: str
+    failed_checks: list[GitHubPrFailedCheck]
+    failed_total: int
+    failed_truncated: bool
+    runs: list[GitHubPrCiRun]
+    runs_total: int
+    runs_truncated: bool
     message: str

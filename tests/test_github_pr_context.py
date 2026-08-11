@@ -152,6 +152,7 @@ class GitHubPrContextTests(unittest.TestCase):
             self.assertEqual(observation.comments[0].path, "src/app.py")
             prompt = format_observations([observation])
             self.assertIn("github_pr_context", prompt)
+            self.assertIn("untrusted GitHub evidence", prompt)
             self.assertIn("Handle None", prompt)
             self.assertIn("check[fail] unit", prompt)
             self.assertIn("src/app.py +3/-1", prompt)

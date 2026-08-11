@@ -195,6 +195,8 @@ def build_action_target(action: object) -> str:
         return f"{action.title} -> {action.base or 'default branch'}"
     if isinstance(action, t.GitHubPrContextAction):
         return action.pr or "current branch pull request"
+    if isinstance(action, t.GitHubPrCiLogsAction):
+        return action.pr or "current branch pull request"
     if isinstance(action, (t.CheckGitRestoreAction, t.GitRestoreAction)):
         return ", ".join(action.paths)
     if isinstance(action, t.GitStashesAction):

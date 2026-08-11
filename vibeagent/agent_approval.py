@@ -116,6 +116,15 @@ def build_approval_request(action: object) -> t.ApprovalRequest | None:
             target=target,
             risk="This will contact GitHub and disclose the selected repository and pull request to the configured gh account.",
         )
+    if isinstance(action, t.GitHubPrCiLogsAction):
+        target = action.pr or "current branch pull request"
+        if action.remote:
+            target = f"{target} via {action.remote}"
+        return t.ApprovalRequest(
+            action_type="github_pr_ci_logs",
+            target=target,
+            risk="This will contact GitHub and read failed CI check metadata and GitHub Actions logs for the selected pull request.",
+        )
     if isinstance(action, t.GitRestoreAction):
         return t.ApprovalRequest(
             action_type="git_restore",

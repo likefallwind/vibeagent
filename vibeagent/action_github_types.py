@@ -29,3 +29,12 @@ class GitHubPrContextAction:
     type: Literal["github_pr_context"]
     pr: str | None = None
     remote: str | None = None
+
+
+@dataclass(frozen=True)
+class GitHubPrCiLogsAction:
+    type: Literal["github_pr_ci_logs"]
+    pr: str | None = None
+    remote: str | None = None
+    max_runs: int = 3
+    max_output_chars: int = 30_000

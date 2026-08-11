@@ -16,6 +16,7 @@ EXTENDED_GIT_NEXT_ACTION_KINDS = {
     "check_github_pr_create",
     "github_pr_create",
     "github_pr_context",
+    "github_pr_ci_logs",
     "check_git_restore",
     "git_restore",
     "git_stashes",
@@ -303,6 +304,14 @@ def extended_git_next_action_instruction(base: str, latest: Observation) -> str:
         if getattr(latest, "review_decision", "") == "CHANGES_REQUESTED" or getattr(latest, "comments", []):
             return f"{base} Review feedback is available. Verify each actionable comment against the local code, implement justified fixes, test them, then commit and push if requested."
         return f"{base} Pull request context is available. Review the changed files and CI/review state, then continue the requested PR workflow."
+    if latest.kind == "github_pr_ci_logs":
+        if not getattr(latest, "ok", False):
+            return f"{base} Failed CI logs could not be read. Resolve the gh authentication, repository, selector, or response error before retrying."
+        if not getattr(latest, "failed_checks", []):
+            return f"{base} The pull request currently has no failed checks. Continue with pending checks, review feedback, or final reporting as appropriate."
+        if any(getattr(run, "logs", "") for run in getattr(latest, "runs", [])):
+            return f"{base} Failed CI logs are available. Trace each failure to the local code, implement the justified fix, run focused verification, then commit and push if requested."
+        return f"{base} Failed checks were found but no GitHub Actions logs were available. Use the check names and links to guide local reproduction, or inspect external CI separately."
     if latest.kind == "check_git_restore":
         return _check_git_restore_next_action_instruction(base, latest)
     if latest.kind == "git_restore":
