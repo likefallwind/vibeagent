@@ -24,6 +24,7 @@
     "onCommand:vibeagent.inspectSession",
     "onCommand:vibeagent.resumeInspectedSession",
     "onCommand:vibeagent.refreshInspectedSession",
+    "onCommand:vibeagent.openInspectedFile",
     "onCommand:vibeagent.continueInspectedTask",
     "onCommand:vibeagent.runInspectedVerification",
     "onCommand:vibeagent.reviewSessionPlan",
@@ -61,6 +62,10 @@
       {
         "command": "vibeagent.refreshInspectedSession",
         "title": "VibeAgent: Refresh Inspected Session"
+      },
+      {
+        "command": "vibeagent.openInspectedFile",
+        "title": "VibeAgent: Open Inspected File"
       },
       {
         "command": "vibeagent.continueInspectedTask",
@@ -141,6 +146,6 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "check": "node --check extension.js && node --check src/core.js && node --check src/context.js && node --check src/remote.js && node --check src/agentChanges.js && node --check src/agentPanel.js && node --check src/agentPanelView.js && node --check src/localCli.js && node --check src/sessionCatalog.js && node --check src/sessionInspectorClient.js && node --check src/sessionInspector.js && node --check src/sessionInspectorView.js && node --check src/sessionPlan.js && node --check src/sessionRewindClient.js && node --check src/sessionRewind.js && node --check src/terminals.js"
+    "check": "node --check extension.js && node --check src/core.js && node --check src/context.js && node --check src/remote.js && node --check src/agentChanges.js && node --check src/agentPanel.js && node --check src/agentPanelView.js && node --check src/localCli.js && node --check src/sessionCatalog.js && node --check src/sessionInspectorClient.js && node --check src/sessionInspector.js && node --check src/sessionInspectorFiles.js && node --check src/sessionInspectorView.js && node --check src/sessionPlan.js && node --check src/sessionRewindClient.js && node --check src/sessionRewind.js && node --check src/terminals.js"
   }
 }

@@ -135,6 +135,10 @@ function activate(context) {
     await sessionInspectors.refreshActive(launchConfig());
   });
 
+  register('vibeagent.openInspectedFile', async () => {
+    await sessionInspectors.openFileActive(launchConfig());
+  });
+
   register('vibeagent.continueInspectedTask', async () => {
     await sessionInspectors.continueTaskActive(launchConfig());
   });

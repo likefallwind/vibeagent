@@ -590,3 +590,79 @@ test('refuses refresh when the active inspector changes while confirmation is op
   assert.equal(editCalled, false);
   assert.match(documentText, /changed while waiting/);
 });
+
+test('revalidates and opens one inspected workspace file in the editor', async () => {
+  const report = inspectorReport();
+  const inspectorDocument = { uri: { toString: () => 'untitled:session-inspector-file' } };
+  const fileDocument = { uri: { toString: () => 'file:/workspace/project/app.py' } };
+  const reads = [];
+  const picks = [];
+  const opened = [];
+  const shown = [];
+  let resolverCalls = 0;
+  let changeTarget = true;
+  const vscode = {
+    Uri: {
+      file(value) { return { scheme: 'file', fsPath: value }; },
+    },
+    window: {
+      activeTextEditor: null,
+      async showQuickPick(items, options) {
+        picks.push({ items, options });
+        return items[0];
+      },
+      async showTextDocument(value, options) {
+        shown.push({ value, options });
+        this.activeTextEditor = { document: value };
+        return this.activeTextEditor;
+      },
+      showInformationMessage() {},
+    },
+    workspace: {
+      async openTextDocument(value) {
+        if (value && value.language === 'markdown') return inspectorDocument;
+        opened.push(value);
+        return fileDocument;
+      },
+    },
+  };
+  const manager = new SessionInspectorManager(vscode, {
+    catalog: {
+      async list() {
+        return [{
+          session: SESSION, status: 'completed', events: 5, malformed: 0,
+          lastEventTime: '2026-08-11T00:00:00Z', name: 'Parser repair', task: 'Repair parser',
+          completed: true, failed: false, blocked: false,
+        }];
+      },
+    },
+    client: {
+      async get(_config, root, session) {
+        reads.push({ root, session });
+        return parseSessionInspector(envelope(report), SESSION);
+      },
+    },
+    resolveSessionFilePath: async (_root, sourcePath) => {
+      resolverCalls += 1;
+      if (changeTarget && resolverCalls % 2 === 0) return '/workspace/project/other.py';
+      return `/workspace/project/${sourcePath}`;
+    },
+    terminals: {},
+  });
+  const config = { executable: 'python', args: ['-m', 'vibeagent'] };
+
+  await manager.open(config, '/workspace/project');
+  await assert.rejects(manager.openFileActive(config), /changed before it could be opened/);
+  assert.deepEqual(opened, []);
+
+  changeTarget = false;
+  resolverCalls = 0;
+  assert.equal(await manager.openFileActive(config), fileDocument);
+  assert.equal(picks[1].options.title, 'Open VibeAgent Session File');
+  assert.equal(picks[1].items[0].sourcePath, 'app.py');
+  assert.deepEqual(opened, [{ scheme: 'file', fsPath: '/workspace/project/app.py' }]);
+  assert.deepEqual(shown.at(-1), { value: fileDocument, options: { preview: false } });
+  assert.deepEqual(reads, Array.from({ length: 3 }, () => ({
+    root: '/workspace/project', session: SESSION,
+  })));
+});

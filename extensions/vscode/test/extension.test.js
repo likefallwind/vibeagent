@@ -197,6 +197,7 @@ test('registers IDE commands and routes editor context through native VS Code su
     'vibeagent.inspectSession',
     'vibeagent.resumeInspectedSession',
     'vibeagent.refreshInspectedSession',
+    'vibeagent.openInspectedFile',
     'vibeagent.continueInspectedTask',
     'vibeagent.runInspectedVerification',
     'vibeagent.reviewSessionPlan',

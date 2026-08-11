@@ -25,6 +25,8 @@ terminal, preserving terminal permission prompts while adding editor context.
   with the active inspector document.
 - `VibeAgent: Refresh Inspected Session` reloads the exact session associated
   with the active inspector and updates that Markdown document in place.
+- `VibeAgent: Open Inspected File` refreshes the exact session file report and
+  opens one currently available workspace file in the editor.
 - `VibeAgent: Continue Inspected Task` refreshes the exact inspected task graph,
   lets you choose an unblocked pending or in-progress task, and continues it in
   a visible one-shot terminal for the stored session.
@@ -82,6 +84,14 @@ extension validates numeric IDs, unique shown tasks, status totals, owners,
 dependency lists, blocked flags, and the 100-task store ceiling before rendering
 the dedicated `Persistent Tasks` section. A corrupt graph rejects the whole
 inspector instead of appearing empty.
+
+Inspected-file navigation accepts at most 100 validated report entries, then
+resolves both the workspace and each candidate through the local filesystem.
+Only regular files up to 10 MiB whose real paths remain inside the real
+workspace enter Quick Pick. Cross-platform absolute or drive-relative paths,
+traversal, directories, missing files, and external symlink targets are
+excluded. The selected path and active inspector are revalidated after Quick
+Pick before `Uri.file` is opened; the command never launches a file manager.
 
 Task continuation refreshes the exact inspected session immediately before
 selection. It lists active work before pending work and excludes completed or

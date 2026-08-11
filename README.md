@@ -260,6 +260,14 @@ graph. Invalid IDs, inconsistent status totals or dependencies, corrupt JSON,
 and symlinked task stores fail the whole inspector rather than being rendered as
 an empty graph.
 
+`Open Inspected File` refreshes the exact session file report, then offers only
+currently available regular files no larger than 10 MiB whose real paths remain
+inside the real workspace. POSIX and Windows absolute paths, drive-relative
+paths, traversal, directories, missing files, and external symlink targets are
+excluded. The selected real path is resolved again before VS Code opens it, so
+a target change while Quick Pick is active fails closed. This command opens an
+editor document only; it never launches a file manager.
+
 `Continue Inspected Task` refreshes that exact session before selection and
 offers only unblocked `pending` or `in_progress` persistent tasks, with active
 work listed first. The chosen task is wrapped as bounded, explicitly untrusted

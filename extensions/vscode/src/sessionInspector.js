@@ -3,6 +3,7 @@
 const { sessionQuickPickItems } = require('./sessionCatalog');
 const { SessionInspectorClient } = require('./sessionInspectorClient');
 const { MAX_INSPECTOR_DOCUMENT_CHARS, renderSessionInspector } = require('./sessionInspectorView');
+const { resolveSessionFilePath, sessionFileQuickPickItems } = require('./sessionInspectorFiles');
 
 const MAX_TASK_CONTINUATION_PROMPT_CHARS = 4_000;
 const MAX_VERIFICATION_RUNS = 10;
@@ -13,6 +14,7 @@ class SessionInspectorManager {
     this.catalog = options.catalog;
     this.client = options.client || new SessionInspectorClient(options);
     this.terminals = options.terminals;
+    this.resolveSessionFilePath = options.resolveSessionFilePath || resolveSessionFilePath;
     this.documents = new Map();
   }
 
@@ -90,6 +92,44 @@ class SessionInspectorManager {
       throw new Error('The active VibeAgent session inspector changed during refresh.');
     }
     inspected.content = content;
+    return document;
+  }
+
+  async openFileActive(config) {
+    const inspected = this._activeInspection('opening one of its files');
+    const report = await this.client.get(config, inspected.root, inspected.session);
+    const items = await sessionFileQuickPickItems(
+      inspected.root,
+      report.files.items,
+      this.resolveSessionFilePath,
+    );
+    if (!items.length) {
+      this.vscode.window.showInformationMessage(
+        'This VibeAgent session has no available regular files inside the workspace.',
+      );
+      return null;
+    }
+    const selected = await this.vscode.window.showQuickPick(items, {
+      title: 'Open VibeAgent Session File',
+      placeHolder: 'Choose an available workspace file referenced by this session',
+      matchOnDescription: true,
+      matchOnDetail: true,
+      ignoreFocusOut: true,
+    });
+    if (!selected) return null;
+    const source = report.files.items.find((item) => item.path === selected.sourcePath);
+    if (!source || this._activeInspection('opening one of its files') !== inspected) {
+      throw new Error('The selected VibeAgent session file is no longer available.');
+    }
+    const targetPath = await this.resolveSessionFilePath(inspected.root, source.path);
+    if (
+      targetPath !== selected.targetPath
+      || this._activeInspection('opening one of its files') !== inspected
+    ) {
+      throw new Error('The selected VibeAgent session file changed before it could be opened.');
+    }
+    const document = await this.vscode.workspace.openTextDocument(this.vscode.Uri.file(targetPath));
+    await this.vscode.window.showTextDocument(document, { preview: false });
     return document;
   }
 
