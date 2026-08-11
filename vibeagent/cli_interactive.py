@@ -15,6 +15,10 @@ from .async_hook_runtime import (
     collect_async_hook_notifications,
 )
 from .chat import run_chat as default_run_chat
+from .directory_added_hooks import (
+    collect_directory_added_turn_context,
+    schedule_directory_added_hooks,
+)
 from .cli_checkpoint_local_flags import run_interactive_checkpoint_command
 from .cli_completion import interactive_prompt_completion
 from .cli_code_intel_local_flags import run_interactive_code_intel_command
@@ -156,6 +160,17 @@ def run_interactive_loop(
         nonlocal client, resume_run_id, resume_context, pending_workspace, pending_branch_source_run_id
         nonlocal conversation_messages, approval_policy, approval_handler
         execution_config = resolve_execution_config(Path.cwd())
+        notification_workspace = pending_workspace or create_local_workspace(
+            Path.cwd(),
+            resume_run_id or "pending-directory-hooks",
+            additional_roots=additional_directories,
+        )
+        turn_append_system_prompt, directory_hook_errors = collect_directory_added_turn_context(
+            notification_workspace,
+            append_system_prompt,
+        )
+        for error in directory_hook_errors:
+            print(f"DirectoryAdded hook warning: {error}")
         client = client or create_chat_client_func(build_provider_env(None, Path.cwd()))
         panel = SubagentPanel(Path.cwd())
         panel.authorize_custom(approval_handler, approval_policy)
@@ -191,7 +206,7 @@ def run_interactive_loop(
                 prior_context=resume_context,
                 prior_messages=conversation_messages or None,
                 system_prompt=system_prompt,
-                append_system_prompt=append_system_prompt,
+                append_system_prompt=turn_append_system_prompt,
                 task_metadata=task_metadata,
                 task_source_run_id=(
                     pending_branch_source_run_id
@@ -620,6 +635,7 @@ def run_interactive_loop(
             print(text)
             continue
         if command and command.type == "add_dir":
+            previous_directories = additional_directories
             update = update_additional_directory_state(
                 additional_directories,
                 command.argument,
@@ -630,6 +646,12 @@ def run_interactive_loop(
                 if pending_workspace is not None:
                     pending_workspace = replace(
                         pending_workspace,
+                        additional_roots=additional_directories,
+                    )
+                elif resume_run_id is not None:
+                    pending_workspace = create_local_workspace(
+                        Path.cwd(),
+                        resume_run_id,
                         additional_roots=additional_directories,
                     )
                 if workflow_manager is not None:
@@ -643,6 +665,34 @@ def run_interactive_loop(
                     )
                 except (OSError, ValueError) as error:
                     print(f"Additional directory persistence warning: {format_error(error)}")
+                added = tuple(
+                    directory
+                    for directory in additional_directories
+                    if directory not in previous_directories
+                )
+                if added:
+                    try:
+                        if pending_workspace is None:
+                            pending_workspace = create_run_workspace(
+                                Path.cwd(),
+                                additional_roots=additional_directories,
+                            )
+                        hooks = read_project_hooks(pending_workspace)
+                        permissions = read_project_permissions(pending_workspace)
+                        if pending_workspace.project_config_trusted and permissions.enabled:
+                            permissions = replace(permissions, allow_rules_trusted=True)
+                        for directory in added:
+                            schedule_directory_added_hooks(
+                                pending_workspace,
+                                directory,
+                                "slash_command",
+                                hooks=hooks,
+                                permissions=permissions,
+                                approval_policy=approval_policy,
+                                approval_handler=approval_handler,
+                            )
+                    except (OSError, RuntimeError, ValueError) as error:
+                        print(f"DirectoryAdded hook warning: {format_error(error)}")
             print(update.text)
             continue
         if command and command.type == "approval":

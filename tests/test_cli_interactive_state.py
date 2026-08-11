@@ -312,6 +312,59 @@ class CliInteractiveStateTests(unittest.TestCase):
         self.assertIn("Added working directory", stdout.getvalue())
         self.assertIn("Removed additional working directory", stdout.getvalue())
 
+    def test_main_interactive_add_dir_schedules_only_added_directory_hook(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-directory-hook-") as base:
+            project = Path(base) / "project"
+            shared = Path(base) / "shared"
+            project.mkdir()
+            shared.mkdir()
+            result = AgentResult(True, "done", project, "test-run", 1, [], [])
+
+            with (
+                patch(
+                    "builtins.input",
+                    side_effect=[
+                        "/add-dir ../shared",
+                        "/add-dir remove ../shared",
+                        "/exit",
+                    ],
+                ),
+                patch("vibeagent.cli_interactive.schedule_directory_added_hooks") as schedule,
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", str(project)])
+
+        self.assertEqual(exit_code, 0)
+        schedule.assert_called_once()
+        self.assertEqual(schedule.call_args.args[1], shared.resolve())
+        self.assertEqual(schedule.call_args.args[2], "slash_command")
+        self.assertIn(shared.resolve(), schedule.call_args.args[0].additional_roots)
+
+    def test_directory_added_system_message_enters_next_code_task(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="vibeagent-cli-directory-context-") as base:
+            project = Path(base) / "project"
+            project.mkdir()
+            result = AgentResult(True, "done", project, "test-run", 1, [], [])
+            run_agent = Mock(return_value=result)
+            with (
+                patch("builtins.input", side_effect=["inspect", "/exit"]),
+                patch("vibeagent.cli.create_chat_client", return_value=object()),
+                patch("vibeagent.cli.run_agent", run_agent),
+                patch(
+                    "vibeagent.cli_interactive.collect_directory_added_turn_context",
+                    return_value=("DirectoryAdded hook context:\nprepared context", ()),
+                ),
+                redirect_stdout(io.StringIO()),
+            ):
+                exit_code = main(["--cwd", str(project)])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(run_agent.call_args.args[0], "inspect")
+        self.assertIn(
+            "DirectoryAdded hook context:\nprepared context",
+            run_agent.call_args.kwargs["append_system_prompt"],
+        )
+
     def test_main_interactive_resume_restores_session_additional_directories(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vibeagent-cli-") as base:
             root = Path(base) / "project"

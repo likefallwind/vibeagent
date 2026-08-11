@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 HookEvent = Literal[
     "CwdChanged",
+    "DirectoryAdded",
     "InstructionsLoaded",
     "PostToolUse",
     "PostToolUseFailure",
@@ -29,6 +30,7 @@ HookEvent = Literal[
 HOOK_EVENTS = frozenset(
     {
         "CwdChanged",
+        "DirectoryAdded",
         "InstructionsLoaded",
         "PostToolUse",
         "PostToolUseFailure",

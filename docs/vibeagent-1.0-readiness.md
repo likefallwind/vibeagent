@@ -186,6 +186,11 @@ The automated suite currently covers these 1.0 surfaces:
   subagent isolation and return a validated directory; `WorktreeRemove`
   handlers receive the same absolute path during cleanup. Missing, failed, or
   unsafe create paths fail before model execution.
+- Claude-compatible directory-added hooks: matcher-aware `DirectoryAdded`
+  runs command, HTTP, or MCP tool handlers in the background after interactive
+  `/add-dir` and Python `register_repo_root(...)` registration. Slash-command
+  `systemMessage` output enters the next code turn, while failures never roll
+  back the registered workspace root.
 - Experimental agent teams: feature-gated Claude-compatible `TeamCreate` and
   `TeamDelete`, one atomically persisted private session team, active-teammate
   cleanup refusal, approved named teammates, independent background contexts,

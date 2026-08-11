@@ -1616,7 +1616,7 @@ Supported lifecycle events are `SessionStart`, `SessionEnd`, `PreCompact`,
 `PostCompact`, `CwdChanged`, `InstructionsLoaded`, `UserPromptSubmit`,
 `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Stop`,
 `SubagentStart`, `SubagentStop`, `TeammateIdle`, `PostToolBatch`, `TaskCreated`, `TaskCompleted`,
-`WorktreeCreate`, and `WorktreeRemove`. Tool-event
+`DirectoryAdded`, `WorktreeCreate`, and `WorktreeRemove`. Tool-event
 matchers apply to the model tool name, parsed VibeAgent action type, and
 Claude-compatible aliases.
 `SessionStart` matches `startup` or `resume`; `InstructionsLoaded` matches
@@ -1657,6 +1657,17 @@ the stable `teammate_name` and persisted `team_name`. Exit code 2 returns stderr
 as another teammate turn, while JSON `continue: false` stops the teammate. The
 runtime caps repeated idle continuations at eight and preserves provider tool
 result pairing when a `finish` call is returned for more work.
+
+`DirectoryAdded` matches `slash_command` or `register_repo_root` and runs in a
+background thread after the new absolute directory is available to workspace
+and permission checks. It fires for an interactive `/add-dir` addition and the
+Python `vibeagent.directory_added_hooks.register_repo_root(...)` API, but not
+for startup `--add-dir`, restored session directories, removals, or permission
+updates. Command, HTTP, and MCP tool handlers are supported. For `/add-dir`,
+structured `systemMessage` output is added to the next code turn and failures
+are shown as warnings; SDK output and failures remain session-debug
+information. The event cannot block or roll back a successful directory
+addition, and uses a 600-second default timeout.
 
 `WorktreeCreate` and `WorktreeRemove` ignore matchers and support command or
 HTTP handlers. A configured create handler replaces the default Git worktree

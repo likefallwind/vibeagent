@@ -30,7 +30,11 @@ def parse_hook_handler(
     handler_type = payload.get("type")
     if event in {"WorktreeCreate", "WorktreeRemove"} and handler_type not in {"command", "http"}:
         raise ValueError(f"{source} {event} hooks support only command or http handlers.")
-    if event in {"WorktreeCreate", "WorktreeRemove"} and (
+    if event == "DirectoryAdded" and handler_type not in {"command", "http", "mcp_tool"}:
+        raise ValueError(
+            f"{source} DirectoryAdded hooks support only command, http, or mcp_tool handlers."
+        )
+    if event in {"DirectoryAdded", "WorktreeCreate", "WorktreeRemove"} and (
         "async" in payload or "asyncRewake" in payload
     ):
         raise ValueError(f"{source} {event} hooks do not support async or asyncRewake.")
