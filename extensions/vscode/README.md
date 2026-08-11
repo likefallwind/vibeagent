@@ -14,6 +14,11 @@ terminal, preserving terminal permission prompts while adding editor context.
   opens the isolated worktree in a new VS Code window.
 - `VibeAgent: Open Interactive Session` starts or reveals one interactive
   terminal for the active workspace.
+- `VibeAgent: Open New Session` starts another independent interactive terminal
+  for parallel work in the active workspace.
+- `VibeAgent: Resume Session` reads the bounded provider-free local session
+  catalog, lets you choose a recent entry, and resumes its exact ID. Selecting
+  an ID already open in this VS Code window reveals that terminal.
 - `VibeAgent: Ask About Selection` starts an approved one-shot coding task with
   the current file or selected line range as an `@path` reference.
 - `VibeAgent: Insert File Reference` inserts that reference into an active
@@ -26,6 +31,13 @@ terminal, preserving terminal permission prompts while adding editor context.
 Set `vibeagent.executable` and `vibeagent.arguments` when VibeAgent is installed
 under a different Python interpreter or wrapper. The defaults run
 `python -m vibeagent`.
+
+Session discovery runs the configured executable without a shell using
+`--json --sessions`. It has a 10-second timeout, bounded stdout/stderr and item
+counts, and validates every ID and display field before opening Quick Pick or
+passing `--resume`. The discovery subprocess receives no live-context bridge
+credentials. File references go to the active managed VibeAgent terminal, then
+fall back to the primary workspace session.
 
 Every terminal receives a private live-context file and random token through
 its process environment. The extension refreshes only the active workspace file

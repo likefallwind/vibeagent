@@ -21,6 +21,8 @@ class VsCodeExtensionTests(unittest.TestCase):
             commands,
             {
                 "vibeagent.open",
+                "vibeagent.newSession",
+                "vibeagent.resumeSession",
                 "vibeagent.openAgentPanel",
                 "vibeagent.askSelection",
                 "vibeagent.insertReference",
@@ -43,6 +45,8 @@ class VsCodeExtensionTests(unittest.TestCase):
             "src/agentChanges.js",
             "src/agentPanel.js",
             "src/agentPanelView.js",
+            "src/sessionCatalog.js",
+            "src/terminals.js",
         ):
             result = subprocess.run(
                 ["node", "--check", relative],
@@ -98,6 +102,8 @@ class VsCodeExtensionTests(unittest.TestCase):
                         "extension/src/agentChanges.js",
                         "extension/src/agentPanel.js",
                         "extension/src/agentPanelView.js",
+                        "extension/src/sessionCatalog.js",
+                        "extension/src/terminals.js",
                     },
                 )
                 manifest = archive.read("extension.vsixmanifest").decode("utf-8")

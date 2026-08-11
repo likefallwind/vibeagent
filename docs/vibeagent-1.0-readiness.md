@@ -100,7 +100,8 @@ controls, reads the changed DOM and clean console/error state, writes a
 screenshot whose pixels are inspected, and closes the browser.
 The dependency-free VS Code extension adds an editor-native path without
 replacing VibeAgent's terminal approval boundary. Commands launch an interactive
-session, pass the active file or exact selected lines as a quoted `@path`
+primary session, additional parallel sessions, or an exact recent session from
+a bounded workspace-history Quick Pick; they pass the active file or exact selected lines as a quoted `@path`
 reference, hand off at most 20 sanitized diagnostics as explicitly untrusted
 evidence, and compare the active file with Git `HEAD` in VS Code's diff viewer.
 Machine-scoped executable configuration prevents a repository from replacing
@@ -109,6 +110,11 @@ path validation prevents outside-file references. The deterministic VSIX build
 contains only declared runtime files. An isolated VS Code Server install under
 `/tmp` accepts the package and lists `vibeagent.vibeagent-vscode@1.0.0`; no real
 user extension directory or GUI is touched by that verification.
+History lookup runs the provider-free JSON CLI through an argument array with
+no shell or live-context credentials. A timeout, byte limits, item/field bounds,
+duplicate checks, and path/control rejection protect Quick Pick and `--resume`;
+already open IDs are focused instead of duplicated, and editor references route
+to the active managed terminal before the primary workspace session.
 The extension also provides an Agent Panel over a temporary loopback Remote
 Control process. The extension host retains its bearer token while the
 CSP-restricted Webview receives only bounded state and logs. A validated message
@@ -161,7 +167,8 @@ The automated suite currently covers these 1.0 surfaces:
   `python -m vibeagent --version` and `vibeagent --version`.
 - Core ReAct loop: inspect, edit, run checks, repair, review, commit, finish.
 - VS Code integration: machine-scoped exact process launch, interactive TTY
-  approvals, active-file and half-open selection references, quoted paths,
+  approvals, bounded session history, exact-ID resume, parallel/primary
+  terminal routing, active-file and half-open selection references, quoted paths,
   bounded sanitized diagnostics, native Git diff routing, deterministic VSIX
   packaging, token-isolated Agent Panel control, exact-ID interactions, bounded
   worktree review and virtual documents, exact-snapshot conflict-safe

@@ -6,7 +6,6 @@ const vscode = require('vscode');
 const {
   buildDiagnosticsPrompt,
   buildFileReference,
-  buildLaunchSpec,
   buildSelectionPrompt,
   normalizeLaunchConfig,
   workspaceRelativePath,
@@ -14,6 +13,8 @@ const {
 const { IdeContextBridge } = require('./src/context');
 const { AgentPanelManager } = require('./src/agentPanel');
 const { AgentChangeContentProvider } = require('./src/agentChanges');
+const { SessionCatalog, sessionQuickPickItems } = require('./src/sessionCatalog');
+const { InteractiveTerminalManager } = require('./src/terminals');
 
 class GitHeadContentProvider {
   constructor() {
@@ -45,22 +46,26 @@ class GitHeadContentProvider {
 }
 
 function activate(context) {
-  const interactiveTerminals = new Map();
   const contextBridges = new Map();
   const diffProvider = new GitHeadContentProvider();
   const agentChangeProvider = new AgentChangeContentProvider(vscode);
   const agentPanels = new AgentPanelManager(vscode, { changeProvider: agentChangeProvider });
+  const sessionCatalog = new SessionCatalog();
+  const terminals = new InteractiveTerminalManager(vscode, {
+    prepareEnvironment(root) {
+      const bridge = contextBridge(root);
+      refreshEditorContext(vscode.window.activeTextEditor);
+      return bridge.environment();
+    },
+  });
   context.subscriptions.push(
     diffProvider,
     agentChangeProvider,
     agentPanels,
+    terminals,
     vscode.workspace.registerTextDocumentContentProvider('vibeagent-git', diffProvider),
     vscode.workspace.registerTextDocumentContentProvider('vibeagent-change', agentChangeProvider),
-    vscode.window.onDidCloseTerminal((terminal) => {
-      for (const [root, candidate] of interactiveTerminals) {
-        if (candidate === terminal) interactiveTerminals.delete(root);
-      }
-    }),
+    vscode.window.onDidCloseTerminal((terminal) => terminals.closed(terminal)),
     vscode.window.onDidChangeActiveTextEditor((editor) => refreshEditorContext(editor)),
     vscode.window.onDidChangeTextEditorSelection((event) => refreshEditorContext(event.textEditor)),
     vscode.languages.onDidChangeDiagnostics(() => refreshEditorContext(vscode.window.activeTextEditor)),
@@ -72,12 +77,31 @@ function activate(context) {
 
   register('vibeagent.open', async () => {
     const root = activeWorkspaceRoot();
-    let terminal = interactiveTerminals.get(root);
-    if (!terminal) {
-      terminal = createTerminal('VibeAgent', root);
-      interactiveTerminals.set(root, terminal);
+    terminals.openPrimary(launchConfig(), root);
+  });
+
+  register('vibeagent.newSession', async () => {
+    const root = activeWorkspaceRoot();
+    terminals.openNew(launchConfig(), root);
+  });
+
+  register('vibeagent.resumeSession', async () => {
+    const root = activeWorkspaceRoot();
+    const launch = launchConfig();
+    const sessions = await sessionCatalog.list(launch, root);
+    if (!sessions.length) {
+      vscode.window.showInformationMessage('No VibeAgent sessions are available in this workspace.');
+      return;
     }
-    terminal.show(false);
+    const selected = await vscode.window.showQuickPick(sessionQuickPickItems(sessions), {
+      title: 'Resume VibeAgent Session',
+      placeHolder: 'Choose a recent workspace session',
+      matchOnDescription: true,
+      matchOnDetail: true,
+      ignoreFocusOut: true,
+    });
+    if (!selected) return;
+    terminals.resume(launch, root, selected.session, selected.label);
   });
 
   register('vibeagent.openAgentPanel', async () => {
@@ -90,7 +114,7 @@ function activate(context) {
   register('vibeagent.insertReference', async () => {
     const { editor, root } = activeEditorContext();
     const reference = buildFileReference(root, editor.document.uri.fsPath, editor.selection);
-    const terminal = interactiveTerminals.get(root);
+    const terminal = terminals.referenceTarget(root);
     if (!terminal) {
       await vscode.env.clipboard.writeText(reference);
       vscode.window.showInformationMessage('File reference copied. Open a VibeAgent session and paste it into the prompt.');
@@ -111,7 +135,7 @@ function activate(context) {
     if (instruction === undefined) return;
     const reference = buildFileReference(root, editor.document.uri.fsPath, editor.selection);
     const task = buildSelectionPrompt(instruction, reference);
-    createTerminal('VibeAgent Task', root, task).show(false);
+    terminals.openTask('VibeAgent Task', launchConfig(), root, task);
   });
 
   register('vibeagent.sendDiagnostics', async () => {
@@ -126,7 +150,7 @@ function activate(context) {
     if (instruction === undefined) return;
     const reference = buildFileReference(root, editor.document.uri.fsPath, undefined);
     const task = buildDiagnosticsPrompt(instruction, reference, diagnostics);
-    createTerminal('VibeAgent Diagnostics', root, task).show(false);
+    terminals.openTask('VibeAgent Diagnostics', launchConfig(), root, task);
   });
 
   register('vibeagent.reviewCurrentFile', async () => {
@@ -145,17 +169,6 @@ function activate(context) {
       `${path.basename(relativePath)} (HEAD to Working Tree)`,
     );
   });
-
-  function createTerminal(name, root, task) {
-    const launch = launchConfig();
-    const bridge = contextBridge(root);
-    refreshEditorContext(vscode.window.activeTextEditor);
-    return vscode.window.createTerminal({
-      name,
-      ...buildLaunchSpec(launch, root, task),
-      env: bridge.environment(),
-    });
-  }
 
   function launchConfig() {
     const configuration = vscode.workspace.getConfiguration('vibeagent');

@@ -214,8 +214,10 @@ VS Code diff. A confirmed `Apply changes` action copies the exact reviewed
 snapshot from a stopped isolated agent into the main worktree as unstaged
 changes; independently modified target paths reject the whole operation, while
 unrelated main-worktree changes remain untouched. An explicit button opens the
-isolated agent worktree in a new VS Code window for further inspection. It also opens one interactive
-VibeAgent terminal per workspace, runs a one-shot task against the active selection, inserts an
+isolated agent worktree in a new VS Code window for further inspection. It also
+reuses a primary interactive terminal, opens additional parallel sessions, and
+lists recent workspace sessions for exact-ID resume from a bounded Quick Pick.
+It runs a one-shot task against the active selection, inserts an
 `@path#Lx-Ly` reference, send up to 20 bounded diagnostics, and open the active
 file against Git `HEAD` in VS Code's native diff viewer. VibeAgent still runs in
 a real terminal, so approval prompts retain their normal TTY behavior. The
@@ -226,6 +228,15 @@ control characters and active `@file` syntax, and bounded before they enter a
 task. Building the VSIX is deterministic and includes only an explicit source
 allowlist. The extension never opens VS Code or a file manager by itself; its
 commands run only after an explicit editor action.
+
+Session history uses the provider-free `--json --sessions` CLI contract through
+an argument array without a shell. The extension bounds runtime, stdout,
+stderr, item count, and every rendered field before an ID can reach `--resume`;
+path-like, duplicate, or malformed catalog values fail closed. The
+catalog subprocess does not receive live-context bridge credentials. Resuming
+an already open ID reveals its existing terminal, while file references prefer
+the active managed VibeAgent terminal and otherwise fall back to the primary
+workspace session.
 
 The Agent Panel launches the existing Remote Control service on `127.0.0.1`
 without shell interpolation. Its generated bearer token remains in the trusted
@@ -2612,9 +2623,9 @@ commands such as `!`, `/help`, `/model`, `/config`, `/tools`, `/tool`, `/tool-se
   an isolated `agent-browser` session without accepting arbitrary CLI options.
 - `extensions/vscode/` and `scripts/build_vscode_extension.py`: provide a
   dependency-free VS Code extension for background-agent supervision, exact-ID
-  approvals, worktree change review, terminal launch, selected-file references,
-  bounded diagnostic handoff, and native Git diff review, plus a deterministic
-  allowlisted VSIX build.
+  approvals, worktree change review, bounded history lookup, exact-ID resume,
+  parallel terminal management, selected-file references, bounded diagnostic
+  handoff, and native Git diff review, plus a deterministic allowlisted VSIX build.
 - `vibeagent/background_agent_changes.py`: validates recorded Git worktrees and
   provides bounded, sensitive-path-aware base/current text for Agent Panel
   change review without mutating either checkout.

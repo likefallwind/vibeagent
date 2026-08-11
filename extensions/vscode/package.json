@@ -1,7 +1,7 @@
 {
   "name": "vibeagent-vscode",
   "displayName": "VibeAgent",
-  "description": "Run and supervise VibeAgent from VS Code with agents, approvals, editor context, and native diffs.",
+  "description": "Run, resume, and supervise VibeAgent sessions from VS Code with agents, editor context, and native diffs.",
   "version": "1.0.0",
   "publisher": "vibeagent",
   "engines": {
@@ -19,6 +19,8 @@
   "main": "./extension.js",
   "activationEvents": [
     "onCommand:vibeagent.open",
+    "onCommand:vibeagent.newSession",
+    "onCommand:vibeagent.resumeSession",
     "onCommand:vibeagent.openAgentPanel",
     "onCommand:vibeagent.askSelection",
     "onCommand:vibeagent.insertReference",
@@ -30,6 +32,14 @@
       {
         "command": "vibeagent.open",
         "title": "VibeAgent: Open Interactive Session"
+      },
+      {
+        "command": "vibeagent.newSession",
+        "title": "VibeAgent: Open New Session"
+      },
+      {
+        "command": "vibeagent.resumeSession",
+        "title": "VibeAgent: Resume Session"
       },
       {
         "command": "vibeagent.openAgentPanel",
@@ -86,6 +96,6 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "check": "node --check extension.js && node --check src/core.js && node --check src/context.js && node --check src/remote.js && node --check src/agentChanges.js && node --check src/agentPanel.js && node --check src/agentPanelView.js"
+    "check": "node --check extension.js && node --check src/core.js && node --check src/context.js && node --check src/remote.js && node --check src/agentChanges.js && node --check src/agentPanel.js && node --check src/agentPanelView.js && node --check src/sessionCatalog.js && node --check src/terminals.js"
   }
 }

@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const childProcess = require('node:child_process');
+const { EventEmitter: NodeEventEmitter } = require('node:events');
 const fs = require('node:fs');
 const Module = require('node:module');
 const path = require('node:path');
@@ -12,6 +14,8 @@ test('registers IDE commands and routes editor context through native VS Code su
   const executed = [];
   const errors = [];
   const contentProviders = new Map();
+  const catalogCalls = [];
+  const quickPicks = [];
   const root = path.resolve('/workspace/project');
   const file = path.join(root, 'src', 'app.py');
   const documentUri = { scheme: 'file', fsPath: file };
@@ -89,6 +93,10 @@ test('registers IDE commands and routes editor context through native VS Code su
       async showInputBox(options) {
         return options.title.includes('Diagnostics') ? 'Fix diagnostics' : 'Explain selection';
       },
+      async showQuickPick(items, options) {
+        quickPicks.push({ items, options });
+        return items[0];
+      },
       showErrorMessage(message) { errors.push(message); },
       showInformationMessage() {},
     },
@@ -101,6 +109,33 @@ test('registers IDE commands and routes editor context through native VS Code su
         return { dispose() {} };
       },
     },
+  };
+
+  const originalSpawn = childProcess.spawn;
+  childProcess.spawn = (executable, args, options) => {
+    catalogCalls.push({ executable, args, options });
+    const child = new NodeEventEmitter();
+    child.stdout = new NodeEventEmitter();
+    child.stderr = new NodeEventEmitter();
+    child.kill = () => {};
+    process.nextTick(() => {
+      child.stdout.emit('data', Buffer.from(JSON.stringify({
+        schemaVersion: 1,
+        kind: 'local',
+        sessions: {
+          exists: true,
+          sessions: {
+            items: [{
+              session: 'run-123', status: 'completed', events: 7, malformed: 0,
+              lastEventTime: '2026-08-11T20:00:00+00:00', name: 'Parser repair',
+              task: 'Fix parser', completed: true, failed: false, blocked: false,
+            }],
+          },
+        },
+      })));
+      child.emit('close', 0);
+    });
+    return child;
   };
 
   const originalLoad = Module._load;
@@ -118,9 +153,15 @@ test('registers IDE commands and routes editor context through native VS Code su
   }
 
   const context = { subscriptions: [] };
-  extension.activate(context);
+  try {
+    extension.activate(context);
+  } finally {
+    childProcess.spawn = originalSpawn;
+  }
   assert.deepEqual(new Set(callbacks.keys()), new Set([
     'vibeagent.open',
+    'vibeagent.newSession',
+    'vibeagent.resumeSession',
     'vibeagent.openAgentPanel',
     'vibeagent.askSelection',
     'vibeagent.insertReference',
@@ -141,12 +182,25 @@ test('registers IDE commands and routes editor context through native VS Code su
   await callbacks.get('vibeagent.insertReference')();
   assert.deepEqual(terminals[0].sent, [['@src/app.py#L2-L3', false]]);
 
+  await callbacks.get('vibeagent.newSession')();
+  assert.deepEqual(terminals[1].options.shellArgs, ['-m', 'vibeagent', '--cwd', root]);
+
+  await callbacks.get('vibeagent.resumeSession')();
+  assert.deepEqual(catalogCalls[0].args, [
+    '-m', 'vibeagent', '--json', '--cwd', root, '--sessions',
+  ]);
+  assert.equal(catalogCalls[0].options.shell, false);
+  assert.equal(quickPicks[0].options.title, 'Resume VibeAgent Session');
+  assert.deepEqual(terminals[2].options.shellArgs, [
+    '-m', 'vibeagent', '--cwd', root, '--resume', 'run-123',
+  ]);
+
   await callbacks.get('vibeagent.askSelection')();
-  assert.match(terminals[1].options.shellArgs.at(-1), /Editor selection: @src\/app.py#L2-L3/);
+  assert.match(terminals[3].options.shellArgs.at(-1), /Editor selection: @src\/app.py#L2-L3/);
 
   await callbacks.get('vibeagent.sendDiagnostics')();
-  assert.match(terminals[2].options.shellArgs.at(-1), /Untrusted IDE diagnostics/);
-  assert.match(terminals[2].options.shellArgs.at(-1), /error at line 2, source lint: undefined name/);
+  assert.match(terminals[4].options.shellArgs.at(-1), /Untrusted IDE diagnostics/);
+  assert.match(terminals[4].options.shellArgs.at(-1), /error at line 2, source lint: undefined name/);
 
   await callbacks.get('vibeagent.reviewCurrentFile')();
   assert.equal(executed.at(-1)[0], 'vscode.diff');
